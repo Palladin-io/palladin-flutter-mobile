@@ -3,15 +3,17 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'config/env_config.dart';
 
-/// Default entry point. Falls back to **staging** configuration.
+/// Entry point for the **staging** flavor.
 ///
-/// Prefer using the flavor-specific entry points for running on device:
+/// Run with:
 /// ```
 /// flutter run --flavor staging -t lib/main_staging.dart
-/// flutter run --flavor production -t lib/main_production.dart
 /// ```
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // TODO: Initialize Firebase with staging google-services.json / GoogleService-Info.plist
+
   final config = EnvConfig.staging();
   runApp(ClawVaultApp(config: config));
 }

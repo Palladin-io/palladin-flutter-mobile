@@ -1,30 +1,41 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mobile_claw_vault/main.dart';
+import 'package:mobile_claw_vault/app.dart';
+import 'package:mobile_claw_vault/config/env_config.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('App displays environment name', (WidgetTester tester) async {
+    final config = EnvConfig.staging();
+    await tester.pumpWidget(ClawVaultApp(config: config));
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('Environment: staging'), findsOneWidget);
+    expect(find.text('API: https://api.stage.clawvault.io'), findsOneWidget);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('App displays production config when given production flavor',
+      (WidgetTester tester) async {
+    final config = EnvConfig.production();
+    await tester.pumpWidget(ClawVaultApp(config: config));
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Environment: production'), findsOneWidget);
+    expect(find.text('API: https://api.clawvault.io'), findsOneWidget);
+  });
+
+  test('EnvConfig staging has correct values', () {
+    final config = EnvConfig.staging();
+    expect(config.flavor, AppFlavor.staging);
+    expect(config.appName, 'Claw Vault (Stage)');
+    expect(config.apiBaseUrl, 'https://api.stage.clawvault.io');
+    expect(config.isStaging, isTrue);
+    expect(config.isProduction, isFalse);
+  });
+
+  test('EnvConfig production has correct values', () {
+    final config = EnvConfig.production();
+    expect(config.flavor, AppFlavor.production);
+    expect(config.appName, 'Claw Vault');
+    expect(config.apiBaseUrl, 'https://api.clawvault.io');
+    expect(config.isStaging, isFalse);
+    expect(config.isProduction, isTrue);
   });
 }

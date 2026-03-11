@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.mobile_claw_vault"
+    namespace = "io.clawvault.mobile"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,14 +20,29 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.mobile_claw_vault"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        applicationId = "io.clawvault.mobile"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    flavorDimensions += "environment"
+
+    productFlavors {
+        create("staging") {
+            dimension = "environment"
+            applicationIdSuffix = ".staging"
+            resValue("string", "app_name", "Claw Vault (Stage)")
+            // TODO: Place staging google-services.json at
+            //       android/app/src/staging/google-services.json
+        }
+        create("production") {
+            dimension = "environment"
+            resValue("string", "app_name", "Claw Vault")
+            // TODO: Place production google-services.json at
+            //       android/app/src/production/google-services.json
+        }
     }
 
     buildTypes {
