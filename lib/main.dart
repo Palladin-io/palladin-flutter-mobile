@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'config/env_config.dart';
+import 'core/di/injection.dart';
 
 /// Default entry point. Falls back to **staging** configuration.
 ///
@@ -13,5 +14,6 @@ import 'config/env_config.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final config = EnvConfig.staging();
+  configureDependencies(config);
   runApp(ClawVaultApp(config: config));
 }
