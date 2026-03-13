@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'config/env_config.dart';
+import 'core/analytics/analytics_headers_service.dart';
+import 'core/analytics/analytics_service.dart';
 import 'core/di/injection.dart';
 
 /// Entry point for the **staging** flavor.
@@ -10,12 +12,14 @@ import 'core/di/injection.dart';
 /// ```
 /// flutter run --flavor staging -t lib/main_staging.dart
 /// ```
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // TODO: Initialize Firebase with staging google-services.json / GoogleService-Info.plist
-
   final config = EnvConfig.staging();
+
+  await AnalyticsService.instance.init(config);
+  await AnalyticsHeadersService.instance.init();
   configureDependencies(config);
+
   runApp(ClawVaultApp(config: config));
 }

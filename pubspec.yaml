@@ -32,6 +32,10 @@ dependencies:
   # Google Sign-In
   google_sign_in: ^6.3.0
 
+  # Analytics
+  posthog_flutter: ^4.0.0
+  package_info_plus: ^8.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
