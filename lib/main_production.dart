@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app.dart';
 import 'config/env_config.dart';
+import 'core/di/injection.dart';
 
 /// Entry point for the **production** flavor.
 ///
@@ -15,5 +16,6 @@ void main() {
   // TODO: Initialize Firebase with production google-services.json / GoogleService-Info.plist
 
   final config = EnvConfig.production();
+  configureDependencies(config);
   runApp(ClawVaultApp(config: config));
 }

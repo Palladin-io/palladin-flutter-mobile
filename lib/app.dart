@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'config/env_config.dart';
+import 'core/di/injection.dart';
+import 'core/router/app_router.dart';
+import 'features/auth/presentation/bloc/auth_bloc.dart';
 
 /// Root application widget for Claw Vault.
 ///
-/// Receives the resolved [EnvConfig] so that the app can access
-/// environment-specific values (API base URL, PostHog keys, etc.)
-/// without any global mutable state.
+/// Sets up the [AuthBloc] at the top of the widget tree, configures
+/// [GoRouter] with auth-aware redirects, and applies the dark theme
+/// matching the mobile prototype.
 class ClawVaultApp extends StatelessWidget {
   const ClawVaultApp({super.key, required this.config});
 
@@ -14,46 +18,46 @@ class ClawVaultApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: config.appName,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+    return BlocProvider(
+      create: (_) => getIt<AuthBloc>()..add(const AuthCheckRequested()),
+      child: Builder(
+        builder: (context) {
+          final authBloc = context.read<AuthBloc>();
+          final router = createRouter(authBloc);
+
+          return MaterialApp.router(
+            title: config.appName,
+            debugShowCheckedModeBanner: false,
+            theme: _buildDarkTheme(),
+            routerConfig: router,
+          );
+        },
       ),
-      home: HomePage(config: config),
     );
   }
-}
 
-/// Temporary home page that displays the current environment.
-///
-/// This will be replaced once the real feature shell is built.
-class HomePage extends StatelessWidget {
-  const HomePage({super.key, required this.config});
-
-  final EnvConfig config;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(config.appName),
+  /// Dark theme matching the Claw Vault design prototype.
+  ///
+  /// Background: deep navy `#000B2E`
+  /// Surface: `#1a2a4a`
+  /// Primary/accent: teal `#48ECDF`
+  /// Error/brand: red `#FF4D5F`
+  ThemeData _buildDarkTheme() {
+    return ThemeData(
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: const Color(0xFF000B2E),
+      colorScheme: const ColorScheme.dark(
+        primary: Color(0xFF48ECDF),
+        error: Color(0xFFFF4D5F),
+        surface: Color(0xFF1a2a4a),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Environment: ${config.flavor.name}',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'API: ${config.apiBaseUrl}',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF1a2a4a),
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
