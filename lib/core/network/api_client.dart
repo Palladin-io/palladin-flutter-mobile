@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../config/env_config.dart';
 import '../analytics/analytics_headers_service.dart';
 import '../storage/secure_token_storage.dart';
+import '../utils/app_logger.dart';
 import 'auth_interceptor.dart';
 
 /// Creates a pre-configured [Dio] instance pointing at the backend API.
@@ -20,12 +21,40 @@ Dio createDio(EnvConfig config, SecureTokenStorage tokenStorage) {
     ),
   );
 
+  dio.interceptors.add(_LoggingInterceptor());
   dio.interceptors.add(_AnalyticsHeadersInterceptor());
   dio.interceptors.add(
     AuthInterceptor(tokenStorage: tokenStorage, dio: dio),
   );
 
   return dio;
+}
+
+class _LoggingInterceptor extends Interceptor {
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    AppLogger.d('HTTP', '-> ${options.method} ${options.path}');
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    AppLogger.d(
+      'HTTP',
+      '<- ${response.statusCode} ${response.requestOptions.path}',
+    );
+    handler.next(response);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    AppLogger.e(
+      'HTTP',
+      '!! ${err.type.name} ${err.requestOptions.path}',
+      error: err.message,
+    );
+    handler.next(err);
+  }
 }
 
 class _AnalyticsHeadersInterceptor extends Interceptor {

@@ -1,0 +1,2 @@
+- [project_flutter_sdk.md](project_flutter_sdk.md) - Flutter SDK path, project naming, flavor setup, and CI workflow
+- [project_l10n_setup.md](project_l10n_setup.md) - l10n config: ARB files, gen-l10n with output-dir, error type pattern

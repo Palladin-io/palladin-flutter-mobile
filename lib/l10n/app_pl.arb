@@ -1,0 +1,15 @@
+{
+  "@@locale": "pl",
+  "appTitle": "Claw Vault",
+  "welcomeMessage": "Witaj w Claw Vault",
+  "tagline": "Menedżer haseł zero-wiedzy\ndla agentów AI",
+  "continueWithGoogle": "Kontynuuj z Google",
+  "continueWithApple": "Kontynuuj z Apple",
+  "continueWithX": "Kontynuuj z X",
+  "legalFooter": "Kontynuując, akceptujesz nasze Warunki i Politykę prywatności",
+  "providerComingSoon": "Logowanie przez {provider} już wkrótce",
+  "errorServerNotResponding": "Serwer nie odpowiada. Spróbuj ponownie.",
+  "errorCannotConnectToServer": "Nie można połączyć się z serwerem. Sprawdź połączenie i spróbuj ponownie.",
+  "errorConnectionFailed": "Błąd połączenia. Spróbuj ponownie.",
+  "errorInvalidServerResponse": "Nieprawidłowa odpowiedź serwera. Spróbuj ponownie."
+}

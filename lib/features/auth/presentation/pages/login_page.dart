@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../l10n/generated/app_localizations.dart';
 
+import '../../data/repositories/auth_repository_impl.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/oauth_button.dart';
 
@@ -49,36 +51,53 @@ class LoginPage extends StatelessWidget {
   }
 
   Widget _buildLogo() {
-    return RichText(
-      textAlign: TextAlign.center,
-      text: const TextSpan(
-        children: [
-          TextSpan(
-            text: 'claw',
-            style: TextStyle(
-              fontSize: 42,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: -1,
-            ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset('assets/images/logo.png', height: 80),
+        const SizedBox(height: 12),
+        RichText(
+          textAlign: TextAlign.center,
+          text: const TextSpan(
+            children: [
+              TextSpan(
+                text: 'Claw',
+                style: TextStyle(
+                  fontSize: 42,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: -1,
+                ),
+              ),
+              TextSpan(
+                text: ' ',
+                style: TextStyle(
+                  fontSize: 42,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: -1,
+                ),
+              ),
+              TextSpan(
+                text: 'Vault',
+                style: TextStyle(
+                  fontSize: 42,
+                  fontWeight: FontWeight.w800,
+                  color: _brandRed,
+                  letterSpacing: -1,
+                ),
+              ),
+            ],
           ),
-          TextSpan(
-            text: 'vault',
-            style: TextStyle(
-              fontSize: 42,
-              fontWeight: FontWeight.w800,
-              color: _brandRed,
-              letterSpacing: -1,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildTagline(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Text(
-      'Zero-Knowledge Password Manager\nfor AI Agents',
+      l10n.tagline,
       textAlign: TextAlign.center,
       style: TextStyle(
         fontSize: 14,
@@ -96,17 +115,16 @@ class LoginPage extends StatelessWidget {
         if (isLoading) {
           return const SizedBox(
             height: 180,
-            child: Center(
-              child: CircularProgressIndicator(color: _tealAccent),
-            ),
+            child: Center(child: CircularProgressIndicator(color: _tealAccent)),
           );
         }
 
+        final l10n = AppLocalizations.of(context)!;
         return Column(
           children: [
             // Google — enabled
             OAuthButton(
-              label: 'Continue with Google',
+              label: l10n.continueWithGoogle,
               icon: _googleIcon(),
               backgroundColor: Colors.white,
               foregroundColor: Colors.black87,
@@ -118,7 +136,7 @@ class LoginPage extends StatelessWidget {
             const SizedBox(height: 12),
             // Apple — disabled (Phase 3)
             OAuthButton(
-              label: 'Continue with Apple',
+              label: l10n.continueWithApple,
               icon: const Icon(Icons.apple, color: Colors.white, size: 24),
               backgroundColor: const Color(0xFF1a1a1a),
               foregroundColor: Colors.white,
@@ -128,7 +146,7 @@ class LoginPage extends StatelessWidget {
             const SizedBox(height: 12),
             // X — disabled (Phase 3)
             OAuthButton(
-              label: 'Continue with X',
+              label: l10n.continueWithX,
               icon: _xIcon(),
               backgroundColor: const Color(0xFF1a1a1a),
               foregroundColor: Colors.white,
@@ -142,10 +160,11 @@ class LoginPage extends StatelessWidget {
   }
 
   Widget _buildFooter(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Text(
-        'By continuing, you agree to our Terms & Privacy Policy',
+        l10n.legalFooter,
         textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 12,
@@ -157,11 +176,12 @@ class LoginPage extends StatelessWidget {
 
   void _handleStateChange(BuildContext context, AuthState state) {
     if (state is AuthError) {
+      final message = _resolveErrorMessage(context, state.error);
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text(state.message),
+            content: Text(message),
             backgroundColor: _brandRed,
             behavior: SnackBarBehavior.floating,
           ),
@@ -170,12 +190,28 @@ class LoginPage extends StatelessWidget {
     // Navigation is handled by go_router redirect — no manual push needed
   }
 
+  /// Maps a typed error to a localized user-facing message.
+  String _resolveErrorMessage(BuildContext context, Object error) {
+    final l10n = AppLocalizations.of(context)!;
+    if (error is AuthServerException) {
+      return switch (error.kind) {
+        AuthServerErrorKind.serverNotResponding =>
+          l10n.errorServerNotResponding,
+        AuthServerErrorKind.cannotConnect => l10n.errorCannotConnectToServer,
+        AuthServerErrorKind.connectionFailed => l10n.errorConnectionFailed,
+        AuthServerErrorKind.invalidResponse => l10n.errorInvalidServerResponse,
+      };
+    }
+    return error.toString();
+  }
+
   void _showComingSoon(BuildContext context, String provider) {
+    final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text('$provider sign-in coming soon'),
+          content: Text(l10n.providerComingSoon(provider)),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
         ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../l10n/generated/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
@@ -15,10 +16,11 @@ class _PlaceholderHomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: const Color(0xFF000B2E),
       appBar: AppBar(
-        title: const Text('Claw Vault'),
+        title: Text(l10n.appTitle),
         backgroundColor: const Color(0xFF1a2a4a),
         actions: [
           IconButton(
@@ -29,10 +31,10 @@ class _PlaceholderHomePage extends StatelessWidget {
           ),
         ],
       ),
-      body: const Center(
+      body: Center(
         child: Text(
-          'Welcome to Claw Vault',
-          style: TextStyle(color: Colors.white, fontSize: 18),
+          l10n.welcomeMessage,
+          style: const TextStyle(color: Colors.white, fontSize: 18),
         ),
       ),
     );

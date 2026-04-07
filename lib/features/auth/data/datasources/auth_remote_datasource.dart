@@ -19,9 +19,7 @@ class AuthRemoteDatasource {
         'platform': 'mobile',
       },
     );
-    return AuthResultModel.fromJson(
-      response.data as Map<String, dynamic>,
-    );
+    return _parseAuthResult(response.data);
   }
 
   /// Exchanges a refresh token for a fresh access/refresh token pair.
@@ -30,9 +28,7 @@ class AuthRemoteDatasource {
       '/api/auth/refresh',
       data: {'refreshToken': refreshToken},
     );
-    return AuthResultModel.fromJson(
-      response.data as Map<String, dynamic>,
-    );
+    return _parseAuthResult(response.data);
   }
 
   /// Invalidates the given refresh token on the backend.
@@ -41,5 +37,24 @@ class AuthRemoteDatasource {
       '/api/auth/logout',
       data: {'refreshToken': refreshToken},
     );
+  }
+
+  /// Safely parses the response body into [AuthResultModel].
+  ///
+  /// Throws [FormatException] if the response is not valid JSON or
+  /// does not match the expected schema (e.g. HTML error page).
+  AuthResultModel _parseAuthResult(dynamic data) {
+    try {
+      return AuthResultModel.fromJson(data as Map<String, dynamic>);
+    } on TypeError catch (_) {
+      throw FormatException(
+        'Unexpected response format: expected JSON object, '
+        'got ${data.runtimeType}',
+      );
+    } on FormatException {
+      rethrow;
+    } catch (e) {
+      throw FormatException('Failed to parse auth response: $e');
+    }
   }
 }

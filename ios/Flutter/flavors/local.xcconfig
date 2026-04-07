@@ -1,0 +1,2 @@
+PRODUCT_BUNDLE_IDENTIFIER = io.clawvault.mobile.local
+DISPLAY_NAME = Claw Vault (Local)

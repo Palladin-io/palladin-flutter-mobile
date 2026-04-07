@@ -60,8 +60,8 @@ void main() {
       expect: () => [
         isA<AuthLoading>(),
         isA<AuthError>().having(
-          (s) => s.message,
-          'message',
+          (s) => s.error.toString(),
+          'error',
           contains('Network error'),
         ),
       ],

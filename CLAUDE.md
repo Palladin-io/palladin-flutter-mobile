@@ -8,8 +8,10 @@ Repository: [Flamingo-Co/claw-vault-flutter-mobile](https://github.com/Flamingo-
 
 ```bash
 flutter pub get                                              # Install dependencies
+flutter gen-l10n                                             # Regenerate AppLocalizations
 flutter analyze                                              # Lint
 flutter test                                                 # Run all tests
+flutter run --flavor local -t lib/main_local.dart            # Run local (localhost:5000)
 flutter run --flavor staging -t lib/main_staging.dart         # Run staging
 flutter run --flavor production -t lib/main_production.dart   # Run production
 ```
@@ -25,16 +27,16 @@ GitHub Actions workflow at `.github/workflows/test.yml` runs on PRs to `main`:
 
 ## Flavors
 
-Two flavors: **staging** and **production**. Each has its own entry point, bundle ID, and config.
+Three flavors: **local**, **staging**, **production**. Each has its own entry point, bundle ID, and config.
 
-| | Staging | Production |
-|--|---------|------------|
-| Entry point | `lib/main_staging.dart` | `lib/main_production.dart` |
-| Bundle ID | `io.clawvault.mobile.staging` | `io.clawvault.mobile` |
-| App name | Claw Vault (Stage) | Claw Vault |
-| API URL | `https://api.stage.clawvault.io` | `https://api.clawvault.io` |
+| | Local | Staging | Production |
+|--|-------|---------|------------|
+| Entry point | `lib/main_local.dart` | `lib/main_staging.dart` | `lib/main_production.dart` |
+| Bundle ID | `io.clawvault.mobile.local` | `io.clawvault.mobile.staging` | `io.clawvault.mobile` |
+| App name | Claw Vault (Local) | Claw Vault (Stage) | Claw Vault |
+| API URL | `http://localhost:5000` | `https://api.stage.clawvault.io` | `https://api.clawvault.io` |
 
-Config class: `lib/config/env_config.dart` — `EnvConfig.staging()` / `EnvConfig.production()`.
+Config class: `lib/config/env_config.dart` — `EnvConfig.local()` / `EnvConfig.staging()` / `EnvConfig.production()`.
 
 ### Android
 - Product flavors in `android/app/build.gradle.kts` (`staging`, `production`)
@@ -61,6 +63,7 @@ Config class: `lib/config/env_config.dart` — `EnvConfig.staging()` / `EnvConfi
 | HTTP | dio + retrofit | REST API client |
 | Models | freezed + json_serializable | Immutable data classes |
 | Analytics | PostHog | `mb:{module}:{event}` convention |
+| i18n | flutter_localizations + intl | ARB files, generated AppLocalizations |
 
 ## Project Structure
 
@@ -78,6 +81,25 @@ lib/
   main_staging.dart    # Staging entry point
   main_production.dart # Production entry point
 ```
+
+## i18n / Localization
+
+**Stack:** `flutter_localizations` (SDK) + `intl` — ARB files, generated `AppLocalizations`.
+
+| File | Purpose |
+|------|---------|
+| `l10n.yaml` | Config — ARB dir: `lib/l10n/`, output: `lib/l10n/generated/` |
+| `lib/l10n/app_en.arb` | English strings (template) |
+| `lib/l10n/app_pl.arb` | Polish translations |
+| `lib/l10n/generated/` | **Generated** — do not edit manually |
+
+**Rules:**
+1. **Never hardcode user-facing strings** — always add to ARB and use `AppLocalizations.of(context)!.key`
+2. Error messages in the data/domain layer use **typed exceptions** (`AuthServerErrorKind` enum), not hardcoded strings — translation happens at the presentation layer where `BuildContext` is available
+3. Regenerate after adding/changing keys: `flutter gen-l10n`
+4. Supported locales: `en`, `pl` — add new locale by creating `app_{locale}.arb`
+
+**Key naming:** `feature_action` or `feature_section_label` (snake_case, no dots — ARB keys are camelCase in Dart output).
 
 ## Analytics (PostHog)
 

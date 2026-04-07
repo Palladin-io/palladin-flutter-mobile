@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/utils/app_logger.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/repositories/auth_repository.dart';
 import 'auth_event.dart';
@@ -26,18 +27,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthLoginWithGoogle event,
     Emitter<AuthState> emit,
   ) async {
+    AppLogger.d('AuthBloc', 'LoginWithGoogle started');
     emit(const AuthLoading());
     try {
       final result = await authRepository.loginWithGoogle();
+      AppLogger.i('AuthBloc', 'Authenticated: userId=${result.userId}');
       emit(AuthAuthenticated(
         userId: result.userId,
         isOnboarded: result.isOnboarded,
       ));
     } on AuthCancelledException {
-      // User cancelled — return to unauthenticated without error
+      AppLogger.i('AuthBloc', 'Sign-in cancelled, returning unauthenticated');
       emit(const AuthUnauthenticated());
     } catch (e) {
-      emit(AuthError(e.toString()));
+      AppLogger.w('AuthBloc', 'Auth error: ${e.runtimeType}');
+      emit(AuthError(e));
     }
   }
 
@@ -45,13 +49,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthRefreshRequested event,
     Emitter<AuthState> emit,
   ) async {
+    AppLogger.d('AuthBloc', 'Token refresh requested');
     try {
       final result = await authRepository.refreshToken();
+      AppLogger.i('AuthBloc', 'Refresh successful: userId=${result.userId}');
       emit(AuthAuthenticated(
         userId: result.userId,
         isOnboarded: result.isOnboarded,
       ));
-    } catch (_) {
+    } catch (e) {
+      AppLogger.w('AuthBloc', 'Refresh failed: ${e.runtimeType}');
       emit(const AuthUnauthenticated());
     }
   }
@@ -60,12 +67,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthLogoutRequested event,
     Emitter<AuthState> emit,
   ) async {
+    AppLogger.d('AuthBloc', 'Logout requested');
     emit(const AuthLoading());
     try {
       await authRepository.logout();
-    } catch (_) {
-      // Best-effort — always emit unauthenticated
+    } catch (e) {
+      AppLogger.w('AuthBloc', 'Logout error (best-effort): ${e.runtimeType}');
     }
+    AppLogger.i('AuthBloc', 'Logout complete');
     emit(const AuthUnauthenticated());
   }
 
@@ -73,8 +82,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthCheckRequested event,
     Emitter<AuthState> emit,
   ) async {
+    AppLogger.d('AuthBloc', 'Checking stored auth state');
     final authenticated = await authRepository.isAuthenticated();
     if (!authenticated) {
+      AppLogger.i('AuthBloc', 'No stored session, unauthenticated');
       emit(const AuthUnauthenticated());
       return;
     }
@@ -83,8 +94,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final isOnboarded = await authRepository.isOnboarded();
 
     if (userId != null) {
+      AppLogger.i('AuthBloc', 'Restored session: userId=$userId');
       emit(AuthAuthenticated(userId: userId, isOnboarded: isOnboarded));
     } else {
+      AppLogger.w('AuthBloc', 'Token present but no userId, unauthenticated');
       emit(const AuthUnauthenticated());
     }
   }

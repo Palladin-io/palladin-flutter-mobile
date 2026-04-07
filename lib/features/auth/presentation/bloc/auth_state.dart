@@ -30,8 +30,11 @@ final class AuthUnauthenticated extends AuthState {
 }
 
 /// An authentication operation failed.
+///
+/// Carries the original [error] so the presentation layer can inspect
+/// its type (e.g. [AuthServerException]) and resolve a localized message.
 final class AuthError extends AuthState {
-  const AuthError(this.message);
+  const AuthError(this.error);
 
-  final String message;
+  final Object error;
 }
