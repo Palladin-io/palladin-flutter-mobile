@@ -43,6 +43,13 @@ class SecureTokenStorage {
     return value == 'true';
   }
 
+  /// Updates the onboarding flag without touching the access/refresh
+  /// tokens. Called after `POST /api/account/setup` succeeds so the
+  /// router can redirect to the authenticated home.
+  Future<void> setOnboarded(bool value) {
+    return _storage.write(key: _isOnboardedKey, value: value.toString());
+  }
+
   /// Removes all stored tokens and metadata. Used on logout.
   Future<void> clearAll() => _storage.deleteAll();
 }

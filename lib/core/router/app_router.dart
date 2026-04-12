@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/onboarding/presentation/pages/onboarding_wizard_page.dart';
 
 /// Temporary home page displayed after successful authentication.
 ///
@@ -43,22 +44,31 @@ class _PlaceholderHomePage extends StatelessWidget {
 
 /// Creates the app-level [GoRouter] with auth-aware redirects.
 ///
-/// Unauthenticated users are redirected to `/login`. Authenticated
-/// users on `/login` are redirected to `/`.
+/// Unauthenticated users are redirected to `/login`. Authenticated but
+/// not-yet-onboarded users are redirected to `/onboarding`. Fully set-up
+/// users on `/login` or `/onboarding` are redirected to `/`.
 GoRouter createRouter(AuthBloc authBloc) {
   return GoRouter(
     initialLocation: '/login',
     refreshListenable: _AuthBlocListenable(authBloc),
     redirect: (context, state) {
       final authState = authBloc.state;
-      final isOnLoginPage = state.matchedLocation == '/login';
+      final location = state.matchedLocation;
+      final isOnLoginPage = location == '/login';
+      final isOnOnboardingPage = location == '/onboarding';
 
       final isAuthenticated = authState is AuthAuthenticated;
 
-      if (!isAuthenticated && !isOnLoginPage) {
-        return '/login';
+      if (!isAuthenticated) {
+        return isOnLoginPage ? null : '/login';
       }
-      if (isAuthenticated && isOnLoginPage) {
+
+      final needsOnboarding = !authState.isOnboarded;
+      if (needsOnboarding) {
+        return isOnOnboardingPage ? null : '/onboarding';
+      }
+
+      if (isOnLoginPage || isOnOnboardingPage) {
         return '/';
       }
       return null;
@@ -67,6 +77,10 @@ GoRouter createRouter(AuthBloc authBloc) {
       GoRoute(
         path: '/login',
         builder: (_, _) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        builder: (_, _) => const OnboardingWizardPage(),
       ),
       GoRoute(
         path: '/',

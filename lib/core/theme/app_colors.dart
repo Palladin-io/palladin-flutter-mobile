@@ -34,4 +34,16 @@ abstract final class AppColors {
 
   /// Google brand blue — used in the Google OAuth button icon.
   static const Color googleBlue = Color(0xFF4285F4);
+
+  // === Onboarding / strength indicator ===
+
+  /// Mid-strength color for the password strength meter — amber.
+  static const Color strengthFair = Color(0xFFF4B942);
+
+  /// Positive accent used for "correct" checkmarks during recovery
+  /// word confirmation. Matches the prototype's `#2EC4B6`.
+  static const Color positiveAccent = Color(0xFF2EC4B6);
+
+  /// Warning banner background used on the recovery-key backup screen.
+  static const Color warningBackground = Color(0x33FF4D5F);
 }

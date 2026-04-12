@@ -61,5 +61,145 @@
   "errorInvalidServerResponse": "Invalid server response. Please try again.",
   "@errorInvalidServerResponse": {
     "description": "Error shown when the backend returns unparseable data"
+  },
+  "onboardingMasterPasswordTitle": "Set Your Master Password",
+  "@onboardingMasterPasswordTitle": {
+    "description": "Headline on the master password setup screen"
+  },
+  "onboardingMasterPasswordSubtitle": "This password encrypts your vault locally. We never see it.",
+  "@onboardingMasterPasswordSubtitle": {
+    "description": "Supporting copy below the master password headline"
+  },
+  "onboardingMasterPasswordLabel": "Master Password",
+  "@onboardingMasterPasswordLabel": {
+    "description": "Label for the master password input field"
+  },
+  "onboardingConfirmPasswordLabel": "Confirm Password",
+  "@onboardingConfirmPasswordLabel": {
+    "description": "Label for the password confirmation input field"
+  },
+  "onboardingPasswordRequirementsTitle": "Requirements",
+  "@onboardingPasswordRequirementsTitle": {
+    "description": "Title for the password requirements checklist"
+  },
+  "onboardingPasswordReqLength": "At least 12 characters",
+  "@onboardingPasswordReqLength": {
+    "description": "Requirement: password length"
+  },
+  "onboardingPasswordReqCase": "Uppercase & lowercase",
+  "@onboardingPasswordReqCase": {
+    "description": "Requirement: mixed case"
+  },
+  "onboardingPasswordReqNumber": "At least one number",
+  "@onboardingPasswordReqNumber": {
+    "description": "Requirement: digit"
+  },
+  "onboardingPasswordReqSymbol": "At least one symbol",
+  "@onboardingPasswordReqSymbol": {
+    "description": "Requirement: symbol"
+  },
+  "onboardingPasswordStrengthTooShort": "Too short",
+  "@onboardingPasswordStrengthTooShort": {
+    "description": "Strength label when the password is under 8 characters"
+  },
+  "onboardingPasswordStrengthWeak": "Weak password",
+  "@onboardingPasswordStrengthWeak": {
+    "description": "Strength label for a weak password"
+  },
+  "onboardingPasswordStrengthFair": "Fair password",
+  "@onboardingPasswordStrengthFair": {
+    "description": "Strength label for a fair password"
+  },
+  "onboardingPasswordStrengthStrong": "Strong password",
+  "@onboardingPasswordStrengthStrong": {
+    "description": "Strength label for a strong password"
+  },
+  "onboardingPasswordStrengthVeryStrong": "Very strong password",
+  "@onboardingPasswordStrengthVeryStrong": {
+    "description": "Strength label for a very strong password"
+  },
+  "onboardingPasswordsMatch": "Passwords match",
+  "@onboardingPasswordsMatch": {
+    "description": "Inline confirmation when both password fields match"
+  },
+  "onboardingPasswordsDoNotMatch": "Passwords do not match",
+  "@onboardingPasswordsDoNotMatch": {
+    "description": "Inline error when the two password fields disagree"
+  },
+  "onboardingContinue": "Continue",
+  "@onboardingContinue": {
+    "description": "Primary button on screen 1"
+  },
+  "onboardingRecoveryTitle": "Save Your Recovery Key",
+  "@onboardingRecoveryTitle": {
+    "description": "Headline on the recovery key backup screen"
+  },
+  "onboardingRecoverySubtitle": "Write this down and store it safely offline. Without it, a forgotten master password means permanent data loss.",
+  "@onboardingRecoverySubtitle": {
+    "description": "Supporting copy on the recovery key backup screen"
+  },
+  "onboardingRecoveryWarning": "You cannot recover your vault without this key.",
+  "@onboardingRecoveryWarning": {
+    "description": "Warning banner reminding the user to store the recovery key safely"
+  },
+  "onboardingRecoveryCopy": "Copy to Clipboard",
+  "@onboardingRecoveryCopy": {
+    "description": "Button that copies the recovery mnemonic to the clipboard"
+  },
+  "onboardingRecoveryCopied": "Recovery key copied to clipboard",
+  "@onboardingRecoveryCopied": {
+    "description": "Snackbar confirmation after copying the recovery mnemonic"
+  },
+  "onboardingRecoveryShare": "Share Recovery Key",
+  "@onboardingRecoveryShare": {
+    "description": "Button that opens the platform share sheet for the mnemonic"
+  },
+  "onboardingRecoverySaved": "I've Saved My Recovery Key",
+  "@onboardingRecoverySaved": {
+    "description": "Primary button on screen 2 to proceed to confirmation"
+  },
+  "onboardingConfirmTitle": "Confirm Recovery Key",
+  "@onboardingConfirmTitle": {
+    "description": "Headline on the recovery key confirmation screen"
+  },
+  "onboardingConfirmSubtitle": "Enter the following words from your recovery key to verify you saved it.",
+  "@onboardingConfirmSubtitle": {
+    "description": "Supporting copy on the recovery key confirmation screen"
+  },
+  "onboardingConfirmWordLabel": "Word #{index}",
+  "@onboardingConfirmWordLabel": {
+    "description": "Label for a single recovery-word input on the confirmation screen",
+    "placeholders": {
+      "index": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "onboardingConfirmWordHint": "Enter word #{index}",
+  "@onboardingConfirmWordHint": {
+    "description": "Placeholder text for a recovery-word input",
+    "placeholders": {
+      "index": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "onboardingConfirmCorrect": "Correct",
+  "@onboardingConfirmCorrect": {
+    "description": "Inline confirmation shown when a recovery word matches"
+  },
+  "onboardingConfirmIncorrect": "Incorrect",
+  "@onboardingConfirmIncorrect": {
+    "description": "Inline error shown when a recovery word does not match"
+  },
+  "onboardingConfirmVerify": "Verify & Complete Setup",
+  "@onboardingConfirmVerify": {
+    "description": "Primary button on screen 3 that runs the crypto pipeline"
+  },
+  "onboardingAlreadyCompleted": "This account has already been set up. Please sign in again.",
+  "@onboardingAlreadyCompleted": {
+    "description": "Error shown when the backend returns 409 during setup"
   }
 }
