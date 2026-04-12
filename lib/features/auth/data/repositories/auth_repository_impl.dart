@@ -1,6 +1,10 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/storage/secure_token_storage.dart';
+import '../../../../core/utils/app_logger.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
 import '../models/auth_result_model.dart';
@@ -13,8 +17,15 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required this.remoteDatasource,
     required this.tokenStorage,
+    required String googleServerClientId,
     GoogleSignIn? googleSignIn,
-  }) : _googleSignIn = googleSignIn ?? GoogleSignIn(scopes: ['email']);
+  }) : _googleSignIn = googleSignIn ??
+            GoogleSignIn(
+              scopes: ['email'],
+              // serverClientId ensures the ID token audience matches the backend's
+              // web OAuth client ID, enabling server-side token validation.
+              serverClientId: googleServerClientId.isEmpty ? null : googleServerClientId,
+            );
 
   final AuthRemoteDatasource remoteDatasource;
   final SecureTokenStorage tokenStorage;
@@ -22,18 +33,32 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<AuthResultModel> loginWithGoogle() async {
+    AppLogger.d('Auth', 'Starting Google Sign-In');
     final account = await _googleSignIn.signIn();
     if (account == null) {
+      AppLogger.i('Auth', 'Sign-in cancelled by user');
       throw AuthCancelledException();
     }
 
+    AppLogger.d('Auth', 'Google account: ${account.email}');
     final auth = await account.authentication;
     final idToken = auth.idToken;
+    AppLogger.d('Auth', 'Got auth tokens, idToken present: ${idToken != null}');
     if (idToken == null) {
       throw AuthNoIdTokenException();
     }
 
-    final result = await remoteDatasource.oauthGoogle(idToken);
+    final AuthResultModel result;
+    try {
+      AppLogger.d('Auth', 'Exchanging token with backend');
+      result = await remoteDatasource.oauthGoogle(idToken);
+    } on DioException catch (e, s) {
+      AppLogger.e('Auth', 'Backend exchange failed', error: e, stackTrace: s);
+      throw AuthServerException(_classifyError(e));
+    } on FormatException catch (e) {
+      AppLogger.e('Auth', 'Invalid backend response', error: e);
+      throw AuthServerException(AuthServerErrorKind.invalidResponse);
+    }
 
     await tokenStorage.saveTokens(
       accessToken: result.accessToken,
@@ -42,17 +67,29 @@ class AuthRepositoryImpl implements AuthRepository {
       isOnboarded: result.isOnboarded,
     );
 
+    AppLogger.i('Auth', 'Login successful, userId: ${result.userId}');
     return result;
   }
 
   @override
   Future<AuthResultModel> refreshToken() async {
+    AppLogger.d('Auth', 'Attempting token refresh');
     final currentRefreshToken = await tokenStorage.refreshToken;
     if (currentRefreshToken == null || currentRefreshToken.isEmpty) {
+      AppLogger.w('Auth', 'No refresh token available');
       throw AuthNoRefreshTokenException();
     }
 
-    final result = await remoteDatasource.refreshToken(currentRefreshToken);
+    final AuthResultModel result;
+    try {
+      result = await remoteDatasource.refreshToken(currentRefreshToken);
+    } on DioException catch (e, s) {
+      AppLogger.e('Auth', 'Token refresh failed', error: e, stackTrace: s);
+      throw AuthServerException(_classifyError(e));
+    } on FormatException catch (e) {
+      AppLogger.e('Auth', 'Invalid refresh response', error: e);
+      throw AuthServerException(AuthServerErrorKind.invalidResponse);
+    }
 
     await tokenStorage.saveTokens(
       accessToken: result.accessToken,
@@ -61,22 +98,41 @@ class AuthRepositoryImpl implements AuthRepository {
       isOnboarded: result.isOnboarded,
     );
 
+    AppLogger.i('Auth', 'Token refresh successful');
     return result;
+  }
+
+  /// Maps a [DioException] to a typed [AuthServerErrorKind].
+  AuthServerErrorKind _classifyError(DioException e) {
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return AuthServerErrorKind.serverNotResponding;
+    }
+
+    if (e.type == DioExceptionType.connectionError ||
+        e.error is SocketException) {
+      return AuthServerErrorKind.cannotConnect;
+    }
+
+    return AuthServerErrorKind.connectionFailed;
   }
 
   @override
   Future<void> logout() async {
+    AppLogger.d('Auth', 'Starting logout');
     final currentRefreshToken = await tokenStorage.refreshToken;
     if (currentRefreshToken != null && currentRefreshToken.isNotEmpty) {
       try {
         await remoteDatasource.logout(currentRefreshToken);
-      } catch (_) {
-        // Best-effort backend logout — always clear local storage
+      } catch (e) {
+        AppLogger.w('Auth', 'Backend logout failed (best-effort): $e');
       }
     }
 
     await _googleSignIn.signOut();
     await tokenStorage.clearAll();
+    AppLogger.i('Auth', 'Logout complete, tokens cleared');
   }
 
   @override
@@ -108,4 +164,26 @@ class AuthNoIdTokenException implements Exception {
 class AuthNoRefreshTokenException implements Exception {
   @override
   String toString() => 'No refresh token available';
+}
+
+/// Thrown when the backend returns an error or is unreachable.
+///
+/// Carries a typed [kind] so the presentation layer can resolve the
+/// appropriate localized message via [AppLocalizations].
+class AuthServerException implements Exception {
+  const AuthServerException(this.kind);
+
+  final AuthServerErrorKind kind;
+
+  @override
+  String toString() => 'AuthServerException(${kind.name})';
+}
+
+/// Classifies server/network errors so the UI can map them to
+/// localized strings without embedding user-facing text in the data layer.
+enum AuthServerErrorKind {
+  serverNotResponding,
+  cannotConnect,
+  connectionFailed,
+  invalidResponse,
 }

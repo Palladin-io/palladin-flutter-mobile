@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "810617442937",
+    "project_id": "claw-vault",
+    "storage_bucket": "claw-vault.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:810617442937:android:addf969151cb03ea6bbaa8",
+        "android_client_info": {
+          "package_name": "io.clawvault.mobile.staging"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "810617442937-uqjo7cinqaemjjd3r3qtr7lhag44ebc5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALQ-hy9x-4QeABkVbVaLJRYmX5zVboh7w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "810617442937-uqjo7cinqaemjjd3r3qtr7lhag44ebc5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

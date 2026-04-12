@@ -3,6 +3,7 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -30,18 +31,19 @@ android {
     flavorDimensions += "environment"
 
     productFlavors {
+        create("local") {
+            dimension = "environment"
+            applicationIdSuffix = ".local"
+            resValue("string", "app_name", "Claw Vault (Local)")
+        }
         create("staging") {
             dimension = "environment"
             applicationIdSuffix = ".staging"
             resValue("string", "app_name", "Claw Vault (Stage)")
-            // TODO: Place staging google-services.json at
-            //       android/app/src/staging/google-services.json
         }
         create("production") {
             dimension = "environment"
             resValue("string", "app_name", "Claw Vault")
-            // TODO: Place production google-services.json at
-            //       android/app/src/production/google-services.json
         }
     }
 

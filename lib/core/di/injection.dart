@@ -41,6 +41,7 @@ void configureDependencies(EnvConfig config) {
     () => AuthRepositoryImpl(
       remoteDatasource: getIt<AuthRemoteDatasource>(),
       tokenStorage: getIt<SecureTokenStorage>(),
+      googleServerClientId: config.googleServerClientId,
     ),
   );
 

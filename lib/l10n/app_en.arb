@@ -1,0 +1,65 @@
+{
+  "@@locale": "en",
+  "appTitle": "Claw Vault",
+  "@appTitle": {
+    "description": "The application title shown in the app bar and OS task switcher"
+  },
+  "welcomeMessage": "Welcome to Claw Vault",
+  "@welcomeMessage": {
+    "description": "Greeting shown on the home/dashboard placeholder page"
+  },
+  "taglineZeroKnowledge": "Zero-Knowledge",
+  "@taglineZeroKnowledge": {
+    "description": "First line of the stacked tagline on the login screen"
+  },
+  "taglinePasswordManager": "Password Manager",
+  "@taglinePasswordManager": {
+    "description": "Second line of the stacked tagline on the login screen"
+  },
+  "taglineForAiAgents": "For AI Agents",
+  "@taglineForAiAgents": {
+    "description": "Third line of the stacked tagline on the login screen"
+  },
+  "continueWithGoogle": "Continue with Google",
+  "@continueWithGoogle": {
+    "description": "Label for the Google OAuth sign-in button"
+  },
+  "continueWithApple": "Continue with Apple",
+  "@continueWithApple": {
+    "description": "Label for the Apple OAuth sign-in button"
+  },
+  "continueWithX": "Continue with X",
+  "@continueWithX": {
+    "description": "Label for the X (formerly Twitter) OAuth sign-in button"
+  },
+  "legalFooter": "By continuing, you agree to our Terms & Privacy Policy",
+  "@legalFooter": {
+    "description": "Legal consent text shown at the bottom of the login page"
+  },
+  "providerComingSoon": "{provider} sign-in coming soon",
+  "@providerComingSoon": {
+    "description": "Snackbar message when a disabled OAuth provider is tapped",
+    "placeholders": {
+      "provider": {
+        "type": "String",
+        "example": "Apple"
+      }
+    }
+  },
+  "errorServerNotResponding": "Server not responding. Please try again.",
+  "@errorServerNotResponding": {
+    "description": "Error shown when the backend request times out"
+  },
+  "errorCannotConnectToServer": "Cannot connect to server. Check your connection and try again.",
+  "@errorCannotConnectToServer": {
+    "description": "Error shown when a network/socket connection fails"
+  },
+  "errorConnectionFailed": "Connection error. Please try again.",
+  "@errorConnectionFailed": {
+    "description": "Generic fallback error for other Dio/connection failures"
+  },
+  "errorInvalidServerResponse": "Invalid server response. Please try again.",
+  "@errorInvalidServerResponse": {
+    "description": "Error shown when the backend returns unparseable data"
+  }
+}

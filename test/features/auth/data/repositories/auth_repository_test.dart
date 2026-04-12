@@ -38,6 +38,7 @@ void main() {
     repository = AuthRepositoryImpl(
       remoteDatasource: mockDatasource,
       tokenStorage: mockStorage,
+      googleServerClientId: 'test-server-client-id',
       googleSignIn: mockGoogleSignIn,
     );
   });
@@ -49,6 +50,7 @@ void main() {
 
       when(() => mockGoogleSignIn.signIn())
           .thenAnswer((_) async => mockAccount);
+      when(() => mockAccount.email).thenReturn('test@example.com');
       when(() => mockAccount.authentication)
           .thenAnswer((_) async => mockAuth);
       when(() => mockAuth.idToken).thenReturn('google-id-token');
@@ -90,6 +92,7 @@ void main() {
 
       when(() => mockGoogleSignIn.signIn())
           .thenAnswer((_) async => mockAccount);
+      when(() => mockAccount.email).thenReturn('test@example.com');
       when(() => mockAccount.authentication)
           .thenAnswer((_) async => mockAuth);
       when(() => mockAuth.idToken).thenReturn(null);
