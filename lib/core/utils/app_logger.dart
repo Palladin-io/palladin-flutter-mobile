@@ -23,23 +23,16 @@ class AppLogger {
   /// Logs a debug-level message.
   ///
   /// [tag] identifies the module/component (e.g. 'Auth', 'HTTP').
-  /// [message] is the log content.
-  static void d(String tag, String message) {
-    if (!kDebugMode) return;
-    _logger.d('[$tag] $message');
-  }
+  static void d(String tag, String message) =>
+      _logger.d('[$tag] $message');
 
   /// Logs an info-level message.
-  static void i(String tag, String message) {
-    if (!kDebugMode) return;
-    _logger.i('[$tag] $message');
-  }
+  static void i(String tag, String message) =>
+      _logger.i('[$tag] $message');
 
   /// Logs a warning-level message.
-  static void w(String tag, String message) {
-    if (!kDebugMode) return;
-    _logger.w('[$tag] $message');
-  }
+  static void w(String tag, String message) =>
+      _logger.w('[$tag] $message');
 
   /// Logs an error-level message with optional [error] and [stackTrace].
   static void e(
@@ -47,8 +40,6 @@ class AppLogger {
     String message, {
     Object? error,
     StackTrace? stackTrace,
-  }) {
-    if (!kDebugMode) return;
-    _logger.e('[$tag] $message', error: error, stackTrace: stackTrace);
-  }
+  }) =>
+      _logger.e('[$tag] $message', error: error, stackTrace: stackTrace);
 }

@@ -26,4 +26,12 @@ abstract final class AppColors {
 
   /// Teal accent — primary interactive color and loading indicators.
   static const Color tealAccent = Color(0xFF48ECDF);
+
+  // === UI Components ===
+
+  /// Background for disabled/secondary buttons (Apple, X).
+  static const Color disabledButtonBackground = Color(0xFF1A1A1A);
+
+  /// Google brand blue — used in the Google OAuth button icon.
+  static const Color googleBlue = Color(0xFF4285F4);
 }

@@ -125,7 +125,7 @@ class LoginPage extends StatelessWidget {
             OAuthButton(
               label: l10n.continueWithApple,
               icon: const Icon(Icons.apple, color: Colors.white, size: 24),
-              backgroundColor: const Color(0xFF1a1a1a),
+              backgroundColor: AppColors.disabledButtonBackground,
               foregroundColor: Colors.white,
               enabled: false,
               onDisabledTap: () => _showComingSoon(context, 'Apple'),
@@ -134,7 +134,7 @@ class LoginPage extends StatelessWidget {
             OAuthButton(
               label: l10n.continueWithX,
               icon: _xIcon(),
-              backgroundColor: const Color(0xFF1a1a1a),
+              backgroundColor: AppColors.disabledButtonBackground,
               foregroundColor: Colors.white,
               enabled: false,
               onDisabledTap: () => _showComingSoon(context, 'X'),
@@ -208,7 +208,7 @@ class LoginPage extends StatelessWidget {
         style: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w700,
-          color: Color(0xFF4285F4),
+          color: AppColors.googleBlue,
         ),
       ),
     );
