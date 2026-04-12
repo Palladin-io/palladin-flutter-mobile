@@ -2,15 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/oauth_button.dart';
 
 /// Login screen with OAuth provider buttons.
-///
-/// Matches the Claw Vault mobile prototype: dark background, centered
-/// logo, tagline, three stacked OAuth buttons (Google enabled, Apple
-/// and X disabled), and a legal footer.
 ///
 /// Analytics events (deferred — PostHog not yet integrated):
 ///   - `mb:auth:login-page-viewed` on mount
@@ -18,29 +15,27 @@ import '../widgets/oauth_button.dart';
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
 
-  static const _bgColor = Color(0xFF000B2E);
-  static const _brandRed = Color(0xFFFF4D5F);
-  static const _tealAccent = Color(0xFF48ECDF);
-
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? AppColors.darkBackground : AppColors.lightBackground;
+    final textColor = isDark ? Colors.white : AppColors.darkBackground;
+
     return BlocListener<AuthBloc, AuthState>(
       listener: _handleStateChange,
       child: Scaffold(
-        backgroundColor: _bgColor,
+        backgroundColor: bgColor,
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Column(
               children: [
                 const Spacer(flex: 3),
-                _buildLogo(),
-                const SizedBox(height: 16),
-                _buildTagline(context),
+                _buildHero(context, textColor),
                 const Spacer(flex: 2),
                 _buildOAuthButtons(context),
                 const Spacer(flex: 1),
-                _buildFooter(context),
+                _buildFooter(context, textColor),
                 const SizedBox(height: 24),
               ],
             ),
@@ -50,60 +45,52 @@ class LoginPage extends StatelessWidget {
     );
   }
 
-  Widget _buildLogo() {
+  Widget _buildHero(BuildContext context, Color textColor) {
+    final l10n = AppLocalizations.of(context)!;
+    final subtitleStyle = TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w500,
+      color: textColor.withValues(alpha: 0.55),
+      height: 1.35,
+    );
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Image.asset('assets/images/logo.png', height: 80),
-        const SizedBox(height: 12),
+        Image.asset('assets/images/logo.png', height: 100),
+        const SizedBox(height: 20),
         RichText(
           textAlign: TextAlign.center,
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
-                text: 'Claw',
+                text: 'Claw ',
                 style: TextStyle(
-                  fontSize: 42,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  letterSpacing: -1,
+                  fontSize: 52,
+                  fontWeight: FontWeight.w900,
+                  color: textColor,
+                  height: 1.0,
+                  letterSpacing: -1.5,
                 ),
               ),
-              TextSpan(
-                text: ' ',
-                style: TextStyle(
-                  fontSize: 42,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  letterSpacing: -1,
-                ),
-              ),
-              TextSpan(
+              const TextSpan(
                 text: 'Vault',
                 style: TextStyle(
-                  fontSize: 42,
-                  fontWeight: FontWeight.w800,
-                  color: _brandRed,
-                  letterSpacing: -1,
+                  fontSize: 52,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.brandRed,
+                  height: 1.0,
+                  letterSpacing: -1.5,
                 ),
               ),
             ],
           ),
         ),
+        const SizedBox(height: 16),
+        Text(l10n.taglineZeroKnowledge, textAlign: TextAlign.center, style: subtitleStyle),
+        Text(l10n.taglinePasswordManager, textAlign: TextAlign.center, style: subtitleStyle),
+        Text(l10n.taglineForAiAgents, textAlign: TextAlign.center, style: subtitleStyle),
       ],
-    );
-  }
-
-  Widget _buildTagline(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Text(
-      l10n.tagline,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        fontSize: 14,
-        color: Colors.white.withValues(alpha: 0.6),
-        height: 1.4,
-      ),
     );
   }
 
@@ -115,14 +102,15 @@ class LoginPage extends StatelessWidget {
         if (isLoading) {
           return const SizedBox(
             height: 180,
-            child: Center(child: CircularProgressIndicator(color: _tealAccent)),
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.tealAccent),
+            ),
           );
         }
 
         final l10n = AppLocalizations.of(context)!;
         return Column(
           children: [
-            // Google — enabled
             OAuthButton(
               label: l10n.continueWithGoogle,
               icon: _googleIcon(),
@@ -134,7 +122,6 @@ class LoginPage extends StatelessWidget {
               },
             ),
             const SizedBox(height: 12),
-            // Apple — disabled (Phase 3)
             OAuthButton(
               label: l10n.continueWithApple,
               icon: const Icon(Icons.apple, color: Colors.white, size: 24),
@@ -144,7 +131,6 @@ class LoginPage extends StatelessWidget {
               onDisabledTap: () => _showComingSoon(context, 'Apple'),
             ),
             const SizedBox(height: 12),
-            // X — disabled (Phase 3)
             OAuthButton(
               label: l10n.continueWithX,
               icon: _xIcon(),
@@ -159,7 +145,7 @@ class LoginPage extends StatelessWidget {
     );
   }
 
-  Widget _buildFooter(BuildContext context) {
+  Widget _buildFooter(BuildContext context, Color textColor) {
     final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -168,7 +154,7 @@ class LoginPage extends StatelessWidget {
         textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 12,
-          color: Colors.white.withValues(alpha: 0.4),
+          color: textColor.withValues(alpha: 0.4),
         ),
       ),
     );
@@ -182,21 +168,18 @@ class LoginPage extends StatelessWidget {
         ..showSnackBar(
           SnackBar(
             content: Text(message),
-            backgroundColor: _brandRed,
+            backgroundColor: AppColors.brandRed,
             behavior: SnackBarBehavior.floating,
           ),
         );
     }
-    // Navigation is handled by go_router redirect — no manual push needed
   }
 
-  /// Maps a typed error to a localized user-facing message.
   String _resolveErrorMessage(BuildContext context, Object error) {
     final l10n = AppLocalizations.of(context)!;
     if (error is AuthServerException) {
       return switch (error.kind) {
-        AuthServerErrorKind.serverNotResponding =>
-          l10n.errorServerNotResponding,
+        AuthServerErrorKind.serverNotResponding => l10n.errorServerNotResponding,
         AuthServerErrorKind.cannotConnect => l10n.errorCannotConnectToServer,
         AuthServerErrorKind.connectionFailed => l10n.errorConnectionFailed,
         AuthServerErrorKind.invalidResponse => l10n.errorInvalidServerResponse,
@@ -218,8 +201,6 @@ class LoginPage extends StatelessWidget {
       );
   }
 
-  /// Google "G" icon rendered as a styled text glyph.
-  /// In production this should use the official Google logo asset.
   Widget _googleIcon() {
     return const Center(
       child: Text(
@@ -233,7 +214,6 @@ class LoginPage extends StatelessWidget {
     );
   }
 
-  /// X (formerly Twitter) logo rendered as a styled text glyph.
   Widget _xIcon() {
     return const Center(
       child: Text(

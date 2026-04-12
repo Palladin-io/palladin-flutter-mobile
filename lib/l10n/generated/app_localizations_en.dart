@@ -15,7 +15,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get welcomeMessage => 'Welcome to Claw Vault';
 
   @override
-  String get tagline => 'Zero-Knowledge Password Manager\nfor AI Agents';
+  String get taglineZeroKnowledge => 'Zero-Knowledge';
+
+  @override
+  String get taglinePasswordManager => 'Password Manager';
+
+  @override
+  String get taglineForAiAgents => 'For AI Agents';
 
   @override
   String get continueWithGoogle => 'Continue with Google';

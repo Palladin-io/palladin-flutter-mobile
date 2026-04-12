@@ -101,6 +101,21 @@ lib/
 
 **Key naming:** `feature_action` or `feature_section_label` (snake_case, no dots — ARB keys are camelCase in Dart output).
 
+## Theming & Colors
+
+**Theme mode:** Always `ThemeMode.dark` — the app always runs in dark mode, regardless of the system setting. Do not change this to `ThemeMode.system` without explicit approval.
+
+**Color palette:** All colors must be defined in `lib/core/theme/app_colors.dart` (`AppColors` class). Never use inline color literals elsewhere in the codebase — always reference `AppColors.*`.
+
+| Constant | Value | Usage |
+|----------|-------|-------|
+| `AppColors.darkBackground` | `#000B2E` | Dark scaffold background |
+| `AppColors.darkSurface` | `#1A2A4A` | Dark elevated surfaces |
+| `AppColors.lightBackground` | `#FDF9E4` | Light scaffold background |
+| `AppColors.lightSurface` | `#EEEAD4` | Light elevated surfaces |
+| `AppColors.brandRed` | `#FF4D5F` | "Vault" wordmark, errors |
+| `AppColors.tealAccent` | `#48ECDF` | Primary interactive, loaders |
+
 ## Analytics (PostHog)
 
 ```

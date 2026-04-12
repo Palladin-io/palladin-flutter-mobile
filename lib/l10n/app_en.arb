@@ -8,9 +8,17 @@
   "@welcomeMessage": {
     "description": "Greeting shown on the home/dashboard placeholder page"
   },
-  "tagline": "Zero-Knowledge Password Manager\nfor AI Agents",
-  "@tagline": {
-    "description": "Marketing tagline shown below the logo on the login page"
+  "taglineZeroKnowledge": "Zero-Knowledge",
+  "@taglineZeroKnowledge": {
+    "description": "First line of the stacked tagline on the login screen"
+  },
+  "taglinePasswordManager": "Password Manager",
+  "@taglinePasswordManager": {
+    "description": "Second line of the stacked tagline on the login screen"
+  },
+  "taglineForAiAgents": "For AI Agents",
+  "@taglineForAiAgents": {
+    "description": "Third line of the stacked tagline on the login screen"
   },
   "continueWithGoogle": "Continue with Google",
   "@continueWithGoogle": {

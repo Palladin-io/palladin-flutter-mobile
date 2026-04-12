@@ -5,6 +5,7 @@ import 'l10n/generated/app_localizations.dart';
 import 'config/env_config.dart';
 import 'core/di/injection.dart';
 import 'core/router/app_router.dart';
+import 'core/theme/app_colors.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 
 /// Root application widget for Claw Vault.
@@ -12,6 +13,8 @@ import 'features/auth/presentation/bloc/auth_bloc.dart';
 /// Sets up the [AuthBloc] at the top of the widget tree, configures
 /// [GoRouter] with auth-aware redirects, and applies the dark theme
 /// matching the mobile prototype.
+///
+/// Always runs in dark mode ([ThemeMode.dark]) regardless of system setting.
 class ClawVaultApp extends StatelessWidget {
   const ClawVaultApp({super.key, required this.config});
 
@@ -29,7 +32,9 @@ class ClawVaultApp extends StatelessWidget {
           return MaterialApp.router(
             title: config.appName,
             debugShowCheckedModeBanner: false,
-            theme: _buildDarkTheme(),
+            theme: _buildLightTheme(),
+            darkTheme: _buildDarkTheme(),
+            themeMode: ThemeMode.dark,
             routerConfig: router,
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
@@ -39,23 +44,40 @@ class ClawVaultApp extends StatelessWidget {
     );
   }
 
-  /// Dark theme matching the Claw Vault design prototype.
-  ///
-  /// Background: deep navy `#000B2E`
-  /// Surface: `#1a2a4a`
-  /// Primary/accent: teal `#48ECDF`
-  /// Error/brand: red `#FF4D5F`
+  /// Light theme — warm cream background, navy text.
+  ThemeData _buildLightTheme() {
+    return ThemeData(
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: AppColors.lightBackground,
+      colorScheme: const ColorScheme.light(
+        primary: AppColors.tealAccent,
+        error: AppColors.brandRed,
+        surface: AppColors.lightSurface,
+        onSurface: AppColors.darkBackground,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AppColors.lightSurface,
+        foregroundColor: AppColors.darkBackground,
+        elevation: 0,
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// Dark theme — deep navy background, cream text.
   ThemeData _buildDarkTheme() {
     return ThemeData(
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: const Color(0xFF000B2E),
+      scaffoldBackgroundColor: AppColors.darkBackground,
       colorScheme: const ColorScheme.dark(
-        primary: Color(0xFF48ECDF),
-        error: Color(0xFFFF4D5F),
-        surface: Color(0xFF1a2a4a),
+        primary: AppColors.tealAccent,
+        error: AppColors.brandRed,
+        surface: AppColors.darkSurface,
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF1a2a4a),
+        backgroundColor: AppColors.darkSurface,
         foregroundColor: Colors.white,
         elevation: 0,
       ),

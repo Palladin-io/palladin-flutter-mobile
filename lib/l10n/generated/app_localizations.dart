@@ -110,11 +110,23 @@ abstract class AppLocalizations {
   /// **'Welcome to Claw Vault'**
   String get welcomeMessage;
 
-  /// Marketing tagline shown below the logo on the login page
+  /// First line of the stacked tagline on the login screen
   ///
   /// In en, this message translates to:
-  /// **'Zero-Knowledge Password Manager\nfor AI Agents'**
-  String get tagline;
+  /// **'Zero-Knowledge'**
+  String get taglineZeroKnowledge;
+
+  /// Second line of the stacked tagline on the login screen
+  ///
+  /// In en, this message translates to:
+  /// **'Password Manager'**
+  String get taglinePasswordManager;
+
+  /// Third line of the stacked tagline on the login screen
+  ///
+  /// In en, this message translates to:
+  /// **'For AI Agents'**
+  String get taglineForAiAgents;
 
   /// Label for the Google OAuth sign-in button
   ///
