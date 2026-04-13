@@ -73,26 +73,26 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
           visible: _passwordVisible,
           onToggleVisibility: () => setState(() => _passwordVisible = !_passwordVisible),
         ),
-        Visibility(
-          visible: password.isNotEmpty,
-          maintainState: true,
-          maintainAnimation: true,
-          maintainSize: true,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 8),
-              PasswordStrengthBar(strength: strength),
-              const SizedBox(height: 6),
-              Text(
-                _strengthLabel(l10n, strength),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _strengthTextColor(strength),
-                  fontWeight: FontWeight.w500,
+        Opacity(
+          opacity: password.isNotEmpty ? 1.0 : 0.0,
+          child: IgnorePointer(
+            ignoring: password.isEmpty,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                PasswordStrengthBar(strength: strength),
+                const SizedBox(height: 6),
+                Text(
+                  _strengthLabel(l10n, strength),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _strengthTextColor(strength),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 20),
@@ -102,31 +102,31 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
           visible: _confirmVisible,
           onToggleVisibility: () => setState(() => _confirmVisible = !_confirmVisible),
         ),
-        Visibility(
-          visible: confirm.isNotEmpty,
-          maintainState: true,
-          maintainAnimation: true,
-          maintainSize: true,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Row(
-              children: [
-                Icon(
-                  passwordsMatch ? Icons.check_circle_outline : Icons.error_outline,
-                  size: 14,
-                  color: passwordsMatch ? AppColors.positiveAccent : AppColors.brandRed,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  passwordsMatch
-                      ? l10n.onboardingPasswordsMatch
-                      : l10n.onboardingPasswordsDoNotMatch,
-                  style: TextStyle(
-                    fontSize: 12,
+        Opacity(
+          opacity: confirm.isNotEmpty ? 1.0 : 0.0,
+          child: IgnorePointer(
+            ignoring: confirm.isEmpty,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  Icon(
+                    passwordsMatch ? Icons.check_circle_outline : Icons.error_outline,
+                    size: 14,
                     color: passwordsMatch ? AppColors.positiveAccent : AppColors.brandRed,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Text(
+                    passwordsMatch
+                        ? l10n.onboardingPasswordsMatch
+                        : l10n.onboardingPasswordsDoNotMatch,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: passwordsMatch ? AppColors.positiveAccent : AppColors.brandRed,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -180,11 +180,12 @@ class _PasswordField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Colors.white.withValues(alpha: 0.7),
+          label.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+            letterSpacing: 0.04 * 11,
           ),
         ),
         const SizedBox(height: 8),

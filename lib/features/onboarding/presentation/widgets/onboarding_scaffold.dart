@@ -35,21 +35,22 @@ class OnboardingScaffold extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               OnboardingProgressDots(currentStep: currentStep),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
+                  height: 1.2,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.6),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textTertiary,
                   height: 1.4,
                 ),
               ),

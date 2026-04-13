@@ -27,7 +27,21 @@ abstract final class AppColors {
   /// Teal accent — primary interactive color and loading indicators.
   static const Color tealAccent = Color(0xFF48ECDF);
 
+  // === Text (dark mode) ===
+
+  /// Primary text color in dark mode — warm cream (same hue as light background).
+  static const Color textPrimary = Color(0xFFFDF9E4);
+
+  /// Secondary text color in dark mode — cool blue-gray.
+  static const Color textSecondary = Color(0xFFB8C5D4);
+
+  /// Tertiary / muted text color in dark mode — darker blue-gray.
+  static const Color textTertiary = Color(0xFF6B7A8E);
+
   // === UI Components ===
+
+  /// Peach color for "done" progress step dots.
+  static const Color doneDot = Color(0xFFFFAB87);
 
   /// Background for disabled/secondary buttons (Apple, X).
   static const Color disabledButtonBackground = Color(0xFF1A1A1A);

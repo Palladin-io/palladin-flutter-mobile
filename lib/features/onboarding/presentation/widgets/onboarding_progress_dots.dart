@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
-/// A row of three horizontal dots showing the current onboarding step.
+/// A row of three circular dots showing the current onboarding step.
 ///
-/// Matches the `.progress-dots` pattern from the mobile prototype:
-/// active step is shown in teal (accent), completed steps in muted teal,
-/// and upcoming steps in a dimmed surface color.
+/// Matches the `.progress-dots / .dot` pattern from the mobile prototype:
+/// active step → brandRed (#FF4F4F), completed steps → doneDot (#FFAB87),
+/// upcoming steps → dimmed warm-white at 8 % opacity.
 class OnboardingProgressDots extends StatelessWidget {
   const OnboardingProgressDots({
     super.key,
@@ -27,21 +27,21 @@ class OnboardingProgressDots extends StatelessWidget {
 
         final Color color;
         if (isActive) {
-          color = AppColors.tealAccent;
+          color = AppColors.brandRed;
         } else if (isDone) {
-          color = AppColors.tealAccent.withValues(alpha: 0.5);
+          color = AppColors.doneDot;
         } else {
-          color = Colors.white.withValues(alpha: 0.08);
+          color = const Color.fromRGBO(253, 249, 228, 0.08);
         }
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Container(
-            width: isActive ? 24 : 8,
+            width: 8,
             height: 8,
             decoration: BoxDecoration(
               color: color,
-              borderRadius: BorderRadius.circular(4),
+              shape: BoxShape.circle,
             ),
           ),
         );

@@ -132,10 +132,10 @@ class _MnemonicGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       itemCount: words.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 2.4,
+        crossAxisCount: 2,
+        crossAxisSpacing: 6,
+        mainAxisSpacing: 6,
+        childAspectRatio: 3.2,
       ),
       itemBuilder: (_, index) {
         return Container(
@@ -163,7 +163,7 @@ class _MnemonicGrid extends StatelessWidget {
                   words[index],
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,
