@@ -150,9 +150,9 @@
   "@onboardingRecoveryCopied": {
     "description": "Snackbar confirmation after copying the recovery mnemonic"
   },
-  "onboardingRecoveryShare": "Share Recovery Key",
-  "@onboardingRecoveryShare": {
-    "description": "Button that opens the platform share sheet for the mnemonic"
+  "onboardingRecoveryExport": "Export as File (.txt)",
+  "@onboardingRecoveryExport": {
+    "description": "Button that exports the recovery mnemonic as a .txt file via the platform share sheet"
   },
   "onboardingRecoverySaved": "I've Saved My Recovery Key",
   "@onboardingRecoverySaved": {

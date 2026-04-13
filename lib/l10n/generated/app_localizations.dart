@@ -314,11 +314,11 @@ abstract class AppLocalizations {
   /// **'Recovery key copied to clipboard'**
   String get onboardingRecoveryCopied;
 
-  /// Button that opens the platform share sheet for the mnemonic
+  /// Button that exports the recovery mnemonic as a .txt file via the platform share sheet
   ///
   /// In en, this message translates to:
-  /// **'Share Recovery Key'**
-  String get onboardingRecoveryShare;
+  /// **'Export as File (.txt)'**
+  String get onboardingRecoveryExport;
 
   /// Primary button on screen 2 to proceed to confirmation
   ///

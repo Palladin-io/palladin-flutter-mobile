@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
@@ -57,9 +60,9 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
         ),
         const SizedBox(height: 8),
         _SecondaryAction(
-          icon: Icons.ios_share,
-          label: l10n.onboardingRecoveryShare,
-          onPressed: () => _share(mnemonic),
+          icon: Icons.file_download_outlined,
+          label: l10n.onboardingRecoveryExport,
+          onPressed: () => _exportToFile(mnemonic),
         ),
       ],
     );
@@ -79,8 +82,14 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
       );
   }
 
-  Future<void> _share(List<String> words) async {
-    await Share.share(words.join(' '));
+  Future<void> _exportToFile(List<String> words) async {
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/clawvault-recovery-key.txt');
+    await file.writeAsString(words.join(' '));
+    await Share.shareXFiles(
+      [XFile(file.path, mimeType: 'text/plain')],
+      subject: 'Claw Vault Recovery Key',
+    );
   }
 }
 

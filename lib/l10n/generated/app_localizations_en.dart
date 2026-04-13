@@ -126,7 +126,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingRecoveryCopied => 'Recovery key copied to clipboard';
 
   @override
-  String get onboardingRecoveryShare => 'Share Recovery Key';
+  String get onboardingRecoveryExport => 'Export as File (.txt)';
 
   @override
   String get onboardingRecoverySaved => 'I\'ve Saved My Recovery Key';

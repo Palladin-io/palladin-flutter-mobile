@@ -127,7 +127,7 @@ class AppLocalizationsPl extends AppLocalizations {
       'Klucz odzyskiwania skopiowany do schowka';
 
   @override
-  String get onboardingRecoveryShare => 'Udostępnij klucz';
+  String get onboardingRecoveryExport => 'Eksportuj jako plik (.txt)';
 
   @override
   String get onboardingRecoverySaved => 'Zapisałem klucz odzyskiwania';

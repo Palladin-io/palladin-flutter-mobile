@@ -24,50 +24,66 @@ class OnboardingScaffold extends StatelessWidget {
   final List<Widget> children;
   final Widget? footer;
 
+  // Gradient matching the dark prototype: 160deg, #000B2E → #0A1A3E → #0E1230 → #000B2E
+  static const _gradient = LinearGradient(
+    begin: Alignment(-0.34, -0.94),
+    end: Alignment(0.34, 0.94),
+    colors: [
+      Color(0xFF000B2E),
+      Color(0xFF0A1A3E),
+      Color(0xFF0E1230),
+      Color(0xFF000B2E),
+    ],
+    stops: [0.0, 0.3, 0.6, 1.0],
+  );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              OnboardingProgressDots(currentStep: currentStep),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                  height: 1.2,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textTertiary,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: children,
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(gradient: _gradient),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OnboardingProgressDots(currentStep: currentStep),
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                    height: 1.2,
                   ),
                 ),
-              ),
-              if (footer != null) ...[
-                const SizedBox(height: 12),
-                footer!,
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textTertiary,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: children,
+                    ),
+                  ),
+                ),
+                if (footer != null) ...[
+                  const SizedBox(height: 12),
+                  footer!,
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
