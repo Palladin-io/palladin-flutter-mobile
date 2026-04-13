@@ -7,6 +7,7 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/password_strength.dart';
 import '../cubit/onboarding_cubit.dart';
 import '../widgets/onboarding_scaffold.dart';
+import '../widgets/onboarding_text_field.dart';
 import '../widgets/password_strength_bar.dart';
 import '../widgets/primary_button.dart';
 
@@ -189,31 +190,16 @@ class _PasswordField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
+        OnboardingTextField(
           controller: controller,
           obscureText: !visible,
-          autocorrect: false,
-          enableSuggestions: false,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppColors.darkSurface,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
+          suffixIcon: IconButton(
+            icon: Icon(
+              visible ? Icons.visibility_off : Icons.visibility,
+              size: 20,
+              color: Colors.white.withValues(alpha: 0.6),
             ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-            suffixIcon: IconButton(
-              icon: Icon(
-                visible ? Icons.visibility_off : Icons.visibility,
-                size: 20,
-                color: Colors.white.withValues(alpha: 0.6),
-              ),
-              onPressed: onToggleVisibility,
-            ),
+            onPressed: onToggleVisibility,
           ),
         ),
       ],

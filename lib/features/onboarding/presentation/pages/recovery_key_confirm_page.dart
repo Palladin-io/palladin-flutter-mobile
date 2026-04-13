@@ -8,6 +8,7 @@ import '../../domain/mnemonic.dart';
 import '../../domain/repositories/onboarding_repository.dart';
 import '../cubit/onboarding_cubit.dart';
 import '../widgets/onboarding_scaffold.dart';
+import '../widgets/onboarding_text_field.dart';
 import '../widgets/primary_button.dart';
 
 /// Screen 3 of onboarding — verifies the user saved their recovery key
@@ -155,10 +156,14 @@ class _ConfirmationInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderColor = switch (result) {
-      _WordCheckResult.empty => Colors.transparent,
+      _WordCheckResult.empty => null,
       _WordCheckResult.correct => AppColors.positiveAccent,
       _WordCheckResult.incorrect => AppColors.brandRed,
     };
+
+    final focusBorderColor = result == _WordCheckResult.empty
+        ? AppColors.tealAccent
+        : borderColor;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,68 +177,45 @@ class _ConfirmationInput extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
+        OnboardingTextField(
           controller: controller,
-          autocorrect: false,
-          enableSuggestions: false,
-          textCapitalization: TextCapitalization.none,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-          decoration: InputDecoration(
-            hintText: l10n.onboardingConfirmWordHint(wordIndex),
-            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-            filled: true,
-            fillColor: AppColors.darkSurface,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: borderColor, width: 1),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(
-                color: result == _WordCheckResult.empty
-                    ? AppColors.tealAccent
-                    : borderColor,
-                width: 1.5,
-              ),
-            ),
-          ),
+          hintText: l10n.onboardingConfirmWordHint(wordIndex),
+          borderColor: borderColor,
+          focusBorderColor: focusBorderColor,
         ),
-        if (result != _WordCheckResult.empty) ...[
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(
-                result == _WordCheckResult.correct
-                    ? Icons.check_circle_outline
-                    : Icons.error_outline,
-                size: 14,
-                color: result == _WordCheckResult.correct
-                    ? AppColors.positiveAccent
-                    : AppColors.brandRed,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                result == _WordCheckResult.correct
-                    ? l10n.onboardingConfirmCorrect
-                    : l10n.onboardingConfirmIncorrect,
-                style: TextStyle(
-                  fontSize: 12,
+        // Always rendered (reserves space); animates in to prevent layout shift.
+        AnimatedOpacity(
+          opacity: result != _WordCheckResult.empty ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 200),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Row(
+              children: [
+                Icon(
+                  result == _WordCheckResult.correct
+                      ? Icons.check_circle_outline
+                      : Icons.error_outline,
+                  size: 14,
                   color: result == _WordCheckResult.correct
                       ? AppColors.positiveAccent
                       : AppColors.brandRed,
                 ),
-              ),
-            ],
+                const SizedBox(width: 6),
+                Text(
+                  result == _WordCheckResult.correct
+                      ? l10n.onboardingConfirmCorrect
+                      : l10n.onboardingConfirmIncorrect,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: result == _WordCheckResult.correct
+                        ? AppColors.positiveAccent
+                        : AppColors.brandRed,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ],
     );
   }
