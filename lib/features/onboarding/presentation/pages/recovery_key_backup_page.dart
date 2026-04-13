@@ -93,7 +93,10 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
 
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/clawvault-recovery-key.txt');
-    await file.writeAsString(words.join(' '));
+    final content = words.asMap().entries
+        .map((e) => '${e.key + 1}. ${e.value}')
+        .join('\n');
+    await file.writeAsString(content);
     await Share.shareXFiles(
       [XFile(file.path, mimeType: 'text/plain')],
       subject: 'Claw Vault Recovery Key',
