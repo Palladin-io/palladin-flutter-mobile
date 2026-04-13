@@ -96,7 +96,7 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 10),
         _PasswordField(
           label: l10n.onboardingConfirmPasswordLabel,
           controller: _confirmController,
@@ -131,7 +131,7 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
         _RequirementsCard(l10n: l10n, password: password),
       ],
     );

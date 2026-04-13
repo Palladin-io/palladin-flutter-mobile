@@ -50,7 +50,7 @@ class OnboardingScaffold extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 OnboardingProgressDots(currentStep: currentStep),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 Text(
                   title,
                   style: const TextStyle(
