@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
-/// Teal-accent primary button used across onboarding screens.
+/// Primary button used across onboarding screens.
 ///
 /// Disabled state is visually dimmed; loading state shows a circular
 /// progress indicator in place of the label.
@@ -27,10 +27,10 @@ class PrimaryButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: enabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.tealAccent,
-          disabledBackgroundColor: AppColors.tealAccent.withValues(alpha: 0.3),
-          foregroundColor: AppColors.darkBackground,
-          disabledForegroundColor: AppColors.darkBackground.withValues(alpha: 0.5),
+          backgroundColor: AppColors.brandRed,
+          disabledBackgroundColor: AppColors.brandRed.withValues(alpha: 0.3),
+          foregroundColor: Colors.white,
+          disabledForegroundColor: Colors.white.withValues(alpha: 0.5),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -42,7 +42,7 @@ class PrimaryButton extends StatelessWidget {
                 width: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppColors.darkBackground,
+                  color: Colors.white,
                 ),
               )
             : Text(

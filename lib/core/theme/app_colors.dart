@@ -22,7 +22,7 @@ abstract final class AppColors {
   // === Brand ===
 
   /// Brand red — "Vault" wordmark and error states.
-  static const Color brandRed = Color(0xFFFF4D5F);
+  static const Color brandRed = Color(0xFFFF4F4F);
 
   /// Teal accent — primary interactive color and loading indicators.
   static const Color tealAccent = Color(0xFF48ECDF);
@@ -45,5 +45,5 @@ abstract final class AppColors {
   static const Color positiveAccent = Color(0xFF2EC4B6);
 
   /// Warning banner background used on the recovery-key backup screen.
-  static const Color warningBackground = Color(0x33FF4D5F);
+  static const Color warningBackground = Color(0x33FF4F4F);
 }
