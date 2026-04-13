@@ -73,19 +73,28 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
           visible: _passwordVisible,
           onToggleVisibility: () => setState(() => _passwordVisible = !_passwordVisible),
         ),
-        if (password.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          PasswordStrengthBar(strength: strength),
-          const SizedBox(height: 6),
-          Text(
-            _strengthLabel(l10n, strength),
-            style: TextStyle(
-              fontSize: 12,
-              color: _strengthTextColor(strength),
-              fontWeight: FontWeight.w500,
-            ),
+        Visibility(
+          visible: password.isNotEmpty,
+          maintainState: true,
+          maintainAnimation: true,
+          maintainSize: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
+              PasswordStrengthBar(strength: strength),
+              const SizedBox(height: 6),
+              Text(
+                _strengthLabel(l10n, strength),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _strengthTextColor(strength),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
         const SizedBox(height: 20),
         _PasswordField(
           label: l10n.onboardingConfirmPasswordLabel,
@@ -93,28 +102,34 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
           visible: _confirmVisible,
           onToggleVisibility: () => setState(() => _confirmVisible = !_confirmVisible),
         ),
-        if (confirm.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(
-                passwordsMatch ? Icons.check_circle_outline : Icons.error_outline,
-                size: 14,
-                color: passwordsMatch ? AppColors.positiveAccent : AppColors.brandRed,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                passwordsMatch
-                    ? l10n.onboardingPasswordsMatch
-                    : l10n.onboardingPasswordsDoNotMatch,
-                style: TextStyle(
-                  fontSize: 12,
+        Visibility(
+          visible: confirm.isNotEmpty,
+          maintainState: true,
+          maintainAnimation: true,
+          maintainSize: true,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Row(
+              children: [
+                Icon(
+                  passwordsMatch ? Icons.check_circle_outline : Icons.error_outline,
+                  size: 14,
                   color: passwordsMatch ? AppColors.positiveAccent : AppColors.brandRed,
                 ),
-              ),
-            ],
+                const SizedBox(width: 6),
+                Text(
+                  passwordsMatch
+                      ? l10n.onboardingPasswordsMatch
+                      : l10n.onboardingPasswordsDoNotMatch,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: passwordsMatch ? AppColors.positiveAccent : AppColors.brandRed,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
         const SizedBox(height: 24),
         _RequirementsCard(l10n: l10n, password: password),
       ],
