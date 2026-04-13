@@ -27,6 +27,8 @@ class RecoveryKeyBackupPage extends StatefulWidget {
 }
 
 class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
+  final _exportButtonKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -60,6 +62,7 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
         ),
         const SizedBox(height: 8),
         _SecondaryAction(
+          key: _exportButtonKey,
           icon: Icons.file_download_outlined,
           label: l10n.onboardingRecoveryExport,
           onPressed: () => _exportToFile(mnemonic),
@@ -83,12 +86,18 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
   }
 
   Future<void> _exportToFile(List<String> words) async {
+    final box = _exportButtonKey.currentContext?.findRenderObject() as RenderBox?;
+    final origin = box != null
+        ? box.localToGlobal(Offset.zero) & box.size
+        : Rect.zero;
+
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/clawvault-recovery-key.txt');
     await file.writeAsString(words.join(' '));
     await Share.shareXFiles(
       [XFile(file.path, mimeType: 'text/plain')],
       subject: 'Claw Vault Recovery Key',
+      sharePositionOrigin: origin,
     );
   }
 }
@@ -188,6 +197,7 @@ class _MnemonicGrid extends StatelessWidget {
 
 class _SecondaryAction extends StatelessWidget {
   const _SecondaryAction({
+    super.key,
     required this.icon,
     required this.label,
     required this.onPressed,
