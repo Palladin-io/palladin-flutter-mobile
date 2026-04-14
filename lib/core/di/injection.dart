@@ -12,6 +12,9 @@ import '../../features/onboarding/data/repositories/onboarding_repository_impl.d
 import '../../features/onboarding/data/services/onboarding_crypto_service.dart';
 import '../../features/onboarding/domain/repositories/onboarding_repository.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import '../../features/unlock/data/datasources/account_remote_datasource.dart';
+import '../../features/unlock/data/services/unlock_crypto_service.dart';
+import '../../features/unlock/presentation/cubit/unlock_cubit.dart';
 import '../network/api_client.dart';
 import '../storage/secure_token_storage.dart';
 
@@ -74,5 +77,23 @@ void configureDependencies(EnvConfig config) {
   // per entry, never persisted across sessions)
   getIt.registerFactory<OnboardingCubit>(
     () => OnboardingCubit(repository: getIt<OnboardingRepository>()),
+  );
+
+  // Unlock — data layer
+  getIt.registerLazySingleton<AccountRemoteDatasource>(
+    () => AccountRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<UnlockCryptoService>(
+    () => UnlockCryptoService(),
+  );
+
+  // Unlock — presentation layer (factory: fresh cubit on each mount
+  // so failed-password state doesn't leak between unlock sessions)
+  getIt.registerFactory<UnlockCubit>(
+    () => UnlockCubit(
+      datasource: getIt<AccountRemoteDatasource>(),
+      cryptoService: getIt<UnlockCryptoService>(),
+      secureStorage: getIt<FlutterSecureStorage>(),
+    ),
   );
 }

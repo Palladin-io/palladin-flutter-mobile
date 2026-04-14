@@ -160,4 +160,40 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get onboardingAlreadyCompleted =>
       'This account has already been set up. Please sign in again.';
+
+  @override
+  String get unlockTitle => 'Enter your master password';
+
+  @override
+  String get unlockPasswordLabel => 'Master Password';
+
+  @override
+  String get unlockButton => 'Unlock';
+
+  @override
+  String get unlockForgotPassword => 'Forgot password?';
+
+  @override
+  String get unlockForgotPasswordComingSoon => 'Recovery flow coming soon';
+
+  @override
+  String get unlockWrongPassword =>
+      'Incorrect master password. Please try again.';
+
+  @override
+  String get unlockBiometricHint => 'Unlock with biometrics';
+
+  @override
+  String get unlockBiometricPrompt => 'Authenticate to unlock your vault';
+
+  @override
+  String get unlockBiometricUnavailable =>
+      'Biometric unlock is not set up on this device. Enter your master password.';
+
+  @override
+  String get unlockBiometricFailed =>
+      'Biometric authentication failed. Please try again or use your password.';
+
+  @override
+  String get unlockLockVault => 'Lock Vault';
 }

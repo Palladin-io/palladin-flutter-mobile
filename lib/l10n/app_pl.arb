@@ -45,5 +45,16 @@
   "onboardingConfirmCorrect": "Zgadza się",
   "onboardingConfirmIncorrect": "Niepoprawnie",
   "onboardingConfirmVerify": "Zweryfikuj i zakończ konfigurację",
-  "onboardingAlreadyCompleted": "To konto zostało już skonfigurowane. Zaloguj się ponownie."
+  "onboardingAlreadyCompleted": "To konto zostało już skonfigurowane. Zaloguj się ponownie.",
+  "unlockTitle": "Wpisz hasło główne",
+  "unlockPasswordLabel": "Hasło główne",
+  "unlockButton": "Odblokuj",
+  "unlockForgotPassword": "Zapomniałeś hasła?",
+  "unlockForgotPasswordComingSoon": "Odzyskiwanie hasła już wkrótce",
+  "unlockWrongPassword": "Nieprawidłowe hasło główne. Spróbuj ponownie.",
+  "unlockBiometricHint": "Odblokuj biometrycznie",
+  "unlockBiometricPrompt": "Uwierzytelnij się, aby odblokować sejf",
+  "unlockBiometricUnavailable": "Odblokowanie biometryczne nie jest jeszcze skonfigurowane. Wpisz hasło główne.",
+  "unlockBiometricFailed": "Uwierzytelnianie biometryczne nie powiodło się. Spróbuj ponownie lub użyj hasła.",
+  "unlockLockVault": "Zablokuj sejf"
 }

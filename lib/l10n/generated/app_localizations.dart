@@ -373,6 +373,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This account has already been set up. Please sign in again.'**
   String get onboardingAlreadyCompleted;
+
+  /// Subtitle on the master-password unlock screen
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your master password'**
+  String get unlockTitle;
+
+  /// Label for the password field on the unlock screen
+  ///
+  /// In en, this message translates to:
+  /// **'Master Password'**
+  String get unlockPasswordLabel;
+
+  /// Primary action label on the unlock screen
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get unlockButton;
+
+  /// Text button that starts the recovery-key flow
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot password?'**
+  String get unlockForgotPassword;
+
+  /// Snackbar shown until the recovery-key flow is implemented
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery flow coming soon'**
+  String get unlockForgotPasswordComingSoon;
+
+  /// Error shown when password-based decryption fails
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect master password. Please try again.'**
+  String get unlockWrongPassword;
+
+  /// Tooltip and caption for the biometric unlock button
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock with biometrics'**
+  String get unlockBiometricHint;
+
+  /// Localized reason passed to the OS biometric prompt
+  ///
+  /// In en, this message translates to:
+  /// **'Authenticate to unlock your vault'**
+  String get unlockBiometricPrompt;
+
+  /// Error when no MK has been stashed yet for biometric unlock
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric unlock is not set up on this device. Enter your master password.'**
+  String get unlockBiometricUnavailable;
+
+  /// Error when the OS biometric prompt is cancelled or fails
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric authentication failed. Please try again or use your password.'**
+  String get unlockBiometricFailed;
+
+  /// Tooltip on the lock-vault action in the home app bar
+  ///
+  /// In en, this message translates to:
+  /// **'Lock Vault'**
+  String get unlockLockVault;
 }
 
 class _AppLocalizationsDelegate

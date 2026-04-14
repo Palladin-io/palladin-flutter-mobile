@@ -161,4 +161,40 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get onboardingAlreadyCompleted =>
       'To konto zostało już skonfigurowane. Zaloguj się ponownie.';
+
+  @override
+  String get unlockTitle => 'Wpisz hasło główne';
+
+  @override
+  String get unlockPasswordLabel => 'Hasło główne';
+
+  @override
+  String get unlockButton => 'Odblokuj';
+
+  @override
+  String get unlockForgotPassword => 'Zapomniałeś hasła?';
+
+  @override
+  String get unlockForgotPasswordComingSoon => 'Odzyskiwanie hasła już wkrótce';
+
+  @override
+  String get unlockWrongPassword =>
+      'Nieprawidłowe hasło główne. Spróbuj ponownie.';
+
+  @override
+  String get unlockBiometricHint => 'Odblokuj biometrycznie';
+
+  @override
+  String get unlockBiometricPrompt => 'Uwierzytelnij się, aby odblokować sejf';
+
+  @override
+  String get unlockBiometricUnavailable =>
+      'Odblokowanie biometryczne nie jest jeszcze skonfigurowane. Wpisz hasło główne.';
+
+  @override
+  String get unlockBiometricFailed =>
+      'Uwierzytelnianie biometryczne nie powiodło się. Spróbuj ponownie lub użyj hasła.';
+
+  @override
+  String get unlockLockVault => 'Zablokuj sejf';
 }
