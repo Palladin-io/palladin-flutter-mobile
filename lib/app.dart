@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'l10n/generated/app_localizations.dart';
 
 import 'config/env_config.dart';
@@ -48,6 +49,7 @@ class ClawVaultApp extends StatelessWidget {
   ThemeData _buildLightTheme() {
     return ThemeData(
       brightness: Brightness.light,
+      textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme),
       scaffoldBackgroundColor: AppColors.lightBackground,
       colorScheme: const ColorScheme.light(
         primary: AppColors.tealAccent,
@@ -70,6 +72,7 @@ class ClawVaultApp extends StatelessWidget {
   ThemeData _buildDarkTheme() {
     return ThemeData(
       brightness: Brightness.dark,
+      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
       scaffoldBackgroundColor: AppColors.darkBackground,
       colorScheme: const ColorScheme.dark(
         primary: AppColors.tealAccent,

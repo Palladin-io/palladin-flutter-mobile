@@ -113,7 +113,7 @@ lib/
 | `AppColors.darkSurface` | `#1A2A4A` | Dark elevated surfaces |
 | `AppColors.lightBackground` | `#FDF9E4` | Light scaffold background |
 | `AppColors.lightSurface` | `#EEEAD4` | Light elevated surfaces |
-| `AppColors.brandRed` | `#FF4D5F` | "Vault" wordmark, errors |
+| `AppColors.brandRed` | `#FF4F4F` | "Vault" wordmark, errors, primary buttons |
 | `AppColors.tealAccent` | `#48ECDF` | Primary interactive, loaders |
 
 ## Analytics (PostHog)

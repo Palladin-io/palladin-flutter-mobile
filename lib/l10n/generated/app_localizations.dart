@@ -181,6 +181,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invalid server response. Please try again.'**
   String get errorInvalidServerResponse;
+
+  /// Headline on the master password setup screen
+  ///
+  /// In en, this message translates to:
+  /// **'Set Your Master Password'**
+  String get onboardingMasterPasswordTitle;
+
+  /// Supporting copy below the master password headline
+  ///
+  /// In en, this message translates to:
+  /// **'This password encrypts your vault locally. We never see it.'**
+  String get onboardingMasterPasswordSubtitle;
+
+  /// Label for the master password input field
+  ///
+  /// In en, this message translates to:
+  /// **'Master Password'**
+  String get onboardingMasterPasswordLabel;
+
+  /// Label for the password confirmation input field
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Password'**
+  String get onboardingConfirmPasswordLabel;
+
+  /// Title for the password requirements checklist
+  ///
+  /// In en, this message translates to:
+  /// **'Requirements'**
+  String get onboardingPasswordRequirementsTitle;
+
+  /// Requirement: password length
+  ///
+  /// In en, this message translates to:
+  /// **'At least 12 characters'**
+  String get onboardingPasswordReqLength;
+
+  /// Requirement: mixed case
+  ///
+  /// In en, this message translates to:
+  /// **'Uppercase & lowercase'**
+  String get onboardingPasswordReqCase;
+
+  /// Requirement: digit
+  ///
+  /// In en, this message translates to:
+  /// **'At least one number'**
+  String get onboardingPasswordReqNumber;
+
+  /// Requirement: symbol
+  ///
+  /// In en, this message translates to:
+  /// **'At least one symbol'**
+  String get onboardingPasswordReqSymbol;
+
+  /// Strength label when the password is under 8 characters
+  ///
+  /// In en, this message translates to:
+  /// **'Too short'**
+  String get onboardingPasswordStrengthTooShort;
+
+  /// Strength label for a weak password
+  ///
+  /// In en, this message translates to:
+  /// **'Weak password'**
+  String get onboardingPasswordStrengthWeak;
+
+  /// Strength label for a fair password
+  ///
+  /// In en, this message translates to:
+  /// **'Fair password'**
+  String get onboardingPasswordStrengthFair;
+
+  /// Strength label for a strong password
+  ///
+  /// In en, this message translates to:
+  /// **'Strong password'**
+  String get onboardingPasswordStrengthStrong;
+
+  /// Strength label for a very strong password
+  ///
+  /// In en, this message translates to:
+  /// **'Very strong password'**
+  String get onboardingPasswordStrengthVeryStrong;
+
+  /// Inline confirmation when both password fields match
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords match'**
+  String get onboardingPasswordsMatch;
+
+  /// Inline error when the two password fields disagree
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match'**
+  String get onboardingPasswordsDoNotMatch;
+
+  /// Primary button on screen 1
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get onboardingContinue;
+
+  /// Headline on the recovery key backup screen
+  ///
+  /// In en, this message translates to:
+  /// **'Save Your Recovery Key'**
+  String get onboardingRecoveryTitle;
+
+  /// Supporting copy on the recovery key backup screen
+  ///
+  /// In en, this message translates to:
+  /// **'Write this down and store it safely offline. Without it, a forgotten master password means permanent data loss.'**
+  String get onboardingRecoverySubtitle;
+
+  /// Warning banner reminding the user to store the recovery key safely
+  ///
+  /// In en, this message translates to:
+  /// **'You cannot recover your vault without this key.'**
+  String get onboardingRecoveryWarning;
+
+  /// Button that copies the recovery mnemonic to the clipboard
+  ///
+  /// In en, this message translates to:
+  /// **'Copy to Clipboard'**
+  String get onboardingRecoveryCopy;
+
+  /// Snackbar confirmation after copying the recovery mnemonic
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery key copied to clipboard'**
+  String get onboardingRecoveryCopied;
+
+  /// Button that exports the recovery mnemonic as a .txt file via the platform share sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Export as File (.txt)'**
+  String get onboardingRecoveryExport;
+
+  /// Primary button on screen 2 to proceed to confirmation
+  ///
+  /// In en, this message translates to:
+  /// **'I\'ve Saved My Recovery Key'**
+  String get onboardingRecoverySaved;
+
+  /// Headline on the recovery key confirmation screen
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Recovery Key'**
+  String get onboardingConfirmTitle;
+
+  /// Supporting copy on the recovery key confirmation screen
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the following words from your recovery key to verify you saved it.'**
+  String get onboardingConfirmSubtitle;
+
+  /// Label for a single recovery-word input on the confirmation screen
+  ///
+  /// In en, this message translates to:
+  /// **'Word #{index}'**
+  String onboardingConfirmWordLabel(int index);
+
+  /// Placeholder text for a recovery-word input
+  ///
+  /// In en, this message translates to:
+  /// **'Enter word #{index}'**
+  String onboardingConfirmWordHint(int index);
+
+  /// Inline confirmation shown when a recovery word matches
+  ///
+  /// In en, this message translates to:
+  /// **'Correct'**
+  String get onboardingConfirmCorrect;
+
+  /// Inline error shown when a recovery word does not match
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect'**
+  String get onboardingConfirmIncorrect;
+
+  /// Primary button on screen 3 that runs the crypto pipeline
+  ///
+  /// In en, this message translates to:
+  /// **'Verify & Complete Setup'**
+  String get onboardingConfirmVerify;
+
+  /// Error shown when the backend returns 409 during setup
+  ///
+  /// In en, this message translates to:
+  /// **'This account has already been set up. Please sign in again.'**
+  String get onboardingAlreadyCompleted;
 }
 
 class _AppLocalizationsDelegate

@@ -32,6 +32,19 @@ dependencies:
   # Secure storage
   flutter_secure_storage: ^9.2.4
 
+  # Crypto — libsodium FFI (Argon2id, X25519, crypto_secretbox)
+  sodium_libs: ^3.4.1+2
+
+  # BIP-39 mnemonic for recovery key
+  bip39: ^1.0.6
+
+  # Clipboard / share / file export for recovery key
+  share_plus: ^10.1.2
+  path_provider: ^2.1.4
+
+  # Typography — Inter font (matches web prototype)
+  google_fonts: ^6.2.1
+
   # Google Sign-In
   google_sign_in: ^6.3.0
 
