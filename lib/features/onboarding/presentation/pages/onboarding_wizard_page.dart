@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../cubit/onboarding_cubit.dart';
 import 'master_password_page.dart';
@@ -112,7 +113,7 @@ class _OnboardingWizardView extends StatelessWidget {
         // Router redirect fires on the auth-check — show a spinner as a
         // brief placeholder while the transition happens.
         return const Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: AppColors.darkBackground,
           body: Center(child: CircularProgressIndicator()),
         );
     }

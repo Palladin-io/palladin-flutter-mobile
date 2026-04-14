@@ -61,9 +61,21 @@ class OnboardingCubit extends Cubit<OnboardingState> {
         masterPassword: state.masterPassword,
         recoveryMnemonic: state.mnemonic,
       );
+      // Guard against a race where the user tapped back while the
+      // setup request was in-flight — if we're no longer in the
+      // submitting step, leave the current state alone.
+      if (state.step != OnboardingStep.submitting) return;
       AppLogger.i('Onboarding', 'Setup completed successfully');
       emit(state.copyWith(step: OnboardingStep.completed));
+    } on OnboardingAlreadyCompletedException {
+      // The backend already has a setup for this account (409). The
+      // repository has already flipped the local onboarded flag —
+      // treat this as success and let the router forward the user on.
+      if (state.step != OnboardingStep.submitting) return;
+      AppLogger.i('Onboarding', 'Account already onboarded — treating as success');
+      emit(state.copyWith(step: OnboardingStep.completed));
     } catch (e, s) {
+      if (state.step != OnboardingStep.submitting) return;
       AppLogger.e('Onboarding', 'Setup failed', error: e, stackTrace: s);
       emit(state.copyWith(
         step: OnboardingStep.recoveryKeyConfirm,

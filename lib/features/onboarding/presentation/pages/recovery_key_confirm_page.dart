@@ -26,7 +26,9 @@ class RecoveryKeyConfirmPage extends StatefulWidget {
 class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
   late final List<int> _indices;
   late final List<TextEditingController> _controllers;
-  bool _confirmedFired = false;
+  // Tracked outside of BlocBuilder.builder so analytics can be fired as
+  // a side-effect from the BlocListener, keeping the builder pure.
+  bool _allCorrect = false;
 
   @override
   void initState() {
@@ -40,7 +42,30 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
   }
 
   void _onTextChanged() {
-    setState(() {});
+    final mnemonic = context.read<OnboardingCubit>().state.mnemonic;
+    final nowAllCorrect = _computeAllCorrect(mnemonic);
+    if (nowAllCorrect != _allCorrect) {
+      setState(() => _allCorrect = nowAllCorrect);
+      if (nowAllCorrect) {
+        // Side-effect fired from a user-input listener (not from a
+        // BlocBuilder.builder), which makes it safe to run here.
+        AnalyticsService.instance.capture('onboarding', 'recovery-key-confirmed');
+      }
+    } else {
+      // Still need to rebuild so the per-field result icons update.
+      setState(() {});
+    }
+  }
+
+  bool _computeAllCorrect(List<String> mnemonic) {
+    if (mnemonic.isEmpty) return false;
+    for (var i = 0; i < _indices.length; i++) {
+      final expected = mnemonic[_indices[i]].trim();
+      final actual = _controllers[i].text.trim();
+      if (actual.isEmpty) return false;
+      if (actual.toLowerCase() != expected.toLowerCase()) return false;
+    }
+    return true;
   }
 
   @override
@@ -88,18 +113,13 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
         final allCorrect =
             results.every((r) => r == _WordCheckResult.correct);
 
-        if (allCorrect && !_confirmedFired) {
-          _confirmedFired = true;
-          AnalyticsService.instance.capture('onboarding', 'recovery-key-confirmed');
-        } else if (!allCorrect) {
-          _confirmedFired = false;
-        }
-
         return OnboardingScaffold(
           currentStep: 2,
           title: l10n.onboardingConfirmTitle,
           subtitle: l10n.onboardingConfirmSubtitle,
-          onBack: () => context.read<OnboardingCubit>().goBack(),
+          onBack: isSubmitting
+              ? null
+              : () => context.read<OnboardingCubit>().goBack(),
           footer: PrimaryButton(
             label: l10n.onboardingConfirmVerify,
             isLoading: isSubmitting,

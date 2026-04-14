@@ -60,4 +60,22 @@ abstract final class AppColors {
 
   /// Warning banner background used on the recovery-key backup screen.
   static const Color warningBackground = Color(0x33FF4F4F);
+
+  // === Onboarding scaffold gradient ===
+  //
+  // These four stops describe the 160deg dark background gradient used
+  // by the onboarding screens. Kept here so the gradient reads the same
+  // as every other color in the app.
+  //
+  // Start of the gradient — matches [darkBackground].
+  static const Color onboardingGradientStart = Color(0xFF000B2E);
+
+  /// Second stop of the onboarding gradient — a lighter navy.
+  static const Color onboardingGradientMidTop = Color(0xFF0A1A3E);
+
+  /// Third stop of the onboarding gradient — a cooler mid-navy.
+  static const Color onboardingGradientMidBottom = Color(0xFF0E1230);
+
+  /// End of the gradient — matches [darkBackground].
+  static const Color onboardingGradientEnd = Color(0xFF000B2E);
 }

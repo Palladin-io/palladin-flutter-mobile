@@ -57,7 +57,12 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
       AppLogger.i('Onboarding', 'Account setup complete');
     } on DioException catch (e, s) {
       if (e.response?.statusCode == 409) {
+        // The backend says this account is already onboarded — mark the
+        // local flag so the router stops redirecting here, then surface
+        // the "already onboarded" signal to the UI (which treats it as
+        // success, not an error).
         AppLogger.w('Onboarding', 'Account already onboarded (409)');
+        await tokenStorage.setOnboarded(true);
         throw OnboardingAlreadyCompletedException();
       }
       AppLogger.e('Onboarding', 'Setup failed', error: e, stackTrace: s);

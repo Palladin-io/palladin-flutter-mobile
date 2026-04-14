@@ -1,9 +1,8 @@
-import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
@@ -99,14 +98,23 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
         ? box.localToGlobal(Offset.zero) & box.size
         : Rect.zero;
 
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/clawvault-recovery-key.txt');
     final content = words.asMap().entries
         .map((e) => '${e.key + 1}. ${e.value}')
         .join('\n');
-    await file.writeAsString(content);
+
+    // Hand the recovery key to share_plus as in-memory bytes via
+    // XFile.fromData so we never write a predictably-named file into
+    // the temp directory ourselves. share_plus may spill a temporary
+    // file into the app's cache sandbox under a UUID name — the OS
+    // manages cleanup of that cache.
+    //
+    // We use fileNameOverrides (rather than XFile.fromData.name, which
+    // is ignored on most platforms) so the recipient sees a friendly
+    // filename.
+    final bytes = Uint8List.fromList(utf8.encode(content));
     await Share.shareXFiles(
-      [XFile(file.path, mimeType: 'text/plain')],
+      [XFile.fromData(bytes, mimeType: 'text/plain')],
+      fileNameOverrides: const ['clawvault-recovery-key.txt'],
       subject: 'Claw Vault Recovery Key',
       sharePositionOrigin: origin,
     );

@@ -82,6 +82,29 @@ void main() {
     );
 
     blocTest<OnboardingCubit, OnboardingState>(
+      'completeSetup treats OnboardingAlreadyCompletedException as success',
+      build: () {
+        when(() => mockRepo.completeSetup(
+              masterPassword: any(named: 'masterPassword'),
+              recoveryMnemonic: any(named: 'recoveryMnemonic'),
+            )).thenThrow(OnboardingAlreadyCompletedException());
+        return OnboardingCubit(repository: mockRepo);
+      },
+      seed: () => OnboardingState(
+        step: OnboardingStep.recoveryKeyConfirm,
+        masterPassword: 'pw',
+        mnemonic: mnemonic,
+      ),
+      act: (cubit) => cubit.completeSetup(),
+      expect: () => [
+        predicate<OnboardingState>((s) => s.step == OnboardingStep.submitting),
+        predicate<OnboardingState>(
+          (s) => s.step == OnboardingStep.completed && s.error == null,
+        ),
+      ],
+    );
+
+    blocTest<OnboardingCubit, OnboardingState>(
       'completeSetup surfaces error and returns to confirm step on failure',
       build: () {
         when(() => mockRepo.completeSetup(

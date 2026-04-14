@@ -47,25 +47,31 @@ class OnboardingCryptoService {
         final keyPair = sodium.crypto.box.keyPair();
         try {
           final privateKeyBytes = keyPair.secretKey.extractBytes();
+          try {
+            final encryptedPrivateKey = _encryptWithKey(
+              sodium,
+              plaintext: privateKeyBytes,
+              key: masterKey,
+            );
+            final encryptedPrivateKeyByRecovery = _encryptWithKey(
+              sodium,
+              plaintext: privateKeyBytes,
+              key: recoveryKey,
+            );
 
-          final encryptedPrivateKey = _encryptWithKey(
-            sodium,
-            plaintext: privateKeyBytes,
-            key: masterKey,
-          );
-          final encryptedPrivateKeyByRecovery = _encryptWithKey(
-            sodium,
-            plaintext: privateKeyBytes,
-            key: recoveryKey,
-          );
-
-          return OnboardingSetupPayload(
-            salt: salt,
-            recoverySalt: recoverySalt,
-            publicKey: Uint8List.fromList(keyPair.publicKey),
-            encryptedPrivateKey: encryptedPrivateKey,
-            encryptedPrivateKeyByRecovery: encryptedPrivateKeyByRecovery,
-          );
+            return OnboardingSetupPayload(
+              salt: salt,
+              recoverySalt: recoverySalt,
+              publicKey: Uint8List.fromList(keyPair.publicKey),
+              encryptedPrivateKey: encryptedPrivateKey,
+              encryptedPrivateKeyByRecovery: encryptedPrivateKeyByRecovery,
+            );
+          } finally {
+            // Zeroize the plaintext private key bytes in memory — the
+            // encrypted copies in the payload are the only thing that
+            // should survive this method.
+            privateKeyBytes.fillRange(0, privateKeyBytes.length, 0);
+          }
         } finally {
           keyPair.dispose();
         }

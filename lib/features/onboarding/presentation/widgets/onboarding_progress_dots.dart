@@ -31,7 +31,8 @@ class OnboardingProgressDots extends StatelessWidget {
         } else if (isDone) {
           color = AppColors.doneDot;
         } else {
-          color = const Color.fromRGBO(253, 249, 228, 0.08);
+          // Upcoming step — warm-white (textPrimary) at 8% opacity.
+          color = AppColors.textPrimary.withValues(alpha: 0.08);
         }
 
         return Padding(
