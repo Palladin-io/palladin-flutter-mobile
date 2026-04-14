@@ -46,27 +46,35 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
       currentStep: 1,
       title: l10n.onboardingRecoveryTitle,
       subtitle: l10n.onboardingRecoverySubtitle,
-      footer: PrimaryButton(
-        label: l10n.onboardingRecoverySaved,
-        onPressed: () => context.read<OnboardingCubit>().acknowledgeRecoveryBackup(),
+      onBack: () => context.read<OnboardingCubit>().goBack(),
+      footer: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _SecondaryAction(
+            icon: Icons.content_copy,
+            label: l10n.onboardingRecoveryCopy,
+            onPressed: () => _copyToClipboard(mnemonic, l10n),
+          ),
+          const SizedBox(height: 8),
+          _SecondaryAction(
+            key: _exportButtonKey,
+            icon: Icons.file_download_outlined,
+            label: l10n.onboardingRecoveryExport,
+            onPressed: () => _exportToFile(mnemonic),
+          ),
+          const SizedBox(height: 8),
+          PrimaryButton(
+            label: l10n.onboardingRecoverySaved,
+            onPressed: () =>
+                context.read<OnboardingCubit>().acknowledgeRecoveryBackup(),
+          ),
+        ],
       ),
       children: [
         _WarningBanner(message: l10n.onboardingRecoveryWarning),
         const SizedBox(height: 16),
         _MnemonicGrid(words: mnemonic),
-        const SizedBox(height: 12),
-        _SecondaryAction(
-          icon: Icons.content_copy,
-          label: l10n.onboardingRecoveryCopy,
-          onPressed: () => _copyToClipboard(mnemonic, l10n),
-        ),
-        const SizedBox(height: 8),
-        _SecondaryAction(
-          key: _exportButtonKey,
-          icon: Icons.file_download_outlined,
-          label: l10n.onboardingRecoveryExport,
-          onPressed: () => _exportToFile(mnemonic),
-        ),
       ],
     );
   }
@@ -162,8 +170,11 @@ class _MnemonicGrid extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: AppColors.darkSurface,
+            color: AppColors.textPrimary.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AppColors.textPrimary.withValues(alpha: 0.06),
+            ),
           ),
           alignment: Alignment.centerLeft,
           child: Row(

@@ -34,6 +34,15 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
   void initState() {
     super.initState();
     AnalyticsService.instance.capture('onboarding', 'setup-page-viewed');
+
+    // Pre-fill when navigating back — set text before attaching listeners
+    // so the initial setState is not triggered unnecessarily.
+    final saved = context.read<OnboardingCubit>().state.masterPassword;
+    if (saved.isNotEmpty) {
+      _passwordController.text = saved;
+      _confirmController.text = saved;
+    }
+
     _passwordController.addListener(_onTextChanged);
     _confirmController.addListener(_onTextChanged);
   }
@@ -181,12 +190,11 @@ class _PasswordField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label.toUpperCase(),
+          label,
           style: const TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
             color: AppColors.textSecondary,
-            letterSpacing: 0.04 * 11,
           ),
         ),
         const SizedBox(height: 8),

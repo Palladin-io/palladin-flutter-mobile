@@ -57,7 +57,42 @@ class _OnboardingWizardView extends StatelessWidget {
                   cubit.goBack();
               }
             },
-            child: _pageForStep(state.step),
+            child: GestureDetector(
+              onHorizontalDragEnd: (details) {
+                final velocity = details.primaryVelocity;
+                if (velocity != null &&
+                    velocity > 200 &&
+                    (state.step == OnboardingStep.recoveryKeyBackup ||
+                        state.step == OnboardingStep.recoveryKeyConfirm)) {
+                  context.read<OnboardingCubit>().goBack();
+                }
+              },
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                transitionBuilder: (child, animation) {
+                  final offset = Tween<Offset>(
+                    begin: const Offset(0.04, 0),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                  );
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(position: offset, child: child),
+                  );
+                },
+                child: KeyedSubtree(
+                  // submitting → same screen as recoveryKeyConfirm; use one key
+                  // to avoid a spurious animation when submit fires.
+                  key: ValueKey(
+                    state.step == OnboardingStep.submitting
+                        ? OnboardingStep.recoveryKeyConfirm
+                        : state.step,
+                  ),
+                  child: _pageForStep(state.step),
+                ),
+              ),
+            ),
           );
         },
       ),
