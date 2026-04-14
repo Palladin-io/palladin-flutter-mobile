@@ -16,6 +16,7 @@ class OnboardingScaffold extends StatelessWidget {
     required this.subtitle,
     required this.children,
     this.footer,
+    this.onBack,
   });
 
   final int currentStep;
@@ -23,6 +24,8 @@ class OnboardingScaffold extends StatelessWidget {
   final String subtitle;
   final List<Widget> children;
   final Widget? footer;
+  /// When non-null, a back arrow is shown to the left of the progress dots.
+  final VoidCallback? onBack;
 
   // Gradient matching the dark prototype: 160deg, #000B2E → #0A1A3E → #0E1230 → #000B2E
   static const _gradient = LinearGradient(
@@ -49,7 +52,27 @@ class OnboardingScaffold extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                OnboardingProgressDots(currentStep: currentStep),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      child: onBack != null
+                          ? GestureDetector(
+                              onTap: onBack,
+                              child: const Icon(
+                                Icons.arrow_back_ios_new,
+                                color: AppColors.textSecondary,
+                                size: 18,
+                              ),
+                            )
+                          : null,
+                    ),
+                    Expanded(
+                      child: OnboardingProgressDots(currentStep: currentStep),
+                    ),
+                    const SizedBox(width: 28),
+                  ],
+                ),
                 const SizedBox(height: 24),
                 Text(
                   title,

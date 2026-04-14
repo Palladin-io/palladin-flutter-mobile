@@ -99,6 +99,7 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
           currentStep: 2,
           title: l10n.onboardingConfirmTitle,
           subtitle: l10n.onboardingConfirmSubtitle,
+          onBack: () => context.read<OnboardingCubit>().goBack(),
           footer: PrimaryButton(
             label: l10n.onboardingConfirmVerify,
             isLoading: isSubmitting,
