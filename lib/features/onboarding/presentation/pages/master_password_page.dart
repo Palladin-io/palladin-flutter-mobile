@@ -81,9 +81,9 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 PasswordStrengthBar(strength: strength),
-                const SizedBox(height: 6),
+                const SizedBox(height: 2),
                 Text(
                   _strengthLabel(l10n, strength),
                   style: TextStyle(
@@ -96,7 +96,7 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 4),
         _PasswordField(
           label: l10n.onboardingConfirmPasswordLabel,
           controller: _confirmController,
@@ -131,7 +131,7 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         _RequirementsCard(l10n: l10n, password: password),
       ],
     );
