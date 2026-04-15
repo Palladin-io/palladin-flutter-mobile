@@ -21,6 +21,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthCheckRequested>(_onCheck);
     on<VaultUnlocked>(_onVaultUnlocked);
     on<VaultLockRequested>(_onVaultLockRequested);
+    on<OnboardingCompleted>(_onOnboardingCompleted);
   }
 
   final AuthRepository authRepository;
@@ -133,5 +134,26 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     if (current is! AuthAuthenticated) return;
     AppLogger.i('AuthBloc', 'Vault lock requested');
     emit(current.copyWith(isVaultLocked: true, clearKeys: true));
+  }
+
+  /// Called when the onboarding wizard finishes setup. Marks the user
+  /// as onboarded with the vault immediately unlocked — no need to
+  /// re-enter the master password that was just set.
+  Future<void> _onOnboardingCompleted(
+    OnboardingCompleted event,
+    Emitter<AuthState> emit,
+  ) async {
+    final userId = await authRepository.getUserId();
+    if (userId == null) {
+      AppLogger.w('AuthBloc', 'OnboardingCompleted — no userId in storage');
+      emit(const AuthUnauthenticated());
+      return;
+    }
+    AppLogger.i('AuthBloc', 'Onboarding completed, vault unlocked for userId=$userId');
+    emit(AuthAuthenticated(
+      userId: userId,
+      isOnboarded: true,
+      isVaultLocked: false,
+    ));
   }
 }

@@ -45,3 +45,10 @@ final class VaultUnlocked extends AuthEvent {
 final class VaultLockRequested extends AuthEvent {
   const VaultLockRequested();
 }
+
+/// Fired by the onboarding wizard after setup completes. Updates auth
+/// state with `isOnboarded: true` and `isVaultLocked: false` — the user
+/// just set their master password so there is no need to unlock again.
+final class OnboardingCompleted extends AuthEvent {
+  const OnboardingCompleted();
+}

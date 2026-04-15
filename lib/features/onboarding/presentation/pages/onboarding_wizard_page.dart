@@ -36,9 +36,9 @@ class _OnboardingWizardView extends StatelessWidget {
       listenWhen: (p, c) =>
           p.step != c.step && c.step == OnboardingStep.completed,
       listener: (context, state) {
-        // Re-check auth state so the router observes `isOnboarded=true`
-        // via the next AuthAuthenticated emission and navigates to `/`.
-        context.read<AuthBloc>().add(const AuthCheckRequested());
+        // Signal setup completion — vault stays unlocked so the user
+        // doesn't have to re-enter the password they just set.
+        context.read<AuthBloc>().add(const OnboardingCompleted());
       },
       child: BlocBuilder<OnboardingCubit, OnboardingState>(
         buildWhen: (p, c) => p.step != c.step || p.mnemonic != c.mnemonic,
