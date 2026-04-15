@@ -95,7 +95,7 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
                 opacity: password.isNotEmpty ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 180),
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.only(top: 6),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
