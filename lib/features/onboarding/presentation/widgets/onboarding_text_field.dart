@@ -9,10 +9,11 @@ import '../../../../core/theme/app_colors.dart';
 /// when false, it slides back up and fades out — all within the fixed
 /// reserved space.
 ///
-/// The top padding inside the slot (gap from input edge to content) is
-/// always [_kTopPadding] — defined once here so every form in the app
-/// has identical spacing.
-class FieldFeedbackSlot extends StatelessWidget {
+/// Uses an explicit [AnimationController] so both enter and exit are
+/// guaranteed to animate regardless of widget-tree position or rebuild
+/// order. [didUpdateWidget] calls [forward] or [reverse] whenever
+/// [visible] changes.
+class FieldFeedbackSlot extends StatefulWidget {
   const FieldFeedbackSlot({
     super.key,
     required this.visible,
@@ -23,10 +24,7 @@ class FieldFeedbackSlot extends StatelessWidget {
   final bool visible;
   final Widget child;
 
-  /// Total reserved height of the slot. Defaults to 28 px, which fits a
-  /// single line of 12 px text with [_kTopPadding] above it. Pass a
-  /// larger value (e.g. 36) when the content is taller (strength bar +
-  /// label).
+  /// Total reserved height of the slot.
   final double height;
 
   /// Gap between the bottom of the input and the top of the feedback
@@ -34,20 +32,54 @@ class FieldFeedbackSlot extends StatelessWidget {
   static const double _kTopPadding = 4;
 
   @override
+  State<FieldFeedbackSlot> createState() => _FieldFeedbackSlotState();
+}
+
+class _FieldFeedbackSlotState extends State<FieldFeedbackSlot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 220),
+      vsync: this,
+      value: widget.visible ? 1.0 : 0.0,
+    );
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+  }
+
+  @override
+  void didUpdateWidget(FieldFeedbackSlot old) {
+    super.didUpdateWidget(old);
+    if (widget.visible != old.visible) {
+      widget.visible ? _controller.forward() : _controller.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: height,
+      height: widget.height,
       child: ClipRect(
-        child: AnimatedSlide(
-          offset: visible ? Offset.zero : const Offset(0, -1),
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
-          child: AnimatedOpacity(
-            opacity: visible ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 220),
+        child: SlideTransition(
+          position: _slide,
+          child: FadeTransition(
+            opacity: _controller,
             child: Padding(
-              padding: const EdgeInsets.only(top: _kTopPadding),
-              child: child,
+              padding: const EdgeInsets.only(top: FieldFeedbackSlot._kTopPadding),
+              child: widget.child,
             ),
           ),
         ),
