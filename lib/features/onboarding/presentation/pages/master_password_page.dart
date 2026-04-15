@@ -93,14 +93,17 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
             ),
           ),
         ),
-        if (password.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, bottom: 4),
-            child: SizedBox(
-              height: 4,
+        SizedBox(
+          height: 12,
+          child: AnimatedOpacity(
+            opacity: password.isNotEmpty ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 180),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: PasswordStrengthBar(strength: strength),
             ),
           ),
+        ),
         OnboardingTextField(
           label: l10n.onboardingConfirmPasswordLabel,
           controller: _confirmController,
