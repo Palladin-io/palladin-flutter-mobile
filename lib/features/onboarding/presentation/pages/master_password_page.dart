@@ -86,13 +86,15 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
         ),
         FieldFeedbackSlot(
           visible: password.isNotEmpty,
-          height: 36,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              PasswordStrengthBar(strength: strength),
-              const SizedBox(height: 2),
+              SizedBox(
+                width: 80,
+                height: 4,
+                child: PasswordStrengthBar(strength: strength),
+              ),
+              const SizedBox(width: 8),
               Text(
                 _strengthLabel(l10n, strength),
                 style: TextStyle(
