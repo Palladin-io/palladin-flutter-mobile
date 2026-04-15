@@ -77,11 +77,12 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
         onPressed: canSubmit ? () => _submit(password) : null,
       ),
       children: [
-        _PasswordField(
+        OnboardingTextField(
           label: l10n.onboardingMasterPasswordLabel,
           controller: _passwordController,
-          visible: _passwordVisible,
-          onToggleVisibility: () => setState(() => _passwordVisible = !_passwordVisible),
+          obscureText: !_passwordVisible,
+          suffixIcon: _visibilityButton(_passwordVisible, () =>
+              setState(() => _passwordVisible = !_passwordVisible)),
         ),
         Opacity(
           opacity: password.isNotEmpty ? 1.0 : 0.0,
@@ -106,39 +107,15 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
           ),
         ),
         const SizedBox(height: 4),
-        _PasswordField(
+        OnboardingTextField(
           label: l10n.onboardingConfirmPasswordLabel,
           controller: _confirmController,
-          visible: _confirmVisible,
-          onToggleVisibility: () => setState(() => _confirmVisible = !_confirmVisible),
-        ),
-        Opacity(
-          opacity: confirm.isNotEmpty ? 1.0 : 0.0,
-          child: IgnorePointer(
-            ignoring: confirm.isEmpty,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Row(
-                children: [
-                  Icon(
-                    passwordsMatch ? Icons.check_circle_outline : Icons.error_outline,
-                    size: 14,
-                    color: passwordsMatch ? AppColors.positiveAccent : AppColors.brandRed,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    passwordsMatch
-                        ? l10n.onboardingPasswordsMatch
-                        : l10n.onboardingPasswordsDoNotMatch,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: passwordsMatch ? AppColors.positiveAccent : AppColors.brandRed,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          obscureText: !_confirmVisible,
+          errorMessage: confirm.isNotEmpty && !passwordsMatch
+              ? l10n.onboardingPasswordsDoNotMatch
+              : '',
+          suffixIcon: _visibilityButton(_confirmVisible, () =>
+              setState(() => _confirmVisible = !_confirmVisible)),
         ),
         const SizedBox(height: 8),
         _RequirementsCard(l10n: l10n, password: password),
@@ -148,6 +125,17 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
 
   Future<void> _submit(String password) async {
     await context.read<OnboardingCubit>().submitMasterPassword(password);
+  }
+
+  Widget _visibilityButton(bool visible, VoidCallback onToggle) {
+    return IconButton(
+      icon: Icon(
+        visible ? Icons.visibility_off : Icons.visibility,
+        size: 20,
+        color: Colors.white.withValues(alpha: 0.6),
+      ),
+      onPressed: onToggle,
+    );
   }
 
   String _strengthLabel(AppLocalizations l10n, PasswordStrength strength) {
@@ -171,36 +159,6 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
   }
 }
 
-class _PasswordField extends StatelessWidget {
-  const _PasswordField({
-    required this.label,
-    required this.controller,
-    required this.visible,
-    required this.onToggleVisibility,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final bool visible;
-  final VoidCallback onToggleVisibility;
-
-  @override
-  Widget build(BuildContext context) {
-    return OnboardingTextField(
-      label: label,
-      controller: controller,
-      obscureText: !visible,
-      suffixIcon: IconButton(
-        icon: Icon(
-          visible ? Icons.visibility_off : Icons.visibility,
-          size: 20,
-          color: Colors.white.withValues(alpha: 0.6),
-        ),
-        onPressed: onToggleVisibility,
-      ),
-    );
-  }
-}
 
 class _RequirementsCard extends StatelessWidget {
   const _RequirementsCard({required this.l10n, required this.password});
