@@ -167,21 +167,27 @@ class _UnlockViewState extends State<_UnlockView> {
               ),
               onSubmitted: canSubmit ? (_) => _submit() : null,
             ),
-            ClipRect(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-                height: hasError ? 32.0 : 0.0,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8),
+            // Fixed-height slot — height never changes so Spacers and
+            // the button stay put. Text slides down and fades in/out
+            // within the reserved space.
+            SizedBox(
+              height: 28,
+              child: ClipRect(
+                child: AnimatedSlide(
+                  offset: hasError ? Offset.zero : const Offset(0, -1),
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
                   child: AnimatedOpacity(
                     opacity: hasError ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 180),
-                    child: Text(
-                      hasError ? _resolveErrorMessage(context, state.error) : '',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.brandRed,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        hasError ? _resolveErrorMessage(context, state.error) : '',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.brandRed,
+                        ),
                       ),
                     ),
                   ),
