@@ -86,24 +86,27 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
         ),
         FieldFeedbackSlot(
           visible: password.isNotEmpty,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 80,
-                height: 4,
-                child: PasswordStrengthBar(strength: strength),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _strengthLabel(l10n, strength),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _strengthTextColor(strength),
-                  fontWeight: FontWeight.w500,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 80,
+                  height: 4,
+                  child: PasswordStrengthBar(strength: strength),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  _strengthLabel(l10n, strength),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _strengthTextColor(strength),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         OnboardingTextField(
