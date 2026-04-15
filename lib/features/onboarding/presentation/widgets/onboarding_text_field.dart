@@ -44,7 +44,7 @@ class FieldFeedbackSlot extends StatelessWidget {
           curve: Curves.easeOut,
           child: AnimatedOpacity(
             opacity: visible ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 180),
+            duration: const Duration(milliseconds: 220),
             child: Padding(
               padding: const EdgeInsets.only(top: _kTopPadding),
               child: child,
