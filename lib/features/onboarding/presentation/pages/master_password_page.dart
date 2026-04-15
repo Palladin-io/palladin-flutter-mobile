@@ -84,37 +84,24 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
           suffixIcon: _visibilityButton(_passwordVisible, () =>
               setState(() => _passwordVisible = !_passwordVisible)),
         ),
-        SizedBox(
-          height: 32,
-          child: ClipRect(
-            child: AnimatedSlide(
-              offset: password.isNotEmpty ? Offset.zero : const Offset(0, -1),
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOut,
-              child: AnimatedOpacity(
-                opacity: password.isNotEmpty ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 180),
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      PasswordStrengthBar(strength: strength),
-                      const SizedBox(height: 2),
-                      Text(
-                        _strengthLabel(l10n, strength),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _strengthTextColor(strength),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
+        FieldFeedbackSlot(
+          visible: password.isNotEmpty,
+          height: 36,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PasswordStrengthBar(strength: strength),
+              const SizedBox(height: 2),
+              Text(
+                _strengthLabel(l10n, strength),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _strengthTextColor(strength),
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ),
+            ],
           ),
         ),
         OnboardingTextField(

@@ -2,23 +2,74 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
+/// Reusable animated feedback slot used below every input field.
+///
+/// Reserves [height] px at all times so the parent layout never shifts.
+/// When [visible] is true, [child] slides down from above and fades in;
+/// when false, it slides back up and fades out — all within the fixed
+/// reserved space.
+///
+/// The top padding inside the slot (gap from input edge to content) is
+/// always [_kTopPadding] — defined once here so every form in the app
+/// has identical spacing.
+class FieldFeedbackSlot extends StatelessWidget {
+  const FieldFeedbackSlot({
+    super.key,
+    required this.visible,
+    required this.child,
+    this.height = 28,
+  });
+
+  final bool visible;
+  final Widget child;
+
+  /// Total reserved height of the slot. Defaults to 28 px, which fits a
+  /// single line of 12 px text with [_kTopPadding] above it. Pass a
+  /// larger value (e.g. 36) when the content is taller (strength bar +
+  /// label).
+  final double height;
+
+  /// Gap between the bottom of the input and the top of the feedback
+  /// content. Defined once here — change it and every field updates.
+  static const double _kTopPadding = 4;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      child: ClipRect(
+        child: AnimatedSlide(
+          offset: visible ? Offset.zero : const Offset(0, -1),
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          child: AnimatedOpacity(
+            opacity: visible ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 180),
+            child: Padding(
+              padding: const EdgeInsets.only(top: _kTopPadding),
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Shared styled TextField for onboarding and authentication screens.
 ///
 /// Encapsulates the dark-surface fill, rounded border, and consistent
 /// text style. Optionally renders a label above the field and a
-/// fixed-height animated error slot below it — so layout never shifts
-/// when an error appears or disappears.
+/// fixed-height animated error slot below it via [FieldFeedbackSlot].
 ///
 /// ## Error slot
-/// Pass [errorMessage] (even as an empty string) to reserve the 28 px
-/// slot below the input. When the string is non-empty the message
-/// slides down and fades in; when it is empty the slot stays invisible
-/// but keeps its height so nothing in the parent Column moves.
-/// Omit [errorMessage] entirely (null) to skip the slot — use this when
-/// you handle feedback differently (e.g. a strength-bar below the field).
+/// Pass [errorMessage] (even as an empty string) to reserve the slot.
+/// Non-empty string → error slides in; empty string → slot stays
+/// invisible but height is reserved. Omit entirely (null) when you
+/// handle feedback yourself (e.g. strength bar with a custom slot).
 ///
 /// ## Border behaviour
-/// - [borderColor]      — enabled-state border; null = no border (default)
+/// - [borderColor]      — enabled-state border; null = no border
 /// - [focusBorderColor] — focused-state border; null = [AppColors.tealAccent]
 class OnboardingTextField extends StatelessWidget {
   const OnboardingTextField({
@@ -39,29 +90,20 @@ class OnboardingTextField extends StatelessWidget {
   });
 
   final TextEditingController controller;
-
-  /// Optional label rendered above the input.
   final String? label;
-
   final String? hintText;
   final bool obscureText;
   final Widget? suffixIcon;
   final bool autocorrect;
   final bool enableSuggestions;
   final TextCapitalization textCapitalization;
-
-  /// Keyboard action button (e.g. [TextInputAction.done]).
   final TextInputAction? textInputAction;
-
-  /// Called when the user submits via the keyboard action button.
   final ValueChanged<String>? onSubmitted;
-
   final Color? borderColor;
   final Color? focusBorderColor;
 
-  /// When non-null, a fixed-height (28 px) animated error slot is
-  /// rendered below the input. An empty string reserves the space
-  /// silently; a non-empty string shows the animated error message.
+  /// When non-null, a [FieldFeedbackSlot] is rendered below the input.
+  /// Empty string reserves the space silently; non-empty shows the error.
   final String? errorMessage;
 
   @override
@@ -127,31 +169,14 @@ class OnboardingTextField extends StatelessWidget {
           const SizedBox(height: 8),
         ],
         field,
-        // Fixed-height error slot — height never changes so parent
-        // Column layout (Spacers, buttons) stay put. The message
-        // slides down and fades in/out within the reserved space.
         if (errorMessage != null)
-          SizedBox(
-            height: 28,
-            child: ClipRect(
-              child: AnimatedSlide(
-                offset: hasError ? Offset.zero : const Offset(0, -1),
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-                child: AnimatedOpacity(
-                  opacity: hasError ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 180),
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      errorMessage!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.brandRed,
-                      ),
-                    ),
-                  ),
-                ),
+          FieldFeedbackSlot(
+            visible: hasError,
+            child: Text(
+              errorMessage!,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.brandRed,
               ),
             ),
           ),

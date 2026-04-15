@@ -199,46 +199,32 @@ class _ConfirmationInput extends StatelessWidget {
           borderColor: borderColor,
           focusBorderColor: focusBorderColor,
         ),
-        SizedBox(
-          height: 28,
-          child: ClipRect(
-            child: AnimatedSlide(
-              offset: isVisible ? Offset.zero : const Offset(0, -1),
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOut,
-              child: AnimatedOpacity(
-                opacity: isVisible ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 180),
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isCorrect
-                            ? Icons.check_circle_outline
-                            : Icons.error_outline,
-                        size: 14,
-                        color: isCorrect
-                            ? AppColors.positiveAccent
-                            : AppColors.brandRed,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        isCorrect
-                            ? l10n.onboardingConfirmCorrect
-                            : l10n.onboardingConfirmIncorrect,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isCorrect
-                              ? AppColors.positiveAccent
-                              : AppColors.brandRed,
-                        ),
-                      ),
-                    ],
-                  ),
+        FieldFeedbackSlot(
+          visible: isVisible,
+          child: Row(
+            children: [
+              Icon(
+                isCorrect
+                    ? Icons.check_circle_outline
+                    : Icons.error_outline,
+                size: 14,
+                color: isCorrect
+                    ? AppColors.positiveAccent
+                    : AppColors.brandRed,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                isCorrect
+                    ? l10n.onboardingConfirmCorrect
+                    : l10n.onboardingConfirmIncorrect,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isCorrect
+                      ? AppColors.positiveAccent
+                      : AppColors.brandRed,
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ],
