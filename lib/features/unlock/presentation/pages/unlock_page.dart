@@ -167,23 +167,22 @@ class _UnlockViewState extends State<_UnlockView> {
               ),
               onSubmitted: canSubmit ? (_) => _submit() : null,
             ),
-            // Fixed-height row — always occupies the same space so the
-            // button never jumps when an error appears or disappears.
+            const SizedBox(height: 8),
+            // Fixed-height slot — always reserved so the button never
+            // jumps when an error appears or disappears.
             SizedBox(
-              height: 24,
+              height: 16,
               child: hasError
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        _resolveErrorMessage(context, state.error),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.brandRed,
-                        ),
+                  ? Text(
+                      _resolveErrorMessage(context, state.error),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.brandRed,
                       ),
                     )
                   : null,
             ),
+            const SizedBox(height: 16),
             PrimaryButton(
               label: l10n.unlockButton,
               isLoading: isLoading,
