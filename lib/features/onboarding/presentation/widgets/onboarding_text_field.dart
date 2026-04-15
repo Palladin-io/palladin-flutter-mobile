@@ -87,6 +87,8 @@ class OnboardingTextField extends StatelessWidget {
     this.borderColor,
     this.focusBorderColor,
     this.errorMessage,
+    this.feedbackChild,
+    this.feedbackVisible = false,
   });
 
   final TextEditingController controller;
@@ -105,6 +107,12 @@ class OnboardingTextField extends StatelessWidget {
   /// When non-null, a [FieldFeedbackSlot] is rendered below the input.
   /// Empty string reserves the space silently; non-empty shows the error.
   final String? errorMessage;
+
+  /// Custom feedback widget rendered in a [FieldFeedbackSlot] below the input.
+  /// Use [feedbackVisible] to control visibility. Takes precedence over
+  /// [errorMessage] when both are set — use one or the other, not both.
+  final Widget? feedbackChild;
+  final bool feedbackVisible;
 
   @override
   Widget build(BuildContext context) {
@@ -169,7 +177,12 @@ class OnboardingTextField extends StatelessWidget {
           const SizedBox(height: 8),
         ],
         field,
-        if (errorMessage != null)
+        if (feedbackChild != null)
+          FieldFeedbackSlot(
+            visible: feedbackVisible,
+            child: feedbackChild!,
+          )
+        else if (errorMessage != null)
           FieldFeedbackSlot(
             visible: hasError,
             child: Text(

@@ -83,10 +83,8 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
           obscureText: !_passwordVisible,
           suffixIcon: _visibilityButton(_passwordVisible, () =>
               setState(() => _passwordVisible = !_passwordVisible)),
-        ),
-        FieldFeedbackSlot(
-          visible: password.isNotEmpty,
-          child: Row(
+          feedbackVisible: password.isNotEmpty,
+          feedbackChild: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
