@@ -84,26 +84,23 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
           suffixIcon: _visibilityButton(_passwordVisible, () =>
               setState(() => _passwordVisible = !_passwordVisible)),
           feedbackVisible: password.isNotEmpty,
-          feedbackChild: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 80,
-                height: 4,
-                child: PasswordStrengthBar(strength: strength),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _strengthLabel(l10n, strength),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _strengthTextColor(strength),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+          feedbackChild: Text(
+            _strengthLabel(l10n, strength),
+            style: TextStyle(
+              fontSize: 12,
+              color: _strengthTextColor(strength),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
+        if (password.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 4),
+            child: SizedBox(
+              height: 4,
+              child: PasswordStrengthBar(strength: strength),
+            ),
+          ),
         OnboardingTextField(
           label: l10n.onboardingConfirmPasswordLabel,
           controller: _confirmController,
