@@ -6,6 +6,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../domain/unlock_exceptions.dart';
 import '../cubit/unlock_cubit.dart';
@@ -151,47 +152,28 @@ class _UnlockViewState extends State<_UnlockView> {
       builder: (context, state) {
         final isLoading = state is UnlockLoading;
         final hasError = state is UnlockFailed;
-        final canSubmit =
-            !isLoading && _passwordController.text.isNotEmpty;
+        final canSubmit = !isLoading && _passwordController.text.isNotEmpty;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _PasswordField(
+            OnboardingTextField(
               label: l10n.unlockPasswordLabel,
               controller: _passwordController,
-              visible: _passwordVisible,
-              hasError: hasError,
-              onToggleVisibility: () => setState(
-                () => _passwordVisible = !_passwordVisible,
-              ),
+              obscureText: !_passwordVisible,
+              textInputAction: TextInputAction.done,
               onSubmitted: canSubmit ? (_) => _submit() : null,
-            ),
-            // Fixed-height slot — height never changes so Spacers and
-            // the button stay put. Text slides down and fades in/out
-            // within the reserved space.
-            SizedBox(
-              height: 28,
-              child: ClipRect(
-                child: AnimatedSlide(
-                  offset: hasError ? Offset.zero : const Offset(0, -1),
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOut,
-                  child: AnimatedOpacity(
-                    opacity: hasError ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 180),
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        hasError ? _resolveErrorMessage(context, state.error) : '',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.brandRed,
-                        ),
-                      ),
-                    ),
-                  ),
+              errorMessage: hasError
+                  ? _resolveErrorMessage(context, state.error)
+                  : '',
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _passwordVisible ? Icons.visibility_off : Icons.visibility,
+                  size: 20,
+                  color: Colors.white.withValues(alpha: 0.6),
                 ),
+                onPressed: () =>
+                    setState(() => _passwordVisible = !_passwordVisible),
               ),
             ),
             const SizedBox(height: 16),
@@ -312,83 +294,5 @@ class _UnlockViewState extends State<_UnlockView> {
       };
     }
     return l10n.errorConnectionFailed;
-  }
-}
-
-class _PasswordField extends StatelessWidget {
-  const _PasswordField({
-    required this.label,
-    required this.controller,
-    required this.visible,
-    required this.hasError,
-    required this.onToggleVisibility,
-    required this.onSubmitted,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final bool visible;
-  final bool hasError;
-  final VoidCallback onToggleVisibility;
-  final ValueChanged<String>? onSubmitted;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textSecondary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          obscureText: !visible,
-          autocorrect: false,
-          enableSuggestions: false,
-          textInputAction: TextInputAction.done,
-          onSubmitted: onSubmitted,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppColors.darkSurface,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: hasError
-                  ? const BorderSide(color: AppColors.brandRed, width: 1)
-                  : BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(
-                color: hasError ? AppColors.brandRed : AppColors.tealAccent,
-                width: 1.5,
-              ),
-            ),
-            suffixIcon: IconButton(
-              icon: Icon(
-                visible ? Icons.visibility_off : Icons.visibility,
-                size: 20,
-                color: Colors.white.withValues(alpha: 0.6),
-              ),
-              onPressed: onToggleVisibility,
-            ),
-          ),
-        ),
-      ],
-    );
   }
 }

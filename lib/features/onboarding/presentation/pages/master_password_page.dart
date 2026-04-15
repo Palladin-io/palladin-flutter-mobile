@@ -186,31 +186,18 @@ class _PasswordField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textSecondary,
-          ),
+    return OnboardingTextField(
+      label: label,
+      controller: controller,
+      obscureText: !visible,
+      suffixIcon: IconButton(
+        icon: Icon(
+          visible ? Icons.visibility_off : Icons.visibility,
+          size: 20,
+          color: Colors.white.withValues(alpha: 0.6),
         ),
-        const SizedBox(height: 8),
-        OnboardingTextField(
-          controller: controller,
-          obscureText: !visible,
-          suffixIcon: IconButton(
-            icon: Icon(
-              visible ? Icons.visibility_off : Icons.visibility,
-              size: 20,
-              color: Colors.white.withValues(alpha: 0.6),
-            ),
-            onPressed: onToggleVisibility,
-          ),
-        ),
-      ],
+        onPressed: onToggleVisibility,
+      ),
     );
   }
 }
