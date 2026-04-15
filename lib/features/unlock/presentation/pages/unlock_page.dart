@@ -82,11 +82,11 @@ class _UnlockViewState extends State<_UnlockView> {
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Column(
               children: [
-                const Spacer(flex: 1),
-                _buildHero(context),
-                const Spacer(flex: 2),
-                _buildForm(context),
                 const Spacer(flex: 3),
+                _buildHero(context),
+                const Spacer(flex: 1),
+                _buildForm(context),
+                const Spacer(flex: 2),
                 _buildForgotPassword(context),
                 const SizedBox(height: 24),
               ],
