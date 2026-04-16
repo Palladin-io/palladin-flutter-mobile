@@ -77,20 +77,25 @@ class _UnlockViewState extends State<_UnlockView> {
     return BlocListener<UnlockCubit, UnlockState>(
       listener: _handleStateChange,
       child: Scaffold(
-        backgroundColor: AppColors.darkBackground,
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              children: [
-                const Spacer(flex: 3),
-                _buildHero(context),
-                const Spacer(flex: 1),
-                _buildForm(context),
-                const Spacer(flex: 2),
-                _buildForgotPassword(context),
-                const SizedBox(height: 24),
-              ],
+        backgroundColor: Colors.transparent,
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: AppColors.darkBackgroundGradient,
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                children: [
+                  const Spacer(flex: 3),
+                  _buildHero(context),
+                  const Spacer(flex: 1),
+                  _buildForm(context),
+                  const Spacer(flex: 2),
+                  _buildForgotPassword(context),
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
           ),
         ),

@@ -18,26 +18,30 @@ class LoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? AppColors.darkBackground : AppColors.lightBackground;
     final textColor = isDark ? Colors.white : AppColors.darkBackground;
 
     return BlocListener<AuthBloc, AuthState>(
       listener: _handleStateChange,
       child: Scaffold(
-        backgroundColor: bgColor,
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              children: [
-                const Spacer(flex: 3),
-                _buildHero(context, textColor),
-                const Spacer(flex: 2),
-                _buildOAuthButtons(context),
-                const Spacer(flex: 1),
-                _buildFooter(context, textColor),
-                const SizedBox(height: 24),
-              ],
+        backgroundColor: Colors.transparent,
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: AppColors.darkBackgroundGradient,
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                children: [
+                  const Spacer(flex: 3),
+                  _buildHero(context, textColor),
+                  const Spacer(flex: 2),
+                  _buildOAuthButtons(context),
+                  const Spacer(flex: 1),
+                  _buildFooter(context, textColor),
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
           ),
         ),
