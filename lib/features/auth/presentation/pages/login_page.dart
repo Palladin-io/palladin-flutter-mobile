@@ -17,9 +17,6 @@ class LoginPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : AppColors.darkBackground;
-
     return BlocListener<AuthBloc, AuthState>(
       listener: _handleStateChange,
       child: Scaffold(
@@ -34,11 +31,11 @@ class LoginPage extends StatelessWidget {
               child: Column(
                 children: [
                   const Spacer(flex: 3),
-                  _buildHero(context, textColor),
+                  _buildHero(context),
                   const Spacer(flex: 2),
                   _buildOAuthButtons(context),
                   const Spacer(flex: 1),
-                  _buildFooter(context, textColor),
+                  _buildFooter(context),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -49,12 +46,12 @@ class LoginPage extends StatelessWidget {
     );
   }
 
-  Widget _buildHero(BuildContext context, Color textColor) {
+  Widget _buildHero(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final subtitleStyle = TextStyle(
+    const subtitleStyle = TextStyle(
       fontSize: 18,
       fontWeight: FontWeight.w500,
-      color: textColor.withValues(alpha: 0.55),
+      color: AppColors.textSecondary,
       height: 1.35,
     );
 
@@ -65,19 +62,19 @@ class LoginPage extends StatelessWidget {
         const SizedBox(height: 20),
         RichText(
           textAlign: TextAlign.center,
-          text: TextSpan(
+          text: const TextSpan(
             children: [
               TextSpan(
                 text: 'Claw ',
                 style: TextStyle(
                   fontSize: 52,
                   fontWeight: FontWeight.w900,
-                  color: textColor,
+                  color: AppColors.textPrimary,
                   height: 1.0,
                   letterSpacing: -1.5,
                 ),
               ),
-              const TextSpan(
+              TextSpan(
                 text: 'Vault',
                 style: TextStyle(
                   fontSize: 52,
@@ -118,7 +115,7 @@ class LoginPage extends StatelessWidget {
             OAuthButton(
               label: l10n.continueWithGoogle,
               icon: _googleIcon(),
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.textPrimary,
               foregroundColor: Colors.black87,
               onPressed: () {
                 // TODO: track mb:auth:oauth-clicked {provider: google}
@@ -128,9 +125,9 @@ class LoginPage extends StatelessWidget {
             const SizedBox(height: 12),
             OAuthButton(
               label: l10n.continueWithApple,
-              icon: const Icon(Icons.apple, color: Colors.white, size: 24),
+              icon: const Icon(Icons.apple, color: AppColors.textPrimary, size: 24),
               backgroundColor: AppColors.disabledButtonBackground,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.textPrimary,
               enabled: false,
               onDisabledTap: () => _showComingSoon(context, 'Apple'),
             ),
@@ -139,7 +136,7 @@ class LoginPage extends StatelessWidget {
               label: l10n.continueWithX,
               icon: _xIcon(),
               backgroundColor: AppColors.disabledButtonBackground,
-              foregroundColor: Colors.white,
+              foregroundColor: AppColors.textPrimary,
               enabled: false,
               onDisabledTap: () => _showComingSoon(context, 'X'),
             ),
@@ -149,16 +146,16 @@ class LoginPage extends StatelessWidget {
     );
   }
 
-  Widget _buildFooter(BuildContext context, Color textColor) {
+  Widget _buildFooter(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Text(
         l10n.legalFooter,
         textAlign: TextAlign.center,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 12,
-          color: textColor.withValues(alpha: 0.4),
+          color: AppColors.textTertiary,
         ),
       ),
     );
@@ -225,7 +222,7 @@ class LoginPage extends StatelessWidget {
         style: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w700,
-          color: Colors.white,
+          color: AppColors.textPrimary,
         ),
       ),
     );

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -212,9 +211,4 @@ class UnlockCubit extends Cubit<UnlockState> {
     }
   }
 
-  /// True on platforms where `local_auth` ships native support. Kept
-  /// as a static guard so callers can skip biometric UI entirely on
-  /// desktop test runs.
-  static bool get isPlatformSupported =>
-      Platform.isIOS || Platform.isAndroid;
 }
