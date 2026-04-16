@@ -90,19 +90,16 @@ class _FieldFeedbackSlotState extends State<FieldFeedbackSlot>
 
 /// Shared styled TextField for onboarding and authentication screens.
 ///
-/// Encapsulates the dark-surface fill, rounded border, and consistent
-/// text style. Optionally renders a label above the field and a
-/// fixed-height animated error slot below it via [FieldFeedbackSlot].
-///
-/// ## Error slot
-/// Pass [errorMessage] (even as an empty string) to reserve the slot.
-/// Non-empty string → error slides in; empty string → slot stays
-/// invisible but height is reserved. Omit entirely (null) when you
-/// handle feedback yourself (e.g. strength bar with a custom slot).
+/// Pass [feedbackChild] + [feedbackVisible] to show an animated feedback
+/// row below the input (strength label, error message, etc.). The slot
+/// always reserves [FieldFeedbackSlot]'s height so the layout never shifts.
 ///
 /// ## Border behaviour
 /// - [borderColor]      — enabled-state border; null = no border
 /// - [focusBorderColor] — focused-state border; null = [AppColors.tealAccent]
+///
+/// For error state pass [AppColors.brandRed] to both border params and
+/// set [feedbackVisible] to true with a red-styled [feedbackChild].
 class OnboardingTextField extends StatelessWidget {
   const OnboardingTextField({
     super.key,
@@ -118,7 +115,6 @@ class OnboardingTextField extends StatelessWidget {
     this.onSubmitted,
     this.borderColor,
     this.focusBorderColor,
-    this.errorMessage,
     this.feedbackChild,
     this.feedbackVisible = false,
   });
@@ -136,20 +132,16 @@ class OnboardingTextField extends StatelessWidget {
   final Color? borderColor;
   final Color? focusBorderColor;
 
-  /// When non-null, a [FieldFeedbackSlot] is rendered below the input.
-  /// Empty string reserves the space silently; non-empty shows the error.
-  final String? errorMessage;
-
-  /// Custom feedback widget rendered in a [FieldFeedbackSlot] below the input.
-  /// Use [feedbackVisible] to control visibility. Takes precedence over
-  /// [errorMessage] when both are set — use one or the other, not both.
+  /// Widget shown inside the [FieldFeedbackSlot] below the input.
+  /// Always provide this when feedback is needed so the slot height is
+  /// reserved from the first build. Use [feedbackVisible] to toggle it.
   final Widget? feedbackChild;
+
+  /// Whether [feedbackChild] is currently visible.
   final bool feedbackVisible;
 
   @override
   Widget build(BuildContext context) {
-    final hasError = errorMessage != null && errorMessage!.isNotEmpty;
-
     final field = TextField(
       controller: controller,
       obscureText: obscureText,
@@ -174,19 +166,14 @@ class OnboardingTextField extends StatelessWidget {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: (borderColor != null || hasError)
-              ? BorderSide(
-                  color: hasError ? AppColors.brandRed : borderColor!,
-                  width: 1,
-                )
+          borderSide: borderColor != null
+              ? BorderSide(color: borderColor!, width: 1)
               : BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(
-            color: hasError
-                ? AppColors.brandRed
-                : (focusBorderColor ?? AppColors.tealAccent),
+            color: focusBorderColor ?? AppColors.tealAccent,
             width: 1.5,
           ),
         ),
@@ -213,17 +200,6 @@ class OnboardingTextField extends StatelessWidget {
           FieldFeedbackSlot(
             visible: feedbackVisible,
             child: feedbackChild!,
-          )
-        else if (errorMessage != null)
-          FieldFeedbackSlot(
-            visible: hasError,
-            child: Text(
-              errorMessage!,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.brandRed,
-              ),
-            ),
           ),
       ],
     );

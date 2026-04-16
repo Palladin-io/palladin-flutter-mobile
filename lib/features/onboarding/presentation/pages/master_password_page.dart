@@ -108,9 +108,20 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
           label: l10n.onboardingConfirmPasswordLabel,
           controller: _confirmController,
           obscureText: !_confirmVisible,
-          errorMessage: confirm.isNotEmpty && !passwordsMatch
-              ? l10n.onboardingPasswordsDoNotMatch
-              : '',
+          borderColor: (confirm.isNotEmpty && !passwordsMatch)
+              ? AppColors.brandRed
+              : null,
+          focusBorderColor: (confirm.isNotEmpty && !passwordsMatch)
+              ? AppColors.brandRed
+              : null,
+          feedbackVisible: confirm.isNotEmpty && !passwordsMatch,
+          feedbackChild: Text(
+            l10n.onboardingPasswordsDoNotMatch,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.brandRed,
+            ),
+          ),
           suffixIcon: _visibilityButton(_confirmVisible, () =>
               setState(() => _confirmVisible = !_confirmVisible)),
         ),

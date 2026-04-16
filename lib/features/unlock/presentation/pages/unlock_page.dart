@@ -163,9 +163,18 @@ class _UnlockViewState extends State<_UnlockView> {
               obscureText: !_passwordVisible,
               textInputAction: TextInputAction.done,
               onSubmitted: canSubmit ? (_) => _submit() : null,
-              errorMessage: hasError
-                  ? _resolveErrorMessage(context, state.error)
-                  : '',
+              borderColor: hasError ? AppColors.brandRed : null,
+              focusBorderColor: hasError ? AppColors.brandRed : null,
+              feedbackVisible: hasError,
+              feedbackChild: hasError
+                  ? Text(
+                      _resolveErrorMessage(context, state.error),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.brandRed,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
               suffixIcon: IconButton(
                 icon: Icon(
                   _passwordVisible ? Icons.visibility_off : Icons.visibility,
