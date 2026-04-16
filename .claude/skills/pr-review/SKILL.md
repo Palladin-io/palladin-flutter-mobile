@@ -45,35 +45,48 @@ Cover all sections from `criteria.md`:
 
 ## Output
 
-Post the review as a GitHub PR comment:
+Submit a proper GitHub pull request review — inline file comments + a final verdict. Do NOT use `gh pr comment`.
 
+### Step 1 — determine the verdict
+
+- `REQUEST_CHANGES` — any Critical or Warning findings
+- `APPROVE` — only Suggestions / Highlights, or a clean PR
+- `COMMENT` — only when genuinely ambiguous (rare)
+
+### Step 2 — build `/tmp/review.json`
+
+```json
+{
+  "body": "## 🔍 PR Review — Flutter Mobile\n\n### Summary\n2–3 sentence verdict.\n\n### ✅ Highlights\n- good pattern noted\n\n*(cross-cutting findings that don't map to a single diff line go here too)*",
+  "event": "REQUEST_CHANGES",
+  "comments": [
+    {
+      "path": "lib/features/auth/presentation/pages/login_page.dart",
+      "line": 42,
+      "side": "RIGHT",
+      "body": "🚨 **Critical** — one-sentence explanation."
+    },
+    {
+      "path": "lib/features/auth/presentation/pages/login_page.dart",
+      "line": 17,
+      "side": "RIGHT",
+      "body": "⚠️ **Warning** — one-sentence explanation."
+    }
+  ]
+}
 ```
-gh pr comment $ARGUMENTS --body "REVIEW_BODY_HERE"
+
+### Step 3 — submit
+
+```bash
+REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+gh api "repos/${REPO}/pulls/$ARGUMENTS/reviews" --method POST --input /tmp/review.json
 ```
 
-Use this Markdown structure:
+### Rules
 
-```markdown
-## 🔍 PR Review — Flutter Mobile
-
-### Summary
-2–3 sentences on what the PR does and your overall verdict.
-
-### 🚨 Critical
-*(must fix before merge — security issues, broken BLoC contracts, data persistence of sensitive data)*
-- `lib/path/to/file.dart:42` — explanation
-
-### ⚠️ Warnings
-*(should fix — hardcoded strings, inline colors, wrong lifecycle usage, missing disposal)*
-- `lib/path/to/file.dart:17` — explanation
-
-### 💡 Suggestions
-*(non-blocking — clarity improvements, minor DRY, small convention deviations)*
-- `lib/path/to/file.dart:8` — explanation
-
-### ✅ Highlights
-*(good patterns worth reinforcing)*
-- what was done well
-```
-
-Omit any section that has no findings. Do not comment on formatting or import ordering.
+- **Inline comments** — only on lines present in the diff (`/tmp/pr_diff.patch`). Findings in unchanged files go in `body`.
+- **`line`** — file line number (not diff position). **`side`** — always `"RIGHT"` for added/changed lines.
+- **Severity prefix** — start each inline `body` with `🚨 Critical —`, `⚠️ Warning —`, or `💡 Suggestion —`.
+- **`body`** — overall Summary + Highlights + any cross-cutting findings (e.g. both ARB files missing a key, inline color used in multiple files).
+- Omit `"comments"` key entirely if there are no file-level findings.
