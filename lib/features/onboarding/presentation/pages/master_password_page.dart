@@ -125,7 +125,7 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
           suffixIcon: _visibilityButton(_confirmVisible, () =>
               setState(() => _confirmVisible = !_confirmVisible)),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         _RequirementsCard(l10n: l10n, password: password),
       ],
     );
