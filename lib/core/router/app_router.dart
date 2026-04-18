@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_wizard_page.dart';
+import '../../features/recovery/presentation/pages/recovery_page.dart';
 import '../../features/unlock/presentation/pages/unlock_page.dart';
 import '../theme/app_colors.dart';
 
@@ -56,9 +57,10 @@ class _PlaceholderHomePage extends StatelessWidget {
 /// Redirect rules, in order:
 /// 1. Unauthenticated → `/login`
 /// 2. Authenticated but not onboarded → `/onboarding`
-/// 3. Authenticated, onboarded, vault locked → `/unlock`
-/// 4. Fully set-up and unlocked user on `/login`, `/onboarding`, or
-///    `/unlock` → `/`
+/// 3. Authenticated, onboarded, vault locked → `/unlock` (but `/recovery`
+///    is allowed for locked sessions — that's the whole point of it)
+/// 4. Fully set-up and unlocked user on `/login`, `/onboarding`,
+///    `/unlock`, or `/recovery` → `/`
 GoRouter createRouter(AuthBloc authBloc) {
   return GoRouter(
     initialLocation: '/login',
@@ -69,6 +71,7 @@ GoRouter createRouter(AuthBloc authBloc) {
       final isOnLoginPage = location == '/login';
       final isOnOnboardingPage = location == '/onboarding';
       final isOnUnlockPage = location == '/unlock';
+      final isOnRecoveryPage = location == '/recovery';
 
       final isAuthenticated = authState is AuthAuthenticated;
 
@@ -83,10 +86,17 @@ GoRouter createRouter(AuthBloc authBloc) {
 
       final isVaultLocked = authState.isVaultLocked;
       if (isVaultLocked) {
-        return isOnUnlockPage ? null : '/unlock';
+        // Recovery is the only flow available to a locked-but-authenticated
+        // session besides unlock — the user needs it precisely because
+        // they can't unlock.
+        if (isOnUnlockPage || isOnRecoveryPage) return null;
+        return '/unlock';
       }
 
-      if (isOnLoginPage || isOnOnboardingPage || isOnUnlockPage) {
+      if (isOnLoginPage ||
+          isOnOnboardingPage ||
+          isOnUnlockPage ||
+          isOnRecoveryPage) {
         return '/';
       }
       return null;
@@ -103,6 +113,10 @@ GoRouter createRouter(AuthBloc authBloc) {
       GoRoute(
         path: '/unlock',
         builder: (_, _) => const UnlockPage(),
+      ),
+      GoRoute(
+        path: '/recovery',
+        builder: (_, _) => const RecoveryPage(),
       ),
       GoRoute(
         path: '/',

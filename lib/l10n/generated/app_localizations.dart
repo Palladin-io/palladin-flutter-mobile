@@ -439,6 +439,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Lock Vault'**
   String get unlockLockVault;
+
+  /// Headline on the first recovery step where the user enters their 24-word key
+  ///
+  /// In en, this message translates to:
+  /// **'Recover Your Account'**
+  String get recoveryTitle;
+
+  /// Supporting copy explaining what recovery does on the enter-key step
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your 24-word recovery key. We\'ll use it to unwrap your vault locally — nothing is sent to our servers unencrypted.'**
+  String get recoverySubtitle;
+
+  /// Hint text shown inside the mnemonic text area
+  ///
+  /// In en, this message translates to:
+  /// **'Type or paste your 24 recovery words, separated by spaces'**
+  String get recoveryEnterKeyLabel;
+
+  /// Secondary button that pastes the mnemonic from the clipboard
+  ///
+  /// In en, this message translates to:
+  /// **'Paste from Clipboard'**
+  String get recoveryPasteButton;
+
+  /// Secondary button that imports the mnemonic from a file
+  ///
+  /// In en, this message translates to:
+  /// **'Import from .txt File'**
+  String get recoveryImportButton;
+
+  /// Snackbar shown when the user taps import before the file picker is wired up
+  ///
+  /// In en, this message translates to:
+  /// **'File import coming soon — paste from clipboard instead'**
+  String get recoveryImportComingSoon;
+
+  /// Headline on the second recovery step
+  ///
+  /// In en, this message translates to:
+  /// **'Set a New Master Password'**
+  String get recoveryNewPasswordTitle;
+
+  /// Supporting copy on the new-password recovery step
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a new master password. It will replace the one you forgot.'**
+  String get recoveryNewPasswordSubtitle;
+
+  /// Label for the new password input
+  ///
+  /// In en, this message translates to:
+  /// **'New Master Password'**
+  String get recoveryNewPasswordLabel;
+
+  /// Label for the password confirmation input
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm New Password'**
+  String get recoveryConfirmPasswordLabel;
+
+  /// Primary button that triggers the full recovery pipeline
+  ///
+  /// In en, this message translates to:
+  /// **'Recover Account'**
+  String get recoveryRecoverButton;
+
+  /// Headline on the final recovery step where the freshly generated mnemonic is displayed
+  ///
+  /// In en, this message translates to:
+  /// **'Save Your New Recovery Key'**
+  String get recoverySaveKeyTitle;
+
+  /// Checkbox the user must tick before finishing recovery
+  ///
+  /// In en, this message translates to:
+  /// **'I\'ve saved my new recovery key in a safe place'**
+  String get recoverySaveKeyCheckbox;
+
+  /// Primary button that closes the recovery flow
+  ///
+  /// In en, this message translates to:
+  /// **'Finish'**
+  String get recoveryFinishButton;
+
+  /// Button that copies the new recovery mnemonic to the clipboard
+  ///
+  /// In en, this message translates to:
+  /// **'Copy to Clipboard'**
+  String get recoveryCopyButton;
+
+  /// Error shown when the supplied mnemonic fails to decrypt the wrapped private key
+  ///
+  /// In en, this message translates to:
+  /// **'This recovery key doesn\'t match our records. Double-check your 24 words and try again.'**
+  String get recoveryWrongKey;
+
+  /// Inline error when the new password and its confirmation disagree
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match'**
+  String get recoveryPasswordMismatch;
+
+  /// Error when the backend returns an account without recovery salt/ciphertext
+  ///
+  /// In en, this message translates to:
+  /// **'This account cannot be recovered — no recovery key was set up. Please contact support.'**
+  String get recoveryMaterialMissing;
+
+  /// Generic fallback error for the recovery flow
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery failed. Please try again.'**
+  String get recoveryServerError;
 }
 
 class _AppLocalizationsDelegate

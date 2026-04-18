@@ -196,4 +196,68 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get unlockLockVault => 'Lock Vault';
+
+  @override
+  String get recoveryTitle => 'Recover Your Account';
+
+  @override
+  String get recoverySubtitle =>
+      'Enter your 24-word recovery key. We\'ll use it to unwrap your vault locally — nothing is sent to our servers unencrypted.';
+
+  @override
+  String get recoveryEnterKeyLabel =>
+      'Type or paste your 24 recovery words, separated by spaces';
+
+  @override
+  String get recoveryPasteButton => 'Paste from Clipboard';
+
+  @override
+  String get recoveryImportButton => 'Import from .txt File';
+
+  @override
+  String get recoveryImportComingSoon =>
+      'File import coming soon — paste from clipboard instead';
+
+  @override
+  String get recoveryNewPasswordTitle => 'Set a New Master Password';
+
+  @override
+  String get recoveryNewPasswordSubtitle =>
+      'Choose a new master password. It will replace the one you forgot.';
+
+  @override
+  String get recoveryNewPasswordLabel => 'New Master Password';
+
+  @override
+  String get recoveryConfirmPasswordLabel => 'Confirm New Password';
+
+  @override
+  String get recoveryRecoverButton => 'Recover Account';
+
+  @override
+  String get recoverySaveKeyTitle => 'Save Your New Recovery Key';
+
+  @override
+  String get recoverySaveKeyCheckbox =>
+      'I\'ve saved my new recovery key in a safe place';
+
+  @override
+  String get recoveryFinishButton => 'Finish';
+
+  @override
+  String get recoveryCopyButton => 'Copy to Clipboard';
+
+  @override
+  String get recoveryWrongKey =>
+      'This recovery key doesn\'t match our records. Double-check your 24 words and try again.';
+
+  @override
+  String get recoveryPasswordMismatch => 'Passwords do not match';
+
+  @override
+  String get recoveryMaterialMissing =>
+      'This account cannot be recovered — no recovery key was set up. Please contact support.';
+
+  @override
+  String get recoveryServerError => 'Recovery failed. Please try again.';
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
@@ -236,17 +237,7 @@ class _UnlockViewState extends State<_UnlockView> {
   Widget _buildForgotPassword(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return TextButton(
-      onPressed: () {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(l10n.unlockForgotPasswordComingSoon),
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-      },
+      onPressed: () => context.go('/recovery'),
       child: Text(
         l10n.unlockForgotPassword,
         style: const TextStyle(
