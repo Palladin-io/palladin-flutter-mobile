@@ -275,14 +275,28 @@ class _UnlockViewState extends State<_UnlockView> {
       if (state.viaBiometrics) {
         AnalyticsService.instance.capture('unlock', 'biometric-used');
       }
+      // Analytics must fire before AuthBloc.add — the router disposes this
+      // page as soon as the bloc transitions to unlocked state.
       AnalyticsService.instance.capture('unlock', 'vault-unlocked');
       context.read<AuthBloc>().add(VaultUnlocked(
             masterKey: state.masterKey,
             privateKey: state.privateKey,
           ));
     } else if (state is UnlockFailed) {
-      AnalyticsService.instance.capture('unlock', 'unlock-failed');
+      AnalyticsService.instance.capture(
+        'unlock',
+        'unlock-failed',
+        properties: {'reason': _resolveFailureReason(state.error)},
+      );
     }
+  }
+
+  String _resolveFailureReason(Object error) {
+    if (error is WrongMasterPasswordException) return 'wrong_password';
+    if (error is BiometricKeyMissingException) return 'biometric_missing';
+    if (error is BiometricAuthFailedException) return 'biometric_failed';
+    if (error is UnlockServerException) return 'server_error';
+    return 'unknown';
   }
 
   String _resolveErrorMessage(BuildContext context, Object error) {
