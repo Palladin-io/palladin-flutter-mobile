@@ -266,6 +266,14 @@
   "@recoveryShareSubject": {
     "description": "Subject line used when sharing the recovery key file via the platform share sheet"
   },
+  "recoveryImportButton": "Import from .txt File",
+  "@recoveryImportButton": {
+    "description": "Secondary button that imports the mnemonic from a file"
+  },
+  "recoveryImportComingSoon": "File import coming soon — paste from clipboard instead",
+  "@recoveryImportComingSoon": {
+    "description": "Snackbar shown when the user taps import before the file picker is wired up"
+  },
   "recoveryNewPasswordTitle": "Set a New Master Password",
   "@recoveryNewPasswordTitle": {
     "description": "Headline on the second recovery step"

@@ -62,6 +62,8 @@
   "recoveryEnterKeyLabel": "Wpisz lub wklej 24 słowa klucza, oddzielone spacjami",
   "recoveryPasteButton": "Wklej ze schowka",
   "recoveryShareSubject": "Klucz odzyskiwania Claw Vault",
+  "recoveryImportButton": "Importuj z pliku .txt",
+  "recoveryImportComingSoon": "Import z pliku już wkrótce — skorzystaj na razie ze schowka",
   "recoveryNewPasswordTitle": "Ustaw nowe hasło główne",
   "recoveryNewPasswordSubtitle": "Wybierz nowe hasło główne. Zastąpi ono hasło, które zapomniałeś.",
   "recoveryNewPasswordLabel": "Nowe hasło główne",

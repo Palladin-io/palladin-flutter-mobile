@@ -215,6 +215,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recoveryShareSubject => 'Claw Vault Recovery Key';
 
   @override
+  String get recoveryImportButton => 'Import from .txt File';
+
+  @override
+  String get recoveryImportComingSoon =>
+      'File import coming soon — paste from clipboard instead';
+
+  @override
   String get recoveryNewPasswordTitle => 'Set a New Master Password';
 
   @override

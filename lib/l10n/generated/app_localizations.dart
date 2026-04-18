@@ -470,6 +470,18 @@ abstract class AppLocalizations {
   /// **'Claw Vault Recovery Key'**
   String get recoveryShareSubject;
 
+  /// Secondary button that imports the mnemonic from a file
+  ///
+  /// In en, this message translates to:
+  /// **'Import from .txt File'**
+  String get recoveryImportButton;
+
+  /// Snackbar shown when the user taps import before the file picker is wired up
+  ///
+  /// In en, this message translates to:
+  /// **'File import coming soon — paste from clipboard instead'**
+  String get recoveryImportComingSoon;
+
   /// Headline on the second recovery step
   ///
   /// In en, this message translates to:

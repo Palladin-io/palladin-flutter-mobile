@@ -216,6 +216,13 @@ class AppLocalizationsPl extends AppLocalizations {
   String get recoveryShareSubject => 'Klucz odzyskiwania Claw Vault';
 
   @override
+  String get recoveryImportButton => 'Importuj z pliku .txt';
+
+  @override
+  String get recoveryImportComingSoon =>
+      'Import z pliku już wkrótce — skorzystaj na razie ze schowka';
+
+  @override
   String get recoveryNewPasswordTitle => 'Ustaw nowe hasło główne';
 
   @override

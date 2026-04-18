@@ -151,6 +151,7 @@ class _RecoveryViewState extends State<_RecoveryView> {
         return _EnterKeyStep(
           controller: _mnemonicController,
           onPaste: _pasteFromClipboard,
+          onImport: _importFromFile,
           onSubmit: _submitMnemonic,
         );
       case _RecoveryStep.newPassword:
@@ -264,6 +265,19 @@ class _RecoveryViewState extends State<_RecoveryView> {
     );
   }
 
+  Future<void> _importFromFile() async {
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.recoveryImportComingSoon),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
   /// Collapses arbitrary whitespace/newlines/numbered lines into a
   /// single space-separated mnemonic. Handles both plain pastes
   /// (`"word word word"`) and the `"1. word"` format exported by the
@@ -291,11 +305,13 @@ class _EnterKeyStep extends StatelessWidget {
   const _EnterKeyStep({
     required this.controller,
     required this.onPaste,
+    required this.onImport,
     required this.onSubmit,
   });
 
   final TextEditingController controller;
   final VoidCallback onPaste;
+  final VoidCallback onImport;
   final VoidCallback onSubmit;
 
   @override
@@ -337,17 +353,23 @@ class _EnterKeyStep extends StatelessWidget {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 16),
-                    _SecondaryButton(
-                      icon: Icons.content_paste_outlined,
-                      label: l10n.recoveryPasteButton,
-                      onPressed: isLoading ? null : onPaste,
-                    ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            _SecondaryButton(
+              icon: Icons.content_paste_outlined,
+              label: l10n.recoveryPasteButton,
+              onPressed: isLoading ? null : onPaste,
+            ),
+            const SizedBox(height: 8),
+            _SecondaryButton(
+              icon: Icons.file_upload_outlined,
+              label: l10n.recoveryImportButton,
+              onPressed: isLoading ? null : onImport,
+            ),
+            const SizedBox(height: 16),
             PrimaryButton(
               label: l10n.onboardingContinue,
               isLoading: isLoading,
