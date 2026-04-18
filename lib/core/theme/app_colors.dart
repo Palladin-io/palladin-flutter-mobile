@@ -64,6 +64,15 @@ abstract final class AppColors {
   /// Muted icon color — white at 60% opacity (visibility toggles, decorative icons on dark background).
   static const Color iconMuted = Color(0x99FFFFFF);
 
+  /// Hint / placeholder text — white at 30% opacity.
+  static const Color textHint = Color(0x4DFFFFFF);
+
+  /// Faint index labels — white at 45% opacity (mnemonic word numbers).
+  static const Color textHintFaint = Color(0x73FFFFFF);
+
+  /// Secondary button border — white at 12% opacity.
+  static const Color buttonBorder = Color(0x1FFFFFFF);
+
   // === Dark background gradient ===
   //
   // 160deg gradient used as the background on every screen in dark mode.

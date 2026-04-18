@@ -262,13 +262,9 @@
   "@recoveryPasteButton": {
     "description": "Secondary button that pastes the mnemonic from the clipboard"
   },
-  "recoveryImportButton": "Import from .txt File",
-  "@recoveryImportButton": {
-    "description": "Secondary button that imports the mnemonic from a file"
-  },
-  "recoveryImportComingSoon": "File import coming soon — paste from clipboard instead",
-  "@recoveryImportComingSoon": {
-    "description": "Snackbar shown when the user taps import before the file picker is wired up"
+  "recoveryShareSubject": "Claw Vault Recovery Key",
+  "@recoveryShareSubject": {
+    "description": "Subject line used when sharing the recovery key file via the platform share sheet"
   },
   "recoveryNewPasswordTitle": "Set a New Master Password",
   "@recoveryNewPasswordTitle": {

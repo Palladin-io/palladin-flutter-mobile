@@ -464,17 +464,11 @@ abstract class AppLocalizations {
   /// **'Paste from Clipboard'**
   String get recoveryPasteButton;
 
-  /// Secondary button that imports the mnemonic from a file
+  /// Subject line used when sharing the recovery key file via the platform share sheet
   ///
   /// In en, this message translates to:
-  /// **'Import from .txt File'**
-  String get recoveryImportButton;
-
-  /// Snackbar shown when the user taps import before the file picker is wired up
-  ///
-  /// In en, this message translates to:
-  /// **'File import coming soon — paste from clipboard instead'**
-  String get recoveryImportComingSoon;
+  /// **'Claw Vault Recovery Key'**
+  String get recoveryShareSubject;
 
   /// Headline on the second recovery step
   ///

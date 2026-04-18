@@ -212,11 +212,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recoveryPasteButton => 'Paste from Clipboard';
 
   @override
-  String get recoveryImportButton => 'Import from .txt File';
-
-  @override
-  String get recoveryImportComingSoon =>
-      'File import coming soon — paste from clipboard instead';
+  String get recoveryShareSubject => 'Claw Vault Recovery Key';
 
   @override
   String get recoveryNewPasswordTitle => 'Set a New Master Password';

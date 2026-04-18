@@ -151,7 +151,6 @@ class _RecoveryViewState extends State<_RecoveryView> {
         return _EnterKeyStep(
           controller: _mnemonicController,
           onPaste: _pasteFromClipboard,
-          onImport: _importFromFile,
           onSubmit: _submitMnemonic,
         );
       case _RecoveryStep.newPassword:
@@ -256,35 +255,13 @@ class _RecoveryViewState extends State<_RecoveryView> {
 
   Future<void> _pasteFromClipboard() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted) return;
     final text = data?.text;
     if (text == null || text.trim().isEmpty) return;
     _mnemonicController.text = _normaliseMnemonic(text);
     _mnemonicController.selection = TextSelection.fromPosition(
       TextPosition(offset: _mnemonicController.text.length),
     );
-  }
-
-  /// Import a `.txt` recovery key via the platform share sheet.
-  ///
-  /// `file_picker` is not on the project dependency list, so instead of
-  /// adding a heavyweight plugin we let users paste the content from
-  /// their notes app via the clipboard action above, or share-in from
-  /// the OS file browser (not yet wired). This keeps the dependency
-  /// surface small — the share sheet will be added in a later pass.
-  Future<void> _importFromFile() async {
-    // Surface a friendly snackbar explaining the current limitation so
-    // the button isn't a dead-end. TODO: wire up a proper file picker
-    // once `file_picker` or a similar plugin is approved for the app.
-    final l10n = AppLocalizations.of(context)!;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(l10n.recoveryImportComingSoon),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
   }
 
   /// Collapses arbitrary whitespace/newlines/numbered lines into a
@@ -314,13 +291,11 @@ class _EnterKeyStep extends StatelessWidget {
   const _EnterKeyStep({
     required this.controller,
     required this.onPaste,
-    required this.onImport,
     required this.onSubmit,
   });
 
   final TextEditingController controller;
   final VoidCallback onPaste;
-  final VoidCallback onImport;
   final VoidCallback onSubmit;
 
   @override
@@ -367,12 +342,6 @@ class _EnterKeyStep extends StatelessWidget {
                       icon: Icons.content_paste_outlined,
                       label: l10n.recoveryPasteButton,
                       onPressed: isLoading ? null : onPaste,
-                    ),
-                    const SizedBox(height: 8),
-                    _SecondaryButton(
-                      icon: Icons.file_upload_outlined,
-                      label: l10n.recoveryImportButton,
-                      onPressed: isLoading ? null : onImport,
                     ),
                   ],
                 ),
@@ -436,10 +405,10 @@ class _MnemonicTextArea extends StatelessWidget {
       enableSuggestions: false,
       textCapitalization: TextCapitalization.none,
       textInputAction: TextInputAction.newline,
-      style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
+      style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, height: 1.5),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+        hintStyle: const TextStyle(color: AppColors.textHint),
         filled: true,
         fillColor: AppColors.darkSurface,
         contentPadding:
@@ -713,6 +682,7 @@ class _SaveNewKeyStep extends StatelessWidget {
   }
 
   Future<void> _exportToFile(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
     final content = mnemonic
         .asMap()
         .entries
@@ -730,7 +700,7 @@ class _SaveNewKeyStep extends StatelessWidget {
     await Share.shareXFiles(
       [XFile.fromData(bytes, mimeType: 'text/plain')],
       fileNameOverrides: const ['clawvault-recovery-key.txt'],
-      subject: 'Claw Vault Recovery Key',
+      subject: l10n.recoveryShareSubject,
       sharePositionOrigin: origin,
     );
   }
@@ -817,18 +787,18 @@ class _SecondaryButton extends StatelessWidget {
       width: double.infinity,
       height: 44,
       child: OutlinedButton.icon(
-        icon: Icon(icon, size: 16, color: Colors.white),
+        icon: Icon(icon, size: 16, color: AppColors.textPrimary),
         label: Text(
           label,
           style: const TextStyle(
-            color: Colors.white,
+            color: AppColors.textPrimary,
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
         ),
         style: OutlinedButton.styleFrom(
           backgroundColor: Colors.transparent,
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+          side: const BorderSide(color: AppColors.buttonBorder),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
@@ -864,7 +834,7 @@ class _WarningBanner extends StatelessWidget {
               message,
               style: const TextStyle(
                 fontSize: 12,
-                color: Colors.white,
+                color: AppColors.textPrimary,
                 height: 1.4,
               ),
             ),
@@ -909,9 +879,9 @@ class _MnemonicGrid extends StatelessWidget {
                 width: 18,
                 child: Text(
                   '${index + 1}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 10,
-                    color: Colors.white.withValues(alpha: 0.45),
+                    color: AppColors.textHintFaint,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
