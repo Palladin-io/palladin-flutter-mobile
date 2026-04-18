@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../../../core/storage/biometric_key_storage.dart';
 import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -17,6 +19,7 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required this.remoteDatasource,
     required this.tokenStorage,
+    required this.secureStorage,
     required String googleServerClientId,
     GoogleSignIn? googleSignIn,
   }) : _googleSignIn = googleSignIn ??
@@ -29,6 +32,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   final AuthRemoteDatasource remoteDatasource;
   final SecureTokenStorage tokenStorage;
+  final FlutterSecureStorage secureStorage;
   final GoogleSignIn _googleSignIn;
 
   @override
@@ -132,6 +136,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
     await _googleSignIn.signOut();
     await tokenStorage.clearAll();
+    await BiometricKeyStorage.clear(secureStorage);
     AppLogger.i('Auth', 'Logout complete, tokens cleared');
   }
 

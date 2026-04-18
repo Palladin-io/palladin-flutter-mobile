@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -149,6 +151,72 @@ void main() {
       act: (bloc) => bloc.add(const AuthRefreshRequested()),
       expect: () => [
         isA<AuthUnauthenticated>(),
+      ],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'AuthAuthenticated starts with isVaultLocked=true after login',
+      build: () {
+        when(() => mockRepo.loginWithGoogle())
+            .thenAnswer((_) async => authResult);
+        return AuthBloc(authRepository: mockRepo);
+      },
+      act: (bloc) => bloc.add(const AuthLoginWithGoogle()),
+      expect: () => [
+        isA<AuthLoading>(),
+        isA<AuthAuthenticated>()
+            .having((s) => s.isVaultLocked, 'isVaultLocked', true)
+            .having((s) => s.masterKey, 'masterKey', isNull)
+            .having((s) => s.privateKey, 'privateKey', isNull),
+      ],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'VaultUnlocked carries keys into AuthAuthenticated state',
+      build: () => AuthBloc(authRepository: mockRepo),
+      seed: () => const AuthAuthenticated(
+        userId: 'user-789',
+        isOnboarded: true,
+      ),
+      act: (bloc) => bloc.add(VaultUnlocked(
+        masterKey: Uint8List.fromList(List.filled(32, 0xAA)),
+        privateKey: Uint8List.fromList(List.filled(32, 0xBB)),
+      )),
+      expect: () => [
+        isA<AuthAuthenticated>()
+            .having((s) => s.isVaultLocked, 'isVaultLocked', false)
+            .having((s) => s.masterKey, 'masterKey', isNotNull)
+            .having((s) => s.privateKey, 'privateKey', isNotNull),
+      ],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'VaultUnlocked is ignored when not authenticated',
+      build: () => AuthBloc(authRepository: mockRepo),
+      seed: () => const AuthUnauthenticated(),
+      act: (bloc) => bloc.add(VaultUnlocked(
+        masterKey: Uint8List.fromList(List.filled(32, 0xAA)),
+        privateKey: Uint8List.fromList(List.filled(32, 0xBB)),
+      )),
+      expect: () => const <AuthState>[],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'VaultLockRequested clears keys and re-locks the vault',
+      build: () => AuthBloc(authRepository: mockRepo),
+      seed: () => AuthAuthenticated(
+        userId: 'user-789',
+        isOnboarded: true,
+        isVaultLocked: false,
+        masterKey: Uint8List.fromList(List.filled(32, 0xAA)),
+        privateKey: Uint8List.fromList(List.filled(32, 0xBB)),
+      ),
+      act: (bloc) => bloc.add(const VaultLockRequested()),
+      expect: () => [
+        isA<AuthAuthenticated>()
+            .having((s) => s.isVaultLocked, 'isVaultLocked', true)
+            .having((s) => s.masterKey, 'masterKey', isNull)
+            .having((s) => s.privateKey, 'privateKey', isNull),
       ],
     );
   });

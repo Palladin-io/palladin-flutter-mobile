@@ -1,0 +1,312 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/analytics/analytics_service.dart';
+import '../../../../core/di/injection.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/generated/app_localizations.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
+import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../domain/unlock_exceptions.dart';
+import '../cubit/unlock_cubit.dart';
+
+/// Master Password Unlock Screen.
+///
+/// Displayed whenever an authenticated, onboarded user has a locked
+/// vault — either right after login or after an explicit lock. Accepts
+/// the master password and (when available) offers a biometric
+/// shortcut that reads a previously-stashed master key from the OS
+/// keychain/keystore.
+///
+/// Analytics:
+///   - `mb:unlock:page-viewed`        on mount
+///   - `mb:unlock:biometric-used`     after a successful biometric unlock
+class UnlockPage extends StatelessWidget {
+  const UnlockPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider<UnlockCubit>(
+      create: (_) => getIt<UnlockCubit>(),
+      child: const _UnlockView(),
+    );
+  }
+}
+
+class _UnlockView extends StatefulWidget {
+  const _UnlockView();
+
+  @override
+  State<_UnlockView> createState() => _UnlockViewState();
+}
+
+class _UnlockViewState extends State<_UnlockView> {
+  final _passwordController = TextEditingController();
+  bool _passwordVisible = false;
+  bool _biometricAvailable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    AnalyticsService.instance.capture('unlock', 'page-viewed');
+    _passwordController.addListener(_onTextChanged);
+    _checkBiometricAvailability();
+  }
+
+  @override
+  void dispose() {
+    _passwordController.removeListener(_onTextChanged);
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _onTextChanged() {
+    // Re-render the "Unlock" button enabled/disabled state.
+    setState(() {});
+  }
+
+  Future<void> _checkBiometricAvailability() async {
+    final cubit = context.read<UnlockCubit>();
+    final available = await cubit.isBiometricAvailable();
+    if (!mounted) return;
+    setState(() => _biometricAvailable = available);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<UnlockCubit, UnlockState>(
+      listener: _handleStateChange,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: AppColors.darkBackgroundGradient,
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                children: [
+                  const Spacer(flex: 3),
+                  _buildHero(context),
+                  const Spacer(flex: 1),
+                  _buildForm(context),
+                  const Spacer(flex: 2),
+                  _buildForgotPassword(context),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHero(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset('assets/images/logo.png', height: 80),
+        const SizedBox(height: 20),
+        RichText(
+          textAlign: TextAlign.center,
+          text: const TextSpan(
+            children: [
+              TextSpan(
+                text: 'Claw ',
+                style: TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textPrimary,
+                  height: 1.0,
+                  letterSpacing: -1.2,
+                ),
+              ),
+              TextSpan(
+                text: 'Vault',
+                style: TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.brandRed,
+                  height: 1.0,
+                  letterSpacing: -1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          l10n.unlockTitle,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 13,
+            color: AppColors.textTertiary,
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildForm(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return BlocBuilder<UnlockCubit, UnlockState>(
+      builder: (context, state) {
+        final isLoading = state is UnlockLoading;
+        final hasError = state is UnlockFailed;
+        final canSubmit = !isLoading && _passwordController.text.isNotEmpty;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OnboardingTextField(
+              label: l10n.unlockPasswordLabel,
+              controller: _passwordController,
+              obscureText: !_passwordVisible,
+              textInputAction: TextInputAction.done,
+              onSubmitted: canSubmit ? (_) => _submit() : null,
+              borderColor: hasError ? AppColors.brandRed : null,
+              focusBorderColor: hasError ? AppColors.brandRed : null,
+              feedbackVisible: hasError,
+              feedbackChild: hasError
+                  ? Text(
+                      _resolveErrorMessage(context, state.error),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.brandRed,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _passwordVisible ? Icons.visibility_off : Icons.visibility,
+                  size: 20,
+                  color: AppColors.iconMuted,
+                ),
+                onPressed: () =>
+                    setState(() => _passwordVisible = !_passwordVisible),
+              ),
+            ),
+            const SizedBox(height: 16),
+            PrimaryButton(
+              label: l10n.unlockButton,
+              isLoading: isLoading,
+              onPressed: canSubmit ? _submit : null,
+            ),
+            if (_biometricAvailable) ...[
+              const SizedBox(height: 20),
+              _buildBiometricRow(context, isLoading),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBiometricRow(BuildContext context, bool isLoading) {
+    final l10n = AppLocalizations.of(context)!;
+    return Column(
+      children: [
+        IconButton(
+          onPressed: isLoading ? null : _tryBiometrics,
+          iconSize: 40,
+          tooltip: l10n.unlockBiometricHint,
+          icon: const Icon(
+            Icons.fingerprint,
+            color: AppColors.tealAccent,
+            size: 40,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l10n.unlockBiometricHint,
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppColors.textTertiary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildForgotPassword(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return TextButton(
+      onPressed: () {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(l10n.unlockForgotPasswordComingSoon),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+      },
+      child: Text(
+        l10n.unlockForgotPassword,
+        style: const TextStyle(
+          fontSize: 13,
+          color: AppColors.textTertiary,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
+    await context.read<UnlockCubit>().unlock(_passwordController.text);
+  }
+
+  Future<void> _tryBiometrics() async {
+    FocusScope.of(context).unfocus();
+    final l10n = AppLocalizations.of(context)!;
+    await context.read<UnlockCubit>().unlockWithBiometrics(
+          localizedReason: l10n.unlockBiometricPrompt,
+        );
+  }
+
+  void _handleStateChange(BuildContext context, UnlockState state) {
+    if (state is UnlockSuccess) {
+      if (state.viaBiometrics) {
+        // Fire analytics before the AuthBloc transition kicks the
+        // router — the unlock page is disposed as soon as the redirect
+        // takes effect.
+        AnalyticsService.instance.capture('unlock', 'biometric-used');
+      }
+      context.read<AuthBloc>().add(VaultUnlocked(
+            masterKey: state.masterKey,
+            privateKey: state.privateKey,
+          ));
+    }
+  }
+
+  String _resolveErrorMessage(BuildContext context, Object error) {
+    final l10n = AppLocalizations.of(context)!;
+    if (error is WrongMasterPasswordException) {
+      return l10n.unlockWrongPassword;
+    }
+    if (error is BiometricKeyMissingException) {
+      return l10n.unlockBiometricUnavailable;
+    }
+    if (error is BiometricAuthFailedException) {
+      return l10n.unlockBiometricFailed;
+    }
+    if (error is UnlockServerException) {
+      return switch (error.kind) {
+        UnlockServerErrorKind.serverNotResponding =>
+          l10n.errorServerNotResponding,
+        UnlockServerErrorKind.cannotConnect =>
+          l10n.errorCannotConnectToServer,
+        UnlockServerErrorKind.connectionFailed => l10n.errorConnectionFailed,
+        UnlockServerErrorKind.invalidResponse =>
+          l10n.errorInvalidServerResponse,
+      };
+    }
+    return l10n.errorConnectionFailed;
+  }
+}

@@ -32,6 +32,9 @@ dependencies:
   # Secure storage
   flutter_secure_storage: ^9.2.4
 
+  # Biometric authentication (Face ID / fingerprint)
+  local_auth: ^2.3.0
+
   # Crypto — libsodium FFI (Argon2id, X25519, crypto_secretbox)
   sodium_libs: ^3.4.1+2
 

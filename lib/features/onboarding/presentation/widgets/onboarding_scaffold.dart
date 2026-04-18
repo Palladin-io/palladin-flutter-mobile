@@ -27,26 +27,13 @@ class OnboardingScaffold extends StatelessWidget {
   /// When non-null, a back arrow is shown to the left of the progress dots.
   final VoidCallback? onBack;
 
-  // Gradient matching the dark prototype: 160deg, #000B2E → #0A1A3E → #0E1230 → #000B2E.
-  // Color stops live in AppColors — this widget is just the assembly.
-  static const _gradient = LinearGradient(
-    begin: Alignment(-0.34, -0.94),
-    end: Alignment(0.34, 0.94),
-    colors: [
-      AppColors.onboardingGradientStart,
-      AppColors.onboardingGradientMidTop,
-      AppColors.onboardingGradientMidBottom,
-      AppColors.onboardingGradientEnd,
-    ],
-    stops: [0.0, 0.3, 0.6, 1.0],
-  );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
-        decoration: const BoxDecoration(gradient: _gradient),
+        decoration: const BoxDecoration(gradient: AppColors.darkBackgroundGradient),
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),

@@ -186,55 +186,45 @@ class _ConfirmationInput extends StatelessWidget {
         ? AppColors.tealAccent
         : borderColor;
 
+    final isVisible = result != _WordCheckResult.empty;
+    final isCorrect = result == _WordCheckResult.correct;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          l10n.onboardingConfirmWordLabel(wordIndex),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Colors.white.withValues(alpha: 0.7),
-          ),
-        ),
-        const SizedBox(height: 8),
         OnboardingTextField(
+          label: l10n.onboardingConfirmWordLabel(wordIndex),
           controller: controller,
           hintText: l10n.onboardingConfirmWordHint(wordIndex),
           borderColor: borderColor,
           focusBorderColor: focusBorderColor,
         ),
-        // Always rendered (reserves space); animates in to prevent layout shift.
-        AnimatedOpacity(
-          opacity: result != _WordCheckResult.empty ? 1.0 : 0.0,
-          duration: const Duration(milliseconds: 200),
-          child: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Row(
-              children: [
-                Icon(
-                  result == _WordCheckResult.correct
-                      ? Icons.check_circle_outline
-                      : Icons.error_outline,
-                  size: 14,
-                  color: result == _WordCheckResult.correct
+        FieldFeedbackSlot(
+          visible: isVisible,
+          child: Row(
+            children: [
+              Icon(
+                isCorrect
+                    ? Icons.check_circle_outline
+                    : Icons.error_outline,
+                size: 14,
+                color: isCorrect
+                    ? AppColors.positiveAccent
+                    : AppColors.brandRed,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                isCorrect
+                    ? l10n.onboardingConfirmCorrect
+                    : l10n.onboardingConfirmIncorrect,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isCorrect
                       ? AppColors.positiveAccent
                       : AppColors.brandRed,
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  result == _WordCheckResult.correct
-                      ? l10n.onboardingConfirmCorrect
-                      : l10n.onboardingConfirmIncorrect,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: result == _WordCheckResult.correct
-                        ? AppColors.positiveAccent
-                        : AppColors.brandRed,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ],

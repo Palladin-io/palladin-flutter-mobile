@@ -51,14 +51,10 @@ class AuthInterceptor extends QueuedInterceptor {
 
       final newAccessToken = response.data['accessToken'] as String;
       final newRefreshToken = response.data['refreshToken'] as String;
-      final userId = response.data['userId'] as String;
-      final isOnboarded = response.data['isOnboarded'] as bool;
 
-      await tokenStorage.saveTokens(
+      await tokenStorage.updateTokens(
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
-        userId: userId,
-        isOnboarded: isOnboarded,
       );
 
       // Retry the original request with the new token

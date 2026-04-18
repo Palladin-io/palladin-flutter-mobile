@@ -43,6 +43,19 @@ class SecureTokenStorage {
     return value == 'true';
   }
 
+  /// Updates only the access and refresh tokens after a silent token
+  /// refresh. Does not touch userId or isOnboarded — those are set once
+  /// at login and stay valid for the lifetime of the session.
+  Future<void> updateTokens({
+    required String accessToken,
+    required String refreshToken,
+  }) async {
+    await Future.wait([
+      _storage.write(key: _accessTokenKey, value: accessToken),
+      _storage.write(key: _refreshTokenKey, value: refreshToken),
+    ]);
+  }
+
   /// Updates the onboarding flag without touching the access/refresh
   /// tokens. Called after `POST /api/account/setup` succeeds so the
   /// router can redirect to the authenticated home.

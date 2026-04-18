@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_wizard_page.dart';
+import '../../features/unlock/presentation/pages/unlock_page.dart';
+import '../theme/app_colors.dart';
 
 /// Temporary home page displayed after successful authentication.
 ///
@@ -19,11 +21,18 @@ class _PlaceholderHomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      backgroundColor: const Color(0xFF000B2E),
+      backgroundColor: AppColors.darkBackground,
       appBar: AppBar(
         title: Text(l10n.appTitle),
-        backgroundColor: const Color(0xFF1a2a4a),
+        backgroundColor: AppColors.darkSurface,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.lock_outline),
+            tooltip: l10n.unlockLockVault,
+            onPressed: () {
+              context.read<AuthBloc>().add(const VaultLockRequested());
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
@@ -44,9 +53,12 @@ class _PlaceholderHomePage extends StatelessWidget {
 
 /// Creates the app-level [GoRouter] with auth-aware redirects.
 ///
-/// Unauthenticated users are redirected to `/login`. Authenticated but
-/// not-yet-onboarded users are redirected to `/onboarding`. Fully set-up
-/// users on `/login` or `/onboarding` are redirected to `/`.
+/// Redirect rules, in order:
+/// 1. Unauthenticated → `/login`
+/// 2. Authenticated but not onboarded → `/onboarding`
+/// 3. Authenticated, onboarded, vault locked → `/unlock`
+/// 4. Fully set-up and unlocked user on `/login`, `/onboarding`, or
+///    `/unlock` → `/`
 GoRouter createRouter(AuthBloc authBloc) {
   return GoRouter(
     initialLocation: '/login',
@@ -56,6 +68,7 @@ GoRouter createRouter(AuthBloc authBloc) {
       final location = state.matchedLocation;
       final isOnLoginPage = location == '/login';
       final isOnOnboardingPage = location == '/onboarding';
+      final isOnUnlockPage = location == '/unlock';
 
       final isAuthenticated = authState is AuthAuthenticated;
 
@@ -68,7 +81,12 @@ GoRouter createRouter(AuthBloc authBloc) {
         return isOnOnboardingPage ? null : '/onboarding';
       }
 
-      if (isOnLoginPage || isOnOnboardingPage) {
+      final isVaultLocked = authState.isVaultLocked;
+      if (isVaultLocked) {
+        return isOnUnlockPage ? null : '/unlock';
+      }
+
+      if (isOnLoginPage || isOnOnboardingPage || isOnUnlockPage) {
         return '/';
       }
       return null;
@@ -81,6 +99,10 @@ GoRouter createRouter(AuthBloc authBloc) {
       GoRoute(
         path: '/onboarding',
         builder: (_, _) => const OnboardingWizardPage(),
+      ),
+      GoRoute(
+        path: '/unlock',
+        builder: (_, _) => const UnlockPage(),
       ),
       GoRoute(
         path: '/',

@@ -201,5 +201,49 @@
   "onboardingAlreadyCompleted": "This account has already been set up. Please sign in again.",
   "@onboardingAlreadyCompleted": {
     "description": "Error shown when the backend returns 409 during setup"
+  },
+  "unlockTitle": "Enter your master password",
+  "@unlockTitle": {
+    "description": "Subtitle on the master-password unlock screen"
+  },
+  "unlockPasswordLabel": "Master Password",
+  "@unlockPasswordLabel": {
+    "description": "Label for the password field on the unlock screen"
+  },
+  "unlockButton": "Unlock",
+  "@unlockButton": {
+    "description": "Primary action label on the unlock screen"
+  },
+  "unlockForgotPassword": "Forgot password?",
+  "@unlockForgotPassword": {
+    "description": "Text button that starts the recovery-key flow"
+  },
+  "unlockForgotPasswordComingSoon": "Recovery flow coming soon",
+  "@unlockForgotPasswordComingSoon": {
+    "description": "Snackbar shown until the recovery-key flow is implemented"
+  },
+  "unlockWrongPassword": "Incorrect master password. Please try again.",
+  "@unlockWrongPassword": {
+    "description": "Error shown when password-based decryption fails"
+  },
+  "unlockBiometricHint": "Unlock with biometrics",
+  "@unlockBiometricHint": {
+    "description": "Tooltip and caption for the biometric unlock button"
+  },
+  "unlockBiometricPrompt": "Authenticate to unlock your vault",
+  "@unlockBiometricPrompt": {
+    "description": "Localized reason passed to the OS biometric prompt"
+  },
+  "unlockBiometricUnavailable": "Biometric unlock is not set up on this device. Enter your master password.",
+  "@unlockBiometricUnavailable": {
+    "description": "Error when no MK has been stashed yet for biometric unlock"
+  },
+  "unlockBiometricFailed": "Biometric authentication failed. Please try again or use your password.",
+  "@unlockBiometricFailed": {
+    "description": "Error when the OS biometric prompt is cancelled or fails"
+  },
+  "unlockLockVault": "Lock Vault",
+  "@unlockLockVault": {
+    "description": "Tooltip on the lock-vault action in the home app bar"
   }
 }

@@ -19,6 +19,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthRefreshRequested>(_onRefreshRequested);
     on<AuthLogoutRequested>(_onLogout);
     on<AuthCheckRequested>(_onCheck);
+    on<VaultUnlocked>(_onVaultUnlocked);
+    on<VaultLockRequested>(_onVaultLockRequested);
+    on<OnboardingCompleted>(_onOnboardingCompleted);
   }
 
   final AuthRepository authRepository;
@@ -100,5 +103,57 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       AppLogger.w('AuthBloc', 'Token present but no userId, unauthenticated');
       emit(const AuthUnauthenticated());
     }
+  }
+
+  /// Handles a successful master-password (or biometric) unlock by
+  /// carrying the derived keys into the existing [AuthAuthenticated]
+  /// state. No-op if the user is no longer authenticated (e.g. logged
+  /// out mid-unlock).
+  void _onVaultUnlocked(VaultUnlocked event, Emitter<AuthState> emit) {
+    final current = state;
+    if (current is! AuthAuthenticated) {
+      AppLogger.w('AuthBloc', 'VaultUnlocked ignored — not authenticated');
+      return;
+    }
+    AppLogger.i('AuthBloc', 'Vault unlocked for userId=${current.userId}');
+    emit(current.copyWith(
+      isVaultLocked: false,
+      masterKey: event.masterKey,
+      privateKey: event.privateKey,
+    ));
+  }
+
+  /// Locks the vault by clearing the in-memory key material. Keeps the
+  /// user authenticated so the unlock screen stays scoped to the
+  /// current session.
+  void _onVaultLockRequested(
+    VaultLockRequested event,
+    Emitter<AuthState> emit,
+  ) {
+    final current = state;
+    if (current is! AuthAuthenticated) return;
+    AppLogger.i('AuthBloc', 'Vault lock requested');
+    emit(current.copyWith(isVaultLocked: true, clearKeys: true));
+  }
+
+  /// Called when the onboarding wizard finishes setup. Marks the user
+  /// as onboarded with the vault immediately unlocked — no need to
+  /// re-enter the master password that was just set.
+  Future<void> _onOnboardingCompleted(
+    OnboardingCompleted event,
+    Emitter<AuthState> emit,
+  ) async {
+    final userId = await authRepository.getUserId();
+    if (userId == null) {
+      AppLogger.w('AuthBloc', 'OnboardingCompleted — no userId in storage');
+      emit(const AuthUnauthenticated());
+      return;
+    }
+    AppLogger.i('AuthBloc', 'Onboarding completed, vault unlocked for userId=$userId');
+    emit(AuthAuthenticated(
+      userId: userId,
+      isOnboarded: true,
+      isVaultLocked: false,
+    ));
   }
 }

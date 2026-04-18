@@ -1,3 +1,4 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mocktail/mocktail.dart';
@@ -18,10 +19,13 @@ class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
 class MockGoogleSignInAuthentication extends Mock
     implements GoogleSignInAuthentication {}
 
+class MockFlutterSecureStorage extends Mock implements FlutterSecureStorage {}
+
 void main() {
   late MockAuthRemoteDatasource mockDatasource;
   late MockSecureTokenStorage mockStorage;
   late MockGoogleSignIn mockGoogleSignIn;
+  late MockFlutterSecureStorage mockSecureStorage;
   late AuthRepositoryImpl repository;
 
   const authResult = AuthResultModel(
@@ -35,9 +39,16 @@ void main() {
     mockDatasource = MockAuthRemoteDatasource();
     mockStorage = MockSecureTokenStorage();
     mockGoogleSignIn = MockGoogleSignIn();
+    mockSecureStorage = MockFlutterSecureStorage();
+    when(() => mockSecureStorage.delete(
+          key: any(named: 'key'),
+          iOptions: any(named: 'iOptions'),
+          aOptions: any(named: 'aOptions'),
+        )).thenAnswer((_) async {});
     repository = AuthRepositoryImpl(
       remoteDatasource: mockDatasource,
       tokenStorage: mockStorage,
+      secureStorage: mockSecureStorage,
       googleServerClientId: 'test-server-client-id',
       googleSignIn: mockGoogleSignIn,
     );
