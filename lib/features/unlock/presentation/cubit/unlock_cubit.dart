@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 
+import '../../../../core/storage/biometric_key_storage.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../data/datasources/account_remote_datasource.dart';
 import '../../data/services/unlock_crypto_service.dart';
@@ -41,24 +42,6 @@ class UnlockCubit extends Cubit<UnlockState> {
   final FlutterSecureStorage secureStorage;
   final LocalAuthentication _localAuth;
 
-  /// Key used to stash the base64-encoded master key in the OS
-  /// keychain/keystore between sessions. Namespaced under `vault_` to
-  /// keep it distinct from auth tokens.
-  static const _masterKeyStorageKey = 'vault_mk';
-
-  /// iOS keychain options for storing the MK — unlocked_this_device
-  /// so the key never syncs off-device via iCloud and cannot be read
-  /// before the device passcode has been entered post-reboot.
-  static const _iosOptions = IOSOptions(
-    accessibility: KeychainAccessibility.unlocked_this_device,
-    synchronizable: false,
-  );
-
-  /// Android options for storing the MK — uses EncryptedSharedPreferences
-  /// (API 23+) so the key is protected by the Android Keystore.
-  static const _androidOptions = AndroidOptions(
-    encryptedSharedPreferences: true,
-  );
 
   /// Runs the master-password unlock pipeline.
   Future<void> unlock(String password) async {
@@ -112,9 +95,9 @@ class UnlockCubit extends Cubit<UnlockState> {
 
     try {
       final hasKey = await secureStorage.containsKey(
-        key: _masterKeyStorageKey,
-        iOptions: _iosOptions,
-        aOptions: _androidOptions,
+        key: BiometricKeyStorage.storageKey,
+        iOptions: BiometricKeyStorage.iosOptions,
+        aOptions: BiometricKeyStorage.androidOptions,
       );
       if (!hasKey) {
         AppLogger.w('Unlock', 'No stored MK — biometric unavailable');
@@ -136,9 +119,9 @@ class UnlockCubit extends Cubit<UnlockState> {
       }
 
       final stored = await secureStorage.read(
-        key: _masterKeyStorageKey,
-        iOptions: _iosOptions,
-        aOptions: _androidOptions,
+        key: BiometricKeyStorage.storageKey,
+        iOptions: BiometricKeyStorage.iosOptions,
+        aOptions: BiometricKeyStorage.androidOptions,
       );
       if (stored == null || stored.isEmpty) {
         emit(const UnlockFailed(BiometricKeyMissingException()));
@@ -183,9 +166,9 @@ class UnlockCubit extends Cubit<UnlockState> {
       if (available.isEmpty) return false;
 
       final stored = await secureStorage.read(
-        key: _masterKeyStorageKey,
-        iOptions: _iosOptions,
-        aOptions: _androidOptions,
+        key: BiometricKeyStorage.storageKey,
+        iOptions: BiometricKeyStorage.iosOptions,
+        aOptions: BiometricKeyStorage.androidOptions,
       );
       return stored != null && stored.isNotEmpty;
     } catch (e) {
@@ -197,27 +180,13 @@ class UnlockCubit extends Cubit<UnlockState> {
 
   Future<void> _persistMasterKey(Uint8List masterKey) {
     return secureStorage.write(
-      key: _masterKeyStorageKey,
+      key: BiometricKeyStorage.storageKey,
       value: base64.encode(masterKey),
-      iOptions: _iosOptions,
-      aOptions: _androidOptions,
+      iOptions: BiometricKeyStorage.iosOptions,
+      aOptions: BiometricKeyStorage.androidOptions,
     );
   }
 
-  /// Clears the stashed MK on every platform — called on logout or
-  /// when the user explicitly turns biometric unlock off.
-  Future<void> clearBiometricKey() async {
-    try {
-      await secureStorage.delete(
-        key: _masterKeyStorageKey,
-        iOptions: _iosOptions,
-        aOptions: _androidOptions,
-      );
-    } catch (e) {
-      // Best-effort — cleanup should never break logout.
-      AppLogger.w('Unlock',
-          'Failed to clear stored MK: ${e.runtimeType}');
-    }
-  }
-
+  /// Clears the stashed MK — called when the user explicitly turns biometric unlock off.
+  Future<void> clearBiometricKey() => BiometricKeyStorage.clear(secureStorage);
 }

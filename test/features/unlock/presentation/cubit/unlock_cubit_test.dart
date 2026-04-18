@@ -180,11 +180,11 @@ void main() {
     blocTest<UnlockCubit, UnlockState>(
       'unlockWithBiometrics emits Failed when no MK is stashed',
       build: () {
-        when(() => storage.read(
+        when(() => storage.containsKey(
               key: any(named: 'key'),
               iOptions: any(named: 'iOptions'),
               aOptions: any(named: 'aOptions'),
-            )).thenAnswer((_) async => null);
+            )).thenAnswer((_) async => false);
         return buildCubit();
       },
       act: (cubit) =>
@@ -202,11 +202,11 @@ void main() {
     blocTest<UnlockCubit, UnlockState>(
       'unlockWithBiometrics emits Failed when OS auth refuses',
       build: () {
-        when(() => storage.read(
+        when(() => storage.containsKey(
               key: any(named: 'key'),
               iOptions: any(named: 'iOptions'),
               aOptions: any(named: 'aOptions'),
-            )).thenAnswer((_) async => base64.encode(masterKey));
+            )).thenAnswer((_) async => true);
         when(() => auth.authenticate(
               localizedReason: any(named: 'localizedReason'),
               options: any(named: 'options'),
@@ -228,6 +228,11 @@ void main() {
     blocTest<UnlockCubit, UnlockState>(
       'unlockWithBiometrics emits Success with viaBiometrics=true on happy path',
       build: () {
+        when(() => storage.containsKey(
+              key: any(named: 'key'),
+              iOptions: any(named: 'iOptions'),
+              aOptions: any(named: 'aOptions'),
+            )).thenAnswer((_) async => true);
         when(() => storage.read(
               key: any(named: 'key'),
               iOptions: any(named: 'iOptions'),
