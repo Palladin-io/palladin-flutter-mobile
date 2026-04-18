@@ -49,6 +49,7 @@ void configureDependencies(EnvConfig config) {
     () => AuthRepositoryImpl(
       remoteDatasource: getIt<AuthRemoteDatasource>(),
       tokenStorage: getIt<SecureTokenStorage>(),
+      secureStorage: getIt<FlutterSecureStorage>(),
       googleServerClientId: config.googleServerClientId,
     ),
   );

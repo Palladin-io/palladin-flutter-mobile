@@ -72,10 +72,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ steps.pr.outputs.number }}
+          REPO: ${{ github.repository }}
         run: |
           gh pr view "$PR" --json number,title,body,author,additions,deletions,changedFiles,headRefName,baseRefName > /tmp/pr_meta.json
           gh pr diff "$PR" > /tmp/pr_diff.patch
           gh pr view "$PR" --json files --jq '.files[].path' > /tmp/pr_files.txt
+          gh pr view "$PR" --json reviews > /tmp/pr_reviews.json
+          gh api "repos/${REPO}/pulls/${PR}/comments" > /tmp/pr_inline_comments.json
 
       - name: Run Claude Code review
         env:

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/storage/secure_token_storage.dart';
@@ -17,6 +18,7 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required this.remoteDatasource,
     required this.tokenStorage,
+    required this.secureStorage,
     required String googleServerClientId,
     GoogleSignIn? googleSignIn,
   }) : _googleSignIn = googleSignIn ??
@@ -29,7 +31,17 @@ class AuthRepositoryImpl implements AuthRepository {
 
   final AuthRemoteDatasource remoteDatasource;
   final SecureTokenStorage tokenStorage;
+  final FlutterSecureStorage secureStorage;
   final GoogleSignIn _googleSignIn;
+
+  static const _biometricKeyStorageKey = 'vault_mk';
+  static const _iosOptions = IOSOptions(
+    accessibility: KeychainAccessibility.unlocked_this_device,
+    synchronizable: false,
+  );
+  static const _androidOptions = AndroidOptions(
+    encryptedSharedPreferences: true,
+  );
 
   @override
   Future<AuthResultModel> loginWithGoogle() async {
@@ -132,6 +144,15 @@ class AuthRepositoryImpl implements AuthRepository {
 
     await _googleSignIn.signOut();
     await tokenStorage.clearAll();
+    try {
+      await secureStorage.delete(
+        key: _biometricKeyStorageKey,
+        iOptions: _iosOptions,
+        aOptions: _androidOptions,
+      );
+    } catch (e) {
+      AppLogger.w('Auth', 'Failed to clear biometric key (best-effort): ${e.runtimeType}');
+    }
     AppLogger.i('Auth', 'Logout complete, tokens cleared');
   }
 

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -80,9 +79,8 @@ class UnlockCubit extends Cubit<UnlockState> {
       try {
         await _persistMasterKey(result.masterKey);
       } catch (e, s) {
-        AppLogger.w('Unlock',
-            'Failed to persist MK for biometric unlock: ${e.runtimeType}');
-        AppLogger.e('Unlock', 'Persist MK error', error: e, stackTrace: s);
+        AppLogger.e('Unlock', 'Failed to persist MK for biometric unlock',
+            error: e, stackTrace: s);
       }
 
       AppLogger.i('Unlock', 'Password unlock succeeded');
@@ -113,12 +111,12 @@ class UnlockCubit extends Cubit<UnlockState> {
     emit(const UnlockLoading());
 
     try {
-      final stored = await secureStorage.read(
+      final hasKey = await secureStorage.containsKey(
         key: _masterKeyStorageKey,
         iOptions: _iosOptions,
         aOptions: _androidOptions,
       );
-      if (stored == null || stored.isEmpty) {
+      if (!hasKey) {
         AppLogger.w('Unlock', 'No stored MK — biometric unavailable');
         emit(const UnlockFailed(BiometricKeyMissingException()));
         return;
@@ -134,6 +132,16 @@ class UnlockCubit extends Cubit<UnlockState> {
       if (!didAuthenticate) {
         AppLogger.w('Unlock', 'Biometric auth refused');
         emit(const UnlockFailed(BiometricAuthFailedException()));
+        return;
+      }
+
+      final stored = await secureStorage.read(
+        key: _masterKeyStorageKey,
+        iOptions: _iosOptions,
+        aOptions: _androidOptions,
+      );
+      if (stored == null || stored.isEmpty) {
+        emit(const UnlockFailed(BiometricKeyMissingException()));
         return;
       }
 
@@ -212,9 +220,4 @@ class UnlockCubit extends Cubit<UnlockState> {
     }
   }
 
-  /// True on platforms where `local_auth` ships native support. Kept
-  /// as a static guard so callers can skip biometric UI entirely on
-  /// desktop test runs.
-  static bool get isPlatformSupported =>
-      Platform.isIOS || Platform.isAndroid;
 }

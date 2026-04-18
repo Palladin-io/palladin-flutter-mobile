@@ -140,7 +140,7 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
       icon: Icon(
         visible ? Icons.visibility_off : Icons.visibility,
         size: 20,
-        color: Colors.white.withValues(alpha: 0.6),
+        color: AppColors.iconMuted,
       ),
       onPressed: onToggle,
     );

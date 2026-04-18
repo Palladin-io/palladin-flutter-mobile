@@ -56,6 +56,7 @@ class _UnlockViewState extends State<_UnlockView> {
 
   @override
   void dispose() {
+    _passwordController.removeListener(_onTextChanged);
     _passwordController.dispose();
     super.dispose();
   }
@@ -184,7 +185,7 @@ class _UnlockViewState extends State<_UnlockView> {
                 icon: Icon(
                   _passwordVisible ? Icons.visibility_off : Icons.visibility,
                   size: 20,
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: AppColors.iconMuted,
                 ),
                 onPressed: () =>
                     setState(() => _passwordVisible = !_passwordVisible),
@@ -235,7 +236,6 @@ class _UnlockViewState extends State<_UnlockView> {
   Widget _buildForgotPassword(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return TextButton(
-      // TODO(CVT-27): wire recovery-key flow once the screen exists.
       onPressed: () {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()

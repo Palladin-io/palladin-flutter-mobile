@@ -61,6 +61,9 @@ abstract final class AppColors {
   /// Warning banner background used on the recovery-key backup screen.
   static const Color warningBackground = Color(0x33FF4F4F);
 
+  /// Muted icon color — white at 60% opacity (visibility toggles, decorative icons on dark background).
+  static const Color iconMuted = Color(0x99FFFFFF);
+
   // === Dark background gradient ===
   //
   // 160deg gradient used as the background on every screen in dark mode.
