@@ -197,4 +197,72 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get unlockLockVault => 'Zablokuj sejf';
+
+  @override
+  String get recoveryTitle => 'Odzyskaj swoje konto';
+
+  @override
+  String get recoverySubtitle =>
+      'Wprowadź swój 24-słowny klucz odzyskiwania. Użyjemy go lokalnie, aby odszyfrować sejf — nic nie trafia na nasze serwery w postaci jawnej.';
+
+  @override
+  String get recoveryEnterKeyLabel =>
+      'Wpisz lub wklej 24 słowa klucza, oddzielone spacjami';
+
+  @override
+  String get recoveryPasteButton => 'Wklej ze schowka';
+
+  @override
+  String get recoveryShareSubject => 'Klucz odzyskiwania Claw Vault';
+
+  @override
+  String get recoveryImportButton => 'Importuj z pliku .txt';
+
+  @override
+  String get recoveryImportComingSoon =>
+      'Import z pliku już wkrótce — skorzystaj na razie ze schowka';
+
+  @override
+  String get recoveryNewPasswordTitle => 'Ustaw nowe hasło główne';
+
+  @override
+  String get recoveryNewPasswordSubtitle =>
+      'Wybierz nowe hasło główne. Zastąpi ono hasło, które zapomniałeś.';
+
+  @override
+  String get recoveryNewPasswordLabel => 'Nowe hasło główne';
+
+  @override
+  String get recoveryConfirmPasswordLabel => 'Potwierdź nowe hasło';
+
+  @override
+  String get recoveryRecoverButton => 'Odzyskaj konto';
+
+  @override
+  String get recoverySaveKeyTitle => 'Zapisz nowy klucz odzyskiwania';
+
+  @override
+  String get recoverySaveKeyCheckbox =>
+      'Zapisałem nowy klucz odzyskiwania w bezpiecznym miejscu';
+
+  @override
+  String get recoveryFinishButton => 'Zakończ';
+
+  @override
+  String get recoveryCopyButton => 'Skopiuj do schowka';
+
+  @override
+  String get recoveryWrongKey =>
+      'Ten klucz odzyskiwania nie pasuje do naszych danych. Sprawdź dokładnie 24 słowa i spróbuj ponownie.';
+
+  @override
+  String get recoveryPasswordMismatch => 'Hasła są różne';
+
+  @override
+  String get recoveryMaterialMissing =>
+      'Tego konta nie można odzyskać — klucz odzyskiwania nie został ustawiony. Skontaktuj się z pomocą techniczną.';
+
+  @override
+  String get recoveryServerError =>
+      'Odzyskiwanie nie powiodło się. Spróbuj ponownie.';
 }

@@ -245,5 +245,85 @@
   "unlockLockVault": "Lock Vault",
   "@unlockLockVault": {
     "description": "Tooltip on the lock-vault action in the home app bar"
+  },
+  "recoveryTitle": "Recover Your Account",
+  "@recoveryTitle": {
+    "description": "Headline on the first recovery step where the user enters their 24-word key"
+  },
+  "recoverySubtitle": "Enter your 24-word recovery key. We'll use it to unwrap your vault locally — nothing is sent to our servers unencrypted.",
+  "@recoverySubtitle": {
+    "description": "Supporting copy explaining what recovery does on the enter-key step"
+  },
+  "recoveryEnterKeyLabel": "Type or paste your 24 recovery words, separated by spaces",
+  "@recoveryEnterKeyLabel": {
+    "description": "Hint text shown inside the mnemonic text area"
+  },
+  "recoveryPasteButton": "Paste from Clipboard",
+  "@recoveryPasteButton": {
+    "description": "Secondary button that pastes the mnemonic from the clipboard"
+  },
+  "recoveryShareSubject": "Claw Vault Recovery Key",
+  "@recoveryShareSubject": {
+    "description": "Subject line used when sharing the recovery key file via the platform share sheet"
+  },
+  "recoveryImportButton": "Import from .txt File",
+  "@recoveryImportButton": {
+    "description": "Secondary button that imports the mnemonic from a file"
+  },
+  "recoveryImportComingSoon": "File import coming soon — paste from clipboard instead",
+  "@recoveryImportComingSoon": {
+    "description": "Snackbar shown when the user taps import before the file picker is wired up"
+  },
+  "recoveryNewPasswordTitle": "Set a New Master Password",
+  "@recoveryNewPasswordTitle": {
+    "description": "Headline on the second recovery step"
+  },
+  "recoveryNewPasswordSubtitle": "Choose a new master password. It will replace the one you forgot.",
+  "@recoveryNewPasswordSubtitle": {
+    "description": "Supporting copy on the new-password recovery step"
+  },
+  "recoveryNewPasswordLabel": "New Master Password",
+  "@recoveryNewPasswordLabel": {
+    "description": "Label for the new password input"
+  },
+  "recoveryConfirmPasswordLabel": "Confirm New Password",
+  "@recoveryConfirmPasswordLabel": {
+    "description": "Label for the password confirmation input"
+  },
+  "recoveryRecoverButton": "Recover Account",
+  "@recoveryRecoverButton": {
+    "description": "Primary button that triggers the full recovery pipeline"
+  },
+  "recoverySaveKeyTitle": "Save Your New Recovery Key",
+  "@recoverySaveKeyTitle": {
+    "description": "Headline on the final recovery step where the freshly generated mnemonic is displayed"
+  },
+  "recoverySaveKeyCheckbox": "I've saved my new recovery key in a safe place",
+  "@recoverySaveKeyCheckbox": {
+    "description": "Checkbox the user must tick before finishing recovery"
+  },
+  "recoveryFinishButton": "Finish",
+  "@recoveryFinishButton": {
+    "description": "Primary button that closes the recovery flow"
+  },
+  "recoveryCopyButton": "Copy to Clipboard",
+  "@recoveryCopyButton": {
+    "description": "Button that copies the new recovery mnemonic to the clipboard"
+  },
+  "recoveryWrongKey": "This recovery key doesn't match our records. Double-check your 24 words and try again.",
+  "@recoveryWrongKey": {
+    "description": "Error shown when the supplied mnemonic fails to decrypt the wrapped private key"
+  },
+  "recoveryPasswordMismatch": "Passwords do not match",
+  "@recoveryPasswordMismatch": {
+    "description": "Inline error when the new password and its confirmation disagree"
+  },
+  "recoveryMaterialMissing": "This account cannot be recovered — no recovery key was set up. Please contact support.",
+  "@recoveryMaterialMissing": {
+    "description": "Error when the backend returns an account without recovery salt/ciphertext"
+  },
+  "recoveryServerError": "Recovery failed. Please try again.",
+  "@recoveryServerError": {
+    "description": "Generic fallback error for the recovery flow"
   }
 }
