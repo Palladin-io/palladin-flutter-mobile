@@ -325,5 +325,191 @@
   "recoveryServerError": "Recovery failed. Please try again.",
   "@recoveryServerError": {
     "description": "Generic fallback error for the recovery flow"
+  },
+  "vaultTitle": "Vaults",
+  "@vaultTitle": {
+    "description": "Vaults section title shown in the app bar of the vault list"
+  },
+  "vaultNewVault": "New Vault",
+  "@vaultNewVault": {
+    "description": "Label of the button / FAB that opens the create-vault sheet"
+  },
+  "vaultNoVaults": "No vaults yet",
+  "@vaultNoVaults": {
+    "description": "Empty-state title when the user has no vaults"
+  },
+  "vaultCreateFirst": "Create your first vault to organize credentials and grant access to your AI agents.",
+  "@vaultCreateFirst": {
+    "description": "Empty-state subtitle shown alongside the create-vault CTA"
+  },
+  "vaultRetry": "Retry",
+  "@vaultRetry": {
+    "description": "Retry button label on the vault list error state"
+  },
+  "vaultCancel": "Cancel",
+  "@vaultCancel": {
+    "description": "Generic cancel button label used in vault dialogs"
+  },
+  "vaultModeFull": "Full",
+  "@vaultModeFull": {
+    "description": "Label for the Full grant mode (one approval covers the whole vault)"
+  },
+  "vaultModeGranular": "Granular",
+  "@vaultModeGranular": {
+    "description": "Label for the Granular grant mode (per-entry approvals)"
+  },
+  "vaultModeFullDescription": "One approval grants access to every entry.",
+  "@vaultModeFullDescription": {
+    "description": "Subtitle for the Full mode option in the vault form"
+  },
+  "vaultModeGranularDescription": "Each entry needs its own approval.",
+  "@vaultModeGranularDescription": {
+    "description": "Subtitle for the Granular mode option in the vault form"
+  },
+  "vaultModeLabel": "Grant mode",
+  "@vaultModeLabel": {
+    "description": "Label above the grant mode selector in the vault form"
+  },
+  "vaultNameLabel": "Vault Name",
+  "@vaultNameLabel": {
+    "description": "Label for the vault name field"
+  },
+  "vaultDescriptionLabel": "Description",
+  "@vaultDescriptionLabel": {
+    "description": "Label for the optional vault description field"
+  },
+  "vaultIconLabel": "Icon",
+  "@vaultIconLabel": {
+    "description": "Label above the icon picker in the vault form"
+  },
+  "vaultColorLabel": "Color",
+  "@vaultColorLabel": {
+    "description": "Label above the color picker in the vault form"
+  },
+  "vaultCreating": "Creating...",
+  "@vaultCreating": {
+    "description": "Loading label shown on the create button while the vault is being created"
+  },
+  "vaultSaving": "Saving...",
+  "@vaultSaving": {
+    "description": "Loading label shown on the save button while the vault is being updated"
+  },
+  "vaultSavedSnackbar": "Vault updated",
+  "@vaultSavedSnackbar": {
+    "description": "Snackbar shown after a successful vault update"
+  },
+  "vaultDeleteTitle": "Delete Vault?",
+  "@vaultDeleteTitle": {
+    "description": "Title of the delete-vault confirmation dialog"
+  },
+  "vaultDeleteConfirmWithName": "This will permanently delete \"{name}\" and all its entries. This cannot be undone.",
+  "@vaultDeleteConfirmWithName": {
+    "description": "Body of the delete-vault confirmation dialog",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Personal Vault"
+      }
+    }
+  },
+  "vaultDeleting": "Deleting...",
+  "@vaultDeleting": {
+    "description": "Loading label shown while the vault is being deleted"
+  },
+  "vaultSettings": "Vault Settings",
+  "@vaultSettings": {
+    "description": "Title of the vault settings page"
+  },
+  "vaultSaveChanges": "Save Changes",
+  "@vaultSaveChanges": {
+    "description": "Save button label on the vault settings page"
+  },
+  "vaultDangerZone": "DANGER ZONE",
+  "@vaultDangerZone": {
+    "description": "Section label for destructive actions on the vault settings page"
+  },
+  "vaultDangerZoneSubtitle": "Deleting a vault is permanent — entries and grants are removed too.",
+  "@vaultDangerZoneSubtitle": {
+    "description": "Explanatory text under the danger zone heading"
+  },
+  "vaultDeleteVault": "Delete Vault",
+  "@vaultDeleteVault": {
+    "description": "Destructive action button label"
+  },
+  "vaultEntryCount": "{count, plural, =0{No entries} =1{1 entry} other{{count} entries}}",
+  "@vaultEntryCount": {
+    "description": "Vault card meta line: number of entries",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "vaultUpdatedAt": "Updated {date}",
+  "@vaultUpdatedAt": {
+    "description": "Vault card meta line: when the vault was last updated",
+    "placeholders": {
+      "date": {
+        "type": "String",
+        "example": "2026-04-25"
+      }
+    }
+  },
+  "vaultStatEntries": "Entries",
+  "@vaultStatEntries": {
+    "description": "Stat chip label on the vault detail page"
+  },
+  "vaultStatActiveGrants": "Active grants",
+  "@vaultStatActiveGrants": {
+    "description": "Stat chip label on the vault detail page"
+  },
+  "vaultStatMembers": "Members",
+  "@vaultStatMembers": {
+    "description": "Stat chip label on the vault detail page"
+  },
+  "vaultSectionEntries": "Entries",
+  "@vaultSectionEntries": {
+    "description": "Section heading on the vault detail page for the entries list"
+  },
+  "vaultSectionAgents": "Agents",
+  "@vaultSectionAgents": {
+    "description": "Section heading on the vault detail page for the agents list"
+  },
+  "vaultEntriesPlaceholderTitle": "Entries coming soon",
+  "@vaultEntriesPlaceholderTitle": {
+    "description": "Placeholder card title under Entries on the vault detail page"
+  },
+  "vaultEntriesPlaceholderSubtitle": "Add and manage credentials from the web panel for now — mobile entry management lands in the next phase.",
+  "@vaultEntriesPlaceholderSubtitle": {
+    "description": "Placeholder card body under Entries on the vault detail page"
+  },
+  "vaultAgentsPlaceholderTitle": "Agents coming soon",
+  "@vaultAgentsPlaceholderTitle": {
+    "description": "Placeholder card title under Agents on the vault detail page"
+  },
+  "vaultAgentsPlaceholderSubtitle": "Approve agent grants from the home screen — per-vault agent management is on the roadmap.",
+  "@vaultAgentsPlaceholderSubtitle": {
+    "description": "Placeholder card body under Agents on the vault detail page"
+  },
+  "vaultErrorNotFound": "This vault no longer exists.",
+  "@vaultErrorNotFound": {
+    "description": "Error shown when the backend returns 404 for a vault operation"
+  },
+  "vaultErrorForbidden": "You don't have permission to perform this action.",
+  "@vaultErrorForbidden": {
+    "description": "Error shown when the backend returns 403 without a more specific reason"
+  },
+  "vaultErrorPlanLimitReached": "You've reached the vault limit for your plan. Upgrade to create more.",
+  "@vaultErrorPlanLimitReached": {
+    "description": "Error shown when the user has hit the vault count cap for their billing plan"
+  },
+  "vaultErrorFullModeNotAllowed": "Your plan doesn't allow Full-mode vaults. Choose Granular or upgrade.",
+  "@vaultErrorFullModeNotAllowed": {
+    "description": "Error shown when the user tries to create a Full-mode vault on a plan that doesn't support it"
+  },
+  "vaultErrorUnknown": "Something went wrong. Please try again.",
+  "@vaultErrorUnknown": {
+    "description": "Generic fallback error for vault operations"
   }
 }

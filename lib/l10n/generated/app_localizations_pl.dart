@@ -265,4 +265,157 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get recoveryServerError =>
       'Odzyskiwanie nie powiodło się. Spróbuj ponownie.';
+
+  @override
+  String get vaultTitle => 'Sejfy';
+
+  @override
+  String get vaultNewVault => 'Nowy sejf';
+
+  @override
+  String get vaultNoVaults => 'Brak sejfów';
+
+  @override
+  String get vaultCreateFirst =>
+      'Utwórz pierwszy sejf, aby uporządkować dane logowania i zarządzać dostępem agentów AI.';
+
+  @override
+  String get vaultRetry => 'Spróbuj ponownie';
+
+  @override
+  String get vaultCancel => 'Anuluj';
+
+  @override
+  String get vaultModeFull => 'Pełny';
+
+  @override
+  String get vaultModeGranular => 'Szczegółowy';
+
+  @override
+  String get vaultModeFullDescription =>
+      'Jedna zgoda daje dostęp do wszystkich wpisów.';
+
+  @override
+  String get vaultModeGranularDescription => 'Każdy wpis wymaga osobnej zgody.';
+
+  @override
+  String get vaultModeLabel => 'Tryb dostępu';
+
+  @override
+  String get vaultNameLabel => 'Nazwa sejfu';
+
+  @override
+  String get vaultDescriptionLabel => 'Opis';
+
+  @override
+  String get vaultIconLabel => 'Ikona';
+
+  @override
+  String get vaultColorLabel => 'Kolor';
+
+  @override
+  String get vaultCreating => 'Tworzenie...';
+
+  @override
+  String get vaultSaving => 'Zapisywanie...';
+
+  @override
+  String get vaultSavedSnackbar => 'Sejf zaktualizowany';
+
+  @override
+  String get vaultDeleteTitle => 'Usunąć sejf?';
+
+  @override
+  String vaultDeleteConfirmWithName(String name) {
+    return 'Sejf „$name” oraz wszystkie jego wpisy zostaną trwale usunięte. Tej operacji nie można cofnąć.';
+  }
+
+  @override
+  String get vaultDeleting => 'Usuwanie...';
+
+  @override
+  String get vaultSettings => 'Ustawienia sejfu';
+
+  @override
+  String get vaultSaveChanges => 'Zapisz zmiany';
+
+  @override
+  String get vaultDangerZone => 'STREFA NIEBEZPIECZNA';
+
+  @override
+  String get vaultDangerZoneSubtitle =>
+      'Usunięcie sejfu jest nieodwracalne — wpisy oraz aktywne zgody zostaną usunięte.';
+
+  @override
+  String get vaultDeleteVault => 'Usuń sejf';
+
+  @override
+  String vaultEntryCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString wpisów',
+      many: '$countString wpisów',
+      few: '$countString wpisy',
+      one: '1 wpis',
+      zero: 'Brak wpisów',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultUpdatedAt(String date) {
+    return 'Aktualizacja $date';
+  }
+
+  @override
+  String get vaultStatEntries => 'Wpisy';
+
+  @override
+  String get vaultStatActiveGrants => 'Aktywne zgody';
+
+  @override
+  String get vaultStatMembers => 'Członkowie';
+
+  @override
+  String get vaultSectionEntries => 'Wpisy';
+
+  @override
+  String get vaultSectionAgents => 'Agenci';
+
+  @override
+  String get vaultEntriesPlaceholderTitle => 'Wpisy już wkrótce';
+
+  @override
+  String get vaultEntriesPlaceholderSubtitle =>
+      'Na razie dodawaj i zarządzaj danymi z panelu webowego — zarządzanie wpisami w aplikacji mobilnej pojawi się w kolejnej fazie.';
+
+  @override
+  String get vaultAgentsPlaceholderTitle => 'Agenci już wkrótce';
+
+  @override
+  String get vaultAgentsPlaceholderSubtitle =>
+      'Zgody dla agentów akceptujesz z ekranu głównego — zarządzanie agentami w obrębie sejfu jest w planach.';
+
+  @override
+  String get vaultErrorNotFound => 'Ten sejf już nie istnieje.';
+
+  @override
+  String get vaultErrorForbidden => 'Brak uprawnień do wykonania tej operacji.';
+
+  @override
+  String get vaultErrorPlanLimitReached =>
+      'Osiągnięto limit sejfów w Twoim planie. Ulepsz plan, aby utworzyć więcej.';
+
+  @override
+  String get vaultErrorFullModeNotAllowed =>
+      'Twój plan nie pozwala na sejfy w trybie pełnym. Wybierz tryb szczegółowy lub ulepsz plan.';
+
+  @override
+  String get vaultErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
 }

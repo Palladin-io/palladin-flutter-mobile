@@ -263,4 +263,157 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get recoveryServerError => 'Recovery failed. Please try again.';
+
+  @override
+  String get vaultTitle => 'Vaults';
+
+  @override
+  String get vaultNewVault => 'New Vault';
+
+  @override
+  String get vaultNoVaults => 'No vaults yet';
+
+  @override
+  String get vaultCreateFirst =>
+      'Create your first vault to organize credentials and grant access to your AI agents.';
+
+  @override
+  String get vaultRetry => 'Retry';
+
+  @override
+  String get vaultCancel => 'Cancel';
+
+  @override
+  String get vaultModeFull => 'Full';
+
+  @override
+  String get vaultModeGranular => 'Granular';
+
+  @override
+  String get vaultModeFullDescription =>
+      'One approval grants access to every entry.';
+
+  @override
+  String get vaultModeGranularDescription =>
+      'Each entry needs its own approval.';
+
+  @override
+  String get vaultModeLabel => 'Grant mode';
+
+  @override
+  String get vaultNameLabel => 'Vault Name';
+
+  @override
+  String get vaultDescriptionLabel => 'Description';
+
+  @override
+  String get vaultIconLabel => 'Icon';
+
+  @override
+  String get vaultColorLabel => 'Color';
+
+  @override
+  String get vaultCreating => 'Creating...';
+
+  @override
+  String get vaultSaving => 'Saving...';
+
+  @override
+  String get vaultSavedSnackbar => 'Vault updated';
+
+  @override
+  String get vaultDeleteTitle => 'Delete Vault?';
+
+  @override
+  String vaultDeleteConfirmWithName(String name) {
+    return 'This will permanently delete \"$name\" and all its entries. This cannot be undone.';
+  }
+
+  @override
+  String get vaultDeleting => 'Deleting...';
+
+  @override
+  String get vaultSettings => 'Vault Settings';
+
+  @override
+  String get vaultSaveChanges => 'Save Changes';
+
+  @override
+  String get vaultDangerZone => 'DANGER ZONE';
+
+  @override
+  String get vaultDangerZoneSubtitle =>
+      'Deleting a vault is permanent — entries and grants are removed too.';
+
+  @override
+  String get vaultDeleteVault => 'Delete Vault';
+
+  @override
+  String vaultEntryCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString entries',
+      one: '1 entry',
+      zero: 'No entries',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultUpdatedAt(String date) {
+    return 'Updated $date';
+  }
+
+  @override
+  String get vaultStatEntries => 'Entries';
+
+  @override
+  String get vaultStatActiveGrants => 'Active grants';
+
+  @override
+  String get vaultStatMembers => 'Members';
+
+  @override
+  String get vaultSectionEntries => 'Entries';
+
+  @override
+  String get vaultSectionAgents => 'Agents';
+
+  @override
+  String get vaultEntriesPlaceholderTitle => 'Entries coming soon';
+
+  @override
+  String get vaultEntriesPlaceholderSubtitle =>
+      'Add and manage credentials from the web panel for now — mobile entry management lands in the next phase.';
+
+  @override
+  String get vaultAgentsPlaceholderTitle => 'Agents coming soon';
+
+  @override
+  String get vaultAgentsPlaceholderSubtitle =>
+      'Approve agent grants from the home screen — per-vault agent management is on the roadmap.';
+
+  @override
+  String get vaultErrorNotFound => 'This vault no longer exists.';
+
+  @override
+  String get vaultErrorForbidden =>
+      'You don\'t have permission to perform this action.';
+
+  @override
+  String get vaultErrorPlanLimitReached =>
+      'You\'ve reached the vault limit for your plan. Upgrade to create more.';
+
+  @override
+  String get vaultErrorFullModeNotAllowed =>
+      'Your plan doesn\'t allow Full-mode vaults. Choose Granular or upgrade.';
+
+  @override
+  String get vaultErrorUnknown => 'Something went wrong. Please try again.';
 }

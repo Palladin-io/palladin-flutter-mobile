@@ -559,6 +559,258 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Recovery failed. Please try again.'**
   String get recoveryServerError;
+
+  /// Vaults section title shown in the app bar of the vault list
+  ///
+  /// In en, this message translates to:
+  /// **'Vaults'**
+  String get vaultTitle;
+
+  /// Label of the button / FAB that opens the create-vault sheet
+  ///
+  /// In en, this message translates to:
+  /// **'New Vault'**
+  String get vaultNewVault;
+
+  /// Empty-state title when the user has no vaults
+  ///
+  /// In en, this message translates to:
+  /// **'No vaults yet'**
+  String get vaultNoVaults;
+
+  /// Empty-state subtitle shown alongside the create-vault CTA
+  ///
+  /// In en, this message translates to:
+  /// **'Create your first vault to organize credentials and grant access to your AI agents.'**
+  String get vaultCreateFirst;
+
+  /// Retry button label on the vault list error state
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get vaultRetry;
+
+  /// Generic cancel button label used in vault dialogs
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get vaultCancel;
+
+  /// Label for the Full grant mode (one approval covers the whole vault)
+  ///
+  /// In en, this message translates to:
+  /// **'Full'**
+  String get vaultModeFull;
+
+  /// Label for the Granular grant mode (per-entry approvals)
+  ///
+  /// In en, this message translates to:
+  /// **'Granular'**
+  String get vaultModeGranular;
+
+  /// Subtitle for the Full mode option in the vault form
+  ///
+  /// In en, this message translates to:
+  /// **'One approval grants access to every entry.'**
+  String get vaultModeFullDescription;
+
+  /// Subtitle for the Granular mode option in the vault form
+  ///
+  /// In en, this message translates to:
+  /// **'Each entry needs its own approval.'**
+  String get vaultModeGranularDescription;
+
+  /// Label above the grant mode selector in the vault form
+  ///
+  /// In en, this message translates to:
+  /// **'Grant mode'**
+  String get vaultModeLabel;
+
+  /// Label for the vault name field
+  ///
+  /// In en, this message translates to:
+  /// **'Vault Name'**
+  String get vaultNameLabel;
+
+  /// Label for the optional vault description field
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get vaultDescriptionLabel;
+
+  /// Label above the icon picker in the vault form
+  ///
+  /// In en, this message translates to:
+  /// **'Icon'**
+  String get vaultIconLabel;
+
+  /// Label above the color picker in the vault form
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get vaultColorLabel;
+
+  /// Loading label shown on the create button while the vault is being created
+  ///
+  /// In en, this message translates to:
+  /// **'Creating...'**
+  String get vaultCreating;
+
+  /// Loading label shown on the save button while the vault is being updated
+  ///
+  /// In en, this message translates to:
+  /// **'Saving...'**
+  String get vaultSaving;
+
+  /// Snackbar shown after a successful vault update
+  ///
+  /// In en, this message translates to:
+  /// **'Vault updated'**
+  String get vaultSavedSnackbar;
+
+  /// Title of the delete-vault confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Vault?'**
+  String get vaultDeleteTitle;
+
+  /// Body of the delete-vault confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'This will permanently delete \"{name}\" and all its entries. This cannot be undone.'**
+  String vaultDeleteConfirmWithName(String name);
+
+  /// Loading label shown while the vault is being deleted
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting...'**
+  String get vaultDeleting;
+
+  /// Title of the vault settings page
+  ///
+  /// In en, this message translates to:
+  /// **'Vault Settings'**
+  String get vaultSettings;
+
+  /// Save button label on the vault settings page
+  ///
+  /// In en, this message translates to:
+  /// **'Save Changes'**
+  String get vaultSaveChanges;
+
+  /// Section label for destructive actions on the vault settings page
+  ///
+  /// In en, this message translates to:
+  /// **'DANGER ZONE'**
+  String get vaultDangerZone;
+
+  /// Explanatory text under the danger zone heading
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting a vault is permanent — entries and grants are removed too.'**
+  String get vaultDangerZoneSubtitle;
+
+  /// Destructive action button label
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Vault'**
+  String get vaultDeleteVault;
+
+  /// Vault card meta line: number of entries
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No entries} =1{1 entry} other{{count} entries}}'**
+  String vaultEntryCount(int count);
+
+  /// Vault card meta line: when the vault was last updated
+  ///
+  /// In en, this message translates to:
+  /// **'Updated {date}'**
+  String vaultUpdatedAt(String date);
+
+  /// Stat chip label on the vault detail page
+  ///
+  /// In en, this message translates to:
+  /// **'Entries'**
+  String get vaultStatEntries;
+
+  /// Stat chip label on the vault detail page
+  ///
+  /// In en, this message translates to:
+  /// **'Active grants'**
+  String get vaultStatActiveGrants;
+
+  /// Stat chip label on the vault detail page
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get vaultStatMembers;
+
+  /// Section heading on the vault detail page for the entries list
+  ///
+  /// In en, this message translates to:
+  /// **'Entries'**
+  String get vaultSectionEntries;
+
+  /// Section heading on the vault detail page for the agents list
+  ///
+  /// In en, this message translates to:
+  /// **'Agents'**
+  String get vaultSectionAgents;
+
+  /// Placeholder card title under Entries on the vault detail page
+  ///
+  /// In en, this message translates to:
+  /// **'Entries coming soon'**
+  String get vaultEntriesPlaceholderTitle;
+
+  /// Placeholder card body under Entries on the vault detail page
+  ///
+  /// In en, this message translates to:
+  /// **'Add and manage credentials from the web panel for now — mobile entry management lands in the next phase.'**
+  String get vaultEntriesPlaceholderSubtitle;
+
+  /// Placeholder card title under Agents on the vault detail page
+  ///
+  /// In en, this message translates to:
+  /// **'Agents coming soon'**
+  String get vaultAgentsPlaceholderTitle;
+
+  /// Placeholder card body under Agents on the vault detail page
+  ///
+  /// In en, this message translates to:
+  /// **'Approve agent grants from the home screen — per-vault agent management is on the roadmap.'**
+  String get vaultAgentsPlaceholderSubtitle;
+
+  /// Error shown when the backend returns 404 for a vault operation
+  ///
+  /// In en, this message translates to:
+  /// **'This vault no longer exists.'**
+  String get vaultErrorNotFound;
+
+  /// Error shown when the backend returns 403 without a more specific reason
+  ///
+  /// In en, this message translates to:
+  /// **'You don\'t have permission to perform this action.'**
+  String get vaultErrorForbidden;
+
+  /// Error shown when the user has hit the vault count cap for their billing plan
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ve reached the vault limit for your plan. Upgrade to create more.'**
+  String get vaultErrorPlanLimitReached;
+
+  /// Error shown when the user tries to create a Full-mode vault on a plan that doesn't support it
+  ///
+  /// In en, this message translates to:
+  /// **'Your plan doesn\'t allow Full-mode vaults. Choose Granular or upgrade.'**
+  String get vaultErrorFullModeNotAllowed;
+
+  /// Generic fallback error for vault operations
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get vaultErrorUnknown;
 }
 
 class _AppLocalizationsDelegate

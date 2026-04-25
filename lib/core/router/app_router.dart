@@ -1,8 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../l10n/generated/app_localizations.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
@@ -10,47 +8,9 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_wizard_page.dart';
 import '../../features/recovery/presentation/pages/recovery_page.dart';
 import '../../features/unlock/presentation/pages/unlock_page.dart';
-import '../theme/app_colors.dart';
-
-/// Temporary home page displayed after successful authentication.
-///
-/// Will be replaced by the real vault/dashboard feature shell.
-class _PlaceholderHomePage extends StatelessWidget {
-  const _PlaceholderHomePage();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Scaffold(
-      backgroundColor: AppColors.darkBackground,
-      appBar: AppBar(
-        title: Text(l10n.appTitle),
-        backgroundColor: AppColors.darkSurface,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.lock_outline),
-            tooltip: l10n.unlockLockVault,
-            onPressed: () {
-              context.read<AuthBloc>().add(const VaultLockRequested());
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              context.read<AuthBloc>().add(const AuthLogoutRequested());
-            },
-          ),
-        ],
-      ),
-      body: Center(
-        child: Text(
-          l10n.welcomeMessage,
-          style: const TextStyle(color: Colors.white, fontSize: 18),
-        ),
-      ),
-    );
-  }
-}
+import '../../features/vault/presentation/pages/vault_detail_page.dart';
+import '../../features/vault/presentation/pages/vault_list_page.dart';
+import '../../features/vault/presentation/pages/vault_settings_page.dart';
 
 /// Creates the app-level [GoRouter] with auth-aware redirects.
 ///
@@ -120,7 +80,23 @@ GoRouter createRouter(AuthBloc authBloc) {
       ),
       GoRoute(
         path: '/',
-        builder: (_, _) => const _PlaceholderHomePage(),
+        builder: (_, _) => const VaultListPage(),
+        routes: [
+          GoRoute(
+            path: 'vaults/:vaultId',
+            builder: (_, state) => VaultDetailPage(
+              vaultId: state.pathParameters['vaultId']!,
+            ),
+            routes: [
+              GoRoute(
+                path: 'settings',
+                builder: (_, state) => VaultSettingsPage(
+                  vaultId: state.pathParameters['vaultId']!,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );
