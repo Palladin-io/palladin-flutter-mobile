@@ -418,4 +418,138 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get vaultErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
+
+  @override
+  String vaultGrantCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString zgód',
+      many: '$countString zgód',
+      few: '$countString zgody',
+      one: '1 zgoda',
+      zero: 'Brak zgód',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultActiveGrantCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString aktywnych zgód',
+      many: '$countString aktywnych zgód',
+      few: '$countString aktywne zgody',
+      one: '1 aktywna zgoda',
+      zero: 'Brak aktywnych zgód',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultTabEntries => 'Wpisy';
+
+  @override
+  String get vaultTabAgents => 'Agenci';
+
+  @override
+  String get vaultTabLogs => 'Logi';
+
+  @override
+  String get vaultTabMembers => 'Członkowie';
+
+  @override
+  String get vaultTabSettings => 'Ustawienia';
+
+  @override
+  String get vaultSearchEntries => 'Szukaj wpisów…';
+
+  @override
+  String get vaultSearchAgents => 'Szukaj agentów…';
+
+  @override
+  String get vaultGrantFull => 'Pełny dostęp';
+
+  @override
+  String get vaultGrantGranular => 'Szczegółowy';
+
+  @override
+  String get vaultGrantActive => 'aktywna';
+
+  @override
+  String get vaultGrantExpired => 'wygasła';
+
+  @override
+  String get vaultGrantRevoked => 'cofnięta';
+
+  @override
+  String vaultGrantGrantedBy(String person, String date) {
+    return 'Przyznane przez $person – $date';
+  }
+
+  @override
+  String vaultGrantRevokedBy(String person, String date) {
+    return 'Cofnięte przez $person – $date';
+  }
+
+  @override
+  String vaultGrantMoreEntries(int count) {
+    return '+$count więcej';
+  }
+
+  @override
+  String get vaultRevokeButton => 'Cofnij';
+
+  @override
+  String get vaultRegrantButton => 'Przywróć';
+
+  @override
+  String get vaultRestoreButton => 'Wznów';
+
+  @override
+  String get vaultEntriesEmpty => 'Brak wpisów';
+
+  @override
+  String get vaultAgentsEmpty => 'Żaden agent nie ma jeszcze dostępu';
+
+  @override
+  String get vaultLogsEmpty => 'Dziennik aktywności już wkrótce';
+
+  @override
+  String get vaultMembersEmpty => 'Zarządzanie członkami już wkrótce';
+
+  @override
+  String get vaultRevealEntry => 'Pokaż dane wpisu';
+
+  @override
+  String get vaultViewEntry => 'Zobacz szczegóły wpisu';
+
+  @override
+  String get vaultCopyValue => 'Kopiuj';
+
+  @override
+  String get vaultOpenLink => 'Otwórz w przeglądarce';
+
+  @override
+  String get vaultRevealValue => 'Pokaż wartość';
+
+  @override
+  String get vaultSaveAction => 'Zapisz';
+
+  @override
+  String get vaultAddEntryFab => 'Dodaj wpis';
+
+  @override
+  String get vaultAddGrantFab => 'Dodaj zgodę';
 }

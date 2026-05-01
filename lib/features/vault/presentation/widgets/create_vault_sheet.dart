@@ -13,6 +13,7 @@ import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
 import '../cubit/create_vault_cubit.dart';
 import 'vault_form.dart';
+import 'vault_visuals.dart';
 
 /// Bottom sheet that wraps [VaultForm] and the create-vault flow.
 ///
@@ -53,8 +54,8 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
   static const _initialFormData = VaultFormData(
     name: '',
     description: '',
-    icon: '🔒',
-    color: '#48ECDF',
+    icon: VaultVisuals.defaultIconName,
+    color: VaultVisuals.defaultColorHex,
     grantMode: GrantMode.granular,
   );
 

@@ -8,13 +8,20 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
 import '../cubit/vault_detail_cubit.dart';
+import '../widgets/grant_card.dart';
+import '../widgets/vault_agents_tab.dart';
+import '../widgets/vault_entries_tab.dart';
+import '../widgets/vault_form.dart';
+import '../widgets/vault_placeholder_tab.dart';
+import '../widgets/vault_settings_tab.dart';
 
-/// Vault detail screen — shows the vault header (icon, name, mode)
-/// and placeholder sections for entries and agents (which will be
-/// filled in by later tickets).
+/// Vault detail screen — wraps a [DefaultTabController] with five tabs:
+/// Entries, Agents, Logs, Members, Settings. Each tab body lives in
+/// its own widget under `widgets/vault_*_tab.dart`.
 ///
-/// The settings cog navigates to `/vaults/:id/settings` for edit /
-/// delete actions.
+/// Page-level state (form-data dirty flag, current tab index) is held
+/// here so the AppBar Save action can react without coupling the
+/// settings widget to the cubit.
 class VaultDetailPage extends StatelessWidget {
   const VaultDetailPage({super.key, required this.vaultId});
 
@@ -29,6 +36,8 @@ class VaultDetailPage extends StatelessWidget {
   }
 }
 
+enum _VaultTab { entries, agents, logs, members, settings }
+
 class _VaultDetailView extends StatefulWidget {
   const _VaultDetailView({required this.vaultId});
 
@@ -38,348 +47,394 @@ class _VaultDetailView extends StatefulWidget {
   State<_VaultDetailView> createState() => _VaultDetailViewState();
 }
 
-class _VaultDetailViewState extends State<_VaultDetailView> {
+class _VaultDetailViewState extends State<_VaultDetailView>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+  VaultFormData? _initialFormData;
+  VaultFormData? _currentFormData;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: _VaultTab.values.length, vsync: this)
+      ..addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  bool get _isSettingsTab =>
+      _tabController.index == _VaultTab.settings.index;
+
+  bool get _isFormDirty {
+    final current = _currentFormData;
+    final initial = _initialFormData;
+    if (current == null || initial == null) return false;
+    return current != initial;
+  }
+
+  void _saveSettings() {
+    final data = _currentFormData;
+    if (data == null) return;
+    context.read<VaultDetailCubit>().update(
+          widget.vaultId,
+          name: data.name.trim(),
+          description: data.description.trim(),
+          icon: data.icon,
+          color: data.color,
+          grantMode: data.grantMode,
+        );
+  }
+
+  Future<void> _confirmDelete(VaultEntity vault) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.darkSurface,
+          title: Text(
+            l10n.vaultDeleteTitle,
+            style: const TextStyle(color: AppColors.textPrimary),
+          ),
+          content: Text(
+            l10n.vaultDeleteConfirmWithName(vault.name),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                l10n.vaultCancel,
+                style: const TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                l10n.vaultDeleteVault,
+                style: const TextStyle(color: AppColors.brandRed),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed == true && mounted) {
+      // ignore: use_build_context_synchronously
+      context.read<VaultDetailCubit>().delete(widget.vaultId);
+    }
+  }
+
+  void _syncFormFromVault(VaultEntity vault, AppLocalizations l10n) {
+    final next = VaultFormData(
+      name: vault.name,
+      description: vault.description ?? '',
+      icon: vault.icon ?? 'shield',
+      color: vault.color ?? '#FF4F4F',
+      grantMode: vault.grantMode,
+    );
+    if (_initialFormData == null) {
+      setState(() {
+        _initialFormData = next;
+        _currentFormData = next;
+      });
+    } else if (next != _initialFormData) {
+      setState(() {
+        _initialFormData = next;
+        _currentFormData = next;
+      });
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(l10n.vaultSavedSnackbar),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: AppColors.darkSurface,
-        title: BlocBuilder<VaultDetailCubit, VaultDetailState>(
-          builder: (context, state) {
-            if (state is VaultDetailLoaded) {
-              return Text(state.vault.name);
-            }
-            return Text(l10n.vaultTitle);
-          },
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: l10n.vaultSettings,
-            onPressed: () =>
-                context.push('/vaults/${widget.vaultId}/settings'),
+    return BlocConsumer<VaultDetailCubit, VaultDetailState>(
+      listener: (context, state) {
+        if (state is VaultDetailLoaded) {
+          _syncFormFromVault(state.vault, l10n);
+        } else if (state is VaultDetailDeleted) {
+          context.go('/');
+        }
+      },
+      builder: (context, state) {
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: _DetailAppBar(
+            state: state,
+            isSettingsTab: _isSettingsTab,
+            isFormDirty: _isFormDirty,
+            onSave: _saveSettings,
+            onBack: () => context.pop(),
+            tabController: _tabController,
           ),
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: AppColors.darkBackgroundGradient,
+            ),
+            child: SafeArea(
+              top: false,
+              child: switch (state) {
+                VaultDetailInitial() ||
+                VaultDetailLoading() => const _LoadingView(),
+                VaultDetailDeleted() => const SizedBox.shrink(),
+                VaultDetailError(:final kind) => _ErrorView(kind: kind),
+                VaultDetailLoaded(:final vault) => _LoadedBody(
+                    vault: vault,
+                    tabController: _tabController,
+                    initialFormData: _initialFormData,
+                    onFormChanged: (data) =>
+                        setState(() => _currentFormData = data),
+                    onDelete: () => _confirmDelete(vault),
+                  ),
+              },
+            ),
+          ),
+          floatingActionButton: _DetailFab(
+            currentTab: _tabController.index,
+            l10n: l10n,
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── AppBar ─────────────────────────────────────────────────────────
+
+class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _DetailAppBar({
+    required this.state,
+    required this.isSettingsTab,
+    required this.isFormDirty,
+    required this.onSave,
+    required this.onBack,
+    required this.tabController,
+  });
+
+  final VaultDetailState state;
+  final bool isSettingsTab;
+  final bool isFormDirty;
+  final VoidCallback onSave;
+  final VoidCallback onBack;
+  final TabController tabController;
+
+  static const double _tabBarHeight = 36;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight + _tabBarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final s = state;
+    final loaded = s is VaultDetailLoaded ? s.vault : null;
+    final subtitle = loaded != null ? l10n.vaultEntryCount(loaded.entryCount) : '';
+
+    return AppBar(
+      backgroundColor: AppColors.darkSurface,
+      titleSpacing: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+        onPressed: onBack,
+      ),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            loaded?.name ?? l10n.vaultTitle,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (subtitle.isNotEmpty)
+            Text(
+              subtitle,
+              style: const TextStyle(
+                color: AppColors.textTertiaryMobile,
+                fontSize: 11,
+              ),
+            ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppColors.darkBackgroundGradient,
-        ),
-        child: SafeArea(
-          top: false,
-          child: BlocBuilder<VaultDetailCubit, VaultDetailState>(
-            builder: (context, state) {
-              return switch (state) {
-                VaultDetailInitial() ||
-                VaultDetailLoading() =>
-                  const Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.tealAccent,
-                    ),
-                  ),
-                VaultDetailDeleted() => const SizedBox.shrink(),
-                VaultDetailError(:final kind) => _DetailError(kind: kind),
-                VaultDetailLoaded(:final vault) => _DetailBody(vault: vault),
-              };
+      actions: [
+        if (isSettingsTab)
+          TextButton(
+            onPressed: isFormDirty ? onSave : null,
+            child: Text(
+              l10n.vaultSaveAction,
+              style: TextStyle(
+                color: isFormDirty
+                    ? AppColors.brandRed
+                    : AppColors.brandRed.withValues(alpha: 0.4),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          )
+        else
+          IconButton(
+            icon: const Icon(Icons.more_vert),
+            onPressed: () {
+              // Context menu lands in a follow-up ticket.
             },
           ),
+      ],
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(_tabBarHeight),
+        child: TabBar(
+          controller: tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          labelColor: AppColors.brandRed,
+          unselectedLabelColor: AppColors.textTertiaryMobile,
+          indicatorColor: AppColors.brandRed,
+          indicatorSize: TabBarIndicatorSize.label,
+          labelStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+          tabs: [
+            Tab(text: l10n.vaultTabEntries),
+            Tab(text: l10n.vaultTabAgents),
+            Tab(text: l10n.vaultTabLogs),
+            Tab(text: l10n.vaultTabMembers),
+            Tab(text: l10n.vaultTabSettings),
+          ],
         ),
       ),
     );
   }
 }
 
-class _DetailBody extends StatelessWidget {
-  const _DetailBody({required this.vault});
+// ── Loaded body ────────────────────────────────────────────────────
+
+class _LoadedBody extends StatelessWidget {
+  const _LoadedBody({
+    required this.vault,
+    required this.tabController,
+    required this.initialFormData,
+    required this.onFormChanged,
+    required this.onDelete,
+  });
 
   final VaultEntity vault;
+  final TabController tabController;
+  final VaultFormData? initialFormData;
+  final ValueChanged<VaultFormData> onFormChanged;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: TabBarView(
+        controller: tabController,
         children: [
-          _Header(vault: vault),
-          const SizedBox(height: 24),
-          _StatRow(vault: vault, l10n: l10n),
-          const SizedBox(height: 32),
-          _SectionTitle(title: l10n.vaultSectionEntries),
-          const SizedBox(height: 12),
-          _PlaceholderCard(
-            icon: Icons.shield_outlined,
-            title: l10n.vaultEntriesPlaceholderTitle,
-            subtitle: l10n.vaultEntriesPlaceholderSubtitle,
+          VaultEntriesTab(entries: _MockData.entries),
+          VaultAgentsTab(grants: _MockData.grants),
+          _PlaceholderTabBuilder(
+            messageKey: (l10n) => l10n.vaultLogsEmpty,
+            icon: Icons.history,
           ),
-          const SizedBox(height: 24),
-          _SectionTitle(title: l10n.vaultSectionAgents),
-          const SizedBox(height: 12),
-          _PlaceholderCard(
-            icon: Icons.smart_toy_outlined,
-            title: l10n.vaultAgentsPlaceholderTitle,
-            subtitle: l10n.vaultAgentsPlaceholderSubtitle,
+          _PlaceholderTabBuilder(
+            messageKey: (l10n) => l10n.vaultMembersEmpty,
+            icon: Icons.group_outlined,
           ),
+          if (initialFormData != null)
+            VaultSettingsTab(
+              initial: initialFormData!,
+              onChanged: onFormChanged,
+              onDelete: onDelete,
+            )
+          else
+            const SizedBox.shrink(),
         ],
       ),
     );
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.vault});
+class _PlaceholderTabBuilder extends StatelessWidget {
+  const _PlaceholderTabBuilder({
+    required this.messageKey,
+    required this.icon,
+  });
 
-  final VaultEntity vault;
+  final String Function(AppLocalizations) messageKey;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final accent = _resolveAccentColor(vault.color);
-    final isFull = vault.grantMode == GrantMode.full;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 56,
-          height: 56,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Text(
-            vault.icon ?? '🔒',
-            style: const TextStyle(fontSize: 28),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                vault.name,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                ),
-              ),
-              if (vault.description != null &&
-                  vault.description!.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  vault.description!,
-                  style: const TextStyle(
-                    color: AppColors.textTertiary,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: (isFull
-                          ? AppColors.tealAccent
-                          : AppColors.strengthFair)
-                      .withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: (isFull
-                            ? AppColors.tealAccent
-                            : AppColors.strengthFair)
-                        .withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Text(
-                  (isFull ? l10n.vaultModeFull : l10n.vaultModeGranular)
-                      .toUpperCase(),
-                  style: TextStyle(
-                    color: isFull
-                        ? AppColors.tealAccent
-                        : AppColors.strengthFair,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Color _resolveAccentColor(String? raw) {
-    if (raw == null || raw.isEmpty) return AppColors.tealAccent;
-    final cleaned = raw.startsWith('#') ? raw.substring(1) : raw;
-    if (cleaned.length != 6) return AppColors.tealAccent;
-    final value = int.tryParse(cleaned, radix: 16);
-    if (value == null) return AppColors.tealAccent;
-    return Color(0xFF000000 | value);
+    return VaultPlaceholderTab(icon: icon, message: messageKey(l10n));
   }
 }
 
-class _StatRow extends StatelessWidget {
-  const _StatRow({required this.vault, required this.l10n});
+// ── FAB ────────────────────────────────────────────────────────────
 
-  final VaultEntity vault;
+class _DetailFab extends StatelessWidget {
+  const _DetailFab({required this.currentTab, required this.l10n});
+
+  final int currentTab;
   final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _StatChip(
-            label: l10n.vaultStatEntries,
-            value: vault.entryCount.toString(),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatChip(
-            label: l10n.vaultStatActiveGrants,
-            value: vault.activeGrantCount.toString(),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatChip(
-            label: l10n.vaultStatMembers,
-            value: vault.memberCount.toString(),
-          ),
-        ),
-      ],
+    final showOnEntries = currentTab == _VaultTab.entries.index;
+    final showOnAgents = currentTab == _VaultTab.agents.index;
+    if (!showOnEntries && !showOnAgents) return const SizedBox.shrink();
+
+    return FloatingActionButton(
+      backgroundColor: AppColors.brandRed,
+      foregroundColor: Colors.white,
+      tooltip: showOnEntries ? l10n.vaultAddEntryFab : l10n.vaultAddGrantFab,
+      onPressed: () {
+        // Add flows ship in CVT-32 (entries) and the grants ticket.
+      },
+      child: const Icon(Icons.add),
     );
   }
 }
 
-class _StatChip extends StatelessWidget {
-  const _StatChip({required this.label, required this.value});
+// ── Loading / error ────────────────────────────────────────────────
 
-  final String label;
-  final String value;
+class _LoadingView extends StatelessWidget {
+  const _LoadingView();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-      decoration: BoxDecoration(
-        color: AppColors.darkSurface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.textPrimary.withValues(alpha: 0.04),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textTertiary,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
+    return const Center(
+      child: CircularProgressIndicator(color: AppColors.tealAccent),
     );
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: AppColors.textPrimary,
-        fontSize: 15,
-        fontWeight: FontWeight.w700,
-      ),
-    );
-  }
-}
-
-class _PlaceholderCard extends StatelessWidget {
-  const _PlaceholderCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.darkSurface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.textPrimary.withValues(alpha: 0.04),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppColors.textTertiary, size: 24),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              color: AppColors.textTertiary,
-              fontSize: 12,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailError extends StatelessWidget {
-  const _DetailError({required this.kind});
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.kind});
 
   final VaultErrorKind kind;
 
@@ -409,4 +464,118 @@ class _DetailError extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Mock data (lives here so the page is self-contained) ───────────
+
+abstract final class _MockData {
+  static final List<MockEntry> entries = [
+    const MockEntry(
+      kind: EntryKind.key,
+      name: 'AWS Access Key',
+      meta: 'accessed 3m ago',
+      icon: Icons.vpn_key,
+      url: 'console.aws.amazon.com',
+      value: 'AKIAIOSFODNN7EXAMPLE',
+    ),
+    const MockEntry(
+      kind: EntryKind.key,
+      name: 'Stripe API Key',
+      meta: 'accessed 1h ago',
+      icon: Icons.payment,
+      url: 'dashboard.stripe.com',
+      value: 'sk_live_51HxyzABCDEFG',
+    ),
+    const MockEntry(
+      kind: EntryKind.credential,
+      name: 'GitHub Enterprise',
+      meta: 'github.com',
+      icon: Icons.language,
+      url: 'github.com',
+      username: 'patryk@company.com',
+      password: 'GitH0b!2026',
+    ),
+    const MockEntry(
+      kind: EntryKind.credential,
+      name: 'Vercel Dashboard',
+      meta: 'vercel.com',
+      icon: Icons.rocket_launch,
+      url: 'vercel.com',
+      username: 'patryk@vercel.com',
+      password: 'V3rc3l#2026',
+    ),
+    const MockEntry(
+      kind: EntryKind.key,
+      name: 'OpenAI API Key',
+      meta: 'accessed 2h ago',
+      icon: Icons.psychology,
+      url: 'platform.openai.com',
+      value: 'sk-proj-aBcDeFgHiJkL',
+    ),
+  ];
+
+  static final List<MockGrant> grants = [
+    const MockGrant(
+      agent: GrantAgent(
+        type: AgentType.claude,
+        name: 'Claude',
+        initials: 'CL',
+      ),
+      mode: GrantUiMode.full,
+      status: GrantStatus.active,
+      expiresAbsolute: 'Apr 26 at 20:22',
+      expiresRelative: 'in 6h',
+      grantedBy: 'Patryk',
+    ),
+    const MockGrant(
+      agent: GrantAgent(
+        type: AgentType.cursor,
+        name: 'Cursor',
+        initials: 'Cu',
+      ),
+      mode: GrantUiMode.granular,
+      status: GrantStatus.active,
+      expiresAbsolute: 'Apr 27 at 13:05',
+      expiresRelative: 'in 23h',
+      grantedBy: 'Patryk',
+      entries: [
+        GrantEntry(name: 'AWS Access Key'),
+        GrantEntry(name: 'Stripe API Key'),
+        GrantEntry(name: 'GitHub Token', isActive: false),
+        GrantEntry(name: 'OpenAI API Key'),
+      ],
+    ),
+    const MockGrant(
+      agent: GrantAgent(
+        type: AgentType.copilot,
+        name: 'Copilot',
+        initials: 'Co',
+      ),
+      mode: GrantUiMode.full,
+      status: GrantStatus.expired,
+      expiresAbsolute: 'Apr 26 at 12:10',
+      expiresRelative: '2h ago',
+      grantedBy: 'Patryk',
+    ),
+    const MockGrant(
+      agent: GrantAgent(
+        type: AgentType.openclaw,
+        name: 'OpenClaw',
+        initials: 'OC',
+      ),
+      mode: GrantUiMode.granular,
+      status: GrantStatus.revoked,
+      expiresAbsolute: '',
+      expiresRelative: '',
+      grantedBy: 'Patryk',
+      revokedBy: 'Patryk',
+      revokedAbsolute: 'Apr 25 at 09:15',
+      revokedRelative: '1d ago',
+      revokedReason: 'Suspected credential compromise',
+      entries: [
+        GrantEntry(name: 'AWS Access Key'),
+        GrantEntry(name: 'Stripe API Key'),
+      ],
+    ),
+  ];
 }

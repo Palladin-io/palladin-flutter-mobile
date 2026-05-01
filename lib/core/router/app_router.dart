@@ -10,7 +10,6 @@ import '../../features/recovery/presentation/pages/recovery_page.dart';
 import '../../features/unlock/presentation/pages/unlock_page.dart';
 import '../../features/vault/presentation/pages/vault_detail_page.dart';
 import '../../features/vault/presentation/pages/vault_list_page.dart';
-import '../../features/vault/presentation/pages/vault_settings_page.dart';
 
 /// Creates the app-level [GoRouter] with auth-aware redirects.
 ///
@@ -87,14 +86,6 @@ GoRouter createRouter(AuthBloc authBloc) {
             builder: (_, state) => VaultDetailPage(
               vaultId: state.pathParameters['vaultId']!,
             ),
-            routes: [
-              GoRoute(
-                path: 'settings',
-                builder: (_, state) => VaultSettingsPage(
-                  vaultId: state.pathParameters['vaultId']!,
-                ),
-              ),
-            ],
           ),
         ],
       ),

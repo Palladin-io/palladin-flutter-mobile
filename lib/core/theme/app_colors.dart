@@ -13,6 +13,11 @@ abstract final class AppColors {
   /// Dark theme surface — elevated navy.
   static const Color darkSurface = Color(0xFF1A2A4A);
 
+  /// Mobile prototype "surface" card background — slightly bluer navy
+  /// used by vault detail and list cards (matches `--surface` in the
+  /// Astro prototype).
+  static const Color mobileSurface = Color(0xFF0D1B3E);
+
   /// Light theme scaffold background — warm cream.
   static const Color lightBackground = Color(0xFFFDF9E4);
 
@@ -37,6 +42,14 @@ abstract final class AppColors {
 
   /// Tertiary / muted text color in dark mode — darker blue-gray.
   static const Color textTertiary = Color(0xFF6B7A8E);
+
+  /// Mobile-prototype secondary text — warm sand (Astro `--t2`). Used
+  /// for input labels and supporting copy on the vault screens.
+  static const Color textSecondaryMobile = Color(0xFFC4BAA1);
+
+  /// Mobile-prototype tertiary text — slate (Astro `--t3`). Used for
+  /// meta lines, icon-buttons, and inactive controls on vault screens.
+  static const Color textTertiaryMobile = Color(0xFF8A95A6);
 
   // === UI Components ===
 
@@ -72,6 +85,28 @@ abstract final class AppColors {
 
   /// Secondary button border — white at 12% opacity.
   static const Color buttonBorder = Color(0x1FFFFFFF);
+
+  // === Vault palette (mobile prototype) ===
+  //
+  // Picker swatches and tinted icon-circle colors used across the
+  // vault list, vault detail and create-vault flows. Mirror the Astro
+  // prototype's palette one-to-one so the app feels identical.
+
+  /// Vault accent — peach (FFAB87).
+  static const Color vaultPeach = Color(0xFFFFAB87);
+
+  /// Vault accent — sky blue (60A5FA).
+  static const Color vaultBlue = Color(0xFF60A5FA);
+
+  /// Vault accent — violet (A78BFA).
+  static const Color vaultViolet = Color(0xFFA78BFA);
+
+  /// Muted slate used as a neutral icon background and for inactive chips.
+  static const Color vaultSlate = Color(0xFF8A95A6);
+
+  /// Hairline divider color used between rows inside cards.
+  static const Color hairline = Color(0x14FFFFFF);
+
 
   // === Dark background gradient ===
   //

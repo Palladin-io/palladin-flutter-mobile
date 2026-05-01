@@ -811,6 +811,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
   String get vaultErrorUnknown;
+
+  /// Vault card header right-side label: count of grants on the vault
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No grants} =1{1 grant} other{{count} grants}}'**
+  String vaultGrantCount(int count);
+
+  /// Vault card footer label: number of currently active grants
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No active grants} =1{1 active grant} other{{count} active grants}}'**
+  String vaultActiveGrantCount(int count);
+
+  /// Vault detail tab — Entries
+  ///
+  /// In en, this message translates to:
+  /// **'Entries'**
+  String get vaultTabEntries;
+
+  /// Vault detail tab — Agents
+  ///
+  /// In en, this message translates to:
+  /// **'Agents'**
+  String get vaultTabAgents;
+
+  /// Vault detail tab — Logs
+  ///
+  /// In en, this message translates to:
+  /// **'Logs'**
+  String get vaultTabLogs;
+
+  /// Vault detail tab — Members
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get vaultTabMembers;
+
+  /// Vault detail tab — Settings
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get vaultTabSettings;
+
+  /// Placeholder for the search input on the Entries tab
+  ///
+  /// In en, this message translates to:
+  /// **'Search entries…'**
+  String get vaultSearchEntries;
+
+  /// Placeholder for the search input on the Agents tab
+  ///
+  /// In en, this message translates to:
+  /// **'Search agents…'**
+  String get vaultSearchAgents;
+
+  /// Mode label on a grant card — full vault access
+  ///
+  /// In en, this message translates to:
+  /// **'Full access'**
+  String get vaultGrantFull;
+
+  /// Mode label on a grant card — per-entry access
+  ///
+  /// In en, this message translates to:
+  /// **'Granular'**
+  String get vaultGrantGranular;
+
+  /// Status pill on the grant card — currently active
+  ///
+  /// In en, this message translates to:
+  /// **'active'**
+  String get vaultGrantActive;
+
+  /// Status pill on the grant card — expired
+  ///
+  /// In en, this message translates to:
+  /// **'expired'**
+  String get vaultGrantExpired;
+
+  /// Status pill on the grant card — revoked by the vault owner
+  ///
+  /// In en, this message translates to:
+  /// **'revoked'**
+  String get vaultGrantRevoked;
+
+  /// Footer line on an active / expired grant card
+  ///
+  /// In en, this message translates to:
+  /// **'Granted by {person} at {date}'**
+  String vaultGrantGrantedBy(String person, String date);
+
+  /// Footer line on a revoked grant card
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked by {person} at {date}'**
+  String vaultGrantRevokedBy(String person, String date);
+
+  /// Trailing chip indicating extra entries hidden inside a granular grant
+  ///
+  /// In en, this message translates to:
+  /// **'+{count} more'**
+  String vaultGrantMoreEntries(int count);
+
+  /// Action button on an active grant card
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke'**
+  String get vaultRevokeButton;
+
+  /// Action button on a revoked grant card
+  ///
+  /// In en, this message translates to:
+  /// **'Re-grant'**
+  String get vaultRegrantButton;
+
+  /// Action button on an expired grant card
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get vaultRestoreButton;
+
+  /// Empty-state title for the Entries tab when no entries exist
+  ///
+  /// In en, this message translates to:
+  /// **'No entries yet'**
+  String get vaultEntriesEmpty;
+
+  /// Empty-state title for the Agents tab when no grants exist
+  ///
+  /// In en, this message translates to:
+  /// **'No agents granted access'**
+  String get vaultAgentsEmpty;
+
+  /// Placeholder copy on the Logs tab
+  ///
+  /// In en, this message translates to:
+  /// **'Activity log coming soon'**
+  String get vaultLogsEmpty;
+
+  /// Placeholder copy on the Members tab
+  ///
+  /// In en, this message translates to:
+  /// **'Member management coming soon'**
+  String get vaultMembersEmpty;
+
+  /// Tooltip on the entry-row reveal button
+  ///
+  /// In en, this message translates to:
+  /// **'Reveal entry data'**
+  String get vaultRevealEntry;
+
+  /// Tooltip on the entry-row arrow button
+  ///
+  /// In en, this message translates to:
+  /// **'View entry details'**
+  String get vaultViewEntry;
+
+  /// Tooltip on the copy-to-clipboard button inside a revealed entry panel
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get vaultCopyValue;
+
+  /// Tooltip on the open-in-browser button inside a revealed entry panel
+  ///
+  /// In en, this message translates to:
+  /// **'Open in browser'**
+  String get vaultOpenLink;
+
+  /// Tooltip on the visibility-toggle button next to a masked value
+  ///
+  /// In en, this message translates to:
+  /// **'Reveal value'**
+  String get vaultRevealValue;
+
+  /// AppBar action label on the vault settings tab
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get vaultSaveAction;
+
+  /// Tooltip / accessibility label for the FAB on the Entries tab
+  ///
+  /// In en, this message translates to:
+  /// **'Add entry'**
+  String get vaultAddEntryFab;
+
+  /// Tooltip / accessibility label for the FAB on the Agents tab
+  ///
+  /// In en, this message translates to:
+  /// **'Add grant'**
+  String get vaultAddGrantFab;
 }
 
 class _AppLocalizationsDelegate

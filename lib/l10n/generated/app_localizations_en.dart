@@ -416,4 +416,134 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get vaultErrorUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String vaultGrantCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString grants',
+      one: '1 grant',
+      zero: 'No grants',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultActiveGrantCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString active grants',
+      one: '1 active grant',
+      zero: 'No active grants',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultTabEntries => 'Entries';
+
+  @override
+  String get vaultTabAgents => 'Agents';
+
+  @override
+  String get vaultTabLogs => 'Logs';
+
+  @override
+  String get vaultTabMembers => 'Members';
+
+  @override
+  String get vaultTabSettings => 'Settings';
+
+  @override
+  String get vaultSearchEntries => 'Search entries…';
+
+  @override
+  String get vaultSearchAgents => 'Search agents…';
+
+  @override
+  String get vaultGrantFull => 'Full access';
+
+  @override
+  String get vaultGrantGranular => 'Granular';
+
+  @override
+  String get vaultGrantActive => 'active';
+
+  @override
+  String get vaultGrantExpired => 'expired';
+
+  @override
+  String get vaultGrantRevoked => 'revoked';
+
+  @override
+  String vaultGrantGrantedBy(String person, String date) {
+    return 'Granted by $person at $date';
+  }
+
+  @override
+  String vaultGrantRevokedBy(String person, String date) {
+    return 'Revoked by $person at $date';
+  }
+
+  @override
+  String vaultGrantMoreEntries(int count) {
+    return '+$count more';
+  }
+
+  @override
+  String get vaultRevokeButton => 'Revoke';
+
+  @override
+  String get vaultRegrantButton => 'Re-grant';
+
+  @override
+  String get vaultRestoreButton => 'Restore';
+
+  @override
+  String get vaultEntriesEmpty => 'No entries yet';
+
+  @override
+  String get vaultAgentsEmpty => 'No agents granted access';
+
+  @override
+  String get vaultLogsEmpty => 'Activity log coming soon';
+
+  @override
+  String get vaultMembersEmpty => 'Member management coming soon';
+
+  @override
+  String get vaultRevealEntry => 'Reveal entry data';
+
+  @override
+  String get vaultViewEntry => 'View entry details';
+
+  @override
+  String get vaultCopyValue => 'Copy';
+
+  @override
+  String get vaultOpenLink => 'Open in browser';
+
+  @override
+  String get vaultRevealValue => 'Reveal value';
+
+  @override
+  String get vaultSaveAction => 'Save';
+
+  @override
+  String get vaultAddEntryFab => 'Add entry';
+
+  @override
+  String get vaultAddGrantFab => 'Add grant';
 }

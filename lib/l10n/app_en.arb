@@ -511,5 +511,156 @@
   "vaultErrorUnknown": "Something went wrong. Please try again.",
   "@vaultErrorUnknown": {
     "description": "Generic fallback error for vault operations"
+  },
+  "vaultGrantCount": "{count, plural, =0{No grants} =1{1 grant} other{{count} grants}}",
+  "@vaultGrantCount": {
+    "description": "Vault card header right-side label: count of grants on the vault",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "vaultActiveGrantCount": "{count, plural, =0{No active grants} =1{1 active grant} other{{count} active grants}}",
+  "@vaultActiveGrantCount": {
+    "description": "Vault card footer label: number of currently active grants",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "vaultTabEntries": "Entries",
+  "@vaultTabEntries": {
+    "description": "Vault detail tab — Entries"
+  },
+  "vaultTabAgents": "Agents",
+  "@vaultTabAgents": {
+    "description": "Vault detail tab — Agents"
+  },
+  "vaultTabLogs": "Logs",
+  "@vaultTabLogs": {
+    "description": "Vault detail tab — Logs"
+  },
+  "vaultTabMembers": "Members",
+  "@vaultTabMembers": {
+    "description": "Vault detail tab — Members"
+  },
+  "vaultTabSettings": "Settings",
+  "@vaultTabSettings": {
+    "description": "Vault detail tab — Settings"
+  },
+  "vaultSearchEntries": "Search entries…",
+  "@vaultSearchEntries": {
+    "description": "Placeholder for the search input on the Entries tab"
+  },
+  "vaultSearchAgents": "Search agents…",
+  "@vaultSearchAgents": {
+    "description": "Placeholder for the search input on the Agents tab"
+  },
+  "vaultGrantFull": "Full access",
+  "@vaultGrantFull": {
+    "description": "Mode label on a grant card — full vault access"
+  },
+  "vaultGrantGranular": "Granular",
+  "@vaultGrantGranular": {
+    "description": "Mode label on a grant card — per-entry access"
+  },
+  "vaultGrantActive": "active",
+  "@vaultGrantActive": {
+    "description": "Status pill on the grant card — currently active"
+  },
+  "vaultGrantExpired": "expired",
+  "@vaultGrantExpired": {
+    "description": "Status pill on the grant card — expired"
+  },
+  "vaultGrantRevoked": "revoked",
+  "@vaultGrantRevoked": {
+    "description": "Status pill on the grant card — revoked by the vault owner"
+  },
+  "vaultGrantGrantedBy": "Granted by {person} at {date}",
+  "@vaultGrantGrantedBy": {
+    "description": "Footer line on an active / expired grant card",
+    "placeholders": {
+      "person": {"type": "String", "example": "Patryk"},
+      "date": {"type": "String", "example": "Apr 26 at 20:22 (in 6h)"}
+    }
+  },
+  "vaultGrantRevokedBy": "Revoked by {person} at {date}",
+  "@vaultGrantRevokedBy": {
+    "description": "Footer line on a revoked grant card",
+    "placeholders": {
+      "person": {"type": "String", "example": "Patryk"},
+      "date": {"type": "String", "example": "Apr 25 at 09:15 (1d ago)"}
+    }
+  },
+  "vaultGrantMoreEntries": "+{count} more",
+  "@vaultGrantMoreEntries": {
+    "description": "Trailing chip indicating extra entries hidden inside a granular grant",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "vaultRevokeButton": "Revoke",
+  "@vaultRevokeButton": {
+    "description": "Action button on an active grant card"
+  },
+  "vaultRegrantButton": "Re-grant",
+  "@vaultRegrantButton": {
+    "description": "Action button on a revoked grant card"
+  },
+  "vaultRestoreButton": "Restore",
+  "@vaultRestoreButton": {
+    "description": "Action button on an expired grant card"
+  },
+  "vaultEntriesEmpty": "No entries yet",
+  "@vaultEntriesEmpty": {
+    "description": "Empty-state title for the Entries tab when no entries exist"
+  },
+  "vaultAgentsEmpty": "No agents granted access",
+  "@vaultAgentsEmpty": {
+    "description": "Empty-state title for the Agents tab when no grants exist"
+  },
+  "vaultLogsEmpty": "Activity log coming soon",
+  "@vaultLogsEmpty": {
+    "description": "Placeholder copy on the Logs tab"
+  },
+  "vaultMembersEmpty": "Member management coming soon",
+  "@vaultMembersEmpty": {
+    "description": "Placeholder copy on the Members tab"
+  },
+  "vaultRevealEntry": "Reveal entry data",
+  "@vaultRevealEntry": {
+    "description": "Tooltip on the entry-row reveal button"
+  },
+  "vaultViewEntry": "View entry details",
+  "@vaultViewEntry": {
+    "description": "Tooltip on the entry-row arrow button"
+  },
+  "vaultCopyValue": "Copy",
+  "@vaultCopyValue": {
+    "description": "Tooltip on the copy-to-clipboard button inside a revealed entry panel"
+  },
+  "vaultOpenLink": "Open in browser",
+  "@vaultOpenLink": {
+    "description": "Tooltip on the open-in-browser button inside a revealed entry panel"
+  },
+  "vaultRevealValue": "Reveal value",
+  "@vaultRevealValue": {
+    "description": "Tooltip on the visibility-toggle button next to a masked value"
+  },
+  "vaultSaveAction": "Save",
+  "@vaultSaveAction": {
+    "description": "AppBar action label on the vault settings tab"
+  },
+  "vaultAddEntryFab": "Add entry",
+  "@vaultAddEntryFab": {
+    "description": "Tooltip / accessibility label for the FAB on the Entries tab"
+  },
+  "vaultAddGrantFab": "Add grant",
+  "@vaultAddGrantFab": {
+    "description": "Tooltip / accessibility label for the FAB on the Agents tab"
   }
 }
