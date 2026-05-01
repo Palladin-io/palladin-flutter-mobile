@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/generated/app_localizations.dart';
 import '../../data/services/vault_icon_upload_service.dart';
 import 'vault_visuals.dart';
 
-/// Horizontal row of icon-circles used in vault create / edit forms.
+/// Horizontal row of icon-circles used in vault create / edit forms,
+/// followed by an "Upload photo" button.
 ///
 /// Two upload modes:
 /// - **Edit mode** (`vaultId` + `uploadService` provided): image is uploaded
@@ -47,7 +49,9 @@ class _VaultIconPickerState extends State<VaultIconPicker> {
   bool _uploading = false;
   String? _uploadError;
 
-  bool get _isCustomUrl => widget.selected.startsWith('https://');
+  bool get _isCustomUrl =>
+      widget.selected.startsWith('https://') ||
+      widget.selected.startsWith('file://');
   bool get _showUpload =>
       widget.vaultId != null || widget.onFilePicked != null;
 
@@ -60,8 +64,6 @@ class _VaultIconPickerState extends State<VaultIconPicker> {
     // Create mode — hand off the file for deferred upload.
     if (widget.onFilePicked != null) {
       widget.onFilePicked!(picked);
-      // Show a local preview via a fake placeholder URL so the circle
-      // reflects the chosen image (replaced by the real URL post-create).
       widget.onSelected('file://${picked.path}');
       return;
     }
@@ -90,10 +92,13 @@ class _VaultIconPickerState extends State<VaultIconPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final choices = VaultVisuals.iconChoices;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Icon preset circles
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -104,16 +109,22 @@ class _VaultIconPickerState extends State<VaultIconPicker> {
                 accentColor: widget.accentColor,
                 onTap: () => widget.onSelected(choice.name),
               ),
-            if (_showUpload)
-              _UploadCircle(
-                isSelected: _isCustomUrl,
-                isUploading: _uploading,
-                accentColor: widget.accentColor,
-                customUrl: _isCustomUrl ? widget.selected : null,
-                onTap: _pickAndUpload,
-              ),
           ],
         ),
+
+        // Upload button — visually distinct, full-width row below the circles
+        if (_showUpload) ...[
+          const SizedBox(height: 10),
+          _UploadButton(
+            isSelected: _isCustomUrl,
+            isUploading: _uploading,
+            accentColor: widget.accentColor,
+            customUrl: _isCustomUrl ? widget.selected : null,
+            label: l10n.vaultIconUpload,
+            onTap: _uploading ? null : _pickAndUpload,
+          ),
+        ],
+
         if (_uploadError != null)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -171,11 +182,17 @@ class _IconCircle extends StatelessWidget {
   }
 }
 
-class _UploadCircle extends StatelessWidget {
-  const _UploadCircle({
+/// Full-width upload button placed below the icon circles.
+///
+/// When a custom image is selected, shows a thumbnail preview on the left.
+/// Uses a dashed border in the idle state so it reads as an action, not
+/// just another option.
+class _UploadButton extends StatelessWidget {
+  const _UploadButton({
     required this.isSelected,
     required this.isUploading,
     required this.accentColor,
+    required this.label,
     required this.onTap,
     this.customUrl,
   });
@@ -184,75 +201,105 @@ class _UploadCircle extends StatelessWidget {
   final bool isUploading;
   final Color accentColor;
   final String? customUrl;
-  final VoidCallback onTap;
+  final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final borderColor = isSelected
+        ? AppColors.brandRed
+        : AppColors.vaultSlate.withValues(alpha: 0.30);
     final bgColor = isSelected
-        ? accentColor.withValues(alpha: 0.15)
-        : AppColors.vaultSlate.withValues(alpha: 0.10);
+        ? accentColor.withValues(alpha: 0.06)
+        : AppColors.vaultSlate.withValues(alpha: 0.06);
 
-    Widget child;
+    Widget leading;
     if (isUploading) {
-      child = const SizedBox(
-        width: 14,
-        height: 14,
-        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.tealAccent),
+      leading = const SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(
+            strokeWidth: 2, color: AppColors.tealAccent),
       );
     } else if (customUrl != null) {
       final isLocal = customUrl!.startsWith('file://');
-      child = ClipOval(
+      leading = ClipRRect(
+        borderRadius: BorderRadius.circular(6),
         child: isLocal
             ? Image.file(
                 File(customUrl!.replaceFirst('file://', '')),
-                width: 22,
-                height: 22,
+                width: 28,
+                height: 28,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stack) => const Icon(
                   Icons.broken_image_outlined,
-                  size: 16,
-                  color: AppColors.textPrimary,
+                  size: 18,
+                  color: AppColors.textSecondaryMobile,
                 ),
               )
             : Image.network(
                 customUrl!,
-                width: 22,
-                height: 22,
+                width: 28,
+                height: 28,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stack) => const Icon(
                   Icons.broken_image_outlined,
-                  size: 16,
-                  color: AppColors.textPrimary,
+                  size: 18,
+                  color: AppColors.textSecondaryMobile,
                 ),
               ),
       );
     } else {
-      child = const Icon(Icons.upload_outlined, size: 16, color: AppColors.textPrimary);
+      leading = Icon(
+        Icons.add_photo_alternate_outlined,
+        size: 18,
+        color: isSelected ? accentColor : AppColors.textSecondaryMobile,
+      );
     }
 
     return Semantics(
       button: true,
-      selected: isSelected,
-      label: 'Upload custom icon',
+      label: label,
       child: GestureDetector(
-        onTap: isUploading ? null : onTap,
+        onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          width: 36,
-          height: 36,
-          alignment: Alignment.center,
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
             color: bgColor,
-            border: isSelected
-                ? Border.all(color: AppColors.brandRed, width: 2)
-                : Border.all(
-                    color: AppColors.vaultSlate.withValues(alpha: 0.20),
-                    width: 1,
-                    style: BorderStyle.solid,
-                  ),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: borderColor,
+              width: 1,
+              style: isSelected ? BorderStyle.solid : BorderStyle.solid,
+            ),
           ),
-          child: child,
+          child: Row(
+            children: [
+              leading,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isSelected ? label : label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: isSelected
+                        ? accentColor
+                        : AppColors.textSecondaryMobile,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                size: 16,
+                color: isSelected
+                    ? accentColor
+                    : AppColors.textSecondaryMobile.withValues(alpha: 0.6),
+              ),
+            ],
+          ),
         ),
       ),
     );
