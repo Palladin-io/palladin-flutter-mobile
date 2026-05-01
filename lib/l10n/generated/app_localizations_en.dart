@@ -559,4 +559,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get vaultIconUploadFormatError =>
       'Unsupported format. Use PNG, JPEG or WebP.';
+
+  @override
+  String get navVaults => 'Vaults';
+
+  @override
+  String get navAgents => 'Agents';
+
+  @override
+  String get navAudit => 'Audit';
+
+  @override
+  String get navSettings => 'Settings';
 }

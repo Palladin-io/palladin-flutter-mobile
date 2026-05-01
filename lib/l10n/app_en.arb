@@ -678,5 +678,21 @@
   "vaultIconUploadFormatError": "Unsupported format. Use PNG, JPEG or WebP.",
   "@vaultIconUploadFormatError": {
     "description": "Error shown when selected file has an unsupported format"
+  },
+  "navVaults": "Vaults",
+  "@navVaults": {
+    "description": "Bottom nav label for the Vaults tab"
+  },
+  "navAgents": "Agents",
+  "@navAgents": {
+    "description": "Bottom nav label for the Agents tab"
+  },
+  "navAudit": "Audit",
+  "@navAudit": {
+    "description": "Bottom nav label for the Audit tab"
+  },
+  "navSettings": "Settings",
+  "@navSettings": {
+    "description": "Bottom nav label for the Settings tab"
   }
 }

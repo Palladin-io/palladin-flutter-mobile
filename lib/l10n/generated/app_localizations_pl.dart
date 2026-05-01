@@ -566,4 +566,16 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get vaultIconUploadFormatError =>
       'Nieobsługiwany format. Użyj PNG, JPEG lub WebP.';
+
+  @override
+  String get navVaults => 'Sejfy';
+
+  @override
+  String get navAgents => 'Agenci';
+
+  @override
+  String get navAudit => 'Logi';
+
+  @override
+  String get navSettings => 'Ustawienia';
 }

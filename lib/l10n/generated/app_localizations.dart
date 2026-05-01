@@ -1027,6 +1027,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unsupported format. Use PNG, JPEG or WebP.'**
   String get vaultIconUploadFormatError;
+
+  /// Bottom nav label for the Vaults tab
+  ///
+  /// In en, this message translates to:
+  /// **'Vaults'**
+  String get navVaults;
+
+  /// Bottom nav label for the Agents tab
+  ///
+  /// In en, this message translates to:
+  /// **'Agents'**
+  String get navAgents;
+
+  /// Bottom nav label for the Audit tab
+  ///
+  /// In en, this message translates to:
+  /// **'Audit'**
+  String get navAudit;
+
+  /// Bottom nav label for the Settings tab
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get navSettings;
 }
 
 class _AppLocalizationsDelegate

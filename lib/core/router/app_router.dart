@@ -7,6 +7,8 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_wizard_page.dart';
 import '../../features/recovery/presentation/pages/recovery_page.dart';
+import '../../features/shell/presentation/pages/app_shell.dart';
+import '../../features/shell/presentation/pages/placeholder_page.dart';
 import '../../features/unlock/presentation/pages/unlock_page.dart';
 import '../../features/vault/presentation/pages/vault_detail_page.dart';
 import '../../features/vault/presentation/pages/vault_list_page.dart';
@@ -77,17 +79,41 @@ GoRouter createRouter(AuthBloc authBloc) {
         path: '/recovery',
         builder: (_, _) => const RecoveryPage(),
       ),
-      GoRoute(
-        path: '/',
-        builder: (_, _) => const VaultListPage(),
+      ShellRoute(
+        builder: (context, state, child) => AppShell(child: child),
         routes: [
           GoRoute(
-            path: 'vaults/:vaultId',
-            builder: (_, state) => VaultDetailPage(
-              vaultId: state.pathParameters['vaultId']!,
+            path: '/',
+            builder: (_, _) => const VaultListPage(),
+          ),
+          GoRoute(
+            path: '/agents',
+            builder: (_, _) => const PlaceholderPage(
+              icon: Icons.smart_toy_outlined,
+              title: 'Agents',
+            ),
+          ),
+          GoRoute(
+            path: '/audit',
+            builder: (_, _) => const PlaceholderPage(
+              icon: Icons.history,
+              title: 'Audit Log',
+            ),
+          ),
+          GoRoute(
+            path: '/settings',
+            builder: (_, _) => const PlaceholderPage(
+              icon: Icons.settings_outlined,
+              title: 'Settings',
             ),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/vaults/:vaultId',
+        builder: (_, state) => VaultDetailPage(
+          vaultId: state.pathParameters['vaultId']!,
+        ),
       ),
     ],
   );

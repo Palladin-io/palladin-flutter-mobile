@@ -154,5 +154,9 @@
   "vaultIconUpload": "Wgraj własną ikonę",
   "vaultIconUploadError": "Przesyłanie nie powiodło się. Spróbuj ponownie.",
   "vaultIconUploadSizeError": "Plik przekracza limit 2 MB.",
-  "vaultIconUploadFormatError": "Nieobsługiwany format. Użyj PNG, JPEG lub WebP."
+  "vaultIconUploadFormatError": "Nieobsługiwany format. Użyj PNG, JPEG lub WebP.",
+  "navVaults": "Sejfy",
+  "navAgents": "Agenci",
+  "navAudit": "Logi",
+  "navSettings": "Ustawienia"
 }
