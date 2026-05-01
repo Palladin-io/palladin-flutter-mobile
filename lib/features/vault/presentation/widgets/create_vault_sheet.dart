@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
@@ -9,6 +11,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../data/datasources/vault_remote_datasource.dart';
+import '../../data/services/vault_icon_upload_service.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
 import '../cubit/create_vault_cubit.dart';
@@ -60,18 +64,20 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
   );
 
   VaultFormData _formData = _initialFormData;
+  XFile? _pendingIconFile;
+
+  late final VaultIconUploadService _uploadService;
 
   @override
   void initState() {
     super.initState();
+    _uploadService = VaultIconUploadService(getIt<VaultRemoteDatasource>());
     AnalyticsService.instance.capture('vault', 'create-sheet-opened');
   }
 
   void _handleSubmit() {
     final auth = context.read<AuthBloc>().state;
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
-      // Should be impossible — the sheet is only reachable when the
-      // vault is unlocked. Surface a generic error instead of crashing.
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
@@ -82,11 +88,24 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
     context.read<CreateVaultCubit>().createVault(
           name: _formData.name,
           description: _formData.description,
-          icon: _formData.icon,
+          // Strip the local file:// preview URL — icon is uploaded separately.
+          icon: _formData.icon.startsWith('file://')
+              ? VaultVisuals.defaultIconName
+              : _formData.icon,
           color: _formData.color,
           grantMode: _formData.grantMode,
           privateKey: Uint8List.fromList(auth.privateKey!),
         );
+  }
+
+  Future<void> _uploadPendingIcon(VaultEntity vault) async {
+    final file = _pendingIconFile;
+    if (file == null) return;
+    try {
+      await _uploadService.uploadIcon(vault.id, File(file.path));
+    } catch (_) {
+      // Icon upload failure is non-blocking — the vault is already created.
+    }
   }
 
   @override
@@ -96,9 +115,10 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
 
     return BlocConsumer<CreateVaultCubit, CreateVaultState>(
       listenWhen: (previous, current) => current is CreateVaultSuccess,
-      listener: (context, state) {
+      listener: (context, state) async {
         if (state is CreateVaultSuccess) {
-          Navigator.of(context).pop(state.vault);
+          await _uploadPendingIcon(state.vault);
+          if (context.mounted) Navigator.of(context).pop(state.vault);
         }
       },
       builder: (context, state) {
@@ -133,6 +153,8 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
                         child: VaultForm(
                           initial: _initialFormData,
                           onChanged: (data) => setState(() => _formData = data),
+                          onFilePicked: (file) =>
+                              setState(() => _pendingIconFile = file),
                         ),
                       ),
                     ),

@@ -9,10 +9,11 @@ import 'vault_visuals.dart';
 
 /// Horizontal row of icon-circles used in vault create / edit forms.
 ///
-/// When [vaultId] is provided (edit mode), an extra "upload" circle
-/// appears at the end — tapping it opens the photo library, uploads
-/// the chosen image to S3 via presigned URL, then calls [onSelected]
-/// with the resulting public URL.
+/// Two upload modes:
+/// - **Edit mode** (`vaultId` + `uploadService` provided): image is uploaded
+///   immediately after picking; [onSelected] receives the public URL.
+/// - **Create mode** (`onFilePicked` provided): the picked [XFile] is handed
+///   to the caller for deferred upload once a vault ID is available.
 class VaultIconPicker extends StatefulWidget {
   const VaultIconPicker({
     super.key,
@@ -21,17 +22,22 @@ class VaultIconPicker extends StatefulWidget {
     required this.onSelected,
     this.vaultId,
     this.uploadService,
+    this.onFilePicked,
   });
 
   final String selected;
   final Color accentColor;
   final ValueChanged<String> onSelected;
 
-  /// When set, enables the custom-upload option.
+  /// Edit mode: vault already exists, upload happens immediately.
   final String? vaultId;
 
   /// Injected for testability; defaults to a new instance in production.
   final VaultIconUploadService? uploadService;
+
+  /// Create mode: called with the picked file so the caller can defer
+  /// the upload until after vault creation.
+  final ValueChanged<XFile>? onFilePicked;
 
   @override
   State<VaultIconPicker> createState() => _VaultIconPickerState();
@@ -42,15 +48,28 @@ class _VaultIconPickerState extends State<VaultIconPicker> {
   String? _uploadError;
 
   bool get _isCustomUrl => widget.selected.startsWith('https://');
+  bool get _showUpload =>
+      widget.vaultId != null || widget.onFilePicked != null;
 
   Future<void> _pickAndUpload() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+        source: ImageSource.gallery, imageQuality: 90);
+    if (picked == null) return;
+
+    // Create mode — hand off the file for deferred upload.
+    if (widget.onFilePicked != null) {
+      widget.onFilePicked!(picked);
+      // Show a local preview via a fake placeholder URL so the circle
+      // reflects the chosen image (replaced by the real URL post-create).
+      widget.onSelected('file://${picked.path}');
+      return;
+    }
+
+    // Edit mode — upload immediately.
     final vaultId = widget.vaultId;
     final service = widget.uploadService;
     if (vaultId == null || service == null) return;
-
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 90);
-    if (picked == null) return;
 
     setState(() {
       _uploading = true;
@@ -85,7 +104,7 @@ class _VaultIconPickerState extends State<VaultIconPicker> {
                 accentColor: widget.accentColor,
                 onTap: () => widget.onSelected(choice.name),
               ),
-            if (widget.vaultId != null)
+            if (_showUpload)
               _UploadCircle(
                 isSelected: _isCustomUrl,
                 isUploading: _uploading,
@@ -181,15 +200,31 @@ class _UploadCircle extends StatelessWidget {
         child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.tealAccent),
       );
     } else if (customUrl != null) {
+      final isLocal = customUrl!.startsWith('file://');
       child = ClipOval(
-        child: Image.network(
-          customUrl!,
-          width: 22,
-          height: 22,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) =>
-              const Icon(Icons.broken_image_outlined, size: 16, color: AppColors.textPrimary),
-        ),
+        child: isLocal
+            ? Image.file(
+                File(customUrl!.replaceFirst('file://', '')),
+                width: 22,
+                height: 22,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stack) => const Icon(
+                  Icons.broken_image_outlined,
+                  size: 16,
+                  color: AppColors.textPrimary,
+                ),
+              )
+            : Image.network(
+                customUrl!,
+                width: 22,
+                height: 22,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stack) => const Icon(
+                  Icons.broken_image_outlined,
+                  size: 16,
+                  color: AppColors.textPrimary,
+                ),
+              ),
       );
     } else {
       child = const Icon(Icons.upload_outlined, size: 16, color: AppColors.textPrimary);
