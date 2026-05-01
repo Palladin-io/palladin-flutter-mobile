@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -40,12 +39,6 @@ class _VaultDetailView extends StatefulWidget {
 }
 
 class _VaultDetailViewState extends State<_VaultDetailView> {
-  @override
-  void initState() {
-    super.initState();
-    AnalyticsService.instance.capture('vault', 'detail-viewed');
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;

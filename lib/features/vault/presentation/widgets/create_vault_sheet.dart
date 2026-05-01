@@ -78,7 +78,6 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
         ));
       return;
     }
-    AnalyticsService.instance.capture('vault', 'create-submitted');
     context.read<CreateVaultCubit>().createVault(
           name: _formData.name,
           description: _formData.description,
@@ -98,7 +97,6 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
       listenWhen: (previous, current) => current is CreateVaultSuccess,
       listener: (context, state) {
         if (state is CreateVaultSuccess) {
-          AnalyticsService.instance.capture('vault', 'create-succeeded');
           Navigator.of(context).pop(state.vault);
         }
       },

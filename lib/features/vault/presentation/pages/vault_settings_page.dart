@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -43,12 +42,6 @@ class _VaultSettingsViewState extends State<_VaultSettingsView> {
   VaultFormData? _formData;
   VaultFormData? _initialData;
 
-  @override
-  void initState() {
-    super.initState();
-    AnalyticsService.instance.capture('vault', 'settings-viewed');
-  }
-
   bool get _isDirty {
     final current = _formData;
     final initial = _initialData;
@@ -67,7 +60,6 @@ class _VaultSettingsViewState extends State<_VaultSettingsView> {
   void _saveChanges() {
     final data = _formData;
     if (data == null) return;
-    AnalyticsService.instance.capture('vault', 'settings-saved');
     context.read<VaultDetailCubit>().update(
           widget.vaultId,
           name: data.name.trim(),
@@ -117,7 +109,6 @@ class _VaultSettingsViewState extends State<_VaultSettingsView> {
       },
     );
     if (confirmed == true && mounted) {
-      AnalyticsService.instance.capture('vault', 'settings-deleted');
       // Use the cubit available higher in the tree — `context` here is
       // the page's element, which sits above the AlertDialog.
       // ignore: use_build_context_synchronously

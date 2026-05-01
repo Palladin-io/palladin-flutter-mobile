@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -39,12 +38,6 @@ class _VaultListView extends StatefulWidget {
 }
 
 class _VaultListViewState extends State<_VaultListView> {
-  @override
-  void initState() {
-    super.initState();
-    AnalyticsService.instance.capture('vault', 'list-viewed');
-  }
-
   Future<void> _openCreateSheet() async {
     final created = await CreateVaultSheet.show(context);
     if (!mounted) return;
