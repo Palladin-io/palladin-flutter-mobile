@@ -98,6 +98,19 @@ class _VaultIconPickerState extends State<VaultIconPicker> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Upload button above preset icons so it reads as primary action
+        if (_showUpload) ...[
+          _UploadButton(
+            isSelected: _isCustomUrl,
+            isUploading: _uploading,
+            accentColor: widget.accentColor,
+            customUrl: _isCustomUrl ? widget.selected : null,
+            label: l10n.vaultIconUpload,
+            onTap: _uploading ? null : _pickAndUpload,
+          ),
+          const SizedBox(height: 10),
+        ],
+
         // Icon preset circles
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -111,19 +124,6 @@ class _VaultIconPickerState extends State<VaultIconPicker> {
               ),
           ],
         ),
-
-        // Upload button — visually distinct, full-width row below the circles
-        if (_showUpload) ...[
-          const SizedBox(height: 10),
-          _UploadButton(
-            isSelected: _isCustomUrl,
-            isUploading: _uploading,
-            accentColor: widget.accentColor,
-            customUrl: _isCustomUrl ? widget.selected : null,
-            label: l10n.vaultIconUpload,
-            onTap: _uploading ? null : _pickAndUpload,
-          ),
-        ],
 
         if (_uploadError != null)
           Padding(
@@ -250,10 +250,10 @@ class _UploadButton extends StatelessWidget {
               ),
       );
     } else {
-      leading = Icon(
+      leading = const Icon(
         Icons.add_photo_alternate_outlined,
         size: 18,
-        color: isSelected ? accentColor : AppColors.textSecondaryMobile,
+        color: AppColors.tealAccent,
       );
     }
 
@@ -281,13 +281,13 @@ class _UploadButton extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  isSelected ? label : label,
+                  label,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                     color: isSelected
                         ? accentColor
-                        : AppColors.textSecondaryMobile,
+                        : AppColors.tealAccent,
                   ),
                 ),
               ),
@@ -296,7 +296,7 @@ class _UploadButton extends StatelessWidget {
                 size: 16,
                 color: isSelected
                     ? accentColor
-                    : AppColors.textSecondaryMobile.withValues(alpha: 0.6),
+                    : AppColors.tealAccent.withValues(alpha: 0.7),
               ),
             ],
           ),
