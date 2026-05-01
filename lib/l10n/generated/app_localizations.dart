@@ -1003,6 +1003,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add grant'**
   String get vaultAddGrantFab;
+
+  /// Tooltip for the upload-custom-icon button in the icon picker
+  ///
+  /// In en, this message translates to:
+  /// **'Upload custom icon'**
+  String get vaultIconUpload;
+
+  /// Error shown when S3 icon upload fails
+  ///
+  /// In en, this message translates to:
+  /// **'Upload failed. Please try again.'**
+  String get vaultIconUploadError;
+
+  /// Error shown when selected file is too large
+  ///
+  /// In en, this message translates to:
+  /// **'File exceeds 2 MB limit.'**
+  String get vaultIconUploadSizeError;
+
+  /// Error shown when selected file has an unsupported format
+  ///
+  /// In en, this message translates to:
+  /// **'Unsupported format. Use PNG, JPEG or WebP.'**
+  String get vaultIconUploadFormatError;
 }
 
 class _AppLocalizationsDelegate

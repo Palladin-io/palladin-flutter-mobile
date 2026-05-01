@@ -150,5 +150,9 @@
   "vaultRevealValue": "Pokaż wartość",
   "vaultSaveAction": "Zapisz",
   "vaultAddEntryFab": "Dodaj wpis",
-  "vaultAddGrantFab": "Dodaj zgodę"
+  "vaultAddGrantFab": "Dodaj zgodę",
+  "vaultIconUpload": "Wgraj własną ikonę",
+  "vaultIconUploadError": "Przesyłanie nie powiodło się. Spróbuj ponownie.",
+  "vaultIconUploadSizeError": "Plik przekracza limit 2 MB.",
+  "vaultIconUploadFormatError": "Nieobsługiwany format. Użyj PNG, JPEG lub WebP."
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../data/datasources/vault_remote_datasource.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
@@ -201,6 +202,7 @@ class _VaultDetailViewState extends State<_VaultDetailView>
                     onFormChanged: (data) =>
                         setState(() => _currentFormData = data),
                     onDelete: () => _confirmDelete(vault),
+                    vaultId: widget.vaultId,
                   ),
               },
             ),
@@ -339,6 +341,7 @@ class _LoadedBody extends StatelessWidget {
     required this.initialFormData,
     required this.onFormChanged,
     required this.onDelete,
+    required this.vaultId,
   });
 
   final VaultEntity vault;
@@ -346,6 +349,7 @@ class _LoadedBody extends StatelessWidget {
   final VaultFormData? initialFormData;
   final ValueChanged<VaultFormData> onFormChanged;
   final VoidCallback onDelete;
+  final String vaultId;
 
   @override
   Widget build(BuildContext context) {
@@ -369,6 +373,8 @@ class _LoadedBody extends StatelessWidget {
               initial: initialFormData!,
               onChanged: onFormChanged,
               onDelete: onDelete,
+              vaultId: vaultId,
+              datasource: getIt<VaultRemoteDatasource>(),
             )
           else
             const SizedBox.shrink(),

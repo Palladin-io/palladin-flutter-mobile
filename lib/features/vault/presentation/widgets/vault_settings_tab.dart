@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../data/datasources/vault_remote_datasource.dart';
+import '../../data/services/vault_icon_upload_service.dart';
 import 'vault_form.dart';
 
 /// Settings tab body — wraps [VaultForm] and adds a danger zone with
@@ -16,21 +18,31 @@ class VaultSettingsTab extends StatelessWidget {
     required this.initial,
     required this.onChanged,
     required this.onDelete,
+    required this.vaultId,
+    required this.datasource,
   });
 
   final VaultFormData initial;
   final ValueChanged<VaultFormData> onChanged;
   final VoidCallback? onDelete;
+  final String vaultId;
+  final VaultRemoteDatasource datasource;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final uploadService = VaultIconUploadService(datasource);
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          VaultForm(initial: initial, onChanged: onChanged),
+          VaultForm(
+            initial: initial,
+            onChanged: onChanged,
+            vaultId: vaultId,
+            uploadService: uploadService,
+          ),
           const SizedBox(height: 24),
           _DangerZone(
             l10n: l10n,

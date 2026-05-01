@@ -79,4 +79,31 @@ class VaultRemoteDatasource {
   Future<void> deleteVault(String id) async {
     await _dio.delete<void>('/api/vaults/$id');
   }
+
+  /// `POST /api/vaults/{id}/icon/presign` → presigned S3 upload URL.
+  Future<PresignResponse> presignVaultIcon(String vaultId, String extension) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/icon/presign',
+      data: {'vaultId': vaultId, 'extension': extension},
+    );
+    final data = response.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Empty response body',
+      );
+    }
+    return PresignResponse(
+      uploadUrl: data['uploadUrl'] as String,
+      publicUrl: data['publicUrl'] as String,
+    );
+  }
+}
+
+class PresignResponse {
+  const PresignResponse({required this.uploadUrl, required this.publicUrl});
+  final String uploadUrl;
+  final String publicUrl;
 }

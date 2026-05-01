@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
+import '../../data/services/vault_icon_upload_service.dart';
 import '../../domain/entities/vault_entity.dart';
 import 'vault_color_picker.dart';
 import 'vault_icon_picker.dart';
@@ -68,10 +69,16 @@ class VaultForm extends StatefulWidget {
     super.key,
     required this.initial,
     required this.onChanged,
+    this.vaultId,
+    this.uploadService,
   });
 
   final VaultFormData initial;
   final ValueChanged<VaultFormData> onChanged;
+
+  /// When set, enables custom icon upload in the picker (edit mode only).
+  final String? vaultId;
+  final VaultIconUploadService? uploadService;
 
   @override
   State<VaultForm> createState() => _VaultFormState();
@@ -145,6 +152,8 @@ class _VaultFormState extends State<VaultForm> {
             setState(() => _selectedIcon = icon);
             _emit();
           },
+          vaultId: widget.vaultId,
+          uploadService: widget.uploadService,
         ),
         const SizedBox(height: 20),
         _SectionLabel(text: l10n.vaultColorLabel),

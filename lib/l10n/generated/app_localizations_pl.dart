@@ -552,4 +552,18 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get vaultAddGrantFab => 'Dodaj zgodę';
+
+  @override
+  String get vaultIconUpload => 'Wgraj własną ikonę';
+
+  @override
+  String get vaultIconUploadError =>
+      'Przesyłanie nie powiodło się. Spróbuj ponownie.';
+
+  @override
+  String get vaultIconUploadSizeError => 'Plik przekracza limit 2 MB.';
+
+  @override
+  String get vaultIconUploadFormatError =>
+      'Nieobsługiwany format. Użyj PNG, JPEG lub WebP.';
 }

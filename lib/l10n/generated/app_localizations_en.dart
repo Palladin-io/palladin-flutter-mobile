@@ -546,4 +546,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get vaultAddGrantFab => 'Add grant';
+
+  @override
+  String get vaultIconUpload => 'Upload custom icon';
+
+  @override
+  String get vaultIconUploadError => 'Upload failed. Please try again.';
+
+  @override
+  String get vaultIconUploadSizeError => 'File exceeds 2 MB limit.';
+
+  @override
+  String get vaultIconUploadFormatError =>
+      'Unsupported format. Use PNG, JPEG or WebP.';
 }

@@ -662,5 +662,21 @@
   "vaultAddGrantFab": "Add grant",
   "@vaultAddGrantFab": {
     "description": "Tooltip / accessibility label for the FAB on the Agents tab"
+  },
+  "vaultIconUpload": "Upload custom icon",
+  "@vaultIconUpload": {
+    "description": "Tooltip for the upload-custom-icon button in the icon picker"
+  },
+  "vaultIconUploadError": "Upload failed. Please try again.",
+  "@vaultIconUploadError": {
+    "description": "Error shown when S3 icon upload fails"
+  },
+  "vaultIconUploadSizeError": "File exceeds 2 MB limit.",
+  "@vaultIconUploadSizeError": {
+    "description": "Error shown when selected file is too large"
+  },
+  "vaultIconUploadFormatError": "Unsupported format. Use PNG, JPEG or WebP.",
+  "@vaultIconUploadFormatError": {
+    "description": "Error shown when selected file has an unsupported format"
   }
 }
