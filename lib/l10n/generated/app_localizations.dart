@@ -1028,6 +1028,24 @@ abstract class AppLocalizations {
   /// **'Unsupported format. Use PNG, JPEG or WebP.'**
   String get vaultIconUploadFormatError;
 
+  /// Label for the Pro-upgrade FAB shown when a Basic-plan user has hit the single-vault limit
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade to Pro'**
+  String get vaultUpgradeToPro;
+
+  /// Snackbar shown when the user taps the upgrade FAB before the billing flow ships
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade flow coming soon — you\'ve reached the Basic plan\'s single-vault limit.'**
+  String get vaultUpgradeComingSoon;
+
+  /// Bottom nav label for the Home tab
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get navHome;
+
   /// Bottom nav label for the Vaults tab
   ///
   /// In en, this message translates to:
@@ -1051,6 +1069,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings'**
   String get navSettings;
+
+  /// Header title shown on the vault list page
+  ///
+  /// In en, this message translates to:
+  /// **'My Vaults'**
+  String get vaultListTitle;
+
+  /// Subtitle under the vault list header — count of vaults and total entries across them
+  ///
+  /// In en, this message translates to:
+  /// **'{vaultCount, plural, =1{1 vault} other{{vaultCount} vaults}} · {entryCount, plural, =0{no entries} =1{1 entry} other{{entryCount} entries}}'**
+  String vaultListSummary(int vaultCount, int entryCount);
+
+  /// Placeholder for the search input on the vault list page
+  ///
+  /// In en, this message translates to:
+  /// **'Search vaults…'**
+  String get vaultSearchHint;
+
+  /// Empty-state title when a search query has no matches in the vault list
+  ///
+  /// In en, this message translates to:
+  /// **'No vaults match your search'**
+  String get vaultSearchEmpty;
+
+  /// Section title in the settings drawer for account-related actions
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get settingsAccountTitle;
+
+  /// Settings drawer item: lock the vault but keep the user signed in
+  ///
+  /// In en, this message translates to:
+  /// **'Lock Vault'**
+  String get settingsLockVault;
+
+  /// Settings drawer item: full sign-out, returns to the login screen
+  ///
+  /// In en, this message translates to:
+  /// **'Log out'**
+  String get settingsLogout;
+
+  /// Footer text in the settings drawer showing the app version
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version}'**
+  String settingsAppVersion(String version);
+
+  /// Accessibility / tooltip label for the settings icon button in the vault list header
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get settingsTooltip;
+
+  /// Headline of the premium-gate bottom sheet shown when a Basic-plan user taps the New Vault FAB
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock unlimited vaults'**
+  String get premiumGateTitle;
+
+  /// Supporting copy on the premium-gate bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ve reached the 1-vault limit on the free plan.'**
+  String get premiumGateSubtitle;
+
+  /// Primary CTA on the premium-gate bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade to Pro'**
+  String get premiumGateCta;
+
+  /// Secondary / dismiss button on the premium-gate bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Maybe later'**
+  String get premiumGateDismiss;
+
+  /// Settings drawer row label for the dark/light theme toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Dark mode'**
+  String get settingsThemeToggle;
+
+  /// Settings drawer row label for the EN/PL language selector
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get settingsLanguage;
+
+  /// Plan badge in the settings drawer header for users with the premium permission bit set
+  ///
+  /// In en, this message translates to:
+  /// **'Pro'**
+  String get settingsPlanPro;
+
+  /// Plan label in the settings drawer header for users on the free plan
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get settingsPlanFree;
 }
 
 class _AppLocalizationsDelegate

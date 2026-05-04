@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_search_field.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 
 /// Type of mock entry — drives icon and reveal-panel layout.
@@ -72,11 +73,11 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SearchBar(
+        AppSearchField(
           controller: _searchController,
           hint: l10n.vaultSearchEntries,
-          filtersOpen: _filtersOpen,
-          onToggleFilters: () => setState(() => _filtersOpen = !_filtersOpen),
+          filterActive: _filtersOpen,
+          onToggleFilter: () => setState(() => _filtersOpen = !_filtersOpen),
           onChanged: (_) => setState(() {}),
         ),
         if (_filtersOpen) ...[
@@ -135,73 +136,6 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({
-    required this.controller,
-    required this.hint,
-    required this.filtersOpen,
-    required this.onToggleFilters,
-    required this.onChanged,
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final bool filtersOpen;
-  final VoidCallback onToggleFilters;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-      decoration: BoxDecoration(
-        color: AppColors.mobileSurface,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.search,
-            size: 18,
-            color: AppColors.textTertiaryMobile,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 12,
-              ),
-              decoration: InputDecoration(
-                isCollapsed: true,
-                border: InputBorder.none,
-                hintText: hint,
-                hintStyle: const TextStyle(
-                  color: AppColors.textTertiaryMobile,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: onToggleFilters,
-            behavior: HitTestBehavior.opaque,
-            child: Icon(
-              Icons.tune,
-              size: 18,
-              color: filtersOpen
-                  ? AppColors.brandRed
-                  : AppColors.textTertiaryMobile,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

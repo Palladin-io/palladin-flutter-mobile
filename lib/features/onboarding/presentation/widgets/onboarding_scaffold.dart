@@ -30,10 +30,13 @@ class OnboardingScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.darkBackgroundGradient),
+        decoration: BoxDecoration(
+          gradient: AppColors.backgroundGradient(brightness),
+        ),
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
@@ -47,9 +50,9 @@ class OnboardingScaffold extends StatelessWidget {
                       child: onBack != null
                           ? GestureDetector(
                               onTap: onBack,
-                              child: const Icon(
+                              child: Icon(
                                 Icons.arrow_back_ios_new,
-                                color: AppColors.textSecondary,
+                                color: AppColors.onSurfaceMuted(brightness),
                                 size: 18,
                               ),
                             )
@@ -64,19 +67,19 @@ class OnboardingScaffold extends StatelessWidget {
                 const SizedBox(height: 24),
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: AppColors.onSurface(brightness),
                     height: 1.2,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.textTertiary,
+                    color: AppColors.onSurfaceSubtle(brightness),
                     height: 1.4,
                   ),
                 ),

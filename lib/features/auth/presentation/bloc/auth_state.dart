@@ -22,6 +22,12 @@ final class AuthLoading extends AuthState {
 /// master password, [VaultUnlocked] carries the derived [masterKey] and
 /// [privateKey] into this state via [copyWith]. A [VaultLockRequested]
 /// event clears those keys from memory.
+///
+/// [permissions] is the bitwise flag bag from the JWT `permissions`
+/// claim (see `core/ClawVault.Core.Security/Permission.cs` on the
+/// backend). Mobile only reads it — UI uses it to gate Pro-only
+/// affordances such as creating multiple vaults. Defaults to `0`
+/// (Permission.None) when the claim is absent.
 final class AuthAuthenticated extends AuthState {
   const AuthAuthenticated({
     required this.userId,
@@ -29,11 +35,20 @@ final class AuthAuthenticated extends AuthState {
     this.isVaultLocked = true,
     this.masterKey,
     this.privateKey,
+    this.permissions = 0,
+    this.email,
   });
 
   final String userId;
   final bool isOnboarded;
   final bool isVaultLocked;
+  final int permissions;
+
+  /// User's email address, decoded from the JWT `email` claim. Used
+  /// purely for display in account chrome (e.g. the settings drawer
+  /// header) — never as a routing or auth identifier. Defaults to
+  /// `null` when the claim is missing.
+  final String? email;
 
   /// 32-byte master key derived from the user's master password via
   /// Argon2id. Held in memory only while the vault is unlocked.
@@ -54,6 +69,8 @@ final class AuthAuthenticated extends AuthState {
     bool? isVaultLocked,
     Uint8List? masterKey,
     Uint8List? privateKey,
+    int? permissions,
+    String? email,
     bool clearKeys = false,
   }) {
     return AuthAuthenticated(
@@ -62,6 +79,8 @@ final class AuthAuthenticated extends AuthState {
       isVaultLocked: isVaultLocked ?? this.isVaultLocked,
       masterKey: clearKeys ? null : (masterKey ?? this.masterKey),
       privateKey: clearKeys ? null : (privateKey ?? this.privateKey),
+      permissions: permissions ?? this.permissions,
+      email: email ?? this.email,
     );
   }
 }

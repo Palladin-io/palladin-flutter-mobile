@@ -21,13 +21,17 @@ abstract final class VaultVisuals {
 
   /// Picker choices for the icon row — keep in sync with the web /
   /// Astro prototype.
+  ///
+  /// [paletteColor] drives the icon circle's background tint; the
+  /// prototype assigns each icon a distinct hue so the row is
+  /// colourful rather than uniformly gray.
   static const List<VaultIconChoice> iconChoices = <VaultIconChoice>[
-    VaultIconChoice(name: 'shield', icon: Icons.shield),
-    VaultIconChoice(name: 'folder', icon: Icons.folder),
-    VaultIconChoice(name: 'cloud', icon: Icons.cloud),
-    VaultIconChoice(name: 'code', icon: Icons.code),
-    VaultIconChoice(name: 'database', icon: Icons.storage),
-    VaultIconChoice(name: 'key', icon: Icons.vpn_key),
+    VaultIconChoice(name: 'shield',   icon: Icons.shield,   paletteColor: AppColors.brandRed),
+    VaultIconChoice(name: 'folder',   icon: Icons.folder,   paletteColor: AppColors.vaultPeach),
+    VaultIconChoice(name: 'cloud',    icon: Icons.cloud,    paletteColor: AppColors.vaultBlue),
+    VaultIconChoice(name: 'code',     icon: Icons.code,     paletteColor: AppColors.positiveAccent),
+    VaultIconChoice(name: 'database', icon: Icons.storage,  paletteColor: AppColors.vaultSlate),
+    VaultIconChoice(name: 'key',      icon: Icons.vpn_key,  paletteColor: AppColors.vaultSlate),
   ];
 
   /// Picker choices for the color row — keep in sync with the web /
@@ -40,6 +44,12 @@ abstract final class VaultVisuals {
     '#A78BFA', // violet
     '#8A95A6', // slate
   ];
+
+  /// Returns true when [icon] is a remote or local file URL (uploaded
+  /// custom icon) rather than a named preset.
+  static bool isCustomUrl(String? icon) =>
+      icon != null &&
+      (icon.startsWith('https://') || icon.startsWith('file://'));
 
   /// Resolve a stored icon name to its [IconData]. Falls back to
   /// [Icons.shield] when the name is missing or unknown — older vaults
@@ -73,8 +83,16 @@ abstract final class VaultVisuals {
 
 /// One entry in the vault icon picker.
 class VaultIconChoice {
-  const VaultIconChoice({required this.name, required this.icon});
+  const VaultIconChoice({
+    required this.name,
+    required this.icon,
+    required this.paletteColor,
+  });
 
   final String name;
   final IconData icon;
+
+  /// Background tint for the icon circle — distinct per icon so the
+  /// picker row is colourful rather than uniformly gray.
+  final Color paletteColor;
 }

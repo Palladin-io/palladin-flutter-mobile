@@ -4,12 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../data/datasources/vault_remote_datasource.dart';
+import '../../../../core/widgets/app_fab.dart';
+import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../shell/presentation/pages/app_shell.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
 import '../cubit/vault_detail_cubit.dart';
-import '../widgets/grant_card.dart';
 import '../widgets/vault_agents_tab.dart';
 import '../widgets/vault_entries_tab.dart';
 import '../widgets/vault_form.dart';
@@ -67,14 +68,56 @@ class _VaultDetailViewState extends State<_VaultDetailView>
     super.dispose();
   }
 
-  bool get _isSettingsTab =>
-      _tabController.index == _VaultTab.settings.index;
+  /// Wraps a `showModalBottomSheet` call so the shell-owned bottom nav
+  /// hides while the sheet is visible. All sheet entry points on this
+  /// page (FAB, future menu actions, …) must funnel through here.
+  ///
+  /// The 280 ms wait in `finally` lets the sheet's close animation
+  /// finish before the nav reappears — without it the nav pops back in
+  /// while the sheet is still sliding out, producing a visible height
+  /// jump as the body re-lays out.
+  // ignore: unused_element
+  Future<T?> _showSheet<T>(
+    Widget Function(BuildContext) builder,
+  ) async {
+    final shell = AppShellScope.of(context);
+    shell.setBottomNavHidden(true);
+    try {
+      return await showModalBottomSheet<T>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        useRootNavigator: true,
+        builder: builder,
+      );
+    } finally {
+      await Future.delayed(const Duration(milliseconds: 280));
+      if (mounted) shell.setBottomNavHidden(false);
+    }
+  }
 
-  bool get _isFormDirty {
-    final current = _currentFormData;
-    final initial = _initialFormData;
-    if (current == null || initial == null) return false;
-    return current != initial;
+  void _onFabPressed() {
+    // Add flows ship in CVT-32 (entries) and the grants ticket. When
+    // they land, route through `_showSheet(...)` so the bottom nav
+    // hides automatically while the sheet is up.
+  }
+
+  /// Builds the FAB registered with the shell on the Entries / Agents
+  /// tabs, or `null` on tabs that shouldn't show one. The shell
+  /// receives `null` and clears its FAB slot so we don't show a
+  /// stale add affordance on the Logs / Members / Settings tabs.
+  Widget? _detailFab(AppLocalizations l10n) {
+    final showOnEntries = _tabController.index == _VaultTab.entries.index;
+    final showOnAgents = _tabController.index == _VaultTab.agents.index;
+    if (!showOnEntries && !showOnAgents) return null;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, right: 4),
+      child: AppFab(
+        onPressed: _onFabPressed,
+        tooltip: showOnEntries ? l10n.vaultAddEntryFab : l10n.vaultAddGrantFab,
+      ),
+    );
   }
 
   void _saveSettings() {
@@ -92,19 +135,20 @@ class _VaultDetailViewState extends State<_VaultDetailView>
 
   Future<void> _confirmDelete(VaultEntity vault) async {
     final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: AppColors.darkSurface,
+          backgroundColor: AppColors.modalBackground(brightness),
           title: Text(
             l10n.vaultDeleteTitle,
-            style: const TextStyle(color: AppColors.textPrimary),
+            style: TextStyle(color: AppColors.onSurface(brightness)),
           ),
           content: Text(
             l10n.vaultDeleteConfirmWithName(vault.name),
-            style: const TextStyle(
-              color: AppColors.textSecondary,
+            style: TextStyle(
+              color: AppColors.onSurfaceMuted(brightness),
               fontSize: 13,
               height: 1.4,
             ),
@@ -114,7 +158,7 @@ class _VaultDetailViewState extends State<_VaultDetailView>
               onPressed: () => Navigator.of(dialogContext).pop(false),
               child: Text(
                 l10n.vaultCancel,
-                style: const TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: AppColors.onSurfaceMuted(brightness)),
               ),
             ),
             TextButton(
@@ -174,42 +218,53 @@ class _VaultDetailViewState extends State<_VaultDetailView>
         }
       },
       builder: (context, state) {
-        return Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: _DetailAppBar(
-            state: state,
-            isSettingsTab: _isSettingsTab,
-            isFormDirty: _isFormDirty,
-            onSave: _saveSettings,
-            onBack: () => context.pop(),
-            tabController: _tabController,
+        final brightness = Theme.of(context).brightness;
+        return Container(
+          decoration: BoxDecoration(
+            gradient: AppColors.backgroundGradient(brightness),
           ),
-          body: Container(
-            decoration: const BoxDecoration(
-              gradient: AppColors.darkBackgroundGradient,
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: _DetailAppBar(
+              state: state,
+              onBack: () => context.pop(),
+              tabController: _tabController,
             ),
-            child: SafeArea(
-              top: false,
-              child: switch (state) {
-                VaultDetailInitial() ||
-                VaultDetailLoading() => const _LoadingView(),
-                VaultDetailDeleted() => const SizedBox.shrink(),
-                VaultDetailError(:final kind) => _ErrorView(kind: kind),
-                VaultDetailLoaded(:final vault) => _LoadedBody(
-                    vault: vault,
-                    tabController: _tabController,
-                    initialFormData: _initialFormData,
-                    onFormChanged: (data) =>
-                        setState(() => _currentFormData = data),
-                    onDelete: () => _confirmDelete(vault),
-                    vaultId: widget.vaultId,
-                  ),
-              },
+            body: Stack(
+              children: [
+                SafeArea(
+                  top: false,
+                  child: switch (state) {
+                    VaultDetailInitial() ||
+                    VaultDetailLoading() => const _LoadingView(),
+                    VaultDetailDeleted() => const SizedBox.shrink(),
+                    VaultDetailError(:final kind) => _ErrorView(kind: kind),
+                    VaultDetailLoaded(:final vault) => _LoadedBody(
+                        vault: vault,
+                        tabController: _tabController,
+                        initialFormData: _initialFormData,
+                        onFormChanged: (data) =>
+                            setState(() => _currentFormData = data),
+                        onDelete: () => _confirmDelete(vault),
+                        onSave: _saveSettings,
+                      ),
+                  },
+                ),
+                // Register the FAB with the shell so it stays pinned in
+                // place during page transitions. Pass `null` on tabs
+                // that shouldn't show one (Logs, Members, Settings) —
+                // otherwise the previous page's FAB would linger.
+                Positioned(
+                  width: 0,
+                  height: 0,
+                  child: FabRegistrar(fab: _detailFab(l10n)),
+                ),
+              ],
             ),
-          ),
-          floatingActionButton: _DetailFab(
-            currentTab: _tabController.index,
-            l10n: l10n,
+            // No `bottomNavigationBar` here — the shell-owned
+            // [AppBottomNav] is shared across every route under the
+            // shell (now including `/vaults/:vaultId`), so the chrome
+            // persists across navigation without rebuilding.
           ),
         );
       },
@@ -222,21 +277,15 @@ class _VaultDetailViewState extends State<_VaultDetailView>
 class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _DetailAppBar({
     required this.state,
-    required this.isSettingsTab,
-    required this.isFormDirty,
-    required this.onSave,
     required this.onBack,
     required this.tabController,
   });
 
   final VaultDetailState state;
-  final bool isSettingsTab;
-  final bool isFormDirty;
-  final VoidCallback onSave;
   final VoidCallback onBack;
   final TabController tabController;
 
-  static const double _tabBarHeight = 36;
+  static const double _tabBarHeight = 44;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight + _tabBarHeight);
@@ -244,13 +293,27 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
     final s = state;
     final loaded = s is VaultDetailLoaded ? s.vault : null;
     final subtitle = loaded != null ? l10n.vaultEntryCount(loaded.entryCount) : '';
+    final onSurface = AppColors.onSurface(brightness);
+    final subtle = AppColors.onSurfaceSubtle(brightness);
 
     return AppBar(
-      backgroundColor: AppColors.darkSurface,
+      // Transparent AppBar lets the parent gradient show through —
+      // matches the rest of the app's visual language.
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
       titleSpacing: 0,
+      // Force left-alignment — iOS defaults this AppBar to centered
+      // titles, which leaves the vault name floating in the middle of
+      // the bar. The list page header is left-aligned, so the detail
+      // bar should match.
+      centerTitle: false,
+      iconTheme: IconThemeData(color: onSurface),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios_new, size: 18),
         onPressed: onBack,
@@ -261,8 +324,8 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
         children: [
           Text(
             loaded?.name ?? l10n.vaultTitle,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
@@ -270,62 +333,49 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
           if (subtitle.isNotEmpty)
             Text(
               subtitle,
-              style: const TextStyle(
-                color: AppColors.textTertiaryMobile,
+              style: TextStyle(
+                color: subtle,
                 fontSize: 11,
               ),
             ),
         ],
       ),
-      actions: [
-        if (isSettingsTab)
-          TextButton(
-            onPressed: isFormDirty ? onSave : null,
-            child: Text(
-              l10n.vaultSaveAction,
-              style: TextStyle(
-                color: isFormDirty
-                    ? AppColors.brandRed
-                    : AppColors.brandRed.withValues(alpha: 0.4),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          )
-        else
-          IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {
-              // Context menu lands in a follow-up ticket.
-            },
-          ),
-      ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(_tabBarHeight),
-        child: TabBar(
-          controller: tabController,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          labelColor: AppColors.brandRed,
-          unselectedLabelColor: AppColors.textTertiaryMobile,
-          indicatorColor: AppColors.brandRed,
-          indicatorSize: TabBarIndicatorSize.label,
-          labelStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+        child: SizedBox(
+          height: _tabBarHeight,
+          child: TabBar(
+            controller: tabController,
+            // Scrollable so long translated tab labels (e.g. "Ustawienia"
+            // in Polish) are not truncated — user can tap or swipe to
+            // navigate between tabs.
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+            labelColor: AppColors.brandRed,
+            unselectedLabelColor: subtle,
+            indicatorColor: AppColors.brandRed,
+            indicatorSize: TabBarIndicatorSize.label,
+            indicatorWeight: 2,
+            // Hairline separator below the entire tab row — matches the
+            // prototype's `border-bottom: 1px solid rgba(…, 0.06)`.
+            dividerColor: AppColors.navBorder(brightness),
+            labelStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+            tabs: [
+              Tab(text: l10n.vaultTabEntries),
+              Tab(text: l10n.vaultTabAgents),
+              Tab(text: l10n.vaultTabLogs),
+              Tab(text: l10n.vaultTabMembers),
+              Tab(text: l10n.vaultTabSettings),
+            ],
           ),
-          unselectedLabelStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-          tabs: [
-            Tab(text: l10n.vaultTabEntries),
-            Tab(text: l10n.vaultTabAgents),
-            Tab(text: l10n.vaultTabLogs),
-            Tab(text: l10n.vaultTabMembers),
-            Tab(text: l10n.vaultTabSettings),
-          ],
         ),
       ),
     );
@@ -341,7 +391,7 @@ class _LoadedBody extends StatelessWidget {
     required this.initialFormData,
     required this.onFormChanged,
     required this.onDelete,
-    required this.vaultId,
+    required this.onSave,
   });
 
   final VaultEntity vault;
@@ -349,7 +399,7 @@ class _LoadedBody extends StatelessWidget {
   final VaultFormData? initialFormData;
   final ValueChanged<VaultFormData> onFormChanged;
   final VoidCallback onDelete;
-  final String vaultId;
+  final VoidCallback onSave;
 
   @override
   Widget build(BuildContext context) {
@@ -358,8 +408,11 @@ class _LoadedBody extends StatelessWidget {
       child: TabBarView(
         controller: tabController,
         children: [
-          VaultEntriesTab(entries: _MockData.entries),
-          VaultAgentsTab(grants: _MockData.grants),
+          // Entries / agents APIs land in CVT-32 and the grants ticket;
+          // until then both tabs render with empty data so we don't ship
+          // hard-coded mock rows to real users.
+          const VaultEntriesTab(entries: []),
+          const VaultAgentsTab(grants: []),
           _PlaceholderTabBuilder(
             messageKey: (l10n) => l10n.vaultLogsEmpty,
             icon: Icons.history,
@@ -370,11 +423,11 @@ class _LoadedBody extends StatelessWidget {
           ),
           if (initialFormData != null)
             VaultSettingsTab(
+              vaultId: vault.id,
               initial: initialFormData!,
               onChanged: onFormChanged,
               onDelete: onDelete,
-              vaultId: vaultId,
-              datasource: getIt<VaultRemoteDatasource>(),
+              onSave: onSave,
             )
           else
             const SizedBox.shrink(),
@@ -400,32 +453,6 @@ class _PlaceholderTabBuilder extends StatelessWidget {
   }
 }
 
-// ── FAB ────────────────────────────────────────────────────────────
-
-class _DetailFab extends StatelessWidget {
-  const _DetailFab({required this.currentTab, required this.l10n});
-
-  final int currentTab;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final showOnEntries = currentTab == _VaultTab.entries.index;
-    final showOnAgents = currentTab == _VaultTab.agents.index;
-    if (!showOnEntries && !showOnAgents) return const SizedBox.shrink();
-
-    return FloatingActionButton(
-      backgroundColor: AppColors.brandRed,
-      foregroundColor: Colors.white,
-      tooltip: showOnEntries ? l10n.vaultAddEntryFab : l10n.vaultAddGrantFab,
-      onPressed: () {
-        // Add flows ship in CVT-32 (entries) and the grants ticket.
-      },
-      child: const Icon(Icons.add),
-    );
-  }
-}
-
 // ── Loading / error ────────────────────────────────────────────────
 
 class _LoadingView extends StatelessWidget {
@@ -447,6 +474,7 @@ class _ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -461,8 +489,8 @@ class _ErrorView extends StatelessWidget {
             VaultErrorKind.unknown => l10n.vaultErrorUnknown,
           },
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
+          style: TextStyle(
+            color: AppColors.onSurface(brightness),
             fontSize: 14,
             height: 1.4,
           ),
@@ -472,116 +500,3 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-// ── Mock data (lives here so the page is self-contained) ───────────
-
-abstract final class _MockData {
-  static final List<MockEntry> entries = [
-    const MockEntry(
-      kind: EntryKind.key,
-      name: 'AWS Access Key',
-      meta: 'accessed 3m ago',
-      icon: Icons.vpn_key,
-      url: 'console.aws.amazon.com',
-      value: 'AKIAIOSFODNN7EXAMPLE',
-    ),
-    const MockEntry(
-      kind: EntryKind.key,
-      name: 'Stripe API Key',
-      meta: 'accessed 1h ago',
-      icon: Icons.payment,
-      url: 'dashboard.stripe.com',
-      value: 'sk_live_51HxyzABCDEFG',
-    ),
-    const MockEntry(
-      kind: EntryKind.credential,
-      name: 'GitHub Enterprise',
-      meta: 'github.com',
-      icon: Icons.language,
-      url: 'github.com',
-      username: 'patryk@company.com',
-      password: 'GitH0b!2026',
-    ),
-    const MockEntry(
-      kind: EntryKind.credential,
-      name: 'Vercel Dashboard',
-      meta: 'vercel.com',
-      icon: Icons.rocket_launch,
-      url: 'vercel.com',
-      username: 'patryk@vercel.com',
-      password: 'V3rc3l#2026',
-    ),
-    const MockEntry(
-      kind: EntryKind.key,
-      name: 'OpenAI API Key',
-      meta: 'accessed 2h ago',
-      icon: Icons.psychology,
-      url: 'platform.openai.com',
-      value: 'sk-proj-aBcDeFgHiJkL',
-    ),
-  ];
-
-  static final List<MockGrant> grants = [
-    const MockGrant(
-      agent: GrantAgent(
-        type: AgentType.claude,
-        name: 'Claude',
-        initials: 'CL',
-      ),
-      mode: GrantUiMode.full,
-      status: GrantStatus.active,
-      expiresAbsolute: 'Apr 26 at 20:22',
-      expiresRelative: 'in 6h',
-      grantedBy: 'Patryk',
-    ),
-    const MockGrant(
-      agent: GrantAgent(
-        type: AgentType.cursor,
-        name: 'Cursor',
-        initials: 'Cu',
-      ),
-      mode: GrantUiMode.granular,
-      status: GrantStatus.active,
-      expiresAbsolute: 'Apr 27 at 13:05',
-      expiresRelative: 'in 23h',
-      grantedBy: 'Patryk',
-      entries: [
-        GrantEntry(name: 'AWS Access Key'),
-        GrantEntry(name: 'Stripe API Key'),
-        GrantEntry(name: 'GitHub Token', isActive: false),
-        GrantEntry(name: 'OpenAI API Key'),
-      ],
-    ),
-    const MockGrant(
-      agent: GrantAgent(
-        type: AgentType.copilot,
-        name: 'Copilot',
-        initials: 'Co',
-      ),
-      mode: GrantUiMode.full,
-      status: GrantStatus.expired,
-      expiresAbsolute: 'Apr 26 at 12:10',
-      expiresRelative: '2h ago',
-      grantedBy: 'Patryk',
-    ),
-    const MockGrant(
-      agent: GrantAgent(
-        type: AgentType.openclaw,
-        name: 'OpenClaw',
-        initials: 'OC',
-      ),
-      mode: GrantUiMode.granular,
-      status: GrantStatus.revoked,
-      expiresAbsolute: '',
-      expiresRelative: '',
-      grantedBy: 'Patryk',
-      revokedBy: 'Patryk',
-      revokedAbsolute: 'Apr 25 at 09:15',
-      revokedRelative: '1d ago',
-      revokedReason: 'Suspected credential compromise',
-      entries: [
-        GrantEntry(name: 'AWS Access Key'),
-        GrantEntry(name: 'Stripe API Key'),
-      ],
-    ),
-  ];
-}

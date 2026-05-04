@@ -31,8 +31,10 @@ class VaultCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
     final accent = VaultVisuals.colorFor(vault.color);
-    final icon = VaultVisuals.iconFor(vault.icon);
+    final isUrl = VaultVisuals.isCustomUrl(vault.icon);
+    final icon = isUrl ? Icons.shield : VaultVisuals.iconFor(vault.icon);
 
     return Material(
       color: Colors.transparent,
@@ -41,8 +43,12 @@ class VaultCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Ink(
           decoration: BoxDecoration(
-            color: AppColors.mobileSurface,
+            color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.cardBorder(brightness),
+              width: 1,
+            ),
           ),
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -53,6 +59,7 @@ class VaultCard extends StatelessWidget {
                 entryCount: vault.entryCount,
                 grantCount: vault.activeGrantCount,
                 icon: icon,
+                iconUrl: isUrl ? vault.icon : null,
                 accent: accent,
                 l10n: l10n,
               ),
@@ -80,21 +87,24 @@ class _CardHeader extends StatelessWidget {
     required this.icon,
     required this.accent,
     required this.l10n,
+    this.iconUrl,
   });
 
   final String vaultName;
   final int entryCount;
   final int grantCount;
   final IconData icon;
+  final String? iconUrl;
   final Color accent;
   final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _IconCircle(icon: icon, accent: accent),
+        _IconCircle(icon: icon, accent: accent, iconUrl: iconUrl),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -105,8 +115,8 @@ class _CardHeader extends StatelessWidget {
                 vaultName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  color: AppColors.onSurface(brightness),
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   height: 1.2,
@@ -115,8 +125,8 @@ class _CardHeader extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 l10n.vaultEntryCount(entryCount),
-                style: const TextStyle(
-                  color: AppColors.textTertiaryMobile,
+                style: TextStyle(
+                  color: AppColors.onSurfaceSubtle(brightness),
                   fontSize: 11,
                   height: 1.2,
                 ),
@@ -127,8 +137,8 @@ class _CardHeader extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           l10n.vaultGrantCount(grantCount),
-          style: const TextStyle(
-            color: AppColors.textTertiaryMobile,
+          style: TextStyle(
+            color: AppColors.onSurfaceSubtle(brightness),
             fontSize: 11,
           ),
         ),
@@ -138,10 +148,14 @@ class _CardHeader extends StatelessWidget {
 }
 
 class _IconCircle extends StatelessWidget {
-  const _IconCircle({required this.icon, required this.accent});
+  const _IconCircle({required this.icon, required this.accent, this.iconUrl});
 
   final IconData icon;
   final Color accent;
+
+  /// When non-null, renders a network image inside the circle. Falls
+  /// back to [icon] on load error.
+  final String? iconUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -153,7 +167,18 @@ class _IconCircle extends StatelessWidget {
         shape: BoxShape.circle,
         color: accent.withValues(alpha: 0.15),
       ),
-      child: Icon(icon, color: accent, size: 16),
+      child: iconUrl != null
+          ? ClipOval(
+              child: Image.network(
+                iconUrl!,
+                width: 32,
+                height: 32,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stack) =>
+                    Icon(icon, color: accent, size: 16),
+              ),
+            )
+          : Icon(icon, color: accent, size: 16),
     );
   }
 }
@@ -163,9 +188,10 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Container(
       height: 1,
-      color: AppColors.hairline,
+      color: AppColors.cardBorder(brightness),
     );
   }
 }
@@ -183,26 +209,28 @@ class _CardFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final subtle = AppColors.onSurfaceSubtle(brightness);
     return Row(
       children: [
-        const Icon(
+        Icon(
           Icons.lock,
           size: 12,
-          color: AppColors.textTertiaryMobile,
+          color: subtle,
         ),
         const SizedBox(width: 4),
         Text(
           l10n.vaultActiveGrantCount(grantCount),
-          style: const TextStyle(
-            color: AppColors.textTertiaryMobile,
+          style: TextStyle(
+            color: subtle,
             fontSize: 11,
           ),
         ),
         const Spacer(),
         Text(
           l10n.vaultUpdatedAt(_formatRelative(lastUpdated)),
-          style: const TextStyle(
-            color: AppColors.textTertiaryMobile,
+          style: TextStyle(
+            color: subtle,
             fontSize: 11,
           ),
           overflow: TextOverflow.ellipsis,

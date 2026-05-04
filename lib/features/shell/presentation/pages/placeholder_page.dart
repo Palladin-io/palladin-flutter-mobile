@@ -16,27 +16,31 @@ class PlaceholderPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: Text(title),
-        backgroundColor: AppColors.darkSurface,
+        title: Text(
+          title,
+          style: TextStyle(color: AppColors.onSurface(brightness)),
+        ),
+        backgroundColor: AppColors.cardFill(brightness),
       ),
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppColors.darkBackgroundGradient,
+        decoration: BoxDecoration(
+          gradient: AppColors.backgroundGradient(brightness),
         ),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 48, color: AppColors.textTertiary),
+              Icon(icon, size: 48, color: AppColors.onSurfaceSubtle(brightness)),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Coming soon',
                 style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.textTertiary,
+                  color: AppColors.onSurfaceSubtle(brightness),
                 ),
               ),
             ],

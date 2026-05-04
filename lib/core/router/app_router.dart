@@ -82,9 +82,31 @@ GoRouter createRouter(AuthBloc authBloc) {
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
+          // Home — landing tab. Currently a placeholder until CVT-32+
+          // ships the real dashboard. Lives at `/` so the existing
+          // post-unlock redirect lands here without further branching.
           GoRoute(
             path: '/',
+            builder: (_, _) => const PlaceholderPage(
+              icon: Icons.home_outlined,
+              title: 'Home',
+            ),
+          ),
+          GoRoute(
+            path: '/vaults',
             builder: (_, _) => const VaultListPage(),
+            routes: [
+              // Nested under `/vaults` so the shell (and its persistent
+              // bottom nav) stays mounted across navigation into the
+              // detail page — otherwise the shell tears down and the
+              // nav slides in/out on every push.
+              GoRoute(
+                path: ':vaultId',
+                builder: (_, state) => VaultDetailPage(
+                  vaultId: state.pathParameters['vaultId']!,
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: '/agents',
@@ -100,20 +122,7 @@ GoRouter createRouter(AuthBloc authBloc) {
               title: 'Audit Log',
             ),
           ),
-          GoRoute(
-            path: '/settings',
-            builder: (_, _) => const PlaceholderPage(
-              icon: Icons.settings_outlined,
-              title: 'Settings',
-            ),
-          ),
         ],
-      ),
-      GoRoute(
-        path: '/vaults/:vaultId',
-        builder: (_, state) => VaultDetailPage(
-          vaultId: state.pathParameters['vaultId']!,
-        ),
       ),
     ],
   );

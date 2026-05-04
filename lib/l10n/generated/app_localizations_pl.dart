@@ -568,6 +568,16 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nieobsługiwany format. Użyj PNG, JPEG lub WebP.';
 
   @override
+  String get vaultUpgradeToPro => 'Przejdź na Pro';
+
+  @override
+  String get vaultUpgradeComingSoon =>
+      'Płatności są w drodze — w planie Basic możesz mieć tylko jeden sejf.';
+
+  @override
+  String get navHome => 'Start';
+
+  @override
   String get navVaults => 'Sejfy';
 
   @override
@@ -578,4 +588,77 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get navSettings => 'Ustawienia';
+
+  @override
+  String get vaultListTitle => 'Twoje sejfy';
+
+  @override
+  String vaultListSummary(int vaultCount, int entryCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      vaultCount,
+      locale: localeName,
+      other: '$vaultCount sejfów',
+      many: '$vaultCount sejfów',
+      few: '$vaultCount sejfy',
+      one: '1 sejf',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      entryCount,
+      locale: localeName,
+      other: '$entryCount wpisów',
+      many: '$entryCount wpisów',
+      few: '$entryCount wpisy',
+      one: '1 wpis',
+      zero: 'brak wpisów',
+    );
+    return '$_temp0 · $_temp1';
+  }
+
+  @override
+  String get vaultSearchHint => 'Szukaj sejfów…';
+
+  @override
+  String get vaultSearchEmpty => 'Żaden sejf nie pasuje do wyszukiwania';
+
+  @override
+  String get settingsAccountTitle => 'Konto';
+
+  @override
+  String get settingsLockVault => 'Zablokuj sejf';
+
+  @override
+  String get settingsLogout => 'Wyloguj się';
+
+  @override
+  String settingsAppVersion(String version) {
+    return 'Wersja $version';
+  }
+
+  @override
+  String get settingsTooltip => 'Otwórz ustawienia';
+
+  @override
+  String get premiumGateTitle => 'Odblokuj nielimitowaną liczbę sejfów';
+
+  @override
+  String get premiumGateSubtitle =>
+      'Osiągnięto limit 1 sejfu w planie darmowym.';
+
+  @override
+  String get premiumGateCta => 'Przejdź na Pro';
+
+  @override
+  String get premiumGateDismiss => 'Może później';
+
+  @override
+  String get settingsThemeToggle => 'Tryb ciemny';
+
+  @override
+  String get settingsLanguage => 'Język';
+
+  @override
+  String get settingsPlanPro => 'Pro';
+
+  @override
+  String get settingsPlanFree => 'Darmowy';
 }

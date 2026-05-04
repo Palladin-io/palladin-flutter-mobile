@@ -17,7 +17,8 @@ class LoginPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final brightness = Theme.of(context).brightness;
+    final isDark = brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : AppColors.darkBackground;
 
     return BlocListener<AuthBloc, AuthState>(
@@ -25,8 +26,8 @@ class LoginPage extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Container(
-          decoration: const BoxDecoration(
-            gradient: AppColors.darkBackgroundGradient,
+          decoration: BoxDecoration(
+            gradient: AppColors.backgroundGradient(brightness),
           ),
           child: SafeArea(
             child: Padding(

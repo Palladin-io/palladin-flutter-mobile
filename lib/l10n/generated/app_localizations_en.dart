@@ -561,6 +561,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unsupported format. Use PNG, JPEG or WebP.';
 
   @override
+  String get vaultUpgradeToPro => 'Upgrade to Pro';
+
+  @override
+  String get vaultUpgradeComingSoon =>
+      'Upgrade flow coming soon — you\'ve reached the Basic plan\'s single-vault limit.';
+
+  @override
+  String get navHome => 'Home';
+
+  @override
   String get navVaults => 'Vaults';
 
   @override
@@ -571,4 +581,73 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get navSettings => 'Settings';
+
+  @override
+  String get vaultListTitle => 'My Vaults';
+
+  @override
+  String vaultListSummary(int vaultCount, int entryCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      vaultCount,
+      locale: localeName,
+      other: '$vaultCount vaults',
+      one: '1 vault',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      entryCount,
+      locale: localeName,
+      other: '$entryCount entries',
+      one: '1 entry',
+      zero: 'no entries',
+    );
+    return '$_temp0 · $_temp1';
+  }
+
+  @override
+  String get vaultSearchHint => 'Search vaults…';
+
+  @override
+  String get vaultSearchEmpty => 'No vaults match your search';
+
+  @override
+  String get settingsAccountTitle => 'Account';
+
+  @override
+  String get settingsLockVault => 'Lock Vault';
+
+  @override
+  String get settingsLogout => 'Log out';
+
+  @override
+  String settingsAppVersion(String version) {
+    return 'Version $version';
+  }
+
+  @override
+  String get settingsTooltip => 'Open settings';
+
+  @override
+  String get premiumGateTitle => 'Unlock unlimited vaults';
+
+  @override
+  String get premiumGateSubtitle =>
+      'You\'ve reached the 1-vault limit on the free plan.';
+
+  @override
+  String get premiumGateCta => 'Upgrade to Pro';
+
+  @override
+  String get premiumGateDismiss => 'Maybe later';
+
+  @override
+  String get settingsThemeToggle => 'Dark mode';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsPlanPro => 'Pro';
+
+  @override
+  String get settingsPlanFree => 'Free';
 }

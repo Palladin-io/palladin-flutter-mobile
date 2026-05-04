@@ -1,54 +1,161 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
 
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../data/datasources/vault_remote_datasource.dart';
 import '../../data/services/vault_icon_upload_service.dart';
 import 'vault_form.dart';
 
-/// Settings tab body — wraps [VaultForm] and adds a danger zone with
-/// the destructive "Delete Vault" button.
+/// Settings tab body — wraps [VaultForm] and adds a prominent Save
+/// button and a danger zone with the destructive "Delete Vault" button.
 ///
-/// Save action lives on the AppBar (parent decides when it's enabled
-/// and what it does), so this widget purely renders the form + danger
-/// zone.
-class VaultSettingsTab extends StatelessWidget {
+/// Save action is shown as a full-width button inside the scroll view
+/// (above the danger zone) when the form is dirty. The AppBar also has
+/// a small TextButton affordance for the same action — both call
+/// [onSave].
+///
+/// Custom icon upload is supported — tapping the upload affordance
+/// launches the system gallery picker, uploads via
+/// [VaultIconUploadService], and propagates the resulting URL through
+/// [onChanged] so the parent can detect the form as dirty.
+class VaultSettingsTab extends StatefulWidget {
   const VaultSettingsTab({
     super.key,
+    required this.vaultId,
     required this.initial,
     required this.onChanged,
     required this.onDelete,
-    required this.vaultId,
-    required this.datasource,
+    this.onSave,
   });
 
+  final String vaultId;
   final VaultFormData initial;
   final ValueChanged<VaultFormData> onChanged;
   final VoidCallback? onDelete;
-  final String vaultId;
-  final VaultRemoteDatasource datasource;
+  final VoidCallback? onSave;
+
+  @override
+  State<VaultSettingsTab> createState() => _VaultSettingsTabState();
+}
+
+class _VaultSettingsTabState extends State<VaultSettingsTab> {
+  bool _uploadingIcon = false;
+  late VaultFormData _currentData;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentData = widget.initial;
+  }
+
+  bool get _isDirty => _currentData != widget.initial;
+
+  void _onFormChanged(VaultFormData data) {
+    setState(() => _currentData = data);
+    widget.onChanged(data);
+  }
+
+  Future<void> _pickAndUploadIcon() async {
+    final picker = ImagePicker();
+    final XFile? file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (file == null || !mounted) return;
+
+    setState(() => _uploadingIcon = true);
+    try {
+      final service = VaultIconUploadService(getIt<VaultRemoteDatasource>());
+      final url = await service.uploadIcon(widget.vaultId, File(file.path));
+      if (!mounted) return;
+      _onFormChanged(widget.initial.copyWith(icon: url));
+    } catch (e) {
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(e is VaultIconUploadException
+              ? e.message
+              : l10n.vaultIconUploadError),
+        ));
+    } finally {
+      if (mounted) setState(() => _uploadingIcon = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final uploadService = VaultIconUploadService(datasource);
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           VaultForm(
-            initial: initial,
-            onChanged: onChanged,
-            vaultId: vaultId,
-            uploadService: uploadService,
+            initial: widget.initial,
+            onChanged: _onFormChanged,
+            onPickCustomIcon: _uploadingIcon ? null : _pickAndUploadIcon,
           ),
+          if (_uploadingIcon)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: LinearProgressIndicator(
+                color: AppColors.tealAccent,
+                backgroundColor: AppColors.hairline,
+              ),
+            ),
           const SizedBox(height: 24),
-          _DangerZone(
+          _SaveButton(
+            onSave: _isDirty ? widget.onSave : null,
             l10n: l10n,
-            onDelete: onDelete,
           ),
+          const SizedBox(height: 16),
+          _DangerZone(l10n: l10n, onDelete: widget.onDelete),
         ],
+      ),
+    );
+  }
+}
+
+class _SaveButton extends StatelessWidget {
+  const _SaveButton({required this.onSave, required this.l10n});
+
+  /// Null when no changes have been made — button renders as disabled.
+  final VoidCallback? onSave;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton(
+        onPressed: onSave,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.brandRed,
+          disabledBackgroundColor: AppColors.brandRed.withValues(alpha: 0.35),
+          foregroundColor: Colors.white,
+          disabledForegroundColor: Colors.white.withValues(alpha: 0.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+        ),
+        child: Text(
+          l10n.vaultSaveAction,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
+          ),
+        ),
       ),
     );
   }
@@ -95,8 +202,7 @@ class _DangerZone extends StatelessWidget {
                 ),
               ),
               style: TextButton.styleFrom(
-                backgroundColor:
-                    AppColors.brandRed.withValues(alpha: 0.12),
+                backgroundColor: AppColors.brandRed.withValues(alpha: 0.12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),

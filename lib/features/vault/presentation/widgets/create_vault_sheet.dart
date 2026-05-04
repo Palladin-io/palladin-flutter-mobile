@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
@@ -11,8 +9,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
-import '../../data/datasources/vault_remote_datasource.dart';
-import '../../data/services/vault_icon_upload_service.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
 import '../cubit/create_vault_cubit.dart';
@@ -33,6 +29,11 @@ class CreateVaultSheet extends StatelessWidget {
     return showModalBottomSheet<VaultEntity>(
       context: context,
       isScrollControlled: true,
+      // useRootNavigator pushes the modal on the root Navigator, above
+      // GoRouter's ShellRoute Scaffold. Without this the sheet inherits
+      // the Scaffold's adjusted MediaQuery which reserves space for the
+      // bottom nav bar, leaving an empty gap at the sheet's bottom.
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const CreateVaultSheet(),
     );
@@ -64,14 +65,10 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
   );
 
   VaultFormData _formData = _initialFormData;
-  XFile? _pendingIconFile;
-
-  late final VaultIconUploadService _uploadService;
 
   @override
   void initState() {
     super.initState();
-    _uploadService = VaultIconUploadService(getIt<VaultRemoteDatasource>());
     AnalyticsService.instance.capture('vault', 'create-sheet-opened');
   }
 
@@ -88,37 +85,24 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
     context.read<CreateVaultCubit>().createVault(
           name: _formData.name,
           description: _formData.description,
-          // Strip the local file:// preview URL — icon is uploaded separately.
-          icon: _formData.icon.startsWith('file://')
-              ? VaultVisuals.defaultIconName
-              : _formData.icon,
+          icon: _formData.icon,
           color: _formData.color,
           grantMode: _formData.grantMode,
           privateKey: Uint8List.fromList(auth.privateKey!),
         );
   }
 
-  Future<void> _uploadPendingIcon(VaultEntity vault) async {
-    final file = _pendingIconFile;
-    if (file == null) return;
-    try {
-      await _uploadService.uploadIcon(vault.id, File(file.path));
-    } catch (_) {
-      // Icon upload failure is non-blocking — the vault is already created.
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
     final viewInsets = MediaQuery.of(context).viewInsets;
 
     return BlocConsumer<CreateVaultCubit, CreateVaultState>(
       listenWhen: (previous, current) => current is CreateVaultSuccess,
-      listener: (context, state) async {
+      listener: (context, state) {
         if (state is CreateVaultSuccess) {
-          await _uploadPendingIcon(state.vault);
-          if (context.mounted) Navigator.of(context).pop(state.vault);
+          Navigator.of(context).pop(state.vault);
         }
       },
       builder: (context, state) {
@@ -128,19 +112,26 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
         return Padding(
           padding: EdgeInsets.only(bottom: viewInsets.bottom),
           child: Container(
-            decoration: const BoxDecoration(
-              color: AppColors.darkBackground,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            decoration: BoxDecoration(
+              color: AppColors.modalBackground(brightness),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
             ),
-            child: SafeArea(
-              top: false,
+            child: Padding(
+              // Use the device's physical bottom inset so the sheet hugs
+              // the home indicator instead of floating above the
+              // shell-reserved bottom-nav space.
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewPaddingOf(context).bottom,
+              ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _SheetHandle(),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 24),
                     _SheetHeader(
                       title: l10n.vaultNewVault,
                       onClose: isLoading
@@ -153,8 +144,6 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
                         child: VaultForm(
                           initial: _initialFormData,
                           onChanged: (data) => setState(() => _formData = data),
-                          onFilePicked: (file) =>
-                              setState(() => _pendingIconFile = file),
                         ),
                       ),
                     ),
@@ -202,11 +191,12 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
 class _SheetHandle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Container(
       width: 36,
       height: 4,
       decoration: BoxDecoration(
-        color: AppColors.textTertiary.withValues(alpha: 0.4),
+        color: AppColors.onSurfaceSubtle(brightness).withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(2),
       ),
     );
@@ -221,20 +211,21 @@ class _SheetHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Row(
       children: [
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: AppColors.onSurface(brightness),
               fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.close, color: AppColors.textSecondary),
+          icon: Icon(Icons.close, color: AppColors.onSurfaceMuted(brightness)),
           onPressed: onClose,
           tooltip: MaterialLocalizations.of(context).closeButtonLabel,
         ),

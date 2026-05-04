@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_search_field.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import 'grant_card.dart';
 
@@ -20,6 +21,7 @@ class VaultAgentsTab extends StatefulWidget {
 
 class _VaultAgentsTabState extends State<VaultAgentsTab> {
   final TextEditingController _searchController = TextEditingController();
+  bool _filtersOpen = false;
 
   @override
   void dispose() {
@@ -41,18 +43,12 @@ class _VaultAgentsTabState extends State<VaultAgentsTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _SearchBar(
-                controller: _searchController,
-                hint: l10n.vaultSearchAgents,
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-            const SizedBox(width: 8),
-            const _FilterButton(),
-          ],
+        AppSearchField(
+          controller: _searchController,
+          hint: l10n.vaultSearchAgents,
+          filterActive: _filtersOpen,
+          onToggleFilter: () => setState(() => _filtersOpen = !_filtersOpen),
+          onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 12),
         Expanded(
@@ -65,81 +61,6 @@ class _VaultAgentsTabState extends State<VaultAgentsTab> {
                 ),
         ),
       ],
-    );
-  }
-}
-
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({
-    required this.controller,
-    required this.hint,
-    required this.onChanged,
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-      decoration: BoxDecoration(
-        color: AppColors.mobileSurface,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.search, size: 18, color: AppColors.textTertiaryMobile),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 12,
-              ),
-              decoration: InputDecoration(
-                isCollapsed: true,
-                border: InputBorder.none,
-                hintText: hint,
-                hintStyle: const TextStyle(
-                  color: AppColors.textTertiaryMobile,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FilterButton extends StatelessWidget {
-  const _FilterButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.mobileSurface,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          // Filter sheet lands in a follow-up ticket.
-        },
-        child: const SizedBox(
-          width: 36,
-          height: 36,
-          child: Icon(
-            Icons.filter_list,
-            size: 18,
-            color: AppColors.textTertiaryMobile,
-          ),
-        ),
-      ),
     );
   }
 }

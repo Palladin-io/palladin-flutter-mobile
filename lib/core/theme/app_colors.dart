@@ -107,6 +107,26 @@ abstract final class AppColors {
   /// Hairline divider color used between rows inside cards.
   static const Color hairline = Color(0x14FFFFFF);
 
+  // === Bottom navigation ===
+
+  /// Translucent navy used as the bottom-nav background — matches the
+  /// prototype's `rgba(10, 26, 62, 0.8)` so the nav reads as a frosted
+  /// rail above the gradient backdrop.
+  static const Color bottomNavBackground = Color(0xCC0A1A3E);
+
+  /// Hairline border on top of the bottom nav — bumped from the
+  /// prototype's `rgba(253, 249, 228, 0.06)` (~6%) to ~10% so the 1-px
+  /// stroke actually reads against the translucent navy backdrop.
+  static const Color bottomNavBorder = Color(0x1AFDF9E4);
+
+  // === Premium / billing ===
+
+  /// Amber accent used for premium / upgrade gating — bursztynowy
+  /// kolor "Pro" CTA na bottom sheecie. Tuned for dark mode (the app
+  /// always runs `ThemeMode.dark`); the previous `#D4820A` was a
+  /// light-mode value that read muddy against the navy background.
+  static const Color premiumAmber = Color(0xFFF0C040);
+
 
   // === Dark background gradient ===
   //
@@ -131,4 +151,120 @@ abstract final class AppColors {
     ],
     stops: [0.0, 0.3, 0.6, 1.0],
   );
+
+  // ── Light background gradient ────────────────────────────────────────
+  //
+  // 160deg gradient mirroring the Astro prototype's light-mode warm
+  // cream/peach blend. Use [lightBackgroundGradient] directly or via
+  // [backgroundGradient] for the brightness-aware helper.
+  /// Assembled light-background gradient — `160deg` warm cream/peach
+  /// matching `docs/design/mobile-app-prototype/styles.css`.
+  static const LinearGradient lightBackgroundGradient = LinearGradient(
+    begin: Alignment(-0.34, -0.94),
+    end: Alignment(0.34, 0.94),
+    colors: [
+      Color(0xFFFDF9E4),
+      Color(0xFFFFF0E0),
+      Color(0xFFFDF9E4),
+      Color(0xFFFFF5E8),
+    ],
+    stops: [0.0, 0.35, 0.65, 1.0],
+  );
+
+  /// Brightness-aware background gradient — picks the dark or light
+  /// gradient based on the current theme.
+  static LinearGradient backgroundGradient(Brightness b) =>
+      b == Brightness.dark ? darkBackgroundGradient : lightBackgroundGradient;
+
+  // ── Brightness-aware semantic colors ─────────────────────────────────
+  //
+  // Use Theme.of(context).brightness to pick the right variant.
+  // Defined as static methods (not consts) because they depend on
+  // the runtime brightness value.
+
+  /// Primary text — cream in dark (`#FDF9E4`), deep navy in light (`#000B2E`).
+  static Color onSurface(Brightness b) =>
+      b == Brightness.dark ? textPrimary : darkBackground;
+
+  /// Secondary / supporting text — `#B8C5D4` in dark, `#3D4E66` in light.
+  static Color onSurfaceMuted(Brightness b) =>
+      b == Brightness.dark ? textSecondary : const Color(0xFF3D4E66);
+
+  /// Tertiary / placeholder text — `#6B7A8E` in dark, `#8A95A6` in light.
+  static Color onSurfaceSubtle(Brightness b) =>
+      b == Brightness.dark ? textTertiary : textTertiaryMobile;
+
+  /// Input fill — `rgba(253,249,228,0.04)` in dark,
+  /// `rgba(255,252,247,0.70)` in light. Matches the prototype's frosted
+  /// input recipe.
+  static Color inputFill(Brightness b) =>
+      b == Brightness.dark
+          ? const Color(0x0AFDF9E4)
+          : const Color(0xB3FFFCF7);
+
+  /// Input border — `rgba(253,249,228,0.08)` in dark,
+  /// `rgba(0,11,46,0.08)` in light.
+  static Color inputBorder(Brightness b) =>
+      b == Brightness.dark
+          ? const Color(0x14FDF9E4)
+          : const Color(0x14000B2E);
+
+  /// Input text color — cream in dark, deep navy in light.
+  static Color inputText(Brightness b) =>
+      b == Brightness.dark ? textPrimary : darkBackground;
+
+  /// Input hint / placeholder — slate (`#6B7A8E`) in dark,
+  /// slate (`#8A95A6`) in light.
+  static Color inputHint(Brightness b) =>
+      b == Brightness.dark ? textTertiary : textTertiaryMobile;
+
+  /// Glass card fill — `rgba(253,249,228,0.04)` in dark,
+  /// `rgba(255,252,247,0.65)` in light.
+  static Color cardFill(Brightness b) =>
+      b == Brightness.dark
+          ? const Color(0x0AFDF9E4)
+          : const Color(0xA6FFFCF7);
+
+  /// Glass card border — `rgba(253,249,228,0.06)` in dark,
+  /// `rgba(0,11,46,0.06)` in light.
+  static Color cardBorder(Brightness b) =>
+      b == Brightness.dark
+          ? const Color(0x0FFDF9E4)
+          : const Color(0x0F000B2E);
+
+  /// Bottom nav background — translucent navy (`rgba(10,26,62,0.80)`) in
+  /// dark, translucent cream (`rgba(255,252,247,0.75)`) in light.
+  static Color navBackground(Brightness b) =>
+      b == Brightness.dark
+          ? bottomNavBackground
+          : const Color(0xBFFFFCF7);
+
+  /// Bottom nav top border — `rgba(253,249,228,0.06)` in dark,
+  /// `rgba(0,11,46,0.06)` in light.
+  static Color navBorder(Brightness b) =>
+      b == Brightness.dark
+          ? const Color(0x0FFDF9E4)
+          : const Color(0x0F000B2E);
+
+  /// Modal / drawer background — solid, non-transparent. `#0D1B3E` in
+  /// dark, `#FFFCF7` in light. Use this for bottom sheets and the
+  /// settings drawer so they read as opaque surfaces above the gradient.
+  static Color modalBackground(Brightness b) =>
+      b == Brightness.dark ? mobileSurface : const Color(0xFFFFFCF7);
+
+  /// Card / elevated surface — kept for back-compat with code paths that
+  /// expect a fully opaque tile (refresh indicators, dropdown menus).
+  /// New surfaces should prefer [cardFill] + [cardBorder] for the glass
+  /// recipe, or [modalBackground] for solid sheets/drawers.
+  static Color cardSurface(Brightness b) =>
+      b == Brightness.dark ? mobileSurface : lightSurface;
+
+  /// Premium / billing accent — `#F0C040` in dark, `#D4820A` in light.
+  /// Mirrors the prototype's `--cv-premium-amber` token across themes.
+  static Color premium(Brightness b) =>
+      b == Brightness.dark ? premiumAmber : const Color(0xFFD4820A);
+
+  /// Icon in default (non-interactive) state.
+  static Color iconDefault(Brightness b) =>
+      b == Brightness.dark ? textSecondary : const Color(0xFF5A6478);
 }

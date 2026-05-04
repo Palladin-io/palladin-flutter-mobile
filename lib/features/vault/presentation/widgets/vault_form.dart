@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
-import '../../data/services/vault_icon_upload_service.dart';
 import '../../domain/entities/vault_entity.dart';
 import 'vault_color_picker.dart';
 import 'vault_icon_picker.dart';
@@ -65,25 +63,26 @@ class VaultFormData {
 /// icon row, and a color row. Grant mode is intentionally not exposed
 /// in the UI: new vaults default to [GrantMode.granular] and existing
 /// values are passed through unchanged.
+///
+/// Pass [onPickCustomIcon] to enable the "Upload custom icon" affordance
+/// below the icon picker. Omit it (null) in create flows where there is
+/// no vault ID available yet — the affordance is hidden automatically.
 class VaultForm extends StatefulWidget {
   const VaultForm({
     super.key,
     required this.initial,
     required this.onChanged,
-    this.vaultId,
-    this.uploadService,
-    this.onFilePicked,
+    this.onPickCustomIcon,
   });
 
   final VaultFormData initial;
   final ValueChanged<VaultFormData> onChanged;
 
-  /// Edit mode: vault already exists, upload happens immediately.
-  final String? vaultId;
-  final VaultIconUploadService? uploadService;
-
-  /// Create mode: called with the picked file for deferred upload.
-  final ValueChanged<XFile>? onFilePicked;
+  /// Optional callback that triggers a custom icon upload flow. When
+  /// non-null an "Upload custom icon" button is shown below the preset
+  /// icon picker. Caller is responsible for picking and uploading the
+  /// file; on success it should reflect the new URL via [onChanged].
+  final VoidCallback? onPickCustomIcon;
 
   @override
   State<VaultForm> createState() => _VaultFormState();
@@ -157,9 +156,7 @@ class _VaultFormState extends State<VaultForm> {
             setState(() => _selectedIcon = icon);
             _emit();
           },
-          vaultId: widget.vaultId,
-          uploadService: widget.uploadService,
-          onFilePicked: widget.onFilePicked,
+          onPickCustom: widget.onPickCustomIcon,
         ),
         const SizedBox(height: 20),
         _SectionLabel(text: l10n.vaultColorLabel),
@@ -193,3 +190,4 @@ class _SectionLabel extends StatelessWidget {
     );
   }
 }
+

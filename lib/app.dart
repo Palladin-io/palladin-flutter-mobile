@@ -5,37 +5,50 @@ import 'l10n/generated/app_localizations.dart';
 
 import 'config/env_config.dart';
 import 'core/di/injection.dart';
+import 'core/l10n/locale_cubit.dart';
 import 'core/router/app_router.dart';
+import 'core/storage/user_preferences.dart';
 import 'core/theme/app_colors.dart';
+import 'core/theme/theme_cubit.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 
-/// Root application widget for Claw Vault.
-///
-/// Sets up the [AuthBloc] at the top of the widget tree, configures
-/// [GoRouter] with auth-aware redirects, and applies the dark theme
-/// matching the mobile prototype.
-///
-/// Always runs in dark mode ([ThemeMode.dark]) regardless of system setting.
 class ClawVaultApp extends StatelessWidget {
-  const ClawVaultApp({super.key, required this.config});
+  const ClawVaultApp({
+    super.key,
+    required this.config,
+    required this.userPreferences,
+    required this.initialThemeMode,
+    required this.initialLocale,
+  });
 
   final EnvConfig config;
+  final UserPreferences userPreferences;
+  final ThemeMode initialThemeMode;
+  final Locale initialLocale;
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<AuthBloc>()..add(const AuthCheckRequested()),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => getIt<AuthBloc>()..add(const AuthCheckRequested()),
+        ),
+        BlocProvider(create: (_) => ThemeCubit(userPreferences, initial: initialThemeMode)),
+        BlocProvider(create: (_) => LocaleCubit(userPreferences, initial: initialLocale)),
+      ],
       child: Builder(
         builder: (context) {
-          final authBloc = context.read<AuthBloc>();
-          final router = createRouter(authBloc);
+          final themeMode = context.watch<ThemeCubit>().state;
+          final locale = context.watch<LocaleCubit>().state;
+          final router = createRouter(context.read<AuthBloc>());
 
           return MaterialApp.router(
             title: config.appName,
             debugShowCheckedModeBanner: false,
             theme: _buildLightTheme(),
             darkTheme: _buildDarkTheme(),
-            themeMode: ThemeMode.dark,
+            themeMode: themeMode,
+            locale: locale,
             routerConfig: router,
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
@@ -52,10 +65,11 @@ class ClawVaultApp extends StatelessWidget {
       textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme),
       scaffoldBackgroundColor: AppColors.lightBackground,
       colorScheme: const ColorScheme.light(
-        primary: AppColors.tealAccent,
+        primary: AppColors.brandRed,
         error: AppColors.brandRed,
         surface: AppColors.lightSurface,
         onSurface: AppColors.darkBackground,
+        onPrimary: Colors.white,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.lightSurface,

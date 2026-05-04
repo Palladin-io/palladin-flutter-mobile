@@ -679,6 +679,18 @@
   "@vaultIconUploadFormatError": {
     "description": "Error shown when selected file has an unsupported format"
   },
+  "vaultUpgradeToPro": "Upgrade to Pro",
+  "@vaultUpgradeToPro": {
+    "description": "Label for the Pro-upgrade FAB shown when a Basic-plan user has hit the single-vault limit"
+  },
+  "vaultUpgradeComingSoon": "Upgrade flow coming soon — you've reached the Basic plan's single-vault limit.",
+  "@vaultUpgradeComingSoon": {
+    "description": "Snackbar shown when the user taps the upgrade FAB before the billing flow ships"
+  },
+  "navHome": "Home",
+  "@navHome": {
+    "description": "Bottom nav label for the Home tab"
+  },
   "navVaults": "Vaults",
   "@navVaults": {
     "description": "Bottom nav label for the Vaults tab"
@@ -694,5 +706,80 @@
   "navSettings": "Settings",
   "@navSettings": {
     "description": "Bottom nav label for the Settings tab"
+  },
+  "vaultListTitle": "My Vaults",
+  "@vaultListTitle": {
+    "description": "Header title shown on the vault list page"
+  },
+  "vaultListSummary": "{vaultCount, plural, =1{1 vault} other{{vaultCount} vaults}} · {entryCount, plural, =0{no entries} =1{1 entry} other{{entryCount} entries}}",
+  "@vaultListSummary": {
+    "description": "Subtitle under the vault list header — count of vaults and total entries across them",
+    "placeholders": {
+      "vaultCount": {"type": "int"},
+      "entryCount": {"type": "int"}
+    }
+  },
+  "vaultSearchHint": "Search vaults…",
+  "@vaultSearchHint": {
+    "description": "Placeholder for the search input on the vault list page"
+  },
+  "vaultSearchEmpty": "No vaults match your search",
+  "@vaultSearchEmpty": {
+    "description": "Empty-state title when a search query has no matches in the vault list"
+  },
+  "settingsAccountTitle": "Account",
+  "@settingsAccountTitle": {
+    "description": "Section title in the settings drawer for account-related actions"
+  },
+  "settingsLockVault": "Lock Vault",
+  "@settingsLockVault": {
+    "description": "Settings drawer item: lock the vault but keep the user signed in"
+  },
+  "settingsLogout": "Log out",
+  "@settingsLogout": {
+    "description": "Settings drawer item: full sign-out, returns to the login screen"
+  },
+  "settingsAppVersion": "Version {version}",
+  "@settingsAppVersion": {
+    "description": "Footer text in the settings drawer showing the app version",
+    "placeholders": {
+      "version": {"type": "String", "example": "1.0.0"}
+    }
+  },
+  "settingsTooltip": "Open settings",
+  "@settingsTooltip": {
+    "description": "Accessibility / tooltip label for the settings icon button in the vault list header"
+  },
+  "premiumGateTitle": "Unlock unlimited vaults",
+  "@premiumGateTitle": {
+    "description": "Headline of the premium-gate bottom sheet shown when a Basic-plan user taps the New Vault FAB"
+  },
+  "premiumGateSubtitle": "You've reached the 1-vault limit on the free plan.",
+  "@premiumGateSubtitle": {
+    "description": "Supporting copy on the premium-gate bottom sheet"
+  },
+  "premiumGateCta": "Upgrade to Pro",
+  "@premiumGateCta": {
+    "description": "Primary CTA on the premium-gate bottom sheet"
+  },
+  "premiumGateDismiss": "Maybe later",
+  "@premiumGateDismiss": {
+    "description": "Secondary / dismiss button on the premium-gate bottom sheet"
+  },
+  "settingsThemeToggle": "Dark mode",
+  "@settingsThemeToggle": {
+    "description": "Settings drawer row label for the dark/light theme toggle"
+  },
+  "settingsLanguage": "Language",
+  "@settingsLanguage": {
+    "description": "Settings drawer row label for the EN/PL language selector"
+  },
+  "settingsPlanPro": "Pro",
+  "@settingsPlanPro": {
+    "description": "Plan badge in the settings drawer header for users with the premium permission bit set"
+  },
+  "settingsPlanFree": "Free",
+  "@settingsPlanFree": {
+    "description": "Plan label in the settings drawer header for users on the free plan"
   }
 }
