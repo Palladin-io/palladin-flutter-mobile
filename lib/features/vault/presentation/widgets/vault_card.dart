@@ -228,7 +228,7 @@ class _CardFooter extends StatelessWidget {
         ),
         const Spacer(),
         Text(
-          l10n.vaultUpdatedAt(_formatRelative(lastUpdated)),
+          l10n.vaultUpdatedAt(_formatRelative(l10n, lastUpdated)),
           style: TextStyle(
             color: subtle,
             fontSize: 11,
@@ -239,14 +239,18 @@ class _CardFooter extends StatelessWidget {
     );
   }
 
-  /// Approximate relative timestamp ("3m ago", "2h ago", "5d ago").
-  /// Falls back to an ISO date when older than 30 days.
-  String _formatRelative(DateTime dt) {
+  /// Localised relative timestamp ("teraz" / "now", "3 min temu" /
+  /// "3m ago", …) — delegates to the ARB plural keys
+  /// `vaultUpdatedNow` / `vaultUpdatedMinutesAgo` /
+  /// `vaultUpdatedHoursAgo` / `vaultUpdatedDaysAgo`. Falls back to an
+  /// ISO date when older than 30 days (no localisation needed there —
+  /// the format is purely numeric).
+  String _formatRelative(AppLocalizations l10n, DateTime dt) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 30) return '${diff.inDays}d ago';
+    if (diff.inMinutes < 1) return l10n.vaultUpdatedNow;
+    if (diff.inMinutes < 60) return l10n.vaultUpdatedMinutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return l10n.vaultUpdatedHoursAgo(diff.inHours);
+    if (diff.inDays < 30) return l10n.vaultUpdatedDaysAgo(diff.inDays);
     final local = dt.toLocal();
     final y = local.year.toString().padLeft(4, '0');
     final m = local.month.toString().padLeft(2, '0');

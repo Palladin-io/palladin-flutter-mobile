@@ -330,9 +330,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get vaultDeleting => 'Deleting...';
-
-  @override
   String get vaultSettings => 'Vault Settings';
 
   @override
@@ -368,6 +365,57 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String vaultUpdatedAt(String date) {
     return 'Updated $date';
+  }
+
+  @override
+  String get vaultUpdatedNow => 'now';
+
+  @override
+  String vaultUpdatedMinutesAgo(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '${countString}m ago',
+      one: '1m ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultUpdatedHoursAgo(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '${countString}h ago',
+      one: '1h ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultUpdatedDaysAgo(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '${countString}d ago',
+      one: '1d ago',
+    );
+    return '$_temp0';
   }
 
   @override

@@ -412,10 +412,6 @@
       }
     }
   },
-  "vaultDeleting": "Deleting...",
-  "@vaultDeleting": {
-    "description": "Loading label shown while the vault is being deleted"
-  },
   "vaultSettings": "Vault Settings",
   "@vaultSettings": {
     "description": "Title of the vault settings page"
@@ -453,6 +449,40 @@
       "date": {
         "type": "String",
         "example": "2026-04-25"
+      }
+    }
+  },
+  "vaultUpdatedNow": "now",
+  "@vaultUpdatedNow": {
+    "description": "Relative timestamp label shown on a vault card when the vault was updated less than a minute ago"
+  },
+  "vaultUpdatedMinutesAgo": "{count, plural, =1{1m ago} other{{count}m ago}}",
+  "@vaultUpdatedMinutesAgo": {
+    "description": "Relative timestamp shown on a vault card when the last update was less than an hour ago",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "vaultUpdatedHoursAgo": "{count, plural, =1{1h ago} other{{count}h ago}}",
+  "@vaultUpdatedHoursAgo": {
+    "description": "Relative timestamp shown on a vault card when the last update was less than a day ago",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "vaultUpdatedDaysAgo": "{count, plural, =1{1d ago} other{{count}d ago}}",
+  "@vaultUpdatedDaysAgo": {
+    "description": "Relative timestamp shown on a vault card when the last update was less than 30 days ago",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
       }
     }
   },

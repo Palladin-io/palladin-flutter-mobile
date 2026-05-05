@@ -75,19 +75,39 @@ class _VaultSettingsTabState extends State<VaultSettingsTab> {
       final url = await service.uploadIcon(widget.vaultId, File(file.path));
       if (!mounted) return;
       _onFormChanged(widget.initial.copyWith(icon: url));
-    } catch (e) {
+    } on VaultIconUploadException catch (e) {
       if (!mounted) return;
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
-          content: Text(e is VaultIconUploadException
-              ? e.message
-              : l10n.vaultIconUploadError),
+          content: Text(_iconUploadErrorMessage(l10n, e.kind)),
         ));
+    } catch (_) {
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l10n.vaultIconUploadError)));
     } finally {
       if (mounted) setState(() => _uploadingIcon = false);
     }
+  }
+
+  /// Maps a typed [VaultIconUploadErrorKind] to the matching ARB string.
+  /// Centralising the switch here keeps the data layer free of locale
+  /// concerns (criteria 3 — no English in data/domain layer).
+  String _iconUploadErrorMessage(
+    AppLocalizations l10n,
+    VaultIconUploadErrorKind kind,
+  ) {
+    return switch (kind) {
+      VaultIconUploadErrorKind.unsupportedFormat =>
+        l10n.vaultIconUploadFormatError,
+      VaultIconUploadErrorKind.fileTooLarge => l10n.vaultIconUploadSizeError,
+      VaultIconUploadErrorKind.network => l10n.vaultIconUploadError,
+      VaultIconUploadErrorKind.unknown => l10n.vaultIconUploadError,
+    };
   }
 
   @override
@@ -141,8 +161,9 @@ class _SaveButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.brandRed,
           disabledBackgroundColor: AppColors.brandRed.withValues(alpha: 0.35),
-          foregroundColor: Colors.white,
-          disabledForegroundColor: Colors.white.withValues(alpha: 0.5),
+          foregroundColor: AppColors.onBrandRed,
+          disabledForegroundColor:
+              AppColors.onBrandRed.withValues(alpha: 0.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),

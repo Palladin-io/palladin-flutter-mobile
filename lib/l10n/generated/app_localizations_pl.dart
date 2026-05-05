@@ -331,9 +331,6 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
-  String get vaultDeleting => 'Usuwanie...';
-
-  @override
   String get vaultSettings => 'Ustawienia sejfu';
 
   @override
@@ -371,6 +368,63 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String vaultUpdatedAt(String date) {
     return 'Aktualizacja $date';
+  }
+
+  @override
+  String get vaultUpdatedNow => 'teraz';
+
+  @override
+  String vaultUpdatedMinutesAgo(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString min temu',
+      many: '$countString min temu',
+      few: '$countString min temu',
+      one: '1 min temu',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultUpdatedHoursAgo(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString godz. temu',
+      many: '$countString godz. temu',
+      few: '$countString godz. temu',
+      one: '1 godz. temu',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultUpdatedDaysAgo(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString dni temu',
+      many: '$countString dni temu',
+      few: '$countString dni temu',
+      one: '1 dzień temu',
+    );
+    return '$_temp0';
   }
 
   @override

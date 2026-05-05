@@ -680,12 +680,6 @@ abstract class AppLocalizations {
   /// **'This will permanently delete \"{name}\" and all its entries. This cannot be undone.'**
   String vaultDeleteConfirmWithName(String name);
 
-  /// Loading label shown while the vault is being deleted
-  ///
-  /// In en, this message translates to:
-  /// **'Deleting...'**
-  String get vaultDeleting;
-
   /// Title of the vault settings page
   ///
   /// In en, this message translates to:
@@ -727,6 +721,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Updated {date}'**
   String vaultUpdatedAt(String date);
+
+  /// Relative timestamp label shown on a vault card when the vault was updated less than a minute ago
+  ///
+  /// In en, this message translates to:
+  /// **'now'**
+  String get vaultUpdatedNow;
+
+  /// Relative timestamp shown on a vault card when the last update was less than an hour ago
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1m ago} other{{count}m ago}}'**
+  String vaultUpdatedMinutesAgo(int count);
+
+  /// Relative timestamp shown on a vault card when the last update was less than a day ago
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1h ago} other{{count}h ago}}'**
+  String vaultUpdatedHoursAgo(int count);
+
+  /// Relative timestamp shown on a vault card when the last update was less than 30 days ago
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1d ago} other{{count}d ago}}'**
+  String vaultUpdatedDaysAgo(int count);
 
   /// Stat chip label on the vault detail page
   ///

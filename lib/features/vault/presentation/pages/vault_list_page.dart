@@ -582,7 +582,7 @@ class _EmptyView extends StatelessWidget {
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.brandRed,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.onBrandRed,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),

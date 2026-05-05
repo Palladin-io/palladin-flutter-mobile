@@ -29,6 +29,12 @@ abstract final class AppColors {
   /// Brand red — "Vault" wordmark and error states.
   static const Color brandRed = Color(0xFFFF4F4F);
 
+  /// Foreground (text/icon) color used on top of [brandRed] surfaces —
+  /// e.g. the destructive "Delete" CTA, the empty-state "New vault"
+  /// button. Single source of truth so all red-on-cream contrast pairs
+  /// share the same value.
+  static const Color onBrandRed = Color(0xFFFFFFFF);
+
   /// Teal accent — primary interactive color and loading indicators.
   static const Color tealAccent = Color(0xFF48ECDF);
 

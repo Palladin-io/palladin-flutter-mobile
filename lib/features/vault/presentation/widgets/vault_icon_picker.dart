@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/generated/app_localizations.dart';
 import 'vault_visuals.dart';
 
 /// Horizontal row of icon-circles used in vault create / edit forms.
@@ -135,9 +136,10 @@ class _UploadCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Semantics(
       button: true,
-      label: 'Upload custom icon',
+      label: l10n.vaultIconUpload,
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,

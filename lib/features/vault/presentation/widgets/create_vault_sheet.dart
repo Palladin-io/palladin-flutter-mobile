@@ -72,7 +72,7 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
     AnalyticsService.instance.capture('vault', 'create-sheet-opened');
   }
 
-  void _handleSubmit() {
+  Future<void> _handleSubmit() async {
     final auth = context.read<AuthBloc>().state;
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
       ScaffoldMessenger.of(context)
@@ -82,14 +82,24 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
         ));
       return;
     }
-    context.read<CreateVaultCubit>().createVault(
-          name: _formData.name,
-          description: _formData.description,
-          icon: _formData.icon,
-          color: _formData.color,
-          grantMode: _formData.grantMode,
-          privateKey: Uint8List.fromList(auth.privateKey!),
-        );
+    // Defensive copy of the unlocked private key so the cubit can mutate
+    // it without touching the auth bloc's state. We zero `keyCopy` in
+    // `finally` — `VaultCryptoService` already zeros its own `SecureKey`
+    // wrapper, but the raw `Uint8List` we hand it would otherwise linger
+    // on the heap with the secret key material.
+    final keyCopy = Uint8List.fromList(auth.privateKey!);
+    try {
+      await context.read<CreateVaultCubit>().createVault(
+            name: _formData.name,
+            description: _formData.description,
+            icon: _formData.icon,
+            color: _formData.color,
+            grantMode: _formData.grantMode,
+            privateKey: keyCopy,
+          );
+    } finally {
+      keyCopy.fillRange(0, keyCopy.length, 0);
+    }
   }
 
   @override
