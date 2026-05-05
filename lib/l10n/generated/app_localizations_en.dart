@@ -698,4 +698,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsPlanFree => 'Free';
+
+  @override
+  String get settingsDefaultDisplayName => 'User';
+
+  @override
+  String get placeholderComingSoon => 'Coming soon';
+
+  @override
+  String get placeholderAuditTitle => 'Audit Log';
 }

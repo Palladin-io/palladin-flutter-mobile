@@ -69,7 +69,7 @@ class ClawVaultApp extends StatelessWidget {
         error: AppColors.brandRed,
         surface: AppColors.lightSurface,
         onSurface: AppColors.darkBackground,
-        onPrimary: Colors.white,
+        onPrimary: AppColors.onBrandRed,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.lightSurface,
@@ -95,7 +95,7 @@ class ClawVaultApp extends StatelessWidget {
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.darkSurface,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.onBrandRed,
         elevation: 0,
       ),
       snackBarTheme: const SnackBarThemeData(

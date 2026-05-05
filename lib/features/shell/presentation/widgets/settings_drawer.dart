@@ -121,12 +121,14 @@ class SettingsDrawer extends StatelessWidget {
 
 /// Derives a human-readable display name from an email's local-part
 /// (the bit before `@`). Splits on `.` and `_`, then title-cases each
-/// chunk so `john.doe@x.com` becomes `John Doe`. Falls back to a
-/// generic `User` label when the email is missing or empty.
-String _displayNameFor(String? email) {
-  if (email == null || email.isEmpty) return 'User';
+/// chunk so `john.doe@x.com` becomes `John Doe`. Falls back to the
+/// localised "User" label ([fallback]) when the email is missing or
+/// empty — caller passes `l10n.settingsDefaultDisplayName` so the
+/// fallback respects the active locale.
+String _displayNameFor(String? email, String fallback) {
+  if (email == null || email.isEmpty) return fallback;
   final local = email.split('@').first;
-  if (local.isEmpty) return 'User';
+  if (local.isEmpty) return fallback;
   return local
       .split(RegExp(r'[._]'))
       .where((w) => w.isNotEmpty)
@@ -145,7 +147,10 @@ class _DrawerHeader extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     final initial = _initialFor(email);
-    final displayName = _displayNameFor(email);
+    final displayName = _displayNameFor(
+      email,
+      l10n.settingsDefaultDisplayName,
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
       child: Row(

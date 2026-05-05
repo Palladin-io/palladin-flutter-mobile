@@ -12,6 +12,7 @@ import '../../features/shell/presentation/pages/placeholder_page.dart';
 import '../../features/unlock/presentation/pages/unlock_page.dart';
 import '../../features/vault/presentation/pages/vault_detail_page.dart';
 import '../../features/vault/presentation/pages/vault_list_page.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// Creates the app-level [GoRouter] with auth-aware redirects.
 ///
@@ -87,9 +88,9 @@ GoRouter createRouter(AuthBloc authBloc) {
           // post-unlock redirect lands here without further branching.
           GoRoute(
             path: '/',
-            builder: (_, _) => const PlaceholderPage(
+            builder: (context, _) => PlaceholderPage(
               icon: Icons.home_outlined,
-              title: 'Home',
+              title: AppLocalizations.of(context)!.navHome,
             ),
           ),
           GoRoute(
@@ -110,16 +111,16 @@ GoRouter createRouter(AuthBloc authBloc) {
           ),
           GoRoute(
             path: '/agents',
-            builder: (_, _) => const PlaceholderPage(
+            builder: (context, _) => PlaceholderPage(
               icon: Icons.smart_toy_outlined,
-              title: 'Agents',
+              title: AppLocalizations.of(context)!.navAgents,
             ),
           ),
           GoRoute(
             path: '/audit',
-            builder: (_, _) => const PlaceholderPage(
+            builder: (context, _) => PlaceholderPage(
               icon: Icons.history,
-              title: 'Audit Log',
+              title: AppLocalizations.of(context)!.placeholderAuditTitle,
             ),
           ),
         ],

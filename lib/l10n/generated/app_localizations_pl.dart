@@ -715,4 +715,13 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get settingsPlanFree => 'Darmowy';
+
+  @override
+  String get settingsDefaultDisplayName => 'Użytkownik';
+
+  @override
+  String get placeholderComingSoon => 'Już wkrótce';
+
+  @override
+  String get placeholderAuditTitle => 'Dziennik audytu';
 }

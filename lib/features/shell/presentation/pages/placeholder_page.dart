@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/generated/app_localizations.dart';
 
 /// Generic "coming soon" placeholder used for tabs not yet implemented
 /// (Agents, Audit, Settings).
@@ -17,6 +18,7 @@ class PlaceholderPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -37,7 +39,7 @@ class PlaceholderPage extends StatelessWidget {
               Icon(icon, size: 48, color: AppColors.onSurfaceSubtle(brightness)),
               const SizedBox(height: 12),
               Text(
-                'Coming soon',
+                l10n.placeholderComingSoon,
                 style: TextStyle(
                   fontSize: 14,
                   color: AppColors.onSurfaceSubtle(brightness),

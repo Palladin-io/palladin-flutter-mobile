@@ -811,5 +811,17 @@
   "settingsPlanFree": "Free",
   "@settingsPlanFree": {
     "description": "Plan label in the settings drawer header for users on the free plan"
+  },
+  "settingsDefaultDisplayName": "User",
+  "@settingsDefaultDisplayName": {
+    "description": "Fallback display name shown in the settings drawer header when the user's email is missing or empty"
+  },
+  "placeholderComingSoon": "Coming soon",
+  "@placeholderComingSoon": {
+    "description": "Generic 'coming soon' label used on placeholder pages for tabs not yet implemented"
+  },
+  "placeholderAuditTitle": "Audit Log",
+  "@placeholderAuditTitle": {
+    "description": "Page title for the Audit placeholder page — distinct from the bottom-nav 'Audit' label so the page reads as a full screen heading"
   }
 }

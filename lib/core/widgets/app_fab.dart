@@ -32,9 +32,10 @@ class AppFab extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
           // Mirrors prototype `box-shadow: 0 3px 10px rgba(255,79,79,0.35)`
-          // — alpha 0x59 ≈ 35% on the brand red.
+          // — `AppColors.fabShadow` is the brand-red tinted at 35% alpha,
+          // kept as a const so this list can stay `const`-friendly.
           BoxShadow(
-            color: Color(0x59FF4F4F),
+            color: AppColors.fabShadow,
             blurRadius: 10,
             offset: Offset(0, 3),
           ),
@@ -53,7 +54,7 @@ class AppFab extends StatelessWidget {
           // sitting beneath the FAB on the destination route.
           heroTag: null,
           backgroundColor: AppColors.brandRed,
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.onBrandRed,
           elevation: 0,
           highlightElevation: 0,
           focusElevation: 0,
@@ -61,8 +62,8 @@ class AppFab extends StatelessWidget {
           disabledElevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: Colors.white.withValues(alpha: 0.2),
+            side: const BorderSide(
+              color: AppColors.fabBorder,
               width: 1,
             ),
           ),

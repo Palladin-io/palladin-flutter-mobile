@@ -181,5 +181,8 @@
   "settingsThemeToggle": "Tryb ciemny",
   "settingsLanguage": "Język",
   "settingsPlanPro": "Pro",
-  "settingsPlanFree": "Darmowy"
+  "settingsPlanFree": "Darmowy",
+  "settingsDefaultDisplayName": "Użytkownik",
+  "placeholderComingSoon": "Już wkrótce",
+  "placeholderAuditTitle": "Dziennik audytu"
 }

@@ -1189,6 +1189,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Free'**
   String get settingsPlanFree;
+
+  /// Fallback display name shown in the settings drawer header when the user's email is missing or empty
+  ///
+  /// In en, this message translates to:
+  /// **'User'**
+  String get settingsDefaultDisplayName;
+
+  /// Generic 'coming soon' label used on placeholder pages for tabs not yet implemented
+  ///
+  /// In en, this message translates to:
+  /// **'Coming soon'**
+  String get placeholderComingSoon;
+
+  /// Page title for the Audit placeholder page — distinct from the bottom-nav 'Audit' label so the page reads as a full screen heading
+  ///
+  /// In en, this message translates to:
+  /// **'Audit Log'**
+  String get placeholderAuditTitle;
 }
 
 class _AppLocalizationsDelegate

@@ -35,6 +35,18 @@ abstract final class AppColors {
   /// share the same value.
   static const Color onBrandRed = Color(0xFFFFFFFF);
 
+  /// FAB drop-shadow color — `brandRed` at 35% alpha. Mirrors the
+  /// prototype's `box-shadow: 0 3px 10px rgba(255,79,79,0.35)`. Kept
+  /// as a const (instead of `brandRed.withValues(...)`) so it can be
+  /// used inside `const` `BoxShadow` lists.
+  static const Color fabShadow = Color(0x59FF4F4F);
+
+  /// FAB hairline border — `onBrandRed` at 20% alpha. Subtle white
+  /// outline on the brand-red FAB that lifts it off the gradient
+  /// backdrop. Kept as a const so the FAB's `BorderSide` can stay
+  /// inline-const-friendly.
+  static const Color fabBorder = Color(0x33FFFFFF);
+
   /// Teal accent — primary interactive color and loading indicators.
   static const Color tealAccent = Color(0xFF48ECDF);
 
