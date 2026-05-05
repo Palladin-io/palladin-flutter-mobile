@@ -143,6 +143,43 @@ Przed napisaniem nowego widgetu sprawdź czy coś podobnego już istnieje:
 | `AppColors.lightSurface` | `#EEEAD4` | Light elevated surfaces |
 | `AppColors.brandRed` | `#FF4F4F` | "Vault" wordmark, errors, primary buttons |
 | `AppColors.tealAccent` | `#48ECDF` | Primary interactive, loaders |
+| `AppColors.onBrandRed` | `#FFFFFF` | Text/icons on brandRed backgrounds (`onPrimary`, `foregroundColor`) |
+
+**Common violations to avoid:**
+- `Colors.white` — use `AppColors.onBrandRed`
+- `Colors.white.withValues(alpha: x)` — add a named constant to `AppColors`
+- `Color(0xFFxxxxxx)` — always add to `AppColors` with a descriptive name
+- `onPrimary: Colors.white` in `ThemeData` — use `AppColors.onBrandRed`
+
+## Error Handling
+
+### Typed error enums in the service layer
+Service-layer errors must use typed enums — not plain `Exception` with a hardcoded English string:
+
+```dart
+enum VaultIconUploadErrorKind { networkError, serverError, fileTooLarge }
+
+class VaultIconUploadException implements Exception {
+  final VaultIconUploadErrorKind kind;
+  const VaultIconUploadException(this.kind);
+}
+```
+
+Translate the enum to user-facing text **at the presentation layer** (where `BuildContext` is available), never inside the service or repository. This pattern is already established for auth errors (`AuthServerErrorKind`).
+
+### Security-sensitive cleanup
+When holding a copy of a sensitive value (private key bytes, decrypted payload) use `try/finally` to zero it out:
+
+```dart
+final keyCopy = Uint8List.fromList(privateKey);
+try {
+  // use keyCopy
+} finally {
+  keyCopy.fillRange(0, keyCopy.length, 0); // zero-out before GC
+}
+```
+
+This applies to any crypto operation in `data/services/`. Do not return early from a function that holds a key copy without zeroing in the finally block.
 
 ## Analytics (PostHog)
 
