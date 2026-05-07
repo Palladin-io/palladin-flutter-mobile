@@ -122,13 +122,15 @@ Detailed checklist for each review category. Load this file in full before start
 
 ---
 
-## 9. Design Fidelity
+## 9. Light & Dark Mode
 
-- **Every new screen/widget must match the HTML mobile prototype 1:1** — reference: `docs/design/mobile-app-prototype/`. Check it before reviewing.
-- Spacing: follow the root CLAUDE.md HTML Prototype Spacing Standard (12px section gaps, 10px between cards, 14px card padding, 6px chip gap).
-- Colors: only `AppColors.*` — flag any inline `Color(0xFFXXXXXX)`, `Colors.white`, `Colors.red`, etc.
-- App always runs in `ThemeMode.dark` — flag any `ThemeMode.system` or brightness-conditional code.
-- Deviations from the mobile prototype are **blocking** (Critical) findings unless explicitly approved.
+**Design intent: the app is dark-only.** `ThemeMode.dark` is hardcoded — there is no light mode variant. Any code that branches on brightness or system theme is a bug.
+
+- Flag `ThemeMode.system`, `ThemeMode.light`, or any reference to `ThemeMode` other than `ThemeMode.dark`.
+- Flag `Theme.of(context).brightness` or `MediaQuery.platformBrightnessOf(context)` used to change visual appearance — these checks imply light mode support which doesn't exist.
+- Flag `Colors.white`, `Colors.black`, `Colors.red`, `Color(0xFFXXXXXX)`, `Color.fromARGB(…)`, or `Colors.white.withValues(alpha:…)` outside `lib/core/theme/app_colors.dart` — all colors must go through `AppColors.*`.
+- New color constants must be added to `AppColors` with a descriptive name — no one-off values in widgets.
+- If a PR introduces a `darkColor`/`lightColor` pattern or conditional theming: **Critical** — the app has no light mode.
 
 ## 10. Over-Engineering Check
 
