@@ -131,7 +131,7 @@ Przed napisaniem nowego widgetu sprawdź czy coś podobnego już istnieje:
 
 ## Theming & Colors
 
-**Theme mode:** Always `ThemeMode.dark` — the app always runs in dark mode, regardless of the system setting. Do not change this to `ThemeMode.system` without explicit approval.
+**Theme mode:** The app supports both light and dark mode. Default is dark. User can change it in settings — preference is persisted. Never hardcode `ThemeMode.dark` permanently; use the stored user preference.
 
 **Color palette:** All colors must be defined in `lib/core/theme/app_colors.dart` (`AppColors` class). Never use inline color literals elsewhere in the codebase — always reference `AppColors.*`.
 

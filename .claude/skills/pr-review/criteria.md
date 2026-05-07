@@ -45,8 +45,8 @@ Detailed checklist for each review category. Load this file in full before start
 - Background gradient: `AppColors.darkBackgroundGradient` — no inline `LinearGradient` with the same stops.
 
 ### Theme
-- App always runs in `ThemeMode.dark` — no `ThemeMode.system` or light-mode branches in new code.
-- No `Theme.of(context).brightness` checks that change the visual appearance based on system theme.
+- App supports light and dark mode — default is dark, user can change in settings (persisted preference). Never hardcode `ThemeMode.dark` permanently.
+- Conditional theming via `Theme.of(context).brightness` is valid — every widget must render correctly in both modes.
 
 ---
 
@@ -124,13 +124,13 @@ Detailed checklist for each review category. Load this file in full before start
 
 ## 9. Light & Dark Mode
 
-**Design intent: the app is dark-only.** `ThemeMode.dark` is hardcoded — there is no light mode variant. Any code that branches on brightness or system theme is a bug.
+**Design intent: the app supports both light and dark mode.** Default is dark; user can change it in settings (persisted preference). Every widget must render correctly in both themes.
 
-- Flag `ThemeMode.system`, `ThemeMode.light`, or any reference to `ThemeMode` other than `ThemeMode.dark`.
-- Flag `Theme.of(context).brightness` or `MediaQuery.platformBrightnessOf(context)` used to change visual appearance — these checks imply light mode support which doesn't exist.
-- Flag `Colors.white`, `Colors.black`, `Colors.red`, `Color(0xFFXXXXXX)`, `Color.fromARGB(…)`, or `Colors.white.withValues(alpha:…)` outside `lib/core/theme/app_colors.dart` — all colors must go through `AppColors.*`.
-- New color constants must be added to `AppColors` with a descriptive name — no one-off values in widgets.
-- If a PR introduces a `darkColor`/`lightColor` pattern or conditional theming: **Critical** — the app has no light mode.
+- Flag `ThemeMode.dark` or `ThemeMode.light` hardcoded permanently — theme must follow the persisted user preference.
+- `Theme.of(context).brightness` checks are valid for conditional theming — but must always use `AppColors.*`, never raw `Color(0xFF…)` inline.
+- Flag `Colors.white`, `Colors.black`, `Colors.red`, `Color(0xFFXXXXXX)`, `Color.fromARGB(…)`, or `Colors.white.withValues(alpha:…)` outside `lib/core/theme/app_colors.dart`.
+- New color constants must be added to `AppColors` with light and dark variants — no one-off inline values in widgets.
+- If a widget is only tested/verified in dark mode without a corresponding light mode check: flag it.
 
 ## 10. Over-Engineering Check
 
