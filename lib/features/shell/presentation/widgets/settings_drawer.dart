@@ -342,7 +342,9 @@ class _ThemeToggleRow extends StatelessWidget {
               // Thumb: text colour in off-state → clearly "off" not "disabled".
               // White in on-state → contrasts with the red track.
               thumbColor: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.selected)) return Colors.white;
+                if (states.contains(WidgetState.selected)) {
+                  return AppColors.onBrandRed;
+                }
                 return AppColors.onSurface(brightness);
               }),
               // Track: transparent when off, subtle red tint when on.

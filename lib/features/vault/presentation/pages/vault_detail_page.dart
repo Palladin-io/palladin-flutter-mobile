@@ -16,6 +16,7 @@ import '../widgets/vault_entries_tab.dart';
 import '../widgets/vault_form.dart';
 import '../widgets/vault_placeholder_tab.dart';
 import '../widgets/vault_settings_tab.dart';
+import '../widgets/vault_visuals.dart';
 
 /// Vault detail screen — wraps a [DefaultTabController] with five tabs:
 /// Entries, Agents, Logs, Members, Settings. Each tab body lives in
@@ -182,8 +183,8 @@ class _VaultDetailViewState extends State<_VaultDetailView>
     final next = VaultFormData(
       name: vault.name,
       description: vault.description ?? '',
-      icon: vault.icon ?? 'shield',
-      color: vault.color ?? '#FF4F4F',
+      icon: vault.icon ?? VaultVisuals.defaultIconName,
+      color: vault.color ?? VaultVisuals.defaultColorHex,
       grantMode: vault.grantMode,
     );
     if (_initialFormData == null) {
