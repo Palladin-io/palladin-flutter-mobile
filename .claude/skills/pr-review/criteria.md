@@ -122,7 +122,15 @@ Detailed checklist for each review category. Load this file in full before start
 
 ---
 
-## 9. Over-Engineering Check
+## 9. Design Fidelity
+
+- **Every new screen/widget must match the HTML mobile prototype 1:1** — reference: `docs/design/mobile-app-prototype/`. Check it before reviewing.
+- Spacing: follow the root CLAUDE.md HTML Prototype Spacing Standard (12px section gaps, 10px between cards, 14px card padding, 6px chip gap).
+- Colors: only `AppColors.*` — flag any inline `Color(0xFFXXXXXX)`, `Colors.white`, `Colors.red`, etc.
+- App always runs in `ThemeMode.dark` — flag any `ThemeMode.system` or brightness-conditional code.
+- Deviations from the mobile prototype are **blocking** (Critical) findings unless explicitly approved.
+
+## 10. Over-Engineering Check
 
 Flag any of the following:
 - A new abstraction (base class, mixin, generic widget) with a single concrete use.
