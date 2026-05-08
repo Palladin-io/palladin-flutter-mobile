@@ -58,12 +58,10 @@ void main() {
   group('EntryContentModel', () {
     test('round-trips through JSON', () {
       final json = {
-        'entryType': 0,
         'encryptedBlob': 'YmxvYg==',
         'nonce': 'bm9uY2U=',
       };
       final parsed = EntryContentModel.fromJson(json);
-      expect(parsed.entryType, 0);
       expect(parsed.encryptedBlob, 'YmxvYg==');
       expect(parsed.nonce, 'bm9uY2U=');
       expect(parsed.toJson(), json);
@@ -71,7 +69,7 @@ void main() {
   });
 
   group('EntryDetailModel.fromJson', () {
-    test('parses summary fields plus polymorphic content envelope', () {
+    test('parses summary fields plus content envelope', () {
       final json = {
         'id': 'e-3',
         'vaultId': 'v-1',
@@ -80,14 +78,12 @@ void main() {
         'createdAt': '2026-04-25T00:00:00Z',
         'updatedAt': '2026-04-25T00:00:00Z',
         'content': {
-          'entryType': 0,
           'encryptedBlob': 'YmxvYg==',
           'nonce': 'bm9uY2U=',
         },
       };
 
       final detail = EntryDetailModel.fromJson(json);
-      expect(detail.content.entryType, 0);
       expect(detail.content.encryptedBlob, 'YmxvYg==');
       expect(detail.content.nonce, 'bm9uY2U=');
       expect(detail.summary.id, 'e-3');
@@ -119,7 +115,6 @@ void main() {
         icon: 'code',
         type: 0,
         content: EntryContentModel(
-          entryType: 0,
           encryptedBlob: 'Y2lwaGVy',
           nonce: 'bm9uY2U=',
         ),
@@ -133,7 +128,7 @@ void main() {
       expect(json['type'], 0);
       expect(json['urlDomain'], 'stripe.com');
       final content = json['content'] as Map<String, dynamic>;
-      expect(content['entryType'], 0);
+      expect(content.containsKey('entryType'), isFalse);
       expect(content['encryptedBlob'], 'Y2lwaGVy');
       expect(content['nonce'], 'bm9uY2U=');
     });
@@ -143,7 +138,6 @@ void main() {
         label: 'Stripe',
         type: 0,
         content: EntryContentModel(
-          entryType: 0,
           encryptedBlob: 'Y2lwaGVy',
           nonce: 'bm9uY2U=',
         ),

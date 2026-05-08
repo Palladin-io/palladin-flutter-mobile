@@ -4,8 +4,8 @@ import 'entry_model.dart';
 /// entry inside a vault.
 ///
 /// All fields are JSON-serialized as camelCase. The encrypted payload
-/// lives inside the polymorphic [content] envelope — the backend stores
-/// it as a JSONB column and never sees the plaintext.
+/// lives inside the [content] envelope — the backend stores it as a
+/// JSONB column and never sees the plaintext.
 class CreateEntryRequest {
   const CreateEntryRequest({
     required this.label,
@@ -23,9 +23,8 @@ class CreateEntryRequest {
   /// Wire format — int ordinal of `EntryType` (`Key = 0`, `Credential = 1`).
   final int type;
 
-  /// Polymorphic JSONB envelope holding the base64-encoded ciphertext
-  /// and matching nonce. Its `entryType` discriminator must match
-  /// [type].
+  /// JSONB envelope holding the base64-encoded ciphertext and matching
+  /// nonce.
   final EntryContentModel content;
 
   /// Optional plaintext URL domain (`stripe.com`) shown in the entry

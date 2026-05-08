@@ -2,9 +2,10 @@
 /// layout.
 ///
 /// Mirrors the backend `EntryType` enum (`Key = 0`, `Credential = 1`).
-/// Wire format is the integer ordinal — the JSONB content payload is
-/// polymorphic on `entryType` and the row-level `type` column carries
-/// the same int.
+/// Wire format is the integer ordinal stored on the row-level `type`
+/// column. The decrypted payload schema is selected by [EntryType] on
+/// the client; the JSONB content envelope itself carries no
+/// discriminator.
 enum EntryType {
   /// Single secret value — API key, token, etc.
   key,

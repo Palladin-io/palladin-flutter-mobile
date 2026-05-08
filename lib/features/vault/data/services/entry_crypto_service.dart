@@ -62,8 +62,10 @@ class EntryCryptoService {
   }
 
   /// Encrypts a JSON [payload] with [vaultKey] using `crypto_secretbox_easy`
-  /// and wraps the result in an [EntryContentModel] envelope tagged with
-  /// the [entryType] discriminator the backend expects.
+  /// and wraps the result in an [EntryContentModel] envelope. The schema
+  /// of the decrypted payload is determined by the row-level entry
+  /// `type` column on the backend — no discriminator lives inside the
+  /// envelope itself.
   ///
   /// The plaintext bytes and the [SecureKey] wrapping [vaultKey] are
   /// zeroed out before this method returns regardless of success or
@@ -71,7 +73,6 @@ class EntryCryptoService {
   Future<EntryContentModel> encryptEntry({
     required Map<String, dynamic> payload,
     required Uint8List vaultKey,
-    required int entryType,
   }) async {
     final sodium = await _sodiumLoader();
     final secretKey = SecureKey.fromList(sodium, vaultKey);
@@ -84,7 +85,6 @@ class EntryCryptoService {
         key: secretKey,
       );
       return EntryContentModel(
-        entryType: entryType,
         encryptedBlob: base64.encode(cipher),
         nonce: base64.encode(nonce),
       );

@@ -58,16 +58,14 @@ class EntryRepositoryImpl implements EntryRepository {
   }) async {
     try {
       AppLogger.d('Entry', 'POST /api/vaults/$vaultId/entries');
-      final wireType = type.toWire();
       final model = await entryDatasource.createEntry(
         vaultId,
         CreateEntryRequest(
           label: label,
           description: description,
           icon: icon,
-          type: wireType,
+          type: type.toWire(),
           content: EntryContentModel(
-            entryType: wireType,
             encryptedBlob: encryptedBlob,
             nonce: nonce,
           ),
@@ -146,7 +144,6 @@ class EntryRepositoryImpl implements EntryRepository {
       final encrypted = await cryptoService.encryptEntry(
         payload: payload,
         vaultKey: vaultKey,
-        entryType: type.toWire(),
       );
       return await createEntry(
         vaultId: vaultId,

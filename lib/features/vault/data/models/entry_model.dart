@@ -72,24 +72,19 @@ class EntryModel {
   }
 }
 
-/// Polymorphic JSONB content envelope sent and received with an entry.
+/// JSONB content envelope sent and received with an entry.
 ///
-/// Matches the backend `EntryContent` discriminated union — the
-/// `entryType` discriminator must be the int ordinal of [EntryType] so
-/// the .NET deserializer can pick the right concrete subtype. Both
+/// Matches the backend `EntryContent` flat record — both
 /// [encryptedBlob] and [nonce] are base64-encoded; the backend stores
 /// them as `bytea` columns inside the JSONB payload and never sees the
-/// plaintext.
+/// plaintext. The schema for the decrypted payload is determined by the
+/// row-level [EntryModel.type] column, not by a discriminator on this
+/// envelope.
 class EntryContentModel {
   const EntryContentModel({
-    required this.entryType,
     required this.encryptedBlob,
     required this.nonce,
   });
-
-  /// Discriminator — int ordinal of [EntryType] (`Key = 0`,
-  /// `Credential = 1`). Mirrors the row-level `type` column.
-  final int entryType;
 
   /// Base64-encoded ciphertext (`crypto_secretbox_easy` output).
   final String encryptedBlob;
@@ -99,13 +94,11 @@ class EntryContentModel {
 
   factory EntryContentModel.fromJson(Map<String, dynamic> json) =>
       EntryContentModel(
-        entryType: json['entryType'] as int,
         encryptedBlob: json['encryptedBlob'] as String,
         nonce: json['nonce'] as String,
       );
 
   Map<String, dynamic> toJson() => {
-        'entryType': entryType,
         'encryptedBlob': encryptedBlob,
         'nonce': nonce,
       };
@@ -123,7 +116,7 @@ class EntryDetailModel {
 
   final EntryModel summary;
 
-  /// Polymorphic JSONB envelope holding the encrypted payload.
+  /// JSONB envelope holding the encrypted payload.
   final EntryContentModel content;
 
   factory EntryDetailModel.fromJson(Map<String, dynamic> json) {
