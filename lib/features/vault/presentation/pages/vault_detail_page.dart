@@ -8,8 +8,10 @@ import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../shell/presentation/pages/app_shell.dart';
+import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
+import '../cubit/entry_list_cubit.dart';
 import '../cubit/vault_detail_cubit.dart';
 import '../widgets/vault_agents_tab.dart';
 import '../widgets/vault_entries_tab.dart';
@@ -17,6 +19,7 @@ import '../widgets/vault_form.dart';
 import '../widgets/vault_placeholder_tab.dart';
 import '../widgets/vault_settings_tab.dart';
 import '../widgets/vault_visuals.dart';
+import 'add_entry_page.dart';
 
 /// Vault detail screen — wraps a [DefaultTabController] with five tabs:
 /// Entries, Agents, Logs, Members, Settings. Each tab body lives in
@@ -32,8 +35,20 @@ class VaultDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<VaultDetailCubit>(
-      create: (_) => getIt<VaultDetailCubit>()..load(vaultId),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<VaultDetailCubit>(
+          create: (_) => getIt<VaultDetailCubit>()..load(vaultId),
+        ),
+        // The entries cubit is parametrised on `vaultId` so the
+        // datasource calls hit the right route. Loading is kicked off
+        // on creation so the Entries tab has data ready when first
+        // rendered.
+        BlocProvider<EntryListCubit>(
+          create: (_) =>
+              getIt<EntryListCubit>(param1: vaultId)..loadEntries(),
+        ),
+      ],
       child: _VaultDetailView(vaultId: vaultId),
     );
   }
@@ -97,10 +112,16 @@ class _VaultDetailViewState extends State<_VaultDetailView>
     }
   }
 
-  void _onFabPressed() {
-    // Add flows ship in CVT-32 (entries) and the grants ticket. When
-    // they land, route through `_showSheet(...)` so the bottom nav
-    // hides automatically while the sheet is up.
+  Future<void> _onFabPressed() async {
+    if (_tabController.index != _VaultTab.entries.index) {
+      // Grants flow ships in a separate ticket — no-op for now.
+      return;
+    }
+    final created = await AddEntryPage.push(context, vaultId: widget.vaultId);
+    if (!mounted) return;
+    if (created is EntryEntity) {
+      await context.read<EntryListCubit>().appendEntry(created);
+    }
   }
 
   /// Builds the FAB registered with the shell on the Entries / Agents
@@ -409,10 +430,10 @@ class _LoadedBody extends StatelessWidget {
       child: TabBarView(
         controller: tabController,
         children: [
-          // Entries / agents APIs land in CVT-32 and the grants ticket;
-          // until then both tabs render with empty data so we don't ship
-          // hard-coded mock rows to real users.
-          const VaultEntriesTab(entries: []),
+          // Entries are sourced from `EntryListCubit` provided above.
+          // The grants tab still uses placeholder data until the
+          // grants ticket lands.
+          const VaultEntriesTab(),
           const VaultAgentsTab(grants: []),
           _PlaceholderTabBuilder(
             messageKey: (l10n) => l10n.vaultLogsEmpty,

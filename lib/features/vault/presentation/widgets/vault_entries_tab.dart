@@ -1,36 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../l10n/generated/app_localizations.dart';
-
-/// Type of mock entry — drives icon and reveal-panel layout.
-enum EntryKind { key, credential }
-
-/// Mock vault entry shown on the Entries tab until the real entries
-/// API ships. Kept in this file so the placeholder data stays close
-/// to the widget that renders it.
-class MockEntry {
-  const MockEntry({
-    required this.kind,
-    required this.name,
-    required this.meta,
-    required this.icon,
-    required this.url,
-    this.value,
-    this.username,
-    this.password,
-  });
-
-  final EntryKind kind;
-  final String name;
-  final String meta;
-  final IconData icon;
-  final String url;
-  final String? value;
-  final String? username;
-  final String? password;
-}
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../domain/entities/entry_entity.dart';
+import '../../domain/exceptions/entry_exceptions.dart';
+import '../cubit/entry_list_cubit.dart';
 
 /// Entries tab on the vault detail page.
 ///
@@ -38,10 +16,13 @@ class MockEntry {
 /// separated by hairlines, and a per-entry reveal panel that animates
 /// open when the eye icon is tapped — same pattern as the Astro
 /// `VaultEntriesMobile.astro` prototype.
+///
+/// Data is sourced from [EntryListCubit] — see the parent
+/// [BlocProvider] in `VaultDetailPage`. Reveal payloads are decrypted
+/// on-device and stashed on the cubit's state until the user collapses
+/// the panel.
 class VaultEntriesTab extends StatefulWidget {
-  const VaultEntriesTab({super.key, required this.entries});
-
-  final List<MockEntry> entries;
+  const VaultEntriesTab({super.key});
 
   @override
   State<VaultEntriesTab> createState() => _VaultEntriesTabState();
@@ -49,8 +30,8 @@ class VaultEntriesTab extends StatefulWidget {
 
 class _VaultEntriesTabState extends State<VaultEntriesTab> {
   final TextEditingController _searchController = TextEditingController();
-  final Set<int> _expanded = <int>{};
-  final Set<String> _revealed = <String>{}; // composite "$index:$field"
+  final Set<String> _expanded = <String>{};
+  final Set<String> _revealedFields = <String>{}; // composite "$entryId:$field"
   bool _filtersOpen = false;
 
   @override
@@ -59,83 +40,177 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     super.dispose();
   }
 
-  List<MockEntry> get _filtered {
+  List<EntryEntity> _filter(List<EntryEntity> entries) {
     final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return widget.entries;
-    return widget.entries
-        .where((e) => e.name.toLowerCase().contains(query))
-        .toList();
+    if (query.isEmpty) return entries;
+    return entries
+        .where((e) =>
+            e.label.toLowerCase().contains(query) ||
+            (e.description?.toLowerCase().contains(query) ?? false) ||
+            (e.urlDomain?.toLowerCase().contains(query) ?? false))
+        .toList(growable: false);
+  }
+
+  void _onToggleReveal(EntryEntity entry) {
+    final cubit = context.read<EntryListCubit>();
+    if (_expanded.contains(entry.id)) {
+      setState(() => _expanded.remove(entry.id));
+      cubit.hideEntry(entry.id);
+      // Drop any field-level reveal flags so the next expand starts
+      // with values masked again.
+      _revealedFields.removeWhere((k) => k.startsWith('${entry.id}:'));
+      return;
+    }
+
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated || auth.privateKey == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(AppLocalizations.of(context)!.entryErrorCrypto),
+        ));
+      return;
+    }
+
+    setState(() => _expanded.add(entry.id));
+    // Defensive copy of the unlocked private key so the cubit can mutate
+    // it without touching the auth bloc's state. Zero out in finally —
+    // `EntryCryptoService.unwrapVK` already disposes its own SecureKey
+    // wrapper, but the raw `Uint8List` we hand it would otherwise linger
+    // on the heap with the secret key material.
+    final keyCopy = Uint8List.fromList(auth.privateKey!);
+    cubit
+        .revealEntry(entryId: entry.id, privateKey: keyCopy)
+        .whenComplete(() => keyCopy.fillRange(0, keyCopy.length, 0));
+  }
+
+  void _toggleFieldReveal(String entryId, String field) {
+    setState(() {
+      final key = '$entryId:$field';
+      if (_revealedFields.contains(key)) {
+        _revealedFields.remove(key);
+      } else {
+        _revealedFields.add(key);
+      }
+    });
+  }
+
+  Future<void> _copyToClipboard(String value, AppLocalizations l10n) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(l10n.vaultCopyValue),
+        duration: const Duration(seconds: 1),
+      ));
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AppSearchField(
-          controller: _searchController,
-          hint: l10n.vaultSearchEntries,
-          filterActive: _filtersOpen,
-          onToggleFilter: () => setState(() => _filtersOpen = !_filtersOpen),
-          onChanged: (_) => setState(() {}),
-        ),
-        if (_filtersOpen) ...[
-          const SizedBox(height: 8),
-          const _FilterChipsRow(),
-        ],
-        const SizedBox(height: 12),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 96),
-            child: _filtered.isEmpty
-                ? _EmptyEntries(l10n: l10n)
-                : Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.mobileSurface,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Column(
-                      children: [
-                        for (var i = 0; i < _filtered.length; i++) ...[
-                          if (i > 0)
-                            const Divider(
-                              height: 1,
-                              thickness: 1,
-                              color: AppColors.hairline,
-                            ),
-                          _EntryRow(
-                            entry: _filtered[i],
-                            isExpanded: _expanded.contains(i),
-                            onToggleReveal: () => setState(() {
-                              _expanded.contains(i)
-                                  ? _expanded.remove(i)
-                                  : _expanded.add(i);
-                            }),
-                            isValueRevealed: _revealed.contains('$i:value'),
-                            onToggleValueReveal: () => setState(() {
-                              final key = '$i:value';
-                              _revealed.contains(key)
-                                  ? _revealed.remove(key)
-                                  : _revealed.add(key);
-                            }),
-                            isPasswordRevealed:
-                                _revealed.contains('$i:password'),
-                            onTogglePasswordReveal: () => setState(() {
-                              final key = '$i:password';
-                              _revealed.contains(key)
-                                  ? _revealed.remove(key)
-                                  : _revealed.add(key);
-                            }),
-                          ),
-                        ],
-                      ],
-                    ),
+    return BlocBuilder<EntryListCubit, EntryListState>(
+      builder: (context, state) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppSearchField(
+              controller: _searchController,
+              hint: l10n.entrySearchHint,
+              filterActive: _filtersOpen,
+              onToggleFilter: () =>
+                  setState(() => _filtersOpen = !_filtersOpen),
+              onChanged: (_) => setState(() {}),
+            ),
+            if (_filtersOpen) ...[
+              const SizedBox(height: 8),
+              const _FilterChipsRow(),
+            ],
+            const SizedBox(height: 12),
+            Expanded(
+              child: switch (state) {
+                EntryListInitial() ||
+                EntryListLoading() => const _LoadingView(),
+                EntryListError(:final kind) => _ErrorView(
+                    kind: kind,
+                    onRetry: () =>
+                        context.read<EntryListCubit>().loadEntries(),
                   ),
-          ),
-        ),
-      ],
+                EntryListLoaded(:final entries, :final revealedEntries) =>
+                  _LoadedBody(
+                    entries: _filter(entries),
+                    revealedEntries: revealedEntries,
+                    expanded: _expanded,
+                    revealedFields: _revealedFields,
+                    onToggleReveal: _onToggleReveal,
+                    onToggleFieldReveal: _toggleFieldReveal,
+                    onCopy: (value) => _copyToClipboard(value, l10n),
+                    l10n: l10n,
+                  ),
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _LoadedBody extends StatelessWidget {
+  const _LoadedBody({
+    required this.entries,
+    required this.revealedEntries,
+    required this.expanded,
+    required this.revealedFields,
+    required this.onToggleReveal,
+    required this.onToggleFieldReveal,
+    required this.onCopy,
+    required this.l10n,
+  });
+
+  final List<EntryEntity> entries;
+  final Map<String, Map<String, dynamic>> revealedEntries;
+  final Set<String> expanded;
+  final Set<String> revealedFields;
+  final ValueChanged<EntryEntity> onToggleReveal;
+  final void Function(String entryId, String field) onToggleFieldReveal;
+  final ValueChanged<String> onCopy;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 96),
+      child: entries.isEmpty
+          ? _EmptyEntries(l10n: l10n)
+          : Container(
+              decoration: BoxDecoration(
+                color: AppColors.mobileSurface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Column(
+                children: [
+                  for (var i = 0; i < entries.length; i++) ...[
+                    if (i > 0)
+                      const Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: AppColors.hairline,
+                      ),
+                    _EntryRow(
+                      entry: entries[i],
+                      isExpanded: expanded.contains(entries[i].id),
+                      payload: revealedEntries[entries[i].id],
+                      revealedFields: revealedFields,
+                      onToggleReveal: () => onToggleReveal(entries[i]),
+                      onToggleFieldReveal: onToggleFieldReveal,
+                      onCopy: onCopy,
+                    ),
+                  ],
+                ],
+              ),
+            ),
     );
   }
 }
@@ -145,17 +220,18 @@ class _FilterChipsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Wrap(
       spacing: 6,
       runSpacing: 6,
       children: [
         _FilterChip(
-          label: 'Keys',
+          label: l10n.entryTypeKey,
           dotColor: AppColors.positiveAccent,
           borderColor: AppColors.positiveAccent.withValues(alpha: 0.35),
         ),
         _FilterChip(
-          label: 'Credentials',
+          label: l10n.entryTypeCredential,
           dotColor: AppColors.vaultBlue,
           borderColor: AppColors.vaultSlate.withValues(alpha: 0.15),
         ),
@@ -224,14 +300,82 @@ class _EmptyEntries extends StatelessWidget {
               size: 36, color: AppColors.textTertiaryMobile),
           const SizedBox(height: 12),
           Text(
-            l10n.vaultEntriesEmpty,
+            l10n.entryEmpty,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l10n.entryEmptyAdd,
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: AppColors.textTertiaryMobile,
-              fontSize: 13,
+              fontSize: 12,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LoadingView extends StatelessWidget {
+  const _LoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: CircularProgressIndicator(color: AppColors.tealAccent),
+    );
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.kind, required this.onRetry});
+
+  final EntryErrorKind kind;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final message = switch (kind) {
+      EntryErrorKind.notFound => l10n.entryErrorNotFound,
+      EntryErrorKind.forbidden => l10n.entryErrorForbidden,
+      EntryErrorKind.validation => l10n.entryErrorValidation,
+      EntryErrorKind.cryptoFailure => l10n.entryErrorCrypto,
+      EntryErrorKind.networkError => l10n.errorCannotConnectToServer,
+      EntryErrorKind.unknown => l10n.entryErrorUnknown,
+    };
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: onRetry,
+              child: Text(
+                l10n.vaultRetry,
+                style: const TextStyle(color: AppColors.brandRed),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -243,28 +387,30 @@ class _EntryRow extends StatelessWidget {
   const _EntryRow({
     required this.entry,
     required this.isExpanded,
+    required this.payload,
+    required this.revealedFields,
     required this.onToggleReveal,
-    required this.isValueRevealed,
-    required this.onToggleValueReveal,
-    required this.isPasswordRevealed,
-    required this.onTogglePasswordReveal,
+    required this.onToggleFieldReveal,
+    required this.onCopy,
   });
 
-  final MockEntry entry;
+  final EntryEntity entry;
   final bool isExpanded;
+  final Map<String, dynamic>? payload;
+  final Set<String> revealedFields;
   final VoidCallback onToggleReveal;
-  final bool isValueRevealed;
-  final VoidCallback onToggleValueReveal;
-  final bool isPasswordRevealed;
-  final VoidCallback onTogglePasswordReveal;
+  final void Function(String entryId, String field) onToggleFieldReveal;
+  final ValueChanged<String> onCopy;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final iconColor = entry.kind == EntryKind.key
+    final iconColor = entry.type == EntryType.key
         ? AppColors.positiveAccent
         : AppColors.vaultBlue;
     final iconBg = iconColor.withValues(alpha: 0.15);
+    final icon = entry.type == EntryType.key ? Icons.vpn_key : Icons.lock;
+    final meta = entry.urlDomain ?? entry.description ?? '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -282,7 +428,7 @@ class _EntryRow extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: iconBg,
                 ),
-                child: Icon(entry.icon, size: 14, color: iconColor),
+                child: Icon(icon, size: 14, color: iconColor),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -290,7 +436,7 @@ class _EntryRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      entry.name,
+                      entry.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -299,16 +445,18 @@ class _EntryRow extends StatelessWidget {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      entry.meta,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textTertiaryMobile,
-                        fontSize: 11,
+                    if (meta.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        meta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textTertiaryMobile,
+                          fontSize: 11,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -323,7 +471,7 @@ class _EntryRow extends StatelessWidget {
                 icon: Icons.arrow_forward,
                 tooltip: l10n.vaultViewEntry,
                 onPressed: () {
-                  // Detail navigation lands in CVT-32 — no-op for now.
+                  // Detail navigation lands later — no-op for now.
                 },
               ),
             ],
@@ -340,57 +488,111 @@ class _EntryRow extends StatelessWidget {
             child: isExpanded
                 ? Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      children: [
-                        _RevealRow(
-                          icon: Icons.link,
-                          value: entry.url,
-                          isMasked: false,
-                          revealed: true,
-                          onToggleReveal: null,
-                          extraTrailing: _SmallIconButton(
-                            icon: Icons.open_in_new,
-                            size: 12,
-                            tooltip: l10n.vaultOpenLink,
-                            onPressed: () {},
-                          ),
-                          onCopy: () {},
-                        ),
-                        if (entry.kind == EntryKind.key && entry.value != null)
-                          _RevealRow(
-                            icon: Icons.vpn_key,
-                            value: entry.value!,
-                            isMasked: true,
-                            revealed: isValueRevealed,
-                            onToggleReveal: onToggleValueReveal,
-                            onCopy: () {},
-                          ),
-                        if (entry.kind == EntryKind.credential) ...[
-                          if (entry.username != null)
-                            _RevealRow(
-                              icon: Icons.person,
-                              value: entry.username!,
-                              isMasked: false,
-                              revealed: true,
-                              onToggleReveal: null,
-                              onCopy: () {},
+                    child: payload == null
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            child: Center(
+                              child: SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: AppColors.tealAccent,
+                                ),
+                              ),
                             ),
-                          if (entry.password != null)
-                            _RevealRow(
-                              icon: Icons.lock,
-                              value: entry.password!,
-                              isMasked: true,
-                              revealed: isPasswordRevealed,
-                              onToggleReveal: onTogglePasswordReveal,
-                              onCopy: () {},
-                            ),
-                        ],
-                      ],
-                    ),
+                          )
+                        : _RevealPanel(
+                            entry: entry,
+                            payload: payload!,
+                            revealedFields: revealedFields,
+                            onToggleFieldReveal: onToggleFieldReveal,
+                            onCopy: onCopy,
+                          ),
                   )
                 : const SizedBox.shrink(),
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _RevealPanel extends StatelessWidget {
+  const _RevealPanel({
+    required this.entry,
+    required this.payload,
+    required this.revealedFields,
+    required this.onToggleFieldReveal,
+    required this.onCopy,
+  });
+
+  final EntryEntity entry;
+  final Map<String, dynamic> payload;
+  final Set<String> revealedFields;
+  final void Function(String entryId, String field) onToggleFieldReveal;
+  final ValueChanged<String> onCopy;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final url = (payload['url'] as String?) ?? entry.urlDomain;
+    return Column(
+      children: [
+        if (url != null && url.isNotEmpty)
+          _RevealRow(
+            icon: Icons.link,
+            value: url,
+            isMasked: false,
+            revealed: true,
+            onToggleReveal: null,
+            extraTrailing: _SmallIconButton(
+              icon: Icons.open_in_new,
+              size: 12,
+              tooltip: l10n.vaultOpenLink,
+              onPressed: () {},
+            ),
+            onCopy: () => onCopy(url),
+          ),
+        if (entry.type == EntryType.key) ...[
+          if ((payload['value'] as String?)?.isNotEmpty ?? false)
+            _RevealRow(
+              icon: Icons.vpn_key,
+              value: payload['value'] as String,
+              isMasked: true,
+              revealed: revealedFields.contains('${entry.id}:value'),
+              onToggleReveal: () => onToggleFieldReveal(entry.id, 'value'),
+              onCopy: () => onCopy(payload['value'] as String),
+            ),
+        ] else ...[
+          if ((payload['username'] as String?)?.isNotEmpty ?? false)
+            _RevealRow(
+              icon: Icons.person,
+              value: payload['username'] as String,
+              isMasked: false,
+              revealed: true,
+              onToggleReveal: null,
+              onCopy: () => onCopy(payload['username'] as String),
+            ),
+          if ((payload['password'] as String?)?.isNotEmpty ?? false)
+            _RevealRow(
+              icon: Icons.lock,
+              value: payload['password'] as String,
+              isMasked: true,
+              revealed: revealedFields.contains('${entry.id}:password'),
+              onToggleReveal: () => onToggleFieldReveal(entry.id, 'password'),
+              onCopy: () => onCopy(payload['password'] as String),
+            ),
+        ],
+        if ((payload['notes'] as String?)?.isNotEmpty ?? false)
+          _RevealRow(
+            icon: Icons.sticky_note_2_outlined,
+            value: payload['notes'] as String,
+            isMasked: false,
+            revealed: true,
+            onToggleReveal: null,
+            onCopy: () => onCopy(payload['notes'] as String),
+          ),
       ],
     );
   }

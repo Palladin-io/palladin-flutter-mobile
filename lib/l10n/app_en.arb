@@ -823,5 +823,97 @@
   "placeholderAuditTitle": "Audit Log",
   "@placeholderAuditTitle": {
     "description": "Page title for the Audit placeholder page — distinct from the bottom-nav 'Audit' label so the page reads as a full screen heading"
+  },
+  "entryAddTitle": "Add Entry",
+  "@entryAddTitle": {
+    "description": "AppBar title on the Add Entry page"
+  },
+  "entryTypeLabel": "Entry type",
+  "@entryTypeLabel": {
+    "description": "Label above the entry-type dropdown on the Add Entry page"
+  },
+  "entryTypeKey": "Key",
+  "@entryTypeKey": {
+    "description": "Dropdown option for the Key entry type — single secret value"
+  },
+  "entryTypeCredential": "Credential",
+  "@entryTypeCredential": {
+    "description": "Dropdown option for the Credential entry type — username + password"
+  },
+  "entryLabelLabel": "Label",
+  "@entryLabelLabel": {
+    "description": "Label for the entry name input field"
+  },
+  "entryLabelHint": "e.g. Stripe API Key",
+  "@entryLabelHint": {
+    "description": "Placeholder text inside the entry label input field"
+  },
+  "entryDescriptionLabel": "Description",
+  "@entryDescriptionLabel": {
+    "description": "Label for the optional entry description input field"
+  },
+  "entryValueLabel": "Value",
+  "@entryValueLabel": {
+    "description": "Label for the secret value input field on a Key entry"
+  },
+  "entryUsernameLabel": "Username",
+  "@entryUsernameLabel": {
+    "description": "Label for the username input field on a Credential entry"
+  },
+  "entryPasswordLabel": "Password",
+  "@entryPasswordLabel": {
+    "description": "Label for the password input field on a Credential entry"
+  },
+  "entryUrlLabel": "URL",
+  "@entryUrlLabel": {
+    "description": "Label for the optional URL input field on a Credential entry"
+  },
+  "entryNotesLabel": "Notes",
+  "@entryNotesLabel": {
+    "description": "Label for the optional notes input field on every entry"
+  },
+  "entryEncryptionNotice": "Encrypted on-device with AES-256-GCM before upload",
+  "@entryEncryptionNotice": {
+    "description": "Reassurance shown above the save button on the Add Entry page"
+  },
+  "entrySearchHint": "Search entries…",
+  "@entrySearchHint": {
+    "description": "Placeholder for the search input on the Entries tab"
+  },
+  "entryEmpty": "No entries yet",
+  "@entryEmpty": {
+    "description": "Empty-state title shown on the Entries tab when no entries exist yet"
+  },
+  "entryEmptyAdd": "Add your first credential to get started.",
+  "@entryEmptyAdd": {
+    "description": "Empty-state subtitle nudging the user to use the Add Entry FAB"
+  },
+  "entrySaveAction": "Save",
+  "@entrySaveAction": {
+    "description": "AppBar action label on the Add Entry page"
+  },
+  "entrySaving": "Saving…",
+  "@entrySaving": {
+    "description": "Loading label shown on the save button while the entry is being created"
+  },
+  "entryErrorNotFound": "This entry no longer exists.",
+  "@entryErrorNotFound": {
+    "description": "Error shown when the backend returns 404 for an entry operation"
+  },
+  "entryErrorForbidden": "You don't have permission to perform this action.",
+  "@entryErrorForbidden": {
+    "description": "Error shown when the backend returns 403 for an entry operation"
+  },
+  "entryErrorValidation": "Some fields are invalid. Please review and try again.",
+  "@entryErrorValidation": {
+    "description": "Error shown when the backend returns 400 for an entry operation"
+  },
+  "entryErrorCrypto": "We couldn't decrypt this entry. Lock and unlock your vault, then try again.",
+  "@entryErrorCrypto": {
+    "description": "Error shown when entry encryption or decryption fails"
+  },
+  "entryErrorUnknown": "Something went wrong. Please try again.",
+  "@entryErrorUnknown": {
+    "description": "Generic fallback error for entry operations"
   }
 }

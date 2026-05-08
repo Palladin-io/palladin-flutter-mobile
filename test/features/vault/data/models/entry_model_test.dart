@@ -1,0 +1,158 @@
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:mobile_claw_vault/features/vault/data/models/create_entry_request.dart';
+import 'package:mobile_claw_vault/features/vault/data/models/entry_model.dart';
+import 'package:mobile_claw_vault/features/vault/domain/entities/entry_entity.dart';
+
+void main() {
+  group('EntryModel.fromJson / toEntity', () {
+    test('parses a full list-shape payload', () {
+      final json = {
+        'id': 'e-1',
+        'vaultId': 'v-1',
+        'label': 'Stripe API Key',
+        'description': 'production',
+        'icon': 'code',
+        'type': 'KEY',
+        'urlDomain': 'stripe.com',
+        'createdAt': '2026-04-01T10:00:00Z',
+        'updatedAt': '2026-04-25T12:30:00Z',
+        'lastAccessedAt': '2026-04-26T08:15:00Z',
+        'accessCount': 5,
+      };
+
+      final entity = EntryModel.fromJson(json).toEntity();
+
+      expect(entity.id, 'e-1');
+      expect(entity.vaultId, 'v-1');
+      expect(entity.label, 'Stripe API Key');
+      expect(entity.description, 'production');
+      expect(entity.icon, 'code');
+      expect(entity.type, EntryType.key);
+      expect(entity.urlDomain, 'stripe.com');
+      expect(entity.accessCount, 5);
+      expect(entity.lastAccessedAt!.year, 2026);
+      expect(entity.createdAt.toUtc().year, 2026);
+    });
+
+    test('defaults missing optional fields', () {
+      final json = {
+        'id': 'e-2',
+        'vaultId': 'v-1',
+        'label': 'Login',
+        'type': 'CREDENTIAL',
+        'createdAt': '2026-04-25T00:00:00Z',
+        'updatedAt': '2026-04-25T00:00:00Z',
+      };
+
+      final entity = EntryModel.fromJson(json).toEntity();
+      expect(entity.type, EntryType.credential);
+      expect(entity.description, isNull);
+      expect(entity.icon, isNull);
+      expect(entity.urlDomain, isNull);
+      expect(entity.lastAccessedAt, isNull);
+      expect(entity.accessCount, 0);
+    });
+  });
+
+  group('EntryDetailModel.fromJson', () {
+    test('parses summary fields plus encrypted blob and nonce', () {
+      final json = {
+        'id': 'e-3',
+        'vaultId': 'v-1',
+        'label': 'Test',
+        'type': 'KEY',
+        'createdAt': '2026-04-25T00:00:00Z',
+        'updatedAt': '2026-04-25T00:00:00Z',
+        'encryptedBlob': 'YmxvYg==',
+        'nonce': 'bm9uY2U=',
+      };
+
+      final detail = EntryDetailModel.fromJson(json);
+      expect(detail.encryptedBlob, 'YmxvYg==');
+      expect(detail.nonce, 'bm9uY2U=');
+      expect(detail.summary.id, 'e-3');
+      expect(detail.summary.type, 'KEY');
+    });
+  });
+
+  group('EntryTypeExtension', () {
+    test('toWire round-trips through fromWire', () {
+      expect(EntryType.key.toWire(), 'KEY');
+      expect(EntryType.credential.toWire(), 'CREDENTIAL');
+      expect(EntryTypeExtension.fromWire('KEY'), EntryType.key);
+      expect(EntryTypeExtension.fromWire('CREDENTIAL'), EntryType.credential);
+    });
+
+    test('fromWire is case-insensitive and falls back to credential', () {
+      expect(EntryTypeExtension.fromWire('key'), EntryType.key);
+      // Unknown wire values default to credential — surfaces the safer
+      // two-field reveal panel rather than the single-secret panel.
+      expect(EntryTypeExtension.fromWire('weird'), EntryType.credential);
+    });
+  });
+
+  group('CreateEntryRequest.toJson', () {
+    test('includes all fields when provided', () {
+      const request = CreateEntryRequest(
+        label: 'Stripe',
+        description: 'prod',
+        icon: 'code',
+        type: 'KEY',
+        encryptedBlob: 'Y2lwaGVy',
+        nonce: 'bm9uY2U=',
+        urlDomain: 'stripe.com',
+      );
+
+      final json = request.toJson();
+      expect(json['label'], 'Stripe');
+      expect(json['description'], 'prod');
+      expect(json['icon'], 'code');
+      expect(json['type'], 'KEY');
+      expect(json['encryptedBlob'], 'Y2lwaGVy');
+      expect(json['nonce'], 'bm9uY2U=');
+      expect(json['urlDomain'], 'stripe.com');
+    });
+
+    test('omits null optional fields', () {
+      const request = CreateEntryRequest(
+        label: 'Stripe',
+        type: 'KEY',
+        encryptedBlob: 'Y2lwaGVy',
+        nonce: 'bm9uY2U=',
+      );
+
+      final json = request.toJson();
+      expect(json.containsKey('description'), isFalse);
+      expect(json.containsKey('icon'), isFalse);
+      expect(json.containsKey('urlDomain'), isFalse);
+      expect(json['label'], 'Stripe');
+      expect(json['type'], 'KEY');
+    });
+  });
+
+  group('KeyPayload / CredentialPayload', () {
+    test('KeyPayload toJson omits null notes', () {
+      const payload = KeyPayload(value: 'sk_live_xxx');
+      final json = payload.toJson();
+      expect(json['type'], 'KEY');
+      expect(json['value'], 'sk_live_xxx');
+      expect(json.containsKey('notes'), isFalse);
+    });
+
+    test('CredentialPayload round-trips through json', () {
+      const payload = CredentialPayload(
+        username: 'patryk',
+        password: 'secret',
+        url: 'https://stripe.com',
+        notes: 'prod admin',
+      );
+      final json = payload.toJson();
+      final parsed = CredentialPayload.fromJson(json);
+      expect(parsed.username, 'patryk');
+      expect(parsed.password, 'secret');
+      expect(parsed.url, 'https://stripe.com');
+      expect(parsed.notes, 'prod admin');
+    });
+  });
+}

@@ -724,4 +724,76 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get placeholderAuditTitle => 'Dziennik audytu';
+
+  @override
+  String get entryAddTitle => 'Dodaj wpis';
+
+  @override
+  String get entryTypeLabel => 'Typ wpisu';
+
+  @override
+  String get entryTypeKey => 'Klucz';
+
+  @override
+  String get entryTypeCredential => 'Login';
+
+  @override
+  String get entryLabelLabel => 'Etykieta';
+
+  @override
+  String get entryLabelHint => 'np. Stripe API Key';
+
+  @override
+  String get entryDescriptionLabel => 'Opis';
+
+  @override
+  String get entryValueLabel => 'Wartość';
+
+  @override
+  String get entryUsernameLabel => 'Nazwa użytkownika';
+
+  @override
+  String get entryPasswordLabel => 'Hasło';
+
+  @override
+  String get entryUrlLabel => 'URL';
+
+  @override
+  String get entryNotesLabel => 'Notatki';
+
+  @override
+  String get entryEncryptionNotice =>
+      'Szyfrowane na urządzeniu (AES-256-GCM) przed wysłaniem';
+
+  @override
+  String get entrySearchHint => 'Szukaj wpisów…';
+
+  @override
+  String get entryEmpty => 'Brak wpisów';
+
+  @override
+  String get entryEmptyAdd => 'Dodaj pierwsze dane, aby zacząć.';
+
+  @override
+  String get entrySaveAction => 'Zapisz';
+
+  @override
+  String get entrySaving => 'Zapisywanie…';
+
+  @override
+  String get entryErrorNotFound => 'Ten wpis już nie istnieje.';
+
+  @override
+  String get entryErrorForbidden => 'Brak uprawnień do wykonania tej operacji.';
+
+  @override
+  String get entryErrorValidation =>
+      'Niektóre pola są nieprawidłowe. Sprawdź formularz i spróbuj ponownie.';
+
+  @override
+  String get entryErrorCrypto =>
+      'Nie udało się odszyfrować wpisu. Zablokuj i odblokuj sejf, a następnie spróbuj ponownie.';
+
+  @override
+  String get entryErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
 }
