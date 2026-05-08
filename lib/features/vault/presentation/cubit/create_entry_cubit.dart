@@ -20,7 +20,8 @@ export 'create_entry_state.dart';
 ///      with the supplied [privateKey] (zeroized in finally).
 ///   2. The plaintext payload is JSON-serialized + UTF-8 encoded and
 ///      sealed with `crypto_secretbox_easy(VK, nonce)`.
-///   3. The base64-encoded `encryptedBlob` + `nonce` are POSTed to
+///   3. The base64-encoded `encryptedBlob` + `nonce` are wrapped in the
+///      polymorphic `content` envelope and POSTed to
 ///      `/api/vaults/{vaultId}/entries`.
 ///   4. [CreateEntrySuccess] is emitted with the newly-created entry.
 class CreateEntryCubit extends Cubit<CreateEntryState> {

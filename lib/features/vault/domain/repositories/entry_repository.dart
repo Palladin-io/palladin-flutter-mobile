@@ -32,7 +32,8 @@ abstract interface class EntryRepository {
   ///
   /// [encryptedBlob] and [nonce] must already be base64-encoded — the
   /// crypto step happens in `EntryCryptoService` and is the caller's
-  /// responsibility.
+  /// responsibility. The data layer wraps them in the polymorphic
+  /// `content` envelope expected by the .NET API.
   Future<EntryEntity> createEntry({
     required String vaultId,
     required String label,

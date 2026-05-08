@@ -1,17 +1,18 @@
+import 'entry_model.dart';
+
 /// DTO sent to `POST /api/vaults/{vaultId}/entries` to create a new
 /// entry inside a vault.
 ///
-/// All fields are JSON-serialized as camelCase. [encryptedBlob] and
-/// [nonce] are base64-encoded — the backend stores them as `bytea` and
-/// never sees the plaintext payload.
+/// All fields are JSON-serialized as camelCase. The encrypted payload
+/// lives inside the polymorphic [content] envelope — the backend stores
+/// it as a JSONB column and never sees the plaintext.
 class CreateEntryRequest {
   const CreateEntryRequest({
     required this.label,
     this.description,
     this.icon,
     required this.type,
-    required this.encryptedBlob,
-    required this.nonce,
+    required this.content,
     this.urlDomain,
   });
 
@@ -19,14 +20,13 @@ class CreateEntryRequest {
   final String? description;
   final String? icon;
 
-  /// Wire format — `'KEY'` / `'CREDENTIAL'`.
-  final String type;
+  /// Wire format — int ordinal of `EntryType` (`Key = 0`, `Credential = 1`).
+  final int type;
 
-  /// Base64-encoded ciphertext from `crypto_secretbox_easy(payloadJson, nonce, vaultKey)`.
-  final String encryptedBlob;
-
-  /// Base64-encoded 24-byte nonce that was used to seal [encryptedBlob].
-  final String nonce;
+  /// Polymorphic JSONB envelope holding the base64-encoded ciphertext
+  /// and matching nonce. Its `entryType` discriminator must match
+  /// [type].
+  final EntryContentModel content;
 
   /// Optional plaintext URL domain (`stripe.com`) shown in the entry
   /// row's meta line. The full URL belongs inside the encrypted payload.
@@ -38,8 +38,7 @@ class CreateEntryRequest {
       if (description != null) 'description': description,
       if (icon != null) 'icon': icon,
       'type': type,
-      'encryptedBlob': encryptedBlob,
-      'nonce': nonce,
+      'content': content.toJson(),
       if (urlDomain != null) 'urlDomain': urlDomain,
     };
   }

@@ -29,8 +29,8 @@ class EntryModel {
   final String? description;
   final String? icon;
 
-  /// Wire format — `'KEY'` / `'CREDENTIAL'`.
-  final String type;
+  /// Wire format — int ordinal of [EntryType] (`Key = 0`, `Credential = 1`).
+  final int type;
 
   final String? urlDomain;
   final String createdAt;
@@ -45,7 +45,7 @@ class EntryModel {
       label: json['label'] as String,
       description: json['description'] as String?,
       icon: json['icon'] as String?,
-      type: json['type'] as String,
+      type: json['type'] as int,
       urlDomain: json['urlDomain'] as String?,
       createdAt: json['createdAt'] as String,
       updatedAt: json['updatedAt'] as String,
@@ -72,31 +72,66 @@ class EntryModel {
   }
 }
 
-/// Detail-shape DTO returned by `GET /api/vaults/{vaultId}/entries/{id}`.
+/// Polymorphic JSONB content envelope sent and received with an entry.
 ///
-/// Extends the list shape with the encrypted payload so callers can
-/// decrypt on-device. The blob is split into `encryptedBlob` (ciphertext
-/// + auth tag) and the matching `nonce` — both base64-encoded.
-class EntryDetailModel {
-  const EntryDetailModel({
-    required this.summary,
+/// Matches the backend `EntryContent` discriminated union — the
+/// `entryType` discriminator must be the int ordinal of [EntryType] so
+/// the .NET deserializer can pick the right concrete subtype. Both
+/// [encryptedBlob] and [nonce] are base64-encoded; the backend stores
+/// them as `bytea` columns inside the JSONB payload and never sees the
+/// plaintext.
+class EntryContentModel {
+  const EntryContentModel({
+    required this.entryType,
     required this.encryptedBlob,
     required this.nonce,
   });
 
-  final EntryModel summary;
+  /// Discriminator — int ordinal of [EntryType] (`Key = 0`,
+  /// `Credential = 1`). Mirrors the row-level `type` column.
+  final int entryType;
 
   /// Base64-encoded ciphertext (`crypto_secretbox_easy` output).
   final String encryptedBlob;
 
-  /// Base64-encoded nonce (24 random bytes for `crypto_secretbox_easy`).
+  /// Base64-encoded 24-byte nonce that was used to seal [encryptedBlob].
   final String nonce;
+
+  factory EntryContentModel.fromJson(Map<String, dynamic> json) =>
+      EntryContentModel(
+        entryType: json['entryType'] as int,
+        encryptedBlob: json['encryptedBlob'] as String,
+        nonce: json['nonce'] as String,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'entryType': entryType,
+        'encryptedBlob': encryptedBlob,
+        'nonce': nonce,
+      };
+}
+
+/// Detail-shape DTO returned by `GET /api/vaults/{vaultId}/entries/{id}`.
+///
+/// Extends the list shape with the encrypted [content] envelope so
+/// callers can decrypt on-device.
+class EntryDetailModel {
+  const EntryDetailModel({
+    required this.summary,
+    required this.content,
+  });
+
+  final EntryModel summary;
+
+  /// Polymorphic JSONB envelope holding the encrypted payload.
+  final EntryContentModel content;
 
   factory EntryDetailModel.fromJson(Map<String, dynamic> json) {
     return EntryDetailModel(
       summary: EntryModel.fromJson(json),
-      encryptedBlob: json['encryptedBlob'] as String,
-      nonce: json['nonce'] as String,
+      content: EntryContentModel.fromJson(
+        json['content'] as Map<String, dynamic>,
+      ),
     );
   }
 }

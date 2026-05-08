@@ -6,19 +6,7 @@ import 'package:sodium_libs/sodium_libs_sumo.dart';
 import '../../../../core/crypto/sodium_provider.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
-
-/// Result of [EntryCryptoService.encryptEntry] — base64-encoded
-/// ciphertext + the matching nonce so the caller can ship both to the
-/// backend without re-deriving anything.
-class EncryptedEntryBlob {
-  const EncryptedEntryBlob({
-    required this.encryptedBlob,
-    required this.nonce,
-  });
-
-  final String encryptedBlob;
-  final String nonce;
-}
+import '../models/entry_model.dart';
 
 /// Zero-knowledge crypto pipeline for vault entries.
 ///
@@ -28,7 +16,8 @@ class EncryptedEntryBlob {
 ///     the duration of the surrounding encrypt/decrypt call.
 ///   * [encryptEntry] / [decryptEntry] — symmetric `crypto_secretbox_easy`
 ///     using VK as the symmetric key. Plaintext payload (a JSON map) is
-///     UTF-8 encoded; ciphertext + nonce are base64-encoded.
+///     UTF-8 encoded; ciphertext + nonce are base64-encoded inside an
+///     [EntryContentModel] envelope.
 ///
 /// All methods that hold raw key bytes wrap them in `try/finally` and
 /// zero them out before returning so we never leave secret material
@@ -72,14 +61,17 @@ class EntryCryptoService {
     }
   }
 
-  /// Encrypts a JSON [payload] with [vaultKey] using `crypto_secretbox_easy`.
+  /// Encrypts a JSON [payload] with [vaultKey] using `crypto_secretbox_easy`
+  /// and wraps the result in an [EntryContentModel] envelope tagged with
+  /// the [entryType] discriminator the backend expects.
   ///
-  /// Returns base64-encoded ciphertext + nonce. The plaintext bytes and
-  /// the [SecureKey] wrapping [vaultKey] are zeroed out before this
-  /// method returns regardless of success or failure.
-  Future<EncryptedEntryBlob> encryptEntry({
+  /// The plaintext bytes and the [SecureKey] wrapping [vaultKey] are
+  /// zeroed out before this method returns regardless of success or
+  /// failure.
+  Future<EntryContentModel> encryptEntry({
     required Map<String, dynamic> payload,
     required Uint8List vaultKey,
+    required int entryType,
   }) async {
     final sodium = await _sodiumLoader();
     final secretKey = SecureKey.fromList(sodium, vaultKey);
@@ -91,7 +83,8 @@ class EntryCryptoService {
         nonce: nonce,
         key: secretKey,
       );
-      return EncryptedEntryBlob(
+      return EntryContentModel(
+        entryType: entryType,
         encryptedBlob: base64.encode(cipher),
         nonce: base64.encode(nonce),
       );
@@ -104,23 +97,22 @@ class EntryCryptoService {
     }
   }
 
-  /// Decrypts a base64-encoded `encryptedBlob` + `nonce` pair with
-  /// [vaultKey] and returns the deserialized JSON payload.
+  /// Decrypts the ciphertext + nonce inside [content] with [vaultKey]
+  /// and returns the deserialized JSON payload.
   ///
   /// Throws [EntryException] with [EntryErrorKind.cryptoFailure] when
   /// `crypto_secretbox_open_easy` fails (tampered blob / wrong VK) or
   /// when the resulting bytes are not valid UTF-8 JSON.
   Future<Map<String, dynamic>> decryptEntry({
-    required String encryptedBlob,
-    required String nonce,
+    required EntryContentModel content,
     required Uint8List vaultKey,
   }) async {
     final sodium = await _sodiumLoader();
     final secretKey = SecureKey.fromList(sodium, vaultKey);
     Uint8List? plaintext;
     try {
-      final cipher = base64.decode(encryptedBlob);
-      final nonceBytes = base64.decode(nonce);
+      final cipher = base64.decode(content.encryptedBlob);
+      final nonceBytes = base64.decode(content.nonce);
       try {
         plaintext = sodium.crypto.secretBox.openEasy(
           cipherText: cipher,

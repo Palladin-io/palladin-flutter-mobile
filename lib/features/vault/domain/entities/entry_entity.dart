@@ -1,9 +1,10 @@
 /// Type of vault entry — drives icon, payload schema, and reveal-panel
 /// layout.
 ///
-/// Mirrors the backend `EntryType` enum (`Key = 1`, `Credential = 2`).
-/// Wire format is the uppercased enum name (`'KEY'` / `'CREDENTIAL'`)
-/// for forward compatibility with the shared web/mobile entry contract.
+/// Mirrors the backend `EntryType` enum (`Key = 0`, `Credential = 1`).
+/// Wire format is the integer ordinal — the JSONB content payload is
+/// polymorphic on `entryType` and the row-level `type` column carries
+/// the same int.
 enum EntryType {
   /// Single secret value — API key, token, etc.
   key,
@@ -13,15 +14,16 @@ enum EntryType {
 }
 
 extension EntryTypeExtension on EntryType {
-  /// Wire format used by the .NET API (uppercase enum name).
-  String toWire() => switch (this) {
-        EntryType.key => 'KEY',
-        EntryType.credential => 'CREDENTIAL',
+  /// Wire format used by the .NET API (int ordinal: `Key = 0`,
+  /// `Credential = 1`).
+  int toWire() => switch (this) {
+        EntryType.key => 0,
+        EntryType.credential => 1,
       };
 
-  static EntryType fromWire(String value) => switch (value.toUpperCase()) {
-        'KEY' => EntryType.key,
-        'CREDENTIAL' => EntryType.credential,
+  static EntryType fromWire(int value) => switch (value) {
+        0 => EntryType.key,
+        1 => EntryType.credential,
         // Default to credential for unknown wire values — surfaces the
         // safer two-field reveal panel rather than the single-secret
         // panel, matching the backend default.

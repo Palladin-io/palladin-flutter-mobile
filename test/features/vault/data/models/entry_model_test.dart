@@ -13,7 +13,7 @@ void main() {
         'label': 'Stripe API Key',
         'description': 'production',
         'icon': 'code',
-        'type': 'KEY',
+        'type': 0, // EntryType.key
         'urlDomain': 'stripe.com',
         'createdAt': '2026-04-01T10:00:00Z',
         'updatedAt': '2026-04-25T12:30:00Z',
@@ -40,7 +40,7 @@ void main() {
         'id': 'e-2',
         'vaultId': 'v-1',
         'label': 'Login',
-        'type': 'CREDENTIAL',
+        'type': 1, // EntryType.credential
         'createdAt': '2026-04-25T00:00:00Z',
         'updatedAt': '2026-04-25T00:00:00Z',
       };
@@ -55,40 +55,59 @@ void main() {
     });
   });
 
+  group('EntryContentModel', () {
+    test('round-trips through JSON', () {
+      final json = {
+        'entryType': 0,
+        'encryptedBlob': 'YmxvYg==',
+        'nonce': 'bm9uY2U=',
+      };
+      final parsed = EntryContentModel.fromJson(json);
+      expect(parsed.entryType, 0);
+      expect(parsed.encryptedBlob, 'YmxvYg==');
+      expect(parsed.nonce, 'bm9uY2U=');
+      expect(parsed.toJson(), json);
+    });
+  });
+
   group('EntryDetailModel.fromJson', () {
-    test('parses summary fields plus encrypted blob and nonce', () {
+    test('parses summary fields plus polymorphic content envelope', () {
       final json = {
         'id': 'e-3',
         'vaultId': 'v-1',
         'label': 'Test',
-        'type': 'KEY',
+        'type': 0, // EntryType.key
         'createdAt': '2026-04-25T00:00:00Z',
         'updatedAt': '2026-04-25T00:00:00Z',
-        'encryptedBlob': 'YmxvYg==',
-        'nonce': 'bm9uY2U=',
+        'content': {
+          'entryType': 0,
+          'encryptedBlob': 'YmxvYg==',
+          'nonce': 'bm9uY2U=',
+        },
       };
 
       final detail = EntryDetailModel.fromJson(json);
-      expect(detail.encryptedBlob, 'YmxvYg==');
-      expect(detail.nonce, 'bm9uY2U=');
+      expect(detail.content.entryType, 0);
+      expect(detail.content.encryptedBlob, 'YmxvYg==');
+      expect(detail.content.nonce, 'bm9uY2U=');
       expect(detail.summary.id, 'e-3');
-      expect(detail.summary.type, 'KEY');
+      expect(detail.summary.type, 0);
     });
   });
 
   group('EntryTypeExtension', () {
     test('toWire round-trips through fromWire', () {
-      expect(EntryType.key.toWire(), 'KEY');
-      expect(EntryType.credential.toWire(), 'CREDENTIAL');
-      expect(EntryTypeExtension.fromWire('KEY'), EntryType.key);
-      expect(EntryTypeExtension.fromWire('CREDENTIAL'), EntryType.credential);
+      expect(EntryType.key.toWire(), 0);
+      expect(EntryType.credential.toWire(), 1);
+      expect(EntryTypeExtension.fromWire(0), EntryType.key);
+      expect(EntryTypeExtension.fromWire(1), EntryType.credential);
     });
 
-    test('fromWire is case-insensitive and falls back to credential', () {
-      expect(EntryTypeExtension.fromWire('key'), EntryType.key);
+    test('fromWire falls back to credential on unknown ordinal', () {
       // Unknown wire values default to credential — surfaces the safer
       // two-field reveal panel rather than the single-secret panel.
-      expect(EntryTypeExtension.fromWire('weird'), EntryType.credential);
+      expect(EntryTypeExtension.fromWire(99), EntryType.credential);
+      expect(EntryTypeExtension.fromWire(-1), EntryType.credential);
     });
   });
 
@@ -98,9 +117,12 @@ void main() {
         label: 'Stripe',
         description: 'prod',
         icon: 'code',
-        type: 'KEY',
-        encryptedBlob: 'Y2lwaGVy',
-        nonce: 'bm9uY2U=',
+        type: 0,
+        content: EntryContentModel(
+          entryType: 0,
+          encryptedBlob: 'Y2lwaGVy',
+          nonce: 'bm9uY2U=',
+        ),
         urlDomain: 'stripe.com',
       );
 
@@ -108,18 +130,23 @@ void main() {
       expect(json['label'], 'Stripe');
       expect(json['description'], 'prod');
       expect(json['icon'], 'code');
-      expect(json['type'], 'KEY');
-      expect(json['encryptedBlob'], 'Y2lwaGVy');
-      expect(json['nonce'], 'bm9uY2U=');
+      expect(json['type'], 0);
       expect(json['urlDomain'], 'stripe.com');
+      final content = json['content'] as Map<String, dynamic>;
+      expect(content['entryType'], 0);
+      expect(content['encryptedBlob'], 'Y2lwaGVy');
+      expect(content['nonce'], 'bm9uY2U=');
     });
 
     test('omits null optional fields', () {
       const request = CreateEntryRequest(
         label: 'Stripe',
-        type: 'KEY',
-        encryptedBlob: 'Y2lwaGVy',
-        nonce: 'bm9uY2U=',
+        type: 0,
+        content: EntryContentModel(
+          entryType: 0,
+          encryptedBlob: 'Y2lwaGVy',
+          nonce: 'bm9uY2U=',
+        ),
       );
 
       final json = request.toJson();
@@ -127,7 +154,8 @@ void main() {
       expect(json.containsKey('icon'), isFalse);
       expect(json.containsKey('urlDomain'), isFalse);
       expect(json['label'], 'Stripe');
-      expect(json['type'], 'KEY');
+      expect(json['type'], 0);
+      expect(json['content'], isA<Map<String, dynamic>>());
     });
   });
 
