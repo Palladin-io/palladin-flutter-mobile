@@ -50,7 +50,7 @@ Edytuj pliki używając `Edit`. Przestrzegaj konwencji projektu (CLAUDE.md):
 - Wszystkie inputy przez `OnboardingTextField` — nigdy custom `TextField`
 - Wszystkie stringi przez ARB (`app_en.arb` + `app_pl.arb`) — nigdy hardcoded
 - BLoC/Cubit state immutable, emit tylko wewnątrz Cubit/Bloc
-- `ThemeMode.dark` zawsze — bez gałęzi na brightness
+- Light i dark mode oba obsługiwane — domyślnie dark, user może zmienić w ustawieniach (persisted). Nie hardcoduj `ThemeMode.dark`.
 
 ### Krok 4 — przeanalizuj i przetestuj
 

@@ -45,6 +45,9 @@ dependencies:
   share_plus: ^10.1.2
   path_provider: ^2.1.4
 
+  # Image picker for custom vault icon upload
+  image_picker: ^1.1.2
+
   # Typography — Inter font (matches web prototype)
   google_fonts: ^6.2.1
 

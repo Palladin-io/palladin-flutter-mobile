@@ -96,7 +96,7 @@ class _FieldFeedbackSlotState extends State<FieldFeedbackSlot>
 ///
 /// ## Border behaviour
 /// - [borderColor]      — enabled-state border; null = no border
-/// - [focusBorderColor] — focused-state border; null = [AppColors.tealAccent]
+/// - [focusBorderColor] — focused-state border; null = [AppColors.brandRed]
 ///
 /// For error state pass [AppColors.brandRed] to both border params and
 /// set [feedbackVisible] to true with a red-styled [feedbackChild].
@@ -107,14 +107,17 @@ class OnboardingTextField extends StatelessWidget {
     this.label,
     this.hintText,
     this.obscureText = false,
+    this.prefixIcon,
     this.suffixIcon,
     this.autocorrect = false,
     this.enableSuggestions = false,
     this.textCapitalization = TextCapitalization.none,
     this.textInputAction,
     this.onSubmitted,
+    this.onChanged,
     this.borderColor,
     this.focusBorderColor,
+    this.fillColor,
     this.feedbackChild,
     this.feedbackVisible = false,
   });
@@ -123,14 +126,27 @@ class OnboardingTextField extends StatelessWidget {
   final String? label;
   final String? hintText;
   final bool obscureText;
+
+  /// Optional icon rendered as [InputDecoration.prefixIcon]. Wrap in
+  /// [Padding] to control spacing — the field sets
+  /// `prefixIconConstraints: BoxConstraints()` so the icon does not
+  /// inflate the input height.
+  final Widget? prefixIcon;
   final Widget? suffixIcon;
   final bool autocorrect;
   final bool enableSuggestions;
   final TextCapitalization textCapitalization;
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
+  final ValueChanged<String>? onChanged;
   final Color? borderColor;
   final Color? focusBorderColor;
+
+  /// Background fill of the input. Defaults to
+  /// [AppColors.inputFill] (brightness-aware — navy in dark, near-transparent
+  /// in light) when null. Pass a different color when reusing this field on
+  /// screens with a different surface tone.
+  final Color? fillColor;
 
   /// Widget shown inside the [FieldFeedbackSlot] below the input.
   /// Always provide this when feedback is needed so the slot height is
@@ -142,7 +158,13 @@ class OnboardingTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    // Active-state color: text color (cream in dark, navy in light).
+    // Red was misleading — it matched the error state and made focused
+    // inputs look invalid even when they were fine.
+    final activeColor = AppColors.onSurface(brightness);
     final field = TextField(
+      cursorColor: activeColor,
       controller: controller,
       obscureText: obscureText,
       autocorrect: autocorrect,
@@ -150,12 +172,13 @@ class OnboardingTextField extends StatelessWidget {
       textCapitalization: textCapitalization,
       textInputAction: textInputAction,
       onSubmitted: onSubmitted,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
+      onChanged: onChanged,
+      style: TextStyle(color: AppColors.inputText(brightness), fontSize: 14),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+        hintStyle: TextStyle(color: AppColors.inputHint(brightness)),
         filled: true,
-        fillColor: AppColors.darkSurface,
+        fillColor: fillColor ?? AppColors.inputFill(brightness),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
@@ -166,17 +189,25 @@ class OnboardingTextField extends StatelessWidget {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: borderColor != null
-              ? BorderSide(color: borderColor!, width: 1)
-              : BorderSide.none,
+          borderSide: BorderSide(
+            color: borderColor ?? AppColors.inputBorder(brightness),
+            width: 1,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(
-            color: focusBorderColor ?? AppColors.tealAccent,
+            color: focusBorderColor ?? activeColor,
             width: 1.5,
           ),
         ),
+        prefixIcon: prefixIcon,
+        // Strip the default 48px min-width that Material applies to
+        // prefix icons — without this the search/glyph in tight rows
+        // pushes the input height up and breaks alignment with form
+        // fields elsewhere on the screen. Wrap [prefixIcon] in
+        // [Padding] to control the gap between icon and text.
+        prefixIconConstraints: const BoxConstraints(),
         suffixIcon: suffixIcon,
       ),
     );
@@ -187,10 +218,10 @@ class OnboardingTextField extends StatelessWidget {
         if (label != null) ...[
           Text(
             label!,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
+              color: AppColors.onSurfaceMuted(brightness),
             ),
           ),
           const SizedBox(height: 8),

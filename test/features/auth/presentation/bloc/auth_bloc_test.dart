@@ -16,6 +16,11 @@ void main() {
 
   setUp(() {
     mockRepo = MockAuthRepository();
+    // Default permissions / email stubs — most tests don't care about
+    // the value but every successful auth path queries them. Override
+    // per test when a specific bitmask or identity matters.
+    when(() => mockRepo.getPermissions()).thenAnswer((_) async => 0);
+    when(() => mockRepo.getEmail()).thenAnswer((_) async => null);
   });
 
   const authResult = AuthResultModel(

@@ -27,4 +27,16 @@ abstract class AuthRepository {
 
   /// Returns whether the user has completed onboarding.
   Future<bool> isOnboarded();
+
+  /// Returns the bitwise permissions claim from the current access
+  /// token, or `0` (Permission.None) when no token is stored or the
+  /// claim is missing. Read-only — the source of truth lives on the
+  /// backend and is reissued on every token refresh.
+  Future<int> getPermissions();
+
+  /// Returns the user's email from the current access token's `email`
+  /// claim, or `null` when no token is stored or the claim is missing.
+  /// Read-only — used for display in account chrome (settings drawer
+  /// header).
+  Future<String?> getEmail();
 }

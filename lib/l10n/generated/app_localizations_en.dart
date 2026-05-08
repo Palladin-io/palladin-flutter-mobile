@@ -263,4 +263,448 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get recoveryServerError => 'Recovery failed. Please try again.';
+
+  @override
+  String get vaultTitle => 'Vaults';
+
+  @override
+  String get vaultNewVault => 'New Vault';
+
+  @override
+  String get vaultNoVaults => 'No vaults yet';
+
+  @override
+  String get vaultCreateFirst =>
+      'Create your first vault to organize credentials and grant access to your AI agents.';
+
+  @override
+  String get vaultRetry => 'Retry';
+
+  @override
+  String get vaultCancel => 'Cancel';
+
+  @override
+  String get vaultModeFull => 'Full';
+
+  @override
+  String get vaultModeGranular => 'Granular';
+
+  @override
+  String get vaultModeFullDescription =>
+      'One approval grants access to every entry.';
+
+  @override
+  String get vaultModeGranularDescription =>
+      'Each entry needs its own approval.';
+
+  @override
+  String get vaultModeLabel => 'Grant mode';
+
+  @override
+  String get vaultNameLabel => 'Vault Name';
+
+  @override
+  String get vaultDescriptionLabel => 'Description';
+
+  @override
+  String get vaultIconLabel => 'Icon';
+
+  @override
+  String get vaultColorLabel => 'Color';
+
+  @override
+  String get vaultCreating => 'Creating...';
+
+  @override
+  String get vaultSaving => 'Saving...';
+
+  @override
+  String get vaultSavedSnackbar => 'Vault updated';
+
+  @override
+  String get vaultDeleteTitle => 'Delete Vault?';
+
+  @override
+  String vaultDeleteConfirmWithName(String name) {
+    return 'This will permanently delete \"$name\" and all its entries. This cannot be undone.';
+  }
+
+  @override
+  String get vaultSettings => 'Vault Settings';
+
+  @override
+  String get vaultSaveChanges => 'Save Changes';
+
+  @override
+  String get vaultDangerZone => 'DANGER ZONE';
+
+  @override
+  String get vaultDangerZoneSubtitle =>
+      'Deleting a vault is permanent — entries and grants are removed too.';
+
+  @override
+  String get vaultDeleteVault => 'Delete Vault';
+
+  @override
+  String vaultEntryCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString entries',
+      one: '1 entry',
+      zero: 'No entries',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultUpdatedAt(String date) {
+    return 'Updated $date';
+  }
+
+  @override
+  String get vaultUpdatedNow => 'now';
+
+  @override
+  String vaultUpdatedMinutesAgo(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '${countString}m ago',
+      one: '1m ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultUpdatedHoursAgo(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '${countString}h ago',
+      one: '1h ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultUpdatedDaysAgo(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '${countString}d ago',
+      one: '1d ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultStatEntries => 'Entries';
+
+  @override
+  String get vaultStatActiveGrants => 'Active grants';
+
+  @override
+  String get vaultStatMembers => 'Members';
+
+  @override
+  String get vaultSectionEntries => 'Entries';
+
+  @override
+  String get vaultSectionAgents => 'Agents';
+
+  @override
+  String get vaultEntriesPlaceholderTitle => 'Entries coming soon';
+
+  @override
+  String get vaultEntriesPlaceholderSubtitle =>
+      'Add and manage credentials from the web panel for now — mobile entry management lands in the next phase.';
+
+  @override
+  String get vaultAgentsPlaceholderTitle => 'Agents coming soon';
+
+  @override
+  String get vaultAgentsPlaceholderSubtitle =>
+      'Approve agent grants from the home screen — per-vault agent management is on the roadmap.';
+
+  @override
+  String get vaultErrorNotFound => 'This vault no longer exists.';
+
+  @override
+  String get vaultErrorForbidden =>
+      'You don\'t have permission to perform this action.';
+
+  @override
+  String get vaultErrorPlanLimitReached =>
+      'You\'ve reached the vault limit for your plan. Upgrade to create more.';
+
+  @override
+  String get vaultErrorFullModeNotAllowed =>
+      'Your plan doesn\'t allow Full-mode vaults. Choose Granular or upgrade.';
+
+  @override
+  String get vaultErrorUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String vaultGrantCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString grants',
+      one: '1 grant',
+      zero: 'No grants',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultActiveGrantCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString active grants',
+      one: '1 active grant',
+      zero: 'No active grants',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultTabEntries => 'Entries';
+
+  @override
+  String get vaultTabAgents => 'Agents';
+
+  @override
+  String get vaultTabLogs => 'Logs';
+
+  @override
+  String get vaultTabMembers => 'Members';
+
+  @override
+  String get vaultTabSettings => 'Settings';
+
+  @override
+  String get vaultSearchEntries => 'Search entries…';
+
+  @override
+  String get vaultSearchAgents => 'Search agents…';
+
+  @override
+  String get vaultGrantFull => 'Full access';
+
+  @override
+  String get vaultGrantGranular => 'Granular';
+
+  @override
+  String get vaultGrantActive => 'active';
+
+  @override
+  String get vaultGrantExpired => 'expired';
+
+  @override
+  String get vaultGrantRevoked => 'revoked';
+
+  @override
+  String vaultGrantGrantedBy(String person, String date) {
+    return 'Granted by $person at $date';
+  }
+
+  @override
+  String vaultGrantRevokedBy(String person, String date) {
+    return 'Revoked by $person at $date';
+  }
+
+  @override
+  String vaultGrantMoreEntries(int count) {
+    return '+$count more';
+  }
+
+  @override
+  String get vaultRevokeButton => 'Revoke';
+
+  @override
+  String get vaultRegrantButton => 'Re-grant';
+
+  @override
+  String get vaultRestoreButton => 'Restore';
+
+  @override
+  String get vaultEntriesEmpty => 'No entries yet';
+
+  @override
+  String get vaultAgentsEmpty => 'No agents granted access';
+
+  @override
+  String get vaultLogsEmpty => 'Activity log coming soon';
+
+  @override
+  String get vaultMembersEmpty => 'Member management coming soon';
+
+  @override
+  String get vaultRevealEntry => 'Reveal entry data';
+
+  @override
+  String get vaultViewEntry => 'View entry details';
+
+  @override
+  String get vaultCopyValue => 'Copy';
+
+  @override
+  String get vaultOpenLink => 'Open in browser';
+
+  @override
+  String get vaultRevealValue => 'Reveal value';
+
+  @override
+  String get vaultSaveAction => 'Save';
+
+  @override
+  String get vaultAddEntryFab => 'Add entry';
+
+  @override
+  String get vaultAddGrantFab => 'Add grant';
+
+  @override
+  String get vaultIconUpload => 'Upload custom icon';
+
+  @override
+  String get vaultIconUploadError => 'Upload failed. Please try again.';
+
+  @override
+  String get vaultIconUploadSizeError => 'File exceeds 2 MB limit.';
+
+  @override
+  String get vaultIconUploadFormatError =>
+      'Unsupported format. Use PNG, JPEG or WebP.';
+
+  @override
+  String get vaultUpgradeToPro => 'Upgrade to Pro';
+
+  @override
+  String get vaultUpgradeComingSoon =>
+      'Upgrade flow coming soon — you\'ve reached the Basic plan\'s single-vault limit.';
+
+  @override
+  String get navHome => 'Home';
+
+  @override
+  String get navVaults => 'Vaults';
+
+  @override
+  String get navAgents => 'Agents';
+
+  @override
+  String get navAudit => 'Audit';
+
+  @override
+  String get navSettings => 'Settings';
+
+  @override
+  String get vaultListTitle => 'My Vaults';
+
+  @override
+  String vaultListSummary(int vaultCount, int entryCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      vaultCount,
+      locale: localeName,
+      other: '$vaultCount vaults',
+      one: '1 vault',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      entryCount,
+      locale: localeName,
+      other: '$entryCount entries',
+      one: '1 entry',
+      zero: 'no entries',
+    );
+    return '$_temp0 · $_temp1';
+  }
+
+  @override
+  String get vaultSearchHint => 'Search vaults…';
+
+  @override
+  String get vaultSearchEmpty => 'No vaults match your search';
+
+  @override
+  String get settingsAccountTitle => 'Account';
+
+  @override
+  String get settingsLockVault => 'Lock Vault';
+
+  @override
+  String get settingsLogout => 'Log out';
+
+  @override
+  String settingsAppVersion(String version) {
+    return 'Version $version';
+  }
+
+  @override
+  String get settingsTooltip => 'Open settings';
+
+  @override
+  String get premiumGateTitle => 'Unlock unlimited vaults';
+
+  @override
+  String get premiumGateSubtitle =>
+      'You\'ve reached the 1-vault limit on the free plan.';
+
+  @override
+  String get premiumGateCta => 'Upgrade to Pro';
+
+  @override
+  String get premiumGateDismiss => 'Maybe later';
+
+  @override
+  String get settingsThemeToggle => 'Dark mode';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsPlanPro => 'Pro';
+
+  @override
+  String get settingsPlanFree => 'Free';
+
+  @override
+  String get settingsDefaultDisplayName => 'User';
+
+  @override
+  String get placeholderComingSoon => 'Coming soon';
+
+  @override
+  String get placeholderAuditTitle => 'Audit Log';
 }

@@ -7,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/storage/biometric_key_storage.dart';
 import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../../core/utils/jwt_claims.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
 import '../models/auth_result_model.dart';
@@ -151,6 +152,20 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<bool> isOnboarded() => tokenStorage.isOnboarded;
+
+  @override
+  Future<int> getPermissions() async {
+    final token = await tokenStorage.accessToken;
+    if (token == null || token.isEmpty) return 0;
+    return JwtClaims.permissionsFrom(token);
+  }
+
+  @override
+  Future<String?> getEmail() async {
+    final token = await tokenStorage.accessToken;
+    if (token == null || token.isEmpty) return null;
+    return JwtClaims.emailFrom(token);
+  }
 }
 
 /// Thrown when the user cancels the Google Sign-In dialog.

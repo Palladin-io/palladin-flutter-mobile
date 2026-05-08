@@ -45,8 +45,8 @@ Detailed checklist for each review category. Load this file in full before start
 - Background gradient: `AppColors.darkBackgroundGradient` — no inline `LinearGradient` with the same stops.
 
 ### Theme
-- App always runs in `ThemeMode.dark` — no `ThemeMode.system` or light-mode branches in new code.
-- No `Theme.of(context).brightness` checks that change the visual appearance based on system theme.
+- App supports light and dark mode — default is dark, user can change in settings (persisted preference). Never hardcode `ThemeMode.dark` permanently.
+- Conditional theming via `Theme.of(context).brightness` is valid — every widget must render correctly in both modes.
 
 ---
 
@@ -122,7 +122,17 @@ Detailed checklist for each review category. Load this file in full before start
 
 ---
 
-## 9. Over-Engineering Check
+## 9. Light & Dark Mode
+
+**Design intent: the app supports both light and dark mode.** Default is dark; user can change it in settings (persisted preference). Every widget must render correctly in both themes.
+
+- Flag `ThemeMode.dark` or `ThemeMode.light` hardcoded permanently — theme must follow the persisted user preference.
+- `Theme.of(context).brightness` checks are valid for conditional theming — but must always use `AppColors.*`, never raw `Color(0xFF…)` inline.
+- Flag `Colors.white`, `Colors.black`, `Colors.red`, `Color(0xFFXXXXXX)`, `Color.fromARGB(…)`, or `Colors.white.withValues(alpha:…)` outside `lib/core/theme/app_colors.dart`.
+- New color constants must be added to `AppColors` with light and dark variants — no one-off inline values in widgets.
+- If a widget is only tested/verified in dark mode without a corresponding light mode check: flag it.
+
+## 10. Over-Engineering Check
 
 Flag any of the following:
 - A new abstraction (base class, mixin, generic widget) with a single concrete use.

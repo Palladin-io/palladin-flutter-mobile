@@ -126,13 +126,14 @@ class _RecoveryViewState extends State<_RecoveryView> {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return BlocListener<RecoveryCubit, RecoveryState>(
       listener: _handleStateChange,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Container(
-          decoration: const BoxDecoration(
-            gradient: AppColors.darkBackgroundGradient,
+          decoration: BoxDecoration(
+            gradient: AppColors.backgroundGradient(brightness),
           ),
           child: SafeArea(
             child: Padding(
@@ -416,8 +417,10 @@ class _MnemonicTextArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = hasError ? AppColors.brandRed : Colors.transparent;
+    final brightness = Theme.of(context).brightness;
     final focusColor = hasError ? AppColors.brandRed : AppColors.tealAccent;
+    final enabledBorderColor =
+        hasError ? AppColors.brandRed : AppColors.inputBorder(brightness);
 
     return TextField(
       controller: controller,
@@ -427,12 +430,16 @@ class _MnemonicTextArea extends StatelessWidget {
       enableSuggestions: false,
       textCapitalization: TextCapitalization.none,
       textInputAction: TextInputAction.newline,
-      style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, height: 1.5),
+      style: TextStyle(
+        color: AppColors.inputText(brightness),
+        fontSize: 14,
+        height: 1.5,
+      ),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: const TextStyle(color: AppColors.textHint),
+        hintStyle: TextStyle(color: AppColors.inputHint(brightness)),
         filled: true,
-        fillColor: AppColors.darkSurface,
+        fillColor: AppColors.cardFill(brightness),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
@@ -441,9 +448,7 @@ class _MnemonicTextArea extends StatelessWidget {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: hasError
-              ? BorderSide(color: borderColor, width: 1)
-              : BorderSide.none,
+          borderSide: BorderSide(color: enabledBorderColor, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -623,6 +628,7 @@ class _SaveNewKeyStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -664,9 +670,9 @@ class _SaveNewKeyStep extends StatelessWidget {
                     Expanded(
                       child: Text(
                         l10n.recoverySaveKeyCheckbox,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: AppColors.textSecondary,
+                          color: AppColors.onSurfaceMuted(brightness),
                           height: 1.4,
                         ),
                       ),
@@ -745,6 +751,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -756,11 +763,12 @@ class _Header extends StatelessWidget {
                   child: GestureDetector(
                     onTap: onBack,
                     behavior: HitTestBehavior.opaque,
-                    child: const Padding(
-                      padding: EdgeInsets.only(right: 12, top: 4, bottom: 4),
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.only(right: 12, top: 4, bottom: 4),
                       child: Icon(
                         Icons.arrow_back_ios_new,
-                        color: AppColors.textSecondary,
+                        color: AppColors.onSurfaceMuted(brightness),
                         size: 18,
                       ),
                     ),
@@ -771,19 +779,19 @@ class _Header extends StatelessWidget {
         const SizedBox(height: 12),
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            color: AppColors.onSurface(brightness),
             height: 1.2,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           subtitle,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
-            color: AppColors.textTertiary,
+            color: AppColors.onSurfaceSubtle(brightness),
             height: 1.4,
           ),
         ),
@@ -805,22 +813,24 @@ class _SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final foreground = AppColors.onSurface(brightness);
     return SizedBox(
       width: double.infinity,
       height: 44,
       child: OutlinedButton.icon(
-        icon: Icon(icon, size: 16, color: AppColors.textPrimary),
+        icon: Icon(icon, size: 16, color: foreground),
         label: Text(
           label,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
+          style: TextStyle(
+            color: foreground,
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
         ),
         style: OutlinedButton.styleFrom(
           backgroundColor: Colors.transparent,
-          side: const BorderSide(color: AppColors.buttonBorder),
+          side: BorderSide(color: AppColors.cardBorder(brightness)),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
@@ -838,6 +848,7 @@ class _WarningBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -854,9 +865,9 @@ class _WarningBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: AppColors.textPrimary,
+                color: AppColors.onSurface(brightness),
                 height: 1.4,
               ),
             ),
@@ -874,6 +885,7 @@ class _MnemonicGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -888,11 +900,9 @@ class _MnemonicGrid extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: AppColors.textPrimary.withValues(alpha: 0.04),
+            color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: AppColors.textPrimary.withValues(alpha: 0.06),
-            ),
+            border: Border.all(color: AppColors.cardBorder(brightness)),
           ),
           alignment: Alignment.centerLeft,
           child: Row(
@@ -901,9 +911,9 @@ class _MnemonicGrid extends StatelessWidget {
                 width: 18,
                 child: Text(
                   '${index + 1}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
-                    color: AppColors.textHintFaint,
+                    color: AppColors.onSurfaceSubtle(brightness),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -911,9 +921,9 @@ class _MnemonicGrid extends StatelessWidget {
               Expanded(
                 child: Text(
                   words[index],
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textPrimary,
+                    color: AppColors.onSurface(brightness),
                     fontWeight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,

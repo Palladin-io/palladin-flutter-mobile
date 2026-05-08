@@ -265,4 +265,463 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get recoveryServerError =>
       'Odzyskiwanie nie powiodło się. Spróbuj ponownie.';
+
+  @override
+  String get vaultTitle => 'Sejfy';
+
+  @override
+  String get vaultNewVault => 'Nowy sejf';
+
+  @override
+  String get vaultNoVaults => 'Brak sejfów';
+
+  @override
+  String get vaultCreateFirst =>
+      'Utwórz pierwszy sejf, aby uporządkować dane logowania i zarządzać dostępem agentów AI.';
+
+  @override
+  String get vaultRetry => 'Spróbuj ponownie';
+
+  @override
+  String get vaultCancel => 'Anuluj';
+
+  @override
+  String get vaultModeFull => 'Pełny';
+
+  @override
+  String get vaultModeGranular => 'Szczegółowy';
+
+  @override
+  String get vaultModeFullDescription =>
+      'Jedna zgoda daje dostęp do wszystkich wpisów.';
+
+  @override
+  String get vaultModeGranularDescription => 'Każdy wpis wymaga osobnej zgody.';
+
+  @override
+  String get vaultModeLabel => 'Tryb dostępu';
+
+  @override
+  String get vaultNameLabel => 'Nazwa sejfu';
+
+  @override
+  String get vaultDescriptionLabel => 'Opis';
+
+  @override
+  String get vaultIconLabel => 'Ikona';
+
+  @override
+  String get vaultColorLabel => 'Kolor';
+
+  @override
+  String get vaultCreating => 'Tworzenie...';
+
+  @override
+  String get vaultSaving => 'Zapisywanie...';
+
+  @override
+  String get vaultSavedSnackbar => 'Sejf zaktualizowany';
+
+  @override
+  String get vaultDeleteTitle => 'Usunąć sejf?';
+
+  @override
+  String vaultDeleteConfirmWithName(String name) {
+    return 'Sejf „$name” oraz wszystkie jego wpisy zostaną trwale usunięte. Tej operacji nie można cofnąć.';
+  }
+
+  @override
+  String get vaultSettings => 'Ustawienia sejfu';
+
+  @override
+  String get vaultSaveChanges => 'Zapisz zmiany';
+
+  @override
+  String get vaultDangerZone => 'STREFA NIEBEZPIECZNA';
+
+  @override
+  String get vaultDangerZoneSubtitle =>
+      'Usunięcie sejfu jest nieodwracalne — wpisy oraz aktywne zgody zostaną usunięte.';
+
+  @override
+  String get vaultDeleteVault => 'Usuń sejf';
+
+  @override
+  String vaultEntryCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString wpisów',
+      many: '$countString wpisów',
+      few: '$countString wpisy',
+      one: '1 wpis',
+      zero: 'Brak wpisów',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultUpdatedAt(String date) {
+    return 'Aktualizacja $date';
+  }
+
+  @override
+  String get vaultUpdatedNow => 'teraz';
+
+  @override
+  String vaultUpdatedMinutesAgo(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString min temu',
+      many: '$countString min temu',
+      few: '$countString min temu',
+      one: '1 min temu',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultUpdatedHoursAgo(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString godz. temu',
+      many: '$countString godz. temu',
+      few: '$countString godz. temu',
+      one: '1 godz. temu',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultUpdatedDaysAgo(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString dni temu',
+      many: '$countString dni temu',
+      few: '$countString dni temu',
+      one: '1 dzień temu',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultStatEntries => 'Wpisy';
+
+  @override
+  String get vaultStatActiveGrants => 'Aktywne zgody';
+
+  @override
+  String get vaultStatMembers => 'Członkowie';
+
+  @override
+  String get vaultSectionEntries => 'Wpisy';
+
+  @override
+  String get vaultSectionAgents => 'Agenci';
+
+  @override
+  String get vaultEntriesPlaceholderTitle => 'Wpisy już wkrótce';
+
+  @override
+  String get vaultEntriesPlaceholderSubtitle =>
+      'Na razie dodawaj i zarządzaj danymi z panelu webowego — zarządzanie wpisami w aplikacji mobilnej pojawi się w kolejnej fazie.';
+
+  @override
+  String get vaultAgentsPlaceholderTitle => 'Agenci już wkrótce';
+
+  @override
+  String get vaultAgentsPlaceholderSubtitle =>
+      'Zgody dla agentów akceptujesz z ekranu głównego — zarządzanie agentami w obrębie sejfu jest w planach.';
+
+  @override
+  String get vaultErrorNotFound => 'Ten sejf już nie istnieje.';
+
+  @override
+  String get vaultErrorForbidden => 'Brak uprawnień do wykonania tej operacji.';
+
+  @override
+  String get vaultErrorPlanLimitReached =>
+      'Osiągnięto limit sejfów w Twoim planie. Ulepsz plan, aby utworzyć więcej.';
+
+  @override
+  String get vaultErrorFullModeNotAllowed =>
+      'Twój plan nie pozwala na sejfy w trybie pełnym. Wybierz tryb szczegółowy lub ulepsz plan.';
+
+  @override
+  String get vaultErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
+
+  @override
+  String vaultGrantCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString zgód',
+      many: '$countString zgód',
+      few: '$countString zgody',
+      one: '1 zgoda',
+      zero: 'Brak zgód',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vaultActiveGrantCount(int count) {
+    final intl.NumberFormat countNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String countString = countNumberFormat.format(count);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countString aktywnych zgód',
+      many: '$countString aktywnych zgód',
+      few: '$countString aktywne zgody',
+      one: '1 aktywna zgoda',
+      zero: 'Brak aktywnych zgód',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vaultTabEntries => 'Wpisy';
+
+  @override
+  String get vaultTabAgents => 'Agenci';
+
+  @override
+  String get vaultTabLogs => 'Logi';
+
+  @override
+  String get vaultTabMembers => 'Członkowie';
+
+  @override
+  String get vaultTabSettings => 'Ustawienia';
+
+  @override
+  String get vaultSearchEntries => 'Szukaj wpisów…';
+
+  @override
+  String get vaultSearchAgents => 'Szukaj agentów…';
+
+  @override
+  String get vaultGrantFull => 'Pełny dostęp';
+
+  @override
+  String get vaultGrantGranular => 'Szczegółowy';
+
+  @override
+  String get vaultGrantActive => 'aktywna';
+
+  @override
+  String get vaultGrantExpired => 'wygasła';
+
+  @override
+  String get vaultGrantRevoked => 'cofnięta';
+
+  @override
+  String vaultGrantGrantedBy(String person, String date) {
+    return 'Przyznane przez $person – $date';
+  }
+
+  @override
+  String vaultGrantRevokedBy(String person, String date) {
+    return 'Cofnięte przez $person – $date';
+  }
+
+  @override
+  String vaultGrantMoreEntries(int count) {
+    return '+$count więcej';
+  }
+
+  @override
+  String get vaultRevokeButton => 'Cofnij';
+
+  @override
+  String get vaultRegrantButton => 'Przywróć';
+
+  @override
+  String get vaultRestoreButton => 'Wznów';
+
+  @override
+  String get vaultEntriesEmpty => 'Brak wpisów';
+
+  @override
+  String get vaultAgentsEmpty => 'Żaden agent nie ma jeszcze dostępu';
+
+  @override
+  String get vaultLogsEmpty => 'Dziennik aktywności już wkrótce';
+
+  @override
+  String get vaultMembersEmpty => 'Zarządzanie członkami już wkrótce';
+
+  @override
+  String get vaultRevealEntry => 'Pokaż dane wpisu';
+
+  @override
+  String get vaultViewEntry => 'Zobacz szczegóły wpisu';
+
+  @override
+  String get vaultCopyValue => 'Kopiuj';
+
+  @override
+  String get vaultOpenLink => 'Otwórz w przeglądarce';
+
+  @override
+  String get vaultRevealValue => 'Pokaż wartość';
+
+  @override
+  String get vaultSaveAction => 'Zapisz';
+
+  @override
+  String get vaultAddEntryFab => 'Dodaj wpis';
+
+  @override
+  String get vaultAddGrantFab => 'Dodaj zgodę';
+
+  @override
+  String get vaultIconUpload => 'Wgraj własną ikonę';
+
+  @override
+  String get vaultIconUploadError =>
+      'Przesyłanie nie powiodło się. Spróbuj ponownie.';
+
+  @override
+  String get vaultIconUploadSizeError => 'Plik przekracza limit 2 MB.';
+
+  @override
+  String get vaultIconUploadFormatError =>
+      'Nieobsługiwany format. Użyj PNG, JPEG lub WebP.';
+
+  @override
+  String get vaultUpgradeToPro => 'Przejdź na Pro';
+
+  @override
+  String get vaultUpgradeComingSoon =>
+      'Płatności są w drodze — w planie Basic możesz mieć tylko jeden sejf.';
+
+  @override
+  String get navHome => 'Start';
+
+  @override
+  String get navVaults => 'Sejfy';
+
+  @override
+  String get navAgents => 'Agenci';
+
+  @override
+  String get navAudit => 'Logi';
+
+  @override
+  String get navSettings => 'Ustawienia';
+
+  @override
+  String get vaultListTitle => 'Twoje sejfy';
+
+  @override
+  String vaultListSummary(int vaultCount, int entryCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      vaultCount,
+      locale: localeName,
+      other: '$vaultCount sejfów',
+      many: '$vaultCount sejfów',
+      few: '$vaultCount sejfy',
+      one: '1 sejf',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      entryCount,
+      locale: localeName,
+      other: '$entryCount wpisów',
+      many: '$entryCount wpisów',
+      few: '$entryCount wpisy',
+      one: '1 wpis',
+      zero: 'brak wpisów',
+    );
+    return '$_temp0 · $_temp1';
+  }
+
+  @override
+  String get vaultSearchHint => 'Szukaj sejfów…';
+
+  @override
+  String get vaultSearchEmpty => 'Żaden sejf nie pasuje do wyszukiwania';
+
+  @override
+  String get settingsAccountTitle => 'Konto';
+
+  @override
+  String get settingsLockVault => 'Zablokuj sejf';
+
+  @override
+  String get settingsLogout => 'Wyloguj się';
+
+  @override
+  String settingsAppVersion(String version) {
+    return 'Wersja $version';
+  }
+
+  @override
+  String get settingsTooltip => 'Otwórz ustawienia';
+
+  @override
+  String get premiumGateTitle => 'Odblokuj nielimitowaną liczbę sejfów';
+
+  @override
+  String get premiumGateSubtitle =>
+      'Osiągnięto limit 1 sejfu w planie darmowym.';
+
+  @override
+  String get premiumGateCta => 'Przejdź na Pro';
+
+  @override
+  String get premiumGateDismiss => 'Może później';
+
+  @override
+  String get settingsThemeToggle => 'Tryb ciemny';
+
+  @override
+  String get settingsLanguage => 'Język';
+
+  @override
+  String get settingsPlanPro => 'Pro';
+
+  @override
+  String get settingsPlanFree => 'Darmowy';
+
+  @override
+  String get settingsDefaultDisplayName => 'Użytkownik';
+
+  @override
+  String get placeholderComingSoon => 'Już wkrótce';
+
+  @override
+  String get placeholderAuditTitle => 'Dziennik audytu';
 }

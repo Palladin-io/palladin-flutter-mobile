@@ -34,10 +34,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthLoading());
     try {
       final result = await authRepository.loginWithGoogle();
+      final permissions = await authRepository.getPermissions();
+      final email = await authRepository.getEmail();
       AppLogger.i('AuthBloc', 'Authenticated: userId=${result.userId}');
       emit(AuthAuthenticated(
         userId: result.userId,
         isOnboarded: result.isOnboarded,
+        permissions: permissions,
+        email: email,
       ));
     } on AuthCancelledException {
       AppLogger.i('AuthBloc', 'Sign-in cancelled, returning unauthenticated');
@@ -55,10 +59,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AppLogger.d('AuthBloc', 'Token refresh requested');
     try {
       final result = await authRepository.refreshToken();
+      final permissions = await authRepository.getPermissions();
+      final email = await authRepository.getEmail();
       AppLogger.i('AuthBloc', 'Refresh successful: userId=${result.userId}');
       emit(AuthAuthenticated(
         userId: result.userId,
         isOnboarded: result.isOnboarded,
+        permissions: permissions,
+        email: email,
       ));
     } catch (e) {
       AppLogger.w('AuthBloc', 'Refresh failed: ${e.runtimeType}');
@@ -95,10 +103,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     final userId = await authRepository.getUserId();
     final isOnboarded = await authRepository.isOnboarded();
+    final permissions = await authRepository.getPermissions();
+    final email = await authRepository.getEmail();
 
     if (userId != null) {
       AppLogger.i('AuthBloc', 'Restored session: userId=$userId');
-      emit(AuthAuthenticated(userId: userId, isOnboarded: isOnboarded));
+      emit(AuthAuthenticated(
+        userId: userId,
+        isOnboarded: isOnboarded,
+        permissions: permissions,
+        email: email,
+      ));
     } else {
       AppLogger.w('AuthBloc', 'Token present but no userId, unauthenticated');
       emit(const AuthUnauthenticated());
@@ -149,11 +164,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(const AuthUnauthenticated());
       return;
     }
+    final permissions = await authRepository.getPermissions();
+    final email = await authRepository.getEmail();
     AppLogger.i('AuthBloc', 'Onboarding completed, vault unlocked for userId=$userId');
     emit(AuthAuthenticated(
       userId: userId,
       isOnboarded: true,
       isVaultLocked: false,
+      permissions: permissions,
+      email: email,
     ));
   }
 }

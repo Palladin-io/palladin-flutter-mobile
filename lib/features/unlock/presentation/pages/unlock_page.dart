@@ -76,13 +76,14 @@ class _UnlockViewState extends State<_UnlockView> {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return BlocListener<UnlockCubit, UnlockState>(
       listener: _handleStateChange,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Container(
-          decoration: const BoxDecoration(
-            gradient: AppColors.darkBackgroundGradient,
+          decoration: BoxDecoration(
+            gradient: AppColors.backgroundGradient(brightness),
           ),
           child: SafeArea(
             child: Padding(
@@ -107,6 +108,7 @@ class _UnlockViewState extends State<_UnlockView> {
 
   Widget _buildHero(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -114,19 +116,19 @@ class _UnlockViewState extends State<_UnlockView> {
         const SizedBox(height: 20),
         RichText(
           textAlign: TextAlign.center,
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Claw ',
                 style: TextStyle(
                   fontSize: 40,
                   fontWeight: FontWeight.w900,
-                  color: AppColors.textPrimary,
+                  color: AppColors.onSurface(brightness),
                   height: 1.0,
                   letterSpacing: -1.2,
                 ),
               ),
-              TextSpan(
+              const TextSpan(
                 text: 'Vault',
                 style: TextStyle(
                   fontSize: 40,
@@ -143,9 +145,9 @@ class _UnlockViewState extends State<_UnlockView> {
         Text(
           l10n.unlockTitle,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
-            color: AppColors.textTertiary,
+            color: AppColors.onSurfaceSubtle(brightness),
             height: 1.4,
           ),
         ),

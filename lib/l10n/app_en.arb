@@ -325,5 +325,503 @@
   "recoveryServerError": "Recovery failed. Please try again.",
   "@recoveryServerError": {
     "description": "Generic fallback error for the recovery flow"
+  },
+  "vaultTitle": "Vaults",
+  "@vaultTitle": {
+    "description": "Vaults section title shown in the app bar of the vault list"
+  },
+  "vaultNewVault": "New Vault",
+  "@vaultNewVault": {
+    "description": "Label of the button / FAB that opens the create-vault sheet"
+  },
+  "vaultNoVaults": "No vaults yet",
+  "@vaultNoVaults": {
+    "description": "Empty-state title when the user has no vaults"
+  },
+  "vaultCreateFirst": "Create your first vault to organize credentials and grant access to your AI agents.",
+  "@vaultCreateFirst": {
+    "description": "Empty-state subtitle shown alongside the create-vault CTA"
+  },
+  "vaultRetry": "Retry",
+  "@vaultRetry": {
+    "description": "Retry button label on the vault list error state"
+  },
+  "vaultCancel": "Cancel",
+  "@vaultCancel": {
+    "description": "Generic cancel button label used in vault dialogs"
+  },
+  "vaultModeFull": "Full",
+  "@vaultModeFull": {
+    "description": "Label for the Full grant mode (one approval covers the whole vault)"
+  },
+  "vaultModeGranular": "Granular",
+  "@vaultModeGranular": {
+    "description": "Label for the Granular grant mode (per-entry approvals)"
+  },
+  "vaultModeFullDescription": "One approval grants access to every entry.",
+  "@vaultModeFullDescription": {
+    "description": "Subtitle for the Full mode option in the vault form"
+  },
+  "vaultModeGranularDescription": "Each entry needs its own approval.",
+  "@vaultModeGranularDescription": {
+    "description": "Subtitle for the Granular mode option in the vault form"
+  },
+  "vaultModeLabel": "Grant mode",
+  "@vaultModeLabel": {
+    "description": "Label above the grant mode selector in the vault form"
+  },
+  "vaultNameLabel": "Vault Name",
+  "@vaultNameLabel": {
+    "description": "Label for the vault name field"
+  },
+  "vaultDescriptionLabel": "Description",
+  "@vaultDescriptionLabel": {
+    "description": "Label for the optional vault description field"
+  },
+  "vaultIconLabel": "Icon",
+  "@vaultIconLabel": {
+    "description": "Label above the icon picker in the vault form"
+  },
+  "vaultColorLabel": "Color",
+  "@vaultColorLabel": {
+    "description": "Label above the color picker in the vault form"
+  },
+  "vaultCreating": "Creating...",
+  "@vaultCreating": {
+    "description": "Loading label shown on the create button while the vault is being created"
+  },
+  "vaultSaving": "Saving...",
+  "@vaultSaving": {
+    "description": "Loading label shown on the save button while the vault is being updated"
+  },
+  "vaultSavedSnackbar": "Vault updated",
+  "@vaultSavedSnackbar": {
+    "description": "Snackbar shown after a successful vault update"
+  },
+  "vaultDeleteTitle": "Delete Vault?",
+  "@vaultDeleteTitle": {
+    "description": "Title of the delete-vault confirmation dialog"
+  },
+  "vaultDeleteConfirmWithName": "This will permanently delete \"{name}\" and all its entries. This cannot be undone.",
+  "@vaultDeleteConfirmWithName": {
+    "description": "Body of the delete-vault confirmation dialog",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Personal Vault"
+      }
+    }
+  },
+  "vaultSettings": "Vault Settings",
+  "@vaultSettings": {
+    "description": "Title of the vault settings page"
+  },
+  "vaultSaveChanges": "Save Changes",
+  "@vaultSaveChanges": {
+    "description": "Save button label on the vault settings page"
+  },
+  "vaultDangerZone": "DANGER ZONE",
+  "@vaultDangerZone": {
+    "description": "Section label for destructive actions on the vault settings page"
+  },
+  "vaultDangerZoneSubtitle": "Deleting a vault is permanent — entries and grants are removed too.",
+  "@vaultDangerZoneSubtitle": {
+    "description": "Explanatory text under the danger zone heading"
+  },
+  "vaultDeleteVault": "Delete Vault",
+  "@vaultDeleteVault": {
+    "description": "Destructive action button label"
+  },
+  "vaultEntryCount": "{count, plural, =0{No entries} =1{1 entry} other{{count} entries}}",
+  "@vaultEntryCount": {
+    "description": "Vault card meta line: number of entries",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "vaultUpdatedAt": "Updated {date}",
+  "@vaultUpdatedAt": {
+    "description": "Vault card meta line: when the vault was last updated",
+    "placeholders": {
+      "date": {
+        "type": "String",
+        "example": "2026-04-25"
+      }
+    }
+  },
+  "vaultUpdatedNow": "now",
+  "@vaultUpdatedNow": {
+    "description": "Relative timestamp label shown on a vault card when the vault was updated less than a minute ago"
+  },
+  "vaultUpdatedMinutesAgo": "{count, plural, =1{1m ago} other{{count}m ago}}",
+  "@vaultUpdatedMinutesAgo": {
+    "description": "Relative timestamp shown on a vault card when the last update was less than an hour ago",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "vaultUpdatedHoursAgo": "{count, plural, =1{1h ago} other{{count}h ago}}",
+  "@vaultUpdatedHoursAgo": {
+    "description": "Relative timestamp shown on a vault card when the last update was less than a day ago",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "vaultUpdatedDaysAgo": "{count, plural, =1{1d ago} other{{count}d ago}}",
+  "@vaultUpdatedDaysAgo": {
+    "description": "Relative timestamp shown on a vault card when the last update was less than 30 days ago",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "vaultStatEntries": "Entries",
+  "@vaultStatEntries": {
+    "description": "Stat chip label on the vault detail page"
+  },
+  "vaultStatActiveGrants": "Active grants",
+  "@vaultStatActiveGrants": {
+    "description": "Stat chip label on the vault detail page"
+  },
+  "vaultStatMembers": "Members",
+  "@vaultStatMembers": {
+    "description": "Stat chip label on the vault detail page"
+  },
+  "vaultSectionEntries": "Entries",
+  "@vaultSectionEntries": {
+    "description": "Section heading on the vault detail page for the entries list"
+  },
+  "vaultSectionAgents": "Agents",
+  "@vaultSectionAgents": {
+    "description": "Section heading on the vault detail page for the agents list"
+  },
+  "vaultEntriesPlaceholderTitle": "Entries coming soon",
+  "@vaultEntriesPlaceholderTitle": {
+    "description": "Placeholder card title under Entries on the vault detail page"
+  },
+  "vaultEntriesPlaceholderSubtitle": "Add and manage credentials from the web panel for now — mobile entry management lands in the next phase.",
+  "@vaultEntriesPlaceholderSubtitle": {
+    "description": "Placeholder card body under Entries on the vault detail page"
+  },
+  "vaultAgentsPlaceholderTitle": "Agents coming soon",
+  "@vaultAgentsPlaceholderTitle": {
+    "description": "Placeholder card title under Agents on the vault detail page"
+  },
+  "vaultAgentsPlaceholderSubtitle": "Approve agent grants from the home screen — per-vault agent management is on the roadmap.",
+  "@vaultAgentsPlaceholderSubtitle": {
+    "description": "Placeholder card body under Agents on the vault detail page"
+  },
+  "vaultErrorNotFound": "This vault no longer exists.",
+  "@vaultErrorNotFound": {
+    "description": "Error shown when the backend returns 404 for a vault operation"
+  },
+  "vaultErrorForbidden": "You don't have permission to perform this action.",
+  "@vaultErrorForbidden": {
+    "description": "Error shown when the backend returns 403 without a more specific reason"
+  },
+  "vaultErrorPlanLimitReached": "You've reached the vault limit for your plan. Upgrade to create more.",
+  "@vaultErrorPlanLimitReached": {
+    "description": "Error shown when the user has hit the vault count cap for their billing plan"
+  },
+  "vaultErrorFullModeNotAllowed": "Your plan doesn't allow Full-mode vaults. Choose Granular or upgrade.",
+  "@vaultErrorFullModeNotAllowed": {
+    "description": "Error shown when the user tries to create a Full-mode vault on a plan that doesn't support it"
+  },
+  "vaultErrorUnknown": "Something went wrong. Please try again.",
+  "@vaultErrorUnknown": {
+    "description": "Generic fallback error for vault operations"
+  },
+  "vaultGrantCount": "{count, plural, =0{No grants} =1{1 grant} other{{count} grants}}",
+  "@vaultGrantCount": {
+    "description": "Vault card header right-side label: count of grants on the vault",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "vaultActiveGrantCount": "{count, plural, =0{No active grants} =1{1 active grant} other{{count} active grants}}",
+  "@vaultActiveGrantCount": {
+    "description": "Vault card footer label: number of currently active grants",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "vaultTabEntries": "Entries",
+  "@vaultTabEntries": {
+    "description": "Vault detail tab — Entries"
+  },
+  "vaultTabAgents": "Agents",
+  "@vaultTabAgents": {
+    "description": "Vault detail tab — Agents"
+  },
+  "vaultTabLogs": "Logs",
+  "@vaultTabLogs": {
+    "description": "Vault detail tab — Logs"
+  },
+  "vaultTabMembers": "Members",
+  "@vaultTabMembers": {
+    "description": "Vault detail tab — Members"
+  },
+  "vaultTabSettings": "Settings",
+  "@vaultTabSettings": {
+    "description": "Vault detail tab — Settings"
+  },
+  "vaultSearchEntries": "Search entries…",
+  "@vaultSearchEntries": {
+    "description": "Placeholder for the search input on the Entries tab"
+  },
+  "vaultSearchAgents": "Search agents…",
+  "@vaultSearchAgents": {
+    "description": "Placeholder for the search input on the Agents tab"
+  },
+  "vaultGrantFull": "Full access",
+  "@vaultGrantFull": {
+    "description": "Mode label on a grant card — full vault access"
+  },
+  "vaultGrantGranular": "Granular",
+  "@vaultGrantGranular": {
+    "description": "Mode label on a grant card — per-entry access"
+  },
+  "vaultGrantActive": "active",
+  "@vaultGrantActive": {
+    "description": "Status pill on the grant card — currently active"
+  },
+  "vaultGrantExpired": "expired",
+  "@vaultGrantExpired": {
+    "description": "Status pill on the grant card — expired"
+  },
+  "vaultGrantRevoked": "revoked",
+  "@vaultGrantRevoked": {
+    "description": "Status pill on the grant card — revoked by the vault owner"
+  },
+  "vaultGrantGrantedBy": "Granted by {person} at {date}",
+  "@vaultGrantGrantedBy": {
+    "description": "Footer line on an active / expired grant card",
+    "placeholders": {
+      "person": {"type": "String", "example": "Patryk"},
+      "date": {"type": "String", "example": "Apr 26 at 20:22 (in 6h)"}
+    }
+  },
+  "vaultGrantRevokedBy": "Revoked by {person} at {date}",
+  "@vaultGrantRevokedBy": {
+    "description": "Footer line on a revoked grant card",
+    "placeholders": {
+      "person": {"type": "String", "example": "Patryk"},
+      "date": {"type": "String", "example": "Apr 25 at 09:15 (1d ago)"}
+    }
+  },
+  "vaultGrantMoreEntries": "+{count} more",
+  "@vaultGrantMoreEntries": {
+    "description": "Trailing chip indicating extra entries hidden inside a granular grant",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "vaultRevokeButton": "Revoke",
+  "@vaultRevokeButton": {
+    "description": "Action button on an active grant card"
+  },
+  "vaultRegrantButton": "Re-grant",
+  "@vaultRegrantButton": {
+    "description": "Action button on a revoked grant card"
+  },
+  "vaultRestoreButton": "Restore",
+  "@vaultRestoreButton": {
+    "description": "Action button on an expired grant card"
+  },
+  "vaultEntriesEmpty": "No entries yet",
+  "@vaultEntriesEmpty": {
+    "description": "Empty-state title for the Entries tab when no entries exist"
+  },
+  "vaultAgentsEmpty": "No agents granted access",
+  "@vaultAgentsEmpty": {
+    "description": "Empty-state title for the Agents tab when no grants exist"
+  },
+  "vaultLogsEmpty": "Activity log coming soon",
+  "@vaultLogsEmpty": {
+    "description": "Placeholder copy on the Logs tab"
+  },
+  "vaultMembersEmpty": "Member management coming soon",
+  "@vaultMembersEmpty": {
+    "description": "Placeholder copy on the Members tab"
+  },
+  "vaultRevealEntry": "Reveal entry data",
+  "@vaultRevealEntry": {
+    "description": "Tooltip on the entry-row reveal button"
+  },
+  "vaultViewEntry": "View entry details",
+  "@vaultViewEntry": {
+    "description": "Tooltip on the entry-row arrow button"
+  },
+  "vaultCopyValue": "Copy",
+  "@vaultCopyValue": {
+    "description": "Tooltip on the copy-to-clipboard button inside a revealed entry panel"
+  },
+  "vaultOpenLink": "Open in browser",
+  "@vaultOpenLink": {
+    "description": "Tooltip on the open-in-browser button inside a revealed entry panel"
+  },
+  "vaultRevealValue": "Reveal value",
+  "@vaultRevealValue": {
+    "description": "Tooltip on the visibility-toggle button next to a masked value"
+  },
+  "vaultSaveAction": "Save",
+  "@vaultSaveAction": {
+    "description": "AppBar action label on the vault settings tab"
+  },
+  "vaultAddEntryFab": "Add entry",
+  "@vaultAddEntryFab": {
+    "description": "Tooltip / accessibility label for the FAB on the Entries tab"
+  },
+  "vaultAddGrantFab": "Add grant",
+  "@vaultAddGrantFab": {
+    "description": "Tooltip / accessibility label for the FAB on the Agents tab"
+  },
+  "vaultIconUpload": "Upload custom icon",
+  "@vaultIconUpload": {
+    "description": "Tooltip for the upload-custom-icon button in the icon picker"
+  },
+  "vaultIconUploadError": "Upload failed. Please try again.",
+  "@vaultIconUploadError": {
+    "description": "Error shown when S3 icon upload fails"
+  },
+  "vaultIconUploadSizeError": "File exceeds 2 MB limit.",
+  "@vaultIconUploadSizeError": {
+    "description": "Error shown when selected file is too large"
+  },
+  "vaultIconUploadFormatError": "Unsupported format. Use PNG, JPEG or WebP.",
+  "@vaultIconUploadFormatError": {
+    "description": "Error shown when selected file has an unsupported format"
+  },
+  "vaultUpgradeToPro": "Upgrade to Pro",
+  "@vaultUpgradeToPro": {
+    "description": "Label for the Pro-upgrade FAB shown when a Basic-plan user has hit the single-vault limit"
+  },
+  "vaultUpgradeComingSoon": "Upgrade flow coming soon — you've reached the Basic plan's single-vault limit.",
+  "@vaultUpgradeComingSoon": {
+    "description": "Snackbar shown when the user taps the upgrade FAB before the billing flow ships"
+  },
+  "navHome": "Home",
+  "@navHome": {
+    "description": "Bottom nav label for the Home tab"
+  },
+  "navVaults": "Vaults",
+  "@navVaults": {
+    "description": "Bottom nav label for the Vaults tab"
+  },
+  "navAgents": "Agents",
+  "@navAgents": {
+    "description": "Bottom nav label for the Agents tab"
+  },
+  "navAudit": "Audit",
+  "@navAudit": {
+    "description": "Bottom nav label for the Audit tab"
+  },
+  "navSettings": "Settings",
+  "@navSettings": {
+    "description": "Bottom nav label for the Settings tab"
+  },
+  "vaultListTitle": "My Vaults",
+  "@vaultListTitle": {
+    "description": "Header title shown on the vault list page"
+  },
+  "vaultListSummary": "{vaultCount, plural, =1{1 vault} other{{vaultCount} vaults}} · {entryCount, plural, =0{no entries} =1{1 entry} other{{entryCount} entries}}",
+  "@vaultListSummary": {
+    "description": "Subtitle under the vault list header — count of vaults and total entries across them",
+    "placeholders": {
+      "vaultCount": {"type": "int"},
+      "entryCount": {"type": "int"}
+    }
+  },
+  "vaultSearchHint": "Search vaults…",
+  "@vaultSearchHint": {
+    "description": "Placeholder for the search input on the vault list page"
+  },
+  "vaultSearchEmpty": "No vaults match your search",
+  "@vaultSearchEmpty": {
+    "description": "Empty-state title when a search query has no matches in the vault list"
+  },
+  "settingsAccountTitle": "Account",
+  "@settingsAccountTitle": {
+    "description": "Section title in the settings drawer for account-related actions"
+  },
+  "settingsLockVault": "Lock Vault",
+  "@settingsLockVault": {
+    "description": "Settings drawer item: lock the vault but keep the user signed in"
+  },
+  "settingsLogout": "Log out",
+  "@settingsLogout": {
+    "description": "Settings drawer item: full sign-out, returns to the login screen"
+  },
+  "settingsAppVersion": "Version {version}",
+  "@settingsAppVersion": {
+    "description": "Footer text in the settings drawer showing the app version",
+    "placeholders": {
+      "version": {"type": "String", "example": "1.0.0"}
+    }
+  },
+  "settingsTooltip": "Open settings",
+  "@settingsTooltip": {
+    "description": "Accessibility / tooltip label for the settings icon button in the vault list header"
+  },
+  "premiumGateTitle": "Unlock unlimited vaults",
+  "@premiumGateTitle": {
+    "description": "Headline of the premium-gate bottom sheet shown when a Basic-plan user taps the New Vault FAB"
+  },
+  "premiumGateSubtitle": "You've reached the 1-vault limit on the free plan.",
+  "@premiumGateSubtitle": {
+    "description": "Supporting copy on the premium-gate bottom sheet"
+  },
+  "premiumGateCta": "Upgrade to Pro",
+  "@premiumGateCta": {
+    "description": "Primary CTA on the premium-gate bottom sheet"
+  },
+  "premiumGateDismiss": "Maybe later",
+  "@premiumGateDismiss": {
+    "description": "Secondary / dismiss button on the premium-gate bottom sheet"
+  },
+  "settingsThemeToggle": "Dark mode",
+  "@settingsThemeToggle": {
+    "description": "Settings drawer row label for the dark/light theme toggle"
+  },
+  "settingsLanguage": "Language",
+  "@settingsLanguage": {
+    "description": "Settings drawer row label for the EN/PL language selector"
+  },
+  "settingsPlanPro": "Pro",
+  "@settingsPlanPro": {
+    "description": "Plan badge in the settings drawer header for users with the premium permission bit set"
+  },
+  "settingsPlanFree": "Free",
+  "@settingsPlanFree": {
+    "description": "Plan label in the settings drawer header for users on the free plan"
+  },
+  "settingsDefaultDisplayName": "User",
+  "@settingsDefaultDisplayName": {
+    "description": "Fallback display name shown in the settings drawer header when the user's email is missing or empty"
+  },
+  "placeholderComingSoon": "Coming soon",
+  "@placeholderComingSoon": {
+    "description": "Generic 'coming soon' label used on placeholder pages for tabs not yet implemented"
+  },
+  "placeholderAuditTitle": "Audit Log",
+  "@placeholderAuditTitle": {
+    "description": "Page title for the Audit placeholder page — distinct from the bottom-nav 'Audit' label so the page reads as a full screen heading"
   }
 }

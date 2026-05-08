@@ -18,6 +18,13 @@ import '../../features/recovery/presentation/cubit/recovery_cubit.dart';
 import '../../features/unlock/data/datasources/account_remote_datasource.dart';
 import '../../features/unlock/data/services/unlock_crypto_service.dart';
 import '../../features/unlock/presentation/cubit/unlock_cubit.dart';
+import '../../features/vault/data/datasources/vault_remote_datasource.dart';
+import '../../features/vault/data/repositories/vault_repository_impl.dart';
+import '../../features/vault/data/services/vault_crypto_service.dart';
+import '../../features/vault/domain/repositories/vault_repository.dart';
+import '../../features/vault/presentation/cubit/create_vault_cubit.dart';
+import '../../features/vault/presentation/cubit/vault_detail_cubit.dart';
+import '../../features/vault/presentation/cubit/vault_list_cubit.dart';
 import '../network/api_client.dart';
 import '../storage/secure_token_storage.dart';
 
@@ -119,6 +126,32 @@ void configureDependencies(EnvConfig config) {
     () => RecoveryCubit(
       datasource: getIt<RecoveryRemoteDatasource>(),
       cryptoService: getIt<RecoveryCryptoService>(),
+    ),
+  );
+
+  // Vault — data layer
+  getIt.registerLazySingleton<VaultCryptoService>(
+    () => VaultCryptoService(),
+  );
+  getIt.registerLazySingleton<VaultRemoteDatasource>(
+    () => VaultRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<VaultRepository>(
+    () => VaultRepositoryImpl(getIt<VaultRemoteDatasource>()),
+  );
+
+  // Vault — presentation layer (factory: fresh cubit per page mount so
+  // stale loading / error state never leaks across navigations)
+  getIt.registerFactory<VaultListCubit>(
+    () => VaultListCubit(repository: getIt<VaultRepository>()),
+  );
+  getIt.registerFactory<VaultDetailCubit>(
+    () => VaultDetailCubit(repository: getIt<VaultRepository>()),
+  );
+  getIt.registerFactory<CreateVaultCubit>(
+    () => CreateVaultCubit(
+      repository: getIt<VaultRepository>(),
+      cryptoService: getIt<VaultCryptoService>(),
     ),
   );
 }

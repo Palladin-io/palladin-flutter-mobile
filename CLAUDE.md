@@ -2,6 +2,21 @@
 
 Flutter mobile app for managing vaults, approving agent grants, and biometric unlock. Zero-knowledge architecture — all encryption/decryption happens on-device.
 
+## Project Brain
+
+Wiedza biznesowa i architektoniczna projektu: `../docs/obsidian/claw-vault/`
+
+Kluczowe noty dla tego repozytorium:
+- `Technical/Mobile.md` — stack, flavory, BLoC, AppColors, i18n, konwencje
+- `Technical/Analytics Conventions.md` — PostHog, format zdarzeń `mb:{module}:{event}`
+- `Technical/Security Model.md` — zero-knowledge, szyfrowanie on-device
+- `Product/Modules/Vault/` — Vault module: reguły, API, onboarding flow
+- `Product/Modules/Notification/Business Rules.md` — FCM/APNs, push tokens
+
+Użyj `/brain` żeby nawigować po brain lub: `grep -r "SŁOWO" ../docs/obsidian/claw-vault --include="*.md"`
+
+**Po sesji która zmienia funkcjonalność, reguły biznesowe lub architekturę: zaktualizuj odpowiednią notę w brain.**
+
 Repository: [Flamingo-Co/claw-vault-flutter-mobile](https://github.com/Flamingo-Co/claw-vault-flutter-mobile)
 
 ## Build & Run
@@ -101,9 +116,22 @@ lib/
 
 **Key naming:** `feature_action` or `feature_section_label` (snake_case, no dots — ARB keys are camelCase in Dart output).
 
+## Shared Components — nie duplikuj kodu
+
+Przed napisaniem nowego widgetu sprawdź czy coś podobnego już istnieje:
+
+| Komponent | Lokalizacja | Zastosowanie |
+|-----------|-------------|--------------|
+| `OnboardingTextField` | `lib/features/onboarding/presentation/widgets/onboarding_text_field.dart` | Pola formularzy z labelem, borderem i animated feedback slotem (auth, onboarding, vault settings) |
+| `AppSearchField` | `lib/core/widgets/app_search_field.dart` | Pola wyszukiwania z opcjonalną ikoną filtrów (`tune`) |
+| `AppBottomNav` | `lib/features/shell/presentation/widgets/app_bottom_nav.dart` | Bottom navigation bar — używaj we wszystkich stronach które mają nav |
+| `FieldFeedbackSlot` | razem z `OnboardingTextField` | Animowany slot na komunikaty walidacji poniżej inputa |
+
+**Zasada:** nie kopiuj kodu widgetów inline — jeśli ten sam pattern pojawia się dwa razy, wyciągnij go do `lib/core/widgets/` i użyj wszędzie. Duplikacja stylu inputów, przycisków lub kart jest błędem.
+
 ## Theming & Colors
 
-**Theme mode:** Always `ThemeMode.dark` — the app always runs in dark mode, regardless of the system setting. Do not change this to `ThemeMode.system` without explicit approval.
+**Theme mode:** The app supports both light and dark mode. Default is dark. User can change it in settings — preference is persisted. Never hardcode `ThemeMode.dark` permanently; use the stored user preference.
 
 **Color palette:** All colors must be defined in `lib/core/theme/app_colors.dart` (`AppColors` class). Never use inline color literals elsewhere in the codebase — always reference `AppColors.*`.
 
@@ -115,6 +143,43 @@ lib/
 | `AppColors.lightSurface` | `#EEEAD4` | Light elevated surfaces |
 | `AppColors.brandRed` | `#FF4F4F` | "Vault" wordmark, errors, primary buttons |
 | `AppColors.tealAccent` | `#48ECDF` | Primary interactive, loaders |
+| `AppColors.onBrandRed` | `#FFFFFF` | Text/icons on brandRed backgrounds (`onPrimary`, `foregroundColor`) |
+
+**Common violations to avoid:**
+- `Colors.white` — use `AppColors.onBrandRed`
+- `Colors.white.withValues(alpha: x)` — add a named constant to `AppColors`
+- `Color(0xFFxxxxxx)` — always add to `AppColors` with a descriptive name
+- `onPrimary: Colors.white` in `ThemeData` — use `AppColors.onBrandRed`
+
+## Error Handling
+
+### Typed error enums in the service layer
+Service-layer errors must use typed enums — not plain `Exception` with a hardcoded English string:
+
+```dart
+enum VaultIconUploadErrorKind { networkError, serverError, fileTooLarge }
+
+class VaultIconUploadException implements Exception {
+  final VaultIconUploadErrorKind kind;
+  const VaultIconUploadException(this.kind);
+}
+```
+
+Translate the enum to user-facing text **at the presentation layer** (where `BuildContext` is available), never inside the service or repository. This pattern is already established for auth errors (`AuthServerErrorKind`).
+
+### Security-sensitive cleanup
+When holding a copy of a sensitive value (private key bytes, decrypted payload) use `try/finally` to zero it out:
+
+```dart
+final keyCopy = Uint8List.fromList(privateKey);
+try {
+  // use keyCopy
+} finally {
+  keyCopy.fillRange(0, keyCopy.length, 0); // zero-out before GC
+}
+```
+
+This applies to any crypto operation in `data/services/`. Do not return early from a function that holds a key copy without zeroing in the finally block.
 
 ## Analytics (PostHog)
 
