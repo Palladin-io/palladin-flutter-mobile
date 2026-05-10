@@ -46,7 +46,7 @@ class VaultModel {
       description: json['description'] as String?,
       icon: json['icon'] as String?,
       color: json['color'] as String?,
-      grantMode: json['grantMode'] as int,
+      grantMode: (json['grantMode'] as int?) ?? 1,
       createdAt: json['createdAt'] as String,
       updatedAt: json['updatedAt'] as String,
       entryCount: (json['entryCount'] as int?) ?? 0,
