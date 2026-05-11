@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../models/create_entry_request.dart';
 import '../models/entry_model.dart';
+import 'vault_remote_datasource.dart' show PresignResponse;
 
 /// Remote data source for the per-vault entry endpoints.
 ///
@@ -54,8 +55,11 @@ class EntryRemoteDatasource {
     return EntryDetailModel.fromJson(data);
   }
 
-  /// `POST /api/vaults/{vaultId}/entries` → 201 Created with the entry
-  /// summary payload (no blob — the caller already has the plaintext).
+  /// `POST /api/vaults/{vaultId}/entries` → 201 Created.
+  ///
+  /// The backend returns only `{"id": "..."}`. The full [EntryModel] is
+  /// built locally from [request] + the returned ID so downstream code
+  /// never has to re-fetch after create.
   Future<EntryModel> createEntry(
     String vaultId,
     CreateEntryRequest request,
@@ -73,11 +77,63 @@ class EntryRemoteDatasource {
         error: 'Empty response body',
       );
     }
-    return EntryModel.fromJson(data);
+    final id = data['id'] as String;
+    final now = DateTime.now().toUtc().toIso8601String();
+    return EntryModel(
+      id: id,
+      vaultId: vaultId,
+      label: request.label,
+      description: request.description,
+      icon: request.icon,
+      type: request.type,
+      urlDomain: request.urlDomain,
+      createdAt: now,
+      updatedAt: now,
+      accessCount: 0,
+    );
   }
 
   /// `DELETE /api/vaults/{vaultId}/entries/{entryId}` → 204 No Content.
   Future<void> deleteEntry(String vaultId, String entryId) async {
     await _dio.delete<void>('/api/vaults/$vaultId/entries/$entryId');
+  }
+
+  /// `POST /api/vaults/{vaultId}/entries/{entryId}/icon/presign` →
+  /// presigned S3 upload URL for an entry icon.
+  Future<PresignResponse> presignEntryIcon(
+    String vaultId,
+    String entryId,
+    String extension,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries/$entryId/icon/presign',
+      data: {'vaultId': vaultId, 'entryId': entryId, 'extension': extension},
+    );
+    final data = response.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Empty response body',
+      );
+    }
+    return PresignResponse(
+      uploadUrl: data['uploadUrl'] as String,
+      publicUrl: data['publicUrl'] as String,
+    );
+  }
+
+  /// `PUT /api/vaults/{vaultId}/entries/{entryId}` — updates only the
+  /// icon field (patch semantics on the backend).
+  Future<void> updateEntryIcon(
+    String vaultId,
+    String entryId,
+    String iconUrl,
+  ) async {
+    await _dio.put<void>(
+      '/api/vaults/$vaultId/entries/$entryId',
+      data: {'vaultId': vaultId, 'entryId': entryId, 'icon': iconUrl},
+    );
   }
 }

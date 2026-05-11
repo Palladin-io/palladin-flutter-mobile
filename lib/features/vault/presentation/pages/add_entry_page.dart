@@ -1,35 +1,38 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
+import '../../data/datasources/entry_remote_datasource.dart';
+import '../../data/services/entry_icon_upload_service.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../cubit/create_entry_cubit.dart';
+import '../widgets/entry_icon_picker.dart';
+import '../widgets/vault_color_picker.dart';
+import '../widgets/vault_visuals.dart';
 
 /// Full-screen Add Entry form.
 ///
-/// Houses both the **Key** and **Credential** variants — the entry type
-/// is selected via a dropdown at the top of the form, which swaps the
-/// secret-input cluster between a single value field (Key) and a
-/// username/password/url trio (Credential). Notes are always shown.
+/// Field order mirrors the web panel Create Entry form:
+/// Label → Description → Icon → Color → Type → Type-specific fields →
+/// Notes → Encryption notice → Save button.
 ///
-/// On submit the form trims every input, builds the payload map,
-/// forwards it to [CreateEntryCubit] (which encrypts it on-device and
-/// POSTs the ciphertext + nonce), and pops the page returning the new
-/// [EntryEntity] so the caller can insert it into the entries list.
+/// Custom icon upload follows the two-step pattern: the entry is created
+/// first (with a preset icon name so the server gets a valid entry ID),
+/// then the image is uploaded to S3 and the entry is patched.
 class AddEntryPage extends StatelessWidget {
   const AddEntryPage({super.key, required this.vaultId});
 
   final String vaultId;
 
-  /// Pushes the page on the root navigator and returns the created
-  /// entry, or `null` when the user cancels.
   static Future<EntryEntity?> push(
     BuildContext context, {
     required String vaultId,
@@ -67,6 +70,12 @@ class _AddEntryViewState extends State<_AddEntryView> {
   final _notesController = TextEditingController();
 
   EntryType _type = EntryType.credential;
+  String _icon = EntryVisuals.defaultIconName;
+  String _color = EntryVisuals.defaultColorHex;
+  XFile? _pendingIconFile;
+  bool _pickingIcon = false;
+  bool _uploadingIcon = false;
+
   bool _valueObscured = true;
   bool _passwordObscured = true;
 
@@ -91,10 +100,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
     };
   }
 
-  /// Extracts a host (`stripe.com`) from a free-form URL field. Falls
-  /// back to the trimmed input if it isn't a parseable absolute URL —
-  /// the backend stores `urlDomain` purely as a meta hint, not for
-  /// authentication, so a best-effort extraction is fine.
   String? _extractDomain(String raw) {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return null;
@@ -102,9 +107,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
       final uri = Uri.parse(trimmed);
       if (uri.hasAuthority && uri.host.isNotEmpty) return uri.host;
     } on FormatException {
-      // Fall through to the heuristic below.
+      // fall through
     }
-    // Strip protocol and path manually for inputs like "stripe.com/api".
     final withoutScheme =
         trimmed.replaceFirst(RegExp(r'^[a-zA-Z][a-zA-Z0-9+\-.]*://'), '');
     final firstSegment = withoutScheme.split('/').first;
@@ -129,6 +133,26 @@ class _AddEntryViewState extends State<_AddEntryView> {
     };
   }
 
+  Future<void> _pickCustomIcon() async {
+    if (_pickingIcon || _uploadingIcon) return;
+    setState(() => _pickingIcon = true);
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+      if (file == null || !mounted) return;
+      setState(() {
+        _pendingIconFile = file;
+        _icon = 'file://${file.path}';
+      });
+    } finally {
+      if (mounted) setState(() => _pickingIcon = false);
+    }
+  }
+
   Future<void> _submit() async {
     final auth = context.read<AuthBloc>().state;
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
@@ -140,20 +164,19 @@ class _AddEntryViewState extends State<_AddEntryView> {
       return;
     }
 
-    // Defensive copy of the unlocked private key so the cubit can mutate
-    // it without touching the auth bloc's state. We zero `keyCopy` in
-    // `finally` — the crypto service already disposes its `SecureKey`,
-    // but the raw `Uint8List` we hand it would otherwise linger on the
-    // heap with the secret key material.
     final keyCopy = Uint8List.fromList(auth.privateKey!);
     final urlDomain = _type == EntryType.credential
         ? _extractDomain(_urlController.text)
         : null;
+    // Send null icon when a custom file is pending — the preset icon will
+    // be replaced by the S3 URL after the two-step upload.
+    final iconForApi = _pendingIconFile != null ? null : _icon;
     try {
       await context.read<CreateEntryCubit>().createEntry(
             vaultId: widget.vaultId,
             label: _labelController.text,
             description: _descriptionController.text,
+            icon: iconForApi,
             type: _type,
             payload: _buildPayload(),
             urlDomain: urlDomain,
@@ -162,23 +185,50 @@ class _AddEntryViewState extends State<_AddEntryView> {
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
     }
+
+    if (!mounted) return;
+    final cubitState = context.read<CreateEntryCubit>().state;
+    if (cubitState is! CreateEntrySuccess) return;
+
+    var entry = cubitState.entry;
+    if (_pendingIconFile != null) {
+      setState(() => _uploadingIcon = true);
+      try {
+        final service = EntryIconUploadService(getIt<EntryRemoteDatasource>());
+        final url = await service.uploadIcon(
+          widget.vaultId,
+          entry.id,
+          File(_pendingIconFile!.path),
+        );
+        entry = entry.copyWith(icon: url);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(SnackBar(
+              content:
+                  Text(AppLocalizations.of(context)!.vaultIconUploadError),
+            ));
+        }
+      } finally {
+        if (mounted) setState(() => _uploadingIcon = false);
+      }
+    }
+
+    if (mounted) Navigator.of(context).pop(entry);
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+    final accentColor = VaultVisuals.colorFor(_color);
 
-    return BlocConsumer<CreateEntryCubit, CreateEntryState>(
-      listenWhen: (previous, current) => current is CreateEntrySuccess,
-      listener: (context, state) {
-        if (state is CreateEntrySuccess) {
-          Navigator.of(context).pop(state.entry);
-        }
-      },
+    return BlocBuilder<CreateEntryCubit, CreateEntryState>(
       builder: (context, state) {
-        final isLoading = state is CreateEntryLoading;
-        final canSubmit = !isLoading && _canSubmit;
+        final isLoading = state is CreateEntryLoading || _uploadingIcon;
+        final isBusy = isLoading || _pickingIcon;
+        final canSubmit = !isBusy && _canSubmit;
 
         return Container(
           decoration: BoxDecoration(
@@ -195,9 +245,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                   IconThemeData(color: AppColors.onSurface(brightness)),
               leading: IconButton(
                 icon: const Icon(Icons.close, size: 22),
-                onPressed: isLoading
-                    ? null
-                    : () => Navigator.of(context).pop(),
+                onPressed: isBusy ? null : () => Navigator.of(context).pop(),
                 tooltip: l10n.vaultCancel,
               ),
               title: Text(
@@ -208,22 +256,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: canSubmit ? _submit : null,
-                  child: Text(
-                    isLoading ? l10n.entrySaving : l10n.entrySaveAction,
-                    style: TextStyle(
-                      color: canSubmit
-                          ? AppColors.brandRed
-                          : AppColors.onSurfaceMuted(brightness),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
             ),
             body: SafeArea(
               top: false,
@@ -232,6 +264,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // 1. Label
                     OnboardingTextField(
                       label: l10n.entryLabelLabel,
                       hintText: l10n.entryLabelHint,
@@ -241,6 +274,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       onChanged: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 16),
+                    // 2. Description
                     OnboardingTextField(
                       label: l10n.entryDescriptionLabel,
                       controller: _descriptionController,
@@ -248,6 +282,51 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 16),
+                    // 3. Icon picker
+                    Text(
+                      l10n.vaultIconLabel,
+                      style: TextStyle(
+                        color: AppColors.onSurfaceSubtle(brightness),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    EntryIconPicker(
+                      selected: _icon,
+                      accentColor: accentColor,
+                      onSelected: (name) => setState(() {
+                        _icon = name;
+                        _pendingIconFile = null;
+                      }),
+                      onPickCustom:
+                          isBusy ? null : _pickCustomIcon,
+                    ),
+                    if (_pickingIcon || _uploadingIcon)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: LinearProgressIndicator(
+                          color: AppColors.brandRed,
+                          backgroundColor: AppColors.hairline,
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    // 4. Color picker
+                    Text(
+                      l10n.vaultColorLabel,
+                      style: TextStyle(
+                        color: AppColors.onSurfaceSubtle(brightness),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    VaultColorPicker(
+                      selected: _color,
+                      onSelected: (hex) => setState(() => _color = hex),
+                    ),
+                    const SizedBox(height: 16),
+                    // 5. Type dropdown
                     _EntryTypeDropdown(
                       value: _type,
                       onChanged: (next) {
@@ -257,6 +336,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       l10n: l10n,
                     ),
                     const SizedBox(height: 16),
+                    // 6. Type-specific fields
                     if (_type == EntryType.key)
                       OnboardingTextField(
                         label: l10n.entryValueLabel,
@@ -300,12 +380,14 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       ),
                     ],
                     const SizedBox(height: 16),
+                    // 7. Notes
                     _NotesField(
                       controller: _notesController,
                       label: l10n.entryNotesLabel,
                       brightness: brightness,
                     ),
                     const SizedBox(height: 20),
+                    // 8. Encryption notice
                     _EncryptionNotice(message: l10n.entryEncryptionNotice),
                     if (state is CreateEntryError) ...[
                       const SizedBox(height: 12),
@@ -318,6 +400,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       ),
                     ],
                     const SizedBox(height: 20),
+                    // 9. Save button
                     SizedBox(
                       height: 52,
                       child: ElevatedButton(

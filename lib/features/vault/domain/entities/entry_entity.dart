@@ -84,6 +84,20 @@ class EntryEntity {
 
   /// Total number of reveals server-side.
   final int accessCount;
+
+  EntryEntity copyWith({String? icon}) => EntryEntity(
+        id: id,
+        vaultId: vaultId,
+        label: label,
+        description: description,
+        icon: icon ?? this.icon,
+        type: type,
+        urlDomain: urlDomain,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+        lastAccessedAt: lastAccessedAt,
+        accessCount: accessCount,
+      );
 }
 
 /// Plaintext payload shape for a `KEY` entry. Lives only in memory
