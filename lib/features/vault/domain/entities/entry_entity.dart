@@ -103,21 +103,26 @@ class EntryEntity {
 /// Plaintext payload shape for a `KEY` entry. Lives only in memory
 /// after decryption — never persisted in plaintext.
 class KeyPayload {
-  const KeyPayload({required this.value, this.notes});
+  const KeyPayload({required this.value, this.url, this.notes});
 
   /// The secret itself (token, API key, …).
   final String value;
+
+  /// Optional associated URL (documentation link, service URL, …).
+  final String? url;
 
   final String? notes;
 
   Map<String, dynamic> toJson() => {
         'type': 'KEY',
         'value': value,
+        if (url != null) 'url': url,
         if (notes != null) 'notes': notes,
       };
 
   factory KeyPayload.fromJson(Map<String, dynamic> json) => KeyPayload(
         value: (json['value'] as String?) ?? '',
+        url: json['url'] as String?,
         notes: json['notes'] as String?,
       );
 }

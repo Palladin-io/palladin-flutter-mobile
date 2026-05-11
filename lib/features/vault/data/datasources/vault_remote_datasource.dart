@@ -80,13 +80,13 @@ class VaultRemoteDatasource {
     await _dio.delete<void>('/api/vaults/$id');
   }
 
-  /// `GET /api/vaults/{id}/key` → base64-encoded sealed VK for the
-  /// current member. Returned as a separate endpoint (rather than
-  /// piggybacking on `getVault`) so the wrappedVK never leaks into list
-  /// or summary responses.
+  /// `GET /api/vaults/{id}` → extracts the `wrappedVK` field for the
+  /// current member from the vault detail response. The field is included
+  /// in the single-vault endpoint but excluded from the list endpoint so
+  /// it never leaks into summary responses.
   Future<String> getVaultWrappedKey(String vaultId) async {
     final response = await _dio.get<Map<String, dynamic>>(
-      '/api/vaults/$vaultId/key',
+      '/api/vaults/$vaultId',
     );
     final data = response.data;
     if (data == null || data['wrappedVK'] is! String) {
@@ -94,7 +94,7 @@ class VaultRemoteDatasource {
         requestOptions: response.requestOptions,
         response: response,
         type: DioExceptionType.badResponse,
-        error: 'Empty or malformed key response body',
+        error: 'Empty or malformed vault response — wrappedVK missing',
       );
     }
     return data['wrappedVK'] as String;

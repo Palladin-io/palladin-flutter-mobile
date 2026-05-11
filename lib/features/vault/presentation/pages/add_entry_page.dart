@@ -117,17 +117,19 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
   Map<String, dynamic> _buildPayload() {
     final notes = _notesController.text.trim();
+    final url = _urlController.text.trim().isEmpty
+        ? null
+        : _urlController.text.trim();
     return switch (_type) {
       EntryType.key => KeyPayload(
           value: _valueController.text.trim(),
+          url: url,
           notes: notes.isEmpty ? null : notes,
         ).toJson(),
       EntryType.credential => CredentialPayload(
           username: _usernameController.text.trim(),
           password: _passwordController.text.trim(),
-          url: _urlController.text.trim().isEmpty
-              ? null
-              : _urlController.text.trim(),
+          url: url,
           notes: notes.isEmpty ? null : notes,
         ).toJson(),
     };
@@ -165,9 +167,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
     }
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
-    final urlDomain = _type == EntryType.credential
-        ? _extractDomain(_urlController.text)
-        : null;
+    final urlDomain = _extractDomain(_urlController.text);
     // Send null icon when a custom file is pending — the preset icon will
     // be replaced by the S3 URL after the two-step upload.
     final iconForApi = _pendingIconFile != null ? null : _icon;
@@ -299,17 +299,11 @@ class _AddEntryViewState extends State<_AddEntryView> {
                         _icon = name;
                         _pendingIconFile = null;
                       }),
-                      onPickCustom:
-                          isBusy ? null : _pickCustomIcon,
+                      onPickCustom: (_pickingIcon || _uploadingIcon)
+                          ? null
+                          : _pickCustomIcon,
+                      isLoadingCustom: _pickingIcon || _uploadingIcon,
                     ),
-                    if (_pickingIcon || _uploadingIcon)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8),
-                        child: LinearProgressIndicator(
-                          color: AppColors.brandRed,
-                          backgroundColor: AppColors.hairline,
-                        ),
-                      ),
                     const SizedBox(height: 16),
                     // 4. Color picker
                     Text(
@@ -337,7 +331,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                     ),
                     const SizedBox(height: 16),
                     // 6. Type-specific fields
-                    if (_type == EntryType.key)
+                    if (_type == EntryType.key) ...[
                       OnboardingTextField(
                         label: l10n.entryValueLabel,
                         controller: _valueController,
@@ -350,8 +344,14 @@ class _AddEntryViewState extends State<_AddEntryView> {
                             () => _valueObscured = !_valueObscured,
                           ),
                         ),
-                      )
-                    else ...[
+                      ),
+                      const SizedBox(height: 16),
+                      OnboardingTextField(
+                        label: l10n.entryUrlLabel,
+                        controller: _urlController,
+                        textInputAction: TextInputAction.next,
+                      ),
+                    ] else ...[
                       OnboardingTextField(
                         label: l10n.entryUsernameLabel,
                         controller: _usernameController,
