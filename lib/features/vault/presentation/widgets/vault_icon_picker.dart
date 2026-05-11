@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -134,6 +136,28 @@ class _UploadCircle extends StatelessWidget {
 
   bool get _hasImage => imageUrl != null;
 
+  Widget _buildPreview(Color fallbackColor) {
+    if (imageUrl == null) return const SizedBox.shrink();
+    if (imageUrl!.startsWith('file://')) {
+      return Image.file(
+        File(imageUrl!.substring(7)),
+        width: 36,
+        height: 36,
+        fit: BoxFit.cover,
+        errorBuilder: (ctx, e, s) =>
+            Icon(Icons.file_upload_outlined, size: 16, color: fallbackColor),
+      );
+    }
+    return Image.network(
+      imageUrl!,
+      width: 36,
+      height: 36,
+      fit: BoxFit.cover,
+      errorBuilder: (ctx, e, _) =>
+          Icon(Icons.file_upload_outlined, size: 16, color: fallbackColor),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -155,19 +179,7 @@ class _UploadCircle extends StatelessWidget {
             ),
           ),
           child: _hasImage
-              ? ClipOval(
-                  child: Image.network(
-                    imageUrl!,
-                    width: 36,
-                    height: 36,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stack) => Icon(
-                      Icons.file_upload_outlined,
-                      size: 16,
-                      color: color,
-                    ),
-                  ),
-                )
+              ? ClipOval(child: _buildPreview(color))
               : Icon(
                   Icons.file_upload_outlined,
                   size: 16,

@@ -73,4 +73,20 @@ class VaultEntity {
   /// Number of org members that have access to the vault — currently
   /// always 1 for personal vaults.
   final int memberCount;
+
+  VaultEntity copyWith({String? icon}) {
+    return VaultEntity(
+      id: id,
+      name: name,
+      description: description,
+      icon: icon ?? this.icon,
+      color: color,
+      grantMode: grantMode,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      entryCount: entryCount,
+      activeGrantCount: activeGrantCount,
+      memberCount: memberCount,
+    );
+  }
 }
