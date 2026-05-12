@@ -146,9 +146,10 @@ void configureDependencies(EnvConfig config) {
     () => VaultRepositoryImpl(getIt<VaultRemoteDatasource>()),
   );
 
-  // Vault — presentation layer (factory: fresh cubit per page mount so
-  // stale loading / error state never leaks across navigations)
-  getIt.registerFactory<VaultListCubit>(
+  // VaultListCubit is a singleton so cached vault data survives tab
+  // switches. Use BlocProvider.value (never BlocProvider) to avoid
+  // automatic close() on widget disposal.
+  getIt.registerLazySingleton<VaultListCubit>(
     () => VaultListCubit(repository: getIt<VaultRepository>()),
   );
   getIt.registerFactory<VaultDetailCubit>(
@@ -177,11 +178,17 @@ void configureDependencies(EnvConfig config) {
   );
 
   // Entry — presentation layer (factory: fresh cubit per page mount so
-  // stale loading / reveal state never leaks across vaults)
-  getIt.registerFactoryParam<EntryListCubit, String, void>(
-    (vaultId, _) => EntryListCubit(
+  // stale loading / reveal state never leaks across vaults).
+  //
+  // `param2` is the optional base64 sealed VK threaded down from the
+  // vault detail load — when provided, [revealEntry] skips the extra
+  // `GET /api/vaults/{id}` round-trip. Pass `null` and call
+  // `cubit.updateWrappedVK(...)` once the vault loads to wire it in.
+  getIt.registerFactoryParam<EntryListCubit, String, String?>(
+    (vaultId, wrappedVK) => EntryListCubit(
       repository: getIt<EntryRepository>(),
       vaultId: vaultId,
+      wrappedVK: wrappedVK,
     ),
   );
   getIt.registerFactory<CreateEntryCubit>(

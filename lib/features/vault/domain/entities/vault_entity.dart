@@ -38,6 +38,7 @@ class VaultEntity {
     required this.entryCount,
     required this.activeGrantCount,
     required this.memberCount,
+    this.wrappedVK,
   });
 
   /// Stable, server-issued identifier.
@@ -74,6 +75,16 @@ class VaultEntity {
   /// always 1 for personal vaults.
   final int memberCount;
 
+  /// Sealed Vault Key wrapped to the owner's public key — base64 string
+  /// matching the backend's `byte[]?` wire shape.
+  ///
+  /// Threaded through from `GET /api/vaults/{id}` so entry create /
+  /// reveal flows can decrypt without an extra round-trip. Always `null`
+  /// on entries returned from the list endpoint (the list payload omits
+  /// `wrappedVK`); presentation code must fall back to a fetch when the
+  /// vault was first surfaced via the list.
+  final String? wrappedVK;
+
   VaultEntity copyWith({String? icon}) {
     return VaultEntity(
       id: id,
@@ -87,6 +98,7 @@ class VaultEntity {
       entryCount: entryCount,
       activeGrantCount: activeGrantCount,
       memberCount: memberCount,
+      wrappedVK: wrappedVK,
     );
   }
 }

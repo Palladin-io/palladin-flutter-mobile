@@ -26,11 +26,32 @@ export 'entry_list_state.dart';
 /// [EntryErrorKind]. The plaintext VK never lives on the cubit's state —
 /// it stays inside the repository call boundary.
 class EntryListCubit extends Cubit<EntryListState> {
-  EntryListCubit({required this.repository, required this.vaultId})
-      : super(const EntryListInitial());
+  EntryListCubit({
+    required this.repository,
+    required this.vaultId,
+    String? wrappedVK,
+  })  : _wrappedVK = wrappedVK,
+        super(const EntryListInitial());
 
   final EntryRepository repository;
   final String vaultId;
+
+  /// Cached base64 sealed VK threaded down from the vault detail load.
+  ///
+  /// When present, [revealEntry] passes it to the repository so we
+  /// avoid a redundant `GET /api/vaults/{id}` round-trip. The value is
+  /// not final — the vault detail cubit may finish loading after the
+  /// entry list cubit is created (race on first open), in which case
+  /// the page wires it in via [updateWrappedVK].
+  String? _wrappedVK;
+  String? get wrappedVK => _wrappedVK;
+
+  /// Stores the base64 sealed VK so subsequent [revealEntry] calls
+  /// can skip the extra vault fetch. Called from the page once the
+  /// vault detail cubit emits [VaultDetailLoaded].
+  void updateWrappedVK(String? vk) {
+    _wrappedVK = vk;
+  }
 
   Future<void> loadEntries() async {
     AppLogger.d('Entry', 'Loading entries for vault $vaultId');
@@ -75,6 +96,7 @@ class EntryListCubit extends Cubit<EntryListState> {
         vaultId: vaultId,
         entryId: entryId,
         privateKey: privateKey,
+        wrappedVK: _wrappedVK,
       );
       // Refresh state in case it changed during the await.
       final newState = state;

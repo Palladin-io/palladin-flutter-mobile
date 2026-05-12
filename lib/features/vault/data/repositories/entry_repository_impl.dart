@@ -98,15 +98,19 @@ class EntryRepositoryImpl implements EntryRepository {
     required String vaultId,
     required String entryId,
     required Uint8List privateKey,
+    String? wrappedVK,
   }) async {
     AppLogger.d('Entry', 'Revealing entry id=$entryId');
     final detail = await _fetchDetail(vaultId, entryId);
-    final wrappedVK = await _fetchWrappedVK(vaultId);
+    // Prefer the wrappedVK threaded down from the vault detail load —
+    // falling back to a fetch keeps the call resilient when callers
+    // (tests, future flows) don't have it cached.
+    final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
 
     Uint8List? vaultKey;
     try {
       vaultKey = await cryptoService.unwrapVK(
-        wrappedVK: wrappedVK,
+        wrappedVK: vk,
         privateKey: privateKey,
       );
       final payload = await cryptoService.decryptEntry(
@@ -131,14 +135,16 @@ class EntryRepositoryImpl implements EntryRepository {
     required Map<String, dynamic> payload,
     String? urlDomain,
     required Uint8List privateKey,
+    String? wrappedVK,
   }) async {
     AppLogger.d('Entry', 'Creating encrypted entry in vault $vaultId');
-    final wrappedVK = await _fetchWrappedVK(vaultId);
+    // See [revealEntry] — same fallback contract.
+    final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
 
     Uint8List? vaultKey;
     try {
       vaultKey = await cryptoService.unwrapVK(
-        wrappedVK: wrappedVK,
+        wrappedVK: vk,
         privateKey: privateKey,
       );
       final encrypted = await cryptoService.encryptEntry(

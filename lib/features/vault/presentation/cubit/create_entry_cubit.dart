@@ -44,6 +44,7 @@ class CreateEntryCubit extends Cubit<CreateEntryState> {
     required Map<String, dynamic> payload,
     String? urlDomain,
     required Uint8List privateKey,
+    String? wrappedVK,
   }) async {
     if (label.trim().isEmpty || privateKey.isEmpty) {
       AppLogger.w('Entry', 'createEntry called with invalid input');
@@ -63,6 +64,7 @@ class CreateEntryCubit extends Cubit<CreateEntryState> {
         payload: payload,
         urlDomain: _trimToNull(urlDomain),
         privateKey: privateKey,
+        wrappedVK: wrappedVK,
       );
       AppLogger.i('Entry', 'Entry created: id=${entry.id}');
       emit(CreateEntrySuccess(entry));

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
+import '../cubit/vault_list_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/fab_registrar.dart';
@@ -44,9 +45,23 @@ class VaultDetailPage extends StatelessWidget {
         // datasource calls hit the right route. Loading is kicked off
         // on creation so the Entries tab has data ready when first
         // rendered.
+        //
+        // We also seed the cubit with the vault's `wrappedVK` if the
+        // detail cubit is already in [VaultDetailLoaded] (e.g. user
+        // navigated back to the same vault). When the vault hasn't
+        // loaded yet, the page wires the value in via a BlocListener
+        // once it becomes available — see [_VaultDetailViewState.build].
         BlocProvider<EntryListCubit>(
-          create: (_) =>
-              getIt<EntryListCubit>(param1: vaultId)..loadEntries(),
+          create: (ctx) {
+            final detailState = ctx.read<VaultDetailCubit>().state;
+            final wrappedVK = detailState is VaultDetailLoaded
+                ? detailState.vault.wrappedVK
+                : null;
+            return getIt<EntryListCubit>(
+              param1: vaultId,
+              param2: wrappedVK,
+            )..loadEntries();
+          },
         ),
       ],
       child: _VaultDetailView(vaultId: vaultId),
@@ -113,14 +128,28 @@ class _VaultDetailViewState extends State<_VaultDetailView>
   }
 
   Future<void> _onFabPressed() async {
+    if (!mounted) return;
     if (_tabController.index != _VaultTab.entries.index) {
       // Grants flow ships in a separate ticket — no-op for now.
       return;
     }
-    final created = await AddEntryPage.push(context, vaultId: widget.vaultId);
+    // Capture the cubit before the async gap so no context access is needed
+    // after the await — the widget may be gone by the time push() returns.
+    final entryListCubit = context.read<EntryListCubit>();
+    // Thread the cached wrappedVK from the vault detail cubit so the
+    // create-entry pipeline can skip the redundant `GET /api/vaults/{id}`.
+    final detailState = context.read<VaultDetailCubit>().state;
+    final wrappedVK = detailState is VaultDetailLoaded
+        ? detailState.vault.wrappedVK
+        : null;
+    final created = await AddEntryPage.push(
+      context,
+      vaultId: widget.vaultId,
+      wrappedVK: wrappedVK,
+    );
     if (!mounted) return;
     if (created is EntryEntity) {
-      await context.read<EntryListCubit>().appendEntry(created);
+      await entryListCubit.appendEntry(created);
     }
   }
 
@@ -235,8 +264,13 @@ class _VaultDetailViewState extends State<_VaultDetailView>
       listener: (context, state) {
         if (state is VaultDetailLoaded) {
           _syncFormFromVault(state.vault, l10n);
+          // Forward the freshly-loaded wrappedVK so subsequent reveal
+          // calls skip the second `GET /api/vaults/{id}`. Safe to call
+          // every load — reload/update preserves the latest sealed VK.
+          context.read<EntryListCubit>().updateWrappedVK(state.vault.wrappedVK);
         } else if (state is VaultDetailDeleted) {
-          context.go('/');
+          getIt<VaultListCubit>().removeVault(widget.vaultId);
+          context.go('/vaults');
         }
       },
       builder: (context, state) {
@@ -483,7 +517,7 @@ class _LoadingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(
-      child: CircularProgressIndicator(color: AppColors.tealAccent),
+      child: CircularProgressIndicator(color: AppColors.brandRed),
     );
   }
 }

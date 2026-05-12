@@ -29,16 +29,25 @@ import '../widgets/vault_visuals.dart';
 /// first (with a preset icon name so the server gets a valid entry ID),
 /// then the image is uploaded to S3 and the entry is patched.
 class AddEntryPage extends StatelessWidget {
-  const AddEntryPage({super.key, required this.vaultId});
+  const AddEntryPage({super.key, required this.vaultId, this.wrappedVK});
 
   final String vaultId;
+
+  /// Base64 sealed VK from the parent vault detail screen — when
+  /// supplied, the create-entry pipeline avoids a redundant
+  /// `GET /api/vaults/{id}` call. `null` is safe (the repository will
+  /// fetch on demand).
+  final String? wrappedVK;
 
   static Future<EntryEntity?> push(
     BuildContext context, {
     required String vaultId,
+    String? wrappedVK,
   }) {
     return Navigator.of(context, rootNavigator: true).push<EntryEntity>(
-      MaterialPageRoute(builder: (_) => AddEntryPage(vaultId: vaultId)),
+      MaterialPageRoute(
+        builder: (_) => AddEntryPage(vaultId: vaultId, wrappedVK: wrappedVK),
+      ),
     );
   }
 
@@ -46,15 +55,16 @@ class AddEntryPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider<CreateEntryCubit>(
       create: (_) => getIt<CreateEntryCubit>(),
-      child: _AddEntryView(vaultId: vaultId),
+      child: _AddEntryView(vaultId: vaultId, wrappedVK: wrappedVK),
     );
   }
 }
 
 class _AddEntryView extends StatefulWidget {
-  const _AddEntryView({required this.vaultId});
+  const _AddEntryView({required this.vaultId, this.wrappedVK});
 
   final String vaultId;
+  final String? wrappedVK;
 
   @override
   State<_AddEntryView> createState() => _AddEntryViewState();
@@ -181,6 +191,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
             payload: _buildPayload(),
             urlDomain: urlDomain,
             privateKey: keyCopy,
+            wrappedVK: widget.wrappedVK,
           );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);

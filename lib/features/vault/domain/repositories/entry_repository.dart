@@ -58,16 +58,27 @@ abstract interface class EntryRepository {
   /// [privateKey] must come from the unlocked auth state. The plaintext
   /// VK is held in memory only for the duration of this call and zeroed
   /// out before returning.
+  ///
+  /// [wrappedVK] is the base64 sealed VK (as returned by
+  /// `GET /api/vaults/{id}`). When the caller already holds it from the
+  /// vault detail load, threading it through here avoids a redundant
+  /// `GET /api/vaults/{id}` call. When `null`, the implementation
+  /// fetches it on demand.
   Future<RevealedEntry> revealEntry({
     required String vaultId,
     required String entryId,
     required Uint8List privateKey,
+    String? wrappedVK,
   });
 
   /// Encrypts [payloadJson] with the vault's VK (unwrapped from the
   /// server-stored sealed VK using [privateKey]) and persists it as a
   /// new entry. Convenience wrapper used by the Add Entry screen so the
   /// presentation layer never sees the plaintext VK.
+  ///
+  /// [wrappedVK] mirrors the same parameter on [revealEntry] — when
+  /// provided, the implementation skips the extra `GET /api/vaults/{id}`
+  /// round-trip.
   Future<EntryEntity> createEntryEncrypted({
     required String vaultId,
     required String label,
@@ -77,5 +88,6 @@ abstract interface class EntryRepository {
     required Map<String, dynamic> payload,
     String? urlDomain,
     required Uint8List privateKey,
+    String? wrappedVK,
   });
 }
