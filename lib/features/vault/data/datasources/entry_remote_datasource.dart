@@ -32,9 +32,14 @@ class EntryRemoteDatasource {
         error: 'Empty response body',
       );
     }
-    final raw = (data['entries'] as List<dynamic>? ?? const <dynamic>[]);
+    // Backend response envelope: { "items": [...], "nextCursor": "..." }
+    // The list item shape (EntryListItem) omits vaultId — inject from URL.
+    final raw = (data['items'] as List<dynamic>? ?? const <dynamic>[]);
     return raw
-        .map((e) => EntryModel.fromJson(e as Map<String, dynamic>))
+        .map((e) => EntryModel.fromJson(
+              e as Map<String, dynamic>,
+              contextVaultId: vaultId,
+            ))
         .toList(growable: false);
   }
 

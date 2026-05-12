@@ -38,10 +38,20 @@ class EntryModel {
   final String? lastAccessedAt;
   final int accessCount;
 
-  factory EntryModel.fromJson(Map<String, dynamic> json) {
+  /// Parses a full entry JSON object.
+  ///
+  /// [contextVaultId] is required when the JSON does not include a
+  /// `vaultId` field — e.g. the `ListEntries` endpoint omits it from
+  /// each item because it is implied by the URL. The detail endpoint
+  /// (`GetEntry`) does include it, so callers can omit [contextVaultId]
+  /// in that case.
+  factory EntryModel.fromJson(
+    Map<String, dynamic> json, {
+    String? contextVaultId,
+  }) {
     return EntryModel(
       id: json['id'] as String,
-      vaultId: json['vaultId'] as String,
+      vaultId: contextVaultId ?? json['vaultId'] as String,
       label: json['label'] as String,
       description: json['description'] as String?,
       icon: json['icon'] as String?,
