@@ -729,6 +729,12 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryAddTitle => 'Dodaj wpis';
 
   @override
+  String get entryEditTitle => 'Edytuj wpis';
+
+  @override
+  String get entryRevealingForEdit => 'Ładowanie danych wpisu…';
+
+  @override
   String get entryTypeLabel => 'Typ wpisu';
 
   @override

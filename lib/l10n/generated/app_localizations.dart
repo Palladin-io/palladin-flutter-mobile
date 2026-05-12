@@ -1214,6 +1214,18 @@ abstract class AppLocalizations {
   /// **'Add Entry'**
   String get entryAddTitle;
 
+  /// AppBar title on the Edit Entry page
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Entry'**
+  String get entryEditTitle;
+
+  /// Shown while the edit page is decrypting the entry payload
+  ///
+  /// In en, this message translates to:
+  /// **'Loading entry data…'**
+  String get entryRevealingForEdit;
+
   /// Label above the entry-type dropdown on the Add Entry page
   ///
   /// In en, this message translates to:

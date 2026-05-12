@@ -9,6 +9,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../cubit/entry_list_cubit.dart';
+import '../pages/edit_entry_page.dart';
 
 /// Entries tab on the vault detail page.
 ///
@@ -95,6 +96,22 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     });
   }
 
+  Future<void> _onEditEntry(
+    EntryEntity entry,
+    Map<String, dynamic>? cachedPayload,
+  ) async {
+    final cubit = context.read<EntryListCubit>();
+    final updated = await EditEntryPage.push(
+      context,
+      entry: entry,
+      cachedPayload: cachedPayload,
+      wrappedVK: cubit.wrappedVK,
+    );
+    if (updated != null && mounted) {
+      cubit.replaceEntry(updated);
+    }
+  }
+
   Future<void> _copyToClipboard(String value, AppLocalizations l10n) async {
     await Clipboard.setData(ClipboardData(text: value));
     if (!mounted) return;
@@ -145,6 +162,7 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
                     onToggleReveal: _onToggleReveal,
                     onToggleFieldReveal: _toggleFieldReveal,
                     onCopy: (value) => _copyToClipboard(value, l10n),
+                    onEdit: _onEditEntry,
                     l10n: l10n,
                   ),
               },
@@ -165,6 +183,7 @@ class _LoadedBody extends StatelessWidget {
     required this.onToggleReveal,
     required this.onToggleFieldReveal,
     required this.onCopy,
+    required this.onEdit,
     required this.l10n,
   });
 
@@ -175,6 +194,7 @@ class _LoadedBody extends StatelessWidget {
   final ValueChanged<EntryEntity> onToggleReveal;
   final void Function(String entryId, String field) onToggleFieldReveal;
   final ValueChanged<String> onCopy;
+  final void Function(EntryEntity, Map<String, dynamic>?) onEdit;
   final AppLocalizations l10n;
 
   @override
@@ -206,6 +226,10 @@ class _LoadedBody extends StatelessWidget {
                       onToggleReveal: () => onToggleReveal(entries[i]),
                       onToggleFieldReveal: onToggleFieldReveal,
                       onCopy: onCopy,
+                      onEdit: () => onEdit(
+                        entries[i],
+                        revealedEntries[entries[i].id],
+                      ),
                     ),
                   ],
                 ],
@@ -328,8 +352,74 @@ class _LoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: CircularProgressIndicator(color: AppColors.tealAccent),
+    final brightness = Theme.of(context).brightness;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Column(
+        children: List.generate(
+          5,
+          (i) => Padding(
+            padding: const EdgeInsets.only(bottom: 1),
+            child: _SkeletonRow(brightness: brightness, delay: i * 80),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonRow extends StatefulWidget {
+  const _SkeletonRow({required this.brightness, required this.delay});
+  final Brightness brightness;
+  final int delay;
+
+  @override
+  State<_SkeletonRow> createState() => _SkeletonRowState();
+}
+
+class _SkeletonRowState extends State<_SkeletonRow>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _ctrl.repeat(reverse: true);
+    });
+    _anim = Tween<double>(begin: 0.4, end: 0.85).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final base = AppColors.onSurface(widget.brightness).withValues(alpha: 0.07);
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) => Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: base.withValues(alpha: base.a * _anim.value),
+          border: Border(
+            bottom: BorderSide(
+              color: AppColors.cardBorder(widget.brightness),
+              width: 1,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -392,6 +482,7 @@ class _EntryRow extends StatelessWidget {
     required this.onToggleReveal,
     required this.onToggleFieldReveal,
     required this.onCopy,
+    required this.onEdit,
   });
 
   final EntryEntity entry;
@@ -401,6 +492,7 @@ class _EntryRow extends StatelessWidget {
   final VoidCallback onToggleReveal;
   final void Function(String entryId, String field) onToggleFieldReveal;
   final ValueChanged<String> onCopy;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -470,9 +562,7 @@ class _EntryRow extends StatelessWidget {
               _SmallIconButton(
                 icon: Icons.arrow_forward,
                 tooltip: l10n.vaultViewEntry,
-                onPressed: () {
-                  // Detail navigation lands later — no-op for now.
-                },
+                onPressed: onEdit,
               ),
             ],
           ),
@@ -497,7 +587,7 @@ class _EntryRow extends StatelessWidget {
                                 height: 14,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.5,
-                                  color: AppColors.tealAccent,
+                                  color: AppColors.brandRed,
                                 ),
                               ),
                             ),

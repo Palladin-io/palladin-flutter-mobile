@@ -155,4 +155,20 @@ class EntryListCubit extends Cubit<EntryListState> {
     }
     emit(current.copyWith(entries: [entry, ...current.entries]));
   }
+
+  /// Replaces the entry matching [updated.id] in the loaded state after
+  /// an edit. No-ops if the cubit is not in [EntryListLoaded] or if the
+  /// entry is not found. The reveal payload for the edited entry is
+  /// dropped so the next expand re-decrypts the fresh ciphertext.
+  void replaceEntry(EntryEntity updated) {
+    final current = state;
+    if (current is! EntryListLoaded) return;
+    final idx = current.entries.indexWhere((e) => e.id == updated.id);
+    if (idx == -1) return;
+    final newList = List<EntryEntity>.from(current.entries)..[idx] = updated;
+    final newRevealed = Map<String, Map<String, dynamic>>.from(
+      current.revealedEntries,
+    )..remove(updated.id);
+    emit(current.copyWith(entries: newList, revealedEntries: newRevealed));
+  }
 }

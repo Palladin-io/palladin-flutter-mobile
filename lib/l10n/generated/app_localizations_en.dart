@@ -712,6 +712,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryAddTitle => 'Add Entry';
 
   @override
+  String get entryEditTitle => 'Edit Entry';
+
+  @override
+  String get entryRevealingForEdit => 'Loading entry data…';
+
+  @override
   String get entryTypeLabel => 'Entry type';
 
   @override

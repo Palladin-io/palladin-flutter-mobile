@@ -11,6 +11,7 @@ import '../datasources/entry_remote_datasource.dart';
 import '../datasources/vault_remote_datasource.dart';
 import '../models/create_entry_request.dart';
 import '../models/entry_model.dart';
+import '../models/update_entry_request.dart';
 import '../services/entry_crypto_service.dart';
 
 /// Concrete implementation of [EntryRepository].
@@ -160,6 +161,71 @@ class EntryRepositoryImpl implements EntryRepository {
         encryptedBlob: encrypted.encryptedBlob,
         nonce: encrypted.nonce,
         urlDomain: urlDomain,
+      );
+    } finally {
+      if (vaultKey != null) {
+        vaultKey.fillRange(0, vaultKey.length, 0);
+      }
+    }
+  }
+
+  @override
+  Future<EntryEntity> updateEntryEncrypted({
+    required String vaultId,
+    required String entryId,
+    required String label,
+    String? description,
+    String? icon,
+    required EntryType type,
+    required Map<String, dynamic> payload,
+    String? urlDomain,
+    required Uint8List privateKey,
+    String? wrappedVK,
+  }) async {
+    AppLogger.d('Entry', 'Updating encrypted entry id=$entryId');
+    final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
+
+    Uint8List? vaultKey;
+    try {
+      vaultKey = await cryptoService.unwrapVK(
+        wrappedVK: vk,
+        privateKey: privateKey,
+      );
+      final encrypted = await cryptoService.encryptEntry(
+        payload: payload,
+        vaultKey: vaultKey,
+      );
+      try {
+        await entryDatasource.updateEntry(
+          vaultId,
+          entryId,
+          UpdateEntryRequest(
+            label: label,
+            description: description,
+            icon: icon,
+            type: type.toWire(),
+            content: EntryContentModel(
+              encryptedBlob: encrypted.encryptedBlob,
+              nonce: encrypted.nonce,
+            ),
+            urlDomain: urlDomain,
+          ),
+        );
+      } on DioException catch (e, s) {
+        AppLogger.e('Entry', 'updateEntry failed', error: e, stackTrace: s);
+        throw EntryException(_classifyError(e));
+      }
+      // Build entity locally — PUT returns 204 No Content.
+      return EntryEntity(
+        id: entryId,
+        vaultId: vaultId,
+        label: label,
+        description: description,
+        icon: icon,
+        type: type,
+        urlDomain: urlDomain,
+        createdAt: DateTime.now().toUtc(),
+        updatedAt: DateTime.now().toUtc(),
       );
     } finally {
       if (vaultKey != null) {

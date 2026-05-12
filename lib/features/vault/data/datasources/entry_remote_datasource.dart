@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../models/create_entry_request.dart';
 import '../models/entry_model.dart';
+import '../models/update_entry_request.dart';
 import 'vault_remote_datasource.dart' show PresignResponse;
 
 /// Remote data source for the per-vault entry endpoints.
@@ -96,6 +97,21 @@ class EntryRemoteDatasource {
   /// `DELETE /api/vaults/{vaultId}/entries/{entryId}` → 204 No Content.
   Future<void> deleteEntry(String vaultId, String entryId) async {
     await _dio.delete<void>('/api/vaults/$vaultId/entries/$entryId');
+  }
+
+  /// `PUT /api/vaults/{vaultId}/entries/{entryId}` → 204 No Content.
+  ///
+  /// Updates label, description, icon, type, content (re-encrypted),
+  /// and urlDomain. Patch semantics: omitted optional fields are not changed.
+  Future<void> updateEntry(
+    String vaultId,
+    String entryId,
+    UpdateEntryRequest request,
+  ) async {
+    await _dio.put<void>(
+      '/api/vaults/$vaultId/entries/$entryId',
+      data: request.toJson(),
+    );
   }
 
   /// `POST /api/vaults/{vaultId}/entries/{entryId}/icon/presign` →

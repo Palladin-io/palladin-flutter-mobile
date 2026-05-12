@@ -828,6 +828,14 @@
   "@entryAddTitle": {
     "description": "AppBar title on the Add Entry page"
   },
+  "entryEditTitle": "Edit Entry",
+  "@entryEditTitle": {
+    "description": "AppBar title on the Edit Entry page"
+  },
+  "entryRevealingForEdit": "Loading entry data…",
+  "@entryRevealingForEdit": {
+    "description": "Shown while the edit page is decrypting the entry payload"
+  },
   "entryTypeLabel": "Entry type",
   "@entryTypeLabel": {
     "description": "Label above the entry-type dropdown on the Add Entry page"

@@ -186,6 +186,8 @@
   "placeholderComingSoon": "Już wkrótce",
   "placeholderAuditTitle": "Dziennik audytu",
   "entryAddTitle": "Dodaj wpis",
+  "entryEditTitle": "Edytuj wpis",
+  "entryRevealingForEdit": "Ładowanie danych wpisu…",
   "entryTypeLabel": "Typ wpisu",
   "entryTypeKey": "Klucz",
   "entryTypeCredential": "Login",

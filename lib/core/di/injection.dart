@@ -28,6 +28,7 @@ import '../../features/vault/domain/repositories/entry_repository.dart';
 import '../../features/vault/domain/repositories/vault_repository.dart';
 import '../../features/vault/presentation/cubit/create_entry_cubit.dart';
 import '../../features/vault/presentation/cubit/create_vault_cubit.dart';
+import '../../features/vault/presentation/cubit/edit_entry_cubit.dart';
 import '../../features/vault/presentation/cubit/entry_list_cubit.dart';
 import '../../features/vault/presentation/cubit/vault_detail_cubit.dart';
 import '../../features/vault/presentation/cubit/vault_list_cubit.dart';
@@ -193,5 +194,8 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerFactory<CreateEntryCubit>(
     () => CreateEntryCubit(repository: getIt<EntryRepository>()),
+  );
+  getIt.registerFactory<EditEntryCubit>(
+    () => EditEntryCubit(repository: getIt<EntryRepository>()),
   );
 }

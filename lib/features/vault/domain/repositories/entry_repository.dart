@@ -90,4 +90,22 @@ abstract interface class EntryRepository {
     required Uint8List privateKey,
     String? wrappedVK,
   });
+
+  /// Re-encrypts [payload] with the vault's VK and PUTs the update to
+  /// `/api/vaults/{vaultId}/entries/{entryId}`. Returns the updated
+  /// [EntryEntity] (constructed locally — the backend returns 204).
+  ///
+  /// [wrappedVK] mirrors the same parameter on [revealEntry].
+  Future<EntryEntity> updateEntryEncrypted({
+    required String vaultId,
+    required String entryId,
+    required String label,
+    String? description,
+    String? icon,
+    required EntryType type,
+    required Map<String, dynamic> payload,
+    String? urlDomain,
+    required Uint8List privateKey,
+    String? wrappedVK,
+  });
 }
