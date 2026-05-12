@@ -104,6 +104,27 @@ class EditEntryCubit extends Cubit<EditEntryState> {
     }
   }
 
+  /// Permanently deletes the entry. Emits [EditEntryDeleted] on success.
+  Future<void> deleteEntry({
+    required String vaultId,
+    required String entryId,
+  }) async {
+    AppLogger.d('Entry', 'Deleting entry id=$entryId');
+    emit(const EditEntryLoading());
+    try {
+      await repository.deleteEntry(vaultId: vaultId, entryId: entryId);
+      AppLogger.i('Entry', 'Entry deleted: id=$entryId');
+      emit(EditEntryDeleted(entryId));
+    } on EntryException catch (e) {
+      AppLogger.w('Entry', 'deleteEntry failed: ${e.kind.name}');
+      emit(EditEntryError(e.kind));
+    } catch (e, s) {
+      AppLogger.e('Entry', 'deleteEntry failed unexpectedly',
+          error: e, stackTrace: s);
+      emit(const EditEntryError(EntryErrorKind.unknown));
+    }
+  }
+
   String? _trimToNull(String? raw) {
     if (raw == null) return null;
     final trimmed = raw.trim();

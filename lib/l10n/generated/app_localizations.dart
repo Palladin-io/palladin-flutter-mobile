@@ -1214,17 +1214,53 @@ abstract class AppLocalizations {
   /// **'Add Entry'**
   String get entryAddTitle;
 
-  /// AppBar title on the Edit Entry page
+  /// AppBar title on the Entry Detail page when no label is known yet
   ///
   /// In en, this message translates to:
-  /// **'Edit Entry'**
-  String get entryEditTitle;
+  /// **'Entry Details'**
+  String get entryDetailTitle;
 
-  /// Shown while the edit page is decrypting the entry payload
+  /// Details tab label on the Entry Detail page (contains the edit form)
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get entryTabDetails;
+
+  /// Shown while the detail page is decrypting the entry payload before the form can be shown
   ///
   /// In en, this message translates to:
   /// **'Loading entry data…'**
   String get entryRevealingForEdit;
+
+  /// Section heading for the delete entry button at the bottom of the Details tab
+  ///
+  /// In en, this message translates to:
+  /// **'Danger Zone'**
+  String get entryDangerZone;
+
+  /// Title of the delete entry confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Entry?'**
+  String get entryDeleteTitle;
+
+  /// Body of the delete entry confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'This will permanently delete this entry and its encrypted data. This cannot be undone.'**
+  String get entryDeleteConfirm;
+
+  /// Destructive button label in the delete entry dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Entry'**
+  String get entryDeleteAction;
+
+  /// Button label while the delete request is in flight
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting…'**
+  String get entryDeleting;
 
   /// Label above the entry-type dropdown on the Add Entry page
   ///

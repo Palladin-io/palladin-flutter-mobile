@@ -40,3 +40,10 @@ final class EditEntryError extends EditEntryState {
 
   final EntryErrorKind kind;
 }
+
+/// Entry was successfully deleted.
+final class EditEntryDeleted extends EditEntryState {
+  const EditEntryDeleted(this.entryId);
+
+  final String entryId;
+}

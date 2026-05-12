@@ -729,10 +729,29 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryAddTitle => 'Dodaj wpis';
 
   @override
-  String get entryEditTitle => 'Edytuj wpis';
+  String get entryDetailTitle => 'Szczegóły wpisu';
+
+  @override
+  String get entryTabDetails => 'Szczegóły';
 
   @override
   String get entryRevealingForEdit => 'Ładowanie danych wpisu…';
+
+  @override
+  String get entryDangerZone => 'Strefa niebezpieczna';
+
+  @override
+  String get entryDeleteTitle => 'Usunąć wpis?';
+
+  @override
+  String get entryDeleteConfirm =>
+      'Wpis zostanie trwale usunięty wraz z zaszyfrowanymi danymi. Tej operacji nie można cofnąć.';
+
+  @override
+  String get entryDeleteAction => 'Usuń wpis';
+
+  @override
+  String get entryDeleting => 'Usuwanie…';
 
   @override
   String get entryTypeLabel => 'Typ wpisu';

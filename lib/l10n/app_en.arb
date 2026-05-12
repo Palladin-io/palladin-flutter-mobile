@@ -828,13 +828,37 @@
   "@entryAddTitle": {
     "description": "AppBar title on the Add Entry page"
   },
-  "entryEditTitle": "Edit Entry",
-  "@entryEditTitle": {
-    "description": "AppBar title on the Edit Entry page"
+  "entryDetailTitle": "Entry Details",
+  "@entryDetailTitle": {
+    "description": "AppBar title on the Entry Detail page when no label is known yet"
+  },
+  "entryTabDetails": "Details",
+  "@entryTabDetails": {
+    "description": "Details tab label on the Entry Detail page (contains the edit form)"
   },
   "entryRevealingForEdit": "Loading entry data…",
   "@entryRevealingForEdit": {
-    "description": "Shown while the edit page is decrypting the entry payload"
+    "description": "Shown while the detail page is decrypting the entry payload before the form can be shown"
+  },
+  "entryDangerZone": "Danger Zone",
+  "@entryDangerZone": {
+    "description": "Section heading for the delete entry button at the bottom of the Details tab"
+  },
+  "entryDeleteTitle": "Delete Entry?",
+  "@entryDeleteTitle": {
+    "description": "Title of the delete entry confirmation dialog"
+  },
+  "entryDeleteConfirm": "This will permanently delete this entry and its encrypted data. This cannot be undone.",
+  "@entryDeleteConfirm": {
+    "description": "Body of the delete entry confirmation dialog"
+  },
+  "entryDeleteAction": "Delete Entry",
+  "@entryDeleteAction": {
+    "description": "Destructive button label in the delete entry dialog"
+  },
+  "entryDeleting": "Deleting…",
+  "@entryDeleting": {
+    "description": "Button label while the delete request is in flight"
   },
   "entryTypeLabel": "Entry type",
   "@entryTypeLabel": {

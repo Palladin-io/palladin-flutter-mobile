@@ -156,6 +156,18 @@ class EntryListCubit extends Cubit<EntryListState> {
     emit(current.copyWith(entries: [entry, ...current.entries]));
   }
 
+  /// Removes the entry with [entryId] from local state without making an
+  /// API call — use when the API delete already succeeded in another cubit.
+  void removeEntry(String entryId) {
+    final current = state;
+    if (current is! EntryListLoaded) return;
+    final newList = current.entries.where((e) => e.id != entryId).toList();
+    final newRevealed = Map<String, Map<String, dynamic>>.from(
+      current.revealedEntries,
+    )..remove(entryId);
+    emit(current.copyWith(entries: newList, revealedEntries: newRevealed));
+  }
+
   /// Replaces the entry matching [updated.id] in the loaded state after
   /// an edit. No-ops if the cubit is not in [EntryListLoaded] or if the
   /// entry is not found. The reveal payload for the edited entry is

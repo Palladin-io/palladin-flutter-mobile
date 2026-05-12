@@ -712,10 +712,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryAddTitle => 'Add Entry';
 
   @override
-  String get entryEditTitle => 'Edit Entry';
+  String get entryDetailTitle => 'Entry Details';
+
+  @override
+  String get entryTabDetails => 'Details';
 
   @override
   String get entryRevealingForEdit => 'Loading entry data…';
+
+  @override
+  String get entryDangerZone => 'Danger Zone';
+
+  @override
+  String get entryDeleteTitle => 'Delete Entry?';
+
+  @override
+  String get entryDeleteConfirm =>
+      'This will permanently delete this entry and its encrypted data. This cannot be undone.';
+
+  @override
+  String get entryDeleteAction => 'Delete Entry';
+
+  @override
+  String get entryDeleting => 'Deleting…';
 
   @override
   String get entryTypeLabel => 'Entry type';

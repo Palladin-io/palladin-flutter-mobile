@@ -9,7 +9,8 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../cubit/entry_list_cubit.dart';
-import '../pages/edit_entry_page.dart';
+import '../pages/entry_detail_page.dart';
+import 'vault_visuals.dart';
 
 /// Entries tab on the vault detail page.
 ///
@@ -101,14 +102,17 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     Map<String, dynamic>? cachedPayload,
   ) async {
     final cubit = context.read<EntryListCubit>();
-    final updated = await EditEntryPage.push(
+    final result = await EntryDetailPage.push(
       context,
       entry: entry,
       cachedPayload: cachedPayload,
       wrappedVK: cubit.wrappedVK,
     );
-    if (updated != null && mounted) {
-      cubit.replaceEntry(updated);
+    if (!mounted) return;
+    if (result is EntryDetailUpdated) {
+      cubit.replaceEntry(result.entry);
+    } else if (result is EntryDetailDeleted) {
+      cubit.removeEntry(result.entryId);
     }
   }
 
@@ -497,11 +501,6 @@ class _EntryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final iconColor = entry.type == EntryType.key
-        ? AppColors.positiveAccent
-        : AppColors.vaultBlue;
-    final iconBg = iconColor.withValues(alpha: 0.15);
-    final icon = entry.type == EntryType.key ? Icons.vpn_key : Icons.lock;
     final meta = entry.urlDomain ?? entry.description ?? '';
 
     return Column(
@@ -512,16 +511,7 @@ class _EntryRow extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
           child: Row(
             children: [
-              Container(
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: iconBg,
-                ),
-                child: Icon(icon, size: 14, color: iconColor),
-              ),
+              _EntryIconWidget(entry: entry),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -750,6 +740,59 @@ class _RevealRow extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+// ── Entry icon ─────────────────────────────────────────────────────
+
+/// Renders the entry's icon as a 28×28 circle. Uses the `entry.icon`
+/// field when set — custom URLs become a network image, preset names
+/// map to the matching [EntryVisuals] palette color. Falls back to a
+/// type-based icon when `entry.icon` is null.
+class _EntryIconWidget extends StatelessWidget {
+  const _EntryIconWidget({required this.entry});
+
+  final EntryEntity entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = entry.icon;
+
+    if (EntryVisuals.isCustomUrl(icon)) {
+      return ClipOval(
+        child: Image.network(
+          icon!,
+          width: 28,
+          height: 28,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _presetIcon(null),
+        ),
+      );
+    }
+
+    return _presetIcon(icon);
+  }
+
+  Widget _presetIcon(String? name) {
+    final choices = EntryVisuals.iconChoices;
+    final choice = choices.firstWhere(
+      (c) => c.name == (name ?? EntryVisuals.defaultIconName),
+      orElse: () => entry.type == EntryType.key
+          ? choices.first
+          : choices.firstWhere(
+              (c) => c.name == 'lock',
+              orElse: () => choices.first,
+            ),
+    );
+    final iconColor = choice.paletteColor;
+    final iconBg = iconColor.withValues(alpha: 0.15);
+    return Container(
+      width: 28,
+      height: 28,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(shape: BoxShape.circle, color: iconBg),
+      child: Icon(choice.icon, size: 14, color: iconColor),
     );
   }
 }
