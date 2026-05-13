@@ -12,6 +12,8 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../data/datasources/entry_remote_datasource.dart';
 import '../../data/services/entry_icon_upload_service.dart';
+import '../../data/services/vault_icon_upload_service.dart'
+    show VaultIconUploadErrorKind, VaultIconUploadException;
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../cubit/edit_entry_cubit.dart';
@@ -130,6 +132,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
   EntryType _type = EntryType.credential;
   String _icon = EntryVisuals.defaultIconName;
   String _color = EntryVisuals.defaultColorHex;
+  String? _urlError;
   XFile? _pendingIconFile;
   bool _pickingIcon = false;
   bool _uploadingIcon = false;
@@ -172,6 +175,23 @@ class _EntryDetailViewState extends State<_EntryDetailView>
       _urlController.text = (payload['url'] as String?) ?? '';
     }
     _notesController.text = (payload['notes'] as String?) ?? '';
+  }
+
+  bool _validateUrl() {
+    final text = _urlController.text.trim();
+    if (text.isEmpty) {
+      setState(() => _urlError = null);
+      return true;
+    }
+    final toParse = text.contains('://') ? text : 'https://$text';
+    final uri = Uri.tryParse(toParse);
+    final host = uri?.host ?? '';
+    final valid = host.isNotEmpty &&
+        (host == 'localhost' ||
+            host.contains('.') ||
+            RegExp(r'^\[?[\da-fA-F:]+\]?$').hasMatch(host));
+    setState(() => _urlError = valid ? null : AppLocalizations.of(context)!.entryUrlInvalid);
+    return valid;
   }
 
   bool get _canSubmit {
@@ -238,6 +258,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
   }
 
   Future<void> _submit() async {
+    if (!_validateUrl()) return;
     final auth = context.read<AuthBloc>().state;
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
       _showSnackBar(AppLocalizations.of(context)!.entryErrorCrypto);
@@ -279,10 +300,18 @@ class _EntryDetailViewState extends State<_EntryDetailView>
           File(_pendingIconFile!.path),
         );
         entry = entry.copyWith(icon: url);
-      } catch (_) {
+      } on VaultIconUploadException catch (e) {
         if (mounted) {
-          _showSnackBar(AppLocalizations.of(context)!.vaultIconUploadError);
+          final l = AppLocalizations.of(context)!;
+          final msg = switch (e.kind) {
+            VaultIconUploadErrorKind.unsupportedFormat => l.vaultIconUploadFormatError,
+            VaultIconUploadErrorKind.fileTooLarge => l.vaultIconUploadSizeError,
+            _ => l.vaultIconUploadError,
+          };
+          _showSnackBar(msg);
         }
+      } catch (_) {
+        if (mounted) _showSnackBar(AppLocalizations.of(context)!.vaultIconUploadError);
       } finally {
         if (mounted) setState(() => _uploadingIcon = false);
       }
@@ -476,6 +505,21 @@ class _EntryDetailViewState extends State<_EntryDetailView>
             textInputAction: TextInputAction.next,
           ),
           const SizedBox(height: 16),
+          OnboardingTextField(
+            label: l10n.entryUrlLabel,
+            controller: _urlController,
+            textInputAction: TextInputAction.next,
+            borderColor: _urlError != null ? AppColors.brandRed : null,
+            focusBorderColor: _urlError != null ? AppColors.brandRed : null,
+            onChanged: (_) => _validateUrl(),
+            feedbackChild: Text(
+              _urlError ?? '',
+              style: const TextStyle(color: AppColors.brandRed, fontSize: 11),
+            ),
+            feedbackVisible: _urlError != null,
+            feedbackReserveSpace: false,
+          ),
+          const SizedBox(height: 16),
           Text(
             l10n.vaultIconLabel,
             style: TextStyle(
@@ -533,12 +577,6 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                     setState(() => _valueObscured = !_valueObscured),
               ),
             ),
-            const SizedBox(height: 16),
-            OnboardingTextField(
-              label: l10n.entryUrlLabel,
-              controller: _urlController,
-              textInputAction: TextInputAction.next,
-            ),
           ] else ...[
             OnboardingTextField(
               label: l10n.entryUsernameLabel,
@@ -558,12 +596,6 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                 onPressed: () =>
                     setState(() => _passwordObscured = !_passwordObscured),
               ),
-            ),
-            const SizedBox(height: 16),
-            OnboardingTextField(
-              label: l10n.entryUrlLabel,
-              controller: _urlController,
-              textInputAction: TextInputAction.next,
             ),
           ],
           const SizedBox(height: 16),

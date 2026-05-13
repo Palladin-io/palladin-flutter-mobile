@@ -30,13 +30,26 @@ import '../widgets/vault_card.dart';
 /// navigation's Settings tab, which opens the shell-owned
 /// [SettingsDrawer] — the header therefore no longer duplicates a cog
 /// icon of its own.
-class VaultListPage extends StatelessWidget {
+class VaultListPage extends StatefulWidget {
   const VaultListPage({super.key});
 
   @override
+  State<VaultListPage> createState() => _VaultListPageState();
+}
+
+class _VaultListPageState extends State<VaultListPage> {
+  late final VaultListCubit _cubit;
+
+  @override
+  void initState() {
+    super.initState();
+    _cubit = getIt<VaultListCubit>()..loadIfNeeded();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocProvider<VaultListCubit>(
-      create: (_) => getIt<VaultListCubit>()..loadVaults(),
+    return BlocProvider<VaultListCubit>.value(
+      value: _cubit,
       child: const _VaultListView(),
     );
   }
@@ -93,11 +106,7 @@ class _VaultListViewState extends State<_VaultListView> {
     );
     if (!mounted) return;
     if (created == null) return;
-    // Refresh first so the back-nav from the detail page lands on a
-    // list that actually contains the freshly created vault. Use the
-    // State's own `context` (guarded by `mounted` checks) instead of
-    // a captured argument so the analyzer is happy across the gap.
-    await context.read<VaultListCubit>().loadVaults();
+    context.read<VaultListCubit>().appendVault(created);
     if (!mounted) return;
     context.push('/vaults/${created.id}');
   }
@@ -165,24 +174,43 @@ class _VaultListViewState extends State<_VaultListView> {
             SafeArea(
               child: BlocBuilder<VaultListCubit, VaultListState>(
                 builder: (context, state) {
-                  return switch (state) {
-                    VaultListInitial() ||
-                    VaultListLoading() =>
-                      const _LoadingView(),
-                    VaultListError(:final kind) => _ErrorView(
-                        kind: kind,
-                        onRetry: () =>
-                            context.read<VaultListCubit>().loadVaults(),
+                  final brightness = Theme.of(context).brightness;
+                  final (vaultCount, entryCount) = switch (state) {
+                    VaultListLoaded(:final vaults) => (
+                        vaults.length,
+                        vaults.fold<int>(0, (s, v) => s + v.entryCount),
                       ),
-                    VaultListLoaded(:final vaults) => _LoadedView(
-                        vaults: vaults,
-                        filtered: _filter(vaults),
-                        searchController: _searchController,
-                        onCreate: _openCreateSheet,
-                        onRefresh: () =>
-                            context.read<VaultListCubit>().loadVaults(),
-                      ),
+                    _ => (0, 0),
                   };
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _HeaderRow(
+                        vaultCount: vaultCount,
+                        entryCount: entryCount,
+                      ),
+                      Expanded(
+                        child: switch (state) {
+                          VaultListInitial() ||
+                          VaultListLoading() =>
+                            _SkeletonList(brightness: brightness),
+                          VaultListError(:final kind) => _ErrorView(
+                              kind: kind,
+                              onRetry: () =>
+                                  context.read<VaultListCubit>().loadVaults(),
+                            ),
+                          VaultListLoaded(:final vaults) => _LoadedContent(
+                              vaults: vaults,
+                              filtered: _filter(vaults),
+                              searchController: _searchController,
+                              onCreate: _openCreateSheet,
+                              onRefresh: () =>
+                                  context.read<VaultListCubit>().loadVaults(),
+                            ),
+                        },
+                      ),
+                    ],
+                  );
                 },
               ),
             ),
@@ -210,8 +238,8 @@ class _VaultListViewState extends State<_VaultListView> {
   }
 }
 
-class _LoadedView extends StatelessWidget {
-  const _LoadedView({
+class _LoadedContent extends StatelessWidget {
+  const _LoadedContent({
     required this.vaults,
     required this.filtered,
     required this.searchController,
@@ -228,33 +256,18 @@ class _LoadedView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    final totalEntries = vaults.fold<int>(0, (acc, v) => acc + v.entryCount);
 
     if (vaults.isEmpty) {
-      // Show the same header chrome on the empty state so the screen
-      // doesn't lose its identity — but the body is the existing
-      // empty-state CTA card.
-      return Column(
-        children: [
-          const _HeaderRow(vaultCount: 0, entryCount: 0),
-          Expanded(child: _EmptyView(onCreate: onCreate)),
-        ],
-      );
+      return _EmptyView(onCreate: onCreate);
     }
 
     return RefreshIndicator(
-      color: AppColors.tealAccent,
+      color: AppColors.brandRed,
       backgroundColor: AppColors.cardSurface(brightness),
       onRefresh: onRefresh,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          SliverToBoxAdapter(
-            child: _HeaderRow(
-              vaultCount: vaults.length,
-              entryCount: totalEntries,
-            ),
-          ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -516,13 +529,73 @@ class _PremiumGateSheet extends StatelessWidget {
   }
 }
 
-class _LoadingView extends StatelessWidget {
-  const _LoadingView();
+class _SkeletonList extends StatelessWidget {
+  const _SkeletonList({required this.brightness});
+  final Brightness brightness;
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: CircularProgressIndicator(color: AppColors.tealAccent),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      child: Column(
+        children: List.generate(
+          4,
+          (_) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _SkeletonCard(brightness: brightness),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonCard extends StatefulWidget {
+  const _SkeletonCard({required this.brightness});
+  final Brightness brightness;
+
+  @override
+  State<_SkeletonCard> createState() => _SkeletonCardState();
+}
+
+class _SkeletonCardState extends State<_SkeletonCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.4, end: 0.85).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final base = AppColors.onSurface(widget.brightness).withValues(alpha: 0.08);
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) => Container(
+        height: 84,
+        decoration: BoxDecoration(
+          color: base.withValues(alpha: base.a * _anim.value),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.cardBorder(widget.brightness),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -546,13 +619,13 @@ class _EmptyView extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: AppColors.tealAccent.withValues(alpha: 0.12),
+                color: AppColors.brandRed.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(20),
               ),
               alignment: Alignment.center,
               child: const Icon(
                 Icons.shield_outlined,
-                color: AppColors.tealAccent,
+                color: AppColors.brandRed,
                 size: 36,
               ),
             ),

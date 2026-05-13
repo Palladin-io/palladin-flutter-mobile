@@ -900,6 +900,10 @@
   "@entryUrlLabel": {
     "description": "Label for the optional URL input field on a Credential entry"
   },
+  "entryUrlInvalid": "Enter a valid URL (e.g. stripe.com or https://stripe.com)",
+  "@entryUrlInvalid": {
+    "description": "Validation error shown below the URL field when the value is not a valid URL"
+  },
   "entryNotesLabel": "Notes",
   "@entryNotesLabel": {
     "description": "Label for the optional notes input field on every entry"

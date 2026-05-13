@@ -39,6 +39,9 @@ class EntryRepositoryImpl implements EntryRepository {
     try {
       AppLogger.d('Entry', 'GET /api/vaults/$vaultId/entries');
       final models = await entryDatasource.listEntries(vaultId);
+      for (final m in models) {
+        AppLogger.d('Entry', 'entry ${m.id} icon=${m.icon}');
+      }
       return models.map((m) => m.toEntity()).toList(growable: false);
     } on DioException catch (e, s) {
       AppLogger.e('Entry', 'listEntries failed', error: e, stackTrace: s);

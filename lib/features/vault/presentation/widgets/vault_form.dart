@@ -78,11 +78,14 @@ class VaultForm extends StatefulWidget {
   final VaultFormData initial;
   final ValueChanged<VaultFormData> onChanged;
 
-  /// Optional callback that triggers a custom icon upload flow. When
-  /// non-null an "Upload custom icon" button is shown below the preset
-  /// icon picker. Caller is responsible for picking and uploading the
-  /// file; on success it should reflect the new URL via [onChanged].
-  final VoidCallback? onPickCustomIcon;
+  /// Optional callback invoked when the user taps the upload-icon button.
+  /// Should return the final icon value to display — either a `file://`
+  /// local path (create flow, upload deferred) or an `https://` public URL
+  /// (settings flow, upload immediate) — or `null` on cancellation. When
+  /// non-null an upload button is shown in the icon row. VaultForm updates
+  /// its own icon state with the returned value so the upload circle shows
+  /// a preview immediately.
+  final Future<String?> Function()? onPickCustomIcon;
 
   @override
   State<VaultForm> createState() => _VaultFormState();
@@ -156,7 +159,15 @@ class _VaultFormState extends State<VaultForm> {
             setState(() => _selectedIcon = icon);
             _emit();
           },
-          onPickCustom: widget.onPickCustomIcon,
+          onPickCustom: widget.onPickCustomIcon == null
+              ? null
+              : () async {
+                  final icon = await widget.onPickCustomIcon!();
+                  if (icon != null && mounted) {
+                    setState(() => _selectedIcon = icon);
+                    _emit();
+                  }
+                },
         ),
         const SizedBox(height: 20),
         _SectionLabel(text: l10n.vaultColorLabel),

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 
+import '../../../../core/utils/app_logger.dart';
 import '../datasources/entry_remote_datasource.dart';
 import 'vault_icon_upload_service.dart' show VaultIconUploadErrorKind, VaultIconUploadException;
 
@@ -43,7 +44,9 @@ class EntryIconUploadService {
     }
 
     try {
+      AppLogger.d('EntryIconUpload', 'presign entryId=$entryId ext=$ext');
       final presign = await _datasource.presignEntryIcon(vaultId, entryId, ext);
+      AppLogger.d('EntryIconUpload', 'uploadUrl=${presign.uploadUrl}');
 
       final bytes = await file.readAsBytes();
       final s3 = Dio();
@@ -53,18 +56,21 @@ class EntryIconUploadService {
         options: Options(
           headers: {
             Headers.contentTypeHeader: _mimeMap[ext] ?? 'image/jpeg',
-            Headers.contentLengthHeader: fileSize,
           },
           sendTimeout: const Duration(seconds: 60),
         ),
       );
+      AppLogger.d('EntryIconUpload', 'S3 PUT done, publicUrl=${presign.publicUrl}');
 
       await _datasource.updateEntryIcon(vaultId, entryId, presign.publicUrl);
+      AppLogger.i('EntryIconUpload', 'icon saved publicUrl=${presign.publicUrl}');
 
       return presign.publicUrl;
-    } on DioException {
+    } on DioException catch (e) {
+      AppLogger.e('EntryIconUpload', 'DioException status=${e.response?.statusCode}', error: e);
       throw const VaultIconUploadException(VaultIconUploadErrorKind.network);
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.e('EntryIconUpload', 'unexpected error', error: e, stackTrace: s);
       throw const VaultIconUploadException(VaultIconUploadErrorKind.unknown);
     }
   }

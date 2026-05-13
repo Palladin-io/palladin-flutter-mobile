@@ -204,6 +204,7 @@
   "entryUsernameLabel": "Nazwa użytkownika",
   "entryPasswordLabel": "Hasło",
   "entryUrlLabel": "URL",
+  "entryUrlInvalid": "Podaj prawidłowy URL (np. stripe.com lub https://stripe.com)",
   "entryNotesLabel": "Notatki",
   "entryEncryptionNotice": "Szyfrowane na urządzeniu (AES-256-GCM) przed wysłaniem",
   "entrySearchHint": "Szukaj wpisów…",

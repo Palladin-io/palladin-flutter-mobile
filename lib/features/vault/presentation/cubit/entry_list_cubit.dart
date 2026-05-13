@@ -148,6 +148,7 @@ class EntryListCubit extends Cubit<EntryListState> {
   /// the loaded state without re-fetching the whole list. Falls back to
   /// a full reload if the cubit is not currently in the loaded state.
   Future<void> appendEntry(EntryEntity entry) async {
+    AppLogger.d('Entry', 'appendEntry id=${entry.id} icon=${entry.icon}');
     final current = state;
     if (current is! EntryListLoaded) {
       await loadEntries();

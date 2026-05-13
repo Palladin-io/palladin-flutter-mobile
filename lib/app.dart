@@ -98,6 +98,9 @@ class ClawVaultApp extends StatelessWidget {
         foregroundColor: AppColors.onBrandRed,
         elevation: 0,
       ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.brandRed,
+      ),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
       ),

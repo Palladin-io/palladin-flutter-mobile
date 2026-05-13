@@ -151,6 +151,37 @@ Przed napisaniem nowego widgetu sprawdź czy coś podobnego już istnieje:
 - `Color(0xFFxxxxxx)` — always add to `AppColors` with a descriptive name
 - `onPrimary: Colors.white` in `ThemeData` — use `AppColors.onBrandRed`
 
+## Loading States — Skeleton Pattern
+
+**Rule:** Skeletons go strictly in the list/content area (`Expanded`). Static chrome (header, page title, search bar) stays visible during loading.
+
+```dart
+// ✅ Correct
+Column(
+  children: [
+    _HeaderRow(vaultCount: 0, entryCount: 0),  // always visible
+    Expanded(
+      child: switch (state) {
+        Loading() => _SkeletonList(brightness: brightness),
+        Loaded()  => _LoadedContent(...),
+      },
+    ),
+  ],
+)
+
+// ❌ Wrong — replaces the entire view with skeletons
+switch (state) {
+  Loading() => _FullPageLoadingView(),  // hides header too
+  Loaded()  => _LoadedView(),
+}
+```
+
+**Examples:**
+- `vault_list_page.dart`: `_SkeletonList` (skeleton cards only, header always above it)
+- `vault_entries_tab.dart`: `AppSearchField` always rendered, only `Expanded` switches to `_LoadingView`
+
+**Skeleton widget pattern:** `StatefulWidget` with `AnimationController`, `repeat(reverse: true)`, `Tween(0.4 → 0.85)` opacity. Use `SingleTickerProviderStateMixin`. Stagger multiple rows with `Future.delayed(Duration(milliseconds: i * 80))`.
+
 ## Error Handling
 
 ### Typed error enums in the service layer

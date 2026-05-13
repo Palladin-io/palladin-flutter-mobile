@@ -19,13 +19,21 @@ class FieldFeedbackSlot extends StatefulWidget {
     required this.visible,
     required this.child,
     this.height = 28,
+    this.reserveSpace = true,
   });
 
   final bool visible;
   final Widget child;
 
-  /// Total reserved height of the slot.
+  /// Total reserved height of the slot (only used when [reserveSpace] is true).
   final double height;
+
+  /// When true (default) the slot always occupies [height] px so the
+  /// parent layout never shifts — suitable for fixed-height forms like
+  /// login screens. When false the height collapses to 0 when the
+  /// feedback is hidden — suitable for scrollable forms where a layout
+  /// shift is acceptable.
+  final bool reserveSpace;
 
   /// Gap between the bottom of the input and the top of the feedback
   /// content. Defined once here — change it and every field updates.
@@ -68,21 +76,41 @@ class _FieldFeedbackSlotState extends State<FieldFeedbackSlot>
     super.dispose();
   }
 
+  Widget _innerContent() => Padding(
+        padding: const EdgeInsets.only(top: FieldFeedbackSlot._kTopPadding),
+        child: widget.child,
+      );
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: widget.height,
-      child: ClipRect(
-        child: SlideTransition(
-          position: _slide,
-          child: FadeTransition(
-            opacity: _controller,
-            child: Padding(
-              padding: const EdgeInsets.only(top: FieldFeedbackSlot._kTopPadding),
-              child: widget.child,
+    if (widget.reserveSpace) {
+      // Fixed-height slot: always occupies space, content slides from above.
+      return SizedBox(
+        height: widget.height,
+        child: ClipRect(
+          child: SlideTransition(
+            position: _slide,
+            child: FadeTransition(
+              opacity: _controller,
+              child: _innerContent(),
             ),
           ),
         ),
+      );
+    }
+
+    // Collapsing slot: height animates from 0, content fades in.
+    // Use SizeTransition so no space is reserved when feedback is hidden.
+    return SizeTransition(
+      sizeFactor: CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOut,
+        reverseCurve: Curves.easeIn,
+      ),
+      axisAlignment: -1.0,
+      child: FadeTransition(
+        opacity: _controller,
+        child: _innerContent(),
       ),
     );
   }
@@ -120,6 +148,7 @@ class OnboardingTextField extends StatelessWidget {
     this.fillColor,
     this.feedbackChild,
     this.feedbackVisible = false,
+    this.feedbackReserveSpace = true,
   });
 
   final TextEditingController controller;
@@ -155,6 +184,11 @@ class OnboardingTextField extends StatelessWidget {
 
   /// Whether [feedbackChild] is currently visible.
   final bool feedbackVisible;
+
+  /// Passed through to [FieldFeedbackSlot.reserveSpace]. Default true
+  /// (login/onboarding screens keep the layout stable). Set to false on
+  /// scrollable forms where a collapsing slot is preferred.
+  final bool feedbackReserveSpace;
 
   @override
   Widget build(BuildContext context) {
@@ -230,6 +264,7 @@ class OnboardingTextField extends StatelessWidget {
         if (feedbackChild != null)
           FieldFeedbackSlot(
             visible: feedbackVisible,
+            reserveSpace: feedbackReserveSpace,
             child: feedbackChild!,
           ),
       ],

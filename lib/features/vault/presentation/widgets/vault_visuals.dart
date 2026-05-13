@@ -46,10 +46,13 @@ abstract final class VaultVisuals {
   ];
 
   /// Returns true when [icon] is a remote or local file URL (uploaded
-  /// custom icon) rather than a named preset.
+  /// custom icon) rather than a named preset. Accepts both https:// and
+  /// http:// (used by LocalStack in local dev).
   static bool isCustomUrl(String? icon) =>
       icon != null &&
-      (icon.startsWith('https://') || icon.startsWith('file://'));
+      (icon.startsWith('https://') ||
+       icon.startsWith('http://') ||
+       icon.startsWith('file://'));
 
   /// Resolve a stored icon name to its [IconData]. Falls back to
   /// [Icons.shield] when the name is missing or unknown — older vaults
@@ -102,7 +105,9 @@ abstract final class EntryVisuals {
 
   static bool isCustomUrl(String? icon) =>
       icon != null &&
-      (icon.startsWith('https://') || icon.startsWith('file://'));
+      (icon.startsWith('https://') ||
+       icon.startsWith('http://') ||
+       icon.startsWith('file://'));
 
   static IconData iconFor(String? name) {
     if (name == null || name.isEmpty) return Icons.vpn_key;

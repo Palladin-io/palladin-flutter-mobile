@@ -70,6 +70,7 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
 
   VaultFormData _formData = _initialFormData;
   XFile? _pendingIconFile;
+  bool _pickingIcon = false;
 
   @override
   void initState() {
@@ -77,18 +78,22 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
     AnalyticsService.instance.capture('vault', 'create-sheet-opened');
   }
 
-  Future<void> _pickIcon() async {
-    final file = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
-    );
-    if (file == null || !mounted) return;
-    setState(() {
-      _pendingIconFile = file;
-      _formData = _formData.copyWith(icon: 'file://${file.path}');
-    });
+  Future<String?> _pickIcon() async {
+    if (_pickingIcon) return null;
+    setState(() => _pickingIcon = true);
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+      if (file == null || !mounted) return null;
+      setState(() => _pendingIconFile = file);
+      return 'file://${file.path}';
+    } finally {
+      if (mounted) setState(() => _pickingIcon = false);
+    }
   }
 
   Future<void> _handleSubmit() async {
@@ -133,7 +138,13 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
         final url = await service.uploadIcon(vault.id, File(_pendingIconFile!.path));
         vault = vault.copyWith(icon: url);
       } catch (_) {
-        // Icon upload failed silently — vault was created, proceed without icon.
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(SnackBar(
+              content: Text(AppLocalizations.of(context)!.vaultIconUploadError),
+            ));
+        }
       }
     }
     if (mounted) Navigator.of(context).pop(vault);
@@ -148,7 +159,8 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
     return BlocBuilder<CreateVaultCubit, CreateVaultState>(
       builder: (context, state) {
         final isLoading = state is CreateVaultLoading;
-        final canSubmit = !isLoading && _formData.name.trim().isNotEmpty;
+        final isBusy = isLoading || _pickingIcon;
+        final canSubmit = !isBusy && _formData.name.trim().isNotEmpty;
 
         return Padding(
           padding: EdgeInsets.only(bottom: viewInsets.bottom),
@@ -175,7 +187,7 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
                     const SizedBox(height: 24),
                     _SheetHeader(
                       title: l10n.vaultNewVault,
-                      onClose: isLoading
+                      onClose: isBusy
                           ? null
                           : () => Navigator.of(context).pop(),
                     ),
@@ -185,10 +197,18 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
                         child: VaultForm(
                           initial: _initialFormData,
                           onChanged: (data) => setState(() => _formData = data),
-                          onPickCustomIcon: isLoading ? null : _pickIcon,
+                          onPickCustomIcon: isBusy ? () async => null : _pickIcon,
                         ),
                       ),
                     ),
+                    if (_pickingIcon)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: LinearProgressIndicator(
+                          color: AppColors.brandRed,
+                          backgroundColor: AppColors.hairline,
+                        ),
+                      ),
                     if (state is CreateVaultError) ...[
                       const SizedBox(height: 12),
                       Text(

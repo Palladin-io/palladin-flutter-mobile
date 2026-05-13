@@ -207,37 +207,25 @@ class _LoadedBody extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 96),
       child: entries.isEmpty
           ? _EmptyEntries(l10n: l10n)
-          : Container(
-              decoration: BoxDecoration(
-                color: AppColors.mobileSurface,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Column(
-                children: [
-                  for (var i = 0; i < entries.length; i++) ...[
-                    if (i > 0)
-                      const Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: AppColors.hairline,
-                      ),
-                    _EntryRow(
-                      entry: entries[i],
-                      isExpanded: expanded.contains(entries[i].id),
-                      payload: revealedEntries[entries[i].id],
-                      revealedFields: revealedFields,
-                      onToggleReveal: () => onToggleReveal(entries[i]),
-                      onToggleFieldReveal: onToggleFieldReveal,
-                      onCopy: onCopy,
-                      onEdit: () => onEdit(
-                        entries[i],
-                        revealedEntries[entries[i].id],
-                      ),
+          : Column(
+              children: [
+                for (var i = 0; i < entries.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 12),
+                  _EntryCard(
+                    entry: entries[i],
+                    isExpanded: expanded.contains(entries[i].id),
+                    payload: revealedEntries[entries[i].id],
+                    revealedFields: revealedFields,
+                    onToggleReveal: () => onToggleReveal(entries[i]),
+                    onToggleFieldReveal: onToggleFieldReveal,
+                    onCopy: onCopy,
+                    onEdit: () => onEdit(
+                      entries[i],
+                      revealedEntries[entries[i].id],
                     ),
-                  ],
+                  ),
                 ],
-              ),
+              ],
             ),
     );
   }
@@ -281,10 +269,11 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.mobileSurface,
+        color: AppColors.cardSurface(brightness),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: borderColor),
       ),
@@ -302,8 +291,8 @@ class _FilterChip extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: AppColors.onSurface(brightness),
               fontSize: 11,
             ),
           ),
@@ -320,18 +309,19 @@ class _EmptyEntries extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 24),
       child: Column(
         children: [
-          const Icon(Icons.inbox_outlined,
-              size: 36, color: AppColors.textTertiaryMobile),
+          Icon(Icons.inbox_outlined,
+              size: 36, color: AppColors.onSurfaceSubtle(brightness)),
           const SizedBox(height: 12),
           Text(
             l10n.entryEmpty,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: AppColors.onSurface(brightness),
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -445,6 +435,7 @@ class _ErrorView extends StatelessWidget {
       EntryErrorKind.networkError => l10n.errorCannotConnectToServer,
       EntryErrorKind.unknown => l10n.entryErrorUnknown,
     };
+    final brightness = Theme.of(context).brightness;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -454,8 +445,8 @@ class _ErrorView extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
+              style: TextStyle(
+                color: AppColors.onSurface(brightness),
                 fontSize: 14,
                 height: 1.4,
               ),
@@ -475,10 +466,10 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-// ── Entry row + reveal panel ───────────────────────────────────────
+// ── Entry card + reveal panel ──────────────────────────────────────
 
-class _EntryRow extends StatelessWidget {
-  const _EntryRow({
+class _EntryCard extends StatelessWidget {
+  const _EntryCard({
     required this.entry,
     required this.isExpanded,
     required this.payload,
@@ -501,99 +492,122 @@ class _EntryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
     final meta = entry.urlDomain ?? entry.description ?? '';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Top row — name + meta + reveal/arrow buttons.
-        Padding(
-          padding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
-          child: Row(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onEdit,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppColors.cardFill(brightness),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.cardBorder(brightness),
+              width: 1,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _EntryIconWidget(entry: entry),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              // Header row — icon + name/meta + action buttons.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(0, 12, 0, 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      entry.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                    _EntryIconWidget(entry: entry),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppColors.onSurface(brightness),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          if (meta.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              meta,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: AppColors.onSurfaceSubtle(brightness),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                    if (meta.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        meta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textTertiaryMobile,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
+                    const SizedBox(width: 6),
+                    _SmallIconButton(
+                      icon: isExpanded
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      tooltip: l10n.vaultRevealEntry,
+                      onPressed: onToggleReveal,
+                    ),
+                    const SizedBox(width: 6),
+                    _SmallIconButton(
+                      icon: Icons.arrow_forward,
+                      tooltip: l10n.vaultViewEntry,
+                      onPressed: onEdit,
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(width: 6),
-              _SmallIconButton(
-                icon: isExpanded ? Icons.visibility_off : Icons.visibility,
-                tooltip: l10n.vaultRevealEntry,
-                onPressed: onToggleReveal,
-              ),
-              const SizedBox(width: 6),
-              _SmallIconButton(
-                icon: Icons.arrow_forward,
-                tooltip: l10n.vaultViewEntry,
-                onPressed: onEdit,
+              // Reveal panel — animates open/closed.
+              AnimatedSize(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                alignment: Alignment.topCenter,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 220),
+                  opacity: isExpanded ? 1.0 : 0.0,
+                  child: isExpanded
+                      ? Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: payload == null
+                              ? const Padding(
+                                  padding:
+                                      EdgeInsets.symmetric(vertical: 8),
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.5,
+                                        color: AppColors.brandRed,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : _RevealPanel(
+                                  entry: entry,
+                                  payload: payload!,
+                                  revealedFields: revealedFields,
+                                  onToggleFieldReveal: onToggleFieldReveal,
+                                  onCopy: onCopy,
+                                ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
               ),
             ],
           ),
         ),
-        // Reveal panel — animates max-height + opacity.
-        AnimatedSize(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
-          alignment: Alignment.topCenter,
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 220),
-            opacity: isExpanded ? 1.0 : 0.0,
-            child: isExpanded
-                ? Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: payload == null
-                        ? const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8),
-                            child: Center(
-                              child: SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.5,
-                                  color: AppColors.brandRed,
-                                ),
-                              ),
-                            ),
-                          )
-                        : _RevealPanel(
-                            entry: entry,
-                            payload: payload!,
-                            revealedFields: revealedFields,
-                            onToggleFieldReveal: onToggleFieldReveal,
-                            onCopy: onCopy,
-                          ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -700,20 +714,21 @@ class _RevealRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
     final displayed = isMasked && !revealed ? '••••••••••••' : value;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Icon(icon, size: 12, color: AppColors.textTertiaryMobile),
+          Icon(icon, size: 12, color: AppColors.onSurfaceSubtle(brightness)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               displayed,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
+              style: TextStyle(
+                color: AppColors.onSurface(brightness),
                 fontSize: 10,
                 fontFamily: 'monospace',
                 letterSpacing: 0.5,
@@ -747,9 +762,10 @@ class _RevealRow extends StatelessWidget {
 // ── Entry icon ─────────────────────────────────────────────────────
 
 /// Renders the entry's icon as a 28×28 circle. Uses the `entry.icon`
-/// field when set — custom URLs become a network image, preset names
-/// map to the matching [EntryVisuals] palette color. Falls back to a
-/// type-based icon when `entry.icon` is null.
+/// field when set — custom URLs (publicly readable S3) become a network
+/// image with a cache-busting `?v=` param tied to `entry.updatedAt`,
+/// preset names map to the matching [EntryVisuals] palette color.
+/// Falls back to a type-based icon when `entry.icon` is null.
 class _EntryIconWidget extends StatelessWidget {
   const _EntryIconWidget({required this.entry});
 
@@ -759,19 +775,27 @@ class _EntryIconWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final icon = entry.icon;
 
-    if (EntryVisuals.isCustomUrl(icon)) {
-      return ClipOval(
+    if (!EntryVisuals.isCustomUrl(icon)) {
+      return _presetIcon(icon);
+    }
+
+    // Cache-bust on icon updates: `updatedAt` changes whenever the entry
+    // is patched (including after a new icon upload), so the `?v=` query
+    // forces Flutter's image cache to refetch the new bytes.
+    final url = '$icon?v=${entry.updatedAt.millisecondsSinceEpoch}';
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: ClipOval(
         child: Image.network(
-          icon!,
+          url,
           width: 28,
           height: 28,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => _presetIcon(null),
         ),
-      );
-    }
-
-    return _presetIcon(icon);
+      ),
+    );
   }
 
   Widget _presetIcon(String? name) {
@@ -812,6 +836,7 @@ class _SmallIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Tooltip(
       message: tooltip,
       child: InkResponse(
@@ -822,7 +847,7 @@ class _SmallIconButton extends StatelessWidget {
           child: Icon(
             icon,
             size: size,
-            color: AppColors.textTertiaryMobile,
+            color: AppColors.onSurfaceSubtle(brightness),
           ),
         ),
       ),

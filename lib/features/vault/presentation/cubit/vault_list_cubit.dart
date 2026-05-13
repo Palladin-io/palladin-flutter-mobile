@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
 import '../../domain/repositories/vault_repository.dart';
 import 'vault_list_state.dart';
@@ -23,6 +24,36 @@ class VaultListCubit extends Cubit<VaultListState> {
       : super(const VaultListInitial());
 
   final VaultRepository repository;
+
+  Future<void> loadIfNeeded() async {
+    if (state is VaultListLoaded) return;
+    await loadVaults();
+  }
+
+  void appendVault(VaultEntity vault) {
+    final current = state;
+    if (current is VaultListLoaded) {
+      emit(VaultListLoaded([vault, ...current.vaults]));
+    }
+  }
+
+  void removeVault(String id) {
+    final current = state;
+    if (current is VaultListLoaded) {
+      emit(VaultListLoaded(
+        current.vaults.where((v) => v.id != id).toList(),
+      ));
+    }
+  }
+
+  void updateVault(VaultEntity updated) {
+    final current = state;
+    if (current is VaultListLoaded) {
+      emit(VaultListLoaded(
+        current.vaults.map((v) => v.id == updated.id ? updated : v).toList(),
+      ));
+    }
+  }
 
   Future<void> loadVaults() async {
     AppLogger.d('Vault', 'Loading vault list');

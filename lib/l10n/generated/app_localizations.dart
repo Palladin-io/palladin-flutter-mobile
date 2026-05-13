@@ -1322,6 +1322,12 @@ abstract class AppLocalizations {
   /// **'URL'**
   String get entryUrlLabel;
 
+  /// Validation error shown below the URL field when the value is not a valid URL
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid URL (e.g. stripe.com or https://stripe.com)'**
+  String get entryUrlInvalid;
+
   /// Label for the optional notes input field on every entry
   ///
   /// In en, this message translates to:

@@ -784,6 +784,10 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryUrlLabel => 'URL';
 
   @override
+  String get entryUrlInvalid =>
+      'Podaj prawidłowy URL (np. stripe.com lub https://stripe.com)';
+
+  @override
   String get entryNotesLabel => 'Notatki';
 
   @override
