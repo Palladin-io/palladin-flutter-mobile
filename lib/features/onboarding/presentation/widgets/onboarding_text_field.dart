@@ -149,12 +149,18 @@ class OnboardingTextField extends StatelessWidget {
     this.feedbackChild,
     this.feedbackVisible = false,
     this.feedbackReserveSpace = true,
+    this.maxLines = 1,
   });
 
   final TextEditingController controller;
   final String? label;
   final String? hintText;
   final bool obscureText;
+
+  /// Maximum number of lines for the input. Default 1 (single-line).
+  /// Set to a higher value (e.g. 3) for multi-line inputs like notes.
+  /// Forced to 1 when [obscureText] is true (Flutter requirement).
+  final int maxLines;
 
   /// Optional icon rendered as [InputDecoration.prefixIcon]. Wrap in
   /// [Padding] to control spacing — the field sets
@@ -201,6 +207,7 @@ class OnboardingTextField extends StatelessWidget {
       cursorColor: activeColor,
       controller: controller,
       obscureText: obscureText,
+      maxLines: obscureText ? 1 : maxLines,
       autocorrect: autocorrect,
       enableSuggestions: enableSuggestions,
       textCapitalization: textCapitalization,

@@ -17,6 +17,7 @@ import '../../data/services/vault_icon_upload_service.dart'
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../cubit/edit_entry_cubit.dart';
+import '../widgets/entry_form_widgets.dart';
 import '../widgets/entry_icon_picker.dart';
 import '../widgets/vault_color_picker.dart';
 import '../widgets/vault_placeholder_tab.dart';
@@ -95,6 +96,13 @@ class EntryDetailPage extends StatelessWidget {
                   wrappedVK: wrappedVK,
                 )
                 .whenComplete(() => keyCopy.fillRange(0, keyCopy.length, 0));
+          } else {
+            // The vault is locked or the private key was wiped — without
+            // a private key we cannot decrypt anything to populate the
+            // form. Emit a cryptoFailure so the details tab renders the
+            // error view instead of an infinite "Loading entry data…"
+            // spinner.
+            cubit.markRevealUnavailable();
           }
         }
         return cubit;
@@ -280,6 +288,9 @@ class _EntryDetailViewState extends State<_EntryDetailView>
             urlDomain: urlDomain,
             privateKey: keyCopy,
             wrappedVK: widget.wrappedVK,
+            // Preserve the original createdAt — repository would otherwise
+            // default to now() and wipe the real creation timestamp.
+            createdAt: widget.entry.createdAt,
           );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
@@ -381,18 +392,19 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
 
-    return BlocBuilder<EditEntryCubit, EditEntryState>(
-      builder: (context, state) {
-        // Populate form on first EditEntryReady (handles both: initial
-        // state when cachedPayload was already set, and async reveal).
+    // Populate form from the cubit's payload via a BlocListener — keeps
+    // UI rendering and side effects cleanly separated, avoiding the
+    // `addPostFrameCallback`-inside-`BlocBuilder` anti-pattern that
+    // schedules a fresh callback on every rebuild.
+    return BlocConsumer<EditEntryCubit, EditEntryState>(
+      listenWhen: (prev, next) =>
+          next is EditEntryReady && !_populated,
+      listener: (context, state) {
         if (state is EditEntryReady && !_populated) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && !_populated) {
-              setState(() => _populateFrom(state.entry, state.payload));
-            }
-          });
+          setState(() => _populateFrom(state.entry, state.payload));
         }
-
+      },
+      builder: (context, state) {
         return Container(
           decoration:
               BoxDecoration(gradient: AppColors.backgroundGradient(brightness)),
@@ -555,13 +567,12 @@ class _EntryDetailViewState extends State<_EntryDetailView>
             onSelected: (hex) => setState(() => _color = hex),
           ),
           const SizedBox(height: 16),
-          _EntryTypeDropdown(
+          EntryTypeDropdown(
             value: _type,
             onChanged: (next) {
               if (next == null || next == _type) return;
               setState(() => _type = next);
             },
-            l10n: l10n,
           ),
           const SizedBox(height: 16),
           if (_type == EntryType.key) ...[
@@ -571,7 +582,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
               obscureText: _valueObscured,
               textInputAction: TextInputAction.next,
               onChanged: (_) => setState(() {}),
-              suffixIcon: _ObscureToggle(
+              suffixIcon: EntryObscureToggle(
                 obscured: _valueObscured,
                 onPressed: () =>
                     setState(() => _valueObscured = !_valueObscured),
@@ -591,7 +602,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
               obscureText: _passwordObscured,
               textInputAction: TextInputAction.next,
               onChanged: (_) => setState(() {}),
-              suffixIcon: _ObscureToggle(
+              suffixIcon: EntryObscureToggle(
                 obscured: _passwordObscured,
                 onPressed: () =>
                     setState(() => _passwordObscured = !_passwordObscured),
@@ -599,13 +610,12 @@ class _EntryDetailViewState extends State<_EntryDetailView>
             ),
           ],
           const SizedBox(height: 16),
-          _NotesField(
+          EntryNotesField(
             controller: _notesController,
             label: l10n.entryNotesLabel,
-            brightness: brightness,
           ),
           const SizedBox(height: 20),
-          _EncryptionNotice(message: l10n.entryEncryptionNotice),
+          EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
           if (state is EditEntryError) ...[
             const SizedBox(height: 12),
             Text(
@@ -614,31 +624,9 @@ class _EntryDetailViewState extends State<_EntryDetailView>
             ),
           ],
           const SizedBox(height: 20),
-          SizedBox(
-            height: 52,
-            child: ElevatedButton(
-              onPressed: canSubmit ? _submit : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.brandRed,
-                disabledBackgroundColor:
-                    AppColors.brandRed.withValues(alpha: 0.35),
-                foregroundColor: AppColors.onBrandRed,
-                disabledForegroundColor:
-                    AppColors.onBrandRed.withValues(alpha: 0.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              child: Text(
-                isLoading ? l10n.entrySaving : l10n.entrySaveAction,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
+          EntrySaveButton(
+            isLoading: isLoading,
+            onPressed: canSubmit ? _submit : null,
           ),
           // ── Danger Zone ────────────────────────────────────────────
           const SizedBox(height: 32),
@@ -820,192 +808,5 @@ class _DangerZone extends StatelessWidget {
   }
 }
 
-// ── Shared sub-widgets ─────────────────────────────────────────────
-
-class _EntryTypeDropdown extends StatelessWidget {
-  const _EntryTypeDropdown({
-    required this.value,
-    required this.onChanged,
-    required this.l10n,
-  });
-
-  final EntryType value;
-  final ValueChanged<EntryType?> onChanged;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.entryTypeLabel,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppColors.onSurfaceMuted(brightness),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: AppColors.inputFill(brightness),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: AppColors.inputBorder(brightness),
-              width: 1,
-            ),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<EntryType>(
-              value: value,
-              isExpanded: true,
-              dropdownColor: AppColors.modalBackground(brightness),
-              iconEnabledColor: AppColors.onSurfaceMuted(brightness),
-              style: TextStyle(
-                color: AppColors.inputText(brightness),
-                fontSize: 14,
-              ),
-              items: [
-                DropdownMenuItem(
-                  value: EntryType.credential,
-                  child: Text(l10n.entryTypeCredential),
-                ),
-                DropdownMenuItem(
-                  value: EntryType.key,
-                  child: Text(l10n.entryTypeKey),
-                ),
-              ],
-              onChanged: onChanged,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ObscureToggle extends StatelessWidget {
-  const _ObscureToggle({required this.obscured, required this.onPressed});
-
-  final bool obscured;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(
-        obscured ? Icons.visibility : Icons.visibility_off,
-        size: 18,
-        color: AppColors.textTertiaryMobile,
-      ),
-      onPressed: onPressed,
-      splashRadius: 18,
-      tooltip: AppLocalizations.of(context)!.vaultRevealValue,
-    );
-  }
-}
-
-class _NotesField extends StatelessWidget {
-  const _NotesField({
-    required this.controller,
-    required this.label,
-    required this.brightness,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final Brightness brightness;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppColors.onSurfaceMuted(brightness),
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          maxLines: 3,
-          textCapitalization: TextCapitalization.sentences,
-          cursorColor: AppColors.onSurface(brightness),
-          style: TextStyle(
-            color: AppColors.inputText(brightness),
-            fontSize: 14,
-          ),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppColors.inputFill(brightness),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(
-                color: AppColors.inputBorder(brightness),
-                width: 1,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(
-                color: AppColors.onSurface(brightness),
-                width: 1.5,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _EncryptionNotice extends StatelessWidget {
-  const _EncryptionNotice({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.tealAccent.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.tealAccent.withValues(alpha: 0.35),
-        ),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.lock_outline, size: 16, color: AppColors.tealAccent),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: AppColors.tealAccent,
-                fontSize: 12,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// Form sub-widgets live in `widgets/entry_form_widgets.dart` and are
+// shared with `add_entry_page.dart`.

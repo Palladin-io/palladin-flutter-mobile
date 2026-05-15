@@ -184,6 +184,7 @@ class EntryRepositoryImpl implements EntryRepository {
     String? urlDomain,
     required Uint8List privateKey,
     String? wrappedVK,
+    required DateTime createdAt,
   }) async {
     AppLogger.d('Entry', 'Updating encrypted entry id=$entryId');
     final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
@@ -218,7 +219,12 @@ class EntryRepositoryImpl implements EntryRepository {
         AppLogger.e('Entry', 'updateEntry failed', error: e, stackTrace: s);
         throw EntryException(_classifyError(e));
       }
-      // Build entity locally — PUT returns 204 No Content.
+      // Build entity locally — PUT returns 204 No Content. Preserve the
+      // original [createdAt] (passed in by the caller) so editing an entry
+      // does not overwrite its creation timestamp. `updatedAt` is set to
+      // `now()` as a best-effort optimistic value — close enough for UI
+      // ordering, and a subsequent list refresh will overwrite it with the
+      // server-truthy value.
       return EntryEntity(
         id: entryId,
         vaultId: vaultId,
@@ -227,7 +233,7 @@ class EntryRepositoryImpl implements EntryRepository {
         icon: icon,
         type: type,
         urlDomain: urlDomain,
-        createdAt: DateTime.now().toUtc(),
+        createdAt: createdAt,
         updatedAt: DateTime.now().toUtc(),
       );
     } finally {

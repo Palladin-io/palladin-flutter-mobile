@@ -17,6 +17,7 @@ import '../../data/services/vault_icon_upload_service.dart'
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../cubit/create_entry_cubit.dart';
+import '../widgets/entry_form_widgets.dart';
 import '../widgets/entry_icon_picker.dart';
 import '../widgets/vault_color_picker.dart';
 import '../widgets/vault_visuals.dart';
@@ -388,13 +389,12 @@ class _AddEntryViewState extends State<_AddEntryView> {
                     ),
                     const SizedBox(height: 16),
                     // 6. Type dropdown
-                    _EntryTypeDropdown(
+                    EntryTypeDropdown(
                       value: _type,
                       onChanged: (next) {
                         if (next == null || next == _type) return;
                         setState(() => _type = next);
                       },
-                      l10n: l10n,
                     ),
                     const SizedBox(height: 16),
                     // 7. Type-specific fields
@@ -405,7 +405,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                         obscureText: _valueObscured,
                         textInputAction: TextInputAction.next,
                         onChanged: (_) => setState(() {}),
-                        suffixIcon: _ObscureToggle(
+                        suffixIcon: EntryObscureToggle(
                           obscured: _valueObscured,
                           onPressed: () => setState(
                             () => _valueObscured = !_valueObscured,
@@ -426,7 +426,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                         obscureText: _passwordObscured,
                         textInputAction: TextInputAction.next,
                         onChanged: (_) => setState(() {}),
-                        suffixIcon: _ObscureToggle(
+                        suffixIcon: EntryObscureToggle(
                           obscured: _passwordObscured,
                           onPressed: () => setState(
                             () => _passwordObscured = !_passwordObscured,
@@ -436,14 +436,13 @@ class _AddEntryViewState extends State<_AddEntryView> {
                     ],
                     const SizedBox(height: 16),
                     // 7. Notes
-                    _NotesField(
+                    EntryNotesField(
                       controller: _notesController,
                       label: l10n.entryNotesLabel,
-                      brightness: brightness,
                     ),
                     const SizedBox(height: 20),
                     // 8. Encryption notice
-                    _EncryptionNotice(message: l10n.entryEncryptionNotice),
+                    EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
                     if (state is CreateEntryError) ...[
                       const SizedBox(height: 12),
                       Text(
@@ -456,31 +455,9 @@ class _AddEntryViewState extends State<_AddEntryView> {
                     ],
                     const SizedBox(height: 20),
                     // 9. Save button
-                    SizedBox(
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: canSubmit ? _submit : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.brandRed,
-                          disabledBackgroundColor:
-                              AppColors.brandRed.withValues(alpha: 0.35),
-                          foregroundColor: AppColors.onBrandRed,
-                          disabledForegroundColor:
-                              AppColors.onBrandRed.withValues(alpha: 0.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: Text(
-                          isLoading ? l10n.entrySaving : l10n.entrySaveAction,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ),
+                    EntrySaveButton(
+                      isLoading: isLoading,
+                      onPressed: canSubmit ? _submit : null,
                     ),
                   ],
                 ),
@@ -504,194 +481,3 @@ class _AddEntryViewState extends State<_AddEntryView> {
   }
 }
 
-class _EntryTypeDropdown extends StatelessWidget {
-  const _EntryTypeDropdown({
-    required this.value,
-    required this.onChanged,
-    required this.l10n,
-  });
-
-  final EntryType value;
-  final ValueChanged<EntryType?> onChanged;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.entryTypeLabel,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppColors.onSurfaceMuted(brightness),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: AppColors.inputFill(brightness),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: AppColors.inputBorder(brightness),
-              width: 1,
-            ),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<EntryType>(
-              value: value,
-              isExpanded: true,
-              dropdownColor: AppColors.modalBackground(brightness),
-              iconEnabledColor: AppColors.onSurfaceMuted(brightness),
-              style: TextStyle(
-                color: AppColors.inputText(brightness),
-                fontSize: 14,
-              ),
-              items: [
-                DropdownMenuItem(
-                  value: EntryType.credential,
-                  child: Text(l10n.entryTypeCredential),
-                ),
-                DropdownMenuItem(
-                  value: EntryType.key,
-                  child: Text(l10n.entryTypeKey),
-                ),
-              ],
-              onChanged: onChanged,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ObscureToggle extends StatelessWidget {
-  const _ObscureToggle({required this.obscured, required this.onPressed});
-
-  final bool obscured;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(
-        obscured ? Icons.visibility : Icons.visibility_off,
-        size: 18,
-        color: AppColors.textTertiaryMobile,
-      ),
-      onPressed: onPressed,
-      splashRadius: 18,
-      tooltip: AppLocalizations.of(context)!.vaultRevealValue,
-    );
-  }
-}
-
-class _NotesField extends StatelessWidget {
-  const _NotesField({
-    required this.controller,
-    required this.label,
-    required this.brightness,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final Brightness brightness;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppColors.onSurfaceMuted(brightness),
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          maxLines: 3,
-          textCapitalization: TextCapitalization.sentences,
-          cursorColor: AppColors.onSurface(brightness),
-          style: TextStyle(
-            color: AppColors.inputText(brightness),
-            fontSize: 14,
-          ),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppColors.inputFill(brightness),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(
-                color: AppColors.inputBorder(brightness),
-                width: 1,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(
-                color: AppColors.onSurface(brightness),
-                width: 1.5,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _EncryptionNotice extends StatelessWidget {
-  const _EncryptionNotice({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.tealAccent.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.tealAccent.withValues(alpha: 0.35),
-        ),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.lock_outline,
-            size: 16,
-            color: AppColors.tealAccent,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: AppColors.tealAccent,
-                fontSize: 12,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

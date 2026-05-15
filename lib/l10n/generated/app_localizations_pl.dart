@@ -792,7 +792,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get entryEncryptionNotice =>
-      'Szyfrowane na urządzeniu (AES-256-GCM) przed wysłaniem';
+      'Szyfrowane na urządzeniu (XSalsa20-Poly1305) przed wysłaniem';
 
   @override
   String get entrySearchHint => 'Szukaj wpisów…';

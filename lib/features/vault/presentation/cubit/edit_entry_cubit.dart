@@ -32,6 +32,13 @@ class EditEntryCubit extends Cubit<EditEntryState> {
     emit(EditEntryReady(entry: entry, payload: payload));
   }
 
+  /// Surfaces a cryptoFailure error when the page is opened without a
+  /// usable private key (vault locked / auth state out of sync). Without
+  /// this the details tab would stay stuck on the reveal spinner forever.
+  void markRevealUnavailable() {
+    emit(const EditEntryError(EntryErrorKind.cryptoFailure));
+  }
+
   /// Decrypts the entry payload so form fields can be pre-populated.
   Future<void> revealForEdit({
     required EntryEntity entry,
@@ -59,6 +66,12 @@ class EditEntryCubit extends Cubit<EditEntryState> {
   }
 
   /// Re-encrypts and saves the edited entry.
+  ///
+  /// [createdAt] must be the entry's original creation timestamp —
+  /// callers should pass `entry.createdAt`. Without this the repository
+  /// would default to `DateTime.now()` and overwrite the real creation
+  /// time on every edit (PUT returns 204, so the server timestamp is
+  /// not echoed back).
   Future<void> updateEntry({
     required String vaultId,
     required String entryId,
@@ -70,6 +83,7 @@ class EditEntryCubit extends Cubit<EditEntryState> {
     String? urlDomain,
     required Uint8List privateKey,
     String? wrappedVK,
+    required DateTime createdAt,
   }) async {
     if (label.trim().isEmpty || privateKey.isEmpty) {
       AppLogger.w('Entry', 'updateEntry called with invalid input');
@@ -91,6 +105,7 @@ class EditEntryCubit extends Cubit<EditEntryState> {
         urlDomain: _trimToNull(urlDomain),
         privateKey: privateKey,
         wrappedVK: wrappedVK,
+        createdAt: createdAt,
       );
       AppLogger.i('Entry', 'Entry updated: id=${updated.id}');
       emit(EditEntrySuccess(updated));

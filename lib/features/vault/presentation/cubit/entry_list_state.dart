@@ -23,19 +23,42 @@ final class EntryListLoading extends EntryListState {
 /// user has expanded. Decryption is lazy (one fetch + decrypt per
 /// reveal) and the map is rebuilt on every refresh so revealed
 /// plaintext does not survive a list reload.
+///
+/// [transientErrorKind] carries the most recent per-row failure (e.g.
+/// a reveal/delete that failed) WITHOUT replacing the loaded list with
+/// a full-page error view. Pair it with [transientErrorTick] which
+/// monotonically increases on every error emission so [BlocListener]
+/// can distinguish repeated failures and surface them as a snackbar.
 final class EntryListLoaded extends EntryListState {
-  const EntryListLoaded(this.entries, {this.revealedEntries = const {}});
+  const EntryListLoaded(
+    this.entries, {
+    this.revealedEntries = const {},
+    this.transientErrorKind,
+    this.transientErrorTick = 0,
+  });
 
   final List<EntryEntity> entries;
   final Map<String, Map<String, dynamic>> revealedEntries;
 
+  /// The most recent transient operation error (reveal, delete, …).
+  /// Null when nothing has failed since the last successful load.
+  final EntryErrorKind? transientErrorKind;
+
+  /// Monotonic counter incremented on every transient error emission.
+  /// Lets BlocListener distinguish back-to-back failures of the same kind.
+  final int transientErrorTick;
+
   EntryListLoaded copyWith({
     List<EntryEntity>? entries,
     Map<String, Map<String, dynamic>>? revealedEntries,
+    EntryErrorKind? transientErrorKind,
+    int? transientErrorTick,
   }) {
     return EntryListLoaded(
       entries ?? this.entries,
       revealedEntries: revealedEntries ?? this.revealedEntries,
+      transientErrorKind: transientErrorKind ?? this.transientErrorKind,
+      transientErrorTick: transientErrorTick ?? this.transientErrorTick,
     );
   }
 }

@@ -56,11 +56,15 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
   void _onToggleReveal(EntryEntity entry) {
     final cubit = context.read<EntryListCubit>();
     if (_expanded.contains(entry.id)) {
-      setState(() => _expanded.remove(entry.id));
+      // Collapse the panel AND drop any field-level reveal flags atomically
+      // so the next expand starts with values masked again. Keeping both
+      // mutations inside a single setState avoids relying on an unrelated
+      // mutation to schedule the rebuild.
+      setState(() {
+        _expanded.remove(entry.id);
+        _revealedFields.removeWhere((k) => k.startsWith('${entry.id}:'));
+      });
       cubit.hideEntry(entry.id);
-      // Drop any field-level reveal flags so the next expand starts
-      // with values masked again.
-      _revealedFields.removeWhere((k) => k.startsWith('${entry.id}:'));
       return;
     }
 
@@ -127,10 +131,40 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
       ));
   }
 
+  String _errorMessage(EntryErrorKind kind, AppLocalizations l10n) {
+    return switch (kind) {
+      EntryErrorKind.notFound => l10n.entryErrorNotFound,
+      EntryErrorKind.forbidden => l10n.entryErrorForbidden,
+      EntryErrorKind.validation => l10n.entryErrorValidation,
+      EntryErrorKind.cryptoFailure => l10n.entryErrorCrypto,
+      EntryErrorKind.networkError => l10n.errorCannotConnectToServer,
+      EntryErrorKind.unknown => l10n.entryErrorUnknown,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return BlocBuilder<EntryListCubit, EntryListState>(
+    return BlocConsumer<EntryListCubit, EntryListState>(
+      listenWhen: (prev, next) {
+        // Fire only when the loaded state's transient error tick changes —
+        // each per-row failure (reveal/delete) bumps the tick.
+        if (next is! EntryListLoaded) return false;
+        if (prev is! EntryListLoaded) return next.transientErrorKind != null;
+        return next.transientErrorTick != prev.transientErrorTick &&
+            next.transientErrorKind != null;
+      },
+      listener: (context, state) {
+        if (state is! EntryListLoaded) return;
+        final kind = state.transientErrorKind;
+        if (kind == null) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            content: Text(_errorMessage(kind, l10n)),
+            duration: const Duration(seconds: 3),
+          ));
+      },
       builder: (context, state) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

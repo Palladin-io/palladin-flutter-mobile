@@ -206,7 +206,7 @@
   "entryUrlLabel": "URL",
   "entryUrlInvalid": "Podaj prawidłowy URL (np. stripe.com lub https://stripe.com)",
   "entryNotesLabel": "Notatki",
-  "entryEncryptionNotice": "Szyfrowane na urządzeniu (AES-256-GCM) przed wysłaniem",
+  "entryEncryptionNotice": "Szyfrowane na urządzeniu (XSalsa20-Poly1305) przed wysłaniem",
   "entrySearchHint": "Szukaj wpisów…",
   "entryEmpty": "Brak wpisów",
   "entryEmptyAdd": "Dodaj pierwsze dane, aby zacząć.",

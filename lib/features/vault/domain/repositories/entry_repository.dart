@@ -95,6 +95,11 @@ abstract interface class EntryRepository {
   /// `/api/vaults/{vaultId}/entries/{entryId}`. Returns the updated
   /// [EntryEntity] (constructed locally — the backend returns 204).
   ///
+  /// [createdAt] must be the entry's original creation timestamp — PUT
+  /// returns 204 so we cannot read it back from the server, and inventing
+  /// a new `DateTime.now()` here would overwrite the real value on every
+  /// edit. Pass the timestamp from the entity in the parent list.
+  ///
   /// [wrappedVK] mirrors the same parameter on [revealEntry].
   Future<EntryEntity> updateEntryEncrypted({
     required String vaultId,
@@ -107,5 +112,6 @@ abstract interface class EntryRepository {
     String? urlDomain,
     required Uint8List privateKey,
     String? wrappedVK,
+    required DateTime createdAt,
   });
 }

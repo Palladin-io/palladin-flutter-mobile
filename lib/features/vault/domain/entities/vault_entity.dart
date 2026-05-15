@@ -83,6 +83,13 @@ class VaultEntity {
   /// on entries returned from the list endpoint (the list payload omits
   /// `wrappedVK`); presentation code must fall back to a fetch when the
   /// vault was first surfaced via the list.
+  ///
+  /// SECURITY: transport-only field. Never log, never serialize to disk,
+  /// never expose via analytics. The earlier design intentionally kept
+  /// `wrappedVK` out of [VaultEntity] to enforce that discipline; the
+  /// trade-off taken here (perf gain from skipping a second
+  /// `GET /api/vaults/{id}`) only holds while this field is treated as
+  /// opaque ciphertext owned by the in-memory auth/vault state.
   final String? wrappedVK;
 
   VaultEntity copyWith({String? icon}) {

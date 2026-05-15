@@ -246,6 +246,111 @@ void main() {
     );
 
     blocTest<EntryListCubit, EntryListState>(
+      'revealEntry surfaces transient error WITHOUT replacing Loaded list',
+      build: () {
+        when(() => repository.listEntries(any()))
+            .thenAnswer((_) async => sampleEntries);
+        when(() => repository.revealEntry(
+              vaultId: any(named: 'vaultId'),
+              entryId: any(named: 'entryId'),
+              privateKey: any(named: 'privateKey'),
+            )).thenThrow(
+          const EntryException(EntryErrorKind.networkError),
+        );
+        return buildCubit();
+      },
+      act: (cubit) async {
+        await cubit.loadEntries();
+        await cubit.revealEntry(entryId: 'e-1', privateKey: privateKey);
+      },
+      // After the failed reveal we should still be on a Loaded state with
+      // both entries — NOT on EntryListError replacing the whole view.
+      verify: (cubit) {
+        final state = cubit.state;
+        expect(state, isA<EntryListLoaded>());
+        final loaded = state as EntryListLoaded;
+        expect(loaded.entries.length, 2);
+        expect(loaded.transientErrorKind, EntryErrorKind.networkError);
+        expect(loaded.transientErrorTick, 1);
+      },
+    );
+
+    blocTest<EntryListCubit, EntryListState>(
+      'deleteEntry surfaces transient error WITHOUT replacing Loaded list',
+      build: () {
+        when(() => repository.listEntries(any()))
+            .thenAnswer((_) async => sampleEntries);
+        when(() => repository.deleteEntry(
+              vaultId: any(named: 'vaultId'),
+              entryId: any(named: 'entryId'),
+            )).thenThrow(
+          const EntryException(EntryErrorKind.forbidden),
+        );
+        return buildCubit();
+      },
+      act: (cubit) async {
+        await cubit.loadEntries();
+        await cubit.deleteEntry('e-1');
+      },
+      verify: (cubit) {
+        final state = cubit.state;
+        expect(state, isA<EntryListLoaded>());
+        final loaded = state as EntryListLoaded;
+        expect(loaded.entries.length, 2);
+        expect(loaded.transientErrorKind, EntryErrorKind.forbidden);
+        expect(loaded.transientErrorTick, 1);
+      },
+    );
+
+    blocTest<EntryListCubit, EntryListState>(
+      'transientErrorTick increments on consecutive failures',
+      build: () {
+        when(() => repository.listEntries(any()))
+            .thenAnswer((_) async => sampleEntries);
+        when(() => repository.revealEntry(
+              vaultId: any(named: 'vaultId'),
+              entryId: any(named: 'entryId'),
+              privateKey: any(named: 'privateKey'),
+            )).thenThrow(
+          const EntryException(EntryErrorKind.networkError),
+        );
+        return buildCubit();
+      },
+      act: (cubit) async {
+        await cubit.loadEntries();
+        await cubit.revealEntry(entryId: 'e-1', privateKey: privateKey);
+        await cubit.revealEntry(entryId: 'e-2', privateKey: privateKey);
+      },
+      verify: (cubit) {
+        final state = cubit.state as EntryListLoaded;
+        // Two failures → tick should be 2 so BlocListener fires twice.
+        expect(state.transientErrorTick, 2);
+      },
+    );
+
+    blocTest<EntryListCubit, EntryListState>(
+      'transient error falls back to EntryListError when no Loaded state',
+      build: () {
+        when(() => repository.deleteEntry(
+              vaultId: any(named: 'vaultId'),
+              entryId: any(named: 'entryId'),
+            )).thenThrow(
+          const EntryException(EntryErrorKind.unknown),
+        );
+        return buildCubit();
+      },
+      // No loadEntries() first → still in Initial state.
+      act: (cubit) => cubit.deleteEntry('e-1'),
+      expect: () => [
+        isA<EntryListError>().having(
+          (s) => s.kind,
+          'kind',
+          EntryErrorKind.unknown,
+        ),
+      ],
+    );
+
+    blocTest<EntryListCubit, EntryListState>(
       'appendEntry inserts a fresh entry at the head of the loaded list',
       build: () {
         when(() => repository.listEntries(any()))

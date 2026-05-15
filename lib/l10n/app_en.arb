@@ -908,7 +908,7 @@
   "@entryNotesLabel": {
     "description": "Label for the optional notes input field on every entry"
   },
-  "entryEncryptionNotice": "Encrypted on-device with AES-256-GCM before upload",
+  "entryEncryptionNotice": "Encrypted on-device with XSalsa20-Poly1305 before upload",
   "@entryEncryptionNotice": {
     "description": "Reassurance shown above the save button on the Add Entry page"
   },

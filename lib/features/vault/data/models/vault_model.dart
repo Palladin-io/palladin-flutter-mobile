@@ -43,6 +43,13 @@ class VaultModel {
   /// as a base64-encoded string — the backend wire type is `byte[]?`.
   /// Threaded through to [VaultEntity.wrappedVK] so entry operations
   /// can decrypt without a second `GET /api/vaults/{id}` round-trip.
+  ///
+  /// SECURITY: transport-only field. Never log this value, never include
+  /// it in analytics events, and never persist it outside the in-memory
+  /// auth state. It is base64 ciphertext — useless without the owner's
+  /// private key — but treating it as opaque-but-sensitive keeps the
+  /// zero-knowledge posture intact even if a future refactor unwraps
+  /// the value above the data layer.
   final String? wrappedVK;
 
   factory VaultModel.fromJson(Map<String, dynamic> json) {

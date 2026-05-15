@@ -775,7 +775,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get entryEncryptionNotice =>
-      'Encrypted on-device with AES-256-GCM before upload';
+      'Encrypted on-device with XSalsa20-Poly1305 before upload';
 
   @override
   String get entrySearchHint => 'Search entries…';

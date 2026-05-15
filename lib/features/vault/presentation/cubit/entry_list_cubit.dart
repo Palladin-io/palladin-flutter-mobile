@@ -107,11 +107,11 @@ class EntryListCubit extends Cubit<EntryListState> {
       emit(newState.copyWith(revealedEntries: next));
     } on EntryException catch (e) {
       AppLogger.w('Entry', 'revealEntry failed: ${e.kind.name}');
-      emit(EntryListError(e.kind));
+      _emitTransientError(e.kind);
     } catch (e, s) {
       AppLogger.e('Entry', 'revealEntry failed unexpectedly',
           error: e, stackTrace: s);
-      emit(const EntryListError(EntryErrorKind.unknown));
+      _emitTransientError(EntryErrorKind.unknown);
     }
   }
 
@@ -136,11 +136,28 @@ class EntryListCubit extends Cubit<EntryListState> {
       await loadEntries();
     } on EntryException catch (e) {
       AppLogger.w('Entry', 'Delete failed: ${e.kind.name}');
-      emit(EntryListError(e.kind));
+      _emitTransientError(e.kind);
     } catch (e, s) {
       AppLogger.e('Entry', 'Delete failed unexpectedly',
           error: e, stackTrace: s);
-      emit(const EntryListError(EntryErrorKind.unknown));
+      _emitTransientError(EntryErrorKind.unknown);
+    }
+  }
+
+  /// Surfaces a per-row failure (reveal, delete) WITHOUT clobbering the
+  /// loaded list. The UI binds to [EntryListLoaded.transientErrorTick]
+  /// via [BlocListener] and shows a snackbar. Falls back to a full-page
+  /// [EntryListError] only when no loaded state exists yet — that's the
+  /// only situation where we have nothing meaningful to show otherwise.
+  void _emitTransientError(EntryErrorKind kind) {
+    final current = state;
+    if (current is EntryListLoaded) {
+      emit(current.copyWith(
+        transientErrorKind: kind,
+        transientErrorTick: current.transientErrorTick + 1,
+      ));
+    } else {
+      emit(EntryListError(kind));
     }
   }
 

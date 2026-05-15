@@ -1337,7 +1337,7 @@ abstract class AppLocalizations {
   /// Reassurance shown above the save button on the Add Entry page
   ///
   /// In en, this message translates to:
-  /// **'Encrypted on-device with AES-256-GCM before upload'**
+  /// **'Encrypted on-device with XSalsa20-Poly1305 before upload'**
   String get entryEncryptionNotice;
 
   /// Placeholder for the search input on the Entries tab
