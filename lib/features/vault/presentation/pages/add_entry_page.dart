@@ -15,18 +15,18 @@ import '../../data/services/entry_icon_upload_service.dart';
 import '../../data/services/vault_icon_upload_service.dart'
     show VaultIconUploadErrorKind, VaultIconUploadException;
 import '../../domain/entities/entry_entity.dart';
-import '../../domain/exceptions/entry_exceptions.dart';
 import '../cubit/create_entry_cubit.dart';
+import '../widgets/entry_form_utils.dart';
 import '../widgets/entry_form_widgets.dart';
 import '../widgets/entry_icon_picker.dart';
-import '../widgets/vault_color_picker.dart';
 import '../widgets/vault_visuals.dart';
 
 /// Full-screen Add Entry form.
 ///
-/// Field order mirrors the web panel Create Entry form:
-/// Label → Description → Icon → Color → Type → Type-specific fields →
-/// Notes → Encryption notice → Save button.
+/// Field order: Label → Description → URL → Icon → Type → Type-specific
+/// fields → Notes → Encryption notice → Save button. The color picker
+/// was dropped — `EntryEntity` has no color field on the backend, so the
+/// control silently discarded user input.
 ///
 /// Custom icon upload follows the two-step pattern: the entry is created
 /// first (with a preset icon name so the server gets a valid entry ID),
@@ -84,7 +84,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
   EntryType _type = EntryType.credential;
   String _icon = EntryVisuals.defaultIconName;
-  String _color = EntryVisuals.defaultColorHex;
   XFile? _pendingIconFile;
   bool _pickingIcon = false;
   bool _uploadingIcon = false;
@@ -105,67 +104,29 @@ class _AddEntryViewState extends State<_AddEntryView> {
     super.dispose();
   }
 
-  bool get _canSubmit {
-    if (_labelController.text.trim().isEmpty) return false;
-    return switch (_type) {
-      EntryType.key => _valueController.text.trim().isNotEmpty,
-      EntryType.credential => _usernameController.text.trim().isNotEmpty &&
-          _passwordController.text.trim().isNotEmpty,
-    };
-  }
+  bool get _canSubmit => EntryFormUtils.canSubmit(
+        type: _type,
+        label: _labelController.text,
+        value: _valueController.text,
+        username: _usernameController.text,
+        password: _passwordController.text,
+      );
 
   bool _validateUrl() {
-    final text = _urlController.text.trim();
-    if (text.isEmpty) {
-      setState(() => _urlError = null);
-      return true;
-    }
-    final toParse = text.contains('://') ? text : 'https://$text';
-    final uri = Uri.tryParse(toParse);
-    final host = uri?.host ?? '';
-    // Accept: host with at least one dot (real domains), localhost, or bare IP.
-    final valid = host.isNotEmpty &&
-        (host == 'localhost' ||
-            host.contains('.') ||
-            RegExp(r'^\[?[\da-fA-F:]+\]?$').hasMatch(host));
-    setState(() => _urlError = valid ? null : AppLocalizations.of(context)!.entryUrlInvalid);
+    final valid = EntryFormUtils.isValidUrl(_urlController.text);
+    setState(() => _urlError =
+        valid ? null : AppLocalizations.of(context)!.entryUrlInvalid);
     return valid;
   }
 
-  String? _extractDomain(String raw) {
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return null;
-    try {
-      final uri = Uri.parse(trimmed);
-      if (uri.hasAuthority && uri.host.isNotEmpty) return uri.host;
-    } on FormatException {
-      // fall through
-    }
-    final withoutScheme =
-        trimmed.replaceFirst(RegExp(r'^[a-zA-Z][a-zA-Z0-9+\-.]*://'), '');
-    final firstSegment = withoutScheme.split('/').first;
-    return firstSegment.isEmpty ? null : firstSegment;
-  }
-
-  Map<String, dynamic> _buildPayload() {
-    final notes = _notesController.text.trim();
-    final url = _urlController.text.trim().isEmpty
-        ? null
-        : _urlController.text.trim();
-    return switch (_type) {
-      EntryType.key => KeyPayload(
-          value: _valueController.text.trim(),
-          url: url,
-          notes: notes.isEmpty ? null : notes,
-        ).toJson(),
-      EntryType.credential => CredentialPayload(
-          username: _usernameController.text.trim(),
-          password: _passwordController.text.trim(),
-          url: url,
-          notes: notes.isEmpty ? null : notes,
-        ).toJson(),
-    };
-  }
+  Map<String, dynamic> _buildPayload() => EntryFormUtils.buildPayload(
+        type: _type,
+        value: _valueController.text,
+        username: _usernameController.text,
+        password: _passwordController.text,
+        url: _urlController.text,
+        notes: _notesController.text,
+      );
 
   Future<void> _pickCustomIcon() async {
     if (_pickingIcon || _uploadingIcon) return;
@@ -200,7 +161,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
     }
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
-    final urlDomain = _extractDomain(_urlController.text);
+    final urlDomain = EntryFormUtils.extractDomain(_urlController.text);
     // Send null icon when a custom file is pending — the preset icon will
     // be replaced by the S3 URL after the two-step upload.
     final iconForApi = _pendingIconFile != null ? null : _icon;
@@ -271,7 +232,11 @@ class _AddEntryViewState extends State<_AddEntryView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    final accentColor = VaultVisuals.colorFor(_color);
+    // The icon tint matches the preset palette (and the default brand
+    // hex when a custom upload is selected) — there is no per-entry
+    // color stored on the backend, so the picker is gone and the accent
+    // simply tracks the default hex.
+    final accentColor = VaultVisuals.colorFor(EntryVisuals.defaultColorHex);
 
     return BlocBuilder<CreateEntryCubit, CreateEntryState>(
       builder: (context, state) {
@@ -373,22 +338,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       isLoadingCustom: _pickingIcon || _uploadingIcon,
                     ),
                     const SizedBox(height: 16),
-                    // 5. Color picker
-                    Text(
-                      l10n.vaultColorLabel,
-                      style: TextStyle(
-                        color: AppColors.onSurfaceSubtle(brightness),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    VaultColorPicker(
-                      selected: _color,
-                      onSelected: (hex) => setState(() => _color = hex),
-                    ),
-                    const SizedBox(height: 16),
-                    // 6. Type dropdown
+                    // 5. Type dropdown
                     EntryTypeDropdown(
                       value: _type,
                       onChanged: (next) {
@@ -435,18 +385,18 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       ),
                     ],
                     const SizedBox(height: 16),
-                    // 7. Notes
+                    // 6. Notes
                     EntryNotesField(
                       controller: _notesController,
                       label: l10n.entryNotesLabel,
                     ),
                     const SizedBox(height: 20),
-                    // 8. Encryption notice
+                    // 7. Encryption notice
                     EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
                     if (state is CreateEntryError) ...[
                       const SizedBox(height: 12),
                       Text(
-                        _errorMessage(l10n, state.kind),
+                        EntryFormUtils.errorMessage(l10n, state.kind),
                         style: const TextStyle(
                           color: AppColors.brandRed,
                           fontSize: 12,
@@ -454,7 +404,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       ),
                     ],
                     const SizedBox(height: 20),
-                    // 9. Save button
+                    // 8. Save button
                     EntrySaveButton(
                       isLoading: isLoading,
                       onPressed: canSubmit ? _submit : null,
@@ -467,17 +417,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
         );
       },
     );
-  }
-
-  String _errorMessage(AppLocalizations l10n, EntryErrorKind kind) {
-    return switch (kind) {
-      EntryErrorKind.notFound => l10n.entryErrorNotFound,
-      EntryErrorKind.forbidden => l10n.entryErrorForbidden,
-      EntryErrorKind.validation => l10n.entryErrorValidation,
-      EntryErrorKind.cryptoFailure => l10n.entryErrorCrypto,
-      EntryErrorKind.networkError => l10n.errorCannotConnectToServer,
-      EntryErrorKind.unknown => l10n.entryErrorUnknown,
-    };
   }
 }
 

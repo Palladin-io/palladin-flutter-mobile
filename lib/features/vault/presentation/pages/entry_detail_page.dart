@@ -15,11 +15,10 @@ import '../../data/services/entry_icon_upload_service.dart';
 import '../../data/services/vault_icon_upload_service.dart'
     show VaultIconUploadErrorKind, VaultIconUploadException;
 import '../../domain/entities/entry_entity.dart';
-import '../../domain/exceptions/entry_exceptions.dart';
 import '../cubit/edit_entry_cubit.dart';
+import '../widgets/entry_form_utils.dart';
 import '../widgets/entry_form_widgets.dart';
 import '../widgets/entry_icon_picker.dart';
-import '../widgets/vault_color_picker.dart';
 import '../widgets/vault_placeholder_tab.dart';
 import '../widgets/vault_visuals.dart';
 
@@ -139,7 +138,6 @@ class _EntryDetailViewState extends State<_EntryDetailView>
 
   EntryType _type = EntryType.credential;
   String _icon = EntryVisuals.defaultIconName;
-  String _color = EntryVisuals.defaultColorHex;
   String? _urlError;
   XFile? _pendingIconFile;
   bool _pickingIcon = false;
@@ -186,64 +184,28 @@ class _EntryDetailViewState extends State<_EntryDetailView>
   }
 
   bool _validateUrl() {
-    final text = _urlController.text.trim();
-    if (text.isEmpty) {
-      setState(() => _urlError = null);
-      return true;
-    }
-    final toParse = text.contains('://') ? text : 'https://$text';
-    final uri = Uri.tryParse(toParse);
-    final host = uri?.host ?? '';
-    final valid = host.isNotEmpty &&
-        (host == 'localhost' ||
-            host.contains('.') ||
-            RegExp(r'^\[?[\da-fA-F:]+\]?$').hasMatch(host));
-    setState(() => _urlError = valid ? null : AppLocalizations.of(context)!.entryUrlInvalid);
+    final valid = EntryFormUtils.isValidUrl(_urlController.text);
+    setState(() => _urlError =
+        valid ? null : AppLocalizations.of(context)!.entryUrlInvalid);
     return valid;
   }
 
-  bool get _canSubmit {
-    if (_labelController.text.trim().isEmpty) return false;
-    return switch (_type) {
-      EntryType.key => _valueController.text.trim().isNotEmpty,
-      EntryType.credential => _usernameController.text.trim().isNotEmpty &&
-          _passwordController.text.trim().isNotEmpty,
-    };
-  }
+  bool get _canSubmit => EntryFormUtils.canSubmit(
+        type: _type,
+        label: _labelController.text,
+        value: _valueController.text,
+        username: _usernameController.text,
+        password: _passwordController.text,
+      );
 
-  String? _extractDomain(String raw) {
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return null;
-    try {
-      final uri = Uri.parse(trimmed);
-      if (uri.hasAuthority && uri.host.isNotEmpty) return uri.host;
-    } on FormatException {
-      // fall through
-    }
-    final withoutScheme =
-        trimmed.replaceFirst(RegExp(r'^[a-zA-Z][a-zA-Z0-9+\-.]*://'), '');
-    final firstSegment = withoutScheme.split('/').first;
-    return firstSegment.isEmpty ? null : firstSegment;
-  }
-
-  Map<String, dynamic> _buildPayload() {
-    final notes = _notesController.text.trim();
-    final url =
-        _urlController.text.trim().isEmpty ? null : _urlController.text.trim();
-    return switch (_type) {
-      EntryType.key => KeyPayload(
-          value: _valueController.text.trim(),
-          url: url,
-          notes: notes.isEmpty ? null : notes,
-        ).toJson(),
-      EntryType.credential => CredentialPayload(
-          username: _usernameController.text.trim(),
-          password: _passwordController.text.trim(),
-          url: url,
-          notes: notes.isEmpty ? null : notes,
-        ).toJson(),
-    };
-  }
+  Map<String, dynamic> _buildPayload() => EntryFormUtils.buildPayload(
+        type: _type,
+        value: _valueController.text,
+        username: _usernameController.text,
+        password: _passwordController.text,
+        url: _urlController.text,
+        notes: _notesController.text,
+      );
 
   Future<void> _pickCustomIcon() async {
     if (_pickingIcon || _uploadingIcon) return;
@@ -274,7 +236,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     }
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
-    final urlDomain = _extractDomain(_urlController.text);
+    final urlDomain = EntryFormUtils.extractDomain(_urlController.text);
     final iconForApi = _pendingIconFile != null ? null : _icon;
     try {
       await context.read<EditEntryCubit>().updateEntry(
@@ -312,6 +274,12 @@ class _EntryDetailViewState extends State<_EntryDetailView>
         );
         entry = entry.copyWith(icon: url);
       } on VaultIconUploadException catch (e) {
+        // S3 upload failed — the metadata PUT already went through with
+        // `icon: null` (which the backend ignores under patch semantics),
+        // so the server-side icon is unchanged. Restore the previous
+        // icon locally so the list row keeps its old artwork until the
+        // next refetch instead of flashing to a default.
+        entry = entry.copyWith(icon: widget.entry.icon);
         if (mounted) {
           final l = AppLocalizations.of(context)!;
           final msg = switch (e.kind) {
@@ -322,6 +290,9 @@ class _EntryDetailViewState extends State<_EntryDetailView>
           _showSnackBar(msg);
         }
       } catch (_) {
+        // Same rationale as above — keep the original icon in the
+        // returned entity so the parent list does not drop the artwork.
+        entry = entry.copyWith(icon: widget.entry.icon);
         if (mounted) _showSnackBar(AppLocalizations.of(context)!.vaultIconUploadError);
       } finally {
         if (mounted) setState(() => _uploadingIcon = false);
@@ -479,7 +450,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Text(
-            _errorMessage(l10n, state.kind),
+            EntryFormUtils.errorMessage(l10n, state.kind),
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: AppColors.brandRed,
@@ -491,7 +462,9 @@ class _EntryDetailViewState extends State<_EntryDetailView>
       );
     }
 
-    final accentColor = VaultVisuals.colorFor(_color);
+    // No per-entry color on the backend — see add_entry_page.dart for
+    // rationale on dropping the color picker.
+    final accentColor = VaultVisuals.colorFor(EntryVisuals.defaultColorHex);
     final isLoading = state is EditEntryLoading || _uploadingIcon;
     final isBusy = isLoading || _pickingIcon;
     final canSubmit = !isBusy && _canSubmit;
@@ -553,20 +526,6 @@ class _EntryDetailViewState extends State<_EntryDetailView>
             isLoadingCustom: _pickingIcon || _uploadingIcon,
           ),
           const SizedBox(height: 16),
-          Text(
-            l10n.vaultColorLabel,
-            style: TextStyle(
-              color: AppColors.onSurfaceSubtle(brightness),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          VaultColorPicker(
-            selected: _color,
-            onSelected: (hex) => setState(() => _color = hex),
-          ),
-          const SizedBox(height: 16),
           EntryTypeDropdown(
             value: _type,
             onChanged: (next) {
@@ -619,7 +578,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
           if (state is EditEntryError) ...[
             const SizedBox(height: 12),
             Text(
-              _errorMessage(l10n, state.kind),
+              EntryFormUtils.errorMessage(l10n, state.kind),
               style: const TextStyle(color: AppColors.brandRed, fontSize: 12),
             ),
           ],
@@ -641,15 +600,6 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     );
   }
 
-  String _errorMessage(AppLocalizations l10n, EntryErrorKind kind) =>
-      switch (kind) {
-        EntryErrorKind.notFound => l10n.entryErrorNotFound,
-        EntryErrorKind.forbidden => l10n.entryErrorForbidden,
-        EntryErrorKind.validation => l10n.entryErrorValidation,
-        EntryErrorKind.cryptoFailure => l10n.entryErrorCrypto,
-        EntryErrorKind.networkError => l10n.errorCannotConnectToServer,
-        EntryErrorKind.unknown => l10n.entryErrorUnknown,
-      };
 }
 
 // ── AppBar ─────────────────────────────────────────────────────────

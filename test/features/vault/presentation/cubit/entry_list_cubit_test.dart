@@ -350,6 +350,22 @@ void main() {
       ],
     );
 
+    test('EntryListLoaded.copyWith can clear transientErrorKind explicitly', () {
+      const loaded = EntryListLoaded(
+        [],
+        transientErrorKind: EntryErrorKind.networkError,
+        transientErrorTick: 1,
+      );
+      // Omitting the field keeps the previous value (sentinel behaviour).
+      final keptError = loaded.copyWith(transientErrorTick: 2);
+      expect(keptError.transientErrorKind, EntryErrorKind.networkError);
+      expect(keptError.transientErrorTick, 2);
+      // Passing `null` explicitly wipes the field.
+      final cleared = loaded.copyWith(transientErrorKind: null);
+      expect(cleared.transientErrorKind, isNull);
+      expect(cleared.transientErrorTick, 1);
+    });
+
     blocTest<EntryListCubit, EntryListState>(
       'appendEntry inserts a fresh entry at the head of the loaded list',
       build: () {

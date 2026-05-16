@@ -48,16 +48,24 @@ final class EntryListLoaded extends EntryListState {
   /// Lets BlocListener distinguish back-to-back failures of the same kind.
   final int transientErrorTick;
 
+  /// Sentinel used by [copyWith] to distinguish "field omitted" from
+  /// "explicitly clear this field". `transientErrorKind` is nullable, so
+  /// plain `null` cannot signal "wipe me" without losing the difference
+  /// between the two intents.
+  static const Object _unset = Object();
+
   EntryListLoaded copyWith({
     List<EntryEntity>? entries,
     Map<String, Map<String, dynamic>>? revealedEntries,
-    EntryErrorKind? transientErrorKind,
+    Object? transientErrorKind = _unset,
     int? transientErrorTick,
   }) {
     return EntryListLoaded(
       entries ?? this.entries,
       revealedEntries: revealedEntries ?? this.revealedEntries,
-      transientErrorKind: transientErrorKind ?? this.transientErrorKind,
+      transientErrorKind: identical(transientErrorKind, _unset)
+          ? this.transientErrorKind
+          : transientErrorKind as EntryErrorKind?,
       transientErrorTick: transientErrorTick ?? this.transientErrorTick,
     );
   }
