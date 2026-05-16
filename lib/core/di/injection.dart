@@ -18,11 +18,18 @@ import '../../features/recovery/presentation/cubit/recovery_cubit.dart';
 import '../../features/unlock/data/datasources/account_remote_datasource.dart';
 import '../../features/unlock/data/services/unlock_crypto_service.dart';
 import '../../features/unlock/presentation/cubit/unlock_cubit.dart';
+import '../../features/vault/data/datasources/entry_remote_datasource.dart';
 import '../../features/vault/data/datasources/vault_remote_datasource.dart';
+import '../../features/vault/data/repositories/entry_repository_impl.dart';
 import '../../features/vault/data/repositories/vault_repository_impl.dart';
+import '../../features/vault/data/services/entry_crypto_service.dart';
 import '../../features/vault/data/services/vault_crypto_service.dart';
+import '../../features/vault/domain/repositories/entry_repository.dart';
 import '../../features/vault/domain/repositories/vault_repository.dart';
+import '../../features/vault/presentation/cubit/create_entry_cubit.dart';
 import '../../features/vault/presentation/cubit/create_vault_cubit.dart';
+import '../../features/vault/presentation/cubit/edit_entry_cubit.dart';
+import '../../features/vault/presentation/cubit/entry_list_cubit.dart';
 import '../../features/vault/presentation/cubit/vault_detail_cubit.dart';
 import '../../features/vault/presentation/cubit/vault_list_cubit.dart';
 import '../network/api_client.dart';
@@ -140,9 +147,10 @@ void configureDependencies(EnvConfig config) {
     () => VaultRepositoryImpl(getIt<VaultRemoteDatasource>()),
   );
 
-  // Vault — presentation layer (factory: fresh cubit per page mount so
-  // stale loading / error state never leaks across navigations)
-  getIt.registerFactory<VaultListCubit>(
+  // VaultListCubit is a singleton so cached vault data survives tab
+  // switches. Use BlocProvider.value (never BlocProvider) to avoid
+  // automatic close() on widget disposal.
+  getIt.registerLazySingleton<VaultListCubit>(
     () => VaultListCubit(repository: getIt<VaultRepository>()),
   );
   getIt.registerFactory<VaultDetailCubit>(
@@ -153,5 +161,41 @@ void configureDependencies(EnvConfig config) {
       repository: getIt<VaultRepository>(),
       cryptoService: getIt<VaultCryptoService>(),
     ),
+  );
+
+  // Entry — data layer
+  getIt.registerLazySingleton<EntryCryptoService>(
+    () => EntryCryptoService(),
+  );
+  getIt.registerLazySingleton<EntryRemoteDatasource>(
+    () => EntryRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<EntryRepository>(
+    () => EntryRepositoryImpl(
+      entryDatasource: getIt<EntryRemoteDatasource>(),
+      vaultDatasource: getIt<VaultRemoteDatasource>(),
+      cryptoService: getIt<EntryCryptoService>(),
+    ),
+  );
+
+  // Entry — presentation layer (factory: fresh cubit per page mount so
+  // stale loading / reveal state never leaks across vaults).
+  //
+  // `param2` is the optional base64 sealed VK threaded down from the
+  // vault detail load — when provided, [revealEntry] skips the extra
+  // `GET /api/vaults/{id}` round-trip. Pass `null` and call
+  // `cubit.updateWrappedVK(...)` once the vault loads to wire it in.
+  getIt.registerFactoryParam<EntryListCubit, String, String?>(
+    (vaultId, wrappedVK) => EntryListCubit(
+      repository: getIt<EntryRepository>(),
+      vaultId: vaultId,
+      wrappedVK: wrappedVK,
+    ),
+  );
+  getIt.registerFactory<CreateEntryCubit>(
+    () => CreateEntryCubit(repository: getIt<EntryRepository>()),
+  );
+  getIt.registerFactory<EditEntryCubit>(
+    () => EditEntryCubit(repository: getIt<EntryRepository>()),
   );
 }

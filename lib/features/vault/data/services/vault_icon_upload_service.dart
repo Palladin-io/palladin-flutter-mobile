@@ -69,14 +69,16 @@ class VaultIconUploadService {
       final presign = await _datasource.presignVaultIcon(vaultId, ext);
 
       // Use a bare Dio instance — no auth interceptors, no JWT sent to S3.
+      // Read file into bytes: stream uploads can fail with some S3 presigned
+      // PUT configurations that expect a seekable body.
+      final bytes = await file.readAsBytes();
       final s3 = Dio();
       await s3.put<void>(
         presign.uploadUrl,
-        data: file.openRead(),
+        data: bytes,
         options: Options(
           headers: {
             Headers.contentTypeHeader: _mimeMap[ext] ?? 'image/jpeg',
-            Headers.contentLengthHeader: fileSize,
           },
           sendTimeout: const Duration(seconds: 60),
         ),

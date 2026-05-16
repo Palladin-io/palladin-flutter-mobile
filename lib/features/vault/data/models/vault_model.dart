@@ -19,6 +19,7 @@ class VaultModel {
     required this.entryCount,
     required this.activeGrantCount,
     required this.memberCount,
+    this.wrappedVK,
   });
 
   final String id;
@@ -36,6 +37,21 @@ class VaultModel {
   final int activeGrantCount;
   final int memberCount;
 
+  /// Sealed Vault Key wrapped to the owner's public key.
+  ///
+  /// Returned by `GET /api/vaults/{id}` (and the create-vault response)
+  /// as a base64-encoded string — the backend wire type is `byte[]?`.
+  /// Threaded through to [VaultEntity.wrappedVK] so entry operations
+  /// can decrypt without a second `GET /api/vaults/{id}` round-trip.
+  ///
+  /// SECURITY: transport-only field. Never log this value, never include
+  /// it in analytics events, and never persist it outside the in-memory
+  /// auth state. It is base64 ciphertext — useless without the owner's
+  /// private key — but treating it as opaque-but-sensitive keeps the
+  /// zero-knowledge posture intact even if a future refactor unwraps
+  /// the value above the data layer.
+  final String? wrappedVK;
+
   factory VaultModel.fromJson(Map<String, dynamic> json) {
     // Counters and memberCount are missing from the create-vault response
     // (only the list endpoint returns them). Default to safe values so
@@ -46,12 +62,13 @@ class VaultModel {
       description: json['description'] as String?,
       icon: json['icon'] as String?,
       color: json['color'] as String?,
-      grantMode: json['grantMode'] as int,
+      grantMode: (json['grantMode'] as int?) ?? 1,
       createdAt: json['createdAt'] as String,
       updatedAt: json['updatedAt'] as String,
       entryCount: (json['entryCount'] as int?) ?? 0,
       activeGrantCount: (json['activeGrantCount'] as int?) ?? 0,
       memberCount: (json['memberCount'] as int?) ?? 1,
+      wrappedVK: json['wrappedVK'] as String?,
     );
   }
 
@@ -68,6 +85,7 @@ class VaultModel {
       entryCount: entryCount,
       activeGrantCount: activeGrantCount,
       memberCount: memberCount,
+      wrappedVK: wrappedVK,
     );
   }
 }

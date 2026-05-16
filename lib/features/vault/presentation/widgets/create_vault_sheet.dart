@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
@@ -9,6 +11,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../data/datasources/vault_remote_datasource.dart';
+import '../../data/services/vault_icon_upload_service.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
 import '../cubit/create_vault_cubit.dart';
@@ -65,11 +69,31 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
   );
 
   VaultFormData _formData = _initialFormData;
+  XFile? _pendingIconFile;
+  bool _pickingIcon = false;
 
   @override
   void initState() {
     super.initState();
     AnalyticsService.instance.capture('vault', 'create-sheet-opened');
+  }
+
+  Future<String?> _pickIcon() async {
+    if (_pickingIcon) return null;
+    setState(() => _pickingIcon = true);
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+      if (file == null || !mounted) return null;
+      setState(() => _pendingIconFile = file);
+      return 'file://${file.path}';
+    } finally {
+      if (mounted) setState(() => _pickingIcon = false);
+    }
   }
 
   Future<void> _handleSubmit() async {
@@ -89,10 +113,12 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
     // on the heap with the secret key material.
     final keyCopy = Uint8List.fromList(auth.privateKey!);
     try {
+      // Don't send file:// path to the API — icon upload happens after create.
+      final iconForApi = _pendingIconFile != null ? null : _formData.icon;
       await context.read<CreateVaultCubit>().createVault(
             name: _formData.name,
             description: _formData.description,
-            icon: _formData.icon,
+            icon: iconForApi,
             color: _formData.color,
             grantMode: _formData.grantMode,
             privateKey: keyCopy,
@@ -100,6 +126,28 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
     }
+
+    if (!mounted) return;
+    final cubitState = context.read<CreateVaultCubit>().state;
+    if (cubitState is! CreateVaultSuccess) return;
+
+    var vault = cubitState.vault;
+    if (_pendingIconFile != null) {
+      try {
+        final service = VaultIconUploadService(getIt<VaultRemoteDatasource>());
+        final url = await service.uploadIcon(vault.id, File(_pendingIconFile!.path));
+        vault = vault.copyWith(icon: url);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(SnackBar(
+              content: Text(AppLocalizations.of(context)!.vaultIconUploadError),
+            ));
+        }
+      }
+    }
+    if (mounted) Navigator.of(context).pop(vault);
   }
 
   @override
@@ -108,16 +156,11 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
     final brightness = Theme.of(context).brightness;
     final viewInsets = MediaQuery.of(context).viewInsets;
 
-    return BlocConsumer<CreateVaultCubit, CreateVaultState>(
-      listenWhen: (previous, current) => current is CreateVaultSuccess,
-      listener: (context, state) {
-        if (state is CreateVaultSuccess) {
-          Navigator.of(context).pop(state.vault);
-        }
-      },
+    return BlocBuilder<CreateVaultCubit, CreateVaultState>(
       builder: (context, state) {
         final isLoading = state is CreateVaultLoading;
-        final canSubmit = !isLoading && _formData.name.trim().isNotEmpty;
+        final isBusy = isLoading || _pickingIcon;
+        final canSubmit = !isBusy && _formData.name.trim().isNotEmpty;
 
         return Padding(
           padding: EdgeInsets.only(bottom: viewInsets.bottom),
@@ -144,7 +187,7 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
                     const SizedBox(height: 24),
                     _SheetHeader(
                       title: l10n.vaultNewVault,
-                      onClose: isLoading
+                      onClose: isBusy
                           ? null
                           : () => Navigator.of(context).pop(),
                     ),
@@ -154,9 +197,18 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
                         child: VaultForm(
                           initial: _initialFormData,
                           onChanged: (data) => setState(() => _formData = data),
+                          onPickCustomIcon: isBusy ? () async => null : _pickIcon,
                         ),
                       ),
                     ),
+                    if (_pickingIcon)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: LinearProgressIndicator(
+                          color: AppColors.brandRed,
+                          backgroundColor: AppColors.hairline,
+                        ),
+                      ),
                     if (state is CreateVaultError) ...[
                       const SizedBox(height: 12),
                       Text(

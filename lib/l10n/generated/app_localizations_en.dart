@@ -707,4 +707,106 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get placeholderAuditTitle => 'Audit Log';
+
+  @override
+  String get entryAddTitle => 'Add Entry';
+
+  @override
+  String get entryDetailTitle => 'Entry Details';
+
+  @override
+  String get entryTabDetails => 'Details';
+
+  @override
+  String get entryRevealingForEdit => 'Loading entry data…';
+
+  @override
+  String get entryDangerZone => 'Danger Zone';
+
+  @override
+  String get entryDeleteTitle => 'Delete Entry?';
+
+  @override
+  String get entryDeleteConfirm =>
+      'This will permanently delete this entry and its encrypted data. This cannot be undone.';
+
+  @override
+  String get entryDeleteAction => 'Delete Entry';
+
+  @override
+  String get entryDeleting => 'Deleting…';
+
+  @override
+  String get entryTypeLabel => 'Entry type';
+
+  @override
+  String get entryTypeKey => 'Key';
+
+  @override
+  String get entryTypeCredential => 'Credential';
+
+  @override
+  String get entryLabelLabel => 'Label';
+
+  @override
+  String get entryLabelHint => 'e.g. Stripe API Key';
+
+  @override
+  String get entryDescriptionLabel => 'Description';
+
+  @override
+  String get entryValueLabel => 'Value';
+
+  @override
+  String get entryUsernameLabel => 'Username';
+
+  @override
+  String get entryPasswordLabel => 'Password';
+
+  @override
+  String get entryUrlLabel => 'URL';
+
+  @override
+  String get entryUrlInvalid =>
+      'Enter a valid URL (e.g. stripe.com or https://stripe.com)';
+
+  @override
+  String get entryNotesLabel => 'Notes';
+
+  @override
+  String get entryEncryptionNotice =>
+      'Encrypted on-device with XSalsa20-Poly1305 before upload';
+
+  @override
+  String get entrySearchHint => 'Search entries…';
+
+  @override
+  String get entryEmpty => 'No entries yet';
+
+  @override
+  String get entryEmptyAdd => 'Add your first credential to get started.';
+
+  @override
+  String get entrySaveAction => 'Save';
+
+  @override
+  String get entrySaving => 'Saving…';
+
+  @override
+  String get entryErrorNotFound => 'This entry no longer exists.';
+
+  @override
+  String get entryErrorForbidden =>
+      'You don\'t have permission to perform this action.';
+
+  @override
+  String get entryErrorValidation =>
+      'Some fields are invalid. Please review and try again.';
+
+  @override
+  String get entryErrorCrypto =>
+      'We couldn\'t decrypt this entry. Lock and unlock your vault, then try again.';
+
+  @override
+  String get entryErrorUnknown => 'Something went wrong. Please try again.';
 }

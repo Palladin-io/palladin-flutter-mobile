@@ -1207,6 +1207,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Audit Log'**
   String get placeholderAuditTitle;
+
+  /// AppBar title on the Add Entry page
+  ///
+  /// In en, this message translates to:
+  /// **'Add Entry'**
+  String get entryAddTitle;
+
+  /// AppBar title on the Entry Detail page when no label is known yet
+  ///
+  /// In en, this message translates to:
+  /// **'Entry Details'**
+  String get entryDetailTitle;
+
+  /// Details tab label on the Entry Detail page (contains the edit form)
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get entryTabDetails;
+
+  /// Shown while the detail page is decrypting the entry payload before the form can be shown
+  ///
+  /// In en, this message translates to:
+  /// **'Loading entry data…'**
+  String get entryRevealingForEdit;
+
+  /// Section heading for the delete entry button at the bottom of the Details tab
+  ///
+  /// In en, this message translates to:
+  /// **'Danger Zone'**
+  String get entryDangerZone;
+
+  /// Title of the delete entry confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Entry?'**
+  String get entryDeleteTitle;
+
+  /// Body of the delete entry confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'This will permanently delete this entry and its encrypted data. This cannot be undone.'**
+  String get entryDeleteConfirm;
+
+  /// Destructive button label in the delete entry dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Entry'**
+  String get entryDeleteAction;
+
+  /// Button label while the delete request is in flight
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting…'**
+  String get entryDeleting;
+
+  /// Label above the entry-type dropdown on the Add Entry page
+  ///
+  /// In en, this message translates to:
+  /// **'Entry type'**
+  String get entryTypeLabel;
+
+  /// Dropdown option for the Key entry type — single secret value
+  ///
+  /// In en, this message translates to:
+  /// **'Key'**
+  String get entryTypeKey;
+
+  /// Dropdown option for the Credential entry type — username + password
+  ///
+  /// In en, this message translates to:
+  /// **'Credential'**
+  String get entryTypeCredential;
+
+  /// Label for the entry name input field
+  ///
+  /// In en, this message translates to:
+  /// **'Label'**
+  String get entryLabelLabel;
+
+  /// Placeholder text inside the entry label input field
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Stripe API Key'**
+  String get entryLabelHint;
+
+  /// Label for the optional entry description input field
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get entryDescriptionLabel;
+
+  /// Label for the secret value input field on a Key entry
+  ///
+  /// In en, this message translates to:
+  /// **'Value'**
+  String get entryValueLabel;
+
+  /// Label for the username input field on a Credential entry
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get entryUsernameLabel;
+
+  /// Label for the password input field on a Credential entry
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get entryPasswordLabel;
+
+  /// Label for the optional URL input field on a Credential entry
+  ///
+  /// In en, this message translates to:
+  /// **'URL'**
+  String get entryUrlLabel;
+
+  /// Validation error shown below the URL field when the value is not a valid URL
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid URL (e.g. stripe.com or https://stripe.com)'**
+  String get entryUrlInvalid;
+
+  /// Label for the optional notes input field on every entry
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get entryNotesLabel;
+
+  /// Reassurance shown above the save button on the Add Entry page
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted on-device with XSalsa20-Poly1305 before upload'**
+  String get entryEncryptionNotice;
+
+  /// Placeholder for the search input on the Entries tab
+  ///
+  /// In en, this message translates to:
+  /// **'Search entries…'**
+  String get entrySearchHint;
+
+  /// Empty-state title shown on the Entries tab when no entries exist yet
+  ///
+  /// In en, this message translates to:
+  /// **'No entries yet'**
+  String get entryEmpty;
+
+  /// Empty-state subtitle nudging the user to use the Add Entry FAB
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first credential to get started.'**
+  String get entryEmptyAdd;
+
+  /// AppBar action label on the Add Entry page
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get entrySaveAction;
+
+  /// Loading label shown on the save button while the entry is being created
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get entrySaving;
+
+  /// Error shown when the backend returns 404 for an entry operation
+  ///
+  /// In en, this message translates to:
+  /// **'This entry no longer exists.'**
+  String get entryErrorNotFound;
+
+  /// Error shown when the backend returns 403 for an entry operation
+  ///
+  /// In en, this message translates to:
+  /// **'You don\'t have permission to perform this action.'**
+  String get entryErrorForbidden;
+
+  /// Error shown when the backend returns 400 for an entry operation
+  ///
+  /// In en, this message translates to:
+  /// **'Some fields are invalid. Please review and try again.'**
+  String get entryErrorValidation;
+
+  /// Error shown when entry encryption or decryption fails
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t decrypt this entry. Lock and unlock your vault, then try again.'**
+  String get entryErrorCrypto;
+
+  /// Generic fallback error for entry operations
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get entryErrorUnknown;
 }
 
 class _AppLocalizationsDelegate

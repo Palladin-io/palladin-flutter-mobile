@@ -80,6 +80,26 @@ class VaultRemoteDatasource {
     await _dio.delete<void>('/api/vaults/$id');
   }
 
+  /// `GET /api/vaults/{id}` → extracts the `wrappedVK` field for the
+  /// current member from the vault detail response. The field is included
+  /// in the single-vault endpoint but excluded from the list endpoint so
+  /// it never leaks into summary responses.
+  Future<String> getVaultWrappedKey(String vaultId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults/$vaultId',
+    );
+    final data = response.data;
+    if (data == null || data['wrappedVK'] is! String) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Empty or malformed vault response — wrappedVK missing',
+      );
+    }
+    return data['wrappedVK'] as String;
+  }
+
   /// `POST /api/vaults/{id}/icon/presign` → presigned S3 upload URL.
   Future<PresignResponse> presignVaultIcon(String vaultId, String extension) async {
     final response = await _dio.post<Map<String, dynamic>>(

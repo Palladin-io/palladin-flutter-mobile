@@ -46,10 +46,13 @@ abstract final class VaultVisuals {
   ];
 
   /// Returns true when [icon] is a remote or local file URL (uploaded
-  /// custom icon) rather than a named preset.
+  /// custom icon) rather than a named preset. Accepts both https:// and
+  /// http:// (used by LocalStack in local dev).
   static bool isCustomUrl(String? icon) =>
       icon != null &&
-      (icon.startsWith('https://') || icon.startsWith('file://'));
+      (icon.startsWith('https://') ||
+       icon.startsWith('http://') ||
+       icon.startsWith('file://'));
 
   /// Resolve a stored icon name to its [IconData]. Falls back to
   /// [Icons.shield] when the name is missing or unknown — older vaults
@@ -78,6 +81,52 @@ abstract final class VaultVisuals {
     final value = int.tryParse(cleaned, radix: 16);
     if (value == null) return AppColors.brandRed;
     return Color(0xFF000000 | value);
+  }
+}
+
+/// Entry-specific visual constants — icons and colors mirroring the web
+/// panel's `ENTRY_ICON_OPTIONS` and `ENTRY_ICON_COLORS`.
+abstract final class EntryVisuals {
+  static const String defaultIconName = 'vpn_key';
+  static const String defaultColorHex = '#2EC4B6';
+
+  static const List<VaultIconChoice> iconChoices = <VaultIconChoice>[
+    VaultIconChoice(name: 'vpn_key',     icon: Icons.vpn_key,     paletteColor: AppColors.positiveAccent),
+    VaultIconChoice(name: 'language',    icon: Icons.language,    paletteColor: AppColors.vaultBlue),
+    VaultIconChoice(name: 'person',      icon: Icons.person,      paletteColor: AppColors.vaultViolet),
+    VaultIconChoice(name: 'email',       icon: Icons.email,       paletteColor: AppColors.vaultBlue),
+    VaultIconChoice(name: 'database',    icon: Icons.storage,     paletteColor: AppColors.vaultSlate),
+    VaultIconChoice(name: 'cloud',       icon: Icons.cloud,       paletteColor: AppColors.vaultBlue),
+    VaultIconChoice(name: 'credit_card', icon: Icons.credit_card, paletteColor: AppColors.vaultPeach),
+    VaultIconChoice(name: 'badge',       icon: Icons.badge,       paletteColor: AppColors.vaultViolet),
+    VaultIconChoice(name: 'lock',        icon: Icons.lock,        paletteColor: AppColors.brandRed),
+    VaultIconChoice(name: 'smartphone',  icon: Icons.smartphone,  paletteColor: AppColors.vaultSlate),
+  ];
+
+  static bool isCustomUrl(String? icon) =>
+      icon != null &&
+      (icon.startsWith('https://') ||
+       icon.startsWith('http://') ||
+       icon.startsWith('file://'));
+
+  static IconData iconFor(String? name) {
+    if (name == null || name.isEmpty) return Icons.vpn_key;
+    for (final choice in iconChoices) {
+      if (choice.name == name) return choice.icon;
+    }
+    return switch (name) {
+      'vpn_key' || 'key' => Icons.vpn_key,
+      'language' => Icons.language,
+      'person' => Icons.person,
+      'email' => Icons.email,
+      'database' || 'storage' => Icons.storage,
+      'cloud' => Icons.cloud,
+      'credit_card' => Icons.credit_card,
+      'badge' => Icons.badge,
+      'lock' => Icons.lock,
+      'smartphone' => Icons.smartphone,
+      _ => Icons.vpn_key,
+    };
   }
 }
 

@@ -43,6 +43,7 @@ class VaultSettingsTab extends StatefulWidget {
 }
 
 class _VaultSettingsTabState extends State<VaultSettingsTab> {
+  bool _pickingIcon = false;
   bool _uploadingIcon = false;
   late VaultFormData _currentData;
 
@@ -59,36 +60,45 @@ class _VaultSettingsTabState extends State<VaultSettingsTab> {
     widget.onChanged(data);
   }
 
-  Future<void> _pickAndUploadIcon() async {
-    final picker = ImagePicker();
-    final XFile? file = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
-    );
-    if (file == null || !mounted) return;
+  Future<String?> _pickAndUploadIcon() async {
+    if (_pickingIcon || _uploadingIcon) return null;
+    setState(() => _pickingIcon = true);
+    final XFile? file;
+    try {
+      file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+    } finally {
+      if (mounted) setState(() => _pickingIcon = false);
+    }
+    if (file == null || !mounted) return null;
 
     setState(() => _uploadingIcon = true);
     try {
       final service = VaultIconUploadService(getIt<VaultRemoteDatasource>());
       final url = await service.uploadIcon(widget.vaultId, File(file.path));
-      if (!mounted) return;
+      if (!mounted) return null;
       _onFormChanged(widget.initial.copyWith(icon: url));
+      return url;
     } on VaultIconUploadException catch (e) {
-      if (!mounted) return;
+      if (!mounted) return null;
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
           content: Text(_iconUploadErrorMessage(l10n, e.kind)),
         ));
+      return null;
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) return null;
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(l10n.vaultIconUploadError)));
+      return null;
     } finally {
       if (mounted) setState(() => _uploadingIcon = false);
     }
@@ -121,13 +131,13 @@ class _VaultSettingsTabState extends State<VaultSettingsTab> {
           VaultForm(
             initial: widget.initial,
             onChanged: _onFormChanged,
-            onPickCustomIcon: _uploadingIcon ? null : _pickAndUploadIcon,
+            onPickCustomIcon: (_pickingIcon || _uploadingIcon) ? null : _pickAndUploadIcon,
           ),
-          if (_uploadingIcon)
+          if (_pickingIcon || _uploadingIcon)
             const Padding(
               padding: EdgeInsets.only(top: 8),
               child: LinearProgressIndicator(
-                color: AppColors.tealAccent,
+                color: AppColors.brandRed,
                 backgroundColor: AppColors.hairline,
               ),
             ),

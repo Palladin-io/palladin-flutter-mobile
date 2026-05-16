@@ -108,7 +108,7 @@ class LoginPage extends StatelessWidget {
           return const SizedBox(
             height: 180,
             child: Center(
-              child: CircularProgressIndicator(color: AppColors.tealAccent),
+              child: CircularProgressIndicator(color: AppColors.brandRed),
             ),
           );
         }

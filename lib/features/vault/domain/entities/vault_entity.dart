@@ -38,6 +38,7 @@ class VaultEntity {
     required this.entryCount,
     required this.activeGrantCount,
     required this.memberCount,
+    this.wrappedVK,
   });
 
   /// Stable, server-issued identifier.
@@ -73,4 +74,38 @@ class VaultEntity {
   /// Number of org members that have access to the vault — currently
   /// always 1 for personal vaults.
   final int memberCount;
+
+  /// Sealed Vault Key wrapped to the owner's public key — base64 string
+  /// matching the backend's `byte[]?` wire shape.
+  ///
+  /// Threaded through from `GET /api/vaults/{id}` so entry create /
+  /// reveal flows can decrypt without an extra round-trip. Always `null`
+  /// on entries returned from the list endpoint (the list payload omits
+  /// `wrappedVK`); presentation code must fall back to a fetch when the
+  /// vault was first surfaced via the list.
+  ///
+  /// SECURITY: transport-only field. Never log, never serialize to disk,
+  /// never expose via analytics. The earlier design intentionally kept
+  /// `wrappedVK` out of [VaultEntity] to enforce that discipline; the
+  /// trade-off taken here (perf gain from skipping a second
+  /// `GET /api/vaults/{id}`) only holds while this field is treated as
+  /// opaque ciphertext owned by the in-memory auth/vault state.
+  final String? wrappedVK;
+
+  VaultEntity copyWith({String? icon}) {
+    return VaultEntity(
+      id: id,
+      name: name,
+      description: description,
+      icon: icon ?? this.icon,
+      color: color,
+      grantMode: grantMode,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      entryCount: entryCount,
+      activeGrantCount: activeGrantCount,
+      memberCount: memberCount,
+      wrappedVK: wrappedVK,
+    );
+  }
 }

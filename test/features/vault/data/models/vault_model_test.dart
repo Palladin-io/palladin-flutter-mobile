@@ -34,6 +34,26 @@ void main() {
       expect(entity.activeGrantCount, 1);
       expect(entity.memberCount, 1);
       expect(entity.createdAt.toUtc().year, 2026);
+      // List endpoint omits wrappedVK — entity should reflect that.
+      expect(entity.wrappedVK, isNull);
+    });
+
+    test('threads wrappedVK from the detail payload through to the entity', () {
+      // GET /api/vaults/{id} includes the sealed VK as a base64 string.
+      final json = {
+        'id': 'v-1',
+        'name': 'Personal',
+        'grantMode': 2,
+        'createdAt': '2026-04-01T10:00:00Z',
+        'updatedAt': '2026-04-25T12:30:00Z',
+        'entryCount': 0,
+        'activeGrantCount': 0,
+        'memberCount': 1,
+        'wrappedVK': 'd3JhcHBlZC1iYXNlNjQ=',
+      };
+
+      final entity = VaultModel.fromJson(json).toEntity();
+      expect(entity.wrappedVK, 'd3JhcHBlZC1iYXNlNjQ=');
     });
 
     test('defaults missing counters on the create-vault response shape', () {
