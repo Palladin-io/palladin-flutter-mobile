@@ -55,13 +55,24 @@ class EntryModel {
       label: json['label'] as String,
       description: json['description'] as String?,
       icon: json['icon'] as String?,
-      type: json['type'] as int,
+      type: _parseType(json['type']),
       urlDomain: json['urlDomain'] as String?,
       createdAt: json['createdAt'] as String,
       updatedAt: json['updatedAt'] as String,
       lastAccessedAt: json['lastAccessedAt'] as String?,
       accessCount: (json['accessCount'] as int?) ?? 0,
     );
+  }
+
+  static int _parseType(dynamic raw) {
+    if (raw is int) return raw;
+    return switch (raw as String) {
+      'Key' => 0,
+      'key' => 0,
+      'Credential' => 1,
+      'credential' => 1,
+      _ => throw FormatException('Unknown EntryType: $raw'),
+    };
   }
 
   EntryEntity toEntity() {
