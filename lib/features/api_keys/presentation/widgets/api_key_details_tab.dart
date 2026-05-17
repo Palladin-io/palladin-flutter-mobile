@@ -125,20 +125,25 @@ class ApiKeyDetailsTab extends StatelessWidget {
         ],
         if (!apiKey.isActive && canWrite) ...[
           const SizedBox(height: 16),
-          // Activate section — neutral card, NOT red.
+          // Activate section — green-accented card, mirrors the danger zone
+          // structure but uses positiveAccent (#2EC4B6) instead of brandRed.
+          // positiveAccent is the "approve/restore" semantic colour shared
+          // with the web panel — visible on both dark and light backgrounds.
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.cardBorder(brightness)),
+              border: Border.all(
+                color: AppColors.positiveAccent.withValues(alpha: 0.25),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   l10n.apiKeysActivateZone,
-                  style: TextStyle(
-                    color: AppColors.onSurfaceSubtle(brightness),
+                  style: const TextStyle(
+                    color: AppColors.positiveAccent,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.6,
@@ -147,8 +152,8 @@ class ApiKeyDetailsTab extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   l10n.apiKeysActivateHint,
-                  style: TextStyle(
-                    color: AppColors.onSurfaceSubtle(brightness),
+                  style: const TextStyle(
+                    color: AppColors.positiveAccent,
                     fontSize: 11,
                     height: 1.4,
                   ),
@@ -157,32 +162,34 @@ class ApiKeyDetailsTab extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   height: 44,
-                  child: OutlinedButton.icon(
+                  child: TextButton.icon(
                     icon: isActivating
                         ? const SizedBox(
                             height: 14,
                             width: 14,
                             child: CircularProgressIndicator(
                               strokeWidth: 1.5,
+                              color: AppColors.positiveAccent,
                             ),
                           )
-                        : const Icon(Icons.check_circle_outline, size: 14),
+                        : const Icon(
+                            Icons.check_circle_outline,
+                            size: 14,
+                            color: AppColors.positiveAccent,
+                          ),
                     label: Text(
                       isActivating
                           ? l10n.apiKeysActivating
                           : l10n.apiKeysActivate,
                       style: const TextStyle(
+                        color: AppColors.positiveAccent,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.onSurface(brightness),
-                      side: BorderSide(
-                        color: AppColors.cardBorder(brightness),
-                      ),
-                      disabledForegroundColor:
-                          AppColors.onSurfaceSubtle(brightness),
+                    style: TextButton.styleFrom(
+                      backgroundColor:
+                          AppColors.positiveAccent.withValues(alpha: 0.12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
