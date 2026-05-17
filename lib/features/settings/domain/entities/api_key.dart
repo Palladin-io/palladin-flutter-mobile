@@ -29,6 +29,7 @@ class ApiKey {
   const ApiKey({
     required this.apiKeyId,
     required this.name,
+    required this.keySuffix,
     required this.status,
     required this.createdAt,
     this.revokedAt,
@@ -39,6 +40,10 @@ class ApiKey {
 
   /// User-supplied label for the key.
   final String name;
+
+  /// Last 4 characters of the plaintext key, stored at generation time.
+  /// Used to display `cv_••••{keySuffix}` in the UI.
+  final String keySuffix;
 
   /// Current lifecycle status — see [ApiKeyStatus].
   final ApiKeyStatus status;

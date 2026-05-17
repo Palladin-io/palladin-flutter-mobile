@@ -64,10 +64,8 @@ class ApiKeyDetailsTab extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
-              // Masked representation — the real secret is never
-              // available client-side after creation.
               Text(
-                'cv_••••••••',
+                'cv_••••${apiKey.keySuffix}',
                 style: TextStyle(
                   color: AppColors.onSurfaceSubtle(brightness),
                   fontSize: 13,

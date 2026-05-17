@@ -8,6 +8,7 @@ class ApiKeyModel {
   const ApiKeyModel({
     required this.apiKeyId,
     required this.name,
+    required this.keySuffix,
     required this.status,
     required this.createdAt,
     this.revokedAt,
@@ -15,8 +16,9 @@ class ApiKeyModel {
 
   final String apiKeyId;
   final String name;
+  final String keySuffix;
 
-  /// Wire-format status string — `"Active"` / `"Revoked"`.
+  /// Wire-format status string — `"active"` / `"revoked"`.
   final String status;
 
   final String createdAt;
@@ -26,7 +28,8 @@ class ApiKeyModel {
     return ApiKeyModel(
       apiKeyId: json['apiKeyId'] as String,
       name: json['name'] as String,
-      status: (json['status'] as String?) ?? 'Revoked',
+      keySuffix: (json['keySuffix'] as String?) ?? '',
+      status: (json['status'] as String?) ?? 'revoked',
       createdAt: json['createdAt'] as String,
       revokedAt: json['revokedAt'] as String?,
     );
@@ -36,6 +39,7 @@ class ApiKeyModel {
     return ApiKey(
       apiKeyId: apiKeyId,
       name: name,
+      keySuffix: keySuffix,
       status: ApiKeyStatusExtension.fromWire(status),
       createdAt: DateTime.parse(createdAt),
       revokedAt: revokedAt != null ? DateTime.parse(revokedAt!) : null,

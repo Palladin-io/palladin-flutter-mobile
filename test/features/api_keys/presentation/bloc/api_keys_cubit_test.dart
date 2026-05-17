@@ -16,6 +16,7 @@ void main() {
     ApiKey(
       apiKeyId: 'k1',
       name: 'Prod',
+      keySuffix: 'aB3x',
       status: ApiKeyStatus.active,
       createdAt: DateTime.utc(2026, 5, 1),
     ),

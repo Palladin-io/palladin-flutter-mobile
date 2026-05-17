@@ -130,12 +130,14 @@ void main() {
           ApiKeyModel(
             apiKeyId: 'k1',
             name: 'Prod',
+            keySuffix: 'aB3x',
             status: 'Active',
             createdAt: '2026-05-01T10:00:00Z',
           ),
           ApiKeyModel(
             apiKeyId: 'k2',
             name: 'Old',
+            keySuffix: 'zQ9w',
             status: 'Revoked',
             createdAt: '2026-04-01T10:00:00Z',
             revokedAt: '2026-04-15T10:00:00Z',
