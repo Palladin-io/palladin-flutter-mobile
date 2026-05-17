@@ -10,8 +10,8 @@ import '../../../settings/domain/entities/api_key.dart';
 import '../../../settings/presentation/widgets/settings_error_text.dart';
 import '../bloc/api_keys_cubit.dart';
 import '../widgets/api_key_details_tab.dart';
-import '../widgets/delete_api_key_dialog.dart';
-import '../widgets/revoke_api_key_dialog.dart';
+import '../widgets/delete_api_key_sheet.dart';
+import '../widgets/revoke_api_key_sheet.dart';
 
 /// Standalone API-key detail screen — wraps a [DefaultTabController]
 /// with two tabs: "Details" and "Agents".
@@ -172,7 +172,7 @@ class _DetailsTabBody extends StatelessWidget {
   final ApiKeysState state;
 
   Future<void> _onRevoke(BuildContext context, ApiKey key) async {
-    final confirmed = await RevokeApiKeyDialog.show(context, key.name);
+    final confirmed = await RevokeApiKeySheet.show(context, key.name);
     if (!confirmed || !context.mounted) return;
     await context.read<ApiKeysCubit>().revokeApiKey(key.apiKeyId);
   }
@@ -182,7 +182,7 @@ class _DetailsTabBody extends StatelessWidget {
   }
 
   Future<void> _onDelete(BuildContext context, ApiKey key) async {
-    final confirmed = await DeleteApiKeyDialog.show(context, key.name);
+    final confirmed = await DeleteApiKeySheet.show(context, key.name);
     if (!confirmed || !context.mounted) return;
     await context.read<ApiKeysCubit>().deleteApiKey(key.apiKeyId);
     if (context.mounted) context.pop();
