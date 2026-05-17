@@ -833,7 +833,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsOrganization => 'Organizacja';
 
   @override
-  String get settingsManageOrganization => 'Organizacja i klucze API';
+  String get settingsManageOrganization => 'Organizacja';
 
   @override
   String get settingsOrgNameLabel => 'Nazwa organizacji';
@@ -858,83 +858,10 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsSave => 'Zapisz';
 
   @override
-  String get settingsSaving => 'Zapisywanie…';
-
-  @override
   String get settingsOrgSaved => 'Zaktualizowano nazwę organizacji.';
 
   @override
   String get settingsApiKeys => 'Klucze API';
-
-  @override
-  String get settingsApiKeysSubtitle =>
-      'Klucze pozwalają agentom AI uwierzytelniać się w Claw Vault.';
-
-  @override
-  String get settingsApiKeysEmpty => 'Brak kluczy API';
-
-  @override
-  String get settingsApiKeysEmptyHint =>
-      'Wygeneruj klucz, aby podłączyć pierwszego agenta.';
-
-  @override
-  String get settingsApiKeyStatusActive => 'Aktywny';
-
-  @override
-  String get settingsApiKeyStatusRevoked => 'Unieważniony';
-
-  @override
-  String settingsApiKeyCreated(String date) {
-    return 'Utworzono $date';
-  }
-
-  @override
-  String get settingsRevoke => 'Unieważnij';
-
-  @override
-  String get settingsGenerateApiKey => 'Wygeneruj klucz API';
-
-  @override
-  String get settingsApiKeyNameLabel => 'Nazwa klucza';
-
-  @override
-  String get settingsApiKeyNameHint => 'np. Agent produkcyjny';
-
-  @override
-  String get settingsGenerate => 'Wygeneruj';
-
-  @override
-  String get settingsGenerating => 'Generowanie…';
-
-  @override
-  String get settingsApiKeySecretTitle => 'Klucz API utworzony';
-
-  @override
-  String get settingsApiKeySecretWarning =>
-      'Zapisz ten klucz teraz — nie zostanie pokazany ponownie.';
-
-  @override
-  String get settingsCopyKey => 'Kopiuj klucz';
-
-  @override
-  String get settingsKeyCopied => 'Skopiowano klucz API do schowka.';
-
-  @override
-  String get settingsDone => 'Gotowe';
-
-  @override
-  String get settingsClose => 'Zamknij';
-
-  @override
-  String get settingsCancel => 'Anuluj';
-
-  @override
-  String get settingsRevokeConfirmTitle => 'Unieważnić klucz API?';
-
-  @override
-  String settingsRevokeConfirmBody(String name) {
-    return 'Agenci korzystający z „$name” natychmiast stracą dostęp. Tej operacji nie można cofnąć.';
-  }
 
   @override
   String get settingsRetry => 'Ponów';
@@ -951,4 +878,91 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get settingsErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
+
+  @override
+  String get apiKeysScreenTitle => 'Klucze API';
+
+  @override
+  String get apiKeysEmpty => 'Brak kluczy API';
+
+  @override
+  String get apiKeysEmptyHint =>
+      'Wygeneruj klucz, aby podłączyć pierwszego agenta.';
+
+  @override
+  String get apiKeysStatusActive => 'Aktywny';
+
+  @override
+  String get apiKeysStatusRevoked => 'Unieważniony';
+
+  @override
+  String apiKeysCreated(String date) {
+    return 'Utworzono $date';
+  }
+
+  @override
+  String get apiKeysRetry => 'Ponów';
+
+  @override
+  String get apiKeysGenerate => 'Wygeneruj klucz API';
+
+  @override
+  String get apiKeysGenerateAction => 'Wygeneruj';
+
+  @override
+  String get apiKeysGenerating => 'Generowanie…';
+
+  @override
+  String get apiKeysNameLabel => 'Nazwa klucza';
+
+  @override
+  String get apiKeysNameHint => 'np. Agent produkcyjny';
+
+  @override
+  String get apiKeysSecretTitle => 'Klucz API utworzony';
+
+  @override
+  String get apiKeysSecretWarning =>
+      'Zapisz ten klucz teraz — nie zostanie pokazany ponownie.';
+
+  @override
+  String get apiKeysCopyKey => 'Kopiuj klucz';
+
+  @override
+  String get apiKeysKeyCopied => 'Skopiowano klucz API do schowka.';
+
+  @override
+  String get apiKeysDone => 'Gotowe';
+
+  @override
+  String get apiKeysCancel => 'Anuluj';
+
+  @override
+  String get apiKeysRevoke => 'Unieważnij';
+
+  @override
+  String get apiKeysRevokeConfirmTitle => 'Unieważnić klucz API?';
+
+  @override
+  String apiKeysRevokeConfirmBody(String name) {
+    return 'Agenci korzystający z „$name” natychmiast stracą dostęp. Tej operacji nie można cofnąć.';
+  }
+
+  @override
+  String get apiKeysDetailTitle => 'Klucz API';
+
+  @override
+  String get apiKeysDetailNotFound => 'Ten klucz API już nie istnieje.';
+
+  @override
+  String get apiKeysTabDetails => 'Szczegóły';
+
+  @override
+  String get apiKeysTabAgents => 'Agenci';
+
+  @override
+  String get apiKeysDetailCreatedAt => 'Utworzono';
+
+  @override
+  String get apiKeysDetailRevokedAt => 'Unieważniono';
 }

@@ -2,32 +2,27 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/utils/app_logger.dart';
-import '../../domain/entities/api_key.dart';
 import '../../domain/exceptions/settings_exceptions.dart';
 import '../../domain/repositories/settings_repository.dart';
 import 'settings_state.dart';
 
 export 'settings_state.dart';
 
-/// Drives the settings screen — organization details and API keys.
+/// Drives the settings screen — organization details only.
 ///
-/// The org block and the keys list load independently so a failure in
-/// one never blanks the other. All errors surface as a typed
-/// [SettingsErrorKind] on the relevant section so the UI can render a
-/// localized message.
+/// API-key management has moved to its own standalone screen
+/// ([ApiKeysPage]) backed by a dedicated `ApiKeysCubit`. This cubit is
+/// now scoped purely to the organization block.
 ///
-/// SECURITY: the one-time plaintext returned by [createApiKey] is *not*
-/// stored on this cubit. It is returned straight to the caller, which
-/// holds it in transient widget state until the reveal dialog closes.
+/// All errors surface as a typed [SettingsErrorKind] so the UI can
+/// render a localized message.
 class SettingsCubit extends Cubit<SettingsState> {
   SettingsCubit({required this.repository}) : super(const SettingsState());
 
   final SettingsRepository repository;
 
-  /// Loads both sections — called once on screen mount.
-  Future<void> load() async {
-    await Future.wait([loadOrg(), loadApiKeys()]);
-  }
+  /// Loads the organization section — called once on screen mount.
+  Future<void> load() => loadOrg();
 
   /// Fetches the organization details.
   Future<void> loadOrg() async {
@@ -45,30 +40,6 @@ class SettingsCubit extends Cubit<SettingsState> {
       emit(state.copyWith(
         orgStatus: SectionStatus.error,
         orgError: SettingsErrorKind.unknown,
-      ));
-    }
-  }
-
-  /// Fetches the API-key list.
-  Future<void> loadApiKeys() async {
-    AppLogger.d('Settings', 'Loading API keys');
-    emit(state.copyWith(
-      keysStatus: SectionStatus.loading,
-      clearKeysError: true,
-    ));
-    try {
-      final keys = await repository.listApiKeys();
-      AppLogger.i('Settings', 'Loaded ${keys.length} API keys');
-      emit(state.copyWith(keysStatus: SectionStatus.loaded, apiKeys: keys));
-    } on SettingsException catch (e) {
-      AppLogger.w('Settings', 'API key load failed: ${e.kind.name}');
-      emit(state.copyWith(keysStatus: SectionStatus.error, keysError: e.kind));
-    } catch (e, s) {
-      AppLogger.e('Settings', 'API key load failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        keysStatus: SectionStatus.error,
-        keysError: SettingsErrorKind.unknown,
       ));
     }
   }
@@ -110,42 +81,5 @@ class SettingsCubit extends Cubit<SettingsState> {
   void acknowledgeOrgSaveResult() {
     if (state.orgSaveError == null && !state.orgSaveSucceeded) return;
     emit(state.copyWith(clearOrgSaveError: true, orgSaveSucceeded: false));
-  }
-
-  /// Creates a new API key and returns the one-time [NewApiKey].
-  ///
-  /// SECURITY: the returned value carries the plaintext secret. It is
-  /// deliberately *not* stored on the cubit — the caller must hold it in
-  /// transient widget state and discard it when the reveal dialog
-  /// closes. On success the metadata-only list is refreshed.
-  ///
-  /// Throws [SettingsException] on failure so the calling dialog can
-  /// render an inline error.
-  Future<NewApiKey> createApiKey(String name) async {
-    AppLogger.d('Settings', 'Creating API key');
-    final created = await repository.createApiKey(name.trim());
-    AnalyticsService.instance.capture('settings', 'api-key-created');
-    await loadApiKeys();
-    return created;
-  }
-
-  /// Revokes an API key, then refreshes the list.
-  Future<void> revokeApiKey(String keyId) async {
-    AppLogger.d('Settings', 'Revoking API key');
-    try {
-      await repository.revokeApiKey(keyId);
-      AnalyticsService.instance.capture('settings', 'api-key-revoked');
-      await loadApiKeys();
-    } on SettingsException catch (e) {
-      AppLogger.w('Settings', 'API key revoke failed: ${e.kind.name}');
-      emit(state.copyWith(keysStatus: SectionStatus.error, keysError: e.kind));
-    } catch (e, s) {
-      AppLogger.e('Settings', 'API key revoke failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        keysStatus: SectionStatus.error,
-        keysError: SettingsErrorKind.unknown,
-      ));
-    }
   }
 }

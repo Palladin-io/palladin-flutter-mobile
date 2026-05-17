@@ -1,26 +1,21 @@
-import '../../domain/entities/api_key.dart';
 import '../../domain/entities/org.dart';
 import '../../domain/exceptions/settings_exceptions.dart';
 
-/// Loading status of an independently-fetched section of the settings
-/// screen (the org block and the API-keys list each track their own).
+/// Loading status of the organization section of the settings screen.
 enum SectionStatus { initial, loading, loaded, error }
 
 /// Immutable state for the settings screen.
 ///
-/// The screen has two independently-loaded sections — the organization
-/// block and the API-keys list — so each carries its own
-/// [SectionStatus]. A single sealed hierarchy would force both sections
-/// to share one loading/error state, which would (for example) hide the
-/// org form whenever the key list failed.
+/// The settings screen now owns only the organization block — API-key
+/// management has moved to its own standalone screen ([ApiKeysPage])
+/// driven by a dedicated `ApiKeysCubit`. Keeping the two concerns on
+/// separate cubits means a failure in one never blanks the other and
+/// each screen mounts only the state it needs.
 class SettingsState {
   const SettingsState({
     this.orgStatus = SectionStatus.initial,
     this.org,
     this.orgError,
-    this.keysStatus = SectionStatus.initial,
-    this.apiKeys = const [],
-    this.keysError,
     this.isSavingOrg = false,
     this.orgSaveError,
     this.orgSaveSucceeded = false,
@@ -42,20 +37,11 @@ class SettingsState {
   /// the UI after it shows a snackbar.
   final bool orgSaveSucceeded;
 
-  // ── API keys section ────────────────────────────────────────────────
-  final SectionStatus keysStatus;
-  final List<ApiKey> apiKeys;
-  final SettingsErrorKind? keysError;
-
   SettingsState copyWith({
     SectionStatus? orgStatus,
     Org? org,
     SettingsErrorKind? orgError,
     bool clearOrgError = false,
-    SectionStatus? keysStatus,
-    List<ApiKey>? apiKeys,
-    SettingsErrorKind? keysError,
-    bool clearKeysError = false,
     bool? isSavingOrg,
     SettingsErrorKind? orgSaveError,
     bool clearOrgSaveError = false,
@@ -65,9 +51,6 @@ class SettingsState {
       orgStatus: orgStatus ?? this.orgStatus,
       org: org ?? this.org,
       orgError: clearOrgError ? null : (orgError ?? this.orgError),
-      keysStatus: keysStatus ?? this.keysStatus,
-      apiKeys: apiKeys ?? this.apiKeys,
-      keysError: clearKeysError ? null : (keysError ?? this.keysError),
       isSavingOrg: isSavingOrg ?? this.isSavingOrg,
       orgSaveError:
           clearOrgSaveError ? null : (orgSaveError ?? this.orgSaveError),

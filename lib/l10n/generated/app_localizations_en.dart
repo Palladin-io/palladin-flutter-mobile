@@ -817,7 +817,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsOrganization => 'Organization';
 
   @override
-  String get settingsManageOrganization => 'Organization & API keys';
+  String get settingsManageOrganization => 'Organization';
 
   @override
   String get settingsOrgNameLabel => 'Organization name';
@@ -840,83 +840,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsSave => 'Save';
 
   @override
-  String get settingsSaving => 'Saving…';
-
-  @override
   String get settingsOrgSaved => 'Organization name updated.';
 
   @override
   String get settingsApiKeys => 'API keys';
-
-  @override
-  String get settingsApiKeysSubtitle =>
-      'Keys let your AI agents authenticate with Claw Vault.';
-
-  @override
-  String get settingsApiKeysEmpty => 'No API keys yet';
-
-  @override
-  String get settingsApiKeysEmptyHint =>
-      'Generate a key to connect your first agent.';
-
-  @override
-  String get settingsApiKeyStatusActive => 'Active';
-
-  @override
-  String get settingsApiKeyStatusRevoked => 'Revoked';
-
-  @override
-  String settingsApiKeyCreated(String date) {
-    return 'Created $date';
-  }
-
-  @override
-  String get settingsRevoke => 'Revoke';
-
-  @override
-  String get settingsGenerateApiKey => 'Generate API key';
-
-  @override
-  String get settingsApiKeyNameLabel => 'Key name';
-
-  @override
-  String get settingsApiKeyNameHint => 'e.g. Production agent';
-
-  @override
-  String get settingsGenerate => 'Generate';
-
-  @override
-  String get settingsGenerating => 'Generating…';
-
-  @override
-  String get settingsApiKeySecretTitle => 'API key created';
-
-  @override
-  String get settingsApiKeySecretWarning =>
-      'Save this key now — it will never be shown again.';
-
-  @override
-  String get settingsCopyKey => 'Copy key';
-
-  @override
-  String get settingsKeyCopied => 'API key copied to clipboard.';
-
-  @override
-  String get settingsDone => 'Done';
-
-  @override
-  String get settingsClose => 'Close';
-
-  @override
-  String get settingsCancel => 'Cancel';
-
-  @override
-  String get settingsRevokeConfirmTitle => 'Revoke API key?';
-
-  @override
-  String settingsRevokeConfirmBody(String name) {
-    return 'Agents using \"$name\" will lose access immediately. This cannot be undone.';
-  }
 
   @override
   String get settingsRetry => 'Retry';
@@ -933,4 +860,90 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsErrorUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get apiKeysScreenTitle => 'API keys';
+
+  @override
+  String get apiKeysEmpty => 'No API keys yet';
+
+  @override
+  String get apiKeysEmptyHint => 'Generate a key to connect your first agent.';
+
+  @override
+  String get apiKeysStatusActive => 'Active';
+
+  @override
+  String get apiKeysStatusRevoked => 'Revoked';
+
+  @override
+  String apiKeysCreated(String date) {
+    return 'Created $date';
+  }
+
+  @override
+  String get apiKeysRetry => 'Retry';
+
+  @override
+  String get apiKeysGenerate => 'Generate API key';
+
+  @override
+  String get apiKeysGenerateAction => 'Generate';
+
+  @override
+  String get apiKeysGenerating => 'Generating…';
+
+  @override
+  String get apiKeysNameLabel => 'Key name';
+
+  @override
+  String get apiKeysNameHint => 'e.g. Production agent';
+
+  @override
+  String get apiKeysSecretTitle => 'API key created';
+
+  @override
+  String get apiKeysSecretWarning =>
+      'Save this key now — it will never be shown again.';
+
+  @override
+  String get apiKeysCopyKey => 'Copy key';
+
+  @override
+  String get apiKeysKeyCopied => 'API key copied to clipboard.';
+
+  @override
+  String get apiKeysDone => 'Done';
+
+  @override
+  String get apiKeysCancel => 'Cancel';
+
+  @override
+  String get apiKeysRevoke => 'Revoke';
+
+  @override
+  String get apiKeysRevokeConfirmTitle => 'Revoke API key?';
+
+  @override
+  String apiKeysRevokeConfirmBody(String name) {
+    return 'Agents using \"$name\" will lose access immediately. This cannot be undone.';
+  }
+
+  @override
+  String get apiKeysDetailTitle => 'API key';
+
+  @override
+  String get apiKeysDetailNotFound => 'This API key no longer exists.';
+
+  @override
+  String get apiKeysTabDetails => 'Details';
+
+  @override
+  String get apiKeysTabAgents => 'Agents';
+
+  @override
+  String get apiKeysDetailCreatedAt => 'Created';
+
+  @override
+  String get apiKeysDetailRevokedAt => 'Revoked';
 }

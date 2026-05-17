@@ -7,8 +7,8 @@ import '../../../../l10n/generated/app_localizations.dart';
 ///
 /// Resolves to `true` when the user confirms the (irreversible) revoke,
 /// `false` (or `null`) when they cancel or dismiss it.
-class RevokeConfirmDialog extends StatelessWidget {
-  const RevokeConfirmDialog({super.key, required this.keyName});
+class RevokeApiKeyDialog extends StatelessWidget {
+  const RevokeApiKeyDialog({super.key, required this.keyName});
 
   /// Name of the key being revoked — interpolated into the warning copy.
   final String keyName;
@@ -18,7 +18,7 @@ class RevokeConfirmDialog extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       useRootNavigator: true,
-      builder: (_) => RevokeConfirmDialog(keyName: keyName),
+      builder: (_) => RevokeApiKeyDialog(keyName: keyName),
     );
     return confirmed ?? false;
   }
@@ -34,7 +34,7 @@ class RevokeConfirmDialog extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       title: Text(
-        l10n.settingsRevokeConfirmTitle,
+        l10n.apiKeysRevokeConfirmTitle,
         style: TextStyle(
           color: AppColors.onSurface(brightness),
           fontSize: 16,
@@ -42,7 +42,7 @@ class RevokeConfirmDialog extends StatelessWidget {
         ),
       ),
       content: Text(
-        l10n.settingsRevokeConfirmBody(keyName),
+        l10n.apiKeysRevokeConfirmBody(keyName),
         style: TextStyle(
           color: AppColors.onSurfaceMuted(brightness),
           fontSize: 13,
@@ -55,7 +55,7 @@ class RevokeConfirmDialog extends StatelessWidget {
           style: TextButton.styleFrom(
             foregroundColor: AppColors.onSurfaceSubtle(brightness),
           ),
-          child: Text(l10n.settingsCancel),
+          child: Text(l10n.apiKeysCancel),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),
@@ -63,7 +63,7 @@ class RevokeConfirmDialog extends StatelessWidget {
             foregroundColor: AppColors.brandRed,
           ),
           child: Text(
-            l10n.settingsRevoke,
+            l10n.apiKeysRevoke,
             style: const TextStyle(fontWeight: FontWeight.w700),
           ),
         ),

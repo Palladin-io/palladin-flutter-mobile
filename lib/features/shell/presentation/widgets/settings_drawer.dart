@@ -91,7 +91,12 @@ class SettingsDrawer extends StatelessWidget {
             _DrawerItem(
               icon: Icons.corporate_fare,
               label: l10n.settingsManageOrganization,
-              onTap: () => _onOpenSettings(context),
+              onTap: () => _onNavigate(context, '/settings'),
+            ),
+            _DrawerItem(
+              icon: Icons.vpn_key_outlined,
+              label: l10n.settingsApiKeys,
+              onTap: () => _onNavigate(context, '/api-keys'),
             ),
             _DrawerItem(
               icon: Icons.lock_outline,
@@ -111,12 +116,12 @@ class SettingsDrawer extends StatelessWidget {
     );
   }
 
-  void _onOpenSettings(BuildContext context) {
-    // Close the drawer first so the settings screen lands on a clean
+  void _onNavigate(BuildContext context, String route) {
+    // Close the drawer first so the destination screen lands on a clean
     // navigator stack — leaving the drawer open looks broken during the
     // route transition.
     Navigator.of(context).pop();
-    context.push('/settings');
+    context.push(route);
   }
 
   void _onLock(BuildContext context) {

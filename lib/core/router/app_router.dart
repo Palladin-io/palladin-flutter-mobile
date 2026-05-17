@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/api_keys/presentation/pages/api_key_detail_page.dart';
+import '../../features/api_keys/presentation/pages/api_keys_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_wizard_page.dart';
@@ -124,12 +126,27 @@ GoRouter createRouter(AuthBloc authBloc) {
               title: AppLocalizations.of(context)!.placeholderAuditTitle,
             ),
           ),
-          // Settings — organization details + API-key management.
-          // Lives inside the shell so the persistent bottom nav stays
-          // mounted while the user is on the screen.
+          // Settings — organization details. Lives inside the shell so
+          // the persistent bottom nav stays mounted while the user is
+          // on the screen.
           GoRoute(
             path: '/settings',
             builder: (_, _) => const SettingsPage(),
+          ),
+          // API keys — standalone list + detail screens. Nested so the
+          // detail page keeps the shell (and its bottom nav) mounted
+          // across navigation, matching `/vaults/:vaultId`.
+          GoRoute(
+            path: '/api-keys',
+            builder: (_, _) => const ApiKeysPage(),
+            routes: [
+              GoRoute(
+                path: ':keyId',
+                builder: (_, state) => ApiKeyDetailPage(
+                  keyId: state.pathParameters['keyId']!,
+                ),
+              ),
+            ],
           ),
         ],
       ),

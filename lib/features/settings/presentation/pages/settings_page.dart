@@ -5,17 +5,15 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../bloc/settings_cubit.dart';
-import '../widgets/api_key_list.dart';
-import '../widgets/generate_api_key_dialog.dart';
 import '../widgets/org_settings_section.dart';
 
-/// Dedicated settings screen — organization details and API-key
-/// management.
+/// Dedicated settings screen — organization details only.
 ///
-/// Reached from the settings drawer's "Organization & API keys" item.
-/// Owns a fresh [SettingsCubit] which loads both sections on mount;
-/// each section renders its own loading / error / content state so a
-/// failure in one never blanks the other.
+/// Reached from the settings drawer's "Organization" item. API-key
+/// management lives on its own standalone screen ([ApiKeysPage]).
+///
+/// Owns a fresh [SettingsCubit] which loads the organization section on
+/// mount; the section renders its own loading / error / content state.
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
@@ -67,42 +65,9 @@ class _SettingsView extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: const [
                 OrgSettingsSection(),
-                SizedBox(height: 24),
-                ApiKeyList(),
-                SizedBox(height: 16),
-                _GenerateKeyButton(),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Full-width button that opens the generate-API-key bottom sheet.
-class _GenerateKeyButton extends StatelessWidget {
-  const _GenerateKeyButton();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return SizedBox(
-      height: 48,
-      child: ElevatedButton.icon(
-        onPressed: () => GenerateApiKeyDialog.show(context),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.brandRed,
-          foregroundColor: AppColors.onBrandRed,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        icon: const Icon(Icons.add, size: 18),
-        label: Text(
-          l10n.settingsGenerateApiKey,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
     );

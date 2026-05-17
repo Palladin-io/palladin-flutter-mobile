@@ -1400,7 +1400,7 @@ abstract class AppLocalizations {
   /// **'Something went wrong. Please try again.'**
   String get entryErrorUnknown;
 
-  /// Title of the dedicated settings screen (organization + API keys)
+  /// Title of the dedicated settings screen (organization details)
   ///
   /// In en, this message translates to:
   /// **'Settings'**
@@ -1412,10 +1412,10 @@ abstract class AppLocalizations {
   /// **'Organization'**
   String get settingsOrganization;
 
-  /// Label for the settings-drawer item that opens the settings screen
+  /// Label for the settings-drawer item that opens the organization settings screen
   ///
   /// In en, this message translates to:
-  /// **'Organization & API keys'**
+  /// **'Organization'**
   String get settingsManageOrganization;
 
   /// Label for the editable organization name input field
@@ -1442,149 +1442,17 @@ abstract class AppLocalizations {
   /// **'Save'**
   String get settingsSave;
 
-  /// Loading label shown on the save button while the org rename is in flight
-  ///
-  /// In en, this message translates to:
-  /// **'Saving…'**
-  String get settingsSaving;
-
   /// Snackbar confirmation shown after a successful organization rename
   ///
   /// In en, this message translates to:
   /// **'Organization name updated.'**
   String get settingsOrgSaved;
 
-  /// Heading for the API keys section on the settings screen
+  /// Label for the settings-drawer item that opens the standalone API keys screen
   ///
   /// In en, this message translates to:
   /// **'API keys'**
   String get settingsApiKeys;
-
-  /// Supporting copy under the API keys section heading
-  ///
-  /// In en, this message translates to:
-  /// **'Keys let your AI agents authenticate with Claw Vault.'**
-  String get settingsApiKeysSubtitle;
-
-  /// Empty-state title shown when the organization has no API keys
-  ///
-  /// In en, this message translates to:
-  /// **'No API keys yet'**
-  String get settingsApiKeysEmpty;
-
-  /// Empty-state supporting copy for the API keys list
-  ///
-  /// In en, this message translates to:
-  /// **'Generate a key to connect your first agent.'**
-  String get settingsApiKeysEmptyHint;
-
-  /// Status badge label for an active API key
-  ///
-  /// In en, this message translates to:
-  /// **'Active'**
-  String get settingsApiKeyStatusActive;
-
-  /// Status badge label for a revoked API key
-  ///
-  /// In en, this message translates to:
-  /// **'Revoked'**
-  String get settingsApiKeyStatusRevoked;
-
-  /// Created-date line on an API key row
-  ///
-  /// In en, this message translates to:
-  /// **'Created {date}'**
-  String settingsApiKeyCreated(String date);
-
-  /// Label for the action that revokes an API key
-  ///
-  /// In en, this message translates to:
-  /// **'Revoke'**
-  String get settingsRevoke;
-
-  /// Label for the button that opens the generate-API-key sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Generate API key'**
-  String get settingsGenerateApiKey;
-
-  /// Label for the API key name input field in the generate sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Key name'**
-  String get settingsApiKeyNameLabel;
-
-  /// Placeholder text for the API key name input field
-  ///
-  /// In en, this message translates to:
-  /// **'e.g. Production agent'**
-  String get settingsApiKeyNameHint;
-
-  /// Submit-button label in the generate-API-key sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Generate'**
-  String get settingsGenerate;
-
-  /// Loading label shown on the generate button while the key is being created
-  ///
-  /// In en, this message translates to:
-  /// **'Generating…'**
-  String get settingsGenerating;
-
-  /// Title of the one-time secret reveal step in the generate sheet
-  ///
-  /// In en, this message translates to:
-  /// **'API key created'**
-  String get settingsApiKeySecretTitle;
-
-  /// Warning shown above the one-time plaintext API key secret
-  ///
-  /// In en, this message translates to:
-  /// **'Save this key now — it will never be shown again.'**
-  String get settingsApiKeySecretWarning;
-
-  /// Label for the copy-to-clipboard button next to the API key secret
-  ///
-  /// In en, this message translates to:
-  /// **'Copy key'**
-  String get settingsCopyKey;
-
-  /// Snackbar confirmation shown after copying the API key secret
-  ///
-  /// In en, this message translates to:
-  /// **'API key copied to clipboard.'**
-  String get settingsKeyCopied;
-
-  /// Label for the button that dismisses the secret reveal step
-  ///
-  /// In en, this message translates to:
-  /// **'Done'**
-  String get settingsDone;
-
-  /// Generic close label used by settings dialogs
-  ///
-  /// In en, this message translates to:
-  /// **'Close'**
-  String get settingsClose;
-
-  /// Generic cancel label used by settings dialogs
-  ///
-  /// In en, this message translates to:
-  /// **'Cancel'**
-  String get settingsCancel;
-
-  /// Title of the revoke-API-key confirmation dialog
-  ///
-  /// In en, this message translates to:
-  /// **'Revoke API key?'**
-  String get settingsRevokeConfirmTitle;
-
-  /// Body of the revoke-API-key confirmation dialog
-  ///
-  /// In en, this message translates to:
-  /// **'Agents using \"{name}\" will lose access immediately. This cannot be undone.'**
-  String settingsRevokeConfirmBody(String name);
 
   /// Label for the retry button on settings error states
   ///
@@ -1615,6 +1483,168 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
   String get settingsErrorUnknown;
+
+  /// Title of the standalone API keys list screen
+  ///
+  /// In en, this message translates to:
+  /// **'API keys'**
+  String get apiKeysScreenTitle;
+
+  /// Empty-state title shown when the organization has no API keys
+  ///
+  /// In en, this message translates to:
+  /// **'No API keys yet'**
+  String get apiKeysEmpty;
+
+  /// Empty-state supporting copy for the API keys list
+  ///
+  /// In en, this message translates to:
+  /// **'Generate a key to connect your first agent.'**
+  String get apiKeysEmptyHint;
+
+  /// Status badge label for an active API key
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get apiKeysStatusActive;
+
+  /// Status badge label for a revoked API key
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked'**
+  String get apiKeysStatusRevoked;
+
+  /// Created-date line on an API key list row
+  ///
+  /// In en, this message translates to:
+  /// **'Created {date}'**
+  String apiKeysCreated(String date);
+
+  /// Label for the retry button on API keys error states
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get apiKeysRetry;
+
+  /// Tooltip / heading for the generate-API-key action and sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Generate API key'**
+  String get apiKeysGenerate;
+
+  /// Submit-button label in the generate-API-key sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Generate'**
+  String get apiKeysGenerateAction;
+
+  /// Loading label shown on the generate button while the key is being created
+  ///
+  /// In en, this message translates to:
+  /// **'Generating…'**
+  String get apiKeysGenerating;
+
+  /// Label for the API key name input field in the generate sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Key name'**
+  String get apiKeysNameLabel;
+
+  /// Placeholder text for the API key name input field
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Production agent'**
+  String get apiKeysNameHint;
+
+  /// Title of the one-time secret reveal step in the generate sheet
+  ///
+  /// In en, this message translates to:
+  /// **'API key created'**
+  String get apiKeysSecretTitle;
+
+  /// Warning shown above the one-time plaintext API key secret
+  ///
+  /// In en, this message translates to:
+  /// **'Save this key now — it will never be shown again.'**
+  String get apiKeysSecretWarning;
+
+  /// Label for the copy-to-clipboard button next to the API key secret
+  ///
+  /// In en, this message translates to:
+  /// **'Copy key'**
+  String get apiKeysCopyKey;
+
+  /// Snackbar confirmation shown after copying the API key secret
+  ///
+  /// In en, this message translates to:
+  /// **'API key copied to clipboard.'**
+  String get apiKeysKeyCopied;
+
+  /// Label for the button that dismisses the secret reveal step
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get apiKeysDone;
+
+  /// Generic cancel label used by API key dialogs
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get apiKeysCancel;
+
+  /// Label for the action that revokes an API key
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke'**
+  String get apiKeysRevoke;
+
+  /// Title of the revoke-API-key confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke API key?'**
+  String get apiKeysRevokeConfirmTitle;
+
+  /// Body of the revoke-API-key confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Agents using \"{name}\" will lose access immediately. This cannot be undone.'**
+  String apiKeysRevokeConfirmBody(String name);
+
+  /// Fallback AppBar title on the API key detail screen while the key is loading
+  ///
+  /// In en, this message translates to:
+  /// **'API key'**
+  String get apiKeysDetailTitle;
+
+  /// Message shown on the API key detail screen when the key id cannot be resolved
+  ///
+  /// In en, this message translates to:
+  /// **'This API key no longer exists.'**
+  String get apiKeysDetailNotFound;
+
+  /// Label of the Details tab on the API key detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get apiKeysTabDetails;
+
+  /// Label of the Agents tab on the API key detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Agents'**
+  String get apiKeysTabAgents;
+
+  /// Label for the created-date row on the API key detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Created'**
+  String get apiKeysDetailCreatedAt;
+
+  /// Label for the revoked-date row on the API key detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked'**
+  String get apiKeysDetailRevokedAt;
 }
 
 class _AppLocalizationsDelegate

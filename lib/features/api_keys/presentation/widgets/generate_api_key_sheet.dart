@@ -6,10 +6,10 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
-import '../../domain/entities/api_key.dart';
-import '../../domain/exceptions/settings_exceptions.dart';
-import '../bloc/settings_cubit.dart';
-import 'settings_error_text.dart';
+import '../../../settings/domain/entities/api_key.dart';
+import '../../../settings/domain/exceptions/settings_exceptions.dart';
+import '../../../settings/presentation/widgets/settings_error_text.dart';
+import '../bloc/api_keys_cubit.dart';
 
 /// Two-phase bottom sheet for creating an API key.
 ///
@@ -21,31 +21,31 @@ import 'settings_error_text.dart';
 /// in this widget's transient [State] ([_newKey]). It is never written
 /// to SharedPreferences, secure storage, logs, or analytics, and is
 /// discarded when the sheet is dismissed.
-class GenerateApiKeyDialog extends StatefulWidget {
-  const GenerateApiKeyDialog({super.key});
+class GenerateApiKeySheet extends StatefulWidget {
+  const GenerateApiKeySheet({super.key});
 
-  /// Shows the sheet on the root navigator. The hosting [SettingsCubit]
+  /// Shows the sheet on the root navigator. The hosting [ApiKeysCubit]
   /// is passed via [BlocProvider.value] so the sheet can create the key
   /// and trigger a list refresh on the same cubit instance.
   static Future<void> show(BuildContext context) {
-    final cubit = context.read<SettingsCubit>();
+    final cubit = context.read<ApiKeysCubit>();
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => BlocProvider<SettingsCubit>.value(
+      builder: (_) => BlocProvider<ApiKeysCubit>.value(
         value: cubit,
-        child: const GenerateApiKeyDialog(),
+        child: const GenerateApiKeySheet(),
       ),
     );
   }
 
   @override
-  State<GenerateApiKeyDialog> createState() => _GenerateApiKeyDialogState();
+  State<GenerateApiKeySheet> createState() => _GenerateApiKeySheetState();
 }
 
-class _GenerateApiKeyDialogState extends State<GenerateApiKeyDialog> {
+class _GenerateApiKeySheetState extends State<GenerateApiKeySheet> {
   final TextEditingController _nameController = TextEditingController();
 
   bool _isSubmitting = false;
@@ -71,7 +71,7 @@ class _GenerateApiKeyDialogState extends State<GenerateApiKeyDialog> {
       _error = null;
     });
     try {
-      final created = await context.read<SettingsCubit>().createApiKey(name);
+      final created = await context.read<ApiKeysCubit>().createApiKey(name);
       if (!mounted) return;
       setState(() {
         _newKey = created;
@@ -100,7 +100,7 @@ class _GenerateApiKeyDialogState extends State<GenerateApiKeyDialog> {
     final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(l10n.settingsKeyCopied)));
+      ..showSnackBar(SnackBar(content: Text(l10n.apiKeysKeyCopied)));
   }
 
   @override
@@ -178,7 +178,7 @@ class _NamePhase extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          l10n.settingsGenerateApiKey,
+          l10n.apiKeysGenerate,
           style: TextStyle(
             color: AppColors.onSurface(brightness),
             fontSize: 18,
@@ -188,8 +188,8 @@ class _NamePhase extends StatelessWidget {
         const SizedBox(height: 16),
         OnboardingTextField(
           controller: controller,
-          label: l10n.settingsApiKeyNameLabel,
-          hintText: l10n.settingsApiKeyNameHint,
+          label: l10n.apiKeysNameLabel,
+          hintText: l10n.apiKeysNameHint,
           textCapitalization: TextCapitalization.sentences,
           textInputAction: TextInputAction.done,
           onChanged: (_) => onChanged(),
@@ -207,7 +207,9 @@ class _NamePhase extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         PrimaryButton(
-          label: isSubmitting ? l10n.settingsGenerating : l10n.settingsGenerate,
+          label: isSubmitting
+              ? l10n.apiKeysGenerating
+              : l10n.apiKeysGenerateAction,
           isLoading: isSubmitting,
           onPressed: canSubmit ? onSubmit : null,
         ),
@@ -241,7 +243,7 @@ class _RevealPhase extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                l10n.settingsApiKeySecretTitle,
+                l10n.apiKeysSecretTitle,
                 style: TextStyle(
                   color: AppColors.onSurface(brightness),
                   fontSize: 18,
@@ -273,7 +275,7 @@ class _RevealPhase extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  l10n.settingsApiKeySecretWarning,
+                  l10n.apiKeysSecretWarning,
                   style: const TextStyle(
                     color: AppColors.brandRed,
                     fontSize: 12,
@@ -319,13 +321,13 @@ class _RevealPhase extends StatelessWidget {
           ),
           icon: const Icon(Icons.copy, size: 16),
           label: Text(
-            l10n.settingsCopyKey,
+            l10n.apiKeysCopyKey,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ),
         const SizedBox(height: 8),
         PrimaryButton(
-          label: l10n.settingsDone,
+          label: l10n.apiKeysDone,
           onPressed: () => Navigator.of(context).pop(),
         ),
       ],
