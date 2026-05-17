@@ -107,116 +107,181 @@ class ApiKeyDetailsTab extends StatelessWidget {
         ),
         if (apiKey.isActive && canWrite) ...[
           const SizedBox(height: 16),
-          SizedBox(
-            height: 48,
-            child: OutlinedButton.icon(
-              onPressed: isRevoking ? null : onRevoke,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.brandRed,
-                side: BorderSide(
-                  color: AppColors.brandRed.withValues(alpha: 0.5),
-                ),
-                disabledForegroundColor:
-                    AppColors.brandRed.withValues(alpha: 0.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: isRevoking
-                  ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.brandRed,
-                      ),
-                    )
-                  : const Icon(Icons.block, size: 18),
-              label: Text(
-                l10n.apiKeysRevoke,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+          _DangerZone(
+            label: l10n.vaultDangerZone,
+            actionLabel: isRevoking ? '…' : l10n.apiKeysRevoke,
+            icon: isRevoking
+                ? const SizedBox(
+                    height: 14,
+                    width: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: AppColors.brandRed,
+                    ),
+                  )
+                : const Icon(Icons.block, size: 14, color: AppColors.brandRed),
+            onPressed: isRevoking ? null : onRevoke,
           ),
         ],
         if (!apiKey.isActive && canWrite) ...[
           const SizedBox(height: 16),
-          // Activate button — primary action.
-          SizedBox(
-            height: 48,
-            child: ElevatedButton.icon(
-              onPressed: (isActivating || isDeleting) ? null : onActivate,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.brandRed,
-                foregroundColor: AppColors.onBrandRed,
-                disabledBackgroundColor:
-                    AppColors.brandRed.withValues(alpha: 0.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          // Activate section — neutral card, NOT red.
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.cardBorder(brightness)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.apiKeysActivateZone,
+                  style: TextStyle(
+                    color: AppColors.onSurfaceSubtle(brightness),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                  ),
                 ),
-              ),
-              icon: isActivating
-                  ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.onBrandRed,
+                const SizedBox(height: 4),
+                Text(
+                  l10n.apiKeysActivateHint,
+                  style: TextStyle(
+                    color: AppColors.onSurfaceSubtle(brightness),
+                    fontSize: 11,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    icon: isActivating
+                        ? const SizedBox(
+                            height: 14,
+                            width: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                            ),
+                          )
+                        : const Icon(Icons.check_circle_outline, size: 14),
+                    label: Text(
+                      isActivating
+                          ? l10n.apiKeysActivating
+                          : l10n.apiKeysActivate,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
-                    )
-                  : const Icon(Icons.check_circle_outline, size: 18),
-              label: Text(
-                isActivating ? l10n.apiKeysActivating : l10n.apiKeysActivate,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.onSurface(brightness),
+                      side: BorderSide(
+                        color: AppColors.cardBorder(brightness),
+                      ),
+                      disabledForegroundColor:
+                          AppColors.onSurfaceSubtle(brightness),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed:
+                        (isActivating || isDeleting) ? null : onActivate,
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          // Permanent delete — destructive outlined action.
-          SizedBox(
-            height: 48,
-            child: OutlinedButton.icon(
-              onPressed: (isActivating || isDeleting) ? null : onDelete,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.brandRed,
-                side: BorderSide(
-                  color: AppColors.brandRed.withValues(alpha: 0.5),
-                ),
-                disabledForegroundColor:
-                    AppColors.brandRed.withValues(alpha: 0.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: isDeleting
-                  ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.brandRed,
-                      ),
-                    )
-                  : const Icon(Icons.delete_outline, size: 18),
-              label: Text(
-                isDeleting
-                    ? l10n.apiKeysDeleting
-                    : l10n.apiKeysDeletePermanently,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+          const SizedBox(height: 12),
+          // Danger zone — delete permanently.
+          _DangerZone(
+            label: l10n.vaultDangerZone,
+            actionLabel: isDeleting ? '…' : l10n.apiKeysDeletePermanently,
+            icon: isDeleting
+                ? const SizedBox(
+                    height: 14,
+                    width: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: AppColors.brandRed,
+                    ),
+                  )
+                : const Icon(
+                    Icons.delete_outline,
+                    size: 14,
+                    color: AppColors.brandRed,
+                  ),
+            onPressed: (isActivating || isDeleting) ? null : onDelete,
           ),
         ],
       ],
+    );
+  }
+}
+
+/// A red-bordered destructive-action card matching the vault settings
+/// danger-zone pattern — a section label above a single full-width
+/// tinted action button.
+class _DangerZone extends StatelessWidget {
+  const _DangerZone({
+    required this.label,
+    required this.actionLabel,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final String actionLabel;
+  final Widget icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.brandRed.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.brandRed,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: TextButton.icon(
+              icon: icon,
+              label: Text(
+                actionLabel,
+                style: const TextStyle(
+                  color: AppColors.brandRed,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                backgroundColor: AppColors.brandRed.withValues(alpha: 0.12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: onPressed,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

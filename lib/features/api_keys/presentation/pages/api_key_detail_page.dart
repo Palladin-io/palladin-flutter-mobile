@@ -57,6 +57,7 @@ class _ApiKeyDetailView extends StatelessWidget {
             surfaceTintColor: Colors.transparent,
             scrolledUnderElevation: 0,
             elevation: 0,
+            titleSpacing: 0,
             centerTitle: false,
             iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
             leading: IconButton(
@@ -128,15 +129,36 @@ class _AppBarTitle extends StatelessWidget {
     final key = context.select<ApiKeysCubit, ApiKey?>(
       (cubit) => cubit.state.keyById(keyId),
     );
-    return Text(
-      key?.name ?? l10n.apiKeysDetailTitle,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        color: AppColors.onSurface(brightness),
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-      ),
+    final name = key?.name ?? l10n.apiKeysDetailTitle;
+    final statusLabel = key == null
+        ? ''
+        : (key.isActive
+            ? l10n.apiKeysStatusActive
+            : l10n.apiKeysStatusRevoked);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: AppColors.onSurface(brightness),
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        if (statusLabel.isNotEmpty)
+          Text(
+            statusLabel,
+            style: TextStyle(
+              color: AppColors.onSurfaceSubtle(brightness),
+              fontSize: 11,
+            ),
+          ),
+      ],
     );
   }
 }

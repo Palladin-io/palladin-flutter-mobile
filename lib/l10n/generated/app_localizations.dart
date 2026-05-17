@@ -1687,6 +1687,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This will permanently delete \"{name}\". This cannot be undone.'**
   String apiKeysDeleteConfirmBody(String name);
+
+  /// Section header for the activate section on the revoked key detail page
+  ///
+  /// In en, this message translates to:
+  /// **'ACTIVATE KEY'**
+  String get apiKeysActivateZone;
+
+  /// Subtitle in the activate section
+  ///
+  /// In en, this message translates to:
+  /// **'Re-enable this key — agents using it will regain access immediately.'**
+  String get apiKeysActivateHint;
+
+  /// Count summary in the API keys screen AppBar subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'{total} keys · {active} active'**
+  String apiKeysListSummary(int total, int active);
 }
 
 class _AppLocalizationsDelegate

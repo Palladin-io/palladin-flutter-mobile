@@ -264,5 +264,8 @@
   "apiKeysDeletePermanently": "Usuń trwale",
   "apiKeysDeleting": "Usuwanie…",
   "apiKeysDeleteConfirmTitle": "Usuń klucz API?",
-  "apiKeysDeleteConfirmBody": "Klucz \"{name}\" zostanie trwale usunięty. Nie można cofnąć tej operacji."
+  "apiKeysDeleteConfirmBody": "Klucz \"{name}\" zostanie trwale usunięty. Nie można cofnąć tej operacji.",
+  "apiKeysActivateZone": "AKTYWUJ KLUCZ",
+  "apiKeysActivateHint": "Ponownie włącz ten klucz — agenci używający go odzyskają dostęp natychmiast.",
+  "apiKeysListSummary": "{total} kluczy · {active} aktywnych"
 }

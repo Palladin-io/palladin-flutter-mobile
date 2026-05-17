@@ -1143,5 +1143,21 @@
   "@apiKeysDeleteConfirmBody": {
     "description": "Body of the permanent-delete confirmation dialog",
     "placeholders": { "name": { "type": "String" } }
+  },
+  "apiKeysActivateZone": "ACTIVATE KEY",
+  "@apiKeysActivateZone": {
+    "description": "Section header for the activate section on the revoked key detail page"
+  },
+  "apiKeysActivateHint": "Re-enable this key — agents using it will regain access immediately.",
+  "@apiKeysActivateHint": {
+    "description": "Subtitle in the activate section"
+  },
+  "apiKeysListSummary": "{total} keys · {active} active",
+  "@apiKeysListSummary": {
+    "description": "Count summary in the API keys screen AppBar subtitle",
+    "placeholders": {
+      "total": { "type": "int" },
+      "active": { "type": "int" }
+    }
   }
 }

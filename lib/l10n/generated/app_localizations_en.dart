@@ -969,4 +969,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String apiKeysDeleteConfirmBody(String name) {
     return 'This will permanently delete \"$name\". This cannot be undone.';
   }
+
+  @override
+  String get apiKeysActivateZone => 'ACTIVATE KEY';
+
+  @override
+  String get apiKeysActivateHint =>
+      'Re-enable this key — agents using it will regain access immediately.';
+
+  @override
+  String apiKeysListSummary(int total, int active) {
+    return '$total keys · $active active';
+  }
 }

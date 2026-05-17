@@ -97,14 +97,39 @@ class _ApiKeysViewState extends State<_ApiKeysView> {
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           scrolledUnderElevation: 0,
+          elevation: 0,
+          titleSpacing: 0,
           iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
-          title: Text(
-            l10n.apiKeysScreenTitle,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
+          title: BlocBuilder<ApiKeysCubit, ApiKeysState>(
+            builder: (context, state) {
+              final brightness = Theme.of(context).brightness;
+              final total = state.apiKeys.length;
+              final active = state.apiKeys.where((k) => k.isActive).length;
+              final showSummary =
+                  state.status == ApiKeysStatus.loaded && total > 0;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    l10n.apiKeysScreenTitle,
+                    style: TextStyle(
+                      color: AppColors.onSurface(brightness),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (showSummary)
+                    Text(
+                      l10n.apiKeysListSummary(total, active),
+                      style: TextStyle(
+                        color: AppColors.onSurfaceSubtle(brightness),
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ),
         body: SafeArea(
