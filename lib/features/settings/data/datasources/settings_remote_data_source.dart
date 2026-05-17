@@ -62,6 +62,16 @@ class SettingsRemoteDataSource {
     await _dio.delete<void>('/api/api-keys/$keyId');
   }
 
+  /// `POST /api/api-keys/{keyId}/activate` → 204 No Content.
+  Future<void> activateApiKey(String keyId) async {
+    await _dio.post<void>('/api/api-keys/$keyId/activate');
+  }
+
+  /// `DELETE /api/api-keys/{keyId}/permanent` → 204 No Content.
+  Future<void> deleteApiKey(String keyId) async {
+    await _dio.delete<void>('/api/api-keys/$keyId/permanent');
+  }
+
   DioException _emptyBody(Response<dynamic> response) => DioException(
         requestOptions: response.requestOptions,
         response: response,

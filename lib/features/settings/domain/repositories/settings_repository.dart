@@ -27,4 +27,10 @@ abstract interface class SettingsRepository {
   /// Revokes an API key by id. Idempotent — revoking an already-revoked
   /// key succeeds without error.
   Future<void> revokeApiKey(String keyId);
+
+  /// Re-activates a previously revoked API key.
+  Future<void> activateApiKey(String keyId);
+
+  /// Permanently deletes an API key. Irreversible.
+  Future<void> deleteApiKey(String keyId);
 }

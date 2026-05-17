@@ -35,6 +35,13 @@ class _AppShellState extends State<AppShell> {
   bool _isBottomNavHidden = false;
   Widget? _fab;
 
+  // Cache tearoffs so AppShellScope.updateShouldNotify returns false on
+  // rebuilds — prevents all mounted FabRegistrars from re-firing
+  // didChangeDependencies and overwriting each other's setFab calls.
+  late final VoidCallback _openSettingsDrawerRef = _openSettingsDrawer;
+  late final ValueChanged<bool> _setBottomNavHiddenRef = _setBottomNavHidden;
+  late final ValueChanged<Widget?> _setFabRef = _setFab;
+
   void _openSettingsDrawer() => _scaffoldKey.currentState?.openEndDrawer();
 
   /// Toggles the bottom navigation visibility from descendants. Called
@@ -65,9 +72,9 @@ class _AppShellState extends State<AppShell> {
     final brightness = Theme.of(context).brightness;
 
     return AppShellScope(
-      openSettingsDrawer: _openSettingsDrawer,
-      setBottomNavHidden: _setBottomNavHidden,
-      setFab: _setFab,
+      openSettingsDrawer: _openSettingsDrawerRef,
+      setBottomNavHidden: _setBottomNavHiddenRef,
+      setFab: _setFabRef,
       child: Container(
         decoration: BoxDecoration(
           gradient: AppColors.backgroundGradient(brightness),

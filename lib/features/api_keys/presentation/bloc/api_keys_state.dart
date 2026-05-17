@@ -16,6 +16,8 @@ class ApiKeysState {
     this.apiKeys = const [],
     this.error,
     this.revokingKeyId,
+    this.activatingKeyId,
+    this.deletingKeyId,
   });
 
   /// Load status of the list.
@@ -32,6 +34,14 @@ class ApiKeysState {
   /// a spinner without a separate boolean.
   final String? revokingKeyId;
 
+  /// Id of the key currently being activated, or `null` when no activate
+  /// is in flight.
+  final String? activatingKeyId;
+
+  /// Id of the key currently being permanently deleted, or `null` when no
+  /// delete is in flight.
+  final String? deletingKeyId;
+
   /// Resolves a single key by id, or `null` if it is not in the list.
   ApiKey? keyById(String keyId) {
     for (final key in apiKeys) {
@@ -47,6 +57,10 @@ class ApiKeysState {
     bool clearError = false,
     String? revokingKeyId,
     bool clearRevokingKeyId = false,
+    String? activatingKeyId,
+    bool clearActivatingKeyId = false,
+    String? deletingKeyId,
+    bool clearDeletingKeyId = false,
   }) {
     return ApiKeysState(
       status: status ?? this.status,
@@ -54,6 +68,11 @@ class ApiKeysState {
       error: clearError ? null : (error ?? this.error),
       revokingKeyId:
           clearRevokingKeyId ? null : (revokingKeyId ?? this.revokingKeyId),
+      activatingKeyId: clearActivatingKeyId
+          ? null
+          : (activatingKeyId ?? this.activatingKeyId),
+      deletingKeyId:
+          clearDeletingKeyId ? null : (deletingKeyId ?? this.deletingKeyId),
     );
   }
 }

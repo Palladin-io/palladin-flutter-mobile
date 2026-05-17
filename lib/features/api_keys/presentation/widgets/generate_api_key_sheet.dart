@@ -299,7 +299,7 @@ class _RevealPhase extends StatelessWidget {
           onPressed: onCopy,
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.onSurface(brightness),
-            side: BorderSide(color: AppColors.cardBorder(brightness)),
+            side: BorderSide(color: AppColors.onSurface(brightness)),
             minimumSize: const Size(double.infinity, 44),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),

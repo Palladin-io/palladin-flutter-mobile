@@ -16,6 +16,7 @@ import '../../features/unlock/presentation/pages/unlock_page.dart';
 import '../../features/vault/presentation/pages/vault_detail_page.dart';
 import '../../features/vault/presentation/pages/vault_list_page.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../permissions.dart';
 
 /// Creates the app-level [GoRouter] with auth-aware redirects.
 ///
@@ -138,10 +139,26 @@ GoRouter createRouter(AuthBloc authBloc) {
           // across navigation, matching `/vaults/:vaultId`.
           GoRoute(
             path: '/api-keys',
+            redirect: (context, state) {
+              final auth = authBloc.state;
+              if (auth is AuthAuthenticated &&
+                  (auth.permissions & Permissions.readApiKey) == 0) {
+                return '/vaults';
+              }
+              return null;
+            },
             builder: (_, _) => const ApiKeysPage(),
             routes: [
               GoRoute(
                 path: ':keyId',
+                redirect: (context, state) {
+                  final auth = authBloc.state;
+                  if (auth is AuthAuthenticated &&
+                      (auth.permissions & Permissions.readApiKey) == 0) {
+                    return '/vaults';
+                  }
+                  return null;
+                },
                 builder: (_, state) => ApiKeyDetailPage(
                   keyId: state.pathParameters['keyId']!,
                 ),

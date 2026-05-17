@@ -1128,5 +1128,20 @@
   "apiKeysDetailRevokedAt": "Revoked",
   "@apiKeysDetailRevokedAt": {
     "description": "Label for the revoked-date row on the API key detail screen"
+  },
+  "apiKeysActivate": "Activate",
+  "@apiKeysActivate": { "description": "Button label to re-activate a revoked API key" },
+  "apiKeysActivating": "Activating…",
+  "@apiKeysActivating": { "description": "Button label while activation is in flight" },
+  "apiKeysDeletePermanently": "Delete permanently",
+  "@apiKeysDeletePermanently": { "description": "Button label to permanently delete a revoked API key" },
+  "apiKeysDeleting": "Deleting…",
+  "@apiKeysDeleting": { "description": "Button label while delete is in flight" },
+  "apiKeysDeleteConfirmTitle": "Delete API key?",
+  "@apiKeysDeleteConfirmTitle": { "description": "Title of the permanent-delete confirmation dialog" },
+  "apiKeysDeleteConfirmBody": "This will permanently delete \"{name}\". This cannot be undone.",
+  "@apiKeysDeleteConfirmBody": {
+    "description": "Body of the permanent-delete confirmation dialog",
+    "placeholders": { "name": { "type": "String" } }
   }
 }

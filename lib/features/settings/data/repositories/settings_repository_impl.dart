@@ -77,6 +77,28 @@ class SettingsRepositoryImpl implements SettingsRepository {
     }
   }
 
+  @override
+  Future<void> activateApiKey(String keyId) async {
+    try {
+      AppLogger.d('Settings', 'POST /api/api-keys/$keyId/activate');
+      await _dataSource.activateApiKey(keyId);
+    } on DioException catch (e, s) {
+      AppLogger.e('Settings', 'activateApiKey failed', error: e, stackTrace: s);
+      throw SettingsException(_classifyError(e));
+    }
+  }
+
+  @override
+  Future<void> deleteApiKey(String keyId) async {
+    try {
+      AppLogger.d('Settings', 'DELETE /api/api-keys/$keyId/permanent');
+      await _dataSource.deleteApiKey(keyId);
+    } on DioException catch (e, s) {
+      AppLogger.e('Settings', 'deleteApiKey failed', error: e, stackTrace: s);
+      throw SettingsException(_classifyError(e));
+    }
+  }
+
   /// Maps a [DioException] to a typed [SettingsErrorKind].
   SettingsErrorKind _classifyError(DioException e) {
     if (e.type == DioExceptionType.connectionTimeout ||

@@ -258,5 +258,11 @@
   "apiKeysTabAgents": "Agenci",
   "apiKeysDetailKey": "Klucz",
   "apiKeysDetailCreatedAt": "Utworzono",
-  "apiKeysDetailRevokedAt": "Unieważniono"
+  "apiKeysDetailRevokedAt": "Unieważniono",
+  "apiKeysActivate": "Aktywuj",
+  "apiKeysActivating": "Aktywowanie…",
+  "apiKeysDeletePermanently": "Usuń trwale",
+  "apiKeysDeleting": "Usuwanie…",
+  "apiKeysDeleteConfirmTitle": "Usuń klucz API?",
+  "apiKeysDeleteConfirmBody": "Klucz \"{name}\" zostanie trwale usunięty. Nie można cofnąć tej operacji."
 }

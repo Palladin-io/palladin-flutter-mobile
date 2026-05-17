@@ -10,6 +10,7 @@ import '../../../settings/domain/entities/api_key.dart';
 import '../../../settings/presentation/widgets/settings_error_text.dart';
 import '../bloc/api_keys_cubit.dart';
 import '../widgets/api_key_details_tab.dart';
+import '../widgets/delete_api_key_dialog.dart';
 import '../widgets/revoke_api_key_dialog.dart';
 
 /// Standalone API-key detail screen — wraps a [DefaultTabController]
@@ -154,6 +155,17 @@ class _DetailsTabBody extends StatelessWidget {
     await context.read<ApiKeysCubit>().revokeApiKey(key.apiKeyId);
   }
 
+  Future<void> _onActivate(BuildContext context, ApiKey key) async {
+    await context.read<ApiKeysCubit>().activateApiKey(key.apiKeyId);
+  }
+
+  Future<void> _onDelete(BuildContext context, ApiKey key) async {
+    final confirmed = await DeleteApiKeyDialog.show(context, key.name);
+    if (!confirmed || !context.mounted) return;
+    await context.read<ApiKeysCubit>().deleteApiKey(key.apiKeyId);
+    if (context.mounted) context.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -178,6 +190,10 @@ class _DetailsTabBody extends StatelessWidget {
           apiKey: key,
           isRevoking: state.revokingKeyId == key.apiKeyId,
           onRevoke: () => _onRevoke(context, key),
+          isActivating: state.activatingKeyId == key.apiKeyId,
+          isDeleting: state.deletingKeyId == key.apiKeyId,
+          onActivate: () => _onActivate(context, key),
+          onDelete: () => _onDelete(context, key),
         );
     }
   }

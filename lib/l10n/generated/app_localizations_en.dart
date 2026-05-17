@@ -949,4 +949,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get apiKeysDetailRevokedAt => 'Revoked';
+
+  @override
+  String get apiKeysActivate => 'Activate';
+
+  @override
+  String get apiKeysActivating => 'Activating…';
+
+  @override
+  String get apiKeysDeletePermanently => 'Delete permanently';
+
+  @override
+  String get apiKeysDeleting => 'Deleting…';
+
+  @override
+  String get apiKeysDeleteConfirmTitle => 'Delete API key?';
+
+  @override
+  String apiKeysDeleteConfirmBody(String name) {
+    return 'This will permanently delete \"$name\". This cannot be undone.';
+  }
 }

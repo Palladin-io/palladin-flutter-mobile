@@ -968,4 +968,24 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get apiKeysDetailRevokedAt => 'Unieważniono';
+
+  @override
+  String get apiKeysActivate => 'Aktywuj';
+
+  @override
+  String get apiKeysActivating => 'Aktywowanie…';
+
+  @override
+  String get apiKeysDeletePermanently => 'Usuń trwale';
+
+  @override
+  String get apiKeysDeleting => 'Usuwanie…';
+
+  @override
+  String get apiKeysDeleteConfirmTitle => 'Usuń klucz API?';
+
+  @override
+  String apiKeysDeleteConfirmBody(String name) {
+    return 'Klucz \"$name\" zostanie trwale usunięty. Nie można cofnąć tej operacji.';
+  }
 }

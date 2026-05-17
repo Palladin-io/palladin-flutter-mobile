@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../l10n/generated/app_localizations.dart';
 import '../../../settings/domain/entities/api_key.dart';
 import 'api_key_format.dart';
 import 'api_key_status_badge.dart';
@@ -19,7 +18,6 @@ class ApiKeyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
 
     return Material(
@@ -28,47 +26,50 @@ class ApiKeyCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Ink(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.cardBorder(brightness)),
           ),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
                       apiKey.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: AppColors.onSurface(brightness),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  ApiKeyStatusBadge(status: apiKey.status),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'cv_••••${apiKey.keySuffix}',
-                    style: TextStyle(
-                      color: AppColors.onSurfaceSubtle(brightness),
-                      fontSize: 12,
-                      fontFamily: 'monospace',
+                    const SizedBox(height: 2),
+                    Text(
+                      'cv_••••${apiKey.keySuffix}',
+                      style: TextStyle(
+                        color: AppColors.onSurfaceSubtle(brightness),
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                      ),
                     ),
-                  ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ApiKeyStatusBadge(status: apiKey.status),
+                  const SizedBox(height: 4),
                   Text(
-                    l10n.apiKeysCreated(formatApiKeyDate(apiKey.createdAt)),
+                    formatApiKeyDate(apiKey.createdAt),
                     style: TextStyle(
                       color: AppColors.onSurfaceSubtle(brightness),
                       fontSize: 11,

@@ -1651,6 +1651,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Revoked'**
   String get apiKeysDetailRevokedAt;
+
+  /// Button label to re-activate a revoked API key
+  ///
+  /// In en, this message translates to:
+  /// **'Activate'**
+  String get apiKeysActivate;
+
+  /// Button label while activation is in flight
+  ///
+  /// In en, this message translates to:
+  /// **'Activating…'**
+  String get apiKeysActivating;
+
+  /// Button label to permanently delete a revoked API key
+  ///
+  /// In en, this message translates to:
+  /// **'Delete permanently'**
+  String get apiKeysDeletePermanently;
+
+  /// Button label while delete is in flight
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting…'**
+  String get apiKeysDeleting;
+
+  /// Title of the permanent-delete confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Delete API key?'**
+  String get apiKeysDeleteConfirmTitle;
+
+  /// Body of the permanent-delete confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'This will permanently delete \"{name}\". This cannot be undone.'**
+  String apiKeysDeleteConfirmBody(String name);
 }
 
 class _AppLocalizationsDelegate

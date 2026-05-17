@@ -12,15 +12,18 @@ import 'api_key_status_badge.dart';
 /// Body of the "Details" tab on the API-key detail screen.
 ///
 /// Shows the key's name, status badge, created date and — for revoked
-/// keys — the revoke date. Active keys also render the Revoke action;
-/// revoked keys do not (the operation is irreversible and idempotent,
-/// so there is nothing left to do).
+/// keys — the revoke date. Active keys render the Revoke action; revoked
+/// keys render Activate (re-enable) and Permanent delete actions.
 class ApiKeyDetailsTab extends StatelessWidget {
   const ApiKeyDetailsTab({
     super.key,
     required this.apiKey,
     required this.isRevoking,
     required this.onRevoke,
+    required this.isActivating,
+    required this.isDeleting,
+    required this.onActivate,
+    required this.onDelete,
   });
 
   final ApiKey apiKey;
@@ -30,6 +33,16 @@ class ApiKeyDetailsTab extends StatelessWidget {
   final bool isRevoking;
 
   final VoidCallback onRevoke;
+
+  /// True while an activate for this key is in flight.
+  final bool isActivating;
+
+  /// True while a permanent delete for this key is in flight.
+  final bool isDeleting;
+
+  final VoidCallback onActivate;
+
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -121,6 +134,80 @@ class ApiKeyDetailsTab extends StatelessWidget {
                   : const Icon(Icons.block, size: 18),
               label: Text(
                 l10n.apiKeysRevoke,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+        if (!apiKey.isActive && canWrite) ...[
+          const SizedBox(height: 16),
+          // Activate button — primary action.
+          SizedBox(
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: (isActivating || isDeleting) ? null : onActivate,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.brandRed,
+                foregroundColor: AppColors.onBrandRed,
+                disabledBackgroundColor:
+                    AppColors.brandRed.withValues(alpha: 0.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: isActivating
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.onBrandRed,
+                      ),
+                    )
+                  : const Icon(Icons.check_circle_outline, size: 18),
+              label: Text(
+                isActivating ? l10n.apiKeysActivating : l10n.apiKeysActivate,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Permanent delete — destructive outlined action.
+          SizedBox(
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: (isActivating || isDeleting) ? null : onDelete,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.brandRed,
+                side: BorderSide(
+                  color: AppColors.brandRed.withValues(alpha: 0.5),
+                ),
+                disabledForegroundColor:
+                    AppColors.brandRed.withValues(alpha: 0.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: isDeleting
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.brandRed,
+                      ),
+                    )
+                  : const Icon(Icons.delete_outline, size: 18),
+              label: Text(
+                isDeleting
+                    ? l10n.apiKeysDeleting
+                    : l10n.apiKeysDeletePermanently,
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,

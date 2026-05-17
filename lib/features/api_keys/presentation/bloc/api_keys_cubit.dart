@@ -92,4 +92,66 @@ class ApiKeysCubit extends Cubit<ApiKeysState> {
       ));
     }
   }
+
+  /// Re-activates a revoked API key, then refreshes the list.
+  Future<void> activateApiKey(String keyId) async {
+    AppLogger.d('ApiKeys', 'Activating API key');
+    emit(state.copyWith(activatingKeyId: keyId, clearError: true));
+    try {
+      await repository.activateApiKey(keyId);
+      AnalyticsService.instance.capture('settings', 'api-key-activated');
+      final keys = await repository.listApiKeys();
+      emit(state.copyWith(
+        status: ApiKeysStatus.loaded,
+        apiKeys: keys,
+        clearActivatingKeyId: true,
+      ));
+    } on SettingsException catch (e) {
+      AppLogger.w('ApiKeys', 'API key activate failed: ${e.kind.name}');
+      emit(state.copyWith(
+        status: ApiKeysStatus.error,
+        error: e.kind,
+        clearActivatingKeyId: true,
+      ));
+    } catch (e, s) {
+      AppLogger.e('ApiKeys', 'API key activate failed unexpectedly',
+          error: e, stackTrace: s);
+      emit(state.copyWith(
+        status: ApiKeysStatus.error,
+        error: SettingsErrorKind.unknown,
+        clearActivatingKeyId: true,
+      ));
+    }
+  }
+
+  /// Permanently deletes an API key, then refreshes the list.
+  Future<void> deleteApiKey(String keyId) async {
+    AppLogger.d('ApiKeys', 'Permanently deleting API key');
+    emit(state.copyWith(deletingKeyId: keyId, clearError: true));
+    try {
+      await repository.deleteApiKey(keyId);
+      AnalyticsService.instance.capture('settings', 'api-key-deleted');
+      final keys = await repository.listApiKeys();
+      emit(state.copyWith(
+        status: ApiKeysStatus.loaded,
+        apiKeys: keys,
+        clearDeletingKeyId: true,
+      ));
+    } on SettingsException catch (e) {
+      AppLogger.w('ApiKeys', 'API key delete failed: ${e.kind.name}');
+      emit(state.copyWith(
+        status: ApiKeysStatus.error,
+        error: e.kind,
+        clearDeletingKeyId: true,
+      ));
+    } catch (e, s) {
+      AppLogger.e('ApiKeys', 'API key delete failed unexpectedly',
+          error: e, stackTrace: s);
+      emit(state.copyWith(
+        status: ApiKeysStatus.error,
+        error: SettingsErrorKind.unknown,
+        clearDeletingKeyId: true,
+      ));
+    }
+  }
 }
