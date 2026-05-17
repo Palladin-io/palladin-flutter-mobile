@@ -942,6 +942,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get apiKeysTabAgents => 'Agents';
 
   @override
+  String get apiKeysDetailKey => 'Key';
+
+  @override
   String get apiKeysDetailCreatedAt => 'Created';
 
   @override

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../settings/domain/entities/api_key.dart';
 import '../../../settings/presentation/widgets/settings_error_text.dart';
@@ -85,15 +86,25 @@ class _ApiKeyDetailView extends StatelessWidget {
           ),
           body: SafeArea(
             top: false,
-            child: BlocBuilder<ApiKeysCubit, ApiKeysState>(
-              builder: (context, state) {
-                return TabBarView(
-                  children: [
-                    _DetailsTabBody(keyId: keyId, state: state),
-                    const _AgentsPlaceholderTab(),
-                  ],
-                );
-              },
+            child: Stack(
+              children: [
+                BlocBuilder<ApiKeysCubit, ApiKeysState>(
+                  builder: (context, state) {
+                    return TabBarView(
+                      children: [
+                        _DetailsTabBody(keyId: keyId, state: state),
+                        const _AgentsPlaceholderTab(),
+                      ],
+                    );
+                  },
+                ),
+                // Suppress any shell FAB on this screen.
+                const Positioned(
+                  width: 0,
+                  height: 0,
+                  child: FabRegistrar(fab: null),
+                ),
+              ],
             ),
           ),
         ),

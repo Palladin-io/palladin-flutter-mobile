@@ -1117,6 +1117,10 @@
   "@apiKeysTabAgents": {
     "description": "Label of the Agents tab on the API key detail screen"
   },
+  "apiKeysDetailKey": "Key",
+  "@apiKeysDetailKey": {
+    "description": "Label for the masked key row on the API key detail screen"
+  },
   "apiKeysDetailCreatedAt": "Created",
   "@apiKeysDetailCreatedAt": {
     "description": "Label for the created-date row on the API key detail screen"

@@ -961,6 +961,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get apiKeysTabAgents => 'Agenci';
 
   @override
+  String get apiKeysDetailKey => 'Klucz';
+
+  @override
   String get apiKeysDetailCreatedAt => 'Utworzono';
 
   @override

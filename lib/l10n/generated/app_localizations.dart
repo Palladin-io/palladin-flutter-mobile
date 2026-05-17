@@ -1634,6 +1634,12 @@ abstract class AppLocalizations {
   /// **'Agents'**
   String get apiKeysTabAgents;
 
+  /// Label for the masked key row on the API key detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Key'**
+  String get apiKeysDetailKey;
+
   /// Label for the created-date row on the API key detail screen
   ///
   /// In en, this message translates to:

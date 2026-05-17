@@ -233,25 +233,13 @@ class _RevealPhase extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            const Icon(
-              Icons.check_circle_outline,
-              color: AppColors.positiveAccent,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                l10n.apiKeysSecretTitle,
-                style: TextStyle(
-                  color: AppColors.onSurface(brightness),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
+        Text(
+          l10n.apiKeysSecretTitle,
+          style: TextStyle(
+            color: AppColors.onSurface(brightness),
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: 16),
         // One-time secret warning — brand-red tinted banner so the
@@ -310,10 +298,8 @@ class _RevealPhase extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: onCopy,
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.tealAccent,
-            side: BorderSide(
-              color: AppColors.tealAccent.withValues(alpha: 0.5),
-            ),
+            foregroundColor: AppColors.onSurface(brightness),
+            side: BorderSide(color: AppColors.cardBorder(brightness)),
             minimumSize: const Size(double.infinity, 44),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),

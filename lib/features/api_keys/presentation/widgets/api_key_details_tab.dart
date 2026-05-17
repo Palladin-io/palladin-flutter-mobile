@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../settings/domain/entities/api_key.dart';
 import 'api_key_format.dart';
 import 'api_key_status_badge.dart';
@@ -32,6 +35,10 @@ class ApiKeyDetailsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+    final authState = context.watch<AuthBloc>().state;
+    final permissions =
+        authState is AuthAuthenticated ? authState.permissions : 0;
+    final canWrite = (permissions & Permissions.writeApiKey) != 0;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -63,16 +70,14 @@ class ApiKeyDetailsTab extends StatelessWidget {
                   ApiKeyStatusBadge(status: apiKey.status),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                'cv_••••${apiKey.keySuffix}',
-                style: TextStyle(
-                  color: AppColors.onSurfaceSubtle(brightness),
-                  fontSize: 13,
-                  fontFamily: 'monospace',
-                ),
-              ),
               const SizedBox(height: 16),
+              _DetailRow(
+                label: l10n.apiKeysDetailKey,
+                value:
+                    'cv_••••${apiKey.keySuffix.isEmpty ? '••••' : apiKey.keySuffix}',
+                mono: true,
+              ),
+              const SizedBox(height: 8),
               _DetailRow(
                 label: l10n.apiKeysDetailCreatedAt,
                 value: formatApiKeyDate(apiKey.createdAt),
@@ -87,7 +92,7 @@ class ApiKeyDetailsTab extends StatelessWidget {
             ],
           ),
         ),
-        if (apiKey.isActive) ...[
+        if (apiKey.isActive && canWrite) ...[
           const SizedBox(height: 16),
           SizedBox(
             height: 48,
@@ -131,10 +136,18 @@ class ApiKeyDetailsTab extends StatelessWidget {
 
 /// A single label / value row in the detail card.
 class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    this.mono = false,
+  });
 
   final String label;
   final String value;
+
+  /// When true, renders [value] in a monospace font — used for the
+  /// masked key representation.
+  final bool mono;
 
   @override
   Widget build(BuildContext context) {
@@ -155,6 +168,7 @@ class _DetailRow extends StatelessWidget {
             color: AppColors.onSurface(brightness),
             fontSize: 12,
             fontWeight: FontWeight.w600,
+            fontFamily: mono ? 'monospace' : null,
           ),
         ),
       ],

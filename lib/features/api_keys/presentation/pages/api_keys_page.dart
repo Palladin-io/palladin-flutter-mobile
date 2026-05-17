@@ -3,12 +3,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../settings/domain/entities/api_key.dart';
 import '../../../settings/presentation/widgets/settings_error_text.dart';
+import '../../../shell/presentation/pages/app_shell.dart';
 import '../bloc/api_keys_cubit.dart';
 import '../widgets/api_key_card.dart';
 import '../widgets/generate_api_key_sheet.dart';
@@ -31,8 +34,17 @@ class ApiKeysPage extends StatelessWidget {
   }
 }
 
-class _ApiKeysView extends StatelessWidget {
+class _ApiKeysView extends StatefulWidget {
   const _ApiKeysView();
+
+  @override
+  State<_ApiKeysView> createState() => _ApiKeysViewState();
+}
+
+class _ApiKeysViewState extends State<_ApiKeysView> {
+  /// Cached FAB widget — reused across rebuilds so [FabRegistrar] does
+  /// not see a new object each build and re-register in a loop.
+  Widget? _cachedFab;
 
   Future<void> _onGenerate(BuildContext context) async {
     await GenerateApiKeySheet.show(context);
@@ -44,13 +56,35 @@ class _ApiKeysView extends StatelessWidget {
   Future<void> _onOpenKey(BuildContext context, String keyId) async {
     final cubit = context.read<ApiKeysCubit>();
     await context.push('/api-keys/$keyId');
-    if (context.mounted) await cubit.load();
+    if (context.mounted) {
+      // Restore the generate FAB after returning from the detail page
+      // (the detail page clears the shell FAB to avoid showing it there).
+      AppShellScope.of(context).setFab(_cachedFab);
+      await cubit.load();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+    final authState = context.watch<AuthBloc>().state;
+    final permissions =
+        authState is AuthAuthenticated ? authState.permissions : 0;
+    final canWrite = (permissions & Permissions.writeApiKey) != 0;
+
+    // Cache the FAB so FabRegistrar.didUpdateWidget doesn't re-register
+    // on every rebuild.
+    final fab = canWrite
+        ? (_cachedFab ??= Padding(
+            padding: const EdgeInsets.only(bottom: 8, right: 4),
+            child: AppFab(
+              onPressed: () => _onGenerate(context),
+              tooltip: l10n.apiKeysGenerate,
+            ),
+          ))
+        : null;
+    if (!canWrite) _cachedFab = null;
 
     return Container(
       decoration: BoxDecoration(
@@ -59,6 +93,7 @@ class _ApiKeysView extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
+          centerTitle: false,
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           scrolledUnderElevation: 0,
@@ -89,21 +124,12 @@ class _ApiKeysView extends StatelessWidget {
                   );
                 },
               ),
-              // Hoist the FAB onto the shell so it stays pinned during
-              // route transitions instead of animating with the body.
-              Positioned(
-                width: 0,
-                height: 0,
-                child: FabRegistrar(
-                  fab: Padding(
-                    padding: const EdgeInsets.only(bottom: 8, right: 4),
-                    child: AppFab(
-                      onPressed: () => _onGenerate(context),
-                      tooltip: l10n.apiKeysGenerate,
-                    ),
-                  ),
+              if (canWrite)
+                Positioned(
+                  width: 0,
+                  height: 0,
+                  child: FabRegistrar(fab: fab),
                 ),
-              ),
             ],
           ),
         ),

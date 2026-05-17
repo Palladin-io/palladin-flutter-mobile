@@ -256,6 +256,7 @@
   "apiKeysDetailNotFound": "Ten klucz API już nie istnieje.",
   "apiKeysTabDetails": "Szczegóły",
   "apiKeysTabAgents": "Agenci",
+  "apiKeysDetailKey": "Klucz",
   "apiKeysDetailCreatedAt": "Utworzono",
   "apiKeysDetailRevokedAt": "Unieważniono"
 }

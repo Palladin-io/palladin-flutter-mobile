@@ -34,54 +34,47 @@ class ApiKeyCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.cardBorder(brightness)),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            apiKey.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: AppColors.onSurface(brightness),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ApiKeyStatusBadge(status: apiKey.status),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'cv_••••${apiKey.keySuffix}',
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      apiKey.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: AppColors.onSurfaceSubtle(brightness),
-                        fontSize: 12,
-                        fontFamily: 'monospace',
+                        color: AppColors.onSurface(brightness),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      l10n.apiKeysCreated(formatApiKeyDate(apiKey.createdAt)),
-                      style: TextStyle(
-                        color: AppColors.onSurfaceSubtle(brightness),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  ApiKeyStatusBadge(status: apiKey.status),
+                ],
               ),
-              Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: AppColors.onSurfaceSubtle(brightness),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'cv_••••${apiKey.keySuffix}',
+                    style: TextStyle(
+                      color: AppColors.onSurfaceSubtle(brightness),
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                  Text(
+                    l10n.apiKeysCreated(formatApiKeyDate(apiKey.createdAt)),
+                    style: TextStyle(
+                      color: AppColors.onSurfaceSubtle(brightness),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
