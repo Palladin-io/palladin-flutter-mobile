@@ -90,7 +90,25 @@ class _ApiKeyDetailView extends StatelessWidget {
             top: false,
             child: Stack(
               children: [
-                BlocBuilder<ApiKeysCubit, ApiKeysState>(
+                BlocConsumer<ApiKeysCubit, ApiKeysState>(
+                  // Surface a failed revoke / activate / delete as a
+                  // snackbar so the key card stays visible, then clear
+                  // the transient flag so it does not re-fire.
+                  listenWhen: (prev, curr) =>
+                      prev.mutationError != curr.mutationError &&
+                      curr.mutationError != null,
+                  listener: (context, state) {
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            settingsErrorMessage(l10n, state.mutationError!),
+                          ),
+                        ),
+                      );
+                    context.read<ApiKeysCubit>().acknowledgeMutationError();
+                  },
                   builder: (context, state) {
                     return TabBarView(
                       children: [
@@ -184,8 +202,13 @@ class _DetailsTabBody extends StatelessWidget {
   Future<void> _onDelete(BuildContext context, ApiKey key) async {
     final confirmed = await DeleteApiKeySheet.show(context, key.name);
     if (!confirmed || !context.mounted) return;
-    await context.read<ApiKeysCubit>().deleteApiKey(key.apiKeyId);
-    if (context.mounted) context.pop();
+    final cubit = context.read<ApiKeysCubit>();
+    await cubit.deleteApiKey(key.apiKeyId);
+    // Only leave the screen when the delete actually succeeded — on
+    // failure the snackbar surfaces the error and the card stays put.
+    final deleted = cubit.state.keyById(key.apiKeyId) == null &&
+        cubit.state.mutationError == null;
+    if (deleted && context.mounted) context.pop();
   }
 
   @override

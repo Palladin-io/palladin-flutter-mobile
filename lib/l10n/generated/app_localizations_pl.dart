@@ -896,11 +896,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get apiKeysStatusRevoked => 'Unieważniony';
 
   @override
-  String apiKeysCreated(String date) {
-    return 'Utworzono $date';
-  }
-
-  @override
   String get apiKeysRetry => 'Ponów';
 
   @override

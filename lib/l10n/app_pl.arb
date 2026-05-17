@@ -236,7 +236,6 @@
   "apiKeysEmptyHint": "Wygeneruj klucz, aby podłączyć pierwszego agenta.",
   "apiKeysStatusActive": "Aktywny",
   "apiKeysStatusRevoked": "Unieważniony",
-  "apiKeysCreated": "Utworzono {date}",
   "apiKeysRetry": "Ponów",
   "apiKeysGenerate": "Wygeneruj klucz API",
   "apiKeysGenerateAction": "Wygeneruj",

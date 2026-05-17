@@ -7,6 +7,7 @@ import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/fab_registrar.dart';
+import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../settings/domain/entities/api_key.dart';
@@ -268,27 +269,25 @@ class _KeysEmpty extends StatelessWidget {
   }
 }
 
-/// Skeleton placeholder shown while the key list loads.
+/// Animated skeleton placeholder shown while the key list loads.
+///
+/// Rows are staggered by `i * 80 ms` so they do not pulse in lockstep,
+/// matching the project-wide skeleton pattern.
 class _KeysSkeleton extends StatelessWidget {
   const _KeysSkeleton();
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
       children: List.generate(
         3,
-        (_) => Padding(
+        (i) => Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: Container(
+          child: SkeletonBox(
             height: 78,
-            decoration: BoxDecoration(
-              color: AppColors.onSurface(brightness).withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.cardBorder(brightness)),
-            ),
+            delay: Duration(milliseconds: i * 80),
           ),
         ),
       ),

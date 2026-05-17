@@ -1031,13 +1031,6 @@
   "@apiKeysStatusRevoked": {
     "description": "Status badge label for a revoked API key"
   },
-  "apiKeysCreated": "Created {date}",
-  "@apiKeysCreated": {
-    "description": "Created-date line on an API key list row",
-    "placeholders": {
-      "date": { "type": "String" }
-    }
-  },
   "apiKeysRetry": "Retry",
   "@apiKeysRetry": {
     "description": "Label for the retry button on API keys error states"

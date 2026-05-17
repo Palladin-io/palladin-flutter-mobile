@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
+import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../bloc/settings_cubit.dart';
 import 'settings_error_text.dart';
 
@@ -140,39 +142,10 @@ class _OrgSettingsSectionState extends State<OrgSettingsSection> {
             ),
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            height: 44,
-            child: ElevatedButton(
-              onPressed: _canSave(state) ? _onSave : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.brandRed,
-                foregroundColor: AppColors.onBrandRed,
-                disabledBackgroundColor:
-                    AppColors.brandRed.withValues(alpha: 0.3),
-                disabledForegroundColor:
-                    AppColors.onBrandRed.withValues(alpha: 0.5),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: state.isSavingOrg
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.onBrandRed,
-                      ),
-                    )
-                  : Text(
-                      l10n.settingsSave,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-            ),
+          PrimaryButton(
+            label: l10n.settingsSave,
+            isLoading: state.isSavingOrg,
+            onPressed: _canSave(state) ? _onSave : null,
           ),
         ],
       ),
@@ -206,21 +179,13 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-/// Skeleton placeholder shown while the org details load.
+/// Animated skeleton placeholder shown while the org details load.
 class _OrgSkeleton extends StatelessWidget {
   const _OrgSkeleton();
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Container(
-      height: 132,
-      decoration: BoxDecoration(
-        color: AppColors.onSurface(brightness).withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder(brightness)),
-      ),
-    );
+    return const SkeletonBox(height: 132);
   }
 }
 

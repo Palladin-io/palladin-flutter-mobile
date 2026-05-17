@@ -51,7 +51,7 @@ class ApiKeyCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'cv_••••${apiKey.keySuffix}',
+                      maskedApiKey(apiKey.keySuffix),
                       style: TextStyle(
                         color: AppColors.onSurfaceSubtle(brightness),
                         fontSize: 11,

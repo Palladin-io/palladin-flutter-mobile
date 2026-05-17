@@ -877,11 +877,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get apiKeysStatusRevoked => 'Revoked';
 
   @override
-  String apiKeysCreated(String date) {
-    return 'Created $date';
-  }
-
-  @override
   String get apiKeysRetry => 'Retry';
 
   @override

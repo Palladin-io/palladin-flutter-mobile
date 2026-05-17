@@ -15,6 +15,7 @@ class ApiKeysState {
     this.status = ApiKeysStatus.initial,
     this.apiKeys = const [],
     this.error,
+    this.mutationError,
     this.revokingKeyId,
     this.activatingKeyId,
     this.deletingKeyId,
@@ -26,8 +27,15 @@ class ApiKeysState {
   /// All API keys (active and revoked) for the organization.
   final List<ApiKey> apiKeys;
 
-  /// Set when the list load or a revoke failed.
+  /// Set when the initial list load failed — drives the full-screen
+  /// error state.
   final SettingsErrorKind? error;
+
+  /// Transient error from a revoke / activate / delete mutation. Unlike
+  /// [error] this does *not* replace the screen — the detail page shows
+  /// it as a snackbar so the key card stays visible, then calls
+  /// [ApiKeysCubit.acknowledgeMutationError] to clear it.
+  final SettingsErrorKind? mutationError;
 
   /// Id of the key currently being revoked, or `null` when no revoke is
   /// in flight — lets the detail page disable its Revoke button and show
@@ -55,6 +63,8 @@ class ApiKeysState {
     List<ApiKey>? apiKeys,
     SettingsErrorKind? error,
     bool clearError = false,
+    SettingsErrorKind? mutationError,
+    bool clearMutationError = false,
     String? revokingKeyId,
     bool clearRevokingKeyId = false,
     String? activatingKeyId,
@@ -66,6 +76,8 @@ class ApiKeysState {
       status: status ?? this.status,
       apiKeys: apiKeys ?? this.apiKeys,
       error: clearError ? null : (error ?? this.error),
+      mutationError:
+          clearMutationError ? null : (mutationError ?? this.mutationError),
       revokingKeyId:
           clearRevokingKeyId ? null : (revokingKeyId ?? this.revokingKeyId),
       activatingKeyId: clearActivatingKeyId

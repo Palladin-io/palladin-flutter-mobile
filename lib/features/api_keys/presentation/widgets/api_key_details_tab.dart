@@ -86,8 +86,7 @@ class ApiKeyDetailsTab extends StatelessWidget {
               const SizedBox(height: 16),
               _DetailRow(
                 label: l10n.apiKeysDetailKey,
-                value:
-                    'cv_••••${apiKey.keySuffix.isEmpty ? '••••' : apiKey.keySuffix}',
+                value: maskedApiKey(apiKey.keySuffix),
                 mono: true,
               ),
               const SizedBox(height: 8),
@@ -205,7 +204,8 @@ class ApiKeyDetailsTab extends StatelessWidget {
           // Danger zone — delete permanently.
           _DangerZone(
             label: l10n.vaultDangerZone,
-            actionLabel: isDeleting ? '…' : l10n.apiKeysDeletePermanently,
+            actionLabel:
+                isDeleting ? l10n.apiKeysDeleting : l10n.apiKeysDeletePermanently,
             icon: isDeleting
                 ? const SizedBox(
                     height: 14,

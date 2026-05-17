@@ -1514,12 +1514,6 @@ abstract class AppLocalizations {
   /// **'Revoked'**
   String get apiKeysStatusRevoked;
 
-  /// Created-date line on an API key list row
-  ///
-  /// In en, this message translates to:
-  /// **'Created {date}'**
-  String apiKeysCreated(String date);
-
   /// Label for the retry button on API keys error states
   ///
   /// In en, this message translates to:

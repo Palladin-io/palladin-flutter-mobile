@@ -1,6 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../settings/domain/entities/api_key.dart';
 import '../../../settings/domain/exceptions/settings_exceptions.dart';
@@ -57,18 +56,20 @@ class ApiKeysCubit extends Cubit<ApiKeysState> {
   Future<NewApiKey> createApiKey(String name) async {
     AppLogger.d('ApiKeys', 'Creating API key');
     final created = await repository.createApiKey(name.trim());
-    AnalyticsService.instance.capture('settings', 'api-key-created');
     await load();
     return created;
   }
 
   /// Revokes an API key, then refreshes the list.
+  ///
+  /// On failure the error is surfaced as a transient
+  /// [ApiKeysState.mutationError] — the list and the detail card stay
+  /// visible so the user does not lose sight of the key.
   Future<void> revokeApiKey(String keyId) async {
     AppLogger.d('ApiKeys', 'Revoking API key');
-    emit(state.copyWith(revokingKeyId: keyId, clearError: true));
+    emit(state.copyWith(revokingKeyId: keyId, clearMutationError: true));
     try {
       await repository.revokeApiKey(keyId);
-      AnalyticsService.instance.capture('settings', 'api-key-revoked');
       final keys = await repository.listApiKeys();
       emit(state.copyWith(
         status: ApiKeysStatus.loaded,
@@ -77,29 +78,26 @@ class ApiKeysCubit extends Cubit<ApiKeysState> {
       ));
     } on SettingsException catch (e) {
       AppLogger.w('ApiKeys', 'API key revoke failed: ${e.kind.name}');
-      emit(state.copyWith(
-        status: ApiKeysStatus.error,
-        error: e.kind,
-        clearRevokingKeyId: true,
-      ));
+      emit(state.copyWith(mutationError: e.kind, clearRevokingKeyId: true));
     } catch (e, s) {
       AppLogger.e('ApiKeys', 'API key revoke failed unexpectedly',
           error: e, stackTrace: s);
       emit(state.copyWith(
-        status: ApiKeysStatus.error,
-        error: SettingsErrorKind.unknown,
+        mutationError: SettingsErrorKind.unknown,
         clearRevokingKeyId: true,
       ));
     }
   }
 
   /// Re-activates a revoked API key, then refreshes the list.
+  ///
+  /// On failure the error is surfaced as a transient
+  /// [ApiKeysState.mutationError] so the detail card stays visible.
   Future<void> activateApiKey(String keyId) async {
     AppLogger.d('ApiKeys', 'Activating API key');
-    emit(state.copyWith(activatingKeyId: keyId, clearError: true));
+    emit(state.copyWith(activatingKeyId: keyId, clearMutationError: true));
     try {
       await repository.activateApiKey(keyId);
-      AnalyticsService.instance.capture('settings', 'api-key-activated');
       final keys = await repository.listApiKeys();
       emit(state.copyWith(
         status: ApiKeysStatus.loaded,
@@ -108,29 +106,26 @@ class ApiKeysCubit extends Cubit<ApiKeysState> {
       ));
     } on SettingsException catch (e) {
       AppLogger.w('ApiKeys', 'API key activate failed: ${e.kind.name}');
-      emit(state.copyWith(
-        status: ApiKeysStatus.error,
-        error: e.kind,
-        clearActivatingKeyId: true,
-      ));
+      emit(state.copyWith(mutationError: e.kind, clearActivatingKeyId: true));
     } catch (e, s) {
       AppLogger.e('ApiKeys', 'API key activate failed unexpectedly',
           error: e, stackTrace: s);
       emit(state.copyWith(
-        status: ApiKeysStatus.error,
-        error: SettingsErrorKind.unknown,
+        mutationError: SettingsErrorKind.unknown,
         clearActivatingKeyId: true,
       ));
     }
   }
 
   /// Permanently deletes an API key, then refreshes the list.
+  ///
+  /// On failure the error is surfaced as a transient
+  /// [ApiKeysState.mutationError] so the detail card stays visible.
   Future<void> deleteApiKey(String keyId) async {
     AppLogger.d('ApiKeys', 'Permanently deleting API key');
-    emit(state.copyWith(deletingKeyId: keyId, clearError: true));
+    emit(state.copyWith(deletingKeyId: keyId, clearMutationError: true));
     try {
       await repository.deleteApiKey(keyId);
-      AnalyticsService.instance.capture('settings', 'api-key-deleted');
       final keys = await repository.listApiKeys();
       emit(state.copyWith(
         status: ApiKeysStatus.loaded,
@@ -139,19 +134,21 @@ class ApiKeysCubit extends Cubit<ApiKeysState> {
       ));
     } on SettingsException catch (e) {
       AppLogger.w('ApiKeys', 'API key delete failed: ${e.kind.name}');
-      emit(state.copyWith(
-        status: ApiKeysStatus.error,
-        error: e.kind,
-        clearDeletingKeyId: true,
-      ));
+      emit(state.copyWith(mutationError: e.kind, clearDeletingKeyId: true));
     } catch (e, s) {
       AppLogger.e('ApiKeys', 'API key delete failed unexpectedly',
           error: e, stackTrace: s);
       emit(state.copyWith(
-        status: ApiKeysStatus.error,
-        error: SettingsErrorKind.unknown,
+        mutationError: SettingsErrorKind.unknown,
         clearDeletingKeyId: true,
       ));
     }
+  }
+
+  /// Clears the transient [ApiKeysState.mutationError] after the UI has
+  /// shown its snackbar — keeps it from re-firing on the next rebuild.
+  void acknowledgeMutationError() {
+    if (state.mutationError == null) return;
+    emit(state.copyWith(clearMutationError: true));
   }
 }

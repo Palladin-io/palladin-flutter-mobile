@@ -1,6 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../domain/exceptions/settings_exceptions.dart';
 import '../../domain/repositories/settings_repository.dart';
@@ -57,7 +56,6 @@ class SettingsCubit extends Cubit<SettingsState> {
     ));
     try {
       await repository.updateOrgName(trimmed);
-      AnalyticsService.instance.capture('settings', 'org-renamed');
       emit(state.copyWith(
         isSavingOrg: false,
         org: state.org?.copyWith(name: trimmed),

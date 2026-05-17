@@ -144,7 +144,7 @@ void main() {
     );
 
     blocTest<ApiKeysCubit, ApiKeysState>(
-      'surfaces error and does not refresh on failure',
+      'surfaces a transient mutationError without flipping status on failure',
       build: () {
         when(() => repository.revokeApiKey(any())).thenThrow(
           const SettingsException(SettingsErrorKind.notFound),
@@ -155,14 +155,142 @@ void main() {
       expect: () => [
         isA<ApiKeysState>()
             .having((s) => s.revokingKeyId, 'revokingKeyId', 'k1'),
+        // A failed mutation must keep status untouched (so the card
+        // stays visible) and only set the transient mutationError.
         isA<ApiKeysState>()
-            .having((s) => s.status, 'status', ApiKeysStatus.error)
-            .having((s) => s.error, 'error', SettingsErrorKind.notFound)
+            .having((s) => s.status, 'status', ApiKeysStatus.initial)
+            .having((s) => s.error, 'error', isNull)
+            .having(
+              (s) => s.mutationError,
+              'mutationError',
+              SettingsErrorKind.notFound,
+            )
             .having((s) => s.revokingKeyId, 'revokingKeyId', isNull),
       ],
       verify: (_) {
         verifyNever(() => repository.listApiKeys());
       },
+    );
+  });
+
+  group('ApiKeysCubit.activateApiKey', () {
+    blocTest<ApiKeysCubit, ApiKeysState>(
+      'activates then refreshes the list',
+      build: () {
+        when(() => repository.activateApiKey(any())).thenAnswer((_) async {});
+        when(() => repository.listApiKeys())
+            .thenAnswer((_) async => sampleKeys);
+        return buildCubit();
+      },
+      act: (cubit) => cubit.activateApiKey('k1'),
+      expect: () => [
+        isA<ApiKeysState>()
+            .having((s) => s.activatingKeyId, 'activatingKeyId', 'k1'),
+        isA<ApiKeysState>()
+            .having((s) => s.status, 'status', ApiKeysStatus.loaded)
+            .having((s) => s.activatingKeyId, 'activatingKeyId', isNull)
+            .having((s) => s.apiKeys.length, 'apiKeys.length', 1),
+      ],
+      verify: (_) {
+        verify(() => repository.activateApiKey('k1')).called(1);
+        verify(() => repository.listApiKeys()).called(1);
+      },
+    );
+
+    blocTest<ApiKeysCubit, ApiKeysState>(
+      'surfaces a transient mutationError on failure',
+      build: () {
+        when(() => repository.activateApiKey(any())).thenThrow(
+          const SettingsException(SettingsErrorKind.networkError),
+        );
+        return buildCubit();
+      },
+      act: (cubit) => cubit.activateApiKey('k1'),
+      expect: () => [
+        isA<ApiKeysState>()
+            .having((s) => s.activatingKeyId, 'activatingKeyId', 'k1'),
+        isA<ApiKeysState>()
+            .having((s) => s.status, 'status', ApiKeysStatus.initial)
+            .having(
+              (s) => s.mutationError,
+              'mutationError',
+              SettingsErrorKind.networkError,
+            )
+            .having((s) => s.activatingKeyId, 'activatingKeyId', isNull),
+      ],
+      verify: (_) {
+        verifyNever(() => repository.listApiKeys());
+      },
+    );
+  });
+
+  group('ApiKeysCubit.deleteApiKey', () {
+    blocTest<ApiKeysCubit, ApiKeysState>(
+      'deletes then refreshes the list',
+      build: () {
+        when(() => repository.deleteApiKey(any())).thenAnswer((_) async {});
+        when(() => repository.listApiKeys())
+            .thenAnswer((_) async => const <ApiKey>[]);
+        return buildCubit();
+      },
+      act: (cubit) => cubit.deleteApiKey('k1'),
+      expect: () => [
+        isA<ApiKeysState>()
+            .having((s) => s.deletingKeyId, 'deletingKeyId', 'k1'),
+        isA<ApiKeysState>()
+            .having((s) => s.status, 'status', ApiKeysStatus.loaded)
+            .having((s) => s.deletingKeyId, 'deletingKeyId', isNull)
+            .having((s) => s.apiKeys, 'apiKeys', isEmpty),
+      ],
+      verify: (_) {
+        verify(() => repository.deleteApiKey('k1')).called(1);
+        verify(() => repository.listApiKeys()).called(1);
+      },
+    );
+
+    blocTest<ApiKeysCubit, ApiKeysState>(
+      'surfaces a transient mutationError on failure',
+      build: () {
+        when(() => repository.deleteApiKey(any())).thenThrow(
+          const SettingsException(SettingsErrorKind.notFound),
+        );
+        return buildCubit();
+      },
+      act: (cubit) => cubit.deleteApiKey('k1'),
+      expect: () => [
+        isA<ApiKeysState>()
+            .having((s) => s.deletingKeyId, 'deletingKeyId', 'k1'),
+        isA<ApiKeysState>()
+            .having((s) => s.status, 'status', ApiKeysStatus.initial)
+            .having(
+              (s) => s.mutationError,
+              'mutationError',
+              SettingsErrorKind.notFound,
+            )
+            .having((s) => s.deletingKeyId, 'deletingKeyId', isNull),
+      ],
+      verify: (_) {
+        verifyNever(() => repository.listApiKeys());
+      },
+    );
+
+    blocTest<ApiKeysCubit, ApiKeysState>(
+      'acknowledgeMutationError clears the transient error',
+      build: () {
+        when(() => repository.deleteApiKey(any())).thenThrow(
+          const SettingsException(SettingsErrorKind.notFound),
+        );
+        return buildCubit();
+      },
+      act: (cubit) async {
+        await cubit.deleteApiKey('k1');
+        cubit.acknowledgeMutationError();
+      },
+      skip: 2,
+      expect: () => [
+        isA<ApiKeysState>()
+            .having((s) => s.mutationError, 'mutationError', isNull),
+      ],
     );
   });
 }
