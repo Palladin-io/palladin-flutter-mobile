@@ -809,4 +809,128 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get entryErrorUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get settingsScreenTitle => 'Settings';
+
+  @override
+  String get settingsOrganization => 'Organization';
+
+  @override
+  String get settingsManageOrganization => 'Organization & API keys';
+
+  @override
+  String get settingsOrgNameLabel => 'Organization name';
+
+  @override
+  String get settingsOrgNameHint => 'Enter organization name';
+
+  @override
+  String settingsOrgMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count members',
+      one: '1 member',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsSave => 'Save';
+
+  @override
+  String get settingsSaving => 'Saving…';
+
+  @override
+  String get settingsOrgSaved => 'Organization name updated.';
+
+  @override
+  String get settingsApiKeys => 'API keys';
+
+  @override
+  String get settingsApiKeysSubtitle =>
+      'Keys let your AI agents authenticate with Claw Vault.';
+
+  @override
+  String get settingsApiKeysEmpty => 'No API keys yet';
+
+  @override
+  String get settingsApiKeysEmptyHint =>
+      'Generate a key to connect your first agent.';
+
+  @override
+  String get settingsApiKeyStatusActive => 'Active';
+
+  @override
+  String get settingsApiKeyStatusRevoked => 'Revoked';
+
+  @override
+  String settingsApiKeyCreated(String date) {
+    return 'Created $date';
+  }
+
+  @override
+  String get settingsRevoke => 'Revoke';
+
+  @override
+  String get settingsGenerateApiKey => 'Generate API key';
+
+  @override
+  String get settingsApiKeyNameLabel => 'Key name';
+
+  @override
+  String get settingsApiKeyNameHint => 'e.g. Production agent';
+
+  @override
+  String get settingsGenerate => 'Generate';
+
+  @override
+  String get settingsGenerating => 'Generating…';
+
+  @override
+  String get settingsApiKeySecretTitle => 'API key created';
+
+  @override
+  String get settingsApiKeySecretWarning =>
+      'Save this key now — it will never be shown again.';
+
+  @override
+  String get settingsCopyKey => 'Copy key';
+
+  @override
+  String get settingsKeyCopied => 'API key copied to clipboard.';
+
+  @override
+  String get settingsDone => 'Done';
+
+  @override
+  String get settingsClose => 'Close';
+
+  @override
+  String get settingsCancel => 'Cancel';
+
+  @override
+  String get settingsRevokeConfirmTitle => 'Revoke API key?';
+
+  @override
+  String settingsRevokeConfirmBody(String name) {
+    return 'Agents using \"$name\" will lose access immediately. This cannot be undone.';
+  }
+
+  @override
+  String get settingsRetry => 'Retry';
+
+  @override
+  String get settingsErrorNotFound => 'We couldn\'t find this resource.';
+
+  @override
+  String get settingsErrorForbidden =>
+      'You don\'t have permission to perform this action.';
+
+  @override
+  String get settingsErrorValidation => 'Please check the form and try again.';
+
+  @override
+  String get settingsErrorUnknown => 'Something went wrong. Please try again.';
 }

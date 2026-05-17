@@ -7,6 +7,7 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_wizard_page.dart';
 import '../../features/recovery/presentation/pages/recovery_page.dart';
+import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/shell/presentation/pages/app_shell.dart';
 import '../../features/shell/presentation/pages/placeholder_page.dart';
 import '../../features/unlock/presentation/pages/unlock_page.dart';
@@ -122,6 +123,13 @@ GoRouter createRouter(AuthBloc authBloc) {
               icon: Icons.history,
               title: AppLocalizations.of(context)!.placeholderAuditTitle,
             ),
+          ),
+          // Settings — organization details + API-key management.
+          // Lives inside the shell so the persistent bottom nav stays
+          // mounted while the user is on the screen.
+          GoRoute(
+            path: '/settings',
+            builder: (_, _) => const SettingsPage(),
           ),
         ],
       ),

@@ -951,5 +951,158 @@
   "entryErrorUnknown": "Something went wrong. Please try again.",
   "@entryErrorUnknown": {
     "description": "Generic fallback error for entry operations"
+  },
+  "settingsScreenTitle": "Settings",
+  "@settingsScreenTitle": {
+    "description": "Title of the dedicated settings screen (organization + API keys)"
+  },
+  "settingsOrganization": "Organization",
+  "@settingsOrganization": {
+    "description": "Heading for the organization section on the settings screen"
+  },
+  "settingsManageOrganization": "Organization & API keys",
+  "@settingsManageOrganization": {
+    "description": "Label for the settings-drawer item that opens the settings screen"
+  },
+  "settingsOrgNameLabel": "Organization name",
+  "@settingsOrgNameLabel": {
+    "description": "Label for the editable organization name input field"
+  },
+  "settingsOrgNameHint": "Enter organization name",
+  "@settingsOrgNameHint": {
+    "description": "Placeholder text for the organization name input field"
+  },
+  "settingsOrgMembers": "{count, plural, =1{1 member} other{{count} members}}",
+  "@settingsOrgMembers": {
+    "description": "Member count shown under the organization name",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "settingsSave": "Save",
+  "@settingsSave": {
+    "description": "Label for the save button on the organization form"
+  },
+  "settingsSaving": "Saving…",
+  "@settingsSaving": {
+    "description": "Loading label shown on the save button while the org rename is in flight"
+  },
+  "settingsOrgSaved": "Organization name updated.",
+  "@settingsOrgSaved": {
+    "description": "Snackbar confirmation shown after a successful organization rename"
+  },
+  "settingsApiKeys": "API keys",
+  "@settingsApiKeys": {
+    "description": "Heading for the API keys section on the settings screen"
+  },
+  "settingsApiKeysSubtitle": "Keys let your AI agents authenticate with Claw Vault.",
+  "@settingsApiKeysSubtitle": {
+    "description": "Supporting copy under the API keys section heading"
+  },
+  "settingsApiKeysEmpty": "No API keys yet",
+  "@settingsApiKeysEmpty": {
+    "description": "Empty-state title shown when the organization has no API keys"
+  },
+  "settingsApiKeysEmptyHint": "Generate a key to connect your first agent.",
+  "@settingsApiKeysEmptyHint": {
+    "description": "Empty-state supporting copy for the API keys list"
+  },
+  "settingsApiKeyStatusActive": "Active",
+  "@settingsApiKeyStatusActive": {
+    "description": "Status badge label for an active API key"
+  },
+  "settingsApiKeyStatusRevoked": "Revoked",
+  "@settingsApiKeyStatusRevoked": {
+    "description": "Status badge label for a revoked API key"
+  },
+  "settingsApiKeyCreated": "Created {date}",
+  "@settingsApiKeyCreated": {
+    "description": "Created-date line on an API key row",
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "settingsRevoke": "Revoke",
+  "@settingsRevoke": {
+    "description": "Label for the action that revokes an API key"
+  },
+  "settingsGenerateApiKey": "Generate API key",
+  "@settingsGenerateApiKey": {
+    "description": "Label for the button that opens the generate-API-key sheet"
+  },
+  "settingsApiKeyNameLabel": "Key name",
+  "@settingsApiKeyNameLabel": {
+    "description": "Label for the API key name input field in the generate sheet"
+  },
+  "settingsApiKeyNameHint": "e.g. Production agent",
+  "@settingsApiKeyNameHint": {
+    "description": "Placeholder text for the API key name input field"
+  },
+  "settingsGenerate": "Generate",
+  "@settingsGenerate": {
+    "description": "Submit-button label in the generate-API-key sheet"
+  },
+  "settingsGenerating": "Generating…",
+  "@settingsGenerating": {
+    "description": "Loading label shown on the generate button while the key is being created"
+  },
+  "settingsApiKeySecretTitle": "API key created",
+  "@settingsApiKeySecretTitle": {
+    "description": "Title of the one-time secret reveal step in the generate sheet"
+  },
+  "settingsApiKeySecretWarning": "Save this key now — it will never be shown again.",
+  "@settingsApiKeySecretWarning": {
+    "description": "Warning shown above the one-time plaintext API key secret"
+  },
+  "settingsCopyKey": "Copy key",
+  "@settingsCopyKey": {
+    "description": "Label for the copy-to-clipboard button next to the API key secret"
+  },
+  "settingsKeyCopied": "API key copied to clipboard.",
+  "@settingsKeyCopied": {
+    "description": "Snackbar confirmation shown after copying the API key secret"
+  },
+  "settingsDone": "Done",
+  "@settingsDone": {
+    "description": "Label for the button that dismisses the secret reveal step"
+  },
+  "settingsClose": "Close",
+  "@settingsClose": {
+    "description": "Generic close label used by settings dialogs"
+  },
+  "settingsCancel": "Cancel",
+  "@settingsCancel": {
+    "description": "Generic cancel label used by settings dialogs"
+  },
+  "settingsRevokeConfirmTitle": "Revoke API key?",
+  "@settingsRevokeConfirmTitle": {
+    "description": "Title of the revoke-API-key confirmation dialog"
+  },
+  "settingsRevokeConfirmBody": "Agents using \"{name}\" will lose access immediately. This cannot be undone.",
+  "@settingsRevokeConfirmBody": {
+    "description": "Body of the revoke-API-key confirmation dialog",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "settingsRetry": "Retry",
+  "@settingsRetry": {
+    "description": "Label for the retry button on settings error states"
+  },
+  "settingsErrorNotFound": "We couldn't find this resource.",
+  "@settingsErrorNotFound": {
+    "description": "Error shown when the backend returns 404 for a settings operation"
+  },
+  "settingsErrorForbidden": "You don't have permission to perform this action.",
+  "@settingsErrorForbidden": {
+    "description": "Error shown when the backend returns 403 for a settings operation"
+  },
+  "settingsErrorValidation": "Please check the form and try again.",
+  "@settingsErrorValidation": {
+    "description": "Error shown when the backend returns 400 for a settings operation"
+  },
+  "settingsErrorUnknown": "Something went wrong. Please try again.",
+  "@settingsErrorUnknown": {
+    "description": "Generic fallback error for settings operations"
   }
 }

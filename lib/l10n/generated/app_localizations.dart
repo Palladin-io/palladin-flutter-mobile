@@ -1399,6 +1399,222 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
   String get entryErrorUnknown;
+
+  /// Title of the dedicated settings screen (organization + API keys)
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsScreenTitle;
+
+  /// Heading for the organization section on the settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'Organization'**
+  String get settingsOrganization;
+
+  /// Label for the settings-drawer item that opens the settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'Organization & API keys'**
+  String get settingsManageOrganization;
+
+  /// Label for the editable organization name input field
+  ///
+  /// In en, this message translates to:
+  /// **'Organization name'**
+  String get settingsOrgNameLabel;
+
+  /// Placeholder text for the organization name input field
+  ///
+  /// In en, this message translates to:
+  /// **'Enter organization name'**
+  String get settingsOrgNameHint;
+
+  /// Member count shown under the organization name
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 member} other{{count} members}}'**
+  String settingsOrgMembers(int count);
+
+  /// Label for the save button on the organization form
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get settingsSave;
+
+  /// Loading label shown on the save button while the org rename is in flight
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get settingsSaving;
+
+  /// Snackbar confirmation shown after a successful organization rename
+  ///
+  /// In en, this message translates to:
+  /// **'Organization name updated.'**
+  String get settingsOrgSaved;
+
+  /// Heading for the API keys section on the settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'API keys'**
+  String get settingsApiKeys;
+
+  /// Supporting copy under the API keys section heading
+  ///
+  /// In en, this message translates to:
+  /// **'Keys let your AI agents authenticate with Claw Vault.'**
+  String get settingsApiKeysSubtitle;
+
+  /// Empty-state title shown when the organization has no API keys
+  ///
+  /// In en, this message translates to:
+  /// **'No API keys yet'**
+  String get settingsApiKeysEmpty;
+
+  /// Empty-state supporting copy for the API keys list
+  ///
+  /// In en, this message translates to:
+  /// **'Generate a key to connect your first agent.'**
+  String get settingsApiKeysEmptyHint;
+
+  /// Status badge label for an active API key
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get settingsApiKeyStatusActive;
+
+  /// Status badge label for a revoked API key
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked'**
+  String get settingsApiKeyStatusRevoked;
+
+  /// Created-date line on an API key row
+  ///
+  /// In en, this message translates to:
+  /// **'Created {date}'**
+  String settingsApiKeyCreated(String date);
+
+  /// Label for the action that revokes an API key
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke'**
+  String get settingsRevoke;
+
+  /// Label for the button that opens the generate-API-key sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Generate API key'**
+  String get settingsGenerateApiKey;
+
+  /// Label for the API key name input field in the generate sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Key name'**
+  String get settingsApiKeyNameLabel;
+
+  /// Placeholder text for the API key name input field
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Production agent'**
+  String get settingsApiKeyNameHint;
+
+  /// Submit-button label in the generate-API-key sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Generate'**
+  String get settingsGenerate;
+
+  /// Loading label shown on the generate button while the key is being created
+  ///
+  /// In en, this message translates to:
+  /// **'Generating…'**
+  String get settingsGenerating;
+
+  /// Title of the one-time secret reveal step in the generate sheet
+  ///
+  /// In en, this message translates to:
+  /// **'API key created'**
+  String get settingsApiKeySecretTitle;
+
+  /// Warning shown above the one-time plaintext API key secret
+  ///
+  /// In en, this message translates to:
+  /// **'Save this key now — it will never be shown again.'**
+  String get settingsApiKeySecretWarning;
+
+  /// Label for the copy-to-clipboard button next to the API key secret
+  ///
+  /// In en, this message translates to:
+  /// **'Copy key'**
+  String get settingsCopyKey;
+
+  /// Snackbar confirmation shown after copying the API key secret
+  ///
+  /// In en, this message translates to:
+  /// **'API key copied to clipboard.'**
+  String get settingsKeyCopied;
+
+  /// Label for the button that dismisses the secret reveal step
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get settingsDone;
+
+  /// Generic close label used by settings dialogs
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get settingsClose;
+
+  /// Generic cancel label used by settings dialogs
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get settingsCancel;
+
+  /// Title of the revoke-API-key confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke API key?'**
+  String get settingsRevokeConfirmTitle;
+
+  /// Body of the revoke-API-key confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Agents using \"{name}\" will lose access immediately. This cannot be undone.'**
+  String settingsRevokeConfirmBody(String name);
+
+  /// Label for the retry button on settings error states
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get settingsRetry;
+
+  /// Error shown when the backend returns 404 for a settings operation
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t find this resource.'**
+  String get settingsErrorNotFound;
+
+  /// Error shown when the backend returns 403 for a settings operation
+  ///
+  /// In en, this message translates to:
+  /// **'You don\'t have permission to perform this action.'**
+  String get settingsErrorForbidden;
+
+  /// Error shown when the backend returns 400 for a settings operation
+  ///
+  /// In en, this message translates to:
+  /// **'Please check the form and try again.'**
+  String get settingsErrorValidation;
+
+  /// Generic fallback error for settings operations
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get settingsErrorUnknown;
 }
 
 class _AppLocalizationsDelegate

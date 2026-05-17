@@ -825,4 +825,130 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get entryErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
+
+  @override
+  String get settingsScreenTitle => 'Ustawienia';
+
+  @override
+  String get settingsOrganization => 'Organizacja';
+
+  @override
+  String get settingsManageOrganization => 'Organizacja i klucze API';
+
+  @override
+  String get settingsOrgNameLabel => 'Nazwa organizacji';
+
+  @override
+  String get settingsOrgNameHint => 'Podaj nazwę organizacji';
+
+  @override
+  String settingsOrgMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count członka',
+      many: '$count członków',
+      few: '$count członkowie',
+      one: '1 członek',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsSave => 'Zapisz';
+
+  @override
+  String get settingsSaving => 'Zapisywanie…';
+
+  @override
+  String get settingsOrgSaved => 'Zaktualizowano nazwę organizacji.';
+
+  @override
+  String get settingsApiKeys => 'Klucze API';
+
+  @override
+  String get settingsApiKeysSubtitle =>
+      'Klucze pozwalają agentom AI uwierzytelniać się w Claw Vault.';
+
+  @override
+  String get settingsApiKeysEmpty => 'Brak kluczy API';
+
+  @override
+  String get settingsApiKeysEmptyHint =>
+      'Wygeneruj klucz, aby podłączyć pierwszego agenta.';
+
+  @override
+  String get settingsApiKeyStatusActive => 'Aktywny';
+
+  @override
+  String get settingsApiKeyStatusRevoked => 'Unieważniony';
+
+  @override
+  String settingsApiKeyCreated(String date) {
+    return 'Utworzono $date';
+  }
+
+  @override
+  String get settingsRevoke => 'Unieważnij';
+
+  @override
+  String get settingsGenerateApiKey => 'Wygeneruj klucz API';
+
+  @override
+  String get settingsApiKeyNameLabel => 'Nazwa klucza';
+
+  @override
+  String get settingsApiKeyNameHint => 'np. Agent produkcyjny';
+
+  @override
+  String get settingsGenerate => 'Wygeneruj';
+
+  @override
+  String get settingsGenerating => 'Generowanie…';
+
+  @override
+  String get settingsApiKeySecretTitle => 'Klucz API utworzony';
+
+  @override
+  String get settingsApiKeySecretWarning =>
+      'Zapisz ten klucz teraz — nie zostanie pokazany ponownie.';
+
+  @override
+  String get settingsCopyKey => 'Kopiuj klucz';
+
+  @override
+  String get settingsKeyCopied => 'Skopiowano klucz API do schowka.';
+
+  @override
+  String get settingsDone => 'Gotowe';
+
+  @override
+  String get settingsClose => 'Zamknij';
+
+  @override
+  String get settingsCancel => 'Anuluj';
+
+  @override
+  String get settingsRevokeConfirmTitle => 'Unieważnić klucz API?';
+
+  @override
+  String settingsRevokeConfirmBody(String name) {
+    return 'Agenci korzystający z „$name” natychmiast stracą dostęp. Tej operacji nie można cofnąć.';
+  }
+
+  @override
+  String get settingsRetry => 'Ponów';
+
+  @override
+  String get settingsErrorNotFound => 'Nie udało się znaleźć tego zasobu.';
+
+  @override
+  String get settingsErrorForbidden =>
+      'Brak uprawnień do wykonania tej operacji.';
+
+  @override
+  String get settingsErrorValidation => 'Sprawdź formularz i spróbuj ponownie.';
+
+  @override
+  String get settingsErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
 }
