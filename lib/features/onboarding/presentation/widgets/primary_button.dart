@@ -23,7 +23,7 @@ class PrimaryButton extends StatelessWidget {
     final enabled = onPressed != null && !isLoading;
     return SizedBox(
       width: double.infinity,
-      height: 52,
+      height: 44,
       child: ElevatedButton(
         onPressed: enabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
@@ -33,13 +33,13 @@ class PrimaryButton extends StatelessWidget {
           disabledForegroundColor: Colors.white.withValues(alpha: 0.5),
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
         ),
         child: isLoading
             ? const SizedBox(
-                height: 20,
-                width: 20,
+                height: 18,
+                width: 18,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   color: Colors.white,
@@ -48,7 +48,7 @@ class PrimaryButton extends StatelessWidget {
             : Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
