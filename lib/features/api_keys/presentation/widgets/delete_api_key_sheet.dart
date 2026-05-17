@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../onboarding/presentation/widgets/primary_button.dart';
 
 /// Confirmation bottom sheet shown before permanently deleting an API key.
 ///
@@ -28,73 +29,66 @@ class DeleteApiKeySheet extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewPaddingOf(context).bottom),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.modalBackground(brightness),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.modalBackground(brightness),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewPaddingOf(context).bottom,
         ),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _SheetHandle(),
-            const SizedBox(height: 20),
-            Text(
-              l10n.apiKeysDeleteConfirmTitle,
-              style: TextStyle(
-                color: AppColors.onSurface(brightness),
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _SheetHandle(),
+              const SizedBox(height: 20),
+              Text(
+                l10n.apiKeysDeleteConfirmTitle,
+                style: TextStyle(
+                  color: AppColors.onSurface(brightness),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              l10n.apiKeysDeleteConfirmBody(keyName),
-              style: TextStyle(
-                color: AppColors.onSurfaceMuted(brightness),
-                fontSize: 13,
-                height: 1.4,
+              const SizedBox(height: 8),
+              Text(
+                l10n.apiKeysDeleteConfirmBody(keyName),
+                style: TextStyle(
+                  color: AppColors.onSurfaceMuted(brightness),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              height: 44,
-              child: TextButton(
+              const SizedBox(height: 24),
+              PrimaryButton(
+                label: l10n.apiKeysDeletePermanently,
                 onPressed: () => Navigator.of(context).pop(true),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.brandRed,
-                  backgroundColor: AppColors.brandRed.withValues(alpha: 0.12),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.onSurface(brightness),
+                  side: BorderSide(color: AppColors.onSurface(brightness)),
+                  minimumSize: const Size(double.infinity, 44),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 child: Text(
-                  l10n.apiKeysDeletePermanently,
+                  l10n.apiKeysCancel,
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 44,
-              child: TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.onSurfaceSubtle(brightness),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Text(l10n.apiKeysCancel),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
