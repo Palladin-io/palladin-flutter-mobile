@@ -809,4 +809,171 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get entryErrorUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get settingsScreenTitle => 'Settings';
+
+  @override
+  String get settingsOrganization => 'Organization';
+
+  @override
+  String get settingsManageOrganization => 'Organization';
+
+  @override
+  String get settingsOrgNameLabel => 'Organization name';
+
+  @override
+  String get settingsOrgNameHint => 'Enter organization name';
+
+  @override
+  String settingsOrgMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count members',
+      one: '1 member',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsSave => 'Save';
+
+  @override
+  String get settingsOrgSaved => 'Organization name updated.';
+
+  @override
+  String get settingsApiKeys => 'API keys';
+
+  @override
+  String get settingsRetry => 'Retry';
+
+  @override
+  String get settingsErrorNotFound => 'We couldn\'t find this resource.';
+
+  @override
+  String get settingsErrorForbidden =>
+      'You don\'t have permission to perform this action.';
+
+  @override
+  String get settingsErrorValidation => 'Please check the form and try again.';
+
+  @override
+  String get settingsErrorUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get apiKeysScreenTitle => 'API keys';
+
+  @override
+  String get apiKeysEmpty => 'No API keys yet';
+
+  @override
+  String get apiKeysEmptyHint => 'Generate a key to connect your first agent.';
+
+  @override
+  String get apiKeysStatusActive => 'Active';
+
+  @override
+  String get apiKeysStatusRevoked => 'Revoked';
+
+  @override
+  String get apiKeysRetry => 'Retry';
+
+  @override
+  String get apiKeysGenerate => 'Generate API key';
+
+  @override
+  String get apiKeysGenerateAction => 'Generate';
+
+  @override
+  String get apiKeysGenerating => 'Generating…';
+
+  @override
+  String get apiKeysNameLabel => 'Key name';
+
+  @override
+  String get apiKeysNameHint => 'e.g. Production agent';
+
+  @override
+  String get apiKeysSecretTitle => 'API key created';
+
+  @override
+  String get apiKeysSecretWarning =>
+      'Save this key now — it will never be shown again.';
+
+  @override
+  String get apiKeysCopyKey => 'Copy key';
+
+  @override
+  String get apiKeysKeyCopied => 'API key copied to clipboard.';
+
+  @override
+  String get apiKeysDone => 'Done';
+
+  @override
+  String get apiKeysCancel => 'Cancel';
+
+  @override
+  String get apiKeysRevoke => 'Revoke';
+
+  @override
+  String get apiKeysRevokeConfirmTitle => 'Revoke API key?';
+
+  @override
+  String apiKeysRevokeConfirmBody(String name) {
+    return 'Agents using \"$name\" will lose access immediately. This cannot be undone.';
+  }
+
+  @override
+  String get apiKeysDetailTitle => 'API key';
+
+  @override
+  String get apiKeysDetailNotFound => 'This API key no longer exists.';
+
+  @override
+  String get apiKeysTabDetails => 'Details';
+
+  @override
+  String get apiKeysTabAgents => 'Agents';
+
+  @override
+  String get apiKeysDetailKey => 'Key';
+
+  @override
+  String get apiKeysDetailCreatedAt => 'Created';
+
+  @override
+  String get apiKeysDetailRevokedAt => 'Revoked';
+
+  @override
+  String get apiKeysActivate => 'Activate';
+
+  @override
+  String get apiKeysActivating => 'Activating…';
+
+  @override
+  String get apiKeysDeletePermanently => 'Delete permanently';
+
+  @override
+  String get apiKeysDeleting => 'Deleting…';
+
+  @override
+  String get apiKeysDeleteConfirmTitle => 'Delete API key?';
+
+  @override
+  String apiKeysDeleteConfirmBody(String name) {
+    return 'This will permanently delete \"$name\". This cannot be undone.';
+  }
+
+  @override
+  String get apiKeysActivateZone => 'ACTIVATE KEY';
+
+  @override
+  String get apiKeysActivateHint =>
+      'Re-enable this key — agents using it will regain access immediately.';
+
+  @override
+  String apiKeysListSummary(int total, int active) {
+    return '$total keys · $active active';
+  }
 }

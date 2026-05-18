@@ -540,15 +540,14 @@ class _NewPasswordStep extends StatelessWidget {
                           ? AppColors.brandRed
                           : null,
                       feedbackVisible: passwordMismatch,
-                      feedbackChild: passwordMismatch
-                          ? Text(
-                              l10n.recoveryPasswordMismatch,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.brandRed,
-                              ),
-                            )
-                          : const SizedBox.shrink(),
+                      feedbackReserveSpace: false,
+                      feedbackChild: Text(
+                        l10n.recoveryPasswordMismatch,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.brandRed,
+                        ),
+                      ),
                       suffixIcon: IconButton(
                         icon: Icon(
                           confirmVisible

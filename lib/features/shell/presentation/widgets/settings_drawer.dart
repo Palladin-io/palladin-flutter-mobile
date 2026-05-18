@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../core/l10n/locale_cubit.dart';
@@ -88,6 +89,16 @@ class SettingsDrawer extends StatelessWidget {
               ),
             ),
             _DrawerItem(
+              icon: Icons.corporate_fare,
+              label: l10n.settingsManageOrganization,
+              onTap: () => _onNavigate(context, '/settings'),
+            ),
+            _DrawerItem(
+              icon: Icons.vpn_key_outlined,
+              label: l10n.settingsApiKeys,
+              onTap: () => _onNavigate(context, '/api-keys'),
+            ),
+            _DrawerItem(
               icon: Icons.lock_outline,
               label: l10n.settingsLockVault,
               onTap: () => _onLock(context),
@@ -103,6 +114,14 @@ class SettingsDrawer extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _onNavigate(BuildContext context, String route) {
+    // Close the drawer first so the destination screen lands on a clean
+    // navigator stack — leaving the drawer open looks broken during the
+    // route transition.
+    Navigator.of(context).pop();
+    context.push(route);
   }
 
   void _onLock(BuildContext context) {

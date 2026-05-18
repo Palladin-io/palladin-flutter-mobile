@@ -825,4 +825,174 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get entryErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
+
+  @override
+  String get settingsScreenTitle => 'Ustawienia';
+
+  @override
+  String get settingsOrganization => 'Organizacja';
+
+  @override
+  String get settingsManageOrganization => 'Organizacja';
+
+  @override
+  String get settingsOrgNameLabel => 'Nazwa organizacji';
+
+  @override
+  String get settingsOrgNameHint => 'Podaj nazwę organizacji';
+
+  @override
+  String settingsOrgMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count członka',
+      many: '$count członków',
+      few: '$count członkowie',
+      one: '1 członek',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsSave => 'Zapisz';
+
+  @override
+  String get settingsOrgSaved => 'Zaktualizowano nazwę organizacji.';
+
+  @override
+  String get settingsApiKeys => 'Klucze API';
+
+  @override
+  String get settingsRetry => 'Ponów';
+
+  @override
+  String get settingsErrorNotFound => 'Nie udało się znaleźć tego zasobu.';
+
+  @override
+  String get settingsErrorForbidden =>
+      'Brak uprawnień do wykonania tej operacji.';
+
+  @override
+  String get settingsErrorValidation => 'Sprawdź formularz i spróbuj ponownie.';
+
+  @override
+  String get settingsErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
+
+  @override
+  String get apiKeysScreenTitle => 'Klucze API';
+
+  @override
+  String get apiKeysEmpty => 'Brak kluczy API';
+
+  @override
+  String get apiKeysEmptyHint =>
+      'Wygeneruj klucz, aby podłączyć pierwszego agenta.';
+
+  @override
+  String get apiKeysStatusActive => 'Aktywny';
+
+  @override
+  String get apiKeysStatusRevoked => 'Unieważniony';
+
+  @override
+  String get apiKeysRetry => 'Ponów';
+
+  @override
+  String get apiKeysGenerate => 'Wygeneruj klucz API';
+
+  @override
+  String get apiKeysGenerateAction => 'Wygeneruj';
+
+  @override
+  String get apiKeysGenerating => 'Generowanie…';
+
+  @override
+  String get apiKeysNameLabel => 'Nazwa klucza';
+
+  @override
+  String get apiKeysNameHint => 'np. Agent produkcyjny';
+
+  @override
+  String get apiKeysSecretTitle => 'Klucz API utworzony';
+
+  @override
+  String get apiKeysSecretWarning =>
+      'Zapisz ten klucz teraz — nie zostanie pokazany ponownie.';
+
+  @override
+  String get apiKeysCopyKey => 'Kopiuj klucz';
+
+  @override
+  String get apiKeysKeyCopied => 'Skopiowano klucz API do schowka.';
+
+  @override
+  String get apiKeysDone => 'Gotowe';
+
+  @override
+  String get apiKeysCancel => 'Anuluj';
+
+  @override
+  String get apiKeysRevoke => 'Unieważnij';
+
+  @override
+  String get apiKeysRevokeConfirmTitle => 'Unieważnić klucz API?';
+
+  @override
+  String apiKeysRevokeConfirmBody(String name) {
+    return 'Agenci korzystający z „$name” natychmiast stracą dostęp. Tej operacji nie można cofnąć.';
+  }
+
+  @override
+  String get apiKeysDetailTitle => 'Klucz API';
+
+  @override
+  String get apiKeysDetailNotFound => 'Ten klucz API już nie istnieje.';
+
+  @override
+  String get apiKeysTabDetails => 'Szczegóły';
+
+  @override
+  String get apiKeysTabAgents => 'Agenci';
+
+  @override
+  String get apiKeysDetailKey => 'Klucz';
+
+  @override
+  String get apiKeysDetailCreatedAt => 'Utworzono';
+
+  @override
+  String get apiKeysDetailRevokedAt => 'Unieważniono';
+
+  @override
+  String get apiKeysActivate => 'Aktywuj';
+
+  @override
+  String get apiKeysActivating => 'Aktywowanie…';
+
+  @override
+  String get apiKeysDeletePermanently => 'Usuń trwale';
+
+  @override
+  String get apiKeysDeleting => 'Usuwanie…';
+
+  @override
+  String get apiKeysDeleteConfirmTitle => 'Usuń klucz API?';
+
+  @override
+  String apiKeysDeleteConfirmBody(String name) {
+    return 'Klucz \"$name\" zostanie trwale usunięty. Nie można cofnąć tej operacji.';
+  }
+
+  @override
+  String get apiKeysActivateZone => 'AKTYWUJ KLUCZ';
+
+  @override
+  String get apiKeysActivateHint =>
+      'Ponownie włącz ten klucz — agenci używający go odzyskają dostęp natychmiast.';
+
+  @override
+  String apiKeysListSummary(int total, int active) {
+    return '$total kluczy · $active aktywnych';
+  }
 }

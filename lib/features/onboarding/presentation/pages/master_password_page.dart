@@ -84,6 +84,7 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
           suffixIcon: _visibilityButton(_passwordVisible, () =>
               setState(() => _passwordVisible = !_passwordVisible)),
           feedbackVisible: password.isNotEmpty,
+          feedbackReserveSpace: false,
           feedbackChild: Text(
             _strengthLabel(l10n, strength),
             style: TextStyle(
@@ -115,6 +116,7 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
               ? AppColors.brandRed
               : null,
           feedbackVisible: confirm.isNotEmpty && !passwordsMatch,
+          feedbackReserveSpace: false,
           feedbackChild: Text(
             l10n.onboardingPasswordsDoNotMatch,
             style: const TextStyle(

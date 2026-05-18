@@ -951,5 +951,206 @@
   "entryErrorUnknown": "Something went wrong. Please try again.",
   "@entryErrorUnknown": {
     "description": "Generic fallback error for entry operations"
+  },
+  "settingsScreenTitle": "Settings",
+  "@settingsScreenTitle": {
+    "description": "Title of the dedicated settings screen (organization details)"
+  },
+  "settingsOrganization": "Organization",
+  "@settingsOrganization": {
+    "description": "Heading for the organization section on the settings screen"
+  },
+  "settingsManageOrganization": "Organization",
+  "@settingsManageOrganization": {
+    "description": "Label for the settings-drawer item that opens the organization settings screen"
+  },
+  "settingsOrgNameLabel": "Organization name",
+  "@settingsOrgNameLabel": {
+    "description": "Label for the editable organization name input field"
+  },
+  "settingsOrgNameHint": "Enter organization name",
+  "@settingsOrgNameHint": {
+    "description": "Placeholder text for the organization name input field"
+  },
+  "settingsOrgMembers": "{count, plural, =1{1 member} other{{count} members}}",
+  "@settingsOrgMembers": {
+    "description": "Member count shown under the organization name",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "settingsSave": "Save",
+  "@settingsSave": {
+    "description": "Label for the save button on the organization form"
+  },
+  "settingsOrgSaved": "Organization name updated.",
+  "@settingsOrgSaved": {
+    "description": "Snackbar confirmation shown after a successful organization rename"
+  },
+  "settingsApiKeys": "API keys",
+  "@settingsApiKeys": {
+    "description": "Label for the settings-drawer item that opens the standalone API keys screen"
+  },
+  "settingsRetry": "Retry",
+  "@settingsRetry": {
+    "description": "Label for the retry button on settings error states"
+  },
+  "settingsErrorNotFound": "We couldn't find this resource.",
+  "@settingsErrorNotFound": {
+    "description": "Error shown when the backend returns 404 for a settings operation"
+  },
+  "settingsErrorForbidden": "You don't have permission to perform this action.",
+  "@settingsErrorForbidden": {
+    "description": "Error shown when the backend returns 403 for a settings operation"
+  },
+  "settingsErrorValidation": "Please check the form and try again.",
+  "@settingsErrorValidation": {
+    "description": "Error shown when the backend returns 400 for a settings operation"
+  },
+  "settingsErrorUnknown": "Something went wrong. Please try again.",
+  "@settingsErrorUnknown": {
+    "description": "Generic fallback error for settings operations"
+  },
+  "apiKeysScreenTitle": "API keys",
+  "@apiKeysScreenTitle": {
+    "description": "Title of the standalone API keys list screen"
+  },
+  "apiKeysEmpty": "No API keys yet",
+  "@apiKeysEmpty": {
+    "description": "Empty-state title shown when the organization has no API keys"
+  },
+  "apiKeysEmptyHint": "Generate a key to connect your first agent.",
+  "@apiKeysEmptyHint": {
+    "description": "Empty-state supporting copy for the API keys list"
+  },
+  "apiKeysStatusActive": "Active",
+  "@apiKeysStatusActive": {
+    "description": "Status badge label for an active API key"
+  },
+  "apiKeysStatusRevoked": "Revoked",
+  "@apiKeysStatusRevoked": {
+    "description": "Status badge label for a revoked API key"
+  },
+  "apiKeysRetry": "Retry",
+  "@apiKeysRetry": {
+    "description": "Label for the retry button on API keys error states"
+  },
+  "apiKeysGenerate": "Generate API key",
+  "@apiKeysGenerate": {
+    "description": "Tooltip / heading for the generate-API-key action and sheet"
+  },
+  "apiKeysGenerateAction": "Generate",
+  "@apiKeysGenerateAction": {
+    "description": "Submit-button label in the generate-API-key sheet"
+  },
+  "apiKeysGenerating": "Generating…",
+  "@apiKeysGenerating": {
+    "description": "Loading label shown on the generate button while the key is being created"
+  },
+  "apiKeysNameLabel": "Key name",
+  "@apiKeysNameLabel": {
+    "description": "Label for the API key name input field in the generate sheet"
+  },
+  "apiKeysNameHint": "e.g. Production agent",
+  "@apiKeysNameHint": {
+    "description": "Placeholder text for the API key name input field"
+  },
+  "apiKeysSecretTitle": "API key created",
+  "@apiKeysSecretTitle": {
+    "description": "Title of the one-time secret reveal step in the generate sheet"
+  },
+  "apiKeysSecretWarning": "Save this key now — it will never be shown again.",
+  "@apiKeysSecretWarning": {
+    "description": "Warning shown above the one-time plaintext API key secret"
+  },
+  "apiKeysCopyKey": "Copy key",
+  "@apiKeysCopyKey": {
+    "description": "Label for the copy-to-clipboard button next to the API key secret"
+  },
+  "apiKeysKeyCopied": "API key copied to clipboard.",
+  "@apiKeysKeyCopied": {
+    "description": "Snackbar confirmation shown after copying the API key secret"
+  },
+  "apiKeysDone": "Done",
+  "@apiKeysDone": {
+    "description": "Label for the button that dismisses the secret reveal step"
+  },
+  "apiKeysCancel": "Cancel",
+  "@apiKeysCancel": {
+    "description": "Generic cancel label used by API key dialogs"
+  },
+  "apiKeysRevoke": "Revoke",
+  "@apiKeysRevoke": {
+    "description": "Label for the action that revokes an API key"
+  },
+  "apiKeysRevokeConfirmTitle": "Revoke API key?",
+  "@apiKeysRevokeConfirmTitle": {
+    "description": "Title of the revoke-API-key confirmation dialog"
+  },
+  "apiKeysRevokeConfirmBody": "Agents using \"{name}\" will lose access immediately. This cannot be undone.",
+  "@apiKeysRevokeConfirmBody": {
+    "description": "Body of the revoke-API-key confirmation dialog",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "apiKeysDetailTitle": "API key",
+  "@apiKeysDetailTitle": {
+    "description": "Fallback AppBar title on the API key detail screen while the key is loading"
+  },
+  "apiKeysDetailNotFound": "This API key no longer exists.",
+  "@apiKeysDetailNotFound": {
+    "description": "Message shown on the API key detail screen when the key id cannot be resolved"
+  },
+  "apiKeysTabDetails": "Details",
+  "@apiKeysTabDetails": {
+    "description": "Label of the Details tab on the API key detail screen"
+  },
+  "apiKeysTabAgents": "Agents",
+  "@apiKeysTabAgents": {
+    "description": "Label of the Agents tab on the API key detail screen"
+  },
+  "apiKeysDetailKey": "Key",
+  "@apiKeysDetailKey": {
+    "description": "Label for the masked key row on the API key detail screen"
+  },
+  "apiKeysDetailCreatedAt": "Created",
+  "@apiKeysDetailCreatedAt": {
+    "description": "Label for the created-date row on the API key detail screen"
+  },
+  "apiKeysDetailRevokedAt": "Revoked",
+  "@apiKeysDetailRevokedAt": {
+    "description": "Label for the revoked-date row on the API key detail screen"
+  },
+  "apiKeysActivate": "Activate",
+  "@apiKeysActivate": { "description": "Button label to re-activate a revoked API key" },
+  "apiKeysActivating": "Activating…",
+  "@apiKeysActivating": { "description": "Button label while activation is in flight" },
+  "apiKeysDeletePermanently": "Delete permanently",
+  "@apiKeysDeletePermanently": { "description": "Button label to permanently delete a revoked API key" },
+  "apiKeysDeleting": "Deleting…",
+  "@apiKeysDeleting": { "description": "Button label while delete is in flight" },
+  "apiKeysDeleteConfirmTitle": "Delete API key?",
+  "@apiKeysDeleteConfirmTitle": { "description": "Title of the permanent-delete confirmation dialog" },
+  "apiKeysDeleteConfirmBody": "This will permanently delete \"{name}\". This cannot be undone.",
+  "@apiKeysDeleteConfirmBody": {
+    "description": "Body of the permanent-delete confirmation dialog",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "apiKeysActivateZone": "ACTIVATE KEY",
+  "@apiKeysActivateZone": {
+    "description": "Section header for the activate section on the revoked key detail page"
+  },
+  "apiKeysActivateHint": "Re-enable this key — agents using it will regain access immediately.",
+  "@apiKeysActivateHint": {
+    "description": "Subtitle in the activate section"
+  },
+  "apiKeysListSummary": "{total} keys · {active} active",
+  "@apiKeysListSummary": {
+    "description": "Count summary in the API keys screen AppBar subtitle",
+    "placeholders": {
+      "total": { "type": "int" },
+      "active": { "type": "int" }
+    }
   }
 }

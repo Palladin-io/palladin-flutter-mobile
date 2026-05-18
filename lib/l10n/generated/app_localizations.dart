@@ -1399,6 +1399,306 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
   String get entryErrorUnknown;
+
+  /// Title of the dedicated settings screen (organization details)
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsScreenTitle;
+
+  /// Heading for the organization section on the settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'Organization'**
+  String get settingsOrganization;
+
+  /// Label for the settings-drawer item that opens the organization settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'Organization'**
+  String get settingsManageOrganization;
+
+  /// Label for the editable organization name input field
+  ///
+  /// In en, this message translates to:
+  /// **'Organization name'**
+  String get settingsOrgNameLabel;
+
+  /// Placeholder text for the organization name input field
+  ///
+  /// In en, this message translates to:
+  /// **'Enter organization name'**
+  String get settingsOrgNameHint;
+
+  /// Member count shown under the organization name
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 member} other{{count} members}}'**
+  String settingsOrgMembers(int count);
+
+  /// Label for the save button on the organization form
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get settingsSave;
+
+  /// Snackbar confirmation shown after a successful organization rename
+  ///
+  /// In en, this message translates to:
+  /// **'Organization name updated.'**
+  String get settingsOrgSaved;
+
+  /// Label for the settings-drawer item that opens the standalone API keys screen
+  ///
+  /// In en, this message translates to:
+  /// **'API keys'**
+  String get settingsApiKeys;
+
+  /// Label for the retry button on settings error states
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get settingsRetry;
+
+  /// Error shown when the backend returns 404 for a settings operation
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t find this resource.'**
+  String get settingsErrorNotFound;
+
+  /// Error shown when the backend returns 403 for a settings operation
+  ///
+  /// In en, this message translates to:
+  /// **'You don\'t have permission to perform this action.'**
+  String get settingsErrorForbidden;
+
+  /// Error shown when the backend returns 400 for a settings operation
+  ///
+  /// In en, this message translates to:
+  /// **'Please check the form and try again.'**
+  String get settingsErrorValidation;
+
+  /// Generic fallback error for settings operations
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get settingsErrorUnknown;
+
+  /// Title of the standalone API keys list screen
+  ///
+  /// In en, this message translates to:
+  /// **'API keys'**
+  String get apiKeysScreenTitle;
+
+  /// Empty-state title shown when the organization has no API keys
+  ///
+  /// In en, this message translates to:
+  /// **'No API keys yet'**
+  String get apiKeysEmpty;
+
+  /// Empty-state supporting copy for the API keys list
+  ///
+  /// In en, this message translates to:
+  /// **'Generate a key to connect your first agent.'**
+  String get apiKeysEmptyHint;
+
+  /// Status badge label for an active API key
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get apiKeysStatusActive;
+
+  /// Status badge label for a revoked API key
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked'**
+  String get apiKeysStatusRevoked;
+
+  /// Label for the retry button on API keys error states
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get apiKeysRetry;
+
+  /// Tooltip / heading for the generate-API-key action and sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Generate API key'**
+  String get apiKeysGenerate;
+
+  /// Submit-button label in the generate-API-key sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Generate'**
+  String get apiKeysGenerateAction;
+
+  /// Loading label shown on the generate button while the key is being created
+  ///
+  /// In en, this message translates to:
+  /// **'Generating…'**
+  String get apiKeysGenerating;
+
+  /// Label for the API key name input field in the generate sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Key name'**
+  String get apiKeysNameLabel;
+
+  /// Placeholder text for the API key name input field
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Production agent'**
+  String get apiKeysNameHint;
+
+  /// Title of the one-time secret reveal step in the generate sheet
+  ///
+  /// In en, this message translates to:
+  /// **'API key created'**
+  String get apiKeysSecretTitle;
+
+  /// Warning shown above the one-time plaintext API key secret
+  ///
+  /// In en, this message translates to:
+  /// **'Save this key now — it will never be shown again.'**
+  String get apiKeysSecretWarning;
+
+  /// Label for the copy-to-clipboard button next to the API key secret
+  ///
+  /// In en, this message translates to:
+  /// **'Copy key'**
+  String get apiKeysCopyKey;
+
+  /// Snackbar confirmation shown after copying the API key secret
+  ///
+  /// In en, this message translates to:
+  /// **'API key copied to clipboard.'**
+  String get apiKeysKeyCopied;
+
+  /// Label for the button that dismisses the secret reveal step
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get apiKeysDone;
+
+  /// Generic cancel label used by API key dialogs
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get apiKeysCancel;
+
+  /// Label for the action that revokes an API key
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke'**
+  String get apiKeysRevoke;
+
+  /// Title of the revoke-API-key confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke API key?'**
+  String get apiKeysRevokeConfirmTitle;
+
+  /// Body of the revoke-API-key confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Agents using \"{name}\" will lose access immediately. This cannot be undone.'**
+  String apiKeysRevokeConfirmBody(String name);
+
+  /// Fallback AppBar title on the API key detail screen while the key is loading
+  ///
+  /// In en, this message translates to:
+  /// **'API key'**
+  String get apiKeysDetailTitle;
+
+  /// Message shown on the API key detail screen when the key id cannot be resolved
+  ///
+  /// In en, this message translates to:
+  /// **'This API key no longer exists.'**
+  String get apiKeysDetailNotFound;
+
+  /// Label of the Details tab on the API key detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get apiKeysTabDetails;
+
+  /// Label of the Agents tab on the API key detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Agents'**
+  String get apiKeysTabAgents;
+
+  /// Label for the masked key row on the API key detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Key'**
+  String get apiKeysDetailKey;
+
+  /// Label for the created-date row on the API key detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Created'**
+  String get apiKeysDetailCreatedAt;
+
+  /// Label for the revoked-date row on the API key detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked'**
+  String get apiKeysDetailRevokedAt;
+
+  /// Button label to re-activate a revoked API key
+  ///
+  /// In en, this message translates to:
+  /// **'Activate'**
+  String get apiKeysActivate;
+
+  /// Button label while activation is in flight
+  ///
+  /// In en, this message translates to:
+  /// **'Activating…'**
+  String get apiKeysActivating;
+
+  /// Button label to permanently delete a revoked API key
+  ///
+  /// In en, this message translates to:
+  /// **'Delete permanently'**
+  String get apiKeysDeletePermanently;
+
+  /// Button label while delete is in flight
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting…'**
+  String get apiKeysDeleting;
+
+  /// Title of the permanent-delete confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Delete API key?'**
+  String get apiKeysDeleteConfirmTitle;
+
+  /// Body of the permanent-delete confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'This will permanently delete \"{name}\". This cannot be undone.'**
+  String apiKeysDeleteConfirmBody(String name);
+
+  /// Section header for the activate section on the revoked key detail page
+  ///
+  /// In en, this message translates to:
+  /// **'ACTIVATE KEY'**
+  String get apiKeysActivateZone;
+
+  /// Subtitle in the activate section
+  ///
+  /// In en, this message translates to:
+  /// **'Re-enable this key — agents using it will regain access immediately.'**
+  String get apiKeysActivateHint;
+
+  /// Count summary in the API keys screen AppBar subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'{total} keys · {active} active'**
+  String apiKeysListSummary(int total, int active);
 }
 
 class _AppLocalizationsDelegate

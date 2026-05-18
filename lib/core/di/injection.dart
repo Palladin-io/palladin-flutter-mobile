@@ -12,7 +12,12 @@ import '../../features/onboarding/data/repositories/onboarding_repository_impl.d
 import '../../features/onboarding/data/services/onboarding_crypto_service.dart';
 import '../../features/onboarding/domain/repositories/onboarding_repository.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import '../../features/api_keys/presentation/bloc/api_keys_cubit.dart';
 import '../../features/recovery/data/datasources/recovery_remote_datasource.dart';
+import '../../features/settings/data/datasources/settings_remote_data_source.dart';
+import '../../features/settings/data/repositories/settings_repository_impl.dart';
+import '../../features/settings/domain/repositories/settings_repository.dart';
+import '../../features/settings/presentation/bloc/settings_cubit.dart';
 import '../../features/recovery/data/services/recovery_crypto_service.dart';
 import '../../features/recovery/presentation/cubit/recovery_cubit.dart';
 import '../../features/unlock/data/datasources/account_remote_datasource.dart';
@@ -197,5 +202,27 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerFactory<EditEntryCubit>(
     () => EditEntryCubit(repository: getIt<EntryRepository>()),
+  );
+
+  // Settings — data layer (org + API keys)
+  getIt.registerLazySingleton<SettingsRemoteDataSource>(
+    () => SettingsRemoteDataSource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<SettingsRepository>(
+    () => SettingsRepositoryImpl(getIt<SettingsRemoteDataSource>()),
+  );
+
+  // Settings — presentation layer (factory: fresh cubit per page mount
+  // so stale loading / error state never leaks across visits).
+  getIt.registerFactory<SettingsCubit>(
+    () => SettingsCubit(repository: getIt<SettingsRepository>()),
+  );
+
+  // API keys — presentation layer (factory: fresh cubit per page mount;
+  // the list and detail screens each mount their own instance and load
+  // independently, so stale state never leaks across visits). Reuses
+  // [SettingsRepository] for the shared API-key endpoints.
+  getIt.registerFactory<ApiKeysCubit>(
+    () => ApiKeysCubit(repository: getIt<SettingsRepository>()),
   );
 }

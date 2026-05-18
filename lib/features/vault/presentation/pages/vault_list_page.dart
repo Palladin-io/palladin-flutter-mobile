@@ -66,6 +66,11 @@ class _VaultListViewState extends State<_VaultListView> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
 
+  /// Cached FAB widget — reused across rebuilds so [FabRegistrar] does
+  /// not see a new object each build and re-register in a loop, which
+  /// would otherwise overwrite a sibling page's FAB.
+  Widget? _cachedFab;
+
   @override
   void initState() {
     super.initState();
@@ -163,6 +168,16 @@ class _VaultListViewState extends State<_VaultListView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+    // Cache the FAB so the same object is reused across rebuilds —
+    // FabRegistrar.didUpdateWidget then sees no change and won't
+    // re-register on every parent rebuild.
+    final fab = _cachedFab ??= Padding(
+      padding: const EdgeInsets.only(bottom: 8, right: 4),
+      child: AppFab(
+        onPressed: _onAddTapped,
+        tooltip: l10n.vaultNewVault,
+      ),
+    );
     return Container(
       decoration: BoxDecoration(
         gradient: AppColors.backgroundGradient(brightness),
@@ -221,15 +236,7 @@ class _VaultListViewState extends State<_VaultListView> {
             Positioned(
               width: 0,
               height: 0,
-              child: FabRegistrar(
-                fab: Padding(
-                  padding: const EdgeInsets.only(bottom: 8, right: 4),
-                  child: AppFab(
-                    onPressed: _onAddTapped,
-                    tooltip: l10n.vaultNewVault,
-                  ),
-                ),
-              ),
+              child: FabRegistrar(fab: fab),
             ),
           ],
         ),
