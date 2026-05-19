@@ -1123,4 +1123,28 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get agentsEditIcon => 'Edytuj';
+
+  @override
+  String get agentApproveTitle => 'Zatwierdź agenta';
+
+  @override
+  String get agentNameLabel => 'Nazwa (opcjonalna)';
+
+  @override
+  String get agentTypeLabel => 'Typ agenta';
+
+  @override
+  String get agentIconLabel => 'Ikona';
+
+  @override
+  String get agentTypeOpenClaw => 'Open Claw';
+
+  @override
+  String get agentTypeClaudeCode => 'Claude Code';
+
+  @override
+  String get agentTypeHermes => 'Hermes';
+
+  @override
+  String get agentTypeOther => 'Inne';
 }

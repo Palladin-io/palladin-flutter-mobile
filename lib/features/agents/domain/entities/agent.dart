@@ -39,7 +39,8 @@ extension AgentStatusExtension on AgentStatus {
 /// Domain representation of a single agent.
 ///
 /// Carries metadata only — no secret material. The agent's public key
-/// is identified by its [publicKeySuffix] for display purposes.
+/// is identified by its [publicKeyPrefix] / [publicKeySuffix] for display
+/// purposes.
 class Agent {
   const Agent({
     required this.agentId,
@@ -47,6 +48,10 @@ class Agent {
     required this.status,
     required this.publicKeySuffix,
     required this.createdAt,
+    this.type,
+    this.iconKey,
+    this.publicKeyPrefix = '',
+    this.publicKey = '',
     this.enrolledAt,
     this.enrolledByName,
     this.deactivatedAt,
@@ -61,8 +66,24 @@ class Agent {
   /// been named yet.
   final String? name;
 
+  /// Agent classification set at approval time — one of `openClaw`,
+  /// `claudeCode`, `hermes`, `other` — or `null` when not yet set.
+  final String? type;
+
+  /// Material icon name chosen for the agent at approval time, or `null`
+  /// when no icon has been assigned.
+  final String? iconKey;
+
   /// Current lifecycle status — see [AgentStatus].
   final AgentStatus status;
+
+  /// First 8 characters of the agent's public key. Combined with
+  /// [publicKeySuffix] to render a `{prefix}•••{suffix}` identifier.
+  final String publicKeyPrefix;
+
+  /// Full public key of the agent. Public material — safe to display;
+  /// never confused with private/secret key material.
+  final String publicKey;
 
   /// Short suffix of the agent's public key, shown in monospace so an
   /// operator can visually identify the enrolled key.
@@ -91,4 +112,17 @@ class Agent {
   bool get isActive => status == AgentStatus.active;
 
   bool get isDeactivated => status == AgentStatus.deactivated;
+
+  /// Abbreviated public-key identifier in `{prefix}•••{suffix}` form.
+  ///
+  /// Falls back to just the suffix when no prefix is available (older
+  /// payloads), or `—` when neither part is present.
+  String get publicKeyDisplay {
+    final prefix = publicKeyPrefix.trim();
+    final suffix = publicKeySuffix.trim();
+    if (prefix.isNotEmpty && suffix.isNotEmpty) return '$prefix•••$suffix';
+    if (suffix.isNotEmpty) return suffix;
+    if (prefix.isNotEmpty) return prefix;
+    return '—';
+  }
 }

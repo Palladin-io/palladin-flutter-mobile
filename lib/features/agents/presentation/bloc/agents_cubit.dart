@@ -42,8 +42,29 @@ class AgentsCubit extends Cubit<AgentsState> {
   }
 
   /// Approves a pending agent, then refreshes the list.
-  Future<void> approveAgent(String agentId) =>
-      _runMutation(agentId, () => repository.approveAgent(agentId));
+  ///
+  /// Optionally assigns the agent's [name], [type] and [iconKey] at
+  /// approval time. [name] is trimmed; an empty name is sent as `null`
+  /// so the server keeps its default.
+  Future<void> approveAgent(
+    String agentId, {
+    String? name,
+    String? type,
+    String? iconKey,
+  }) {
+    final trimmedName = name?.trim();
+    return _runMutation(
+      agentId,
+      () => repository.approveAgent(
+        agentId,
+        name: (trimmedName == null || trimmedName.isEmpty)
+            ? null
+            : trimmedName,
+        type: type,
+        iconKey: iconKey,
+      ),
+    );
+  }
 
   /// Deactivates an active agent, then refreshes the list.
   Future<void> deactivateAgent(String agentId) =>

@@ -1244,5 +1244,21 @@
   "agentsRetry": "Retry",
   "@agentsRetry": { "description": "Retry button on the agents error state" },
   "agentsEditIcon": "Edit",
-  "@agentsEditIcon": { "description": "Label / tooltip for the edit-agent action" }
+  "@agentsEditIcon": { "description": "Label / tooltip for the edit-agent action" },
+  "agentApproveTitle": "Approve Agent",
+  "@agentApproveTitle": { "description": "Title of the approve-agent form sheet" },
+  "agentNameLabel": "Name (optional)",
+  "@agentNameLabel": { "description": "Label for the optional agent name input in the approve form" },
+  "agentTypeLabel": "Agent type",
+  "@agentTypeLabel": { "description": "Label for the agent type chip group in the approve form" },
+  "agentIconLabel": "Icon",
+  "@agentIconLabel": { "description": "Label for the agent icon picker in the approve form" },
+  "agentTypeOpenClaw": "Open Claw",
+  "@agentTypeOpenClaw": { "description": "Agent type option — Open Claw" },
+  "agentTypeClaudeCode": "Claude Code",
+  "@agentTypeClaudeCode": { "description": "Agent type option — Claude Code" },
+  "agentTypeHermes": "Hermes",
+  "@agentTypeHermes": { "description": "Agent type option — Hermes" },
+  "agentTypeOther": "Other",
+  "@agentTypeOther": { "description": "Agent type option — Other" }
 }

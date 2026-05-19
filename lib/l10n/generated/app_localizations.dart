@@ -1939,6 +1939,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Edit'**
   String get agentsEditIcon;
+
+  /// Title of the approve-agent form sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Approve Agent'**
+  String get agentApproveTitle;
+
+  /// Label for the optional agent name input in the approve form
+  ///
+  /// In en, this message translates to:
+  /// **'Name (optional)'**
+  String get agentNameLabel;
+
+  /// Label for the agent type chip group in the approve form
+  ///
+  /// In en, this message translates to:
+  /// **'Agent type'**
+  String get agentTypeLabel;
+
+  /// Label for the agent icon picker in the approve form
+  ///
+  /// In en, this message translates to:
+  /// **'Icon'**
+  String get agentIconLabel;
+
+  /// Agent type option — Open Claw
+  ///
+  /// In en, this message translates to:
+  /// **'Open Claw'**
+  String get agentTypeOpenClaw;
+
+  /// Agent type option — Claude Code
+  ///
+  /// In en, this message translates to:
+  /// **'Claude Code'**
+  String get agentTypeClaudeCode;
+
+  /// Agent type option — Hermes
+  ///
+  /// In en, this message translates to:
+  /// **'Hermes'**
+  String get agentTypeHermes;
+
+  /// Agent type option — Other
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get agentTypeOther;
 }
 
 class _AppLocalizationsDelegate

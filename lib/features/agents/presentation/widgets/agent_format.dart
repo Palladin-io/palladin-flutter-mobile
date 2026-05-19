@@ -68,6 +68,53 @@ String agentInitials(String? name) {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
+/// The four agent-type wire values, paired with their localized label.
+///
+/// Order is fixed so the approve form renders the chips consistently.
+List<({String value, String label})> agentTypeOptions(AppLocalizations l10n) {
+  return [
+    (value: 'openClaw', label: l10n.agentTypeOpenClaw),
+    (value: 'claudeCode', label: l10n.agentTypeClaudeCode),
+    (value: 'hermes', label: l10n.agentTypeHermes),
+    (value: 'other', label: l10n.agentTypeOther),
+  ];
+}
+
+/// Resolves a type wire value to its localized label, or `null` when the
+/// value is unknown / unset — used by the detail screen's type badge.
+String? agentTypeLabel(AppLocalizations l10n, String? type) {
+  if (type == null) return null;
+  for (final option in agentTypeOptions(l10n)) {
+    if (option.value == type) return option.label;
+  }
+  return null;
+}
+
+/// The eight Material icon names offered in the approve form's icon
+/// picker, in display order.
+const List<String> agentIconOptions = [
+  'smart_toy', 'memory', 'hub', 'token',
+  'terminal', 'code', 'psychology', 'auto_mode',
+];
+
+/// Maps a stored [iconKey] to its [IconData].
+///
+/// Falls back to `smart_toy` for an unknown or `null` key so the UI
+/// always has a glyph to render.
+IconData agentIconData(String? iconKey) {
+  return switch (iconKey) {
+    'smart_toy' => Icons.smart_toy,
+    'memory' => Icons.memory,
+    'hub' => Icons.hub,
+    'token' => Icons.token,
+    'terminal' => Icons.terminal,
+    'code' => Icons.code,
+    'psychology' => Icons.psychology,
+    'auto_mode' => Icons.auto_mode,
+    _ => Icons.smart_toy,
+  };
+}
+
 /// Deterministically picks an avatar tint for an agent from a fixed
 /// palette, keyed on the agent id so the colour is stable across loads.
 Color agentAvatarColor(String agentId) {

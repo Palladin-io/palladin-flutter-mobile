@@ -3,10 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../domain/entities/agent.dart';
 import '../bloc/agents_cubit.dart';
 import '../widgets/agent_card.dart';
@@ -66,6 +68,20 @@ class _AgentsViewState extends State<_AgentsView> {
     final cubit = context.read<AgentsCubit>();
     await context.push('/agents/$agentId');
     if (mounted) await cubit.load();
+  }
+
+  /// Opens the approve form for [agent] straight from the list card and
+  /// runs the approval with the admin's choices.
+  Future<void> _onApproveAgent(BuildContext context, Agent agent) async {
+    final cubit = context.read<AgentsCubit>();
+    final result = await ApproveAgentSheet.show(context);
+    if (result == null) return;
+    await cubit.approveAgent(
+      agent.agentId,
+      name: result.name,
+      type: result.type,
+      iconKey: result.iconKey,
+    );
   }
 
   @override
@@ -150,6 +166,7 @@ class _AgentsViewState extends State<_AgentsView> {
                           selectedAgentId:
                               isSplit ? _selectedAgentId : null,
                           onOpenAgent: (id) => _openAgent(id, isSplit),
+                          onApproveAgent: _onApproveAgent,
                         ),
                       );
                       if (!isSplit) return list;
@@ -195,11 +212,13 @@ class _Body extends StatelessWidget {
     required this.state,
     required this.selectedAgentId,
     required this.onOpenAgent,
+    required this.onApproveAgent,
   });
 
   final AgentsState state;
   final String? selectedAgentId;
   final ValueChanged<String> onOpenAgent;
+  final Future<void> Function(BuildContext, Agent) onApproveAgent;
 
   @override
   Widget build(BuildContext context) {
@@ -219,6 +238,7 @@ class _Body extends StatelessWidget {
               agents: state.agents,
               selectedAgentId: selectedAgentId,
               onOpenAgent: onOpenAgent,
+              onApproveAgent: onApproveAgent,
             ),
     };
   }
@@ -229,14 +249,21 @@ class _AgentsList extends StatelessWidget {
     required this.agents,
     required this.selectedAgentId,
     required this.onOpenAgent,
+    required this.onApproveAgent,
   });
 
   final List<Agent> agents;
   final String? selectedAgentId;
   final ValueChanged<String> onOpenAgent;
+  final Future<void> Function(BuildContext, Agent) onApproveAgent;
 
   @override
   Widget build(BuildContext context) {
+    final authState = context.watch<AuthBloc>().state;
+    final permissions =
+        authState is AuthAuthenticated ? authState.permissions : 0;
+    final canManage = (permissions & Permissions.agentManage) != 0;
+
     return ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
@@ -249,6 +276,9 @@ class _AgentsList extends StatelessWidget {
             agent: agent,
             selected: agent.agentId == selectedAgentId,
             onTap: () => onOpenAgent(agent.agentId),
+            onApprove: canManage
+                ? () => onApproveAgent(context, agent)
+                : null,
           ),
         );
       },
@@ -265,13 +295,14 @@ class _SplitDetailPane extends StatelessWidget {
   final String? agentId;
 
   Future<void> _onApprove(BuildContext context, Agent agent) async {
-    final l10n = AppLocalizations.of(context)!;
-    final confirmed = await ApproveAgentSheet.show(
-      context,
-      agentDisplayName(l10n, agent),
-    );
-    if (!confirmed || !context.mounted) return;
-    await context.read<AgentsCubit>().approveAgent(agent.agentId);
+    final result = await ApproveAgentSheet.show(context);
+    if (result == null || !context.mounted) return;
+    await context.read<AgentsCubit>().approveAgent(
+          agent.agentId,
+          name: result.name,
+          type: result.type,
+          iconKey: result.iconKey,
+        );
   }
 
   Future<void> _onDeactivate(BuildContext context, Agent agent) async {
@@ -364,15 +395,18 @@ class _SplitDetailPane extends StatelessWidget {
                       ),
                     ),
                   ),
-                  TextButton.icon(
-                    icon: const Icon(Icons.edit_outlined, size: 16),
-                    label: Text(l10n.agentsEditIcon),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.tealAccent,
+                  // Pending agents have nothing editable yet — the edit
+                  // affordance only appears once they are approved.
+                  if (!agent.isPending)
+                    TextButton.icon(
+                      icon: const Icon(Icons.edit_outlined, size: 16),
+                      label: Text(l10n.agentsEditIcon),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.tealAccent,
+                      ),
+                      onPressed: () =>
+                          AgentEditPage.push(context, agent.agentId),
                     ),
-                    onPressed: () =>
-                        AgentEditPage.push(context, agent.agentId),
-                  ),
                 ],
               ),
             ),

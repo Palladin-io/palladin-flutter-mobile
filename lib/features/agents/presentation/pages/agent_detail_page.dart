@@ -42,13 +42,14 @@ class _AgentDetailView extends StatelessWidget {
   final String agentId;
 
   Future<void> _onApprove(BuildContext context, Agent agent) async {
-    final l10n = AppLocalizations.of(context)!;
-    final confirmed = await ApproveAgentSheet.show(
-      context,
-      agentDisplayName(l10n, agent),
-    );
-    if (!confirmed || !context.mounted) return;
-    await context.read<AgentsCubit>().approveAgent(agent.agentId);
+    final result = await ApproveAgentSheet.show(context);
+    if (result == null || !context.mounted) return;
+    await context.read<AgentsCubit>().approveAgent(
+          agent.agentId,
+          name: result.name,
+          type: result.type,
+          iconKey: result.iconKey,
+        );
   }
 
   Future<void> _onDeactivate(BuildContext context, Agent agent) async {
@@ -88,9 +89,14 @@ class _AgentDetailView extends StatelessWidget {
           actions: [
             // The edit action is only useful for an agent that exists in
             // the loaded list — disabled while loading / on a missing id.
+            // Pending agents have nothing editable yet, so the button is
+            // hidden entirely until they are approved.
             BlocBuilder<AgentsCubit, AgentsState>(
               builder: (context, state) {
                 final agent = state.agentById(agentId);
+                if (agent != null && agent.isPending) {
+                  return const SizedBox.shrink();
+                }
                 return IconButton(
                   tooltip: l10n.agentsEditIcon,
                   icon: const Icon(Icons.edit_outlined, size: 20),

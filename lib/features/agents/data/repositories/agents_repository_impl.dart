@@ -43,10 +43,20 @@ class AgentsRepositoryImpl implements AgentsRepository {
   }
 
   @override
-  Future<void> approveAgent(String agentId) async {
+  Future<void> approveAgent(
+    String agentId, {
+    String? name,
+    String? type,
+    String? iconKey,
+  }) async {
     try {
-      AppLogger.d('Agents', 'POST /api/agents/$agentId/approve');
-      await _dataSource.approveAgent(agentId);
+      AppLogger.d('Agents', 'PATCH /api/agents/$agentId/approve');
+      await _dataSource.approveAgent(
+        agentId,
+        name: name,
+        type: type,
+        iconKey: iconKey,
+      );
     } on DioException catch (e, s) {
       AppLogger.e('Agents', 'approveAgent failed', error: e, stackTrace: s);
       throw AgentsException(_classifyError(e));

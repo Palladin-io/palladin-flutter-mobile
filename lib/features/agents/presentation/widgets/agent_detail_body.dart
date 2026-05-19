@@ -127,9 +127,16 @@ class _HeroCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: AgentStatusBadge(status: agent.status),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        AgentStatusBadge(status: agent.status),
+                        if (agentTypeLabel(l10n, agent.type) != null)
+                          _AgentTypeBadge(
+                            label: agentTypeLabel(l10n, agent.type)!,
+                          ),
+                      ],
                     ),
                   ],
                 ),
@@ -151,9 +158,7 @@ class _HeroCard extends StatelessWidget {
           const SizedBox(height: 16),
           _DetailRow(
             label: l10n.agentsDetailPublicKey,
-            value: agent.publicKeySuffix.isEmpty
-                ? '—'
-                : agent.publicKeySuffix,
+            value: agent.publicKeyDisplay,
             mono: true,
           ),
           const SizedBox(height: 8),
@@ -398,6 +403,37 @@ class _DangerZone extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Neutral pill rendering the agent's type label next to the status
+/// badge. Uses a muted tint so it never competes with the status pill.
+class _AgentTypeBadge extends StatelessWidget {
+  const _AgentTypeBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final color = AppColors.onSurfaceMuted(brightness);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.3,
+        ),
       ),
     );
   }

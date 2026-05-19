@@ -15,7 +15,16 @@ abstract interface class AgentsRepository {
   Future<Agent> getAgent(String agentId);
 
   /// Approves a pending agent, granting it access to the organization.
-  Future<void> approveAgent(String agentId);
+  ///
+  /// Optionally sets the agent's [name], [type] and [iconKey] at
+  /// approval time. Passing `null` for any of them leaves the server
+  /// default unchanged.
+  Future<void> approveAgent(
+    String agentId, {
+    String? name,
+    String? type,
+    String? iconKey,
+  });
 
   /// Deactivates an active agent — it immediately loses all access.
   Future<void> deactivateAgent(String agentId);

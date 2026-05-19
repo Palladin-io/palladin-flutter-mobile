@@ -11,6 +11,10 @@ class AgentModel {
     required this.status,
     required this.publicKeySuffix,
     required this.createdAt,
+    this.type,
+    this.iconKey,
+    this.publicKeyPrefix = '',
+    this.publicKey = '',
     this.enrolledAt,
     this.enrolledByName,
     this.deactivatedAt,
@@ -24,6 +28,21 @@ class AgentModel {
   /// Wire-format status integer — `1` pending / `2` active /
   /// `3` deactivated.
   final int status;
+
+  /// Agent classification — `openClaw` / `claudeCode` / `hermes` /
+  /// `other`, or `null` when not set.
+  final String? type;
+
+  /// Material icon name chosen for the agent, or `null` when unset.
+  final String? iconKey;
+
+  /// First 8 characters of the public key. Defaults to `''` for older
+  /// payloads that pre-date this field.
+  final String publicKeyPrefix;
+
+  /// Full public key. Defaults to `''` for older payloads that only
+  /// exposed the suffix.
+  final String publicKey;
 
   final String publicKeySuffix;
   final String createdAt;
@@ -40,6 +59,10 @@ class AgentModel {
       // Default to `3` (deactivated) on a missing/malformed status so a
       // bad payload fails closed rather than rendering as active.
       status: (json['status'] as num?)?.toInt() ?? 3,
+      type: json['type'] as String?,
+      iconKey: json['iconKey'] as String?,
+      publicKeyPrefix: (json['publicKeyPrefix'] as String?) ?? '',
+      publicKey: (json['publicKey'] as String?) ?? '',
       publicKeySuffix: (json['publicKeySuffix'] as String?) ?? '',
       createdAt: json['createdAt'] as String,
       enrolledAt: json['enrolledAt'] as String?,
@@ -55,6 +78,10 @@ class AgentModel {
       agentId: agentId,
       name: name,
       status: AgentStatusExtension.fromWire(status),
+      type: type,
+      iconKey: iconKey,
+      publicKeyPrefix: publicKeyPrefix,
+      publicKey: publicKey,
       publicKeySuffix: publicKeySuffix,
       createdAt: DateTime.parse(createdAt),
       enrolledAt: enrolledAt != null ? DateTime.parse(enrolledAt!) : null,

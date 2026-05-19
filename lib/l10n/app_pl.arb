@@ -306,5 +306,13 @@
   "agentsEditDescription": "Opis",
   "agentsEditSave": "Zapisz",
   "agentsRetry": "Ponów",
-  "agentsEditIcon": "Edytuj"
+  "agentsEditIcon": "Edytuj",
+  "agentApproveTitle": "Zatwierdź agenta",
+  "agentNameLabel": "Nazwa (opcjonalna)",
+  "agentTypeLabel": "Typ agenta",
+  "agentIconLabel": "Ikona",
+  "agentTypeOpenClaw": "Open Claw",
+  "agentTypeClaudeCode": "Claude Code",
+  "agentTypeHermes": "Hermes",
+  "agentTypeOther": "Inne"
 }

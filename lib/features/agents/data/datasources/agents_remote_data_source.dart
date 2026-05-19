@@ -37,9 +37,23 @@ class AgentsRemoteDataSource {
     return AgentModel.fromJson(data);
   }
 
-  /// `POST /api/agents/{agentId}/approve` → 200 (no body).
-  Future<void> approveAgent(String agentId) async {
-    await _dio.post<void>('/api/agents/$agentId/approve');
+  /// `PATCH /api/agents/{agentId}/approve` → 200 (no body).
+  ///
+  /// Optionally sets the agent's [name], [type] and [iconKey] at
+  /// approval time. Only the keys present in the body are applied — a
+  /// `null` argument is omitted so the server keeps its default.
+  Future<void> approveAgent(
+    String agentId, {
+    String? name,
+    String? type,
+    String? iconKey,
+  }) async {
+    final body = <String, dynamic>{
+      'name': ?name,
+      'type': ?type,
+      'iconKey': ?iconKey,
+    };
+    await _dio.patch<void>('/api/agents/$agentId/approve', data: body);
   }
 
   /// `POST /api/agents/{agentId}/deactivate` → 200 (no body).

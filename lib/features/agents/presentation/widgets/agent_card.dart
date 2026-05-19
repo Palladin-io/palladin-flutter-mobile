@@ -8,20 +8,27 @@ import 'agent_format.dart';
 
 /// A single tappable agent row on the list screen.
 ///
-/// Shows the coloured avatar, the agent name, a status dot and a
+/// Shows the coloured avatar, the agent name, a status dot, a
 /// status-aware subtitle ("Enrolled Feb 20" / "Pending approval" /
-/// "Deactivated Feb 20"). Tapping the card opens the detail screen; all
-/// actions live there, so the card itself carries no buttons.
+/// "Deactivated Feb 20"), the abbreviated public key and — for pending
+/// agents — an inline "Approve" button. Tapping the card opens the
+/// detail screen.
 class AgentCard extends StatelessWidget {
   const AgentCard({
     super.key,
     required this.agent,
     required this.onTap,
+    this.onApprove,
     this.selected = false,
   });
 
   final Agent agent;
   final VoidCallback onTap;
+
+  /// Invoked when the inline "Approve" button is tapped on a pending
+  /// agent. When `null` the button is hidden — e.g. for a viewer who
+  /// lacks the manage permission.
+  final VoidCallback? onApprove;
 
   /// When true the card is highlighted — used by the split-view layout
   /// to indicate which agent is open in the detail pane.
@@ -45,6 +52,7 @@ class AgentCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     final statusColor = agentStatusColor(agent.isActive, agent.isPending);
+    final showApprove = agent.isPending && onApprove != null;
 
     return Material(
       color: Colors.transparent,
@@ -62,48 +70,102 @@ class AgentCard extends StatelessWidget {
                   : AppColors.cardBorder(brightness),
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AgentAvatar(agentId: agent.agentId, name: agent.name),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              Row(
+                children: [
+                  AgentAvatar(agentId: agent.agentId, name: agent.name),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            agentDisplayName(l10n, agent),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: AppColors.onSurface(brightness),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                agentDisplayName(l10n, agent),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: AppColors.onSurface(brightness),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
+                            const SizedBox(width: 8),
+                            AgentStatusDot(color: statusColor),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _subtitle(l10n),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.onSurfaceSubtle(brightness),
+                            fontSize: 11,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        AgentStatusDot(color: statusColor),
+                        const SizedBox(height: 4),
+                        Text(
+                          agent.publicKeyDisplay,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.onSurfaceSubtle(brightness),
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _subtitle(l10n),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppColors.onSurfaceSubtle(brightness),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+              if (showApprove) ...[
+                const SizedBox(height: 10),
+                _InlineApproveButton(onPressed: onApprove!),
+              ],
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Compact brand-red "Approve" button shown on a pending agent's card.
+class _InlineApproveButton extends StatelessWidget {
+  const _InlineApproveButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return SizedBox(
+      width: double.infinity,
+      height: 36,
+      child: TextButton.icon(
+        icon: const Icon(Icons.check_circle_outline, size: 14),
+        label: Text(
+          l10n.agentsApprove,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.brandRed,
+          backgroundColor: AppColors.brandRed.withValues(alpha: 0.12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        onPressed: onPressed,
       ),
     );
   }

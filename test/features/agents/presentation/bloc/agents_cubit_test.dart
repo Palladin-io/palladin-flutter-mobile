@@ -124,6 +124,59 @@ void main() {
     );
 
     blocTest<AgentsCubit, AgentsState>(
+      'forwards trimmed name, type and iconKey to the repository',
+      build: () {
+        when(() => repository.approveAgent(
+              any(),
+              name: any(named: 'name'),
+              type: any(named: 'type'),
+              iconKey: any(named: 'iconKey'),
+            )).thenAnswer((_) async {});
+        when(() => repository.listAgents())
+            .thenAnswer((_) async => activeList);
+        return buildCubit();
+      },
+      act: (cubit) => cubit.approveAgent(
+        'a1',
+        name: '  Build bot  ',
+        type: 'claudeCode',
+        iconKey: 'terminal',
+      ),
+      verify: (_) {
+        verify(() => repository.approveAgent(
+              'a1',
+              name: 'Build bot',
+              type: 'claudeCode',
+              iconKey: 'terminal',
+            )).called(1);
+      },
+    );
+
+    blocTest<AgentsCubit, AgentsState>(
+      'sends a blank name as null so the server keeps its default',
+      build: () {
+        when(() => repository.approveAgent(
+              any(),
+              name: any(named: 'name'),
+              type: any(named: 'type'),
+              iconKey: any(named: 'iconKey'),
+            )).thenAnswer((_) async {});
+        when(() => repository.listAgents())
+            .thenAnswer((_) async => activeList);
+        return buildCubit();
+      },
+      act: (cubit) => cubit.approveAgent('a1', name: '   '),
+      verify: (_) {
+        verify(() => repository.approveAgent(
+              'a1',
+              name: null,
+              type: null,
+              iconKey: null,
+            )).called(1);
+      },
+    );
+
+    blocTest<AgentsCubit, AgentsState>(
       'surfaces a transient mutationError without flipping status on failure',
       build: () {
         when(() => repository.approveAgent(any())).thenThrow(
@@ -340,5 +393,31 @@ void main() {
 
   test('pendingList fixture is wired for sanity', () {
     expect(pendingList.single.isPending, isTrue);
+  });
+
+  group('Agent.publicKeyDisplay', () {
+    Agent withKey({String prefix = '', String suffix = ''}) => Agent(
+          agentId: 'a1',
+          name: 'agent',
+          status: AgentStatus.active,
+          publicKeyPrefix: prefix,
+          publicKeySuffix: suffix,
+          createdAt: DateTime.utc(2026, 2, 20),
+        );
+
+    test('joins prefix and suffix with a bullet separator', () {
+      expect(
+        withKey(prefix: 'ed25519k', suffix: 'a8f2c4d1').publicKeyDisplay,
+        'ed25519k•••a8f2c4d1',
+      );
+    });
+
+    test('falls back to suffix only when prefix is absent', () {
+      expect(withKey(suffix: 'a8f2c4d1').publicKeyDisplay, 'a8f2c4d1');
+    });
+
+    test('falls back to a dash when neither part is present', () {
+      expect(withKey().publicKeyDisplay, '—');
+    });
   });
 }

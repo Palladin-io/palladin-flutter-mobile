@@ -1103,4 +1103,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentsEditIcon => 'Edit';
+
+  @override
+  String get agentApproveTitle => 'Approve Agent';
+
+  @override
+  String get agentNameLabel => 'Name (optional)';
+
+  @override
+  String get agentTypeLabel => 'Agent type';
+
+  @override
+  String get agentIconLabel => 'Icon';
+
+  @override
+  String get agentTypeOpenClaw => 'Open Claw';
+
+  @override
+  String get agentTypeClaudeCode => 'Claude Code';
+
+  @override
+  String get agentTypeHermes => 'Hermes';
+
+  @override
+  String get agentTypeOther => 'Other';
 }
