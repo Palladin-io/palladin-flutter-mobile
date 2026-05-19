@@ -37,7 +37,7 @@ class AgentsRemoteDataSource {
     return AgentModel.fromJson(data);
   }
 
-  /// `PATCH /api/agents/{agentId}/approve` → 200 (no body).
+  /// `POST /api/agents/{agentId}/approve` → 204 (no body).
   ///
   /// Optionally sets the agent's [name], [type] and [iconKey] at
   /// approval time. Only the keys present in the body are applied — a
@@ -53,7 +53,7 @@ class AgentsRemoteDataSource {
       'type': ?type,
       'iconKey': ?iconKey,
     };
-    await _dio.patch<void>('/api/agents/$agentId/approve', data: body);
+    await _dio.post<void>('/api/agents/$agentId/approve', data: body);
   }
 
   /// `POST /api/agents/{agentId}/deactivate` → 200 (no body).
