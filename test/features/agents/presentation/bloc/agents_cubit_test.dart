@@ -1,0 +1,344 @@
+import 'package:bloc_test/bloc_test.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+import 'package:mobile_claw_vault/features/agents/domain/entities/agent.dart';
+import 'package:mobile_claw_vault/features/agents/domain/exceptions/agents_exceptions.dart';
+import 'package:mobile_claw_vault/features/agents/domain/repositories/agents_repository.dart';
+import 'package:mobile_claw_vault/features/agents/presentation/bloc/agents_cubit.dart';
+
+class _MockAgentsRepository extends Mock implements AgentsRepository {}
+
+void main() {
+  late _MockAgentsRepository repository;
+
+  Agent agent(String id, AgentStatus status) => Agent(
+        agentId: id,
+        name: 'agent-$id',
+        status: status,
+        publicKeySuffix: 'a8f2c4d1',
+        createdAt: DateTime.utc(2026, 2, 20),
+        enrolledAt: status == AgentStatus.pending
+            ? null
+            : DateTime.utc(2026, 2, 20),
+      );
+
+  final pendingList = <Agent>[agent('a1', AgentStatus.pending)];
+  final activeList = <Agent>[agent('a1', AgentStatus.active)];
+  final deactivatedList = <Agent>[agent('a1', AgentStatus.deactivated)];
+  final mixedList = <Agent>[
+    agent('a1', AgentStatus.active),
+    agent('a2', AgentStatus.pending),
+    agent('a3', AgentStatus.deactivated),
+  ];
+
+  setUp(() {
+    repository = _MockAgentsRepository();
+  });
+
+  AgentsCubit buildCubit() => AgentsCubit(repository: repository);
+
+  group('AgentsCubit.load', () {
+    blocTest<AgentsCubit, AgentsState>(
+      'emits loading then loaded with agents',
+      build: () {
+        when(() => repository.listAgents())
+            .thenAnswer((_) async => mixedList);
+        return buildCubit();
+      },
+      act: (cubit) => cubit.load(),
+      expect: () => [
+        isA<AgentsState>()
+            .having((s) => s.status, 'status', AgentsStatus.loading),
+        isA<AgentsState>()
+            .having((s) => s.status, 'status', AgentsStatus.loaded)
+            .having((s) => s.agents.length, 'agents.length', 3)
+            .having((s) => s.activeCount, 'activeCount', 1),
+      ],
+    );
+
+    blocTest<AgentsCubit, AgentsState>(
+      'emits error on network failure',
+      build: () {
+        when(() => repository.listAgents()).thenThrow(
+          const AgentsException(AgentsErrorKind.networkError),
+        );
+        return buildCubit();
+      },
+      act: (cubit) => cubit.load(),
+      expect: () => [
+        isA<AgentsState>()
+            .having((s) => s.status, 'status', AgentsStatus.loading),
+        isA<AgentsState>()
+            .having((s) => s.status, 'status', AgentsStatus.error)
+            .having((s) => s.error, 'error', AgentsErrorKind.networkError),
+      ],
+    );
+  });
+
+  group('AgentsState.agentById', () {
+    test('resolves an agent present in the list', () {
+      final state = AgentsState(
+        status: AgentsStatus.loaded,
+        agents: mixedList,
+      );
+      expect(state.agentById('a2')?.status, AgentStatus.pending);
+    });
+
+    test('returns null for an unknown id', () {
+      final state = AgentsState(
+        status: AgentsStatus.loaded,
+        agents: mixedList,
+      );
+      expect(state.agentById('missing'), isNull);
+    });
+  });
+
+  group('AgentsCubit.approveAgent', () {
+    blocTest<AgentsCubit, AgentsState>(
+      'approves then refreshes the list',
+      build: () {
+        when(() => repository.approveAgent(any()))
+            .thenAnswer((_) async {});
+        when(() => repository.listAgents())
+            .thenAnswer((_) async => activeList);
+        return buildCubit();
+      },
+      act: (cubit) => cubit.approveAgent('a1'),
+      expect: () => [
+        isA<AgentsState>()
+            .having((s) => s.mutatingAgentId, 'mutatingAgentId', 'a1'),
+        isA<AgentsState>()
+            .having((s) => s.status, 'status', AgentsStatus.loaded)
+            .having((s) => s.mutatingAgentId, 'mutatingAgentId', isNull)
+            .having(
+              (s) => s.agents.single.status,
+              'agent.status',
+              AgentStatus.active,
+            ),
+      ],
+      verify: (_) {
+        verify(() => repository.approveAgent('a1')).called(1);
+        verify(() => repository.listAgents()).called(1);
+      },
+    );
+
+    blocTest<AgentsCubit, AgentsState>(
+      'surfaces a transient mutationError without flipping status on failure',
+      build: () {
+        when(() => repository.approveAgent(any())).thenThrow(
+          const AgentsException(AgentsErrorKind.forbidden),
+        );
+        return buildCubit();
+      },
+      act: (cubit) => cubit.approveAgent('a1'),
+      expect: () => [
+        isA<AgentsState>()
+            .having((s) => s.mutatingAgentId, 'mutatingAgentId', 'a1'),
+        // A failed mutation must keep status untouched (so the card
+        // stays visible) and only set the transient mutationError.
+        isA<AgentsState>()
+            .having((s) => s.status, 'status', AgentsStatus.initial)
+            .having((s) => s.error, 'error', isNull)
+            .having(
+              (s) => s.mutationError,
+              'mutationError',
+              AgentsErrorKind.forbidden,
+            )
+            .having((s) => s.mutatingAgentId, 'mutatingAgentId', isNull),
+      ],
+      verify: (_) {
+        verifyNever(() => repository.listAgents());
+      },
+    );
+  });
+
+  group('AgentsCubit.deactivateAgent', () {
+    blocTest<AgentsCubit, AgentsState>(
+      'deactivates then refreshes the list',
+      build: () {
+        when(() => repository.deactivateAgent(any()))
+            .thenAnswer((_) async {});
+        when(() => repository.listAgents())
+            .thenAnswer((_) async => deactivatedList);
+        return buildCubit();
+      },
+      act: (cubit) => cubit.deactivateAgent('a1'),
+      expect: () => [
+        isA<AgentsState>()
+            .having((s) => s.mutatingAgentId, 'mutatingAgentId', 'a1'),
+        isA<AgentsState>()
+            .having((s) => s.status, 'status', AgentsStatus.loaded)
+            .having((s) => s.mutatingAgentId, 'mutatingAgentId', isNull)
+            .having(
+              (s) => s.agents.single.status,
+              'agent.status',
+              AgentStatus.deactivated,
+            ),
+      ],
+      verify: (_) {
+        verify(() => repository.deactivateAgent('a1')).called(1);
+        verify(() => repository.listAgents()).called(1);
+      },
+    );
+  });
+
+  group('AgentsCubit.reactivateAgent', () {
+    blocTest<AgentsCubit, AgentsState>(
+      'reactivates then refreshes the list',
+      build: () {
+        when(() => repository.reactivateAgent(any()))
+            .thenAnswer((_) async {});
+        when(() => repository.listAgents())
+            .thenAnswer((_) async => activeList);
+        return buildCubit();
+      },
+      act: (cubit) => cubit.reactivateAgent('a1'),
+      expect: () => [
+        isA<AgentsState>()
+            .having((s) => s.mutatingAgentId, 'mutatingAgentId', 'a1'),
+        isA<AgentsState>()
+            .having((s) => s.status, 'status', AgentsStatus.loaded)
+            .having(
+              (s) => s.agents.single.status,
+              'agent.status',
+              AgentStatus.active,
+            ),
+      ],
+      verify: (_) {
+        verify(() => repository.reactivateAgent('a1')).called(1);
+      },
+    );
+
+    blocTest<AgentsCubit, AgentsState>(
+      'surfaces a transient mutationError on failure',
+      build: () {
+        when(() => repository.reactivateAgent(any())).thenThrow(
+          const AgentsException(AgentsErrorKind.networkError),
+        );
+        return buildCubit();
+      },
+      act: (cubit) => cubit.reactivateAgent('a1'),
+      expect: () => [
+        isA<AgentsState>()
+            .having((s) => s.mutatingAgentId, 'mutatingAgentId', 'a1'),
+        isA<AgentsState>()
+            .having(
+              (s) => s.mutationError,
+              'mutationError',
+              AgentsErrorKind.networkError,
+            )
+            .having((s) => s.mutatingAgentId, 'mutatingAgentId', isNull),
+      ],
+      verify: (_) {
+        verifyNever(() => repository.listAgents());
+      },
+    );
+  });
+
+  group('AgentsCubit.updateAgent', () {
+    blocTest<AgentsCubit, AgentsState>(
+      'trims fields, updates, then refreshes the list',
+      build: () {
+        when(() => repository.updateAgent(
+              any(),
+              name: any(named: 'name'),
+              description: any(named: 'description'),
+            )).thenAnswer((_) async {});
+        when(() => repository.listAgents())
+            .thenAnswer((_) async => activeList);
+        return buildCubit();
+      },
+      act: (cubit) => cubit.updateAgent(
+        'a1',
+        name: '  New name  ',
+        description: '  desc  ',
+      ),
+      expect: () => [
+        isA<AgentsState>()
+            .having((s) => s.mutatingAgentId, 'mutatingAgentId', 'a1'),
+        isA<AgentsState>()
+            .having((s) => s.status, 'status', AgentsStatus.loaded)
+            .having((s) => s.mutatingAgentId, 'mutatingAgentId', isNull),
+      ],
+      verify: (_) {
+        // Both fields must be trimmed before hitting the API.
+        verify(() => repository.updateAgent(
+              'a1',
+              name: 'New name',
+              description: 'desc',
+            )).called(1);
+        verify(() => repository.listAgents()).called(1);
+      },
+    );
+
+    blocTest<AgentsCubit, AgentsState>(
+      'surfaces a transient mutationError on failure',
+      build: () {
+        when(() => repository.updateAgent(
+              any(),
+              name: any(named: 'name'),
+              description: any(named: 'description'),
+            )).thenThrow(
+          const AgentsException(AgentsErrorKind.validation),
+        );
+        return buildCubit();
+      },
+      act: (cubit) => cubit.updateAgent('a1', name: 'x'),
+      expect: () => [
+        isA<AgentsState>()
+            .having((s) => s.mutatingAgentId, 'mutatingAgentId', 'a1'),
+        isA<AgentsState>()
+            .having(
+              (s) => s.mutationError,
+              'mutationError',
+              AgentsErrorKind.validation,
+            )
+            .having((s) => s.mutatingAgentId, 'mutatingAgentId', isNull),
+      ],
+      verify: (_) {
+        verifyNever(() => repository.listAgents());
+      },
+    );
+
+    blocTest<AgentsCubit, AgentsState>(
+      'acknowledgeMutationError clears the transient error',
+      build: () {
+        when(() => repository.updateAgent(
+              any(),
+              name: any(named: 'name'),
+              description: any(named: 'description'),
+            )).thenThrow(
+          const AgentsException(AgentsErrorKind.validation),
+        );
+        return buildCubit();
+      },
+      act: (cubit) async {
+        await cubit.updateAgent('a1', name: 'x');
+        cubit.acknowledgeMutationError();
+      },
+      skip: 2,
+      expect: () => [
+        isA<AgentsState>()
+            .having((s) => s.mutationError, 'mutationError', isNull),
+      ],
+    );
+  });
+
+  group('AgentStatusExtension.fromWire', () {
+    test('maps known wire values', () {
+      expect(AgentStatusExtension.fromWire(1), AgentStatus.pending);
+      expect(AgentStatusExtension.fromWire(2), AgentStatus.active);
+      expect(AgentStatusExtension.fromWire(3), AgentStatus.deactivated);
+    });
+
+    test('falls back to deactivated for unknown values', () {
+      expect(AgentStatusExtension.fromWire(99), AgentStatus.deactivated);
+      expect(AgentStatusExtension.fromWire(0), AgentStatus.deactivated);
+    });
+  });
+
+  test('pendingList fixture is wired for sanity', () {
+    expect(pendingList.single.isPending, isTrue);
+  });
+}

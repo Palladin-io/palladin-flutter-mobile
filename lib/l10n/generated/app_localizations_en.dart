@@ -976,4 +976,131 @@ class AppLocalizationsEn extends AppLocalizations {
   String apiKeysListSummary(int total, int active) {
     return '$total keys · $active active';
   }
+
+  @override
+  String get agentsScreenTitle => 'Agents';
+
+  @override
+  String agentsListSummary(int total, int active) {
+    return '$total agents, $active active';
+  }
+
+  @override
+  String get agentsEmpty => 'No agents yet';
+
+  @override
+  String get agentsEmptyHint =>
+      'Connect your first agent using the CLI to get started';
+
+  @override
+  String get agentsUnnamed => 'Unnamed agent';
+
+  @override
+  String get agentsSplitPrompt => 'Select an agent to see its details';
+
+  @override
+  String get agentsStatusActive => 'Active';
+
+  @override
+  String get agentsStatusPending => 'Pending';
+
+  @override
+  String get agentsStatusDeactivated => 'Deactivated';
+
+  @override
+  String get agentsEnrolled => 'Enrolled';
+
+  @override
+  String get agentsDeactivated => 'Deactivated';
+
+  @override
+  String get agentsPendingApproval => 'Pending approval';
+
+  @override
+  String get agentsDetailTitle => 'Agent';
+
+  @override
+  String get agentsDetailNotFound => 'Agent not found';
+
+  @override
+  String get agentsDetailPublicKey => 'Public Key';
+
+  @override
+  String get agentsDetailCreatedAt => 'Connected';
+
+  @override
+  String get agentsDetailEnrolledAt => 'Enrolled';
+
+  @override
+  String get agentsDetailEnrolledBy => 'Enrolled by';
+
+  @override
+  String get agentsDetailDeactivatedAt => 'Deactivated';
+
+  @override
+  String get agentsApproveZone => 'APPROVE AGENT';
+
+  @override
+  String get agentsApproveHint => 'Grant this agent access to the organization';
+
+  @override
+  String get agentsApprove => 'Approve Agent';
+
+  @override
+  String get agentsApproving => 'Approving…';
+
+  @override
+  String get agentsDeactivateZone => 'DANGER ZONE';
+
+  @override
+  String get agentsDeactivate => 'Deactivate Agent';
+
+  @override
+  String get agentsDeactivating => 'Deactivating…';
+
+  @override
+  String get agentsReactivateZone => 'REACTIVATE';
+
+  @override
+  String get agentsReactivateHint => 'Re-enable access for this agent';
+
+  @override
+  String get agentsReactivate => 'Reactivate Agent';
+
+  @override
+  String get agentsReactivating => 'Reactivating…';
+
+  @override
+  String get agentsApproveConfirmTitle => 'Approve Agent';
+
+  @override
+  String agentsApproveConfirmBody(String name) {
+    return 'Allow \"$name\" to access organization vaults?';
+  }
+
+  @override
+  String get agentsDeactivateConfirmTitle => 'Deactivate Agent';
+
+  @override
+  String agentsDeactivateConfirmBody(String name) {
+    return 'Deactivate \"$name\"? It will immediately lose access.';
+  }
+
+  @override
+  String get agentsEditTitle => 'Edit Agent';
+
+  @override
+  String get agentsEditName => 'Display Name';
+
+  @override
+  String get agentsEditDescription => 'Description';
+
+  @override
+  String get agentsEditSave => 'Save';
+
+  @override
+  String get agentsRetry => 'Retry';
+
+  @override
+  String get agentsEditIcon => 'Edit';
 }

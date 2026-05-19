@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/agents/presentation/pages/agent_detail_page.dart';
+import '../../features/agents/presentation/pages/agent_edit_page.dart';
+import '../../features/agents/presentation/pages/agents_page.dart';
 import '../../features/api_keys/presentation/pages/api_key_detail_page.dart';
 import '../../features/api_keys/presentation/pages/api_keys_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
@@ -113,12 +116,29 @@ GoRouter createRouter(AuthBloc authBloc) {
               ),
             ],
           ),
+          // Agents — standalone list + detail + edit screens. Nested so
+          // the pushed detail / edit pages keep the shell (and its
+          // bottom nav) mounted across navigation, matching
+          // `/vaults/:vaultId`.
           GoRoute(
             path: '/agents',
-            builder: (context, _) => PlaceholderPage(
-              icon: Icons.smart_toy_outlined,
-              title: AppLocalizations.of(context)!.navAgents,
-            ),
+            builder: (_, _) => const AgentsPage(),
+            routes: [
+              GoRoute(
+                path: ':agentId',
+                builder: (_, state) => AgentDetailPage(
+                  agentId: state.pathParameters['agentId']!,
+                ),
+                routes: [
+                  GoRoute(
+                    path: 'edit',
+                    builder: (_, state) => AgentEditPage(
+                      agentId: state.pathParameters['agentId']!,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
           GoRoute(
             path: '/audit',
