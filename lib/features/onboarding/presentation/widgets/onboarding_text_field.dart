@@ -107,7 +107,7 @@ class _FieldFeedbackSlotState extends State<FieldFeedbackSlot>
         curve: Curves.easeOut,
         reverseCurve: Curves.easeIn,
       ),
-      axisAlignment: -1.0,
+      alignment: -1.0,
       child: FadeTransition(
         opacity: _controller,
         child: _innerContent(),
