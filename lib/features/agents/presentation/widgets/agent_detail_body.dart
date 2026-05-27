@@ -290,13 +290,11 @@ class _DetailsCard extends StatelessWidget {
   }
 }
 
-/// Identity header — avatar + name + status badge. Used at the top of
-/// the details card.
+/// Identity header — avatar + name + status badge + agent ID snippet.
 ///
-/// Layout mirrors the web panel's `AgentDetail` identity row:
-/// `[avatar] [name … ml-auto status-badge]` — name and badge live in a
-/// single inner Row so the badge pins flush to the right of the name on
-/// the same baseline, never on its own line.
+/// Layout: `[avatar] [name / status-badge / id-snippet]` — the right
+/// column is a vertical stack so the badge sits under the name and the
+/// abbreviated agent ID appears below both.
 class _IdentityHeader extends StatelessWidget {
   const _IdentityHeader({required this.agent});
 
@@ -306,6 +304,9 @@ class _IdentityHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+    final idSnippet = agent.agentId.length > 8
+        ? '${agent.agentId.substring(0, 8)}…'
+        : agent.agentId;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -313,23 +314,32 @@ class _IdentityHeader extends StatelessWidget {
         AgentAvatar(agentId: agent.agentId, name: agent.name, size: 40),
         const SizedBox(width: 12),
         Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Flexible(
-                child: Text(
-                  agentDisplayName(l10n, agent),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.onSurface(brightness),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
+              Text(
+                agentDisplayName(l10n, agent),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.onSurface(brightness),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(height: 4),
               AgentStatusBadge(status: agent.status),
+              const SizedBox(height: 4),
+              Text(
+                'ID: $idSnippet',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.onSurfaceSubtle(brightness),
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                ),
+              ),
             ],
           ),
         ),

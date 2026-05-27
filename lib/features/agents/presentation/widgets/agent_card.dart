@@ -5,7 +5,6 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/agent.dart';
 import 'agent_avatar.dart';
 import 'agent_format.dart';
-import 'agent_status_badge.dart';
 import 'approve_agent_sheet.dart';
 
 /// A single tappable agent row on the list screen.
@@ -53,6 +52,7 @@ class AgentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+    final statusColor = agentStatusColor(agent.isActive, agent.isPending);
     final showApprove = agent.isPending && onApprove != null;
 
     return Material(
@@ -82,18 +82,24 @@ class AgentCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          agentDisplayName(l10n, agent),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: AppColors.onSurface(brightness),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                agentDisplayName(l10n, agent),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: AppColors.onSurface(brightness),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            AgentStatusDot(color: statusColor),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        AgentStatusBadge(status: agent.status),
                         const SizedBox(height: 4),
                         Text(
                           _subtitle(l10n),
@@ -112,17 +118,6 @@ class AgentCard extends StatelessWidget {
                           style: TextStyle(
                             color: AppColors.onSurfaceSubtle(brightness),
                             fontSize: 11,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'ID: ${agent.agentId.length > 8 ? agent.agentId.substring(0, 8) : agent.agentId}…',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: AppColors.onSurfaceSubtle(brightness),
-                            fontSize: 10,
                             fontFamily: 'monospace',
                           ),
                         ),
