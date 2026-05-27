@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/icon_picker_grid.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import 'agent_format.dart';
@@ -450,8 +451,11 @@ class _AgentTypeAutocompleteState extends State<_AgentTypeAutocomplete> {
 // Icon grid (presets + "more" tile)
 // ────────────────────────────────────────────────────────────────────────
 
-/// Wrap of preset icon squares with a trailing "more" tile that opens
-/// the full icon browser. Mirrors the web grid layout.
+/// Two-row responsive grid of preset icon squares with a trailing "more"
+/// tile that opens the full icon browser.
+///
+/// When an icon from the browser is active it replaces the last preset
+/// slot so the "more" tile always stays at the end of the second row.
 class _IconGrid extends StatelessWidget {
   const _IconGrid({
     required this.selected,
@@ -467,34 +471,27 @@ class _IconGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // When a custom icon is picked from the browser (not in the preset
-    // list) we hide the last preset slot so it can fit in the row
-    // alongside the always-present "more" tile — mirrors the web panel.
     final presets = agentIconOptions;
     final isFromBrowser = selected != null && !presets.contains(selected);
-    final visiblePresets =
-        isFromBrowser ? presets.sublist(0, presets.length - 1) : presets;
+    // When a browser-picked icon is active, inject it at the end of the
+    // preset list (replacing the last slot) so the grid still has
+    // exactly the same pool size and "more" stays last.
+    final effectivePresets = isFromBrowser
+        ? [...presets.sublist(0, presets.length - 1), selected!]
+        : presets;
 
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        for (final iconKey in visiblePresets)
-          _IconTile(
-            iconKey: iconKey,
-            isSelected: selected == iconKey,
-            selectedColor: selectedColor,
-            onTap: () => onSelected(selected == iconKey ? null : iconKey),
-          ),
-        if (isFromBrowser && selected != null)
-          _IconTile(
-            iconKey: selected!,
-            isSelected: true,
-            selectedColor: selectedColor,
-            onTap: () => onSelected(null),
-          ),
-        _MoreIconTile(onTap: onMoreTapped),
-      ],
+    return IconPickerGrid(
+      itemCount: effectivePresets.length,
+      itemBuilder: (i) {
+        final iconKey = effectivePresets[i];
+        return _IconTile(
+          iconKey: iconKey,
+          isSelected: selected == iconKey,
+          selectedColor: selectedColor,
+          onTap: () => onSelected(selected == iconKey ? null : iconKey),
+        );
+      },
+      moreTile: _MoreIconTile(onTap: onMoreTapped),
     );
   }
 }

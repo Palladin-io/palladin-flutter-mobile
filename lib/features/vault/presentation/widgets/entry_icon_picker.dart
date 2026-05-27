@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/icon_picker_grid.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import 'vault_visuals.dart';
 
@@ -50,28 +51,20 @@ class EntryIconPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final choices = EntryVisuals.iconChoices;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _EntryUploadCircle(
-            accentColor: accentColor,
-            imageUrl: _isCustomUrl ? selected : null,
-            onTap: onPickCustom,
-            isLoading: isLoadingCustom,
-          ),
-          const SizedBox(width: 8),
-          for (int i = 0; i < choices.length; i++) ...[
-            _EntryIconCircle(
-              icon: choices[i].icon,
-              paletteColor: choices[i].paletteColor,
-              isSelected: !_isCustomUrl && choices[i].name == selected,
-              accentColor: accentColor,
-              onTap: () => onSelected(choices[i].name),
-            ),
-            if (i < choices.length - 1) const SizedBox(width: 8),
-          ],
-        ],
+    return IconPickerGrid(
+      itemCount: choices.length,
+      itemBuilder: (i) => _EntryIconCircle(
+        icon: choices[i].icon,
+        paletteColor: choices[i].paletteColor,
+        isSelected: !_isCustomUrl && choices[i].name == selected,
+        accentColor: accentColor,
+        onTap: () => onSelected(choices[i].name),
+      ),
+      leadingTile: _EntryUploadCircle(
+        accentColor: accentColor,
+        imageUrl: _isCustomUrl ? selected : null,
+        onTap: onPickCustom,
+        isLoading: isLoadingCustom,
       ),
     );
   }

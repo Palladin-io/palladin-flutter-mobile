@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/icon_picker_grid.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import 'vault_visuals.dart';
 
@@ -37,25 +38,23 @@ class VaultIconPicker extends StatelessWidget {
     final choices = VaultVisuals.iconChoices;
     final primaryColor = Theme.of(context).colorScheme.primary;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        if (onPickCustom != null)
-          _UploadCircle(
-            color: primaryColor,
-            accentColor: accentColor,
-            imageUrl: _isCustomUrl ? selected : null,
-            onTap: onPickCustom!,
-          ),
-        for (int i = 0; i < choices.length; i++)
-          _IconCircle(
-            icon: choices[i].icon,
-            paletteColor: choices[i].paletteColor,
-            isSelected: !_isCustomUrl && choices[i].name == selected,
-            accentColor: accentColor,
-            onTap: () => onSelected(choices[i].name),
-          ),
-      ],
+    return IconPickerGrid(
+      itemCount: choices.length,
+      itemBuilder: (i) => _IconCircle(
+        icon: choices[i].icon,
+        paletteColor: choices[i].paletteColor,
+        isSelected: !_isCustomUrl && choices[i].name == selected,
+        accentColor: accentColor,
+        onTap: () => onSelected(choices[i].name),
+      ),
+      leadingTile: onPickCustom != null
+          ? _UploadCircle(
+              color: primaryColor,
+              accentColor: accentColor,
+              imageUrl: _isCustomUrl ? selected : null,
+              onTap: onPickCustom!,
+            )
+          : null,
     );
   }
 }
