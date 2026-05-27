@@ -25,8 +25,12 @@ class AgentModel {
   final String agentId;
   final String? name;
 
-  /// Wire-format status integer — `1` pending / `2` active /
-  /// `3` deactivated.
+  /// Wire-format status — the .NET backend serializes the enum as a
+  /// camelCase string (`"pending"` / `"active"` / `"deactivated"`)
+  /// thanks to a global `JsonStringEnumConverter(JsonNamingPolicy.CamelCase)`.
+  /// We normalize it to an int here (`1` pending / `2` active /
+  /// `3` deactivated) and still accept the numeric form for backwards
+  /// compatibility with older payloads.
   final int status;
 
   /// Agent classification — `openClaw` / `claudeCode` / `hermes` /
@@ -56,9 +60,17 @@ class AgentModel {
     return AgentModel(
       agentId: json['agentId'] as String,
       name: json['name'] as String?,
-      // Default to `3` (deactivated) on a missing/malformed status so a
-      // bad payload fails closed rather than rendering as active.
-      status: (json['status'] as num?)?.toInt() ?? 3,
+      // Backend sends camelCase strings ("pending"/"active"/"deactivated")
+      // via JsonStringEnumConverter, but accept ints too for backwards
+      // compatibility. Default to `3` (deactivated) on a missing/malformed
+      // status so a bad payload fails closed rather than rendering as active.
+      status: switch (json['status']) {
+        final num n => n.toInt(),
+        'pending' => 1,
+        'active' => 2,
+        'deactivated' => 3,
+        _ => 3, // fail closed
+      },
       type: json['type'] as String?,
       iconKey: json['iconKey'] as String?,
       publicKeyPrefix: (json['publicKeyPrefix'] as String?) ?? '',
