@@ -7,21 +7,31 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../domain/entities/agent.dart';
 import 'agent_avatar.dart';
+import 'agent_edit_form.dart';
 import 'agent_format.dart';
 import 'agent_status_badge.dart';
+import 'approve_agent_sheet.dart';
+
+/// Tab segments shown on the agent detail screen — mirrors the web
+/// panel's `AgentDetail` so the two surfaces feel consistent.
+enum _AgentDetailTab { details, grants, logs }
 
 /// Scrollable detail body for a single agent.
 ///
-/// Renders the hero card (avatar, name, status badge, public key, dates)
-/// and the status-aware action zone:
-/// - pending → green "Approve" zone
-/// - active → red "Deactivate" danger zone
-/// - deactivated → green "Reactivate" zone (no permanent delete — agents
-///   are never deleted from the UI)
+/// Mirrors the web panel's `AgentDetail`:
+/// 1. **Tab bar** (Details / Grants / Logs). Grants is disabled until
+///    the agent is active. The active tab is underlined in brand red.
+/// 2. **Details tab** — hero card (avatar + name + status badge), an
+///    always-visible edit form (name + type + description), a read-only
+///    metadata list (public key, connected on, enrolled, deactivated)
+///    and a status-aware action zone (approve / deactivate / reactivate).
+/// 3. **Grants tab** — empty card placeholder until the grants module
+///    ships its mobile UI.
+/// 4. **Logs tab** — lifecycle timeline derived from the agent's dates.
 ///
 /// Reused unchanged by both the split-view detail pane and the pushed
 /// full-screen detail page.
-class AgentDetailBody extends StatelessWidget {
+class AgentDetailBody extends StatefulWidget {
   const AgentDetailBody({
     super.key,
     required this.agent,
@@ -43,6 +53,30 @@ class AgentDetailBody extends StatelessWidget {
   final VoidCallback onReactivate;
 
   @override
+  State<AgentDetailBody> createState() => _AgentDetailBodyState();
+}
+
+class _AgentDetailBodyState extends State<AgentDetailBody> {
+  _AgentDetailTab _activeTab = _AgentDetailTab.details;
+
+  @override
+  void didUpdateWidget(AgentDetailBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Snap back to Details whenever the user navigates to a different
+    // agent so the tab does not leak across selections (the split view
+    // mounts a single body and only swaps the [agent] prop).
+    if (oldWidget.agent.agentId != widget.agent.agentId) {
+      _activeTab = _AgentDetailTab.details;
+    }
+    // The Grants tab is only meaningful for an active agent — if the
+    // current agent flips back to non-active while we are on it, drop
+    // back to Details so we never render a disabled-tab content view.
+    if (_activeTab == _AgentDetailTab.grants && !widget.agent.isActive) {
+      _activeTab = _AgentDetailTab.details;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final authState = context.watch<AuthBloc>().state;
@@ -52,47 +86,165 @@ class AgentDetailBody extends StatelessWidget {
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
       children: [
-        _HeroCard(agent: agent),
-        if (canManage) ...[
-          const SizedBox(height: 16),
-          switch (agent.status) {
-            AgentStatus.pending => _ApproveZone(
-                isMutating: isMutating,
-                onApprove: onApprove,
-              ),
-            AgentStatus.active => _DangerZone(
-                label: l10n.agentsDeactivateZone,
-                actionLabel: isMutating
-                    ? l10n.agentsDeactivating
-                    : l10n.agentsDeactivate,
-                inFlight: isMutating,
-                icon: Icons.block,
-                onPressed: isMutating ? null : onDeactivate,
-              ),
-            AgentStatus.deactivated => _ReactivateZone(
-                isMutating: isMutating,
-                onReactivate: onReactivate,
-              ),
-          },
+        _TabBar(
+          active: _activeTab,
+          isAgentActive: widget.agent.isActive,
+          onSelected: (tab) => setState(() => _activeTab = tab),
+        ),
+        const SizedBox(height: 16),
+        if (_activeTab == _AgentDetailTab.details) ...[
+          _DetailsCard(agent: widget.agent, canEdit: canManage),
+          if (canManage) ...[
+            const SizedBox(height: 14),
+            _ActionZone(
+              agent: widget.agent,
+              isMutating: widget.isMutating,
+              onApprove: widget.onApprove,
+              onDeactivate: widget.onDeactivate,
+              onReactivate: widget.onReactivate,
+            ),
+          ],
         ],
+        if (_activeTab == _AgentDetailTab.grants)
+          _EmptyCard(
+            message: l10n.agentsGrantsEmpty,
+            hint: l10n.agentsGrantsEmptyHint,
+          ),
+        if (_activeTab == _AgentDetailTab.logs) _LogsCard(agent: widget.agent),
       ],
     );
   }
 }
 
-/// Hero card — avatar, name, status badge, public key suffix and the
-/// enrolled / created dates.
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.agent});
+// ─────────────────────────────────────────────────────────────────────────
+// Tab bar
+// ─────────────────────────────────────────────────────────────────────────
 
-  final Agent agent;
+/// Underlined tab bar — mirrors the web entry/agent detail pattern.
+///
+/// Active tab gets a brand-red underline + bold label; inactive tabs use
+/// the muted surface tint. The Grants tab is disabled until the agent
+/// reaches the active state.
+class _TabBar extends StatelessWidget {
+  const _TabBar({
+    required this.active,
+    required this.isAgentActive,
+    required this.onSelected,
+  });
+
+  final _AgentDetailTab active;
+  final bool isAgentActive;
+  final ValueChanged<_AgentDetailTab> onSelected;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+
+    final tabs = <({_AgentDetailTab tab, String label, bool disabled})>[
+      (tab: _AgentDetailTab.details, label: l10n.agentsTabDetails, disabled: false),
+      (
+        tab: _AgentDetailTab.grants,
+        label: l10n.agentsTabGrants,
+        disabled: !isAgentActive
+      ),
+      (tab: _AgentDetailTab.logs, label: l10n.agentsTabLogs, disabled: false),
+    ];
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppColors.cardBorder(brightness)),
+        ),
+      ),
+      child: Row(
+        children: [
+          for (final t in tabs)
+            _TabButton(
+              label: t.label,
+              isActive: active == t.tab,
+              disabled: t.disabled,
+              onTap: () => onSelected(t.tab),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TabButton extends StatelessWidget {
+  const _TabButton({
+    required this.label,
+    required this.isActive,
+    required this.disabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isActive;
+  final bool disabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+
+    final color = disabled
+        ? AppColors.onSurfaceSubtle(brightness).withValues(alpha: 0.4)
+        : isActive
+            ? AppColors.brandRed
+            : AppColors.onSurfaceSubtle(brightness);
+
+    return InkWell(
+      onTap: disabled ? null : onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isActive ? AppColors.brandRed : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Details tab — hero card with edit form + read-only metadata
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Card holding the identity header, the editable form and the read-only
+/// metadata list. Mirrors the web panel `AgentDetail` "Details" tab.
+class _DetailsCard extends StatelessWidget {
+  const _DetailsCard({required this.agent, required this.canEdit});
+
+  final Agent agent;
+
+  /// True when the operator may edit the agent — derived from the
+  /// `agentManage` permission.
+  final bool canEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    // The web detail uses canEdit = canManage && isActive — pending and
+    // deactivated agents are read-only in the form. Keep parity here.
+    final fieldsEnabled = canEdit && agent.isActive;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -104,182 +256,217 @@ class _HeroCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              AgentAvatar(
-                agentId: agent.agentId,
-                name: agent.name,
-                size: 48,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      agentDisplayName(l10n, agent),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppColors.onSurface(brightness),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        AgentStatusBadge(status: agent.status),
-                        if (agentTypeLabel(l10n, agent.type) != null)
-                          _AgentTypeBadge(
-                            label: agentTypeLabel(l10n, agent.type)!,
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          _IdentityHeader(agent: agent),
+          const SizedBox(height: 14),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.cardBorder(brightness),
           ),
-          if (agent.description != null &&
-              agent.description!.trim().isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Text(
-              agent.description!.trim(),
-              style: TextStyle(
-                color: AppColors.onSurfaceMuted(brightness),
-                fontSize: 12,
-                height: 1.4,
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          _DetailRow(
-            label: l10n.agentsDetailPublicKey,
-            value: agent.publicKeyDisplay,
-            mono: true,
+          const SizedBox(height: 14),
+          AgentEditForm(agent: agent, canEdit: fieldsEnabled),
+          const SizedBox(height: 14),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.cardBorder(brightness),
           ),
-          const SizedBox(height: 8),
-          _DetailRow(
-            label: l10n.agentsDetailCreatedAt,
-            value: formatAgentDate(agent.createdAt),
-          ),
-          if (agent.enrolledAt != null) ...[
-            const SizedBox(height: 8),
-            _DetailRow(
-              label: l10n.agentsDetailEnrolledAt,
-              value: formatAgentDate(agent.enrolledAt!),
-            ),
-          ],
-          if (agent.enrolledByName != null &&
-              agent.enrolledByName!.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            _DetailRow(
-              label: l10n.agentsDetailEnrolledBy,
-              value: agent.enrolledByName!,
-            ),
-          ],
-          if (agent.deactivatedAt != null) ...[
-            const SizedBox(height: 8),
-            _DetailRow(
-              label: l10n.agentsDetailDeactivatedAt,
-              value: formatAgentDate(agent.deactivatedAt!),
-            ),
-          ],
+          const SizedBox(height: 14),
+          _MetadataList(agent: agent, l10n: l10n),
         ],
       ),
     );
   }
 }
 
-/// Green-accented "approve" zone for a pending agent.
-class _ApproveZone extends StatelessWidget {
-  const _ApproveZone({required this.isMutating, required this.onApprove});
+/// Identity header — avatar + name + status badge. Used at the top of
+/// the details card.
+class _IdentityHeader extends StatelessWidget {
+  const _IdentityHeader({required this.agent});
 
-  final bool isMutating;
-  final VoidCallback onApprove;
+  final Agent agent;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return _AccentZone(
-      color: AppColors.positiveAccent,
-      label: l10n.agentsApproveZone,
-      hint: l10n.agentsApproveHint,
-      actionLabel: isMutating ? l10n.agentsApproving : l10n.agentsApprove,
-      inFlight: isMutating,
-      icon: Icons.check_circle_outline,
-      onPressed: isMutating ? null : onApprove,
+    final brightness = Theme.of(context).brightness;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AgentAvatar(agentId: agent.agentId, name: agent.name, size: 44),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              agentDisplayName(l10n, agent),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: AppColors.onSurface(brightness),
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: AgentStatusBadge(status: agent.status),
+        ),
+      ],
     );
   }
 }
 
-/// Green-accented "reactivate" zone for a deactivated agent.
-class _ReactivateZone extends StatelessWidget {
-  const _ReactivateZone({
+/// Read-only metadata list — public key + connected / enrolled /
+/// deactivated dates. Renders only the rows that have data, in the same
+/// order as the web panel.
+class _MetadataList extends StatelessWidget {
+  const _MetadataList({required this.agent, required this.l10n});
+
+  final Agent agent;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <Widget>[
+      _DetailRow(
+        label: l10n.agentsDetailPublicKey,
+        value: agent.publicKeyDisplay,
+        mono: true,
+      ),
+      _DetailRow(
+        label: l10n.agentsDetailCreatedAt,
+        value: formatAgentDate(agent.createdAt),
+      ),
+      if (agent.enrolledAt != null)
+        _DetailRow(
+          label: l10n.agentsDetailEnrolledAt,
+          value: _withSignedBy(formatAgentDate(agent.enrolledAt!),
+              agent.enrolledByName),
+        ),
+      if (agent.deactivatedAt != null)
+        _DetailRow(
+          label: l10n.agentsDetailDeactivatedAt,
+          value: _withSignedBy(formatAgentDate(agent.deactivatedAt!),
+              agent.deactivatedByName),
+        ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < rows.length; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          rows[i],
+        ],
+      ],
+    );
+  }
+
+  /// Appends `· {name}` after the formatted date when an attribution
+  /// name is available — mirrors the web "{date} · {name}" pattern.
+  String _withSignedBy(String date, String? name) {
+    if (name == null || name.trim().isEmpty) return date;
+    return '$date · ${name.trim()}';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Action zones — approve / deactivate / reactivate
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Status-aware action zone shown below the details card.
+///
+/// - `pending`     → green Approve zone with the approve CTA
+/// - `active`      → red Danger zone with the deactivate CTA
+/// - `deactivated` → green Reactivate zone with the reactivate CTA
+class _ActionZone extends StatelessWidget {
+  const _ActionZone({
+    required this.agent,
     required this.isMutating,
+    required this.onApprove,
+    required this.onDeactivate,
     required this.onReactivate,
   });
 
+  final Agent agent;
   final bool isMutating;
+  final VoidCallback onApprove;
+  final VoidCallback onDeactivate;
   final VoidCallback onReactivate;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return _AccentZone(
-      color: AppColors.positiveAccent,
-      label: l10n.agentsReactivateZone,
-      hint: l10n.agentsReactivateHint,
-      actionLabel:
-          isMutating ? l10n.agentsReactivating : l10n.agentsReactivate,
-      inFlight: isMutating,
-      icon: Icons.check_circle_outline,
-      onPressed: isMutating ? null : onReactivate,
-    );
+    return switch (agent.status) {
+      AgentStatus.pending => _PositiveZone(
+          title: l10n.agentsApproveZone,
+          hint: l10n.agentsApproveHint,
+          actionLabel:
+              isMutating ? l10n.agentsApproving : l10n.agentsApprove,
+          isLoading: isMutating,
+          onPressed: isMutating ? null : onApprove,
+        ),
+      AgentStatus.active => _DangerZone(
+          title: l10n.agentsDeactivateZone,
+          heading: l10n.agentsDeactivate,
+          hint: l10n.agentsDeactivateHint,
+          actionLabel:
+              isMutating ? l10n.agentsDeactivating : l10n.agentsDeactivate,
+          isLoading: isMutating,
+          onPressed: isMutating ? null : onDeactivate,
+        ),
+      AgentStatus.deactivated => _PositiveZone(
+          title: l10n.agentsReactivateZone,
+          hint: l10n.agentsReactivateHint,
+          actionLabel:
+              isMutating ? l10n.agentsReactivating : l10n.agentsReactivate,
+          isLoading: isMutating,
+          onPressed: isMutating ? null : onReactivate,
+        ),
+    };
   }
 }
 
-/// A coloured action card — a section label, a hint line and a single
-/// full-width tinted action button. Used for both the green approve /
-/// reactivate zones (positiveAccent) by [_ApproveZone] and
-/// [_ReactivateZone].
-class _AccentZone extends StatelessWidget {
-  const _AccentZone({
-    required this.color,
-    required this.label,
+/// Green-accented zone (approve / reactivate). Mirrors the web web
+/// `ActionZone tone="positive"` card.
+class _PositiveZone extends StatelessWidget {
+  const _PositiveZone({
+    required this.title,
     required this.hint,
     required this.actionLabel,
-    required this.inFlight,
-    required this.icon,
+    required this.isLoading,
     required this.onPressed,
   });
 
-  final Color color;
-  final String label;
+  final String title;
   final String hint;
   final String actionLabel;
-  final bool inFlight;
-  final IconData icon;
+  final bool isLoading;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        color: AppColors.positiveAccent.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.positiveAccent.withValues(alpha: 0.25),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
-            style: TextStyle(
-              color: color,
+            title,
+            style: const TextStyle(
+              color: AppColors.positiveAccent,
               fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.6,
@@ -289,42 +476,16 @@ class _AccentZone extends StatelessWidget {
           Text(
             hint,
             style: TextStyle(
-              color: color,
+              color: AppColors.positiveAccent.withValues(alpha: 0.85),
               fontSize: 11,
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: TextButton.icon(
-              icon: inFlight
-                  ? SizedBox(
-                      height: 14,
-                      width: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: color,
-                      ),
-                    )
-                  : Icon(icon, size: 14, color: color),
-              label: Text(
-                actionLabel,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: TextButton.styleFrom(
-                backgroundColor: color.withValues(alpha: 0.12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: onPressed,
-            ),
+          const SizedBox(height: 12),
+          ApproveActionButton(
+            label: actionLabel,
+            onPressed: onPressed,
+            isLoading: isLoading,
           ),
         ],
       ),
@@ -332,37 +493,42 @@ class _AccentZone extends StatelessWidget {
   }
 }
 
-/// A red-bordered destructive-action card — a section label above a
-/// single full-width tinted action button. Matches the danger-zone
-/// pattern used on the API-key and vault settings screens.
+/// Red-bordered destructive-action card — section label, a heading + hint
+/// and the full-width deactivate CTA.
 class _DangerZone extends StatelessWidget {
   const _DangerZone({
-    required this.label,
+    required this.title,
+    required this.heading,
+    required this.hint,
     required this.actionLabel,
-    required this.inFlight,
-    required this.icon,
+    required this.isLoading,
     required this.onPressed,
   });
 
-  final String label;
+  final String title;
+  final String heading;
+  final String hint;
   final String actionLabel;
-  final bool inFlight;
-  final IconData icon;
+  final bool isLoading;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.brandRed.withValues(alpha: 0.25)),
+        color: AppColors.brandRed.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.brandRed.withValues(alpha: 0.25),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
+            title,
             style: const TextStyle(
               color: AppColors.brandRed,
               fontSize: 11,
@@ -370,33 +536,56 @@ class _DangerZone extends StatelessWidget {
               letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
+          Text(
+            heading,
+            style: TextStyle(
+              color: AppColors.onSurface(brightness),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            hint,
+            style: TextStyle(
+              color: AppColors.onSurfaceSubtle(brightness),
+              fontSize: 11,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             height: 44,
             child: TextButton.icon(
-              icon: inFlight
+              icon: isLoading
                   ? const SizedBox(
-                      height: 14,
                       width: 14,
+                      height: 14,
                       child: CircularProgressIndicator(
                         strokeWidth: 1.5,
                         color: AppColors.brandRed,
                       ),
                     )
-                  : Icon(icon, size: 14, color: AppColors.brandRed),
+                  : const Icon(Icons.block, size: 16, color: AppColors.brandRed),
               label: Text(
                 actionLabel,
                 style: const TextStyle(
                   color: AppColors.brandRed,
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               style: TextButton.styleFrom(
                 backgroundColor: AppColors.brandRed.withValues(alpha: 0.12),
+                disabledBackgroundColor:
+                    AppColors.brandRed.withValues(alpha: 0.06),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(
+                    color: AppColors.brandRed.withValues(alpha: 0.3),
+                  ),
                 ),
               ),
               onPressed: onPressed,
@@ -408,38 +597,187 @@ class _DangerZone extends StatelessWidget {
   }
 }
 
-/// Neutral pill rendering the agent's type label next to the status
-/// badge. Uses a muted tint so it never competes with the status pill.
-class _AgentTypeBadge extends StatelessWidget {
-  const _AgentTypeBadge({required this.label});
+// ─────────────────────────────────────────────────────────────────────────
+// Logs tab — lifecycle timeline
+// ─────────────────────────────────────────────────────────────────────────
 
-  final String label;
+/// Lifecycle timeline derived from the agent's dates — first connected,
+/// enrolled, deactivated.
+class _LogsCard extends StatelessWidget {
+  const _LogsCard({required this.agent});
+
+  final Agent agent;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    final color = AppColors.onSurfaceMuted(brightness);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
+
+    final entries = <({String label, DateTime date, String? detail})>[
+      (
+        label: l10n.agentsLogsFirstConnected,
+        date: agent.createdAt,
+        detail: null
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.3,
+      if (agent.enrolledAt != null)
+        (
+          label: l10n.agentsLogsEnrolled,
+          date: agent.enrolledAt!,
+          detail: agent.enrolledByName
         ),
+      if (agent.deactivatedAt != null)
+        (
+          label: l10n.agentsLogsDeactivated,
+          date: agent.deactivatedAt!,
+          detail: agent.deactivatedByName
+        ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardFill(brightness),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder(brightness)),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < entries.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.cardBorder(brightness),
+              ),
+            _LogRow(
+              label: entries[i].label,
+              date: formatAgentDate(entries[i].date),
+              detail: entries[i].detail,
+            ),
+          ],
+        ],
       ),
     );
   }
 }
 
-/// A single label / value row inside the hero card.
+class _LogRow extends StatelessWidget {
+  const _LogRow({required this.label, required this.date, this.detail});
+
+  final String label;
+  final String date;
+  final String? detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 5),
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.onSurfaceSubtle(brightness),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: AppColors.onSurface(brightness),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (detail != null && detail!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    detail!.trim(),
+                    style: TextStyle(
+                      color: AppColors.onSurfaceSubtle(brightness),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            date,
+            style: TextStyle(
+              color: AppColors.onSurfaceSubtle(brightness),
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Generic empty-state card (used by Grants tab)
+// ─────────────────────────────────────────────────────────────────────────
+
+class _EmptyCard extends StatelessWidget {
+  const _EmptyCard({required this.message, this.hint});
+
+  final String message;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      decoration: BoxDecoration(
+        color: AppColors.cardFill(brightness),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder(brightness)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.onSurface(brightness),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (hint != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              hint!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.onSurfaceSubtle(brightness),
+                fontSize: 11,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Detail row — label + value, used inside the metadata list
+// ─────────────────────────────────────────────────────────────────────────
+
 class _DetailRow extends StatelessWidget {
   const _DetailRow({
     required this.label,

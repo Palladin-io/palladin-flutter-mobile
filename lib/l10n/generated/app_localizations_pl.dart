@@ -1073,6 +1073,10 @@ class AppLocalizationsPl extends AppLocalizations {
   String get agentsDeactivateZone => 'STREFA NIEBEZPIECZNA';
 
   @override
+  String get agentsDeactivateHint =>
+      'Agent natychmiast utraci dostęp do wszystkich sejfów';
+
+  @override
   String get agentsDeactivate => 'Dezaktywuj agenta';
 
   @override
@@ -1146,5 +1150,67 @@ class AppLocalizationsPl extends AppLocalizations {
   String get agentTypeHermes => 'Hermes';
 
   @override
+  String get agentTypeCursor => 'Cursor';
+
+  @override
+  String get agentTypeCopilot => 'GitHub Copilot';
+
+  @override
+  String get agentTypeGemini => 'Gemini';
+
+  @override
+  String get agentTypeCodex => 'OpenAI Codex';
+
+  @override
+  String get agentTypeKimiCode => 'Kimi Code';
+
+  @override
+  String get agentTypeDevin => 'Devin';
+
+  @override
+  String get agentTypeAider => 'Aider';
+
+  @override
+  String get agentTypeCline => 'Cline';
+
+  @override
+  String get agentTypeRoo => 'Roo Code';
+
+  @override
   String get agentTypeOther => 'Inne';
+
+  @override
+  String get agentApproveSetupHint =>
+      'Opcjonalnie ustaw nazwę, typ i ikonę przed aktywacją.';
+
+  @override
+  String get agentNamePlaceholder => 'np. Claude Code, Cursor';
+
+  @override
+  String get agentsTabDetails => 'Szczegóły';
+
+  @override
+  String get agentsTabGrants => 'Dostępy';
+
+  @override
+  String get agentsTabLogs => 'Historia';
+
+  @override
+  String get agentsGrantsEmpty => 'Brak aktywnych dostępów';
+
+  @override
+  String get agentsGrantsEmptyHint =>
+      'Ten agent nie ma jeszcze żadnych przyznanych wpisów';
+
+  @override
+  String get agentsLogsFirstConnected => 'Pierwsze połączenie';
+
+  @override
+  String get agentsLogsEnrolled => 'Zatwierdzono';
+
+  @override
+  String get agentsLogsDeactivated => 'Dezaktywowano';
+
+  @override
+  String get agentsEditSaved => 'Zmiany zapisane';
 }

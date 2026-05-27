@@ -68,14 +68,26 @@ String agentInitials(String? name) {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
-/// The four agent-type wire values, paired with their localized label.
+/// The thirteen built-in agent-type wire values, paired with their
+/// localized label. Mirrors the `BUILTIN_AGENT_TYPES` list shipped by the
+/// web panel so both surfaces offer the same set of presets.
 ///
-/// Order is fixed so the approve form renders the chips consistently.
+/// Order is fixed (alphabetical by label, with "Other" pinned last) so
+/// the approve form renders the chips consistently across sessions.
 List<({String value, String label})> agentTypeOptions(AppLocalizations l10n) {
   return [
-    (value: 'openClaw', label: l10n.agentTypeOpenClaw),
+    (value: 'aider', label: l10n.agentTypeAider),
     (value: 'claudeCode', label: l10n.agentTypeClaudeCode),
+    (value: 'cline', label: l10n.agentTypeCline),
+    (value: 'codex', label: l10n.agentTypeCodex),
+    (value: 'copilot', label: l10n.agentTypeCopilot),
+    (value: 'cursor', label: l10n.agentTypeCursor),
+    (value: 'devin', label: l10n.agentTypeDevin),
+    (value: 'gemini', label: l10n.agentTypeGemini),
     (value: 'hermes', label: l10n.agentTypeHermes),
+    (value: 'kimiCode', label: l10n.agentTypeKimiCode),
+    (value: 'openClaw', label: l10n.agentTypeOpenClaw),
+    (value: 'roo', label: l10n.agentTypeRoo),
     (value: 'other', label: l10n.agentTypeOther),
   ];
 }
@@ -90,12 +102,38 @@ String? agentTypeLabel(AppLocalizations l10n, String? type) {
   return null;
 }
 
-/// The eight Material icon names offered in the approve form's icon
-/// picker, in display order.
+/// Material icon names offered in the approve form's icon picker,
+/// in display order. Mirrors the web panel's `AGENT_ICON_OPTIONS` so
+/// the two surfaces stay visually aligned.
 const List<String> agentIconOptions = [
-  'smart_toy', 'memory', 'hub', 'token',
-  'terminal', 'code', 'psychology', 'auto_mode',
+  'smart_toy', 'memory', 'hub', 'token', 'terminal',
+  'psychology', 'auto_mode', 'support_agent', 'dns', 'code',
+  'api', 'cloud', 'extension', 'bolt', 'developer_mode',
 ];
+
+/// Per-glyph accent colour used as the unselected tint on the icon
+/// picker — mirrors the web panel's `AGENT_ICON_COLORS` map so the same
+/// preset reads with the same colour on every surface.
+Color agentIconColor(String iconKey) {
+  return switch (iconKey) {
+    'smart_toy' => AppColors.positiveAccent,
+    'terminal' => AppColors.positiveAccent,
+    'auto_mode' => AppColors.positiveAccent,
+    'code' => AppColors.positiveAccent,
+    'api' => AppColors.positiveAccent,
+    'developer_mode' => AppColors.positiveAccent,
+    'memory' => AppColors.vaultSlate,
+    'dns' => AppColors.vaultSlate,
+    'hub' => AppColors.vaultBlue,
+    'support_agent' => AppColors.vaultBlue,
+    'cloud' => AppColors.vaultBlue,
+    'token' => AppColors.vaultViolet,
+    'psychology' => AppColors.vaultViolet,
+    'extension' => AppColors.vaultViolet,
+    'bolt' => AppColors.vaultPeach,
+    _ => AppColors.vaultSlate,
+  };
+}
 
 /// Maps a stored [iconKey] to its [IconData].
 ///
@@ -108,9 +146,16 @@ IconData agentIconData(String? iconKey) {
     'hub' => Icons.hub,
     'token' => Icons.token,
     'terminal' => Icons.terminal,
-    'code' => Icons.code,
     'psychology' => Icons.psychology,
     'auto_mode' => Icons.auto_mode,
+    'support_agent' => Icons.support_agent,
+    'dns' => Icons.dns,
+    'code' => Icons.code,
+    'api' => Icons.api,
+    'cloud' => Icons.cloud,
+    'extension' => Icons.extension,
+    'bolt' => Icons.bolt,
+    'developer_mode' => Icons.developer_mode,
     _ => Icons.smart_toy,
   };
 }

@@ -7,14 +7,13 @@ import 'agents_state.dart';
 
 export 'agents_state.dart';
 
-/// Drives the agents feature — the list screen ([AgentsPage]), the
-/// detail screen ([AgentDetailPage]) and the edit screen
-/// ([AgentEditPage]).
+/// Drives the agents feature — the list screen ([AgentsPage]) and the
+/// detail screen ([AgentDetailPage]). Editing happens inline inside the
+/// detail screen's Details tab.
 ///
 /// Each screen mounts its own cubit instance (registered as a factory in
 /// DI), so stale loading / error state never leaks across visits. The
-/// detail and edit screens resolve their agent by id from the loaded
-/// list.
+/// detail screen resolves its agent by id from the loaded list.
 class AgentsCubit extends Cubit<AgentsState> {
   AgentsCubit({required this.repository}) : super(const AgentsState());
 

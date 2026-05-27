@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/agents/presentation/pages/agent_detail_page.dart';
-import '../../features/agents/presentation/pages/agent_edit_page.dart';
 import '../../features/agents/presentation/pages/agents_page.dart';
 import '../../features/api_keys/presentation/pages/api_key_detail_page.dart';
 import '../../features/api_keys/presentation/pages/api_keys_page.dart';
@@ -129,14 +128,6 @@ GoRouter createRouter(AuthBloc authBloc) {
                 builder: (_, state) => AgentDetailPage(
                   agentId: state.pathParameters['agentId']!,
                 ),
-                routes: [
-                  GoRoute(
-                    path: 'edit',
-                    builder: (_, state) => AgentEditPage(
-                      agentId: state.pathParameters['agentId']!,
-                    ),
-                  ),
-                ],
               ),
             ],
           ),

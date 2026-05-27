@@ -1844,6 +1844,12 @@ abstract class AppLocalizations {
   /// **'DANGER ZONE'**
   String get agentsDeactivateZone;
 
+  /// Hint inside the deactivate danger zone
+  ///
+  /// In en, this message translates to:
+  /// **'This agent will immediately lose access to all vaults'**
+  String get agentsDeactivateHint;
+
   /// Button label to deactivate an active agent
   ///
   /// In en, this message translates to:
@@ -1982,11 +1988,131 @@ abstract class AppLocalizations {
   /// **'Hermes'**
   String get agentTypeHermes;
 
+  /// Agent type option — Cursor
+  ///
+  /// In en, this message translates to:
+  /// **'Cursor'**
+  String get agentTypeCursor;
+
+  /// Agent type option — GitHub Copilot
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub Copilot'**
+  String get agentTypeCopilot;
+
+  /// Agent type option — Gemini
+  ///
+  /// In en, this message translates to:
+  /// **'Gemini'**
+  String get agentTypeGemini;
+
+  /// Agent type option — OpenAI Codex
+  ///
+  /// In en, this message translates to:
+  /// **'OpenAI Codex'**
+  String get agentTypeCodex;
+
+  /// Agent type option — Kimi Code
+  ///
+  /// In en, this message translates to:
+  /// **'Kimi Code'**
+  String get agentTypeKimiCode;
+
+  /// Agent type option — Devin
+  ///
+  /// In en, this message translates to:
+  /// **'Devin'**
+  String get agentTypeDevin;
+
+  /// Agent type option — Aider
+  ///
+  /// In en, this message translates to:
+  /// **'Aider'**
+  String get agentTypeAider;
+
+  /// Agent type option — Cline
+  ///
+  /// In en, this message translates to:
+  /// **'Cline'**
+  String get agentTypeCline;
+
+  /// Agent type option — Roo Code
+  ///
+  /// In en, this message translates to:
+  /// **'Roo Code'**
+  String get agentTypeRoo;
+
   /// Agent type option — Other
   ///
   /// In en, this message translates to:
   /// **'Other'**
   String get agentTypeOther;
+
+  /// Subtitle under the approve-agent dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Optionally set a name, type, and icon before activating.'**
+  String get agentApproveSetupHint;
+
+  /// Placeholder for the agent name input on the approve form
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Claude Code, Cursor'**
+  String get agentNamePlaceholder;
+
+  /// Tab label — agent details tab
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get agentsTabDetails;
+
+  /// Tab label — agent grants tab
+  ///
+  /// In en, this message translates to:
+  /// **'Grants'**
+  String get agentsTabGrants;
+
+  /// Tab label — agent logs tab
+  ///
+  /// In en, this message translates to:
+  /// **'Logs'**
+  String get agentsTabLogs;
+
+  /// Empty state for the agent grants tab
+  ///
+  /// In en, this message translates to:
+  /// **'No active grants'**
+  String get agentsGrantsEmpty;
+
+  /// Empty state hint for the agent grants tab
+  ///
+  /// In en, this message translates to:
+  /// **'This agent has not been granted access to any vault entries yet'**
+  String get agentsGrantsEmptyHint;
+
+  /// Timeline entry — agent first connected
+  ///
+  /// In en, this message translates to:
+  /// **'First connected'**
+  String get agentsLogsFirstConnected;
+
+  /// Timeline entry — agent was enrolled / approved
+  ///
+  /// In en, this message translates to:
+  /// **'Enrolled'**
+  String get agentsLogsEnrolled;
+
+  /// Timeline entry — agent was deactivated
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivated'**
+  String get agentsLogsDeactivated;
+
+  /// Snackbar after saving agent edit changes
+  ///
+  /// In en, this message translates to:
+  /// **'Agent saved'**
+  String get agentsEditSaved;
 }
 
 class _AppLocalizationsDelegate

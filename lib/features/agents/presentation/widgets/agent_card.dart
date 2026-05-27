@@ -5,6 +5,7 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/agent.dart';
 import 'agent_avatar.dart';
 import 'agent_format.dart';
+import 'approve_agent_sheet.dart';
 
 /// A single tappable agent row on the list screen.
 ///
@@ -137,7 +138,9 @@ class AgentCard extends StatelessWidget {
   }
 }
 
-/// Compact brand-red "Approve" button shown on a pending agent's card.
+/// Compact green "Approve" button shown on a pending agent's card.
+/// Reuses [ApproveActionButton] so card / sheet / detail action zone
+/// stay visually identical.
 class _InlineApproveButton extends StatelessWidget {
   const _InlineApproveButton({required this.onPressed});
 
@@ -146,27 +149,10 @@ class _InlineApproveButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return SizedBox(
-      width: double.infinity,
+    return ApproveActionButton(
+      label: l10n.agentsApprove,
+      onPressed: onPressed,
       height: 36,
-      child: TextButton.icon(
-        icon: const Icon(Icons.check_circle_outline, size: 14),
-        label: Text(
-          l10n.agentsApprove,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.brandRed,
-          backgroundColor: AppColors.brandRed.withValues(alpha: 0.12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        onPressed: onPressed,
-      ),
     );
   }
 }

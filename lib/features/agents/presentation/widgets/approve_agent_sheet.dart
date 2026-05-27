@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
 import 'agent_format.dart';
 
 /// Values an admin sets when approving a pending agent.
@@ -19,23 +18,31 @@ typedef ApproveAgentResult = ({
 /// Approve-agent form shown as a bottom sheet before a pending agent is
 /// granted access.
 ///
-/// Lets the admin optionally set a display name, pick an agent type
-/// (Open Claw / Claude Code / Hermes / Other) and choose an icon.
+/// Mirrors the web panel's `ApproveAgentDialog`: title + subtitle, name
+/// input, type chips (13 built-in types), icon grid (15 presets) and a
+/// 1:2 footer with a subtle Cancel and a green tinted Approve button.
 ///
 /// Resolves to an [ApproveAgentResult] when the admin confirms, or
 /// `null` when they cancel / dismiss without confirming.
 class ApproveAgentSheet extends StatefulWidget {
-  const ApproveAgentSheet({super.key});
+  const ApproveAgentSheet({super.key, this.initialName});
+
+  /// Pre-fills the name input — pass the agent's existing display name
+  /// so re-opening the sheet does not lose the prior input.
+  final String? initialName;
 
   /// Opens the sheet and returns the admin's choices, or `null` on
   /// cancel / dismiss.
-  static Future<ApproveAgentResult?> show(BuildContext context) {
+  static Future<ApproveAgentResult?> show(
+    BuildContext context, {
+    String? initialName,
+  }) {
     return showModalBottomSheet<ApproveAgentResult>(
       context: context,
       isScrollControlled: true,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const ApproveAgentSheet(),
+      builder: (_) => ApproveAgentSheet(initialName: initialName),
     );
   }
 
@@ -44,13 +51,20 @@ class ApproveAgentSheet extends StatefulWidget {
 }
 
 class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
-  final TextEditingController _nameController = TextEditingController();
+  late final TextEditingController _nameController;
 
   /// Selected agent type wire value, or `null` when none chosen.
   String? _selectedType;
 
   /// Selected Material icon name, or `null` when none chosen.
   String? _selectedIcon;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController =
+        TextEditingController(text: widget.initialName?.trim() ?? '');
+  }
 
   @override
   void dispose() {
@@ -65,6 +79,10 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
       type: _selectedType,
       iconKey: _selectedIcon,
     ));
+  }
+
+  void _cancel() {
+    Navigator.of(context).pop<ApproveAgentResult?>(null);
   }
 
   @override
@@ -90,19 +108,29 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const _SheetHandle(),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Text(
                   l10n.agentApproveTitle,
                   style: TextStyle(
                     color: AppColors.onSurface(brightness),
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  l10n.agentApproveSetupHint,
+                  style: TextStyle(
+                    color: AppColors.onSurfaceMuted(brightness),
+                    fontSize: 12,
+                    height: 1.4,
                   ),
                 ),
                 const SizedBox(height: 16),
                 OnboardingTextField(
                   controller: _nameController,
                   label: l10n.agentNameLabel,
+                  hintText: l10n.agentNamePlaceholder,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _confirm(),
@@ -123,30 +151,10 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
                   onSelected: (value) =>
                       setState(() => _selectedIcon = value),
                 ),
-                const SizedBox(height: 24),
-                PrimaryButton(
-                  label: l10n.agentsApprove,
-                  onPressed: _confirm,
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: () =>
-                      Navigator.of(context).pop<ApproveAgentResult?>(null),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.onSurface(brightness),
-                    side: BorderSide(color: AppColors.onSurface(brightness)),
-                    minimumSize: const Size(double.infinity, 44),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: Text(
-                    l10n.apiKeysCancel,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                const SizedBox(height: 20),
+                _ApproveFooter(
+                  onCancel: _cancel,
+                  onConfirm: _confirm,
                 ),
               ],
             ),
@@ -178,7 +186,7 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
-/// The four agent-type choice chips. Tapping a selected chip again
+/// The thirteen agent-type choice chips. Tapping a selected chip again
 /// deselects it so "no type" stays reachable.
 class _TypeChips extends StatelessWidget {
   const _TypeChips({required this.selected, required this.onSelected});
@@ -208,8 +216,9 @@ class _TypeChips extends StatelessWidget {
   }
 }
 
-/// A single bordered, tappable type chip. Selected state uses the brand
-/// red border + tint; unselected uses the subtle card border.
+/// A single bordered, tappable type chip. Selected state uses the green
+/// approve accent ([AppColors.positiveAccent]) so the approve flow reads
+/// consistently from chip → CTA. Unselected uses the subtle card border.
 class _ChoiceChipTile extends StatelessWidget {
   const _ChoiceChipTile({
     required this.label,
@@ -225,10 +234,10 @@ class _ChoiceChipTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final borderColor = isSelected
-        ? AppColors.brandRed
+        ? AppColors.positiveAccent
         : AppColors.cardBorder(brightness);
     final textColor = isSelected
-        ? AppColors.brandRed
+        ? AppColors.positiveAccent
         : AppColors.onSurfaceMuted(brightness);
 
     return Material(
@@ -240,7 +249,7 @@ class _ChoiceChipTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppColors.brandRed.withValues(alpha: 0.12)
+                ? AppColors.positiveAccent.withValues(alpha: 0.12)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(999),
             border: Border.all(color: borderColor),
@@ -259,8 +268,9 @@ class _ChoiceChipTile extends StatelessWidget {
   }
 }
 
-/// 4×2 grid of preset icon squares. Tapping a selected icon again
-/// deselects it.
+/// Wrap of preset icon squares. Tapping a selected icon again deselects
+/// it. Mirrors the web icon grid layout (5 per row at the default 40 px
+/// tile size — wraps naturally on narrower screens).
 class _IconGrid extends StatelessWidget {
   const _IconGrid({required this.selected, required this.onSelected});
 
@@ -285,6 +295,9 @@ class _IconGrid extends StatelessWidget {
 }
 
 /// A single 40×40 tappable icon square in the [_IconGrid].
+///
+/// Unselected: tinted with the glyph's preset accent ([agentIconColor]).
+/// Selected: green ring + green-tinted fill matching the approve CTA.
 class _IconTile extends StatelessWidget {
   const _IconTile({
     required this.iconKey,
@@ -298,13 +311,13 @@ class _IconTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final borderColor = isSelected
-        ? AppColors.brandRed
-        : AppColors.cardBorder(brightness);
-    final iconColor = isSelected
-        ? AppColors.brandRed
-        : AppColors.onSurfaceMuted(brightness);
+    final accent = agentIconColor(iconKey);
+    final fill = isSelected
+        ? AppColors.positiveAccent.withValues(alpha: 0.18)
+        : accent.withValues(alpha: 0.12);
+    final iconColor = isSelected ? AppColors.positiveAccent : accent;
+    final borderColor =
+        isSelected ? AppColors.positiveAccent : Colors.transparent;
 
     return Material(
       color: Colors.transparent,
@@ -315,13 +328,128 @@ class _IconTile extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.brandRed.withValues(alpha: 0.12)
-                : Colors.transparent,
+            color: fill,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: borderColor),
+            border: Border.all(color: borderColor, width: 1.5),
           ),
           child: Icon(agentIconData(iconKey), size: 20, color: iconColor),
+        ),
+      ),
+    );
+  }
+}
+
+/// Footer row matching the web modal pattern: a subtle Cancel (1 unit
+/// wide) next to a green tinted Approve CTA (2 units wide).
+class _ApproveFooter extends StatelessWidget {
+  const _ApproveFooter({required this.onCancel, required this.onConfirm});
+
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+
+    return Row(
+      children: [
+        Expanded(
+          flex: 1,
+          child: SizedBox(
+            height: 44,
+            child: OutlinedButton(
+              onPressed: onCancel,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.onSurface(brightness),
+                side: BorderSide(color: AppColors.cardBorder(brightness)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                l10n.apiKeysCancel,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          flex: 2,
+          child: ApproveActionButton(
+            label: l10n.agentsApprove,
+            onPressed: onConfirm,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Reusable green-tinted "approve" CTA. Mirrors the web button style:
+/// green text + icon on a translucent green fill with a green border.
+///
+/// Exported so the action zone and inline card button can render the
+/// same affordance — no duplicated styling.
+class ApproveActionButton extends StatelessWidget {
+  const ApproveActionButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.icon = Icons.check_circle_outline,
+    this.isLoading = false,
+    this.height = 44,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final bool isLoading;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null && !isLoading;
+    return SizedBox(
+      width: double.infinity,
+      height: height,
+      child: TextButton.icon(
+        onPressed: enabled ? onPressed : null,
+        icon: isLoading
+            ? const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  color: AppColors.positiveAccent,
+                ),
+              )
+            : Icon(icon, size: 16, color: AppColors.positiveAccent),
+        label: Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.positiveAccent,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.positiveAccent,
+          disabledForegroundColor:
+              AppColors.positiveAccent.withValues(alpha: 0.4),
+          backgroundColor: AppColors.positiveAccent.withValues(alpha: 0.12),
+          disabledBackgroundColor:
+              AppColors.positiveAccent.withValues(alpha: 0.06),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(
+              color: AppColors.positiveAccent.withValues(alpha: 0.3),
+            ),
+          ),
         ),
       ),
     );

@@ -17,7 +17,6 @@ import '../widgets/agent_format.dart';
 import '../widgets/approve_agent_sheet.dart';
 import '../widgets/deactivate_agent_sheet.dart';
 import 'agent_detail_page.dart';
-import 'agent_edit_page.dart';
 
 /// Standalone agents screen — the list of every agent for the
 /// organization.
@@ -379,8 +378,11 @@ class _SplitDetailPane extends StatelessWidget {
         }
         return Column(
           children: [
+            // Pane title — agent name only. The edit affordance now
+            // lives inline inside the Details tab, matching the web
+            // panel's split-view detail.
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
               child: Row(
                 children: [
                   Expanded(
@@ -395,18 +397,6 @@ class _SplitDetailPane extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Pending agents have nothing editable yet — the edit
-                  // affordance only appears once they are approved.
-                  if (!agent.isPending)
-                    TextButton.icon(
-                      icon: const Icon(Icons.edit_outlined, size: 16),
-                      label: Text(l10n.agentsEditIcon),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.tealAccent,
-                      ),
-                      onPressed: () =>
-                          AgentEditPage.push(context, agent.agentId),
-                    ),
                 ],
               ),
             ),

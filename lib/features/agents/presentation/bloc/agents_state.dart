@@ -6,11 +6,11 @@ enum AgentsStatus { initial, loading, loaded, error }
 
 /// Immutable state for the agents feature.
 ///
-/// Drives the list page ([AgentsPage]), the detail page
-/// ([AgentDetailPage]) and the edit page ([AgentEditPage]) — the detail
-/// and edit pages resolve their agent from [agents] by id so every
-/// surface always agrees (e.g. an approve on the detail page is
-/// reflected in the list without a separate refetch).
+/// Drives the list page ([AgentsPage]) and the detail page
+/// ([AgentDetailPage]) — the detail page resolves its agent from
+/// [agents] by id so every surface always agrees (e.g. an approve on
+/// the detail page is reflected in the list without a separate
+/// refetch).
 class AgentsState {
   const AgentsState({
     this.status = AgentsStatus.initial,

@@ -1053,6 +1053,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentsDeactivateZone => 'DANGER ZONE';
 
   @override
+  String get agentsDeactivateHint =>
+      'This agent will immediately lose access to all vaults';
+
+  @override
   String get agentsDeactivate => 'Deactivate Agent';
 
   @override
@@ -1126,5 +1130,67 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentTypeHermes => 'Hermes';
 
   @override
+  String get agentTypeCursor => 'Cursor';
+
+  @override
+  String get agentTypeCopilot => 'GitHub Copilot';
+
+  @override
+  String get agentTypeGemini => 'Gemini';
+
+  @override
+  String get agentTypeCodex => 'OpenAI Codex';
+
+  @override
+  String get agentTypeKimiCode => 'Kimi Code';
+
+  @override
+  String get agentTypeDevin => 'Devin';
+
+  @override
+  String get agentTypeAider => 'Aider';
+
+  @override
+  String get agentTypeCline => 'Cline';
+
+  @override
+  String get agentTypeRoo => 'Roo Code';
+
+  @override
   String get agentTypeOther => 'Other';
+
+  @override
+  String get agentApproveSetupHint =>
+      'Optionally set a name, type, and icon before activating.';
+
+  @override
+  String get agentNamePlaceholder => 'e.g. Claude Code, Cursor';
+
+  @override
+  String get agentsTabDetails => 'Details';
+
+  @override
+  String get agentsTabGrants => 'Grants';
+
+  @override
+  String get agentsTabLogs => 'Logs';
+
+  @override
+  String get agentsGrantsEmpty => 'No active grants';
+
+  @override
+  String get agentsGrantsEmptyHint =>
+      'This agent has not been granted access to any vault entries yet';
+
+  @override
+  String get agentsLogsFirstConnected => 'First connected';
+
+  @override
+  String get agentsLogsEnrolled => 'Enrolled';
+
+  @override
+  String get agentsLogsDeactivated => 'Deactivated';
+
+  @override
+  String get agentsEditSaved => 'Agent saved';
 }

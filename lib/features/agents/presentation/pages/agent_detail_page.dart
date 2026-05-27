@@ -12,7 +12,6 @@ import '../widgets/agent_detail_body.dart';
 import '../widgets/agent_format.dart';
 import '../widgets/approve_agent_sheet.dart';
 import '../widgets/deactivate_agent_sheet.dart';
-import 'agent_edit_page.dart';
 
 /// Standalone agent detail screen — pushed from the agents list on a
 /// narrow layout (the wide layout shows the detail inline as a split
@@ -86,27 +85,8 @@ class _AgentDetailView extends StatelessWidget {
             onPressed: () => context.pop(),
           ),
           title: _AppBarTitle(agentId: agentId),
-          actions: [
-            // The edit action is only useful for an agent that exists in
-            // the loaded list — disabled while loading / on a missing id.
-            // Pending agents have nothing editable yet, so the button is
-            // hidden entirely until they are approved.
-            BlocBuilder<AgentsCubit, AgentsState>(
-              builder: (context, state) {
-                final agent = state.agentById(agentId);
-                if (agent != null && agent.isPending) {
-                  return const SizedBox.shrink();
-                }
-                return IconButton(
-                  tooltip: l10n.agentsEditIcon,
-                  icon: const Icon(Icons.edit_outlined, size: 20),
-                  onPressed: agent == null
-                      ? null
-                      : () => AgentEditPage.push(context, agentId),
-                );
-              },
-            ),
-          ],
+          // No edit action — the Details tab now hosts the edit form
+          // inline, matching the web panel's split-view detail.
         ),
         body: SafeArea(
           top: false,
