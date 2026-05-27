@@ -20,6 +20,7 @@ class VaultIconPicker extends StatelessWidget {
     required this.accentColor,
     required this.onSelected,
     this.onPickCustom,
+    this.moreTile,
   });
 
   final String selected;
@@ -30,6 +31,10 @@ class VaultIconPicker extends StatelessWidget {
   /// Caller implements the pick + upload logic and updates [selected]
   /// with the resulting URL on success.
   final VoidCallback? onPickCustom;
+
+  /// Optional trailing tile that opens the full icon + color browser.
+  /// Mirrors the agents approve sheet's "more" affordance.
+  final Widget? moreTile;
 
   bool get _isCustomUrl => VaultVisuals.isCustomUrl(selected);
 
@@ -55,6 +60,7 @@ class VaultIconPicker extends StatelessWidget {
               onTap: onPickCustom!,
             )
           : null,
+      moreTile: moreTile,
     );
   }
 }

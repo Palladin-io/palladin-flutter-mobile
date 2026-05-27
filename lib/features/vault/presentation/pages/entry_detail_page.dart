@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/icon_color_browser_sheet.dart';
+import '../../../../core/widgets/icon_picker_grid.dart' show IconMoreTile;
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -138,6 +140,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
 
   EntryType _type = EntryType.credential;
   String _icon = EntryVisuals.defaultIconName;
+  String _colorHex = EntryVisuals.defaultColorHex;
   String? _urlError;
   XFile? _pendingIconFile;
   bool _pickingIcon = false;
@@ -225,6 +228,45 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     } finally {
       if (mounted) setState(() => _pickingIcon = false);
     }
+  }
+
+  /// Opens the full icon + color browser sheet. Mirrors the agents
+  /// approve sheet flow — the user picks a glyph and a swatch in one
+  /// modal instead of having a separate color picker row below the icon
+  /// grid.
+  Future<void> _openEntryBrowser() async {
+    final l10n = AppLocalizations.of(context)!;
+    final result = await IconColorBrowserSheet.show(
+      context,
+      icons: EntryVisuals.iconChoices
+          .map((c) => (
+                name: c.name,
+                icon: c.icon,
+                paletteColor: c.paletteColor,
+              ))
+          .toList(),
+      colorOptions:
+          VaultVisuals.colorChoices.map(VaultVisuals.colorFor).toList(),
+      initialIconKey:
+          EntryVisuals.isCustomUrl(_icon) ? null : _icon,
+      initialColor: VaultVisuals.colorFor(_colorHex),
+      title: l10n.agentIconBrowserTitle,
+      confirmLabel: l10n.agentIconChoose,
+    );
+    if (!mounted || result == null) return;
+    final pickedColor = result.color;
+    final matchedHex = VaultVisuals.colorChoices.firstWhere(
+      (hex) =>
+          VaultVisuals.colorFor(hex).toARGB32() == pickedColor.toARGB32(),
+      orElse: () => EntryVisuals.defaultColorHex,
+    );
+    setState(() {
+      if (result.iconKey != null) {
+        _icon = result.iconKey!;
+        _pendingIconFile = null;
+      }
+      _colorHex = matchedHex;
+    });
   }
 
   Future<void> _submit() async {
@@ -462,9 +504,10 @@ class _EntryDetailViewState extends State<_EntryDetailView>
       );
     }
 
-    // No per-entry color on the backend — see add_entry_page.dart for
-    // rationale on dropping the color picker.
-    final accentColor = VaultVisuals.colorFor(EntryVisuals.defaultColorHex);
+    // Color is UI-only — see add_entry_page.dart for rationale. The icon
+    // browser sheet (opened via the "..." tile in the icon row) updates
+    // `_colorHex`, and the picker accents follow it.
+    final accentColor = VaultVisuals.colorFor(_colorHex);
     final isLoading = state is EditEntryLoading || _uploadingIcon;
     final isBusy = isLoading || _pickingIcon;
     final canSubmit = !isBusy && _canSubmit;
@@ -524,6 +567,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
             onPickCustom:
                 (_pickingIcon || _uploadingIcon) ? null : _pickCustomIcon,
             isLoadingCustom: _pickingIcon || _uploadingIcon,
+            moreTile: IconMoreTile(onTap: _openEntryBrowser),
           ),
           const SizedBox(height: 16),
           EntryTypeDropdown(

@@ -28,6 +28,7 @@ class EntryIconPicker extends StatelessWidget {
     required this.onSelected,
     this.onPickCustom,
     this.isLoadingCustom = false,
+    this.moreTile,
   });
 
   final String selected;
@@ -46,6 +47,10 @@ class EntryIconPicker extends StatelessWidget {
   /// When true the upload circle renders a small spinner instead of the
   /// upload glyph / image preview, indicating background work.
   final bool isLoadingCustom;
+
+  /// Optional trailing tile that opens the full icon + color browser.
+  /// Mirrors the agents approve sheet's "more" affordance.
+  final Widget? moreTile;
 
   bool get _isCustomUrl => EntryVisuals.isCustomUrl(selected);
 
@@ -67,6 +72,7 @@ class EntryIconPicker extends StatelessWidget {
         onTap: onPickCustom,
         isLoading: isLoadingCustom,
       ),
+      moreTile: moreTile,
     );
   }
 }
