@@ -1012,6 +1012,12 @@ class AppLocalizationsPl extends AppLocalizations {
       'Podłącz pierwszego agenta za pomocą CLI, aby zacząć';
 
   @override
+  String get agentsSearchHint => 'Szukaj agentów…';
+
+  @override
+  String get agentsSearchEmpty => 'Żaden agent nie pasuje do wyszukiwania';
+
+  @override
   String get agentsUnnamed => 'Agent bez nazwy';
 
   @override

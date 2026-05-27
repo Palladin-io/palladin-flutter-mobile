@@ -993,6 +993,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Connect your first agent using the CLI to get started';
 
   @override
+  String get agentsSearchHint => 'Search agents…';
+
+  @override
+  String get agentsSearchEmpty => 'No agents match your search';
+
+  @override
   String get agentsUnnamed => 'Unnamed agent';
 
   @override

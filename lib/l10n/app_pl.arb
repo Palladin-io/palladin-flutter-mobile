@@ -271,6 +271,8 @@
   "agentsListSummary": "{total} agentów, {active} aktywnych",
   "agentsEmpty": "Brak agentów",
   "agentsEmptyHint": "Podłącz pierwszego agenta za pomocą CLI, aby zacząć",
+  "agentsSearchHint": "Szukaj agentów…",
+  "agentsSearchEmpty": "Żaden agent nie pasuje do wyszukiwania",
   "agentsUnnamed": "Agent bez nazwy",
   "agentsSplitPrompt": "Wybierz agenta, aby zobaczyć szczegóły",
   "agentsStatusActive": "Aktywny",

@@ -1724,6 +1724,18 @@ abstract class AppLocalizations {
   /// **'Connect your first agent using the CLI to get started'**
   String get agentsEmptyHint;
 
+  /// Placeholder text for the agents search field
+  ///
+  /// In en, this message translates to:
+  /// **'Search agents…'**
+  String get agentsSearchHint;
+
+  /// Shown when the search query returns no results
+  ///
+  /// In en, this message translates to:
+  /// **'No agents match your search'**
+  String get agentsSearchEmpty;
+
   /// Fallback display name for an agent with no name set
   ///
   /// In en, this message translates to:

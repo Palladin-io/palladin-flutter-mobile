@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -55,6 +56,33 @@ class _AgentsViewState extends State<_AgentsView> {
   /// Agent currently open in the split-view detail pane. Always `null`
   /// on a narrow layout — that layout pushes a full page instead.
   String? _selectedAgentId;
+
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      final next = _searchController.text.trim();
+      if (next == _query) return;
+      setState(() => _query = next);
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Agent> _filter(List<Agent> agents) {
+    if (_query.isEmpty) return agents;
+    final needle = _query.toLowerCase();
+    return agents
+        .where((a) => (a.name ?? '').toLowerCase().contains(needle))
+        .toList(growable: false);
+  }
 
   /// Opens [agentId]. On a wide layout the selection updates the inline
   /// detail pane; on a narrow layout it pushes [AgentDetailPage] and
@@ -166,6 +194,8 @@ class _AgentsViewState extends State<_AgentsView> {
                               isSplit ? _selectedAgentId : null,
                           onOpenAgent: (id) => _openAgent(id, isSplit),
                           onApproveAgent: _onApproveAgent,
+                          searchController: _searchController,
+                          filtered: _filter(state.agents),
                         ),
                       );
                       if (!isSplit) return list;
@@ -212,12 +242,16 @@ class _Body extends StatelessWidget {
     required this.selectedAgentId,
     required this.onOpenAgent,
     required this.onApproveAgent,
+    required this.searchController,
+    required this.filtered,
   });
 
   final AgentsState state;
   final String? selectedAgentId;
   final ValueChanged<String> onOpenAgent;
   final Future<void> Function(BuildContext, Agent) onApproveAgent;
+  final TextEditingController searchController;
+  final List<Agent> filtered;
 
   @override
   Widget build(BuildContext context) {
@@ -231,14 +265,14 @@ class _Body extends StatelessWidget {
           message: agentsErrorMessage(l10n, state.error!),
           onRetry: () => context.read<AgentsCubit>().load(),
         ),
-      AgentsStatus.loaded => state.agents.isEmpty
-          ? const _AgentsEmpty()
-          : _AgentsList(
-              agents: state.agents,
-              selectedAgentId: selectedAgentId,
-              onOpenAgent: onOpenAgent,
-              onApproveAgent: onApproveAgent,
-            ),
+      AgentsStatus.loaded => _AgentsList(
+          agents: state.agents,
+          filtered: filtered,
+          selectedAgentId: selectedAgentId,
+          onOpenAgent: onOpenAgent,
+          onApproveAgent: onApproveAgent,
+          searchController: searchController,
+        ),
     };
   }
 }
@@ -246,41 +280,79 @@ class _Body extends StatelessWidget {
 class _AgentsList extends StatelessWidget {
   const _AgentsList({
     required this.agents,
+    required this.filtered,
     required this.selectedAgentId,
     required this.onOpenAgent,
     required this.onApproveAgent,
+    required this.searchController,
   });
 
   final List<Agent> agents;
+  final List<Agent> filtered;
   final String? selectedAgentId;
   final ValueChanged<String> onOpenAgent;
   final Future<void> Function(BuildContext, Agent) onApproveAgent;
+  final TextEditingController searchController;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
     final authState = context.watch<AuthBloc>().state;
     final permissions =
         authState is AuthAuthenticated ? authState.permissions : 0;
     final canManage = (permissions & Permissions.agentManage) != 0;
 
-    return ListView.builder(
+    return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
-      itemCount: agents.length,
-      itemBuilder: (context, index) {
-        final agent = agents[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: AgentCard(
-            agent: agent,
-            selected: agent.agentId == selectedAgentId,
-            onTap: () => onOpenAgent(agent.agentId),
-            onApprove: canManage
-                ? () => onApproveAgent(context, agent)
-                : null,
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+            child: AppSearchField(
+              controller: searchController,
+              hint: l10n.agentsSearchHint,
+            ),
           ),
-        );
-      },
+        ),
+        if (agents.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _AgentsEmpty(),
+          )
+        else if (filtered.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Text(
+                l10n.agentsSearchEmpty,
+                style: TextStyle(
+                  color: AppColors.onSurfaceSubtle(brightness),
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 96),
+            sliver: SliverList.separated(
+              itemCount: filtered.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (_, index) {
+                final agent = filtered[index];
+                return AgentCard(
+                  agent: agent,
+                  selected: agent.agentId == selectedAgentId,
+                  onTap: () => onOpenAgent(agent.agentId),
+                  onApprove: canManage
+                      ? () => onApproveAgent(context, agent)
+                      : null,
+                );
+              },
+            ),
+          ),
+      ],
     );
   }
 }
