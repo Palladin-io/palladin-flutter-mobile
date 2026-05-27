@@ -290,11 +290,9 @@ class _DetailsCard extends StatelessWidget {
   }
 }
 
-/// Identity header — avatar + name + status badge + agent ID snippet.
+/// Identity header — avatar + name + status badge.
 ///
-/// Layout: `[avatar] [name / status-badge / id-snippet]` — the right
-/// column is a vertical stack so the badge sits under the name and the
-/// abbreviated agent ID appears below both.
+/// Layout: `[avatar] [name / status-badge]` — badge sits under the name.
 class _IdentityHeader extends StatelessWidget {
   const _IdentityHeader({required this.agent});
 
@@ -304,9 +302,6 @@ class _IdentityHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    final idSnippet = agent.agentId.length > 8
-        ? '${agent.agentId.substring(0, 8)}…'
-        : agent.agentId;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -329,17 +324,6 @@ class _IdentityHeader extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               AgentStatusBadge(status: agent.status),
-              const SizedBox(height: 4),
-              Text(
-                'ID: $idSnippet',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: AppColors.onSurfaceSubtle(brightness),
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                ),
-              ),
             ],
           ),
         ),
@@ -360,6 +344,11 @@ class _MetadataList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rows = <Widget>[
+      _DetailRow(
+        label: 'Agent ID',
+        value: agent.agentId,
+        mono: true,
+      ),
       _DetailRow(
         label: l10n.agentsDetailPublicKey,
         value: agent.publicKeyDisplay,
