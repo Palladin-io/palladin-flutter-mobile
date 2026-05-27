@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/icon_picker_grid.dart';
+import '../../../../core/widgets/icon_picker_grid.dart'
+    show IconPickerGrid, IconPresetTile;
 import '../../../../l10n/generated/app_localizations.dart';
 import 'vault_visuals.dart';
 
@@ -40,11 +40,11 @@ class VaultIconPicker extends StatelessWidget {
 
     return IconPickerGrid(
       itemCount: choices.length,
-      itemBuilder: (i) => _IconCircle(
+      itemBuilder: (i) => IconPresetTile(
         icon: choices[i].icon,
         paletteColor: choices[i].paletteColor,
         isSelected: !_isCustomUrl && choices[i].name == selected,
-        accentColor: accentColor,
+        selectedColor: accentColor,
         onTap: () => onSelected(choices[i].name),
       ),
       leadingTile: onPickCustom != null
@@ -55,57 +55,6 @@ class VaultIconPicker extends StatelessWidget {
               onTap: onPickCustom!,
             )
           : null,
-    );
-  }
-}
-
-class _IconCircle extends StatelessWidget {
-  const _IconCircle({
-    required this.icon,
-    required this.paletteColor,
-    required this.isSelected,
-    required this.accentColor,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color paletteColor;
-  final bool isSelected;
-  final Color accentColor;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final bgOpacity = isSelected
-        ? (brightness == Brightness.dark ? 0.15 : 0.12)
-        : (brightness == Brightness.dark ? 0.10 : 0.08);
-    final bgColor = isSelected
-        ? accentColor.withValues(alpha: bgOpacity)
-        : paletteColor.withValues(alpha: bgOpacity);
-    final iconColor =
-        isSelected ? accentColor : AppColors.textTertiaryMobile;
-
-    return Semantics(
-      button: true,
-      selected: isSelected,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          width: 36,
-          height: 36,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: bgColor,
-            border: isSelected
-                ? Border.all(color: accentColor, width: 2)
-                : null,
-          ),
-          child: Icon(icon, size: 16, color: iconColor),
-        ),
-      ),
     );
   }
 }

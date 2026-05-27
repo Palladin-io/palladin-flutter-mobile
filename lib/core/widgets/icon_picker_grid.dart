@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+
 /// Responsive two-row icon grid.
 ///
 /// Measures its available width via [LayoutBuilder], then derives the
@@ -7,24 +9,6 @@ import 'package:flutter/material.dart';
 /// Always renders exactly two rows. The last slot is reserved for
 /// [moreTile] when one is provided; remaining slots show preset items via
 /// [itemBuilder].
-///
-/// Usage — agents (with browser):
-/// ```dart
-/// IconPickerGrid(
-///   itemCount: agentIconOptions.length,
-///   itemBuilder: (i) => _IconTile(iconKey: agentIconOptions[i], …),
-///   moreTile: _MoreIconTile(onTap: _openBrowser),
-/// )
-/// ```
-///
-/// Usage — vault/entry (no browser, upload in slot 0):
-/// ```dart
-/// IconPickerGrid(
-///   itemCount: choices.length,
-///   itemBuilder: (i) => _IconTile(choice: choices[i], …),
-///   leadingTile: _UploadCircle(…),
-/// )
-/// ```
 class IconPickerGrid extends StatelessWidget {
   const IconPickerGrid({
     super.key,
@@ -62,11 +46,9 @@ class IconPickerGrid extends StatelessWidget {
             ((available + gap) / (tileSize + gap)).floor().clamp(3, 12);
         final totalSlots = cols * 2;
 
-        // Count fixed boundary tiles.
         final leadingCount = leadingTile != null ? 1 : 0;
         final moreCount = moreTile != null ? 1 : 0;
 
-        // Preset items that fit in the remaining slots.
         final presetSlots = totalSlots - leadingCount - moreCount;
         final visiblePresets = itemCount.clamp(0, presetSlots);
 
@@ -90,6 +72,88 @@ class IconPickerGrid extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+/// 40×40 square icon tile — shared across agent, vault and entry pickers.
+///
+/// Unselected: tinted with [paletteColor] (each icon has its own accent).
+/// Selected: tinted with [selectedColor] (user-chosen or accent color).
+class IconPresetTile extends StatelessWidget {
+  const IconPresetTile({
+    super.key,
+    required this.icon,
+    required this.paletteColor,
+    required this.isSelected,
+    required this.selectedColor,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color paletteColor;
+  final bool isSelected;
+  final Color selectedColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = isSelected
+        ? selectedColor.withValues(alpha: 0.25)
+        : paletteColor.withValues(alpha: 0.12);
+    final iconColor = isSelected ? selectedColor : paletteColor;
+    final borderColor = isSelected ? selectedColor : Colors.transparent;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: fill,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor, width: 1.5),
+          ),
+          child: Icon(icon, size: 20, color: iconColor),
+        ),
+      ),
+    );
+  }
+}
+
+/// Trailing "more" tile — muted slate square that opens the full icon
+/// browser. Shared across any picker that needs a browser affordance.
+class IconMoreTile extends StatelessWidget {
+  const IconMoreTile({super.key, required this.onTap, this.semanticLabel});
+
+  final VoidCallback onTap;
+  final String? semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Semantics(
+      label: semanticLabel,
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: AppColors.vaultSlate.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.more_horiz,
+              size: 20,
+              color: AppColors.onSurfaceSubtle(brightness),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

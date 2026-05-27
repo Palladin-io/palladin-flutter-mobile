@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/icon_picker_grid.dart';
+import '../../../../core/widgets/icon_picker_grid.dart'
+    show IconPickerGrid, IconMoreTile, IconPresetTile;
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import 'agent_format.dart';
@@ -168,7 +169,7 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
                       setState(() => _selectedIcon = value),
                   onMoreTapped: _openIconBrowser,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 _ApproveFooter(
                   onCancel: _cancel,
                   onConfirm: _confirm,
@@ -484,102 +485,19 @@ class _IconGrid extends StatelessWidget {
       itemCount: effectivePresets.length,
       itemBuilder: (i) {
         final iconKey = effectivePresets[i];
-        return _IconTile(
-          iconKey: iconKey,
+        return IconPresetTile(
+          icon: agentIconData(iconKey),
+          paletteColor: agentIconColor(iconKey),
           isSelected: selected == iconKey,
           selectedColor: selectedColor,
           onTap: () => onSelected(selected == iconKey ? null : iconKey),
         );
       },
-      moreTile: _MoreIconTile(onTap: onMoreTapped),
+      moreTile: IconMoreTile(onTap: onMoreTapped),
     );
   }
 }
 
-/// A single 40×40 tappable icon square in the [_IconGrid].
-///
-/// Unselected: tinted with the glyph's preset accent ([agentIconColor]).
-/// Selected: tinted with the user-chosen [selectedColor] (mirrors the
-/// web panel preset highlight).
-class _IconTile extends StatelessWidget {
-  const _IconTile({
-    required this.iconKey,
-    required this.isSelected,
-    required this.selectedColor,
-    required this.onTap,
-  });
-
-  final String iconKey;
-  final bool isSelected;
-  final Color selectedColor;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = agentIconColor(iconKey);
-    final fill = isSelected
-        ? selectedColor.withValues(alpha: 0.25)
-        : accent.withValues(alpha: 0.12);
-    final iconColor = isSelected ? selectedColor : accent;
-    final borderColor = isSelected ? selectedColor : Colors.transparent;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Ink(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: fill,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: borderColor, width: 1.5),
-          ),
-          child: Icon(agentIconData(iconKey), size: 20, color: iconColor),
-        ),
-      ),
-    );
-  }
-}
-
-/// Trailing "more" tile that opens the full icon browser. Styled as a
-/// muted slate square so it does not compete with the colored presets.
-class _MoreIconTile extends StatelessWidget {
-  const _MoreIconTile({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    return Semantics(
-      label: l10n.agentIconMore,
-      button: true,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Ink(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.vaultSlate.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              Icons.more_horiz,
-              size: 20,
-              color: AppColors.onSurfaceSubtle(brightness),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // ────────────────────────────────────────────────────────────────────────
 // Icon browser modal — full icon set + color picker
