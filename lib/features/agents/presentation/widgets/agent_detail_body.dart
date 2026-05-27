@@ -345,7 +345,7 @@ class _MetadataList extends StatelessWidget {
   Widget build(BuildContext context) {
     final rows = <Widget>[
       _DetailRow(
-        label: 'ID',
+        label: 'Id',
         value: _maskId(agent.agentId),
         mono: true,
       ),
@@ -356,7 +356,7 @@ class _MetadataList extends StatelessWidget {
       ),
       _DetailRow(
         label: l10n.agentsDetailCreatedAt,
-        value: formatAgentDate(agent.createdAt),
+        value: formatAgentDateTime(agent.createdAt),
       ),
       if (agent.enrolledAt != null)
         _DetailRow(
@@ -385,7 +385,7 @@ class _MetadataList extends StatelessWidget {
 
   String _maskId(String id) {
     if (id.length <= 12) return id;
-    return '${id.substring(0, 6)}***${id.substring(id.length - 6)}';
+    return '${id.substring(0, 6)}•••${id.substring(id.length - 6)}';
   }
 
   /// Appends `· {name}` after the formatted date when an attribution

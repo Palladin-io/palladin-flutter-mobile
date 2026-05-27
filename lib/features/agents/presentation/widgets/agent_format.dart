@@ -38,6 +38,16 @@ String formatAgentDate(DateTime date) {
   return '${months[d.month - 1]} ${d.day}';
 }
 
+/// Formats a date with time as `MMM d, HH:mm` (e.g. `Feb 20, 14:32`).
+///
+/// Used for detail rows where the exact time is relevant (e.g. first connected).
+String formatAgentDateTime(DateTime date) {
+  final d = date.toLocal();
+  final hh = d.hour.toString().padLeft(2, '0');
+  final mm = d.minute.toString().padLeft(2, '0');
+  return '${formatAgentDate(date)}, $hh:$mm';
+}
+
 /// Builds the display name for an agent, falling back to a short id-based
 /// label when the agent has not been named yet.
 String agentDisplayName(AppLocalizations l10n, Agent agent) {
