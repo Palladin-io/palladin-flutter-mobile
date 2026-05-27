@@ -1193,4 +1193,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentsEditSaved => 'Agent saved';
+
+  @override
+  String get agentTypePlaceholder => 'Pick a preset or type a custom value';
+
+  @override
+  String get agentIconMore => 'More icons';
+
+  @override
+  String get agentIconBrowserTitle => 'Browse icons';
+
+  @override
+  String get agentIconColorLabel => 'Color';
+
+  @override
+  String get agentIconChoose => 'Choose';
 }

@@ -2113,6 +2113,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Agent saved'**
   String get agentsEditSaved;
+
+  /// Placeholder for the agent type combobox in the approve form
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a preset or type a custom value'**
+  String get agentTypePlaceholder;
+
+  /// Accessibility label for the 'more' tile that opens the icon browser
+  ///
+  /// In en, this message translates to:
+  /// **'More icons'**
+  String get agentIconMore;
+
+  /// Header of the icon browser modal
+  ///
+  /// In en, this message translates to:
+  /// **'Browse icons'**
+  String get agentIconBrowserTitle;
+
+  /// Label above the color swatches in the icon browser modal
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get agentIconColorLabel;
+
+  /// Confirm button label inside the icon browser modal
+  ///
+  /// In en, this message translates to:
+  /// **'Choose'**
+  String get agentIconChoose;
 }
 
 class _AppLocalizationsDelegate

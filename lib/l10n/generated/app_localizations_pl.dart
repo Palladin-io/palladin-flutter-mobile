@@ -1213,4 +1213,19 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get agentsEditSaved => 'Zmiany zapisane';
+
+  @override
+  String get agentTypePlaceholder => 'Wybierz lub wpisz własny typ';
+
+  @override
+  String get agentIconMore => 'Więcej ikon';
+
+  @override
+  String get agentIconBrowserTitle => 'Przeglądaj ikony';
+
+  @override
+  String get agentIconColorLabel => 'Kolor';
+
+  @override
+  String get agentIconChoose => 'Wybierz';
 }

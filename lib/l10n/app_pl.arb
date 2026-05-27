@@ -335,5 +335,10 @@
   "agentsLogsFirstConnected": "Pierwsze połączenie",
   "agentsLogsEnrolled": "Zatwierdzono",
   "agentsLogsDeactivated": "Dezaktywowano",
-  "agentsEditSaved": "Zmiany zapisane"
+  "agentsEditSaved": "Zmiany zapisane",
+  "agentTypePlaceholder": "Wybierz lub wpisz własny typ",
+  "agentIconMore": "Więcej ikon",
+  "agentIconBrowserTitle": "Przeglądaj ikony",
+  "agentIconColorLabel": "Kolor",
+  "agentIconChoose": "Wybierz"
 }

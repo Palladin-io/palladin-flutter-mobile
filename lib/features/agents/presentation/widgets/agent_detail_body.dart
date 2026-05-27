@@ -229,6 +229,12 @@ class _TabButton extends StatelessWidget {
 
 /// Card holding the identity header, the editable form and the read-only
 /// metadata list. Mirrors the web panel `AgentDetail` "Details" tab.
+///
+/// On mobile we take a stricter stance than the web panel: the inline
+/// edit form is only shown for **active** agents. Pending and
+/// deactivated agents render the identity header and metadata list
+/// only — keeping the surface focused on the next available action
+/// (approve / reactivate) which lives in the [_ActionZone] below.
 class _DetailsCard extends StatelessWidget {
   const _DetailsCard({required this.agent, required this.canEdit});
 
@@ -242,9 +248,12 @@ class _DetailsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    // The web detail uses canEdit = canManage && isActive — pending and
-    // deactivated agents are read-only in the form. Keep parity here.
-    final fieldsEnabled = canEdit && agent.isActive;
+    // Mirror web semantics: form is editable only for an active agent
+    // held by an operator with manage permission. The mobile surface
+    // takes one extra step and hides the form entirely for non-active
+    // agents (pending / deactivated) — the approve / reactivate CTA in
+    // the action zone covers the available next step.
+    final showEditForm = canEdit && agent.isActive;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -264,14 +273,16 @@ class _DetailsCard extends StatelessWidget {
             color: AppColors.cardBorder(brightness),
           ),
           const SizedBox(height: 14),
-          AgentEditForm(agent: agent, canEdit: fieldsEnabled),
-          const SizedBox(height: 14),
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: AppColors.cardBorder(brightness),
-          ),
-          const SizedBox(height: 14),
+          if (showEditForm) ...[
+            AgentEditForm(agent: agent, canEdit: true),
+            const SizedBox(height: 14),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: AppColors.cardBorder(brightness),
+            ),
+            const SizedBox(height: 14),
+          ],
           _MetadataList(agent: agent, l10n: l10n),
         ],
       ),
@@ -281,6 +292,11 @@ class _DetailsCard extends StatelessWidget {
 
 /// Identity header — avatar + name + status badge. Used at the top of
 /// the details card.
+///
+/// Layout mirrors the web panel's `AgentDetail` identity row:
+/// `[avatar] [name … ml-auto status-badge]` — name and badge live in a
+/// single inner Row so the badge pins flush to the right of the name on
+/// the same baseline, never on its own line.
 class _IdentityHeader extends StatelessWidget {
   const _IdentityHeader({required this.agent});
 
@@ -292,29 +308,30 @@ class _IdentityHeader extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        AgentAvatar(agentId: agent.agentId, name: agent.name, size: 44),
+        AgentAvatar(agentId: agent.agentId, name: agent.name, size: 40),
         const SizedBox(width: 12),
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              agentDisplayName(l10n, agent),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: AppColors.onSurface(brightness),
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  agentDisplayName(l10n, agent),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.onSurface(brightness),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              AgentStatusBadge(status: agent.status),
+            ],
           ),
-        ),
-        const SizedBox(width: 8),
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: AgentStatusBadge(status: agent.status),
         ),
       ],
     );

@@ -8,7 +8,8 @@ import 'agent_format.dart';
 /// Values an admin sets when approving a pending agent.
 ///
 /// All fields are optional — a `null` field tells the API to keep its
-/// server-side default.
+/// server-side default. The selected icon color is currently a UI-only
+/// affordance (mirrors the web preset highlight) and is not persisted.
 typedef ApproveAgentResult = ({
   String? name,
   String? type,
@@ -19,8 +20,10 @@ typedef ApproveAgentResult = ({
 /// granted access.
 ///
 /// Mirrors the web panel's `ApproveAgentDialog`: title + subtitle, name
-/// input, type chips (13 built-in types), icon grid (15 presets) and a
-/// 1:2 footer with a subtle Cancel and a green tinted Approve button.
+/// input, agent-type autocomplete combobox (built-in suggestions + free
+/// form), icon picker (15 presets + "more" tile that opens a browser
+/// with the full glyph catalogue plus a six-color picker) and a 1:2
+/// footer with a subtle Cancel and a green tinted Approve button.
 ///
 /// Resolves to an [ApproveAgentResult] when the admin confirms, or
 /// `null` when they cancel / dismiss without confirming.
@@ -52,31 +55,42 @@ class ApproveAgentSheet extends StatefulWidget {
 
 class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
   late final TextEditingController _nameController;
+  late final TextEditingController _typeController;
 
-  /// Selected agent type wire value, or `null` when none chosen.
-  String? _selectedType;
+  /// Resolved wire value for the selected type. Stays in sync with
+  /// [_typeController]: when the user picks a built-in option it stores
+  /// the camelCase wire value; when they type freely it stores the raw
+  /// text (mirrors the web combobox semantics).
+  String? _selectedTypeValue;
 
   /// Selected Material icon name, or `null` when none chosen.
   String? _selectedIcon;
+
+  /// Selected accent color for the icon picker — purely UI-only today
+  /// (the mobile API does not yet round-trip an iconColor field).
+  Color _selectedColor = defaultAgentColor;
 
   @override
   void initState() {
     super.initState();
     _nameController =
         TextEditingController(text: widget.initialName?.trim() ?? '');
+    _typeController = TextEditingController();
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _typeController.dispose();
     super.dispose();
   }
 
   void _confirm() {
     final name = _nameController.text.trim();
+    final typeText = _selectedTypeValue?.trim() ?? '';
     Navigator.of(context).pop<ApproveAgentResult>((
       name: name.isEmpty ? null : name,
-      type: _selectedType,
+      type: typeText.isEmpty ? null : typeText,
       iconKey: _selectedIcon,
     ));
   }
@@ -132,24 +146,26 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
                   label: l10n.agentNameLabel,
                   hintText: l10n.agentNamePlaceholder,
                   textCapitalization: TextCapitalization.words,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _confirm(),
+                  textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 16),
                 _FieldLabel(label: l10n.agentTypeLabel),
                 const SizedBox(height: 8),
-                _TypeChips(
-                  selected: _selectedType,
-                  onSelected: (value) =>
-                      setState(() => _selectedType = value),
+                _AgentTypeAutocomplete(
+                  controller: _typeController,
+                  onChanged: (value, _) {
+                    setState(() => _selectedTypeValue = value);
+                  },
                 ),
                 const SizedBox(height: 16),
                 _FieldLabel(label: l10n.agentIconLabel),
                 const SizedBox(height: 8),
                 _IconGrid(
                   selected: _selectedIcon,
+                  selectedColor: _selectedColor,
                   onSelected: (value) =>
                       setState(() => _selectedIcon = value),
+                  onMoreTapped: _openIconBrowser,
                 ),
                 const SizedBox(height: 20),
                 _ApproveFooter(
@@ -163,7 +179,24 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
       ),
     );
   }
+
+  Future<void> _openIconBrowser() async {
+    final result = await _AgentIconBrowserSheet.show(
+      context,
+      initialIcon: _selectedIcon,
+      initialColor: _selectedColor,
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _selectedIcon = result.iconKey;
+      _selectedColor = result.color;
+    });
+  }
 }
+
+// ────────────────────────────────────────────────────────────────────────
+// Field label — small caps muted label used above the type/icon groups
+// ────────────────────────────────────────────────────────────────────────
 
 /// Small section label matching the [OnboardingTextField] label style so
 /// the type and icon groups align with the name input above them.
@@ -186,80 +219,225 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
-/// The thirteen agent-type choice chips. Tapping a selected chip again
-/// deselects it so "no type" stays reachable.
-class _TypeChips extends StatelessWidget {
-  const _TypeChips({required this.selected, required this.onSelected});
+// ────────────────────────────────────────────────────────────────────────
+// Agent type autocomplete combobox
+// ────────────────────────────────────────────────────────────────────────
 
-  final String? selected;
-  final ValueChanged<String?> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final options = agentTypeOptions(l10n);
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final option in options)
-          _ChoiceChipTile(
-            label: option.label,
-            isSelected: selected == option.value,
-            onTap: () => onSelected(
-              selected == option.value ? null : option.value,
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-/// A single bordered, tappable type chip. Selected state uses the green
-/// approve accent ([AppColors.positiveAccent]) so the approve flow reads
-/// consistently from chip → CTA. Unselected uses the subtle card border.
-class _ChoiceChipTile extends StatelessWidget {
-  const _ChoiceChipTile({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
+/// Free-form text input that surfaces a filtered list of built-in agent
+/// types as a dropdown overlay. Mirrors the web panel's
+/// `AgentTypeCombobox`:
+///
+/// * Typing filters the suggestions (case-insensitive substring match
+///   on the localized label).
+/// * Tapping a suggestion fills the field with the localized label and
+///   stores the camelCase wire value for the parent.
+/// * The user may also keep the freely-typed text as a custom type —
+///   the wire value falls back to whatever they typed.
+///
+/// Selection is communicated to the parent via [onChanged]
+/// `(wireValue, label)` so the sheet can preserve the canonical wire
+/// value for the API call while showing the friendly label in the
+/// input.
+class _AgentTypeAutocomplete extends StatefulWidget {
+  const _AgentTypeAutocomplete({
+    required this.controller,
+    required this.onChanged,
   });
 
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
+  final TextEditingController controller;
+
+  /// Fired whenever the wire value changes — either because the user
+  /// picked a suggestion (wireValue = preset value, label = localized
+  /// label) or typed free text (wireValue = label = raw text).
+  final void Function(String wireValue, String label) onChanged;
+
+  @override
+  State<_AgentTypeAutocomplete> createState() =>
+      _AgentTypeAutocompleteState();
+}
+
+class _AgentTypeAutocompleteState extends State<_AgentTypeAutocomplete> {
+  final LayerLink _link = LayerLink();
+  final FocusNode _focus = FocusNode();
+  OverlayEntry? _overlay;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(_handleFocusChange);
+    widget.controller.addListener(_handleTextChange);
+  }
+
+  @override
+  void dispose() {
+    _hideOverlay();
+    _focus
+      ..removeListener(_handleFocusChange)
+      ..dispose();
+    widget.controller.removeListener(_handleTextChange);
+    super.dispose();
+  }
+
+  void _handleFocusChange() {
+    if (_focus.hasFocus) {
+      _showOverlay();
+    } else {
+      // Defer hide so a tap on a suggestion is still registered.
+      Future<void>.delayed(const Duration(milliseconds: 120), _hideOverlay);
+    }
+  }
+
+  void _handleTextChange() {
+    widget.onChanged(widget.controller.text, widget.controller.text);
+    if (_focus.hasFocus) {
+      _refreshOverlay();
+    }
+  }
+
+  void _showOverlay() {
+    if (_overlay != null) return;
+    _overlay = OverlayEntry(builder: _buildOverlay);
+    Overlay.of(context, rootOverlay: true).insert(_overlay!);
+  }
+
+  void _refreshOverlay() => _overlay?.markNeedsBuild();
+
+  void _hideOverlay() {
+    _overlay?.remove();
+    _overlay = null;
+  }
+
+  void _selectOption({required String wireValue, required String label}) {
+    widget.controller
+      ..text = label
+      ..selection = TextSelection.collapsed(offset: label.length);
+    widget.onChanged(wireValue, label);
+    _focus.unfocus();
+    _hideOverlay();
+  }
+
+  List<({String value, String label})> _filteredOptions(
+    AppLocalizations l10n,
+  ) {
+    final query = widget.controller.text.trim().toLowerCase();
+    final options = agentTypeOptions(l10n);
+    if (query.isEmpty) return options;
+    return options
+        .where((opt) => opt.label.toLowerCase().contains(query))
+        .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    final borderColor = isSelected
-        ? AppColors.positiveAccent
-        : AppColors.cardBorder(brightness);
-    final textColor = isSelected
-        ? AppColors.positiveAccent
-        : AppColors.onSurfaceMuted(brightness);
+    final l10n = AppLocalizations.of(context)!;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.positiveAccent.withValues(alpha: 0.12)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: borderColor),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+    return CompositedTransformTarget(
+      link: _link,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.inputFill(brightness),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.inputBorder(brightness)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: widget.controller,
+                focusNode: _focus,
+                style: TextStyle(
+                  color: AppColors.inputText(brightness),
+                  fontSize: 14,
+                ),
+                cursorColor: AppColors.inputText(brightness),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  isCollapsed: true,
+                  hintText: l10n.agentTypePlaceholder,
+                  hintStyle: TextStyle(
+                    color: AppColors.inputHint(brightness),
+                    fontSize: 14,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                textInputAction: TextInputAction.next,
+              ),
+            ),
+            Icon(
+              Icons.expand_more,
+              size: 18,
+              color: AppColors.onSurfaceSubtle(brightness),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOverlay(BuildContext overlayContext) {
+    final brightness = Theme.of(context).brightness;
+    final l10n = AppLocalizations.of(context)!;
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.attached) {
+      return const SizedBox.shrink();
+    }
+    final size = renderBox.size;
+    final filtered = _filteredOptions(l10n);
+    if (filtered.isEmpty) return const SizedBox.shrink();
+
+    return Positioned(
+      width: size.width,
+      child: CompositedTransformFollower(
+        link: _link,
+        showWhenUnlinked: false,
+        offset: Offset(0, size.height + 4),
+        child: Material(
+          elevation: 0,
+          color: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxHeight: 220),
+            decoration: BoxDecoration(
+              color: AppColors.modalBackground(brightness),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.cardBorder(brightness)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              shrinkWrap: true,
+              itemCount: filtered.length,
+              itemBuilder: (_, index) {
+                final option = filtered[index];
+                return InkWell(
+                  onTap: () => _selectOption(
+                    wireValue: option.value,
+                    label: option.label,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    child: Text(
+                      option.label,
+                      style: TextStyle(
+                        color: AppColors.onSurface(brightness),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -268,27 +446,54 @@ class _ChoiceChipTile extends StatelessWidget {
   }
 }
 
-/// Wrap of preset icon squares. Tapping a selected icon again deselects
-/// it. Mirrors the web icon grid layout (5 per row at the default 40 px
-/// tile size — wraps naturally on narrower screens).
+// ────────────────────────────────────────────────────────────────────────
+// Icon grid (presets + "more" tile)
+// ────────────────────────────────────────────────────────────────────────
+
+/// Wrap of preset icon squares with a trailing "more" tile that opens
+/// the full icon browser. Mirrors the web grid layout.
 class _IconGrid extends StatelessWidget {
-  const _IconGrid({required this.selected, required this.onSelected});
+  const _IconGrid({
+    required this.selected,
+    required this.selectedColor,
+    required this.onSelected,
+    required this.onMoreTapped,
+  });
 
   final String? selected;
+  final Color selectedColor;
   final ValueChanged<String?> onSelected;
+  final VoidCallback onMoreTapped;
 
   @override
   Widget build(BuildContext context) {
+    // When a custom icon is picked from the browser (not in the preset
+    // list) we hide the last preset slot so it can fit in the row
+    // alongside the always-present "more" tile — mirrors the web panel.
+    final presets = agentIconOptions;
+    final isFromBrowser = selected != null && !presets.contains(selected);
+    final visiblePresets =
+        isFromBrowser ? presets.sublist(0, presets.length - 1) : presets;
+
     return Wrap(
       spacing: 10,
       runSpacing: 10,
       children: [
-        for (final iconKey in agentIconOptions)
+        for (final iconKey in visiblePresets)
           _IconTile(
             iconKey: iconKey,
             isSelected: selected == iconKey,
+            selectedColor: selectedColor,
             onTap: () => onSelected(selected == iconKey ? null : iconKey),
           ),
+        if (isFromBrowser && selected != null)
+          _IconTile(
+            iconKey: selected!,
+            isSelected: true,
+            selectedColor: selectedColor,
+            onTap: () => onSelected(null),
+          ),
+        _MoreIconTile(onTap: onMoreTapped),
       ],
     );
   }
@@ -297,27 +502,29 @@ class _IconGrid extends StatelessWidget {
 /// A single 40×40 tappable icon square in the [_IconGrid].
 ///
 /// Unselected: tinted with the glyph's preset accent ([agentIconColor]).
-/// Selected: green ring + green-tinted fill matching the approve CTA.
+/// Selected: tinted with the user-chosen [selectedColor] (mirrors the
+/// web panel preset highlight).
 class _IconTile extends StatelessWidget {
   const _IconTile({
     required this.iconKey,
     required this.isSelected,
+    required this.selectedColor,
     required this.onTap,
   });
 
   final String iconKey;
   final bool isSelected;
+  final Color selectedColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final accent = agentIconColor(iconKey);
     final fill = isSelected
-        ? AppColors.positiveAccent.withValues(alpha: 0.18)
+        ? selectedColor.withValues(alpha: 0.25)
         : accent.withValues(alpha: 0.12);
-    final iconColor = isSelected ? AppColors.positiveAccent : accent;
-    final borderColor =
-        isSelected ? AppColors.positiveAccent : Colors.transparent;
+    final iconColor = isSelected ? selectedColor : accent;
+    final borderColor = isSelected ? selectedColor : Colors.transparent;
 
     return Material(
       color: Colors.transparent,
@@ -338,6 +545,322 @@ class _IconTile extends StatelessWidget {
     );
   }
 }
+
+/// Trailing "more" tile that opens the full icon browser. Styled as a
+/// muted slate square so it does not compete with the colored presets.
+class _MoreIconTile extends StatelessWidget {
+  const _MoreIconTile({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    return Semantics(
+      label: l10n.agentIconMore,
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Ink(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.vaultSlate.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.more_horiz,
+              size: 20,
+              color: AppColors.onSurfaceSubtle(brightness),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Icon browser modal — full icon set + color picker
+// ────────────────────────────────────────────────────────────────────────
+
+typedef _IconBrowserResult = ({String iconKey, Color color});
+
+/// Full icon browser modal — surfaces every icon in [agentIconAll] and a
+/// six-color picker. Mirrors the web panel's `AgentIconBrowser`.
+class _AgentIconBrowserSheet extends StatefulWidget {
+  const _AgentIconBrowserSheet({
+    required this.initialIcon,
+    required this.initialColor,
+  });
+
+  final String? initialIcon;
+  final Color initialColor;
+
+  static Future<_IconBrowserResult?> show(
+    BuildContext context, {
+    String? initialIcon,
+    required Color initialColor,
+  }) {
+    return showModalBottomSheet<_IconBrowserResult>(
+      context: context,
+      isScrollControlled: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AgentIconBrowserSheet(
+        initialIcon: initialIcon,
+        initialColor: initialColor,
+      ),
+    );
+  }
+
+  @override
+  State<_AgentIconBrowserSheet> createState() =>
+      _AgentIconBrowserSheetState();
+}
+
+class _AgentIconBrowserSheetState extends State<_AgentIconBrowserSheet> {
+  late String? _localIcon = widget.initialIcon;
+  late Color _localColor = widget.initialColor;
+
+  void _confirm() {
+    final icon = _localIcon;
+    if (icon == null) return;
+    Navigator.of(context).pop<_IconBrowserResult>((
+      iconKey: icon,
+      color: _localColor,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.modalBackground(brightness),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom +
+              MediaQuery.viewPaddingOf(context).bottom,
+        ),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _SheetHandle(),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l10n.agentIconBrowserTitle,
+                        style: TextStyle(
+                          color: AppColors.onSurface(brightness),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => Navigator.of(context).pop(),
+                      borderRadius: BorderRadius.circular(999),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.close,
+                          size: 20,
+                          color: AppColors.onSurfaceSubtle(brightness),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _BrowserIconGrid(
+                  selectedIcon: _localIcon,
+                  selectedColor: _localColor,
+                  onSelected: (icon) => setState(() => _localIcon = icon),
+                ),
+                const SizedBox(height: 14),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: AppColors.cardBorder(brightness),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  l10n.agentIconColorLabel,
+                  style: TextStyle(
+                    color: AppColors.onSurfaceMuted(brightness),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _ColorPickerRow(
+                  selected: _localColor,
+                  onSelected: (color) => setState(() => _localColor = color),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: SizedBox(
+                        height: 44,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor:
+                                AppColors.onSurface(brightness),
+                            side: BorderSide(
+                              color: AppColors.cardBorder(brightness),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: Text(
+                            l10n.apiKeysCancel,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: ApproveActionButton(
+                        label: l10n.agentIconChoose,
+                        icon: Icons.check,
+                        onPressed: _localIcon == null ? null : _confirm,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 8-column grid of every icon in [agentIconAll]. Selected tile uses the
+/// user-picked accent color.
+class _BrowserIconGrid extends StatelessWidget {
+  const _BrowserIconGrid({
+    required this.selectedIcon,
+    required this.selectedColor,
+    required this.onSelected,
+  });
+
+  final String? selectedIcon;
+  final Color selectedColor;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 6,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 1,
+      ),
+      itemCount: agentIconAll.length,
+      itemBuilder: (_, index) {
+        final iconKey = agentIconAll[index];
+        final selected = iconKey == selectedIcon;
+        final accent = agentIconColor(iconKey);
+        return InkWell(
+          onTap: () => onSelected(iconKey),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            decoration: BoxDecoration(
+              color: selected
+                  ? selectedColor.withValues(alpha: 0.18)
+                  : accent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: selected ? selectedColor : Colors.transparent,
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              agentIconData(iconKey),
+              size: 20,
+              color: selected ? selectedColor : accent,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Row of six color swatches — single-select. The active swatch gets a
+/// cream / navy ring (brightness-aware) so it reads against any color.
+class _ColorPickerRow extends StatelessWidget {
+  const _ColorPickerRow({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final Color selected;
+  final ValueChanged<Color> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final ringColor = AppColors.onSurface(brightness);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        for (final color in agentColorOptions)
+          GestureDetector(
+            onTap: () => onSelected(color),
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected.toARGB32() == color.toARGB32()
+                      ? ringColor
+                      : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Footer + sheet handle
+// ────────────────────────────────────────────────────────────────────────
 
 /// Footer row matching the web modal pattern: a subtle Cancel (1 unit
 /// wide) next to a green tinted Approve CTA (2 units wide).

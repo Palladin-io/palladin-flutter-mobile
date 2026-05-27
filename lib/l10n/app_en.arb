@@ -1302,5 +1302,15 @@
   "agentsLogsDeactivated": "Deactivated",
   "@agentsLogsDeactivated": { "description": "Timeline entry — agent was deactivated" },
   "agentsEditSaved": "Agent saved",
-  "@agentsEditSaved": { "description": "Snackbar after saving agent edit changes" }
+  "@agentsEditSaved": { "description": "Snackbar after saving agent edit changes" },
+  "agentTypePlaceholder": "Pick a preset or type a custom value",
+  "@agentTypePlaceholder": { "description": "Placeholder for the agent type combobox in the approve form" },
+  "agentIconMore": "More icons",
+  "@agentIconMore": { "description": "Accessibility label for the 'more' tile that opens the icon browser" },
+  "agentIconBrowserTitle": "Browse icons",
+  "@agentIconBrowserTitle": { "description": "Header of the icon browser modal" },
+  "agentIconColorLabel": "Color",
+  "@agentIconColorLabel": { "description": "Label above the color swatches in the icon browser modal" },
+  "agentIconChoose": "Choose",
+  "@agentIconChoose": { "description": "Confirm button label inside the icon browser modal" }
 }

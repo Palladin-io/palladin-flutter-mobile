@@ -111,6 +111,33 @@ const List<String> agentIconOptions = [
   'api', 'cloud', 'extension', 'bolt', 'developer_mode',
 ];
 
+/// Full browsable icon set shown in the icon-browser modal. Mirrors the
+/// web panel's `AGENT_ICON_ALL` — superset of [agentIconOptions] plus a
+/// handful of extra glyphs available only via "more".
+const List<String> agentIconAll = [
+  'smart_toy', 'memory', 'hub', 'token', 'terminal', 'psychology',
+  'auto_mode', 'support_agent', 'dns', 'code', 'api', 'extension',
+  'computer', 'bolt', 'cloud', 'assistant', 'data_object',
+  'precision_manufacturing', 'settings_suggest', 'manage_search',
+  'batch_prediction', 'android', 'biotech', 'developer_mode',
+];
+
+/// Six selectable accent colors for the agent icon. Mirrors the web
+/// panel's `COLOR_OPTIONS` in `agent-icon-picker.tsx` so the two
+/// surfaces offer the same palette.
+const List<Color> agentColorOptions = [
+  Color(0xFFFF4F4F), // brand red
+  Color(0xFFFFAB87), // peach
+  Color(0xFF60A5FA), // sky blue
+  Color(0xFF2EC4B6), // teal / positive
+  Color(0xFFA78BFA), // violet
+  Color(0xFF8A95A6), // slate
+];
+
+/// Default selected color in the icon picker — matches the web panel's
+/// `DEFAULT_AGENT_COLOR` (teal / `#2EC4B6`).
+const Color defaultAgentColor = Color(0xFF2EC4B6);
+
 /// Per-glyph accent colour used as the unselected tint on the icon
 /// picker — mirrors the web panel's `AGENT_ICON_COLORS` map so the same
 /// preset reads with the same colour on every surface.
@@ -130,7 +157,16 @@ Color agentIconColor(String iconKey) {
     'token' => AppColors.vaultViolet,
     'psychology' => AppColors.vaultViolet,
     'extension' => AppColors.vaultViolet,
+    'assistant' => AppColors.vaultViolet,
+    'batch_prediction' => AppColors.vaultViolet,
     'bolt' => AppColors.vaultPeach,
+    'precision_manufacturing' => AppColors.vaultPeach,
+    'computer' => AppColors.vaultBlue,
+    'manage_search' => AppColors.vaultBlue,
+    'data_object' => AppColors.positiveAccent,
+    'android' => AppColors.positiveAccent,
+    'biotech' => AppColors.positiveAccent,
+    'settings_suggest' => AppColors.vaultSlate,
     _ => AppColors.vaultSlate,
   };
 }
@@ -138,7 +174,8 @@ Color agentIconColor(String iconKey) {
 /// Maps a stored [iconKey] to its [IconData].
 ///
 /// Falls back to `smart_toy` for an unknown or `null` key so the UI
-/// always has a glyph to render.
+/// always has a glyph to render. Covers both [agentIconOptions]
+/// (presets) and [agentIconAll] (browser superset).
 IconData agentIconData(String? iconKey) {
   return switch (iconKey) {
     'smart_toy' => Icons.smart_toy,
@@ -156,6 +193,16 @@ IconData agentIconData(String? iconKey) {
     'extension' => Icons.extension,
     'bolt' => Icons.bolt,
     'developer_mode' => Icons.developer_mode,
+    // Extra glyphs surfaced only via the icon browser ("more" tile).
+    'computer' => Icons.computer,
+    'assistant' => Icons.assistant,
+    'data_object' => Icons.data_object,
+    'precision_manufacturing' => Icons.precision_manufacturing,
+    'settings_suggest' => Icons.settings_suggest,
+    'manage_search' => Icons.manage_search,
+    'batch_prediction' => Icons.batch_prediction,
+    'android' => Icons.android,
+    'biotech' => Icons.biotech,
     _ => Icons.smart_toy,
   };
 }
