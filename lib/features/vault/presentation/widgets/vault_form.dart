@@ -11,9 +11,8 @@ import 'vault_visuals.dart';
 
 /// Editable vault metadata bundle owned by [VaultForm].
 ///
-/// `icon` carries a Material-icon name (`shield`, `folder`, …) — the
-/// same identifier used by the web panel and the create-vault picker.
-/// `color` is a `#RRGGBB` accent hex.
+/// `icon` carries a Material-icon name (`shield`, `folder`, …) or a URL
+/// (custom uploaded icon). `color` is a `#RRGGBB` accent hex.
 class VaultFormData {
   const VaultFormData({
     required this.name,
@@ -199,17 +198,22 @@ class _VaultFormState extends State<VaultForm> {
             setState(() => _selectedIcon = icon);
             _emit();
           },
-          onPickCustom: widget.onPickCustomIcon == null
-              ? null
-              : () async {
-                  final icon = await widget.onPickCustomIcon!();
-                  if (icon != null && mounted) {
-                    setState(() => _selectedIcon = icon);
-                    _emit();
-                  }
-                },
           moreTile: IconMoreTile(onTap: _openVaultBrowser),
         ),
+        if (widget.onPickCustomIcon != null) ...[
+          const SizedBox(height: 10),
+          _UploadCustomIconButton(
+            accentColor: accent,
+            imageUrl: VaultVisuals.isCustomUrl(_selectedIcon) ? _selectedIcon : null,
+            onTap: () async {
+              final icon = await widget.onPickCustomIcon!();
+              if (icon != null && mounted) {
+                setState(() => _selectedIcon = icon);
+                _emit();
+              }
+            },
+          ),
+        ],
       ],
     );
   }
@@ -228,6 +232,71 @@ class _SectionLabel extends StatelessWidget {
         fontSize: 11,
         fontWeight: FontWeight.w600,
         color: AppColors.textSecondaryMobile,
+      ),
+    );
+  }
+}
+
+/// Compact button below the icon picker that opens the photo picker.
+/// Shows a small thumbnail preview when a custom icon is already selected.
+class _UploadCustomIconButton extends StatelessWidget {
+  const _UploadCustomIconButton({
+    required this.accentColor,
+    required this.onTap,
+    this.imageUrl,
+  });
+
+  final Color accentColor;
+  final VoidCallback onTap;
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final l10n = AppLocalizations.of(context)!;
+    final hasImage = imageUrl != null;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: hasImage
+              ? accentColor.withValues(alpha: 0.08)
+              : AppColors.onSurface(brightness).withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: hasImage
+                ? accentColor.withValues(alpha: 0.3)
+                : AppColors.cardBorder(brightness),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.file_upload_outlined,
+              size: 15,
+              color: hasImage ? accentColor : AppColors.onSurfaceSubtle(brightness),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              l10n.vaultIconUpload,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: hasImage ? accentColor : AppColors.onSurfaceSubtle(brightness),
+              ),
+            ),
+            if (hasImage) ...[
+              const Spacer(),
+              VaultUploadTile(
+                accentColor: accentColor,
+                imageUrl: imageUrl,
+                onTap: null,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

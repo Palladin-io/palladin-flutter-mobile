@@ -8,18 +8,12 @@ import '../../../../l10n/generated/app_localizations.dart';
 import 'vault_visuals.dart';
 
 /// Horizontal row of icon-circles used in vault create / edit forms.
-///
-/// When [onPickCustom] is provided an extra upload circle is prepended
-/// before the presets. If [selected] is a URL the upload circle shows a
-/// preview of the custom image (with a selected-state border) instead of
-/// the upload glyph, so the user can see which icon is active.
 class VaultIconPicker extends StatelessWidget {
   const VaultIconPicker({
     super.key,
     required this.selected,
     required this.accentColor,
     required this.onSelected,
-    this.onPickCustom,
     this.moreTile,
   });
 
@@ -27,13 +21,7 @@ class VaultIconPicker extends StatelessWidget {
   final Color accentColor;
   final ValueChanged<String> onSelected;
 
-  /// When non-null an upload-circle is shown as the first item.
-  /// Caller implements the pick + upload logic and updates [selected]
-  /// with the resulting URL on success.
-  final VoidCallback? onPickCustom;
-
   /// Optional trailing tile that opens the full icon + color browser.
-  /// Mirrors the agents approve sheet's "more" affordance.
   final Widget? moreTile;
 
   bool get _isCustomUrl => VaultVisuals.isCustomUrl(selected);
@@ -41,8 +29,6 @@ class VaultIconPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final choices = VaultVisuals.iconChoices;
-    final primaryColor = Theme.of(context).colorScheme.primary;
-
     return IconPickerGrid(
       itemCount: choices.length,
       itemBuilder: (i) => IconPresetTile(
@@ -52,62 +38,59 @@ class VaultIconPicker extends StatelessWidget {
         selectedColor: accentColor,
         onTap: () => onSelected(choices[i].name),
       ),
-      leadingTile: onPickCustom != null
-          ? _UploadCircle(
-              color: primaryColor,
-              accentColor: accentColor,
-              imageUrl: _isCustomUrl ? selected : null,
-              onTap: onPickCustom!,
-            )
-          : null,
       moreTile: moreTile,
     );
   }
 }
 
-/// Circle that triggers a custom icon upload.
-///
-/// When [imageUrl] is set (a custom icon is already selected) it renders
-/// the image as a full-bleed circle with a selected-state border so the
-/// user can see the current custom icon. Tapping it always opens the
-/// picker so they can replace the image.
-class _UploadCircle extends StatelessWidget {
-  const _UploadCircle({
-    required this.color,
+/// Upload circle shown below the icon picker when a custom icon is active.
+/// Tapping it opens the photo picker; the current custom image is shown
+/// as a preview with a selected-state border.
+class VaultUploadTile extends StatelessWidget {
+  const VaultUploadTile({
+    super.key,
     required this.accentColor,
     required this.onTap,
     this.imageUrl,
+    this.isLoading = false,
   });
 
-  final Color color;
   final Color accentColor;
-  final VoidCallback onTap;
-
-  /// URL of the currently-selected custom icon, or null when no custom
-  /// icon is active. When non-null the image is displayed instead of the
-  /// upload glyph.
+  final VoidCallback? onTap;
   final String? imageUrl;
+  final bool isLoading;
 
   bool get _hasImage => imageUrl != null;
+
+  Widget _buildContent(Color fallbackColor) {
+    if (isLoading) {
+      return SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+        ),
+      );
+    }
+    if (_hasImage) return ClipOval(child: _buildPreview(fallbackColor));
+    return Icon(Icons.file_upload_outlined, size: 16, color: fallbackColor);
+  }
 
   Widget _buildPreview(Color fallbackColor) {
     if (imageUrl == null) return const SizedBox.shrink();
     if (imageUrl!.startsWith('file://')) {
       return Image.file(
         File(imageUrl!.substring(7)),
-        width: 36,
-        height: 36,
-        fit: BoxFit.cover,
-        errorBuilder: (ctx, e, s) =>
+        width: 36, height: 36, fit: BoxFit.cover,
+        errorBuilder: (_, e, s) =>
             Icon(Icons.file_upload_outlined, size: 16, color: fallbackColor),
       );
     }
     return Image.network(
       imageUrl!,
-      width: 36,
-      height: 36,
-      fit: BoxFit.cover,
-      errorBuilder: (ctx, e, _) =>
+      width: 36, height: 36, fit: BoxFit.cover,
+      errorBuilder: (_, e, s) =>
           Icon(Icons.file_upload_outlined, size: 16, color: fallbackColor),
     );
   }
@@ -122,23 +105,18 @@ class _UploadCircle extends StatelessWidget {
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          width: 36,
-          height: 36,
+          width: 36, height: 36,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: _hasImage ? accentColor : color.withValues(alpha: 0.35),
-              width: _hasImage ? 2 : 1.5,
+              color: (_hasImage || isLoading)
+                  ? accentColor
+                  : Colors.grey.withValues(alpha: 0.35),
+              width: (_hasImage || isLoading) ? 2.0 : 1.5,
             ),
           ),
-          child: _hasImage
-              ? ClipOval(child: _buildPreview(color))
-              : Icon(
-                  Icons.file_upload_outlined,
-                  size: 16,
-                  color: color,
-                ),
+          child: _buildContent(Colors.grey),
         ),
       ),
     );

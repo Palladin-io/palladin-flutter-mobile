@@ -372,11 +372,16 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       selected: _icon,
                       accentColor: accentColor,
                       onSelected: (name) => setState(() => _icon = name),
-                      onPickCustom: (_pickingIcon || _uploadingIcon)
+                      moreTile: IconMoreTile(onTap: _openEntryBrowser),
+                    ),
+                    const SizedBox(height: 10),
+                    UploadIconButton(
+                      accentColor: accentColor,
+                      imageUrl: EntryVisuals.isCustomUrl(_icon) ? _icon : null,
+                      isLoading: _pickingIcon || _uploadingIcon,
+                      onTap: (_pickingIcon || _uploadingIcon)
                           ? null
                           : _pickCustomIcon,
-                      isLoadingCustom: _pickingIcon || _uploadingIcon,
-                      moreTile: IconMoreTile(onTap: _openEntryBrowser),
                     ),
                     const SizedBox(height: 16),
                     // 5. Type dropdown
