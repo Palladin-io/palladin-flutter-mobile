@@ -148,11 +148,11 @@ class _VaultFormState extends State<VaultForm> {
           .toList(),
       colorOptions:
           VaultVisuals.colorChoices.map(VaultVisuals.colorFor).toList(),
-      initialIconKey:
-          VaultVisuals.isCustomUrl(_selectedIcon) ? null : _selectedIcon,
+      initialIconKey: _selectedIcon,
       initialColor: VaultVisuals.colorFor(_selectedColor),
       title: l10n.agentIconBrowserTitle,
       confirmLabel: l10n.agentIconChoose,
+      onPickCustom: widget.onPickCustomIcon,
     );
     if (!mounted || result == null) return;
     final pickedColor = result.color;

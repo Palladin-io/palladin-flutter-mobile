@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/icon_picker_grid.dart'
     show IconPickerGrid, IconMoreTile, IconPresetTile;
 import '../../../../l10n/generated/app_localizations.dart';
@@ -90,10 +92,15 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
   void _confirm() {
     final name = _nameController.text.trim();
     final typeText = _selectedTypeValue?.trim() ?? '';
+    // file:// paths are local — agent icon upload requires the agent ID which
+    // doesn't exist until after approval. Send null for now; upload is future work.
+    final iconForApi = (_selectedIcon?.startsWith('file://') ?? false)
+        ? null
+        : _selectedIcon;
     Navigator.of(context).pop<ApproveAgentResult>((
       name: name.isEmpty ? null : name,
       type: typeText.isEmpty ? null : typeText,
-      iconKey: _selectedIcon,
+      iconKey: iconForApi,
     ));
   }
 
@@ -183,10 +190,31 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
   }
 
   Future<void> _openIconBrowser() async {
-    final result = await _AgentIconBrowserSheet.show(
+    final l10n = AppLocalizations.of(context)!;
+    final result = await IconColorBrowserSheet.show(
       context,
-      initialIcon: _selectedIcon,
+      icons: agentIconAll
+          .map((name) => (
+                name: name,
+                icon: agentIconData(name),
+                paletteColor: agentIconColor(name),
+              ))
+          .toList(),
+      colorOptions: agentColorOptions,
+      initialIconKey: _selectedIcon,
       initialColor: _selectedColor,
+      title: l10n.agentIconBrowserTitle,
+      confirmLabel: l10n.agentIconChoose,
+      onPickCustom: () async {
+        final file = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 512,
+          maxHeight: 512,
+          imageQuality: 85,
+        );
+        if (file == null) return null;
+        return 'file://${file.path}';
+      },
     );
     if (!mounted || result == null) return;
     setState(() {
@@ -473,7 +501,15 @@ class _IconGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final presets = agentIconOptions;
-    final isFromBrowser = selected != null && !presets.contains(selected);
+    // file:// paths (custom images picked via the browser) are never
+    // injected into the preset grid — the icon grid just shows "none selected"
+    // while the custom image is stored internally.
+    final isCustomUrl = selected != null &&
+        (selected!.startsWith('file://') ||
+            selected!.startsWith('https://') ||
+            selected!.startsWith('http://'));
+    final isFromBrowser =
+        !isCustomUrl && selected != null && !presets.contains(selected);
     // When a browser-picked icon is active, inject it at the end of the
     // preset list (replacing the last slot) so the grid still has
     // exactly the same pool size and "more" stays last.
@@ -498,280 +534,6 @@ class _IconGrid extends StatelessWidget {
   }
 }
 
-
-// ────────────────────────────────────────────────────────────────────────
-// Icon browser modal — full icon set + color picker
-// ────────────────────────────────────────────────────────────────────────
-
-typedef _IconBrowserResult = ({String iconKey, Color color});
-
-/// Full icon browser modal — surfaces every icon in [agentIconAll] and a
-/// six-color picker. Mirrors the web panel's `AgentIconBrowser`.
-class _AgentIconBrowserSheet extends StatefulWidget {
-  const _AgentIconBrowserSheet({
-    required this.initialIcon,
-    required this.initialColor,
-  });
-
-  final String? initialIcon;
-  final Color initialColor;
-
-  static Future<_IconBrowserResult?> show(
-    BuildContext context, {
-    String? initialIcon,
-    required Color initialColor,
-  }) {
-    return showModalBottomSheet<_IconBrowserResult>(
-      context: context,
-      isScrollControlled: true,
-      useRootNavigator: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _AgentIconBrowserSheet(
-        initialIcon: initialIcon,
-        initialColor: initialColor,
-      ),
-    );
-  }
-
-  @override
-  State<_AgentIconBrowserSheet> createState() =>
-      _AgentIconBrowserSheetState();
-}
-
-class _AgentIconBrowserSheetState extends State<_AgentIconBrowserSheet> {
-  late String? _localIcon = widget.initialIcon;
-  late Color _localColor = widget.initialColor;
-
-  void _confirm() {
-    final icon = _localIcon;
-    if (icon == null) return;
-    Navigator.of(context).pop<_IconBrowserResult>((
-      iconKey: icon,
-      color: _localColor,
-    ));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.modalBackground(brightness),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom +
-              MediaQuery.viewPaddingOf(context).bottom,
-        ),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const _SheetHandle(),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        l10n.agentIconBrowserTitle,
-                        style: TextStyle(
-                          color: AppColors.onSurface(brightness),
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    InkWell(
-                      onTap: () => Navigator.of(context).pop(),
-                      borderRadius: BorderRadius.circular(999),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Icon(
-                          Icons.close,
-                          size: 20,
-                          color: AppColors.onSurfaceSubtle(brightness),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                _BrowserIconGrid(
-                  selectedIcon: _localIcon,
-                  selectedColor: _localColor,
-                  onSelected: (icon) => setState(() => _localIcon = icon),
-                ),
-                const SizedBox(height: 14),
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: AppColors.cardBorder(brightness),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  l10n.agentIconColorLabel,
-                  style: TextStyle(
-                    color: AppColors.onSurfaceMuted(brightness),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _ColorPickerRow(
-                  selected: _localColor,
-                  onSelected: (color) => setState(() => _localColor = color),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: SizedBox(
-                        height: 44,
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor:
-                                AppColors.onSurface(brightness),
-                            side: BorderSide(
-                              color: AppColors.cardBorder(brightness),
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: Text(
-                            l10n.apiKeysCancel,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 2,
-                      child: ApproveActionButton(
-                        label: l10n.agentIconChoose,
-                        icon: Icons.check,
-                        onPressed: _localIcon == null ? null : _confirm,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// 8-column grid of every icon in [agentIconAll]. Selected tile uses the
-/// user-picked accent color.
-class _BrowserIconGrid extends StatelessWidget {
-  const _BrowserIconGrid({
-    required this.selectedIcon,
-    required this.selectedColor,
-    required this.onSelected,
-  });
-
-  final String? selectedIcon;
-  final Color selectedColor;
-  final ValueChanged<String> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 6,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 1,
-      ),
-      itemCount: agentIconAll.length,
-      itemBuilder: (_, index) {
-        final iconKey = agentIconAll[index];
-        final selected = iconKey == selectedIcon;
-        final accent = agentIconColor(iconKey);
-        return InkWell(
-          onTap: () => onSelected(iconKey),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            decoration: BoxDecoration(
-              color: selected
-                  ? selectedColor.withValues(alpha: 0.18)
-                  : accent.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: selected ? selectedColor : Colors.transparent,
-                width: 2,
-              ),
-            ),
-            child: Icon(
-              agentIconData(iconKey),
-              size: 20,
-              color: selected ? selectedColor : accent,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// Row of six color swatches — single-select. The active swatch gets a
-/// cream / navy ring (brightness-aware) so it reads against any color.
-class _ColorPickerRow extends StatelessWidget {
-  const _ColorPickerRow({
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final Color selected;
-  final ValueChanged<Color> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final ringColor = AppColors.onSurface(brightness);
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        for (final color in agentColorOptions)
-          GestureDetector(
-            onTap: () => onSelected(color),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: selected.toARGB32() == color.toARGB32()
-                      ? ringColor
-                      : Colors.transparent,
-                  width: 2,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
 
 // ────────────────────────────────────────────────────────────────────────
 // Footer + sheet handle

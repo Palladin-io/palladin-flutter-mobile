@@ -87,7 +87,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
   EntryType _type = EntryType.credential;
   String _icon = EntryVisuals.defaultIconName;
   String _colorHex = EntryVisuals.defaultColorHex;
-  XFile? _pendingIconFile;
   bool _pickingIcon = false;
   bool _uploadingIcon = false;
 
@@ -131,8 +130,16 @@ class _AddEntryViewState extends State<_AddEntryView> {
         notes: _notesController.text,
       );
 
+  /// Called by the main-picker upload circle.
   Future<void> _pickCustomIcon() async {
-    if (_pickingIcon || _uploadingIcon) return;
+    final path = await _pickIconFile();
+    if (path != null && mounted) setState(() => _icon = path);
+  }
+
+  /// Called by the browser upload circle — returns the file:// path
+  /// without updating [_icon] (the browser handles selection state).
+  Future<String?> _pickIconFile() async {
+    if (_pickingIcon || _uploadingIcon) return null;
     setState(() => _pickingIcon = true);
     try {
       final file = await ImagePicker().pickImage(
@@ -141,11 +148,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
         maxHeight: 512,
         imageQuality: 85,
       );
-      if (file == null || !mounted) return;
-      setState(() {
-        _pendingIconFile = file;
-        _icon = 'file://${file.path}';
-      });
+      if (file == null || !mounted) return null;
+      return 'file://${file.path}';
     } finally {
       if (mounted) setState(() => _pickingIcon = false);
     }
@@ -168,11 +172,11 @@ class _AddEntryViewState extends State<_AddEntryView> {
           .toList(),
       colorOptions:
           VaultVisuals.colorChoices.map(VaultVisuals.colorFor).toList(),
-      initialIconKey:
-          EntryVisuals.isCustomUrl(_icon) ? null : _icon,
+      initialIconKey: _icon,
       initialColor: VaultVisuals.colorFor(_colorHex),
       title: l10n.agentIconBrowserTitle,
       confirmLabel: l10n.agentIconChoose,
+      onPickCustom: _pickIconFile,
     );
     if (!mounted || result == null) return;
     final pickedColor = result.color;
@@ -182,10 +186,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
       orElse: () => EntryVisuals.defaultColorHex,
     );
     setState(() {
-      if (result.iconKey != null) {
-        _icon = result.iconKey!;
-        _pendingIconFile = null;
-      }
+      if (result.iconKey != null) _icon = result.iconKey!;
       _colorHex = matchedHex;
     });
   }
@@ -204,9 +205,10 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
     final urlDomain = EntryFormUtils.extractDomain(_urlController.text);
+    final hasCustomFile = _icon.startsWith('file://');
     // Send null icon when a custom file is pending — the preset icon will
     // be replaced by the S3 URL after the two-step upload.
-    final iconForApi = _pendingIconFile != null ? null : _icon;
+    final iconForApi = hasCustomFile ? null : _icon;
     try {
       await context.read<CreateEntryCubit>().createEntry(
             vaultId: widget.vaultId,
@@ -228,14 +230,14 @@ class _AddEntryViewState extends State<_AddEntryView> {
     if (cubitState is! CreateEntrySuccess) return;
 
     var entry = cubitState.entry;
-    if (_pendingIconFile != null) {
+    if (hasCustomFile) {
       setState(() => _uploadingIcon = true);
       try {
         final service = EntryIconUploadService(getIt<EntryRemoteDatasource>());
         final url = await service.uploadIcon(
           widget.vaultId,
           entry.id,
-          File(_pendingIconFile!.path),
+          File(_icon.substring(7)),
         );
         entry = entry.copyWith(icon: url);
       } on VaultIconUploadException catch (e) {
@@ -369,10 +371,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                     EntryIconPicker(
                       selected: _icon,
                       accentColor: accentColor,
-                      onSelected: (name) => setState(() {
-                        _icon = name;
-                        _pendingIconFile = null;
-                      }),
+                      onSelected: (name) => setState(() => _icon = name),
                       onPickCustom: (_pickingIcon || _uploadingIcon)
                           ? null
                           : _pickCustomIcon,

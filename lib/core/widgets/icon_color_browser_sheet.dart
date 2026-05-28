@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
@@ -35,6 +37,7 @@ class IconColorBrowserSheet extends StatefulWidget {
     required this.title,
     required this.confirmLabel,
     this.leadingTile,
+    this.onPickCustom,
   });
 
   /// Full set of glyphs to render in the browser grid.
@@ -56,10 +59,16 @@ class IconColorBrowserSheet extends StatefulWidget {
   /// Label rendered on the green confirm CTA in the footer.
   final String confirmLabel;
 
-  /// Optional first tile (e.g. upload circle). Currently unused by the
-  /// callers but accepted for symmetry with [IconPickerGrid]; rendered
-  /// as an extra leading tile in the browser grid when supplied.
+  /// Optional first tile (e.g. upload circle). Ignored when [onPickCustom]
+  /// is provided — the sheet manages the upload circle internally in that case.
   final Widget? leadingTile;
+
+  /// When provided, an upload circle is shown as the first tile in the
+  /// browser grid. Tapping it calls this callback; the returned string
+  /// (a `file://` or `https://` URL) becomes the selected icon so callers
+  /// can treat custom images the same as preset icon names. Returning
+  /// `null` means the user cancelled the picker.
+  final Future<String?> Function()? onPickCustom;
 
   /// Opens the sheet on the root navigator and returns the user's
   /// selection, or `null` on cancel / dismiss.
@@ -72,6 +81,7 @@ class IconColorBrowserSheet extends StatefulWidget {
     required String title,
     required String confirmLabel,
     Widget? leadingTile,
+    Future<String?> Function()? onPickCustom,
   }) {
     return showModalBottomSheet<IconColorBrowserResult>(
       context: context,
@@ -86,6 +96,7 @@ class IconColorBrowserSheet extends StatefulWidget {
         title: title,
         confirmLabel: confirmLabel,
         leadingTile: leadingTile,
+        onPickCustom: onPickCustom,
       ),
     );
   }
@@ -94,9 +105,14 @@ class IconColorBrowserSheet extends StatefulWidget {
   State<IconColorBrowserSheet> createState() => _IconColorBrowserSheetState();
 }
 
+bool _isCustomUrl(String? s) =>
+    s != null &&
+    (s.startsWith('https://') || s.startsWith('http://') || s.startsWith('file://'));
+
 class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
   late String? _localIcon = widget.initialIconKey;
   late Color _localColor = widget.initialColor;
+  bool _isLoadingCustom = false;
 
   void _confirm() {
     final icon = _localIcon;
@@ -105,6 +121,17 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
       iconKey: icon,
       color: _localColor,
     ));
+  }
+
+  Future<void> _pickCustom() async {
+    if (_isLoadingCustom) return;
+    setState(() => _isLoadingCustom = true);
+    try {
+      final url = await widget.onPickCustom!();
+      if (url != null && mounted) setState(() => _localIcon = url);
+    } finally {
+      if (mounted) setState(() => _isLoadingCustom = false);
+    }
   }
 
   @override
@@ -162,7 +189,15 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
                   icons: widget.icons,
                   selectedIcon: _localIcon,
                   selectedColor: _localColor,
-                  leadingTile: widget.leadingTile,
+                  leadingTile: widget.onPickCustom != null
+                      ? _BrowserUploadCircle(
+                          accentColor: _localColor,
+                          isSelected: _isCustomUrl(_localIcon),
+                          isLoading: _isLoadingCustom,
+                          imageUrl: _isCustomUrl(_localIcon) ? _localIcon : null,
+                          onTap: _isLoadingCustom ? null : _pickCustom,
+                        )
+                      : widget.leadingTile,
                   onSelected: (icon) => setState(() => _localIcon = icon),
                 ),
                 const SizedBox(height: 14),
@@ -335,6 +370,85 @@ class _ColorPickerRow extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Upload circle rendered inside the browser grid as the first slot when
+/// [IconColorBrowserSheet.onPickCustom] is provided. Circular shape
+/// distinguishes it from the preset squared tiles.
+class _BrowserUploadCircle extends StatelessWidget {
+  const _BrowserUploadCircle({
+    required this.accentColor,
+    required this.isSelected,
+    required this.isLoading,
+    required this.onTap,
+    this.imageUrl,
+  });
+
+  final Color accentColor;
+  final bool isSelected;
+  final bool isLoading;
+  final VoidCallback? onTap;
+  final String? imageUrl;
+
+  Widget _buildContent(Color fallbackColor) {
+    if (isLoading) {
+      return SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+        ),
+      );
+    }
+    if (imageUrl != null) {
+      return ClipOval(child: _buildPreview(fallbackColor));
+    }
+    return Icon(Icons.file_upload_outlined, size: 18, color: fallbackColor);
+  }
+
+  Widget _buildPreview(Color fallbackColor) {
+    if (imageUrl == null) return const SizedBox.shrink();
+    if (imageUrl!.startsWith('file://')) {
+      return Image.file(
+        File(imageUrl!.substring(7)),
+        fit: BoxFit.cover,
+        errorBuilder: (_, e, s) =>
+            Icon(Icons.file_upload_outlined, size: 18, color: fallbackColor),
+      );
+    }
+    return Image.network(
+      imageUrl!,
+      fit: BoxFit.cover,
+      errorBuilder: (_, e, s) =>
+          Icon(Icons.file_upload_outlined, size: 18, color: fallbackColor),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final fallbackColor = AppColors.onSurfaceSubtle(brightness);
+    final borderColor =
+        isSelected ? accentColor : fallbackColor.withValues(alpha: 0.35);
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: isSelected ? accentColor.withValues(alpha: 0.12) : null,
+          border: Border.all(
+            color: borderColor,
+            width: isSelected ? 2.0 : 1.5,
+          ),
+        ),
+        child: _buildContent(fallbackColor),
+      ),
     );
   }
 }
