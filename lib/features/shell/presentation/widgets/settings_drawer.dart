@@ -3,10 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../../core/di/injection.dart';
 import '../../../../core/l10n/locale_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/theme_cubit.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../agents/presentation/bloc/agents_cubit.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 
 /// Bit on the JWT `permissions` claim that flags the user as a paying
@@ -134,6 +136,9 @@ class SettingsDrawer extends StatelessWidget {
 
   void _onLogout(BuildContext context) {
     Navigator.of(context).pop();
+    // Drop the previous session's agents from the singleton cubit so they
+    // never leak into the next account that signs in on this device.
+    getIt<AgentsCubit>().reset();
     context.read<AuthBloc>().add(const AuthLogoutRequested());
   }
 }

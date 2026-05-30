@@ -13,6 +13,10 @@ import '../../features/onboarding/data/services/onboarding_crypto_service.dart';
 import '../../features/onboarding/domain/repositories/onboarding_repository.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/api_keys/presentation/bloc/api_keys_cubit.dart';
+import '../../features/agents/data/datasources/agents_remote_data_source.dart';
+import '../../features/agents/data/repositories/agents_repository_impl.dart';
+import '../../features/agents/domain/repositories/agents_repository.dart';
+import '../../features/agents/presentation/bloc/agents_cubit.dart';
 import '../../features/recovery/data/datasources/recovery_remote_datasource.dart';
 import '../../features/settings/data/datasources/settings_remote_data_source.dart';
 import '../../features/settings/data/repositories/settings_repository_impl.dart';
@@ -224,5 +228,22 @@ void configureDependencies(EnvConfig config) {
   // [SettingsRepository] for the shared API-key endpoints.
   getIt.registerFactory<ApiKeysCubit>(
     () => ApiKeysCubit(repository: getIt<SettingsRepository>()),
+  );
+
+  // Agents — data layer
+  getIt.registerLazySingleton<AgentsRemoteDataSource>(
+    () => AgentsRemoteDataSource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<AgentsRepository>(
+    () => AgentsRepositoryImpl(getIt<AgentsRemoteDataSource>()),
+  );
+
+  // Agents — singleton so the list page and the detail page share one
+  // cubit instance. State changes in the detail (icon save, approve,
+  // deactivate) are immediately visible in the list without a reload.
+  // Lives for the whole app lifecycle (never close()-d) — call
+  // AgentsCubit.reset() on logout / org-switch to clear the prior session.
+  getIt.registerLazySingleton<AgentsCubit>(
+    () => AgentsCubit(repository: getIt<AgentsRepository>()),
   );
 }

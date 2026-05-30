@@ -1699,6 +1699,504 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{total} keys · {active} active'**
   String apiKeysListSummary(int total, int active);
+
+  /// Title of the agents list screen
+  ///
+  /// In en, this message translates to:
+  /// **'Agents'**
+  String get agentsScreenTitle;
+
+  /// Count summary in the agents screen AppBar subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'{total} agents, {active} active'**
+  String agentsListSummary(int total, int active);
+
+  /// Empty-state title for the agents list
+  ///
+  /// In en, this message translates to:
+  /// **'No agents yet'**
+  String get agentsEmpty;
+
+  /// Empty-state hint for the agents list
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your first agent using the CLI to get started'**
+  String get agentsEmptyHint;
+
+  /// Placeholder text for the agents search field
+  ///
+  /// In en, this message translates to:
+  /// **'Search agents…'**
+  String get agentsSearchHint;
+
+  /// Shown when the search query returns no results
+  ///
+  /// In en, this message translates to:
+  /// **'No agents match your search'**
+  String get agentsSearchEmpty;
+
+  /// Fallback display name for an agent with no name set
+  ///
+  /// In en, this message translates to:
+  /// **'Unnamed agent'**
+  String get agentsUnnamed;
+
+  /// Prompt shown in the split-view detail pane when no agent is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Select an agent to see its details'**
+  String get agentsSplitPrompt;
+
+  /// Agent status label — active
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get agentsStatusActive;
+
+  /// Agent status label — pending approval
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get agentsStatusPending;
+
+  /// Agent status label — deactivated
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivated'**
+  String get agentsStatusDeactivated;
+
+  /// Prefix for the enrolled-date subtitle on an agent card
+  ///
+  /// In en, this message translates to:
+  /// **'Enrolled'**
+  String get agentsEnrolled;
+
+  /// Prefix for the deactivated-date subtitle on an agent card
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivated'**
+  String get agentsDeactivated;
+
+  /// Prefix for the deactivated-date in the agent card footer
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivated on'**
+  String get agentsDeactivatedOn;
+
+  /// Prefix for the first-connected-date in the agent card footer
+  ///
+  /// In en, this message translates to:
+  /// **'Connected on'**
+  String get agentsConnectedOn;
+
+  /// Prefix for the last-access-date in the agent card footer
+  ///
+  /// In en, this message translates to:
+  /// **'Last access'**
+  String get agentsLastAccess;
+
+  /// Subtitle on a pending agent card
+  ///
+  /// In en, this message translates to:
+  /// **'Pending approval'**
+  String get agentsPendingApproval;
+
+  /// Generic title of the agent detail screen while loading
+  ///
+  /// In en, this message translates to:
+  /// **'Agent'**
+  String get agentsDetailTitle;
+
+  /// Shown when the requested agent does not exist
+  ///
+  /// In en, this message translates to:
+  /// **'Agent not found'**
+  String get agentsDetailNotFound;
+
+  /// Label for the agent id row on the detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Id'**
+  String get agentsDetailId;
+
+  /// Label for the public key suffix row
+  ///
+  /// In en, this message translates to:
+  /// **'Public Key'**
+  String get agentsDetailPublicKey;
+
+  /// Label for the date the agent first connected
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get agentsDetailCreatedAt;
+
+  /// Label for the date the agent was approved
+  ///
+  /// In en, this message translates to:
+  /// **'Enrolled'**
+  String get agentsDetailEnrolledAt;
+
+  /// Label for who approved the agent
+  ///
+  /// In en, this message translates to:
+  /// **'Enrolled by'**
+  String get agentsDetailEnrolledBy;
+
+  /// Label for the date the agent was deactivated
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivated'**
+  String get agentsDetailDeactivatedAt;
+
+  /// Section header for the approve zone on a pending agent
+  ///
+  /// In en, this message translates to:
+  /// **'APPROVE AGENT'**
+  String get agentsApproveZone;
+
+  /// Hint in the approve zone
+  ///
+  /// In en, this message translates to:
+  /// **'Grant this agent access to the organization'**
+  String get agentsApproveHint;
+
+  /// Button label to approve a pending agent
+  ///
+  /// In en, this message translates to:
+  /// **'Approve Agent'**
+  String get agentsApprove;
+
+  /// Button label while approval is in flight
+  ///
+  /// In en, this message translates to:
+  /// **'Approving…'**
+  String get agentsApproving;
+
+  /// Section header for the deactivate danger zone
+  ///
+  /// In en, this message translates to:
+  /// **'DANGER ZONE'**
+  String get agentsDeactivateZone;
+
+  /// Hint inside the deactivate danger zone
+  ///
+  /// In en, this message translates to:
+  /// **'This agent will immediately lose access to all vaults'**
+  String get agentsDeactivateHint;
+
+  /// Button label to deactivate an active agent
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivate Agent'**
+  String get agentsDeactivate;
+
+  /// Button label while deactivation is in flight
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivating…'**
+  String get agentsDeactivating;
+
+  /// Section header for the reactivate zone on a deactivated agent
+  ///
+  /// In en, this message translates to:
+  /// **'REACTIVATE'**
+  String get agentsReactivateZone;
+
+  /// Hint in the reactivate zone
+  ///
+  /// In en, this message translates to:
+  /// **'Re-enable access for this agent'**
+  String get agentsReactivateHint;
+
+  /// Button label to reactivate a deactivated agent
+  ///
+  /// In en, this message translates to:
+  /// **'Reactivate Agent'**
+  String get agentsReactivate;
+
+  /// Button label while reactivation is in flight
+  ///
+  /// In en, this message translates to:
+  /// **'Reactivating…'**
+  String get agentsReactivating;
+
+  /// Title of the approve confirmation sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Approve Agent'**
+  String get agentsApproveConfirmTitle;
+
+  /// Body of the approve confirmation sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Allow \"{name}\" to access organization vaults?'**
+  String agentsApproveConfirmBody(String name);
+
+  /// Title of the deactivate confirmation sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivate Agent'**
+  String get agentsDeactivateConfirmTitle;
+
+  /// Body of the deactivate confirmation sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivate \"{name}\"? It will immediately lose access.'**
+  String agentsDeactivateConfirmBody(String name);
+
+  /// Title of the agent edit screen
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Agent'**
+  String get agentsEditTitle;
+
+  /// Label for the agent display-name field
+  ///
+  /// In en, this message translates to:
+  /// **'Display Name'**
+  String get agentsEditName;
+
+  /// Label for the agent description field
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get agentsEditDescription;
+
+  /// Save button on the agent edit screen
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get agentsEditSave;
+
+  /// Retry button on the agents error state
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get agentsRetry;
+
+  /// Label / tooltip for the edit-agent action
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get agentsEditIcon;
+
+  /// Title of the approve-agent form sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Approve Agent'**
+  String get agentApproveTitle;
+
+  /// Label for the optional agent name input in the approve form
+  ///
+  /// In en, this message translates to:
+  /// **'Name (optional)'**
+  String get agentNameLabel;
+
+  /// Label for the agent type chip group in the approve form
+  ///
+  /// In en, this message translates to:
+  /// **'Agent type'**
+  String get agentTypeLabel;
+
+  /// Label for the agent icon picker in the approve form
+  ///
+  /// In en, this message translates to:
+  /// **'Icon'**
+  String get agentIconLabel;
+
+  /// Agent type option — Open Claw
+  ///
+  /// In en, this message translates to:
+  /// **'Open Claw'**
+  String get agentTypeOpenClaw;
+
+  /// Agent type option — Claude Code
+  ///
+  /// In en, this message translates to:
+  /// **'Claude Code'**
+  String get agentTypeClaudeCode;
+
+  /// Agent type option — Hermes
+  ///
+  /// In en, this message translates to:
+  /// **'Hermes'**
+  String get agentTypeHermes;
+
+  /// Agent type option — Cursor
+  ///
+  /// In en, this message translates to:
+  /// **'Cursor'**
+  String get agentTypeCursor;
+
+  /// Agent type option — GitHub Copilot
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub Copilot'**
+  String get agentTypeCopilot;
+
+  /// Agent type option — Gemini
+  ///
+  /// In en, this message translates to:
+  /// **'Gemini'**
+  String get agentTypeGemini;
+
+  /// Agent type option — OpenAI Codex
+  ///
+  /// In en, this message translates to:
+  /// **'OpenAI Codex'**
+  String get agentTypeCodex;
+
+  /// Agent type option — Kimi Code
+  ///
+  /// In en, this message translates to:
+  /// **'Kimi Code'**
+  String get agentTypeKimiCode;
+
+  /// Agent type option — Devin
+  ///
+  /// In en, this message translates to:
+  /// **'Devin'**
+  String get agentTypeDevin;
+
+  /// Agent type option — Aider
+  ///
+  /// In en, this message translates to:
+  /// **'Aider'**
+  String get agentTypeAider;
+
+  /// Agent type option — Cline
+  ///
+  /// In en, this message translates to:
+  /// **'Cline'**
+  String get agentTypeCline;
+
+  /// Agent type option — Roo Code
+  ///
+  /// In en, this message translates to:
+  /// **'Roo Code'**
+  String get agentTypeRoo;
+
+  /// Agent type option — Other
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get agentTypeOther;
+
+  /// Subtitle under the approve-agent dialog title
+  ///
+  /// In en, this message translates to:
+  /// **'Optionally set a name, type, and icon before activating.'**
+  String get agentApproveSetupHint;
+
+  /// Placeholder for the agent name input on the approve form
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Claude Code, Cursor'**
+  String get agentNamePlaceholder;
+
+  /// Tab label — agent details tab
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get agentsTabDetails;
+
+  /// Tab label — agent grants tab
+  ///
+  /// In en, this message translates to:
+  /// **'Grants'**
+  String get agentsTabGrants;
+
+  /// Tab label — agent logs tab
+  ///
+  /// In en, this message translates to:
+  /// **'Logs'**
+  String get agentsTabLogs;
+
+  /// Empty state for the agent grants tab
+  ///
+  /// In en, this message translates to:
+  /// **'No active grants'**
+  String get agentsGrantsEmpty;
+
+  /// Empty state hint for the agent grants tab
+  ///
+  /// In en, this message translates to:
+  /// **'This agent has not been granted access to any vault entries yet'**
+  String get agentsGrantsEmptyHint;
+
+  /// Timeline entry — agent first connected
+  ///
+  /// In en, this message translates to:
+  /// **'First connected'**
+  String get agentsLogsFirstConnected;
+
+  /// Timeline entry — agent was enrolled / approved
+  ///
+  /// In en, this message translates to:
+  /// **'Enrolled'**
+  String get agentsLogsEnrolled;
+
+  /// Timeline entry — agent was deactivated
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivated'**
+  String get agentsLogsDeactivated;
+
+  /// Snackbar after saving agent edit changes
+  ///
+  /// In en, this message translates to:
+  /// **'Agent saved'**
+  String get agentsEditSaved;
+
+  /// Placeholder for the agent type combobox in the approve form
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a preset or type a custom value'**
+  String get agentTypePlaceholder;
+
+  /// Accessibility label for the 'more' tile that opens the icon browser
+  ///
+  /// In en, this message translates to:
+  /// **'More icons'**
+  String get agentIconMore;
+
+  /// Header of the icon browser modal
+  ///
+  /// In en, this message translates to:
+  /// **'Browse icons'**
+  String get agentIconBrowserTitle;
+
+  /// Label above the color swatches in the icon browser modal
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get agentIconColorLabel;
+
+  /// Confirm button label inside the icon browser modal
+  ///
+  /// In en, this message translates to:
+  /// **'Choose'**
+  String get agentIconChoose;
+
+  /// Fallback type label on the agent card when no type is set
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get agentsTypeUnknown;
+
+  /// Label for the last known IP address of the agent
+  ///
+  /// In en, this message translates to:
+  /// **'Last IP'**
+  String get agentsDetailLastIp;
+
+  /// Label for the last known hostname of the agent
+  ///
+  /// In en, this message translates to:
+  /// **'Last Hostname'**
+  String get agentsDetailLastHostname;
 }
 
 class _AppLocalizationsDelegate

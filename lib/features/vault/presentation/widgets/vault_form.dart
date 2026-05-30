@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/icon_color_browser_sheet.dart';
+import '../../../../core/widgets/icon_picker_grid.dart' show IconMoreTile;
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../domain/entities/vault_entity.dart';
-import 'vault_color_picker.dart';
 import 'vault_icon_picker.dart';
 import 'vault_visuals.dart';
 
 /// Editable vault metadata bundle owned by [VaultForm].
 ///
-/// `icon` carries a Material-icon name (`shield`, `folder`, …) — the
-/// same identifier used by the web panel and the create-vault picker.
-/// `color` is a `#RRGGBB` accent hex.
+/// `icon` carries a Material-icon name (`shield`, `folder`, …) or a URL
+/// (custom uploaded icon). `color` is a `#RRGGBB` accent hex.
 class VaultFormData {
   const VaultFormData({
     required this.name,
@@ -59,10 +59,13 @@ class VaultFormData {
 
 /// Reusable form for vault create / edit screens.
 ///
-/// Mirrors the Astro mobile prototype — vault name, description, an
-/// icon row, and a color row. Grant mode is intentionally not exposed
-/// in the UI: new vaults default to [GrantMode.granular] and existing
-/// values are passed through unchanged.
+/// Mirrors the Astro mobile prototype — vault name, description and a
+/// single icon row. Color is no longer surfaced as its own swatch row;
+/// it is chosen inside the icon-browser sheet (opened via the trailing
+/// "..." tile in the icon row), matching the agents approve sheet UX.
+/// Grant mode is intentionally not exposed in the UI: new vaults default
+/// to [GrantMode.granular] and existing values are passed through
+/// unchanged.
 ///
 /// Pass [onPickCustomIcon] to enable the "Upload custom icon" affordance
 /// below the icon picker. Omit it (null) in create flows where there is
@@ -97,7 +100,6 @@ class _VaultFormState extends State<VaultForm> {
   late String _selectedIcon;
   late String _selectedColor;
   late GrantMode _selectedMode;
-
   @override
   void initState() {
     super.initState();
@@ -128,6 +130,42 @@ class _VaultFormState extends State<VaultForm> {
     ));
   }
 
+  /// Opens the full icon + color browser sheet. Mirrors the agents
+  /// approve sheet flow — `...` tile reveals every available glyph and
+  /// the six-color swatch row in one place.
+  Future<void> _openVaultBrowser() async {
+    final l10n = AppLocalizations.of(context)!;
+    final result = await IconColorBrowserSheet.show(
+      context,
+      icons: VaultVisuals.iconChoices
+          .map((c) => (
+                name: c.name,
+                icon: c.icon,
+                paletteColor: c.paletteColor,
+              ))
+          .toList(),
+      colorOptions:
+          VaultVisuals.colorChoices.map(VaultVisuals.colorFor).toList(),
+      initialIconKey: _selectedIcon,
+      initialColor: VaultVisuals.colorFor(_selectedColor),
+      title: l10n.agentIconBrowserTitle,
+      confirmLabel: l10n.agentIconChoose,
+      onPickCustom: widget.onPickCustomIcon,
+    );
+    if (!mounted || result == null) return;
+    final pickedColor = result.color;
+    final matchedHex = VaultVisuals.colorChoices.firstWhere(
+      (hex) =>
+          VaultVisuals.colorFor(hex).toARGB32() == pickedColor.toARGB32(),
+      orElse: () => VaultVisuals.defaultColorHex,
+    );
+    setState(() {
+      if (result.iconKey != null) _selectedIcon = result.iconKey!;
+      _selectedColor = matchedHex;
+    });
+    _emit();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -149,7 +187,7 @@ class _VaultFormState extends State<VaultForm> {
           textCapitalization: TextCapitalization.sentences,
           textInputAction: TextInputAction.done,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         _SectionLabel(text: l10n.vaultIconLabel),
         const SizedBox(height: 8),
         VaultIconPicker(
@@ -159,25 +197,7 @@ class _VaultFormState extends State<VaultForm> {
             setState(() => _selectedIcon = icon);
             _emit();
           },
-          onPickCustom: widget.onPickCustomIcon == null
-              ? null
-              : () async {
-                  final icon = await widget.onPickCustomIcon!();
-                  if (icon != null && mounted) {
-                    setState(() => _selectedIcon = icon);
-                    _emit();
-                  }
-                },
-        ),
-        const SizedBox(height: 20),
-        _SectionLabel(text: l10n.vaultColorLabel),
-        const SizedBox(height: 8),
-        VaultColorPicker(
-          selected: _selectedColor,
-          onSelected: (color) {
-            setState(() => _selectedColor = color);
-            _emit();
-          },
+          moreTile: IconMoreTile(onTap: _openVaultBrowser),
         ),
       ],
     );

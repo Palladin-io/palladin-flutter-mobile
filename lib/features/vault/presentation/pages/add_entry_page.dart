@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/icon_color_browser_sheet.dart';
+import '../../../../core/widgets/icon_picker_grid.dart' show IconMoreTile;
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -84,7 +86,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
   EntryType _type = EntryType.credential;
   String _icon = EntryVisuals.defaultIconName;
-  XFile? _pendingIconFile;
+  String _colorHex = EntryVisuals.defaultColorHex;
   bool _pickingIcon = false;
   bool _uploadingIcon = false;
 
@@ -128,8 +130,10 @@ class _AddEntryViewState extends State<_AddEntryView> {
         notes: _notesController.text,
       );
 
-  Future<void> _pickCustomIcon() async {
-    if (_pickingIcon || _uploadingIcon) return;
+  /// Called by the browser upload circle — returns the file:// path
+  /// without updating [_icon] (the browser handles selection state).
+  Future<String?> _pickIconFile() async {
+    if (_pickingIcon || _uploadingIcon) return null;
     setState(() => _pickingIcon = true);
     try {
       final file = await ImagePicker().pickImage(
@@ -138,14 +142,47 @@ class _AddEntryViewState extends State<_AddEntryView> {
         maxHeight: 512,
         imageQuality: 85,
       );
-      if (file == null || !mounted) return;
-      setState(() {
-        _pendingIconFile = file;
-        _icon = 'file://${file.path}';
-      });
+      if (file == null || !mounted) return null;
+      return 'file://${file.path}';
     } finally {
       if (mounted) setState(() => _pickingIcon = false);
     }
+  }
+
+  /// Opens the full icon + color browser sheet. Mirrors the agents
+  /// approve sheet flow — the user picks a glyph and a swatch in one
+  /// modal instead of having a separate color picker row below the icon
+  /// grid.
+  Future<void> _openEntryBrowser() async {
+    final l10n = AppLocalizations.of(context)!;
+    final result = await IconColorBrowserSheet.show(
+      context,
+      icons: EntryVisuals.iconChoices
+          .map((c) => (
+                name: c.name,
+                icon: c.icon,
+                paletteColor: c.paletteColor,
+              ))
+          .toList(),
+      colorOptions:
+          VaultVisuals.colorChoices.map(VaultVisuals.colorFor).toList(),
+      initialIconKey: _icon,
+      initialColor: VaultVisuals.colorFor(_colorHex),
+      title: l10n.agentIconBrowserTitle,
+      confirmLabel: l10n.agentIconChoose,
+      onPickCustom: _pickIconFile,
+    );
+    if (!mounted || result == null) return;
+    final pickedColor = result.color;
+    final matchedHex = VaultVisuals.colorChoices.firstWhere(
+      (hex) =>
+          VaultVisuals.colorFor(hex).toARGB32() == pickedColor.toARGB32(),
+      orElse: () => EntryVisuals.defaultColorHex,
+    );
+    setState(() {
+      if (result.iconKey != null) _icon = result.iconKey!;
+      _colorHex = matchedHex;
+    });
   }
 
   Future<void> _submit() async {
@@ -162,9 +199,10 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
     final urlDomain = EntryFormUtils.extractDomain(_urlController.text);
+    final hasCustomFile = _icon.startsWith('file://');
     // Send null icon when a custom file is pending — the preset icon will
     // be replaced by the S3 URL after the two-step upload.
-    final iconForApi = _pendingIconFile != null ? null : _icon;
+    final iconForApi = hasCustomFile ? null : _icon;
     try {
       await context.read<CreateEntryCubit>().createEntry(
             vaultId: widget.vaultId,
@@ -186,14 +224,14 @@ class _AddEntryViewState extends State<_AddEntryView> {
     if (cubitState is! CreateEntrySuccess) return;
 
     var entry = cubitState.entry;
-    if (_pendingIconFile != null) {
+    if (hasCustomFile) {
       setState(() => _uploadingIcon = true);
       try {
         final service = EntryIconUploadService(getIt<EntryRemoteDatasource>());
         final url = await service.uploadIcon(
           widget.vaultId,
           entry.id,
-          File(_pendingIconFile!.path),
+          File(_icon.substring(7)),
         );
         entry = entry.copyWith(icon: url);
       } on VaultIconUploadException catch (e) {
@@ -232,11 +270,10 @@ class _AddEntryViewState extends State<_AddEntryView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    // The icon tint matches the preset palette (and the default brand
-    // hex when a custom upload is selected) — there is no per-entry
-    // color stored on the backend, so the picker is gone and the accent
-    // simply tracks the default hex.
-    final accentColor = VaultVisuals.colorFor(EntryVisuals.defaultColorHex);
+    // The icon tint follows the user-picked color from the icon-browser
+    // sheet. The color is UI-only — there is no per-entry color field on
+    // the backend, so we do not forward it to the API.
+    final accentColor = VaultVisuals.colorFor(_colorHex);
 
     return BlocBuilder<CreateEntryCubit, CreateEntryState>(
       builder: (context, state) {
@@ -328,14 +365,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
                     EntryIconPicker(
                       selected: _icon,
                       accentColor: accentColor,
-                      onSelected: (name) => setState(() {
-                        _icon = name;
-                        _pendingIconFile = null;
-                      }),
-                      onPickCustom: (_pickingIcon || _uploadingIcon)
-                          ? null
-                          : _pickCustomIcon,
-                      isLoadingCustom: _pickingIcon || _uploadingIcon,
+                      onSelected: (name) => setState(() => _icon = name),
+                      moreTile: IconMoreTile(onTap: _openEntryBrowser),
                     ),
                     const SizedBox(height: 16),
                     // 5. Type dropdown

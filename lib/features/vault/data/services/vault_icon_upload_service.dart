@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 
+import '../../../../core/utils/app_logger.dart';
 import '../datasources/vault_remote_datasource.dart';
 import '../models/create_vault_request.dart';
 
@@ -66,11 +67,15 @@ class VaultIconUploadService {
     }
 
     try {
+      AppLogger.d('VaultIconUpload', 'presign vaultId=$vaultId ext=$ext');
       final presign = await _datasource.presignVaultIcon(vaultId, ext);
+      // Never log the full presigned URL — its query string carries the
+      // S3 signature granting temporary PUT access. Log only the path.
+      AppLogger.d(
+        'VaultIconUpload',
+        'presigned ${presign.uploadUrl.split('?').first}',
+      );
 
-      // Use a bare Dio instance — no auth interceptors, no JWT sent to S3.
-      // Read file into bytes: stream uploads can fail with some S3 presigned
-      // PUT configurations that expect a seekable body.
       final bytes = await file.readAsBytes();
       final s3 = Dio();
       await s3.put<void>(
@@ -83,16 +88,20 @@ class VaultIconUploadService {
           sendTimeout: const Duration(seconds: 60),
         ),
       );
+      AppLogger.d('VaultIconUpload', 'S3 PUT done, publicUrl=${presign.publicUrl}');
 
       await _datasource.updateVault(
         vaultId,
         UpdateVaultRequest(icon: presign.publicUrl),
       );
+      AppLogger.i('VaultIconUpload', 'icon saved publicUrl=${presign.publicUrl}');
 
       return presign.publicUrl;
-    } on DioException {
+    } on DioException catch (e) {
+      AppLogger.e('VaultIconUpload', 'DioException status=${e.response?.statusCode}', error: e);
       throw const VaultIconUploadException(VaultIconUploadErrorKind.network);
-    } catch (_) {
+    } catch (e, s) {
+      AppLogger.e('VaultIconUpload', 'unexpected error', error: e, stackTrace: s);
       throw const VaultIconUploadException(VaultIconUploadErrorKind.unknown);
     }
   }

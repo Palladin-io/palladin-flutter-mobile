@@ -976,4 +976,263 @@ class AppLocalizationsEn extends AppLocalizations {
   String apiKeysListSummary(int total, int active) {
     return '$total keys · $active active';
   }
+
+  @override
+  String get agentsScreenTitle => 'Agents';
+
+  @override
+  String agentsListSummary(int total, int active) {
+    return '$total agents, $active active';
+  }
+
+  @override
+  String get agentsEmpty => 'No agents yet';
+
+  @override
+  String get agentsEmptyHint =>
+      'Connect your first agent using the CLI to get started';
+
+  @override
+  String get agentsSearchHint => 'Search agents…';
+
+  @override
+  String get agentsSearchEmpty => 'No agents match your search';
+
+  @override
+  String get agentsUnnamed => 'Unnamed agent';
+
+  @override
+  String get agentsSplitPrompt => 'Select an agent to see its details';
+
+  @override
+  String get agentsStatusActive => 'Active';
+
+  @override
+  String get agentsStatusPending => 'Pending';
+
+  @override
+  String get agentsStatusDeactivated => 'Deactivated';
+
+  @override
+  String get agentsEnrolled => 'Enrolled';
+
+  @override
+  String get agentsDeactivated => 'Deactivated';
+
+  @override
+  String get agentsDeactivatedOn => 'Deactivated on';
+
+  @override
+  String get agentsConnectedOn => 'Connected on';
+
+  @override
+  String get agentsLastAccess => 'Last access';
+
+  @override
+  String get agentsPendingApproval => 'Pending approval';
+
+  @override
+  String get agentsDetailTitle => 'Agent';
+
+  @override
+  String get agentsDetailNotFound => 'Agent not found';
+
+  @override
+  String get agentsDetailId => 'Id';
+
+  @override
+  String get agentsDetailPublicKey => 'Public Key';
+
+  @override
+  String get agentsDetailCreatedAt => 'Connected';
+
+  @override
+  String get agentsDetailEnrolledAt => 'Enrolled';
+
+  @override
+  String get agentsDetailEnrolledBy => 'Enrolled by';
+
+  @override
+  String get agentsDetailDeactivatedAt => 'Deactivated';
+
+  @override
+  String get agentsApproveZone => 'APPROVE AGENT';
+
+  @override
+  String get agentsApproveHint => 'Grant this agent access to the organization';
+
+  @override
+  String get agentsApprove => 'Approve Agent';
+
+  @override
+  String get agentsApproving => 'Approving…';
+
+  @override
+  String get agentsDeactivateZone => 'DANGER ZONE';
+
+  @override
+  String get agentsDeactivateHint =>
+      'This agent will immediately lose access to all vaults';
+
+  @override
+  String get agentsDeactivate => 'Deactivate Agent';
+
+  @override
+  String get agentsDeactivating => 'Deactivating…';
+
+  @override
+  String get agentsReactivateZone => 'REACTIVATE';
+
+  @override
+  String get agentsReactivateHint => 'Re-enable access for this agent';
+
+  @override
+  String get agentsReactivate => 'Reactivate Agent';
+
+  @override
+  String get agentsReactivating => 'Reactivating…';
+
+  @override
+  String get agentsApproveConfirmTitle => 'Approve Agent';
+
+  @override
+  String agentsApproveConfirmBody(String name) {
+    return 'Allow \"$name\" to access organization vaults?';
+  }
+
+  @override
+  String get agentsDeactivateConfirmTitle => 'Deactivate Agent';
+
+  @override
+  String agentsDeactivateConfirmBody(String name) {
+    return 'Deactivate \"$name\"? It will immediately lose access.';
+  }
+
+  @override
+  String get agentsEditTitle => 'Edit Agent';
+
+  @override
+  String get agentsEditName => 'Display Name';
+
+  @override
+  String get agentsEditDescription => 'Description';
+
+  @override
+  String get agentsEditSave => 'Save';
+
+  @override
+  String get agentsRetry => 'Retry';
+
+  @override
+  String get agentsEditIcon => 'Edit';
+
+  @override
+  String get agentApproveTitle => 'Approve Agent';
+
+  @override
+  String get agentNameLabel => 'Name (optional)';
+
+  @override
+  String get agentTypeLabel => 'Agent type';
+
+  @override
+  String get agentIconLabel => 'Icon';
+
+  @override
+  String get agentTypeOpenClaw => 'Open Claw';
+
+  @override
+  String get agentTypeClaudeCode => 'Claude Code';
+
+  @override
+  String get agentTypeHermes => 'Hermes';
+
+  @override
+  String get agentTypeCursor => 'Cursor';
+
+  @override
+  String get agentTypeCopilot => 'GitHub Copilot';
+
+  @override
+  String get agentTypeGemini => 'Gemini';
+
+  @override
+  String get agentTypeCodex => 'OpenAI Codex';
+
+  @override
+  String get agentTypeKimiCode => 'Kimi Code';
+
+  @override
+  String get agentTypeDevin => 'Devin';
+
+  @override
+  String get agentTypeAider => 'Aider';
+
+  @override
+  String get agentTypeCline => 'Cline';
+
+  @override
+  String get agentTypeRoo => 'Roo Code';
+
+  @override
+  String get agentTypeOther => 'Other';
+
+  @override
+  String get agentApproveSetupHint =>
+      'Optionally set a name, type, and icon before activating.';
+
+  @override
+  String get agentNamePlaceholder => 'e.g. Claude Code, Cursor';
+
+  @override
+  String get agentsTabDetails => 'Details';
+
+  @override
+  String get agentsTabGrants => 'Grants';
+
+  @override
+  String get agentsTabLogs => 'Logs';
+
+  @override
+  String get agentsGrantsEmpty => 'No active grants';
+
+  @override
+  String get agentsGrantsEmptyHint =>
+      'This agent has not been granted access to any vault entries yet';
+
+  @override
+  String get agentsLogsFirstConnected => 'First connected';
+
+  @override
+  String get agentsLogsEnrolled => 'Enrolled';
+
+  @override
+  String get agentsLogsDeactivated => 'Deactivated';
+
+  @override
+  String get agentsEditSaved => 'Agent saved';
+
+  @override
+  String get agentTypePlaceholder => 'Pick a preset or type a custom value';
+
+  @override
+  String get agentIconMore => 'More icons';
+
+  @override
+  String get agentIconBrowserTitle => 'Browse icons';
+
+  @override
+  String get agentIconColorLabel => 'Color';
+
+  @override
+  String get agentIconChoose => 'Choose';
+
+  @override
+  String get agentsTypeUnknown => 'Unknown';
+
+  @override
+  String get agentsDetailLastIp => 'Last IP';
+
+  @override
+  String get agentsDetailLastHostname => 'Last Hostname';
 }

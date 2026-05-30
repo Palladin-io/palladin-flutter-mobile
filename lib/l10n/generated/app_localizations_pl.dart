@@ -995,4 +995,264 @@ class AppLocalizationsPl extends AppLocalizations {
   String apiKeysListSummary(int total, int active) {
     return '$total kluczy · $active aktywnych';
   }
+
+  @override
+  String get agentsScreenTitle => 'Agenci';
+
+  @override
+  String agentsListSummary(int total, int active) {
+    return '$total agentów, $active aktywnych';
+  }
+
+  @override
+  String get agentsEmpty => 'Brak agentów';
+
+  @override
+  String get agentsEmptyHint =>
+      'Podłącz pierwszego agenta za pomocą CLI, aby zacząć';
+
+  @override
+  String get agentsSearchHint => 'Szukaj agentów…';
+
+  @override
+  String get agentsSearchEmpty => 'Żaden agent nie pasuje do wyszukiwania';
+
+  @override
+  String get agentsUnnamed => 'Agent bez nazwy';
+
+  @override
+  String get agentsSplitPrompt => 'Wybierz agenta, aby zobaczyć szczegóły';
+
+  @override
+  String get agentsStatusActive => 'Aktywny';
+
+  @override
+  String get agentsStatusPending => 'Oczekuje';
+
+  @override
+  String get agentsStatusDeactivated => 'Dezaktywowany';
+
+  @override
+  String get agentsEnrolled => 'Zatwierdzono';
+
+  @override
+  String get agentsDeactivated => 'Dezaktywowano';
+
+  @override
+  String get agentsDeactivatedOn => 'Dezaktywowano';
+
+  @override
+  String get agentsConnectedOn => 'Połączono';
+
+  @override
+  String get agentsLastAccess => 'Ostatni dostęp';
+
+  @override
+  String get agentsPendingApproval => 'Oczekuje na zatwierdzenie';
+
+  @override
+  String get agentsDetailTitle => 'Agent';
+
+  @override
+  String get agentsDetailNotFound => 'Nie znaleziono agenta';
+
+  @override
+  String get agentsDetailId => 'Identyfikator';
+
+  @override
+  String get agentsDetailPublicKey => 'Klucz publiczny';
+
+  @override
+  String get agentsDetailCreatedAt => 'Połączono';
+
+  @override
+  String get agentsDetailEnrolledAt => 'Zatwierdzono';
+
+  @override
+  String get agentsDetailEnrolledBy => 'Zatwierdził';
+
+  @override
+  String get agentsDetailDeactivatedAt => 'Dezaktywowano';
+
+  @override
+  String get agentsApproveZone => 'ZATWIERDŹ AGENTA';
+
+  @override
+  String get agentsApproveHint =>
+      'Przyznaj temu agentowi dostęp do organizacji';
+
+  @override
+  String get agentsApprove => 'Zatwierdź agenta';
+
+  @override
+  String get agentsApproving => 'Zatwierdzanie…';
+
+  @override
+  String get agentsDeactivateZone => 'STREFA NIEBEZPIECZNA';
+
+  @override
+  String get agentsDeactivateHint =>
+      'Agent natychmiast utraci dostęp do wszystkich sejfów';
+
+  @override
+  String get agentsDeactivate => 'Dezaktywuj agenta';
+
+  @override
+  String get agentsDeactivating => 'Dezaktywowanie…';
+
+  @override
+  String get agentsReactivateZone => 'REAKTYWACJA';
+
+  @override
+  String get agentsReactivateHint => 'Ponownie włącz dostęp dla tego agenta';
+
+  @override
+  String get agentsReactivate => 'Reaktywuj agenta';
+
+  @override
+  String get agentsReactivating => 'Reaktywowanie…';
+
+  @override
+  String get agentsApproveConfirmTitle => 'Zatwierdź agenta';
+
+  @override
+  String agentsApproveConfirmBody(String name) {
+    return 'Zezwolić agentowi „$name” na dostęp do sejfów organizacji?';
+  }
+
+  @override
+  String get agentsDeactivateConfirmTitle => 'Dezaktywuj agenta';
+
+  @override
+  String agentsDeactivateConfirmBody(String name) {
+    return 'Dezaktywować agenta „$name”? Natychmiast utraci dostęp.';
+  }
+
+  @override
+  String get agentsEditTitle => 'Edytuj agenta';
+
+  @override
+  String get agentsEditName => 'Nazwa wyświetlana';
+
+  @override
+  String get agentsEditDescription => 'Opis';
+
+  @override
+  String get agentsEditSave => 'Zapisz';
+
+  @override
+  String get agentsRetry => 'Ponów';
+
+  @override
+  String get agentsEditIcon => 'Edytuj';
+
+  @override
+  String get agentApproveTitle => 'Zatwierdź agenta';
+
+  @override
+  String get agentNameLabel => 'Nazwa (opcjonalna)';
+
+  @override
+  String get agentTypeLabel => 'Typ agenta';
+
+  @override
+  String get agentIconLabel => 'Ikona';
+
+  @override
+  String get agentTypeOpenClaw => 'Open Claw';
+
+  @override
+  String get agentTypeClaudeCode => 'Claude Code';
+
+  @override
+  String get agentTypeHermes => 'Hermes';
+
+  @override
+  String get agentTypeCursor => 'Cursor';
+
+  @override
+  String get agentTypeCopilot => 'GitHub Copilot';
+
+  @override
+  String get agentTypeGemini => 'Gemini';
+
+  @override
+  String get agentTypeCodex => 'OpenAI Codex';
+
+  @override
+  String get agentTypeKimiCode => 'Kimi Code';
+
+  @override
+  String get agentTypeDevin => 'Devin';
+
+  @override
+  String get agentTypeAider => 'Aider';
+
+  @override
+  String get agentTypeCline => 'Cline';
+
+  @override
+  String get agentTypeRoo => 'Roo Code';
+
+  @override
+  String get agentTypeOther => 'Inne';
+
+  @override
+  String get agentApproveSetupHint =>
+      'Opcjonalnie ustaw nazwę, typ i ikonę przed aktywacją.';
+
+  @override
+  String get agentNamePlaceholder => 'np. Claude Code, Cursor';
+
+  @override
+  String get agentsTabDetails => 'Szczegóły';
+
+  @override
+  String get agentsTabGrants => 'Dostępy';
+
+  @override
+  String get agentsTabLogs => 'Historia';
+
+  @override
+  String get agentsGrantsEmpty => 'Brak aktywnych dostępów';
+
+  @override
+  String get agentsGrantsEmptyHint =>
+      'Ten agent nie ma jeszcze żadnych przyznanych wpisów';
+
+  @override
+  String get agentsLogsFirstConnected => 'Pierwsze połączenie';
+
+  @override
+  String get agentsLogsEnrolled => 'Zatwierdzono';
+
+  @override
+  String get agentsLogsDeactivated => 'Dezaktywowano';
+
+  @override
+  String get agentsEditSaved => 'Zmiany zapisane';
+
+  @override
+  String get agentTypePlaceholder => 'Wybierz lub wpisz własny typ';
+
+  @override
+  String get agentIconMore => 'Więcej ikon';
+
+  @override
+  String get agentIconBrowserTitle => 'Przeglądaj ikony';
+
+  @override
+  String get agentIconColorLabel => 'Kolor';
+
+  @override
+  String get agentIconChoose => 'Wybierz';
+
+  @override
+  String get agentsTypeUnknown => 'Nieznany';
+
+  @override
+  String get agentsDetailLastIp => 'Ostatnie IP';
+
+  @override
+  String get agentsDetailLastHostname => 'Ostatni hostname';
 }
