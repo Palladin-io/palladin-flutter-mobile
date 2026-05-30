@@ -46,6 +46,10 @@ abstract final class VaultVisuals {
     VaultIconChoice(name: 'dns',         icon: Icons.dns,               paletteColor: AppColors.vaultSlate),
     VaultIconChoice(name: 'bookmark',    icon: Icons.bookmark,          paletteColor: AppColors.vaultViolet),
     VaultIconChoice(name: 'settings',    icon: Icons.settings,          paletteColor: AppColors.vaultSlate),
+    VaultIconChoice(name: 'security',    icon: Icons.security,          paletteColor: AppColors.positiveAccent),
+    VaultIconChoice(name: 'payments',    icon: Icons.payments,          paletteColor: AppColors.premiumAmber),
+    VaultIconChoice(name: 'computer',    icon: Icons.computer,          paletteColor: AppColors.vaultViolet),
+    VaultIconChoice(name: 'label',       icon: Icons.label,             paletteColor: AppColors.vaultPeach),
   ];
 
   /// Picker choices for the color row — keep in sync with the web /

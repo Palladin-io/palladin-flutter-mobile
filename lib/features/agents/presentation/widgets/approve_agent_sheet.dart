@@ -176,7 +176,7 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
                       setState(() => _selectedIcon = value),
                   onMoreTapped: _openIconBrowser,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 20),
                 _ApproveFooter(
                   onCancel: _cancel,
                   onConfirm: _confirm,
@@ -519,7 +519,7 @@ class _IconGrid extends StatelessWidget {
 
     return IconPickerGrid(
       itemCount: effectivePresets.length,
-      itemBuilder: (i) {
+      itemBuilder: (i, _) {
         final iconKey = effectivePresets[i];
         return IconPresetTile(
           icon: agentIconData(iconKey),

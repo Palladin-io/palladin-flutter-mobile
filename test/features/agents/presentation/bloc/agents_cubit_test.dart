@@ -291,22 +291,37 @@ void main() {
 
   group('AgentsCubit.updateAgent', () {
     blocTest<AgentsCubit, AgentsState>(
-      'trims fields, updates, then refreshes the list',
+      'trims fields, updates, then patches the agent from getAgent',
+      // updateAgent refetches the touched agent via getAgent (not the full
+      // list) because the list endpoint may omit detail-only fields such
+      // as iconKey — fetching just the one we touched avoids reverting
+      // its avatar after save.
       build: () {
+        // Pre-load the cubit so we have an agent list to patch into.
+        when(() => repository.listAgents())
+            .thenAnswer((_) async => activeList);
         when(() => repository.updateAgent(
               any(),
               name: any(named: 'name'),
               description: any(named: 'description'),
+              iconKey: any(named: 'iconKey'),
+              iconColor: any(named: 'iconColor'),
             )).thenAnswer((_) async {});
-        when(() => repository.listAgents())
-            .thenAnswer((_) async => activeList);
+        when(() => repository.getAgent('a1'))
+            .thenAnswer((_) async => activeList.single);
         return buildCubit();
       },
-      act: (cubit) => cubit.updateAgent(
-        'a1',
-        name: '  New name  ',
-        description: '  desc  ',
-      ),
+      act: (cubit) async {
+        await cubit.load();
+        await cubit.updateAgent(
+          'a1',
+          name: '  New name  ',
+          description: '  desc  ',
+        );
+      },
+      // Skip the two states from the initial load() so we only assert on
+      // the updateAgent transitions.
+      skip: 2,
       expect: () => [
         isA<AgentsState>()
             .having((s) => s.mutatingAgentId, 'mutatingAgentId', 'a1'),
@@ -320,8 +335,12 @@ void main() {
               'a1',
               name: 'New name',
               description: 'desc',
+              iconKey: null,
+              iconColor: null,
             )).called(1);
-        verify(() => repository.listAgents()).called(1);
+        // getAgent — not listAgents — is used to refresh the touched
+        // agent after a successful PATCH.
+        verify(() => repository.getAgent('a1')).called(1);
       },
     );
 
@@ -332,6 +351,8 @@ void main() {
               any(),
               name: any(named: 'name'),
               description: any(named: 'description'),
+              iconKey: any(named: 'iconKey'),
+              iconColor: any(named: 'iconColor'),
             )).thenThrow(
           const AgentsException(AgentsErrorKind.validation),
         );
@@ -350,6 +371,8 @@ void main() {
             .having((s) => s.mutatingAgentId, 'mutatingAgentId', isNull),
       ],
       verify: (_) {
+        // The PATCH failed before getAgent ran, so no refresh happens.
+        verifyNever(() => repository.getAgent(any()));
         verifyNever(() => repository.listAgents());
       },
     );
@@ -361,6 +384,8 @@ void main() {
               any(),
               name: any(named: 'name'),
               description: any(named: 'description'),
+              iconKey: any(named: 'iconKey'),
+              iconColor: any(named: 'iconColor'),
             )).thenThrow(
           const AgentsException(AgentsErrorKind.validation),
         );
@@ -374,6 +399,64 @@ void main() {
       expect: () => [
         isA<AgentsState>()
             .having((s) => s.mutationError, 'mutationError', isNull),
+      ],
+    );
+
+    blocTest<AgentsCubit, AgentsState>(
+      // The S3 public URL is byte-for-byte identical across re-uploads
+      // (same object key), so the form passes `iconKeyDisplay` with a
+      // cache-busting `?v=` query while `iconKey` stays canonical. The
+      // emitted agent must carry the `?v=` version so the avatar
+      // refetches instead of serving the stale cached image.
+      'prefers iconKeyDisplay over fresh.iconKey when both differ',
+      build: () {
+        const canonicalUrl = 'https://s3.test/agent-icons/a1/icon.png';
+        when(() => repository.listAgents())
+            .thenAnswer((_) async => activeList);
+        when(() => repository.updateAgent(
+              any(),
+              name: any(named: 'name'),
+              description: any(named: 'description'),
+              iconKey: any(named: 'iconKey'),
+              iconColor: any(named: 'iconColor'),
+            )).thenAnswer((_) async {});
+        // Backend always returns the canonical URL — never the `?v=`
+        // variant — because the cubit strips the query before sending.
+        when(() => repository.getAgent('a1')).thenAnswer(
+          (_) async => Agent(
+            agentId: 'a1',
+            name: 'agent-a1',
+            status: AgentStatus.active,
+            publicKeySuffix: 'a8f2c4d1',
+            createdAt: DateTime.utc(2026, 2, 20),
+            iconKey: canonicalUrl,
+            iconColor: '#48ECDF',
+          ),
+        );
+        return buildCubit();
+      },
+      act: (cubit) async {
+        await cubit.load();
+        await cubit.updateAgent(
+          'a1',
+          iconKey: 'https://s3.test/agent-icons/a1/icon.png',
+          iconKeyDisplay: 'https://s3.test/agent-icons/a1/icon.png?v=999',
+          iconColor: '#48ECDF',
+        );
+      },
+      skip: 3,
+      expect: () => [
+        isA<AgentsState>()
+            .having(
+              (s) => s.agents.single.iconKey,
+              'agent.iconKey',
+              'https://s3.test/agent-icons/a1/icon.png?v=999',
+            )
+            .having(
+              (s) => s.agents.single.iconColor,
+              'agent.iconColor',
+              '#48ECDF',
+            ),
       ],
     );
   });

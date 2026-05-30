@@ -1,11 +1,11 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../../features/agents/presentation/widgets/approve_agent_sheet.dart'
     show ApproveActionButton;
 import '../../l10n/generated/app_localizations.dart';
+import 'icon_picker_grid.dart' show ImagePresetTile;
+import 'upload_icon_button.dart';
 
 /// Describes a single picker icon — name (stored value), glyph data, and
 /// the per-icon palette tint used when the tile is not selected.
@@ -113,6 +113,8 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
   late String? _localIcon = widget.initialIconKey;
   late Color _localColor = widget.initialColor;
   bool _isLoadingCustom = false;
+  late String? _customImageUrl =
+      _isCustomUrl(widget.initialIconKey) ? widget.initialIconKey : null;
 
   void _confirm() {
     final icon = _localIcon;
@@ -128,10 +130,36 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
     setState(() => _isLoadingCustom = true);
     try {
       final url = await widget.onPickCustom!();
-      if (url != null && mounted) setState(() => _localIcon = url);
+      if (url != null && mounted) {
+        // S3 reuses the same object key on re-upload, so the public URL is
+        // byte-for-byte identical across uploads. Evict every variant we
+        // may have shown (with and without the cache-busting query) so any
+        // already-rendered avatars in other parts of the tree refetch.
+        _evictNetworkImage(_customImageUrl);
+        _evictNetworkImage(_stripQuery(_customImageUrl));
+        _evictNetworkImage(url);
+        _evictNetworkImage(_stripQuery(url));
+        setState(() {
+          _localIcon = url;
+          _customImageUrl = url;
+        });
+      }
     } finally {
       if (mounted) setState(() => _isLoadingCustom = false);
     }
+  }
+
+  void _evictNetworkImage(String? url) {
+    if (url == null || !url.startsWith('http')) return;
+    PaintingBinding.instance.imageCache.evict(NetworkImage(url));
+  }
+
+  /// Strips any `?query` suffix from [url] so callers can evict both the
+  /// canonical and the cache-busted variant from the image cache.
+  String? _stripQuery(String? url) {
+    if (url == null) return null;
+    final q = url.indexOf('?');
+    return q < 0 ? url : url.substring(0, q);
   }
 
   @override
@@ -184,29 +212,22 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
                     ),
                   ],
                 ),
-                if (widget.onPickCustom != null) ...[
-                  const SizedBox(height: 14),
-                  _BrowserUploadButton(
-                    accentColor: _localColor,
-                    isSelected: _isCustomUrl(_localIcon),
-                    isLoading: _isLoadingCustom,
-                    imageUrl: _isCustomUrl(_localIcon) ? _localIcon : null,
-                    onTap: _isLoadingCustom ? null : _pickCustom,
-                  ),
-                ],
                 const SizedBox(height: 14),
                 _BrowserIconGrid(
                   icons: widget.icons,
                   selectedIcon: _localIcon,
                   selectedColor: _localColor,
                   onSelected: (icon) => setState(() => _localIcon = icon),
+                  customImageUrl: _customImageUrl,
                 ),
-                const SizedBox(height: 14),
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: AppColors.cardBorder(brightness),
-                ),
+                if (widget.onPickCustom != null) ...[
+                  const SizedBox(height: 14),
+                  UploadIconButton(
+                    accentColor: _localColor,
+                    isLoading: _isLoadingCustom,
+                    onTap: _isLoadingCustom ? null : _pickCustom,
+                  ),
+                ],
                 const SizedBox(height: 14),
                 Text(
                   l10n.agentIconColorLabel,
@@ -270,40 +291,45 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
   }
 }
 
-/// 6-column grid of every icon in [icons]. Selected tile uses the
-/// user-picked accent color; unselected tiles use the per-glyph palette
 /// Responsive icon grid for the browser. Uses [LayoutBuilder] to derive
 /// the number of columns from the available width, then pads the last row
 /// with invisible tiles so every row is always complete (no partial row).
+///
+/// When [customImageUrl] is provided it appears as the first tile via
+/// [ImagePresetTile] — selected when it matches [selectedIcon].
 class _BrowserIconGrid extends StatelessWidget {
   const _BrowserIconGrid({
     required this.icons,
     required this.selectedIcon,
     required this.selectedColor,
     required this.onSelected,
+    this.customImageUrl,
   });
 
   final List<IconColorBrowserChoice> icons;
   final String? selectedIcon;
   final Color selectedColor;
   final ValueChanged<String> onSelected;
+  final String? customImageUrl;
 
   static const double _gap = 8;
   static const double _tileSize = 48;
 
   @override
   Widget build(BuildContext context) {
+    final hasCustom = customImageUrl != null;
+    final lastPresetIndex = icons.length - 1;
     return LayoutBuilder(
       builder: (context, constraints) {
         final cols = ((constraints.maxWidth + _gap) / (_tileSize + _gap))
             .floor()
             .clamp(4, 9);
-        // Round up to fill complete rows — last row padded with invisible tiles.
         final rows = (icons.length / cols).ceil();
         final totalSlots = rows * cols;
 
         return GridView.builder(
           shrinkWrap: true,
+          padding: EdgeInsets.zero,
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: cols,
@@ -314,6 +340,15 @@ class _BrowserIconGrid extends StatelessWidget {
           itemCount: totalSlots,
           itemBuilder: (_, index) {
             if (index >= icons.length) return const SizedBox.shrink();
+            if (hasCustom && index == lastPresetIndex) {
+              return ImagePresetTile(
+                imageUrl: customImageUrl!,
+                selectedColor: selectedColor,
+                isSelected: selectedIcon == customImageUrl,
+                size: _tileSize,
+                onTap: () => onSelected(customImageUrl!),
+              );
+            }
             final choice = icons[index];
             final selected = choice.name == selectedIcon;
             return InkWell(
@@ -388,105 +423,6 @@ class _ColorPickerRow extends StatelessWidget {
   }
 }
 
-/// Full-width upload button shown above the browser icon grid when
-/// [IconColorBrowserSheet.onPickCustom] is provided.
-class _BrowserUploadButton extends StatelessWidget {
-  const _BrowserUploadButton({
-    required this.accentColor,
-    required this.isSelected,
-    required this.isLoading,
-    required this.onTap,
-    this.imageUrl,
-  });
-
-  final Color accentColor;
-  final bool isSelected;
-  final bool isLoading;
-  final VoidCallback? onTap;
-  final String? imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final l10n = AppLocalizations.of(context)!;
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? accentColor.withValues(alpha: 0.08)
-              : AppColors.onSurface(brightness).withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected
-                ? accentColor.withValues(alpha: 0.3)
-                : AppColors.cardBorder(brightness),
-          ),
-        ),
-        child: Row(
-          children: [
-            if (isLoading)
-              SizedBox(
-                width: 15,
-                height: 15,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-                ),
-              )
-            else
-              Icon(
-                Icons.file_upload_outlined,
-                size: 15,
-                color: isSelected
-                    ? accentColor
-                    : AppColors.onSurfaceSubtle(brightness),
-              ),
-            const SizedBox(width: 8),
-            Text(
-              l10n.vaultIconUpload,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: isSelected
-                    ? accentColor
-                    : AppColors.onSurfaceSubtle(brightness),
-              ),
-            ),
-            if (imageUrl != null) ...[
-              const Spacer(),
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: accentColor, width: 1.5),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: imageUrl!.startsWith('file://')
-                    ? Image.file(
-                        File(imageUrl!.substring(7)),
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, e, s) =>
-                            const Icon(Icons.image, size: 14),
-                      )
-                    : Image.network(
-                        imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, e, s) =>
-                            const Icon(Icons.image, size: 14),
-                      ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _SheetHandle extends StatelessWidget {
   const _SheetHandle();

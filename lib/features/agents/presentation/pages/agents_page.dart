@@ -3,13 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
-import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../domain/entities/agent.dart';
 import '../bloc/agents_cubit.dart';
 import '../widgets/agent_card.dart';
@@ -22,21 +20,39 @@ import 'agent_detail_page.dart';
 /// Standalone agents screen — the list of every agent for the
 /// organization.
 ///
-/// Reached from the bottom-nav "Agents" tab. Owns a fresh [AgentsCubit]
-/// which loads the list on mount.
+/// Reached from the bottom-nav "Agents" tab.
+///
+/// Provides the singleton [AgentsCubit] via [BlocProvider.value] so the
+/// provider never takes ownership (and never calls [close]) when the
+/// user switches tabs. [load] is triggered only on the first mount —
+/// subsequent tab returns reuse the in-memory state; pull-to-refresh
+/// handles explicit refresh.
 ///
 /// Layout adapts to the available width: on a narrow phone the list
 /// fills the screen and tapping a row pushes [AgentDetailPage]; on a
 /// wide screen (tablet / landscape) a split view shows the master list
-/// on the left and the selected agent's detail in a pane on the right —
-/// the same pattern as the vault detail screen.
-class AgentsPage extends StatelessWidget {
+/// on the left and the selected agent's detail in a pane on the right.
+class AgentsPage extends StatefulWidget {
   const AgentsPage({super.key});
 
   @override
+  State<AgentsPage> createState() => _AgentsPageInitState();
+}
+
+class _AgentsPageInitState extends State<AgentsPage> {
+  @override
+  void initState() {
+    super.initState();
+    final cubit = getIt<AgentsCubit>();
+    if (cubit.state.status == AgentsStatus.initial) {
+      cubit.load();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocProvider<AgentsCubit>(
-      create: (_) => getIt<AgentsCubit>()..load(),
+    return BlocProvider<AgentsCubit>.value(
+      value: getIt<AgentsCubit>(),
       child: const _AgentsView(),
     );
   }
@@ -85,30 +101,15 @@ class _AgentsViewState extends State<_AgentsView> {
   }
 
   /// Opens [agentId]. On a wide layout the selection updates the inline
-  /// detail pane; on a narrow layout it pushes [AgentDetailPage] and
-  /// reloads on return so an approve/deactivate done there is reflected.
+  /// detail pane; on a narrow layout it pushes [AgentDetailPage]. Both
+  /// layouts share the singleton [AgentsCubit] so list updates are
+  /// immediate — no explicit reload on return is needed.
   Future<void> _openAgent(String agentId, bool isSplit) async {
     if (isSplit) {
       setState(() => _selectedAgentId = agentId);
       return;
     }
-    final cubit = context.read<AgentsCubit>();
     await context.push('/agents/$agentId');
-    if (mounted) await cubit.load();
-  }
-
-  /// Opens the approve form for [agent] straight from the list card and
-  /// runs the approval with the admin's choices.
-  Future<void> _onApproveAgent(BuildContext context, Agent agent) async {
-    final cubit = context.read<AgentsCubit>();
-    final result = await ApproveAgentSheet.show(context);
-    if (result == null) return;
-    await cubit.approveAgent(
-      agent.agentId,
-      name: result.name,
-      type: result.type,
-      iconKey: result.iconKey,
-    );
   }
 
   @override
@@ -193,7 +194,6 @@ class _AgentsViewState extends State<_AgentsView> {
                           selectedAgentId:
                               isSplit ? _selectedAgentId : null,
                           onOpenAgent: (id) => _openAgent(id, isSplit),
-                          onApproveAgent: _onApproveAgent,
                           searchController: _searchController,
                           filtered: _filter(state.agents),
                         ),
@@ -241,7 +241,6 @@ class _Body extends StatelessWidget {
     required this.state,
     required this.selectedAgentId,
     required this.onOpenAgent,
-    required this.onApproveAgent,
     required this.searchController,
     required this.filtered,
   });
@@ -249,7 +248,6 @@ class _Body extends StatelessWidget {
   final AgentsState state;
   final String? selectedAgentId;
   final ValueChanged<String> onOpenAgent;
-  final Future<void> Function(BuildContext, Agent) onApproveAgent;
   final TextEditingController searchController;
   final List<Agent> filtered;
 
@@ -270,7 +268,6 @@ class _Body extends StatelessWidget {
           filtered: filtered,
           selectedAgentId: selectedAgentId,
           onOpenAgent: onOpenAgent,
-          onApproveAgent: onApproveAgent,
           searchController: searchController,
         ),
     };
@@ -283,7 +280,6 @@ class _AgentsList extends StatelessWidget {
     required this.filtered,
     required this.selectedAgentId,
     required this.onOpenAgent,
-    required this.onApproveAgent,
     required this.searchController,
   });
 
@@ -291,17 +287,12 @@ class _AgentsList extends StatelessWidget {
   final List<Agent> filtered;
   final String? selectedAgentId;
   final ValueChanged<String> onOpenAgent;
-  final Future<void> Function(BuildContext, Agent) onApproveAgent;
   final TextEditingController searchController;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    final authState = context.watch<AuthBloc>().state;
-    final permissions =
-        authState is AuthAuthenticated ? authState.permissions : 0;
-    final canManage = (permissions & Permissions.agentManage) != 0;
 
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -345,9 +336,6 @@ class _AgentsList extends StatelessWidget {
                   agent: agent,
                   selected: agent.agentId == selectedAgentId,
                   onTap: () => onOpenAgent(agent.agentId),
-                  onApprove: canManage
-                      ? () => onApproveAgent(context, agent)
-                      : null,
                 );
               },
             ),

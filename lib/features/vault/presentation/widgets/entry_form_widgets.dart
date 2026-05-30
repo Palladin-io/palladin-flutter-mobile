@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -7,6 +5,8 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../domain/entities/entry_entity.dart';
+
+export '../../../../core/widgets/upload_icon_button.dart' show UploadIconButton;
 
 /// Shared form widgets for Add Entry / Edit Entry pages.
 ///
@@ -201,115 +201,3 @@ class EntrySaveButton extends StatelessWidget {
   }
 }
 
-/// Upload button shown below the entry icon picker.
-/// Displays a thumbnail preview when a custom icon URL is already selected.
-class UploadIconButton extends StatelessWidget {
-  const UploadIconButton({
-    super.key,
-    required this.accentColor,
-    required this.onTap,
-    this.imageUrl,
-    this.isLoading = false,
-  });
-
-  final Color accentColor;
-  final VoidCallback? onTap;
-  final String? imageUrl;
-  final bool isLoading;
-
-  bool get _hasImage => imageUrl != null;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final l10n = AppLocalizations.of(context)!;
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: _hasImage
-              ? accentColor.withValues(alpha: 0.08)
-              : AppColors.onSurface(brightness).withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: _hasImage
-                ? accentColor.withValues(alpha: 0.3)
-                : AppColors.cardBorder(brightness),
-          ),
-        ),
-        child: Row(
-          children: [
-            if (isLoading)
-              SizedBox(
-                width: 15, height: 15,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-                ),
-              )
-            else
-              Icon(
-                Icons.file_upload_outlined,
-                size: 15,
-                color: _hasImage
-                    ? accentColor
-                    : AppColors.onSurfaceSubtle(brightness),
-              ),
-            const SizedBox(width: 8),
-            Text(
-              l10n.vaultIconUpload,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: _hasImage
-                    ? accentColor
-                    : AppColors.onSurfaceSubtle(brightness),
-              ),
-            ),
-            if (_hasImage) ...[
-              const Spacer(),
-              _SmallPreview(imageUrl: imageUrl!, accentColor: accentColor),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SmallPreview extends StatelessWidget {
-  const _SmallPreview({required this.imageUrl, required this.accentColor});
-
-  final String imageUrl;
-  final Color accentColor;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget child;
-    if (imageUrl.startsWith('file://')) {
-      child = Image.file(
-        File(imageUrl.substring(7)),
-        width: 28, height: 28, fit: BoxFit.cover,
-        errorBuilder: (_, e, s) => const Icon(Icons.image, size: 16),
-      );
-    } else {
-      child = Image.network(
-        imageUrl,
-        width: 28, height: 28, fit: BoxFit.cover,
-        errorBuilder: (_, e, s) => const Icon(Icons.image, size: 16),
-      );
-    }
-    return Container(
-      width: 28, height: 28,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: accentColor, width: 1.5),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: child,
-    );
-  }
-}

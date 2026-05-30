@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/widgets/icon_picker_grid.dart'
-    show IconPickerGrid, IconPresetTile;
+    show IconPickerGrid, IconPresetTile, ImagePresetTile;
 import 'vault_visuals.dart';
 
-/// Horizontally-scrollable icon picker for vault entries.
+/// Icon picker for vault entries.
 ///
-/// Shows the entry-specific preset icons (each with its own palette color).
-/// The selected icon is highlighted using [accentColor]. The upload affordance
-/// is rendered separately below this widget by the caller.
-class EntryIconPicker extends StatelessWidget {
+/// Tracks the last uploaded custom URL internally so the [ImagePresetTile]
+/// stays visible at the last slot even after the user switches to a preset —
+/// mirroring the browser sheet behaviour.
+class EntryIconPicker extends StatefulWidget {
   const EntryIconPicker({
     super.key,
     required this.selected,
@@ -19,30 +19,59 @@ class EntryIconPicker extends StatelessWidget {
   });
 
   final String selected;
-
-  /// Accent used for the selected icon's ring and fill.
   final Color accentColor;
-
   final ValueChanged<String> onSelected;
-
-  /// Optional trailing tile that opens the full icon + color browser.
   final Widget? moreTile;
 
-  bool get _isCustomUrl => EntryVisuals.isCustomUrl(selected);
+  @override
+  State<EntryIconPicker> createState() => _EntryIconPickerState();
+}
+
+class _EntryIconPickerState extends State<EntryIconPicker> {
+  String? _savedCustomUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    if (EntryVisuals.isCustomUrl(widget.selected)) {
+      _savedCustomUrl = widget.selected;
+    }
+  }
+
+  @override
+  void didUpdateWidget(EntryIconPicker old) {
+    super.didUpdateWidget(old);
+    if (EntryVisuals.isCustomUrl(widget.selected)) {
+      _savedCustomUrl = widget.selected;
+    }
+  }
+
+  bool get _isCustomUrl => EntryVisuals.isCustomUrl(widget.selected);
 
   @override
   Widget build(BuildContext context) {
     final choices = EntryVisuals.iconChoices;
+    final customUrl = _savedCustomUrl;
     return IconPickerGrid(
       itemCount: choices.length,
-      itemBuilder: (i) => IconPresetTile(
-        icon: choices[i].icon,
-        paletteColor: choices[i].paletteColor,
-        isSelected: !_isCustomUrl && choices[i].name == selected,
-        selectedColor: accentColor,
-        onTap: () => onSelected(choices[i].name),
-      ),
-      moreTile: moreTile,
+      itemBuilder: (i, isLast) {
+        if (customUrl != null && isLast) {
+          return ImagePresetTile(
+            imageUrl: customUrl,
+            selectedColor: widget.accentColor,
+            isSelected: _isCustomUrl,
+            onTap: () => widget.onSelected(customUrl),
+          );
+        }
+        return IconPresetTile(
+          icon: choices[i].icon,
+          paletteColor: choices[i].paletteColor,
+          isSelected: !_isCustomUrl && choices[i].name == widget.selected,
+          selectedColor: widget.accentColor,
+          onTap: () => widget.onSelected(choices[i].name),
+        );
+      },
+      moreTile: widget.moreTile,
     );
   }
 }

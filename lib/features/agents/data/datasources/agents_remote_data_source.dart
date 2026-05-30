@@ -2,6 +2,17 @@ import 'package:dio/dio.dart';
 
 import '../models/agent_model.dart';
 
+/// Presigned S3 upload + public URL pair returned by the icon presign endpoint.
+class AgentPresignResponse {
+  const AgentPresignResponse({
+    required this.uploadUrl,
+    required this.publicUrl,
+  });
+
+  final String uploadUrl;
+  final String publicUrl;
+}
+
 /// Remote data source for the agent-management endpoints.
 ///
 /// Communicates with the .NET backend at `/api/agents`. Returns DTOs —
@@ -68,17 +79,41 @@ class AgentsRemoteDataSource {
 
   /// `PATCH /api/agents/{agentId}` → 200 (no body).
   ///
-  /// Only the keys present in the body are updated. A `null` [name] or
-  /// [description] is omitted from the payload so it stays unchanged.
+  /// Only the keys present in the body are updated. A `null` argument is
+  /// omitted from the payload so that field stays unchanged on the server.
   Future<void> updateAgent(
     String agentId, {
     String? name,
     String? description,
+    String? iconKey,
+    String? iconColor,
   }) async {
     final body = <String, dynamic>{};
     if (name != null) body['name'] = name;
     if (description != null) body['description'] = description;
+    if (iconKey != null) body['iconKey'] = iconKey;
+    if (iconColor != null) body['iconColor'] = iconColor;
     await _dio.patch<void>('/api/agents/$agentId', data: body);
+  }
+
+  /// `POST /api/agents/{agentId}/icon/presign` → presigned S3 upload URL.
+  ///
+  /// Returns an [AgentPresignResponse] with an `uploadUrl` for the S3 PUT
+  /// and a `publicUrl` to store as `iconKey` after the upload completes.
+  Future<AgentPresignResponse> presignAgentIcon(
+    String agentId,
+    String extension,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/agents/$agentId/icon/presign',
+      data: {'agentId': agentId, 'extension': extension},
+    );
+    final data = response.data;
+    if (data == null) throw _emptyBody(response);
+    return AgentPresignResponse(
+      uploadUrl: data['uploadUrl'] as String,
+      publicUrl: data['publicUrl'] as String,
+    );
   }
 
   DioException _emptyBody(Response<dynamic> response) => DioException(

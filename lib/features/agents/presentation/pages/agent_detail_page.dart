@@ -17,20 +17,36 @@ import '../widgets/deactivate_agent_sheet.dart';
 /// narrow layout (the wide layout shows the detail inline as a split
 /// pane instead).
 ///
-/// Owns its own [AgentsCubit], loads the agent list on mount and
-/// resolves the requested agent by [agentId] from that list — so the
-/// detail and list always agree.
-class AgentDetailPage extends StatelessWidget {
+/// Shares the singleton [AgentsCubit] with [AgentsPage] via
+/// [BlocProvider.value] so state changes (icon save, approve, deactivate)
+/// are immediately visible in the list without a manual reload.
+class AgentDetailPage extends StatefulWidget {
   const AgentDetailPage({super.key, required this.agentId});
 
   /// Server-issued id of the agent to display.
   final String agentId;
 
   @override
+  State<AgentDetailPage> createState() => _AgentDetailPageState();
+}
+
+class _AgentDetailPageState extends State<AgentDetailPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Load only when the singleton has never loaded — e.g. when the user
+    // lands on this page via deep link without going through AgentsPage.
+    final cubit = getIt<AgentsCubit>();
+    if (cubit.state.status == AgentsStatus.initial) {
+      cubit.load();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocProvider<AgentsCubit>(
-      create: (_) => getIt<AgentsCubit>()..load(),
-      child: _AgentDetailView(agentId: agentId),
+    return BlocProvider<AgentsCubit>.value(
+      value: getIt<AgentsCubit>(),
+      child: _AgentDetailView(agentId: widget.agentId),
     );
   }
 }

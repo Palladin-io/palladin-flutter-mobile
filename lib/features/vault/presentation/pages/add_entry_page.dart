@@ -130,12 +130,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
         notes: _notesController.text,
       );
 
-  /// Called by the main-picker upload circle.
-  Future<void> _pickCustomIcon() async {
-    final path = await _pickIconFile();
-    if (path != null && mounted) setState(() => _icon = path);
-  }
-
   /// Called by the browser upload circle — returns the file:// path
   /// without updating [_icon] (the browser handles selection state).
   Future<String?> _pickIconFile() async {
@@ -373,15 +367,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       accentColor: accentColor,
                       onSelected: (name) => setState(() => _icon = name),
                       moreTile: IconMoreTile(onTap: _openEntryBrowser),
-                    ),
-                    const SizedBox(height: 10),
-                    UploadIconButton(
-                      accentColor: accentColor,
-                      imageUrl: EntryVisuals.isCustomUrl(_icon) ? _icon : null,
-                      isLoading: _pickingIcon || _uploadingIcon,
-                      onTap: (_pickingIcon || _uploadingIcon)
-                          ? null
-                          : _pickCustomIcon,
                     ),
                     const SizedBox(height: 16),
                     // 5. Type dropdown

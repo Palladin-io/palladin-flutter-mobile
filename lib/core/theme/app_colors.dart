@@ -250,6 +250,16 @@ abstract final class AppColors {
           ? const Color(0x0FFDF9E4)
           : const Color(0x0F000B2E);
 
+  /// Footer overlay on a glass card — nearly transparent navy tint in
+  /// light mode (`rgba(0,11,46,0.015)`) and a nearly transparent cream
+  /// tint in dark mode (`rgba(253,249,228,0.02)`). Used to subtly set the
+  /// card footer apart from the main card body without introducing a
+  /// distinct surface colour.
+  static Color cardFooterOverlay(Brightness b) =>
+      b == Brightness.dark
+          ? const Color(0x05FDF9E4)
+          : const Color(0x04000B2E);
+
   /// Bottom nav background — translucent navy (`rgba(10,26,62,0.80)`) in
   /// dark, translucent cream (`rgba(255,252,247,0.75)`) in light.
   static Color navBackground(Brightness b) =>

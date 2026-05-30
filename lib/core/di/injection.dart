@@ -238,10 +238,10 @@ void configureDependencies(EnvConfig config) {
     () => AgentsRepositoryImpl(getIt<AgentsRemoteDataSource>()),
   );
 
-  // Agents — presentation layer (factory: fresh cubit per page mount;
-  // the list, detail and edit screens each mount their own instance and
-  // load independently, so stale state never leaks across visits).
-  getIt.registerFactory<AgentsCubit>(
+  // Agents — singleton so the list page and the detail page share one
+  // cubit instance. State changes in the detail (icon save, approve,
+  // deactivate) are immediately visible in the list without a reload.
+  getIt.registerLazySingleton<AgentsCubit>(
     () => AgentsCubit(repository: getIt<AgentsRepository>()),
   );
 }

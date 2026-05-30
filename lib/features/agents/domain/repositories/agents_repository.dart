@@ -34,11 +34,12 @@ abstract interface class AgentsRepository {
 
   /// Updates the mutable metadata of an agent.
   ///
-  /// Only [name] and [description] are editable. Passing `null` for
-  /// either leaves that field unchanged.
+  /// Passing `null` for any field leaves it unchanged on the server.
   Future<void> updateAgent(
     String agentId, {
     String? name,
     String? description,
+    String? iconKey,
+    String? iconColor,
   });
 }

@@ -131,17 +131,9 @@ class _VaultSettingsTabState extends State<VaultSettingsTab> {
           VaultForm(
             initial: widget.initial,
             onChanged: _onFormChanged,
-            onPickCustomIcon: (_pickingIcon || _uploadingIcon) ? null : _pickAndUploadIcon,
+            onPickCustomIcon: _pickAndUploadIcon,
           ),
-          if (_pickingIcon || _uploadingIcon)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: LinearProgressIndicator(
-                color: AppColors.brandRed,
-                backgroundColor: AppColors.hairline,
-              ),
-            ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           _SaveButton(
             onSave: _isDirty ? widget.onSave : null,
             l10n: l10n,
@@ -165,7 +157,7 @@ class _SaveButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 52,
+      height: 44,
       child: ElevatedButton(
         onPressed: onSave,
         style: ElevatedButton.styleFrom(
@@ -175,16 +167,15 @@ class _SaveButton extends StatelessWidget {
           disabledForegroundColor:
               AppColors.onBrandRed.withValues(alpha: 0.5),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
           elevation: 0,
         ),
         child: Text(
           l10n.vaultSaveAction,
           style: const TextStyle(
-            fontSize: 15,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
-            letterSpacing: 0.2,
           ),
         ),
       ),
