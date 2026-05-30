@@ -346,5 +346,7 @@
   "agentIconBrowserTitle": "Przeglądaj ikony",
   "agentIconColorLabel": "Kolor",
   "agentIconChoose": "Wybierz",
-  "agentsTypeUnknown": "Nieznany"
+  "agentsTypeUnknown": "Nieznany",
+  "agentsDetailLastIp": "Ostatnie IP",
+  "agentsDetailLastHostname": "Ostatni hostname"
 }

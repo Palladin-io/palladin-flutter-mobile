@@ -50,6 +50,7 @@ class Agent {
     required this.createdAt,
     this.type,
     this.iconKey,
+    this.iconColor,
     this.publicKeyPrefix = '',
     this.publicKey = '',
     this.enrolledAt,
@@ -57,6 +58,9 @@ class Agent {
     this.deactivatedAt,
     this.deactivatedByName,
     this.description,
+    this.lastAccessAt,
+    this.lastIp,
+    this.lastHostname,
   });
 
   /// Stable, server-issued identifier.
@@ -73,6 +77,10 @@ class Agent {
   /// Material icon name chosen for the agent at approval time, or `null`
   /// when no icon has been assigned.
   final String? iconKey;
+
+  /// Hex color string (e.g. `"#2EC4B6"`) for the icon tint, chosen by the
+  /// operator. When `null`, [agentIconColor] is used as the default.
+  final String? iconColor;
 
   /// Current lifecycle status — see [AgentStatus].
   final AgentStatus status;
@@ -106,6 +114,19 @@ class Agent {
 
   /// Free-text description of the agent's purpose, or `null`.
   final String? description;
+
+  /// When the agent last successfully accessed the organization (e.g. opened
+  /// a vault entry). `null` when the agent has never made a request — newly
+  /// enrolled agents will not have a value here until their first call.
+  final DateTime? lastAccessAt;
+
+  /// Last known IP address the agent connected from, or `null` when the
+  /// agent has not been seen yet. Public metadata — safe to display.
+  final String? lastIp;
+
+  /// Last known hostname the agent connected from, or `null` when not
+  /// reported by the agent. Public metadata — safe to display.
+  final String? lastHostname;
 
   bool get isPending => status == AgentStatus.pending;
 

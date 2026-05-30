@@ -2179,6 +2179,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unknown'**
   String get agentsTypeUnknown;
+
+  /// Label for the last known IP address of the agent
+  ///
+  /// In en, this message translates to:
+  /// **'Last IP'**
+  String get agentsDetailLastIp;
+
+  /// Label for the last known hostname of the agent
+  ///
+  /// In en, this message translates to:
+  /// **'Last Hostname'**
+  String get agentsDetailLastHostname;
 }
 
 class _AppLocalizationsDelegate

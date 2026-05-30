@@ -1324,5 +1324,9 @@
   "agentIconChoose": "Choose",
   "@agentIconChoose": { "description": "Confirm button label inside the icon browser modal" },
   "agentsTypeUnknown": "Unknown",
-  "@agentsTypeUnknown": { "description": "Fallback type label on the agent card when no type is set" }
+  "@agentsTypeUnknown": { "description": "Fallback type label on the agent card when no type is set" },
+  "agentsDetailLastIp": "Last IP",
+  "@agentsDetailLastIp": { "description": "Label for the last known IP address of the agent" },
+  "agentsDetailLastHostname": "Last Hostname",
+  "@agentsDetailLastHostname": { "description": "Label for the last known hostname of the agent" }
 }

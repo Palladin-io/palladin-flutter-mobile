@@ -370,6 +370,17 @@ class _MetadataList extends StatelessWidget {
           value: _withSignedBy(formatAgentDate(agent.deactivatedAt!),
               agent.deactivatedByName),
         ),
+      if (agent.lastIp != null)
+        _DetailRow(
+          label: l10n.agentsDetailLastIp,
+          value: agent.lastIp!,
+          mono: true,
+        ),
+      if (agent.lastHostname != null)
+        _DetailRow(
+          label: l10n.agentsDetailLastHostname,
+          value: agent.lastHostname!,
+        ),
     ];
 
     return Column(

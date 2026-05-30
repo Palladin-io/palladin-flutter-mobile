@@ -1246,4 +1246,10 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get agentsTypeUnknown => 'Nieznany';
+
+  @override
+  String get agentsDetailLastIp => 'Ostatnie IP';
+
+  @override
+  String get agentsDetailLastHostname => 'Ostatni hostname';
 }

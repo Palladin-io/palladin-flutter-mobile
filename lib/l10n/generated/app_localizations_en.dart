@@ -1226,4 +1226,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentsTypeUnknown => 'Unknown';
+
+  @override
+  String get agentsDetailLastIp => 'Last IP';
+
+  @override
+  String get agentsDetailLastHostname => 'Last Hostname';
 }

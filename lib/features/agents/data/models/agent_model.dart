@@ -13,6 +13,7 @@ class AgentModel {
     required this.createdAt,
     this.type,
     this.iconKey,
+    this.iconColor,
     this.publicKeyPrefix = '',
     this.publicKey = '',
     this.enrolledAt,
@@ -20,6 +21,9 @@ class AgentModel {
     this.deactivatedAt,
     this.deactivatedByName,
     this.description,
+    this.lastAccessAt,
+    this.lastIp,
+    this.lastHostname,
   });
 
   final String agentId;
@@ -40,6 +44,9 @@ class AgentModel {
   /// Material icon name chosen for the agent, or `null` when unset.
   final String? iconKey;
 
+  /// Hex color string (e.g. `"#2EC4B6"`) for the icon tint, or `null`.
+  final String? iconColor;
+
   /// First 8 characters of the public key. Defaults to `''` for older
   /// payloads that pre-date this field.
   final String publicKeyPrefix;
@@ -55,6 +62,19 @@ class AgentModel {
   final String? deactivatedAt;
   final String? deactivatedByName;
   final String? description;
+
+  /// ISO-8601 UTC timestamp of the agent's last successful access, or
+  /// `null` if the agent has never made a request. Serialized from the
+  /// backend's NodaTime `Instant`.
+  final String? lastAccessAt;
+
+  /// Last known IP address the agent connected from, or `null` when the
+  /// agent has not been seen yet.
+  final String? lastIp;
+
+  /// Last known hostname the agent connected from, or `null` when not
+  /// reported.
+  final String? lastHostname;
 
   factory AgentModel.fromJson(Map<String, dynamic> json) {
     return AgentModel(
@@ -73,6 +93,7 @@ class AgentModel {
       },
       type: json['type'] as String?,
       iconKey: json['iconKey'] as String?,
+      iconColor: json['iconColor'] as String?,
       publicKeyPrefix: (json['publicKeyPrefix'] as String?) ?? '',
       publicKey: (json['publicKey'] as String?) ?? '',
       publicKeySuffix: (json['publicKeySuffix'] as String?) ?? '',
@@ -82,6 +103,9 @@ class AgentModel {
       deactivatedAt: json['deactivatedAt'] as String?,
       deactivatedByName: json['deactivatedByName'] as String?,
       description: json['description'] as String?,
+      lastAccessAt: json['lastAccessAt'] as String?,
+      lastIp: json['lastIp'] as String?,
+      lastHostname: json['lastHostname'] as String?,
     );
   }
 
@@ -92,6 +116,7 @@ class AgentModel {
       status: AgentStatusExtension.fromWire(status),
       type: type,
       iconKey: iconKey,
+      iconColor: iconColor,
       publicKeyPrefix: publicKeyPrefix,
       publicKey: publicKey,
       publicKeySuffix: publicKeySuffix,
@@ -102,6 +127,10 @@ class AgentModel {
           deactivatedAt != null ? DateTime.parse(deactivatedAt!) : null,
       deactivatedByName: deactivatedByName,
       description: description,
+      lastAccessAt:
+          lastAccessAt != null ? DateTime.parse(lastAccessAt!) : null,
+      lastIp: lastIp,
+      lastHostname: lastHostname,
     );
   }
 }
