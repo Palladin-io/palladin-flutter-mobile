@@ -1039,6 +1039,15 @@ class AppLocalizationsPl extends AppLocalizations {
   String get agentsDeactivated => 'Dezaktywowano';
 
   @override
+  String get agentsDeactivatedOn => 'Dezaktywowano';
+
+  @override
+  String get agentsConnectedOn => 'Połączono';
+
+  @override
+  String get agentsLastAccess => 'Ostatni dostęp';
+
+  @override
   String get agentsPendingApproval => 'Oczekuje na zatwierdzenie';
 
   @override
@@ -1234,4 +1243,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get agentIconChoose => 'Wybierz';
+
+  @override
+  String get agentsTypeUnknown => 'Nieznany';
 }

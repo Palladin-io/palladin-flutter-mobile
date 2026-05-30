@@ -1778,6 +1778,24 @@ abstract class AppLocalizations {
   /// **'Deactivated'**
   String get agentsDeactivated;
 
+  /// Prefix for the deactivated-date in the agent card footer
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivated on'**
+  String get agentsDeactivatedOn;
+
+  /// Prefix for the first-connected-date in the agent card footer
+  ///
+  /// In en, this message translates to:
+  /// **'Connected on'**
+  String get agentsConnectedOn;
+
+  /// Prefix for the last-access-date in the agent card footer
+  ///
+  /// In en, this message translates to:
+  /// **'Last access'**
+  String get agentsLastAccess;
+
   /// Subtitle on a pending agent card
   ///
   /// In en, this message translates to:
@@ -2155,6 +2173,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Choose'**
   String get agentIconChoose;
+
+  /// Fallback type label on the agent card when no type is set
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get agentsTypeUnknown;
 }
 
 class _AppLocalizationsDelegate

@@ -280,6 +280,9 @@
   "agentsStatusDeactivated": "Dezaktywowany",
   "agentsEnrolled": "Zatwierdzono",
   "agentsDeactivated": "Dezaktywowano",
+  "agentsDeactivatedOn": "Dezaktywowano",
+  "agentsConnectedOn": "Połączono",
+  "agentsLastAccess": "Ostatni dostęp",
   "agentsPendingApproval": "Oczekuje na zatwierdzenie",
   "agentsDetailTitle": "Agent",
   "agentsDetailNotFound": "Nie znaleziono agenta",
@@ -342,5 +345,6 @@
   "agentIconMore": "Więcej ikon",
   "agentIconBrowserTitle": "Przeglądaj ikony",
   "agentIconColorLabel": "Kolor",
-  "agentIconChoose": "Wybierz"
+  "agentIconChoose": "Wybierz",
+  "agentsTypeUnknown": "Nieznany"
 }

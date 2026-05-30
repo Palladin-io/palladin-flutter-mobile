@@ -306,7 +306,7 @@ class _IdentityHeader extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        AgentAvatar(agentId: agent.agentId, name: agent.name, size: 40),
+        AgentAvatar(agentId: agent.agentId, name: agent.name, iconKey: agent.iconKey, iconColor: agent.iconColor, size: 40),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -346,7 +346,7 @@ class _MetadataList extends StatelessWidget {
     final rows = <Widget>[
       _DetailRow(
         label: 'Id',
-        value: _maskId(agent.agentId),
+        value: agent.agentId,
         mono: true,
       ),
       _DetailRow(
@@ -381,11 +381,6 @@ class _MetadataList extends StatelessWidget {
         ],
       ],
     );
-  }
-
-  String _maskId(String id) {
-    if (id.length <= 12) return id;
-    return '${id.substring(0, 6)}•••${id.substring(id.length - 6)}';
   }
 
   /// Appends `· {name}` after the formatted date when an attribution

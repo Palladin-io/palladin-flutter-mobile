@@ -1020,6 +1020,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentsDeactivated => 'Deactivated';
 
   @override
+  String get agentsDeactivatedOn => 'Deactivated on';
+
+  @override
+  String get agentsConnectedOn => 'Connected on';
+
+  @override
+  String get agentsLastAccess => 'Last access';
+
+  @override
   String get agentsPendingApproval => 'Pending approval';
 
   @override
@@ -1214,4 +1223,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentIconChoose => 'Choose';
+
+  @override
+  String get agentsTypeUnknown => 'Unknown';
 }

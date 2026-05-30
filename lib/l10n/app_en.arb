@@ -1185,6 +1185,12 @@
   "@agentsEnrolled": { "description": "Prefix for the enrolled-date subtitle on an agent card" },
   "agentsDeactivated": "Deactivated",
   "@agentsDeactivated": { "description": "Prefix for the deactivated-date subtitle on an agent card" },
+  "agentsDeactivatedOn": "Deactivated on",
+  "@agentsDeactivatedOn": { "description": "Prefix for the deactivated-date in the agent card footer" },
+  "agentsConnectedOn": "Connected on",
+  "@agentsConnectedOn": { "description": "Prefix for the first-connected-date in the agent card footer" },
+  "agentsLastAccess": "Last access",
+  "@agentsLastAccess": { "description": "Prefix for the last-access-date in the agent card footer" },
   "agentsPendingApproval": "Pending approval",
   "@agentsPendingApproval": { "description": "Subtitle on a pending agent card" },
   "agentsDetailTitle": "Agent",
@@ -1316,5 +1322,7 @@
   "agentIconColorLabel": "Color",
   "@agentIconColorLabel": { "description": "Label above the color swatches in the icon browser modal" },
   "agentIconChoose": "Choose",
-  "@agentIconChoose": { "description": "Confirm button label inside the icon browser modal" }
+  "@agentIconChoose": { "description": "Confirm button label inside the icon browser modal" },
+  "agentsTypeUnknown": "Unknown",
+  "@agentsTypeUnknown": { "description": "Fallback type label on the agent card when no type is set" }
 }
