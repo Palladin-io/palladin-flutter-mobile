@@ -6,8 +6,6 @@ import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../domain/entities/entry_entity.dart';
 
-export '../../../../core/widgets/upload_icon_button.dart' show UploadIconButton;
-
 /// Shared form widgets for Add Entry / Edit Entry pages.
 ///
 /// All five widgets here were duplicated 1:1 between

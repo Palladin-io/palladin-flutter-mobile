@@ -182,11 +182,22 @@ class _AgentEditFormState extends State<AgentEditForm> {
           PaintingBinding.instance.imageCache
               .evict(NetworkImage(publicUrl));
           return _withCacheBust(publicUrl);
+        } on AgentIconUploadException catch (e) {
+          if (!mounted) return null;
+          final l10n = AppLocalizations.of(context)!;
+          final msg = switch (e.kind) {
+            AgentIconUploadErrorKind.fileTooLarge => l10n.vaultIconUploadSizeError,
+            AgentIconUploadErrorKind.unsupportedFormat => l10n.vaultIconUploadFormatError,
+            _ => l10n.vaultIconUploadError,
+          };
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+          return null;
         } catch (_) {
-          // Local fallback: the file:// path itself is already unique per
-          // pick (image_picker writes to a fresh temp file), so no extra
-          // cache busting is needed.
-          return 'file://${picked.path}';
+          if (!mounted) return null;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppLocalizations.of(context)!.vaultIconUploadError)),
+          );
+          return null;
         }
       },
     );
