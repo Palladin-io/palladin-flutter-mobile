@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
-import '../../features/agents/presentation/widgets/approve_agent_sheet.dart'
-    show ApproveActionButton;
 import '../../l10n/generated/app_localizations.dart';
+import 'approve_action_button.dart';
 import 'icon_picker_grid.dart' show ImagePresetTile;
 import 'upload_icon_button.dart';
 

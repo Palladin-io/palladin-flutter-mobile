@@ -1057,6 +1057,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get agentsDetailNotFound => 'Nie znaleziono agenta';
 
   @override
+  String get agentsDetailId => 'Identyfikator';
+
+  @override
   String get agentsDetailPublicKey => 'Klucz publiczny';
 
   @override

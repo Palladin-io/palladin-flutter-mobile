@@ -234,8 +234,13 @@ class _AgentsViewState extends State<_AgentsView> {
 }
 
 /// Switches between the loading / error / empty / loaded states of the
-/// agents list. Always scrollable so [RefreshIndicator] works even on
-/// the empty and error states.
+/// agents list.
+///
+/// The search bar is static chrome — it stays mounted above the content
+/// area in every state (including loading), per the skeleton-pattern
+/// rule. Only the area below the search bar swaps to a skeleton, error
+/// card, empty state or the agent list. Each content view is itself
+/// scrollable so [RefreshIndicator] keeps working in all states.
 class _Body extends StatelessWidget {
   const _Body({
     required this.state,
@@ -255,22 +260,34 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return switch (state.status) {
-      AgentsStatus.initial ||
-      AgentsStatus.loading =>
-        const _AgentsSkeleton(),
-      AgentsStatus.error => _AgentsError(
-          message: agentsErrorMessage(l10n, state.error!),
-          onRetry: () => context.read<AgentsCubit>().load(),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+          child: AppSearchField(
+            controller: searchController,
+            hint: l10n.agentsSearchHint,
+          ),
         ),
-      AgentsStatus.loaded => _AgentsList(
-          agents: state.agents,
-          filtered: filtered,
-          selectedAgentId: selectedAgentId,
-          onOpenAgent: onOpenAgent,
-          searchController: searchController,
+        Expanded(
+          child: switch (state.status) {
+            AgentsStatus.initial ||
+            AgentsStatus.loading =>
+              const _AgentsSkeleton(),
+            AgentsStatus.error => _AgentsError(
+                message: agentsErrorMessage(l10n, state.error!),
+                onRetry: () => context.read<AgentsCubit>().load(),
+              ),
+            AgentsStatus.loaded => _AgentsList(
+                agents: state.agents,
+                filtered: filtered,
+                selectedAgentId: selectedAgentId,
+                onOpenAgent: onOpenAgent,
+              ),
+          },
         ),
-    };
+      ],
+    );
   }
 }
 
@@ -280,14 +297,12 @@ class _AgentsList extends StatelessWidget {
     required this.filtered,
     required this.selectedAgentId,
     required this.onOpenAgent,
-    required this.searchController,
   });
 
   final List<Agent> agents;
   final List<Agent> filtered;
   final String? selectedAgentId;
   final ValueChanged<String> onOpenAgent;
-  final TextEditingController searchController;
 
   @override
   Widget build(BuildContext context) {
@@ -297,15 +312,6 @@ class _AgentsList extends StatelessWidget {
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-            child: AppSearchField(
-              controller: searchController,
-              hint: l10n.agentsSearchHint,
-            ),
-          ),
-        ),
         if (agents.isEmpty)
           SliverFillRemaining(
             hasScrollBody: false,

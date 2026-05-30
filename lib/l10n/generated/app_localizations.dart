@@ -1814,6 +1814,12 @@ abstract class AppLocalizations {
   /// **'Agent not found'**
   String get agentsDetailNotFound;
 
+  /// Label for the agent id row on the detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Id'**
+  String get agentsDetailId;
+
   /// Label for the public key suffix row
   ///
   /// In en, this message translates to:

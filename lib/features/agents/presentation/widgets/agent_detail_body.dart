@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/approve_action_button.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../domain/entities/agent.dart';
@@ -10,7 +11,6 @@ import 'agent_avatar.dart';
 import 'agent_edit_form.dart';
 import 'agent_format.dart';
 import 'agent_status_badge.dart';
-import 'approve_agent_sheet.dart';
 
 /// Tab segments shown on the agent detail screen — mirrors the web
 /// panel's `AgentDetail` so the two surfaces feel consistent.
@@ -346,7 +346,7 @@ class _MetadataList extends StatelessWidget {
     final locale = Localizations.localeOf(context).toString();
     final rows = <Widget>[
       _DetailRow(
-        label: 'Id',
+        label: l10n.agentsDetailId,
         value: agent.agentId,
         mono: true,
       ),

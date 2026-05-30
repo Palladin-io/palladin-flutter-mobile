@@ -286,6 +286,7 @@
   "agentsPendingApproval": "Oczekuje na zatwierdzenie",
   "agentsDetailTitle": "Agent",
   "agentsDetailNotFound": "Nie znaleziono agenta",
+  "agentsDetailId": "Identyfikator",
   "agentsDetailPublicKey": "Klucz publiczny",
   "agentsDetailCreatedAt": "Połączono",
   "agentsDetailEnrolledAt": "Zatwierdzono",

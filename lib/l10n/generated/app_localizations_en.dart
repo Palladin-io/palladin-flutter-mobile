@@ -1038,6 +1038,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentsDetailNotFound => 'Agent not found';
 
   @override
+  String get agentsDetailId => 'Id';
+
+  @override
   String get agentsDetailPublicKey => 'Public Key';
 
   @override

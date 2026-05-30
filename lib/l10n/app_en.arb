@@ -1197,6 +1197,8 @@
   "@agentsDetailTitle": { "description": "Generic title of the agent detail screen while loading" },
   "agentsDetailNotFound": "Agent not found",
   "@agentsDetailNotFound": { "description": "Shown when the requested agent does not exist" },
+  "agentsDetailId": "Id",
+  "@agentsDetailId": { "description": "Label for the agent id row on the detail screen" },
   "agentsDetailPublicKey": "Public Key",
   "@agentsDetailPublicKey": { "description": "Label for the public key suffix row" },
   "agentsDetailCreatedAt": "Connected",

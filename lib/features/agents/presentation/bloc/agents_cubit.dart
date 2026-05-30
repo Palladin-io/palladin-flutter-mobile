@@ -91,7 +91,6 @@ class AgentsCubit extends Cubit<AgentsState> {
   /// a successful PATCH to fetch a single fresh agent rather than
   /// [listAgents] — the list endpoint may omit `iconKey` and other detail
   /// fields, causing the avatar to revert after save.
-  /// Updates an agent's name, description and/or icon.
   ///
   /// [iconKey] is what gets sent to the API. [iconKeyDisplay] is the value
   /// shown in the avatar optimistically — it may differ when the S3 upload
