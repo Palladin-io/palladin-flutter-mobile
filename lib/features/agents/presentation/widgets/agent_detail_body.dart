@@ -273,8 +273,8 @@ class _DetailsCard extends StatelessWidget {
             color: AppColors.cardBorder(brightness),
           ),
           const SizedBox(height: 14),
+          _MetadataList(agent: agent, l10n: l10n),
           if (showEditForm) ...[
-            AgentEditForm(agent: agent, canEdit: true),
             const SizedBox(height: 14),
             Divider(
               height: 1,
@@ -282,8 +282,8 @@ class _DetailsCard extends StatelessWidget {
               color: AppColors.cardBorder(brightness),
             ),
             const SizedBox(height: 14),
+            AgentEditForm(agent: agent, canEdit: true),
           ],
-          _MetadataList(agent: agent, l10n: l10n),
         ],
       ),
     );
