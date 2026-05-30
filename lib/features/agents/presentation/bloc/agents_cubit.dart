@@ -13,32 +13,23 @@ export 'agents_state.dart';
 /// detail screen ([AgentDetailPage]). Editing happens inline inside the
 /// detail screen's Details tab.
 ///
-/// Each screen mounts its own cubit instance (registered as a factory in
-/// DI), so stale loading / error state never leaks across visits. The
-/// detail screen resolves its agent by id from the loaded list.
+/// Registered as a `lazySingleton` in DI: both screens share one instance
+/// (via `BlocProvider.value`) so a mutation on the detail screen (approve,
+/// deactivate, icon save) is immediately reflected in the list without a
+/// reload. The detail screen resolves its agent by id from the loaded list.
+///
+/// Because the instance lives for the whole app lifecycle it is never
+/// `close()`-d — call [reset] on logout / organization switch to drop the
+/// previous session's agents so they never leak across accounts.
 class AgentsCubit extends Cubit<AgentsState> {
   AgentsCubit({required this.repository}) : super(const AgentsState());
 
   final AgentsRepository repository;
 
-  /// Reloads the full agent list, then patches [agentId] with a fresh
-  /// `getAgent` call so detail fields (iconKey, iconColor) that the list
-  /// endpoint may omit are never stale after returning from the detail page.
-  Future<void> reloadWithDetail(String agentId) async {
-    await load();
-    if (state.status != AgentsStatus.loaded) return;
-    try {
-      final fresh = await repository.getAgent(agentId);
-      final updated = state.agents
-          .map((a) => a.agentId == agentId ? fresh : a)
-          .toList(growable: false);
-      emit(state.copyWith(agents: updated));
-    } on AgentsException catch (e) {
-      AppLogger.w('Agents', 'reloadWithDetail getAgent failed: ${e.kind.name}');
-    } catch (e, s) {
-      AppLogger.e('Agents', 'reloadWithDetail unexpected', error: e, stackTrace: s);
-    }
-  }
+  /// Drops all loaded agents and transient error / mutation state back to
+  /// the initial state. Call on logout or organization switch so the next
+  /// session starts clean — the singleton instance is reused, not recreated.
+  void reset() => emit(const AgentsState());
 
   /// Fetches the agents list — called once on screen mount.
   Future<void> load() async {

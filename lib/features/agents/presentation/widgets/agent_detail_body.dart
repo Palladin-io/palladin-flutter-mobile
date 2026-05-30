@@ -343,6 +343,7 @@ class _MetadataList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locale = Localizations.localeOf(context).toString();
     final rows = <Widget>[
       _DetailRow(
         label: 'Id',
@@ -357,13 +358,13 @@ class _MetadataList extends StatelessWidget {
       if (agent.enrolledAt != null)
         _DetailRow(
           label: l10n.agentsDetailEnrolledAt,
-          value: _withSignedBy(formatAgentDate(agent.enrolledAt!),
+          value: _withSignedBy(formatAgentDate(agent.enrolledAt!, locale),
               agent.enrolledByName),
         ),
       if (agent.deactivatedAt != null)
         _DetailRow(
           label: l10n.agentsDetailDeactivatedAt,
-          value: _withSignedBy(formatAgentDate(agent.deactivatedAt!),
+          value: _withSignedBy(formatAgentDate(agent.deactivatedAt!, locale),
               agent.deactivatedByName),
         ),
       if (agent.lastIp != null)
@@ -379,7 +380,7 @@ class _MetadataList extends StatelessWidget {
         ),
       _DetailRow(
         label: l10n.agentsDetailCreatedAt,
-        value: formatAgentDateTime(agent.createdAt),
+        value: formatAgentDateTime(agent.createdAt, locale),
       ),
     ];
 
@@ -639,6 +640,7 @@ class _LogsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+    final locale = Localizations.localeOf(context).toString();
 
     final entries = <({String label, DateTime date, String? detail})>[
       (
@@ -678,7 +680,7 @@ class _LogsCard extends StatelessWidget {
               ),
             _LogRow(
               label: entries[i].label,
-              date: formatAgentDate(entries[i].date),
+              date: formatAgentDate(entries[i].date, locale),
               detail: entries[i].detail,
             ),
           ],

@@ -35,6 +35,12 @@ abstract final class AppColors {
   /// share the same value.
   static const Color onBrandRed = Color(0xFFFFFFFF);
 
+  /// Opaque base colour for the upload-button shimmer label. The brandRed
+  /// gradient is painted over it via a `ShaderMask` (`BlendMode.srcIn`),
+  /// so only its alpha channel matters — it must be fully opaque white for
+  /// the gradient to show through at full saturation.
+  static const Color shimmerForeground = Color(0xFFFFFFFF);
+
   /// FAB drop-shadow color — `brandRed` at 35% alpha. Mirrors the
   /// prototype's `box-shadow: 0 3px 10px rgba(255,79,79,0.35)`. Kept
   /// as a const (instead of `brandRed.withValues(...)`) so it can be
@@ -295,4 +301,12 @@ abstract final class AppColors {
   /// Icon in default (non-interactive) state.
   static Color iconDefault(Brightness b) =>
       b == Brightness.dark ? textSecondary : const Color(0xFF5A6478);
+
+  /// Drop-shadow tint for floating overlays (autocomplete dropdowns,
+  /// popovers). Slightly stronger in dark mode where the overlay sits on
+  /// a darker backdrop and needs more separation. Black at 30% (dark) /
+  /// 15% (light) keeps the lift subtle without a hard edge.
+  static Color dropdownShadow(Brightness b) => b == Brightness.dark
+      ? const Color(0x4D000000)
+      : const Color(0x26000000);
 }

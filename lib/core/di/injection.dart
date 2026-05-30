@@ -241,6 +241,8 @@ void configureDependencies(EnvConfig config) {
   // Agents — singleton so the list page and the detail page share one
   // cubit instance. State changes in the detail (icon save, approve,
   // deactivate) are immediately visible in the list without a reload.
+  // Lives for the whole app lifecycle (never close()-d) — call
+  // AgentsCubit.reset() on logout / org-switch to clear the prior session.
   getIt.registerLazySingleton<AgentsCubit>(
     () => AgentsCubit(repository: getIt<AgentsRepository>()),
   );

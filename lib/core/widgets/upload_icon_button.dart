@@ -65,7 +65,7 @@ class _UploadIconButtonState extends State<UploadIconButton>
           Icons.file_upload_outlined,
           size: 15,
           color: widget.isLoading
-              ? Colors.white
+              ? AppColors.shimmerForeground
               : AppColors.onSurfaceMuted(brightness),
         ),
         const SizedBox(width: 8),
@@ -75,7 +75,7 @@ class _UploadIconButtonState extends State<UploadIconButton>
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: widget.isLoading
-                ? Colors.white
+                ? AppColors.shimmerForeground
                 : AppColors.onSurface(brightness),
           ),
         ),

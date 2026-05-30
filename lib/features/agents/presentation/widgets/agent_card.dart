@@ -164,25 +164,26 @@ class _AgentCardFooter extends StatelessWidget {
   ///   2. `lastAccessAt`
   ///   3. `enrolledAt`
   ///   4. fallback to `createdAt` ("Connected on ...")
-  String _footerText(AppLocalizations l10n) {
+  String _footerText(AppLocalizations l10n, String locale) {
     if (agent.isDeactivated && agent.deactivatedAt != null) {
       final base =
-          '${l10n.agentsDeactivatedOn} ${formatAgentDate(agent.deactivatedAt!)}';
+          '${l10n.agentsDeactivatedOn} ${formatAgentDate(agent.deactivatedAt!, locale)}';
       final by = agent.deactivatedByName;
       return by != null && by.isNotEmpty ? '$base · $by' : base;
     }
     if (agent.enrolledAt != null) {
       final base =
-          '${l10n.agentsEnrolled} ${formatAgentDate(agent.enrolledAt!)}';
+          '${l10n.agentsEnrolled} ${formatAgentDate(agent.enrolledAt!, locale)}';
       final by = agent.enrolledByName;
       return by != null && by.isNotEmpty ? '$base · $by' : base;
     }
-    return '${l10n.agentsConnectedOn} ${formatAgentDate(agent.createdAt)}';
+    return '${l10n.agentsConnectedOn} ${formatAgentDate(agent.createdAt, locale)}';
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
     final isDeactivated = agent.isDeactivated;
     final iconData = isDeactivated ? Icons.block : Icons.schedule;
     final iconColor = isDeactivated
@@ -206,7 +207,7 @@ class _AgentCardFooter extends StatelessWidget {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              _footerText(l10n),
+              _footerText(l10n, locale),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

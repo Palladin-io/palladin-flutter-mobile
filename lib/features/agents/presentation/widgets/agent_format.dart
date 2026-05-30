@@ -5,6 +5,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -25,27 +26,25 @@ String agentsErrorMessage(AppLocalizations l10n, AgentsErrorKind kind) {
   };
 }
 
-/// Formats a date as `MMM d` (e.g. `Feb 20`) — locale-neutral and short.
+/// Formats a date as a short month + day (e.g. `Feb 20` / `20 lut`),
+/// localized for [locale].
 ///
 /// Used for the agent card subtitle and detail rows where only the
-/// calendar day matters.
-String formatAgentDate(DateTime date) {
-  const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-  final d = date.toLocal();
-  return '${months[d.month - 1]} ${d.day}';
+/// calendar day matters. Pass `Localizations.localeOf(context).toString()`
+/// from the call site so a Polish user sees `20 lut` instead of `Feb 20`.
+String formatAgentDate(DateTime date, String locale) {
+  return DateFormat.MMMd(locale).format(date.toLocal());
 }
 
-/// Formats a date with time as `MMM d, HH:mm` (e.g. `Feb 20, 14:32`).
+/// Formats a date with time as a short month + day + `HH:mm`
+/// (e.g. `Feb 20, 14:32`), localized for [locale].
 ///
 /// Used for detail rows where the exact time is relevant (e.g. first connected).
-String formatAgentDateTime(DateTime date) {
+String formatAgentDateTime(DateTime date, String locale) {
   final d = date.toLocal();
   final hh = d.hour.toString().padLeft(2, '0');
   final mm = d.minute.toString().padLeft(2, '0');
-  return '${formatAgentDate(date)}, $hh:$mm';
+  return '${formatAgentDate(date, locale)}, $hh:$mm';
 }
 
 /// Builds the display name for an agent, falling back to a short id-based
@@ -136,17 +135,17 @@ const List<String> agentIconAll = [
 /// panel's `COLOR_OPTIONS` in `agent-icon-picker.tsx` so the two
 /// surfaces offer the same palette.
 const List<Color> agentColorOptions = [
-  Color(0xFFFF4F4F), // brand red
-  Color(0xFFFFAB87), // peach
-  Color(0xFF60A5FA), // sky blue
-  Color(0xFF2EC4B6), // teal / positive
-  Color(0xFFA78BFA), // violet
-  Color(0xFF8A95A6), // slate
+  AppColors.brandRed,
+  AppColors.vaultPeach,
+  AppColors.vaultBlue,
+  AppColors.positiveAccent,
+  AppColors.vaultViolet,
+  AppColors.vaultSlate,
 ];
 
 /// Default selected color in the icon picker — matches the web panel's
 /// `DEFAULT_AGENT_COLOR` (teal / `#2EC4B6`).
-const Color defaultAgentColor = Color(0xFF2EC4B6);
+const Color defaultAgentColor = AppColors.positiveAccent;
 
 /// Per-glyph accent colour used as the unselected tint on the icon
 /// picker — mirrors the web panel's `AGENT_ICON_COLORS` map so the same

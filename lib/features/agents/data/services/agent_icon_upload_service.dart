@@ -59,7 +59,12 @@ class AgentIconUploadService {
     try {
       AppLogger.d('AgentIconUpload', 'presign agentId=$agentId ext=$ext');
       final presign = await _datasource.presignAgentIcon(agentId, ext);
-      AppLogger.d('AgentIconUpload', 'uploadUrl=${presign.uploadUrl}');
+      // Never log the full presigned URL — its query string carries the
+      // S3 signature granting temporary PUT access. Log only the path.
+      AppLogger.d(
+        'AgentIconUpload',
+        'presigned ${presign.uploadUrl.split('?').first}',
+      );
 
       final bytes = await file.readAsBytes();
       final s3 = Dio();

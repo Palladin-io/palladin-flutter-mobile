@@ -436,7 +436,7 @@ class _AgentTypeAutocompleteState extends State<_AgentTypeAutocomplete> {
               border: Border.all(color: AppColors.cardBorder(brightness)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
+                  color: AppColors.dropdownShadow(brightness),
                   blurRadius: 16,
                   offset: const Offset(0, 4),
                 ),

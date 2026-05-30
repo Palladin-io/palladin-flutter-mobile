@@ -69,7 +69,12 @@ class VaultIconUploadService {
     try {
       AppLogger.d('VaultIconUpload', 'presign vaultId=$vaultId ext=$ext');
       final presign = await _datasource.presignVaultIcon(vaultId, ext);
-      AppLogger.d('VaultIconUpload', 'uploadUrl=${presign.uploadUrl}');
+      // Never log the full presigned URL — its query string carries the
+      // S3 signature granting temporary PUT access. Log only the path.
+      AppLogger.d(
+        'VaultIconUpload',
+        'presigned ${presign.uploadUrl.split('?').first}',
+      );
 
       final bytes = await file.readAsBytes();
       final s3 = Dio();
