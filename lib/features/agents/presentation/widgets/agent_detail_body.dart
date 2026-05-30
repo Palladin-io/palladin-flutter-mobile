@@ -354,10 +354,6 @@ class _MetadataList extends StatelessWidget {
         value: agent.publicKeyDisplay,
         mono: true,
       ),
-      _DetailRow(
-        label: l10n.agentsDetailCreatedAt,
-        value: formatAgentDateTime(agent.createdAt),
-      ),
       if (agent.enrolledAt != null)
         _DetailRow(
           label: l10n.agentsDetailEnrolledAt,
@@ -381,6 +377,10 @@ class _MetadataList extends StatelessWidget {
           label: l10n.agentsDetailLastHostname,
           value: agent.lastHostname!,
         ),
+      _DetailRow(
+        label: l10n.agentsDetailCreatedAt,
+        value: formatAgentDateTime(agent.createdAt),
+      ),
     ];
 
     return Column(
