@@ -17,6 +17,11 @@ import '../../features/agents/data/datasources/agents_remote_data_source.dart';
 import '../../features/agents/data/repositories/agents_repository_impl.dart';
 import '../../features/agents/domain/repositories/agents_repository.dart';
 import '../../features/agents/presentation/bloc/agents_cubit.dart';
+import '../../features/grants/data/datasources/grants_remote_datasource.dart';
+import '../../features/grants/data/repositories/grants_repository_impl.dart';
+import '../../features/grants/domain/repositories/grants_repository.dart';
+import '../../features/grants/presentation/cubit/grant_detail_cubit.dart';
+import '../../features/grants/presentation/cubit/grants_list_cubit.dart';
 import '../../features/recovery/data/datasources/recovery_remote_datasource.dart';
 import '../../features/settings/data/datasources/settings_remote_data_source.dart';
 import '../../features/settings/data/repositories/settings_repository_impl.dart';
@@ -245,5 +250,31 @@ void configureDependencies(EnvConfig config) {
   // AgentsCubit.reset() on logout / org-switch to clear the prior session.
   getIt.registerLazySingleton<AgentsCubit>(
     () => AgentsCubit(repository: getIt<AgentsRepository>()),
+  );
+
+  // Grants — data layer
+  getIt.registerLazySingleton<GrantsRemoteDatasource>(
+    () => GrantsRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<GrantsRepository>(
+    () => GrantsRepositoryImpl(getIt<GrantsRemoteDatasource>()),
+  );
+
+  // Grants — presentation layer (factory per page mount so filter /
+  // pagination state never leaks across vaults). `param1` is the vaultId
+  // the list / detail screens are scoped to; the detail cubit also takes
+  // `param2` = grantId.
+  getIt.registerFactoryParam<GrantsListCubit, String, void>(
+    (vaultId, _) => GrantsListCubit(
+      repository: getIt<GrantsRepository>(),
+      vaultId: vaultId,
+    ),
+  );
+  getIt.registerFactoryParam<GrantDetailCubit, String, String>(
+    (vaultId, grantId) => GrantDetailCubit(
+      repository: getIt<GrantsRepository>(),
+      vaultId: vaultId,
+      grantId: grantId,
+    ),
   );
 }

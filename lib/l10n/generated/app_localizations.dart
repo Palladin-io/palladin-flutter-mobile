@@ -2197,6 +2197,234 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Last Hostname'**
   String get agentsDetailLastHostname;
+
+  /// Title of the grant-management list screen
+  ///
+  /// In en, this message translates to:
+  /// **'Grants'**
+  String get grantsScreenTitle;
+
+  /// Status filter chip — show grants of every status
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get grantsFilterAll;
+
+  /// Retry button on the grants error state
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get grantsRetry;
+
+  /// Empty-state title on the grants list
+  ///
+  /// In en, this message translates to:
+  /// **'No grants yet'**
+  String get grantsEmpty;
+
+  /// Empty-state hint on the grants list
+  ///
+  /// In en, this message translates to:
+  /// **'Grants appear here when an agent requests access to this vault.'**
+  String get grantsEmptyHint;
+
+  /// Revoke action button label
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke grant'**
+  String get grantsRevoke;
+
+  /// Title of the revoke confirmation sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke grant?'**
+  String get grantsRevokeConfirmTitle;
+
+  /// Body of the revoke confirmation sheet
+  ///
+  /// In en, this message translates to:
+  /// **'{agentName} will immediately lose access. This cannot be undone.'**
+  String grantsRevokeConfirmBody(String agentName);
+
+  /// Label for the optional revoke reason field
+  ///
+  /// In en, this message translates to:
+  /// **'Reason (optional)'**
+  String get grantsRevokeReasonLabel;
+
+  /// Hint for the optional revoke reason field
+  ///
+  /// In en, this message translates to:
+  /// **'Why are you revoking this grant?'**
+  String get grantsRevokeReasonHint;
+
+  /// One-line target summary on a grant card
+  ///
+  /// In en, this message translates to:
+  /// **'Access to {target}'**
+  String grantCardTarget(String target);
+
+  /// Fallback when a granular grant's entry label is missing
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown entry'**
+  String get grantEntryUnknown;
+
+  /// Fallback display name for an agent without a name
+  ///
+  /// In en, this message translates to:
+  /// **'Unnamed agent'**
+  String get grantUnnamedAgent;
+
+  /// Grant status label — pending approval
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get grantStatusPending;
+
+  /// Grant status label — active
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get grantStatusActive;
+
+  /// Grant status label — denied
+  ///
+  /// In en, this message translates to:
+  /// **'Denied'**
+  String get grantStatusDenied;
+
+  /// Grant status label — revoked
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked'**
+  String get grantStatusRevoked;
+
+  /// Grant status label — expired
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get grantStatusExpired;
+
+  /// Grant scope label — full vault access
+  ///
+  /// In en, this message translates to:
+  /// **'All entries'**
+  String get grantScopeFull;
+
+  /// Grant scope label — granular single-entry access
+  ///
+  /// In en, this message translates to:
+  /// **'Single entry'**
+  String get grantScopeGranular;
+
+  /// Title of the grant detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Grant'**
+  String get grantDetailTitle;
+
+  /// Detail field label — grant scope
+  ///
+  /// In en, this message translates to:
+  /// **'Scope'**
+  String get grantDetailScope;
+
+  /// Detail field label — target entry
+  ///
+  /// In en, this message translates to:
+  /// **'Entry'**
+  String get grantDetailEntry;
+
+  /// Detail field label — expiry / use limit
+  ///
+  /// In en, this message translates to:
+  /// **'Expiry'**
+  String get grantDetailExpiry;
+
+  /// Detail section label — agent-supplied reason
+  ///
+  /// In en, this message translates to:
+  /// **'Agent\'s reason'**
+  String get grantDetailReason;
+
+  /// Detail field label — request timestamp
+  ///
+  /// In en, this message translates to:
+  /// **'Requested'**
+  String get grantDetailRequested;
+
+  /// Detail field label — approval timestamp
+  ///
+  /// In en, this message translates to:
+  /// **'Approved'**
+  String get grantDetailApproved;
+
+  /// Approval timestamp with approver name
+  ///
+  /// In en, this message translates to:
+  /// **'{date} by {name}'**
+  String grantDetailApprovedBy(String date, String name);
+
+  /// Detail field label — revoke timestamp
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked'**
+  String get grantDetailRevoked;
+
+  /// Expiry line — absolute TTL
+  ///
+  /// In en, this message translates to:
+  /// **'Expires {date}'**
+  String grantDetailExpiresAt(String date);
+
+  /// Expiry line — use-limited grant
+  ///
+  /// In en, this message translates to:
+  /// **'{used} of {limit} uses'**
+  String grantDetailUsesLimit(int used, int limit);
+
+  /// Expiry line — unbounded grant
+  ///
+  /// In en, this message translates to:
+  /// **'No expiry'**
+  String get grantDetailNoExpiry;
+
+  /// Error — 404 on grants
+  ///
+  /// In en, this message translates to:
+  /// **'This grant no longer exists.'**
+  String get grantsErrorNotFound;
+
+  /// Error — 403 on grants
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to manage grants.'**
+  String get grantsErrorForbidden;
+
+  /// Error — 400/409 on grants
+  ///
+  /// In en, this message translates to:
+  /// **'The request was rejected. Please check and try again.'**
+  String get grantsErrorValidation;
+
+  /// Error — network failure on grants
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot reach the server. Check your connection.'**
+  String get grantsErrorNetwork;
+
+  /// Error — on-device crypto failure during approval
+  ///
+  /// In en, this message translates to:
+  /// **'Could not securely prepare the credential. Please try again.'**
+  String get grantsErrorCrypto;
+
+  /// Error — unexpected failure on grants
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get grantsErrorUnknown;
 }
 
 class _AppLocalizationsDelegate

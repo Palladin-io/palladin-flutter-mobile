@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../cubit/vault_list_cubit.dart';
+import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -343,6 +345,14 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   static const double _tabBarHeight = 44;
 
+  /// Whether the current user holds the `GrantManage` permission — gates
+  /// the AppBar grants affordance.
+  bool _canManageGrants(BuildContext context) {
+    final auth = context.read<AuthBloc>().state;
+    return auth is AuthAuthenticated &&
+        (auth.permissions & Permissions.grantManage) != 0;
+  }
+
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight + _tabBarHeight);
 
@@ -374,6 +384,14 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
         icon: const Icon(Icons.arrow_back_ios_new, size: 18),
         onPressed: onBack,
       ),
+      actions: [
+        if (loaded != null && _canManageGrants(context))
+          IconButton(
+            tooltip: l10n.grantsScreenTitle,
+            icon: const Icon(Icons.verified_user_outlined, size: 20),
+            onPressed: () => context.push('/vaults/${loaded.id}/grants'),
+          ),
+      ],
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

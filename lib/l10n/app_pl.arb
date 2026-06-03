@@ -349,5 +349,49 @@
   "agentIconChoose": "Wybierz",
   "agentsTypeUnknown": "Nieznany",
   "agentsDetailLastIp": "Ostatnie IP",
-  "agentsDetailLastHostname": "Ostatni hostname"
+  "agentsDetailLastHostname": "Ostatni hostname",
+
+  "grantsScreenTitle": "Dostępy",
+  "grantsFilterAll": "Wszystkie",
+  "grantsRetry": "Ponów",
+  "grantsEmpty": "Brak dostępów",
+  "grantsEmptyHint": "Dostępy pojawią się tutaj, gdy agent poprosi o dostęp do tego sejfu.",
+  "grantsRevoke": "Odbierz dostęp",
+  "grantsRevokeConfirmTitle": "Odebrać dostęp?",
+  "grantsRevokeConfirmBody": "{agentName} natychmiast straci dostęp. Tej operacji nie można cofnąć.",
+  "grantsRevokeReasonLabel": "Powód (opcjonalnie)",
+  "grantsRevokeReasonHint": "Dlaczego odbierasz ten dostęp?",
+
+  "grantCardTarget": "Dostęp do {target}",
+  "grantEntryUnknown": "Nieznany wpis",
+  "grantUnnamedAgent": "Agent bez nazwy",
+
+  "grantStatusPending": "Oczekuje",
+  "grantStatusActive": "Aktywny",
+  "grantStatusDenied": "Odrzucony",
+  "grantStatusRevoked": "Odebrany",
+  "grantStatusExpired": "Wygasły",
+
+  "grantScopeFull": "Wszystkie wpisy",
+  "grantScopeGranular": "Pojedynczy wpis",
+
+  "grantDetailTitle": "Dostęp",
+  "grantDetailScope": "Zakres",
+  "grantDetailEntry": "Wpis",
+  "grantDetailExpiry": "Wygaśnięcie",
+  "grantDetailReason": "Powód agenta",
+  "grantDetailRequested": "Poproszono",
+  "grantDetailApproved": "Zatwierdzono",
+  "grantDetailApprovedBy": "{date} przez {name}",
+  "grantDetailRevoked": "Odebrano",
+  "grantDetailExpiresAt": "Wygasa {date}",
+  "grantDetailUsesLimit": "{used} z {limit} użyć",
+  "grantDetailNoExpiry": "Bez wygaśnięcia",
+
+  "grantsErrorNotFound": "Ten dostęp już nie istnieje.",
+  "grantsErrorForbidden": "Nie masz uprawnień do zarządzania dostępami.",
+  "grantsErrorValidation": "Żądanie zostało odrzucone. Sprawdź dane i spróbuj ponownie.",
+  "grantsErrorNetwork": "Nie można połączyć się z serwerem. Sprawdź połączenie.",
+  "grantsErrorCrypto": "Nie udało się bezpiecznie przygotować poświadczenia. Spróbuj ponownie.",
+  "grantsErrorUnknown": "Coś poszło nie tak. Spróbuj ponownie."
 }

@@ -1330,5 +1330,102 @@
   "agentsDetailLastIp": "Last IP",
   "@agentsDetailLastIp": { "description": "Label for the last known IP address of the agent" },
   "agentsDetailLastHostname": "Last Hostname",
-  "@agentsDetailLastHostname": { "description": "Label for the last known hostname of the agent" }
+  "@agentsDetailLastHostname": { "description": "Label for the last known hostname of the agent" },
+
+  "grantsScreenTitle": "Grants",
+  "@grantsScreenTitle": { "description": "Title of the grant-management list screen" },
+  "grantsFilterAll": "All",
+  "@grantsFilterAll": { "description": "Status filter chip — show grants of every status" },
+  "grantsRetry": "Retry",
+  "@grantsRetry": { "description": "Retry button on the grants error state" },
+  "grantsEmpty": "No grants yet",
+  "@grantsEmpty": { "description": "Empty-state title on the grants list" },
+  "grantsEmptyHint": "Grants appear here when an agent requests access to this vault.",
+  "@grantsEmptyHint": { "description": "Empty-state hint on the grants list" },
+  "grantsRevoke": "Revoke grant",
+  "@grantsRevoke": { "description": "Revoke action button label" },
+  "grantsRevokeConfirmTitle": "Revoke grant?",
+  "@grantsRevokeConfirmTitle": { "description": "Title of the revoke confirmation sheet" },
+  "grantsRevokeConfirmBody": "{agentName} will immediately lose access. This cannot be undone.",
+  "@grantsRevokeConfirmBody": {
+    "description": "Body of the revoke confirmation sheet",
+    "placeholders": { "agentName": { "type": "String" } }
+  },
+  "grantsRevokeReasonLabel": "Reason (optional)",
+  "@grantsRevokeReasonLabel": { "description": "Label for the optional revoke reason field" },
+  "grantsRevokeReasonHint": "Why are you revoking this grant?",
+  "@grantsRevokeReasonHint": { "description": "Hint for the optional revoke reason field" },
+
+  "grantCardTarget": "Access to {target}",
+  "@grantCardTarget": {
+    "description": "One-line target summary on a grant card",
+    "placeholders": { "target": { "type": "String" } }
+  },
+  "grantEntryUnknown": "Unknown entry",
+  "@grantEntryUnknown": { "description": "Fallback when a granular grant's entry label is missing" },
+  "grantUnnamedAgent": "Unnamed agent",
+  "@grantUnnamedAgent": { "description": "Fallback display name for an agent without a name" },
+
+  "grantStatusPending": "Pending",
+  "@grantStatusPending": { "description": "Grant status label — pending approval" },
+  "grantStatusActive": "Active",
+  "@grantStatusActive": { "description": "Grant status label — active" },
+  "grantStatusDenied": "Denied",
+  "@grantStatusDenied": { "description": "Grant status label — denied" },
+  "grantStatusRevoked": "Revoked",
+  "@grantStatusRevoked": { "description": "Grant status label — revoked" },
+  "grantStatusExpired": "Expired",
+  "@grantStatusExpired": { "description": "Grant status label — expired" },
+
+  "grantScopeFull": "All entries",
+  "@grantScopeFull": { "description": "Grant scope label — full vault access" },
+  "grantScopeGranular": "Single entry",
+  "@grantScopeGranular": { "description": "Grant scope label — granular single-entry access" },
+
+  "grantDetailTitle": "Grant",
+  "@grantDetailTitle": { "description": "Title of the grant detail screen" },
+  "grantDetailScope": "Scope",
+  "@grantDetailScope": { "description": "Detail field label — grant scope" },
+  "grantDetailEntry": "Entry",
+  "@grantDetailEntry": { "description": "Detail field label — target entry" },
+  "grantDetailExpiry": "Expiry",
+  "@grantDetailExpiry": { "description": "Detail field label — expiry / use limit" },
+  "grantDetailReason": "Agent's reason",
+  "@grantDetailReason": { "description": "Detail section label — agent-supplied reason" },
+  "grantDetailRequested": "Requested",
+  "@grantDetailRequested": { "description": "Detail field label — request timestamp" },
+  "grantDetailApproved": "Approved",
+  "@grantDetailApproved": { "description": "Detail field label — approval timestamp" },
+  "grantDetailApprovedBy": "{date} by {name}",
+  "@grantDetailApprovedBy": {
+    "description": "Approval timestamp with approver name",
+    "placeholders": { "date": { "type": "String" }, "name": { "type": "String" } }
+  },
+  "grantDetailRevoked": "Revoked",
+  "@grantDetailRevoked": { "description": "Detail field label — revoke timestamp" },
+  "grantDetailExpiresAt": "Expires {date}",
+  "@grantDetailExpiresAt": {
+    "description": "Expiry line — absolute TTL",
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "grantDetailUsesLimit": "{used} of {limit} uses",
+  "@grantDetailUsesLimit": {
+    "description": "Expiry line — use-limited grant",
+    "placeholders": { "used": { "type": "int" }, "limit": { "type": "int" } }
+  },
+  "grantDetailNoExpiry": "No expiry",
+  "@grantDetailNoExpiry": { "description": "Expiry line — unbounded grant" },
+
+  "grantsErrorNotFound": "This grant no longer exists.",
+  "@grantsErrorNotFound": { "description": "Error — 404 on grants" },
+  "grantsErrorForbidden": "You do not have permission to manage grants.",
+  "@grantsErrorForbidden": { "description": "Error — 403 on grants" },
+  "grantsErrorValidation": "The request was rejected. Please check and try again.",
+  "@grantsErrorValidation": { "description": "Error — 400/409 on grants" },
+  "grantsErrorNetwork": "Cannot reach the server. Check your connection.",
+  "@grantsErrorNetwork": { "description": "Error — network failure on grants" },
+  "grantsErrorCrypto": "Could not securely prepare the credential. Please try again.",
+  "@grantsErrorCrypto": { "description": "Error — on-device crypto failure during approval" },
+  "grantsErrorUnknown": "Something went wrong. Please try again.",
+  "@grantsErrorUnknown": { "description": "Error — unexpected failure on grants" }
 }

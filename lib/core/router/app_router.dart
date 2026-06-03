@@ -9,6 +9,8 @@ import '../../features/api_keys/presentation/pages/api_key_detail_page.dart';
 import '../../features/api_keys/presentation/pages/api_keys_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/grants/presentation/pages/grant_detail_page.dart';
+import '../../features/grants/presentation/pages/grants_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_wizard_page.dart';
 import '../../features/recovery/presentation/pages/recovery_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
@@ -112,6 +114,31 @@ GoRouter createRouter(AuthBloc authBloc) {
                 builder: (_, state) => VaultDetailPage(
                   vaultId: state.pathParameters['vaultId']!,
                 ),
+                routes: [
+                  // Grant management — list + detail for the vault. Gated
+                  // on the `GrantManage` permission; users without it are
+                  // bounced back to the vault detail. Nested so the shell
+                  // bottom nav stays mounted across navigation.
+                  GoRoute(
+                    path: 'grants',
+                    redirect: (context, state) =>
+                        _requireGrantManage(authBloc, state),
+                    builder: (_, state) => GrantsPage(
+                      vaultId: state.pathParameters['vaultId']!,
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: ':grantId',
+                        redirect: (context, state) =>
+                            _requireGrantManage(authBloc, state),
+                        builder: (_, state) => GrantDetailPage(
+                          vaultId: state.pathParameters['vaultId']!,
+                          grantId: state.pathParameters['grantId']!,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
@@ -180,6 +207,18 @@ GoRouter createRouter(AuthBloc authBloc) {
       ),
     ],
   );
+}
+
+/// Redirect guard for the grant-management routes — bounces a user who
+/// lacks the `GrantManage` permission back to the vault detail screen.
+String? _requireGrantManage(AuthBloc authBloc, GoRouterState state) {
+  final auth = authBloc.state;
+  if (auth is AuthAuthenticated &&
+      (auth.permissions & Permissions.grantManage) == 0) {
+    final vaultId = state.pathParameters['vaultId'];
+    return vaultId != null ? '/vaults/$vaultId' : '/vaults';
+  }
+  return null;
 }
 
 /// Bridges [AuthBloc] stream to [ChangeNotifier] so that [GoRouter]

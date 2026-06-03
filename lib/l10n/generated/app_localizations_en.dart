@@ -1235,4 +1235,133 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentsDetailLastHostname => 'Last Hostname';
+
+  @override
+  String get grantsScreenTitle => 'Grants';
+
+  @override
+  String get grantsFilterAll => 'All';
+
+  @override
+  String get grantsRetry => 'Retry';
+
+  @override
+  String get grantsEmpty => 'No grants yet';
+
+  @override
+  String get grantsEmptyHint =>
+      'Grants appear here when an agent requests access to this vault.';
+
+  @override
+  String get grantsRevoke => 'Revoke grant';
+
+  @override
+  String get grantsRevokeConfirmTitle => 'Revoke grant?';
+
+  @override
+  String grantsRevokeConfirmBody(String agentName) {
+    return '$agentName will immediately lose access. This cannot be undone.';
+  }
+
+  @override
+  String get grantsRevokeReasonLabel => 'Reason (optional)';
+
+  @override
+  String get grantsRevokeReasonHint => 'Why are you revoking this grant?';
+
+  @override
+  String grantCardTarget(String target) {
+    return 'Access to $target';
+  }
+
+  @override
+  String get grantEntryUnknown => 'Unknown entry';
+
+  @override
+  String get grantUnnamedAgent => 'Unnamed agent';
+
+  @override
+  String get grantStatusPending => 'Pending';
+
+  @override
+  String get grantStatusActive => 'Active';
+
+  @override
+  String get grantStatusDenied => 'Denied';
+
+  @override
+  String get grantStatusRevoked => 'Revoked';
+
+  @override
+  String get grantStatusExpired => 'Expired';
+
+  @override
+  String get grantScopeFull => 'All entries';
+
+  @override
+  String get grantScopeGranular => 'Single entry';
+
+  @override
+  String get grantDetailTitle => 'Grant';
+
+  @override
+  String get grantDetailScope => 'Scope';
+
+  @override
+  String get grantDetailEntry => 'Entry';
+
+  @override
+  String get grantDetailExpiry => 'Expiry';
+
+  @override
+  String get grantDetailReason => 'Agent\'s reason';
+
+  @override
+  String get grantDetailRequested => 'Requested';
+
+  @override
+  String get grantDetailApproved => 'Approved';
+
+  @override
+  String grantDetailApprovedBy(String date, String name) {
+    return '$date by $name';
+  }
+
+  @override
+  String get grantDetailRevoked => 'Revoked';
+
+  @override
+  String grantDetailExpiresAt(String date) {
+    return 'Expires $date';
+  }
+
+  @override
+  String grantDetailUsesLimit(int used, int limit) {
+    return '$used of $limit uses';
+  }
+
+  @override
+  String get grantDetailNoExpiry => 'No expiry';
+
+  @override
+  String get grantsErrorNotFound => 'This grant no longer exists.';
+
+  @override
+  String get grantsErrorForbidden =>
+      'You do not have permission to manage grants.';
+
+  @override
+  String get grantsErrorValidation =>
+      'The request was rejected. Please check and try again.';
+
+  @override
+  String get grantsErrorNetwork =>
+      'Cannot reach the server. Check your connection.';
+
+  @override
+  String get grantsErrorCrypto =>
+      'Could not securely prepare the credential. Please try again.';
+
+  @override
+  String get grantsErrorUnknown => 'Something went wrong. Please try again.';
 }
