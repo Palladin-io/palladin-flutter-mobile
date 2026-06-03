@@ -2197,6 +2197,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Last Hostname'**
   String get agentsDetailLastHostname;
+
+  /// Title of the cross-vault pending-grant approval inbox
+  ///
+  /// In en, this message translates to:
+  /// **'Approvals'**
+  String get approvalInboxTitle;
+
+  /// Empty-state title on the approval inbox
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to approve'**
+  String get approvalInboxEmpty;
+
+  /// Empty-state hint on the approval inbox
+  ///
+  /// In en, this message translates to:
+  /// **'When an agent requests access to a credential, the request shows up here for you to approve or deny.'**
+  String get approvalInboxEmptyHint;
+
+  /// Retry button on the approval inbox error state
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get approvalRetry;
+
+  /// One-line summary on a pending-grant card
+  ///
+  /// In en, this message translates to:
+  /// **'Wants {entry} in {vault}'**
+  String approvalCardRequest(String entry, String vault);
+
+  /// Title of the approve/deny screen for a single grant
+  ///
+  /// In en, this message translates to:
+  /// **'Review request'**
+  String get approvalScreenTitle;
+
+  /// Label for the requested entry in the approval summary
+  ///
+  /// In en, this message translates to:
+  /// **'Entry'**
+  String get approvalSummaryEntry;
+
+  /// Label for the vault in the approval summary
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get approvalSummaryVault;
+
+  /// Label for the agent-supplied reason in the approval summary
+  ///
+  /// In en, this message translates to:
+  /// **'Agent\'s reason'**
+  String get approvalSummaryReason;
+
+  /// Fallback display name for an agent without a name
+  ///
+  /// In en, this message translates to:
+  /// **'Unnamed agent'**
+  String get approvalUnnamedAgent;
+
+  /// Fallback when the requested entry label is missing
+  ///
+  /// In en, this message translates to:
+  /// **'this credential'**
+  String get approvalEntryUnknown;
+
+  /// Fallback when the vault name is missing
+  ///
+  /// In en, this message translates to:
+  /// **'a vault'**
+  String get approvalVaultUnknown;
+
+  /// Section title for the XOR expiry/use-count limit picker
+  ///
+  /// In en, this message translates to:
+  /// **'Access limit'**
+  String get approvalLimitSectionTitle;
+
+  /// Hint under the access-limit section title
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how long this access lasts — by time or by number of uses.'**
+  String get approvalLimitSectionHint;
+
+  /// Segmented toggle option — time-to-live limit
+  ///
+  /// In en, this message translates to:
+  /// **'Expires after'**
+  String get approvalLimitExpiry;
+
+  /// Segmented toggle option — use-count limit
+  ///
+  /// In en, this message translates to:
+  /// **'Number of uses'**
+  String get approvalLimitUses;
+
+  /// Text field label for the maximum number of uses
+  ///
+  /// In en, this message translates to:
+  /// **'Max uses'**
+  String get approvalLimitUsesLabel;
+
+  /// Approve button label
+  ///
+  /// In en, this message translates to:
+  /// **'Approve'**
+  String get approvalApprove;
+
+  /// Section title for the deny action
+  ///
+  /// In en, this message translates to:
+  /// **'Deny instead'**
+  String get approvalDenySectionTitle;
+
+  /// Label for the optional deny reason field
+  ///
+  /// In en, this message translates to:
+  /// **'Reason (optional)'**
+  String get approvalDenyReasonLabel;
+
+  /// Hint for the optional deny reason field
+  ///
+  /// In en, this message translates to:
+  /// **'Why are you denying this request?'**
+  String get approvalDenyReasonHint;
+
+  /// Deny button label
+  ///
+  /// In en, this message translates to:
+  /// **'Deny request'**
+  String get approvalDeny;
+
+  /// Error — 404 on approval
+  ///
+  /// In en, this message translates to:
+  /// **'This request no longer exists.'**
+  String get approvalErrorNotFound;
+
+  /// Error — 403 on approval
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to manage grants.'**
+  String get approvalErrorForbidden;
+
+  /// Error — 400/409 on approval
+  ///
+  /// In en, this message translates to:
+  /// **'The request was rejected. Please check and try again.'**
+  String get approvalErrorValidation;
+
+  /// Error — network failure on approval
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot reach the server. Check your connection.'**
+  String get approvalErrorNetwork;
+
+  /// Error — on-device crypto failure producing the envelope
+  ///
+  /// In en, this message translates to:
+  /// **'Could not securely prepare the credential. Please try again.'**
+  String get approvalErrorCrypto;
+
+  /// Error — vault locked, no in-memory key to produce the envelope
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock your vault first to approve this request.'**
+  String get approvalErrorVaultLocked;
+
+  /// Error — unexpected failure on approval
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get approvalErrorUnknown;
 }
 
 class _AppLocalizationsDelegate

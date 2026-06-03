@@ -17,6 +17,12 @@ import '../../features/agents/data/datasources/agents_remote_data_source.dart';
 import '../../features/agents/data/repositories/agents_repository_impl.dart';
 import '../../features/agents/domain/repositories/agents_repository.dart';
 import '../../features/agents/presentation/bloc/agents_cubit.dart';
+import '../../features/approval/data/datasources/approval_remote_datasource.dart';
+import '../../features/approval/data/repositories/approval_repository_impl.dart';
+import '../../features/approval/data/services/grant_crypto_service.dart';
+import '../../features/approval/domain/repositories/approval_repository.dart';
+import '../../features/approval/presentation/cubit/grant_approval_cubit.dart';
+import '../../features/approval/presentation/cubit/pending_grants_cubit.dart';
 import '../../features/recovery/data/datasources/recovery_remote_datasource.dart';
 import '../../features/settings/data/datasources/settings_remote_data_source.dart';
 import '../../features/settings/data/repositories/settings_repository_impl.dart';
@@ -245,5 +251,40 @@ void configureDependencies(EnvConfig config) {
   // AgentsCubit.reset() on logout / org-switch to clear the prior session.
   getIt.registerLazySingleton<AgentsCubit>(
     () => AgentsCubit(repository: getIt<AgentsRepository>()),
+  );
+
+  // Approval flow (CVT-58) — data layer.
+  getIt.registerLazySingleton<ApprovalRemoteDatasource>(
+    () => ApprovalRemoteDatasource(getIt<Dio>()),
+  );
+  // GrantCryptoService produces the zero-knowledge approval envelope
+  // on-device. Stateless — safe as a lazy singleton.
+  getIt.registerLazySingleton<GrantCryptoService>(
+    () => GrantCryptoService(),
+  );
+  getIt.registerLazySingleton<ApprovalRepository>(
+    () => ApprovalRepositoryImpl(
+      approvalDatasource: getIt<ApprovalRemoteDatasource>(),
+      entryDatasource: getIt<EntryRemoteDatasource>(),
+      vaultDatasource: getIt<VaultRemoteDatasource>(),
+      cryptoService: getIt<GrantCryptoService>(),
+    ),
+  );
+
+  // Approval flow — presentation layer.
+  // PendingGrantsCubit: factory per inbox mount so stale list / error
+  // state never leaks across visits.
+  getIt.registerFactory<PendingGrantsCubit>(
+    () => PendingGrantsCubit(repository: getIt<ApprovalRepository>()),
+  );
+  // GrantApprovalCubit: factory parameterized by the PendingGrant being
+  // acted on. param1 = the grant; the owner's private key is passed at
+  // call time (never held by DI / the cubit), so the in-memory key
+  // material stays scoped to the approve action.
+  getIt.registerFactoryParam<GrantApprovalCubit, PendingGrant, void>(
+    (grant, _) => GrantApprovalCubit(
+      repository: getIt<ApprovalRepository>(),
+      grant: grant,
+    ),
   );
 }

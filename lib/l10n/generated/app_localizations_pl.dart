@@ -1255,4 +1255,100 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get agentsDetailLastHostname => 'Ostatni hostname';
+
+  @override
+  String get approvalInboxTitle => 'Zatwierdzenia';
+
+  @override
+  String get approvalInboxEmpty => 'Nic do zatwierdzenia';
+
+  @override
+  String get approvalInboxEmptyHint =>
+      'Gdy agent poprosi o dostęp do poświadczenia, prośba pojawi się tutaj — możesz ją zatwierdzić lub odrzucić.';
+
+  @override
+  String get approvalRetry => 'Ponów';
+
+  @override
+  String approvalCardRequest(String entry, String vault) {
+    return 'Prosi o $entry w $vault';
+  }
+
+  @override
+  String get approvalScreenTitle => 'Przejrzyj prośbę';
+
+  @override
+  String get approvalSummaryEntry => 'Wpis';
+
+  @override
+  String get approvalSummaryVault => 'Sejf';
+
+  @override
+  String get approvalSummaryReason => 'Powód agenta';
+
+  @override
+  String get approvalUnnamedAgent => 'Agent bez nazwy';
+
+  @override
+  String get approvalEntryUnknown => 'to poświadczenie';
+
+  @override
+  String get approvalVaultUnknown => 'sejf';
+
+  @override
+  String get approvalLimitSectionTitle => 'Limit dostępu';
+
+  @override
+  String get approvalLimitSectionHint =>
+      'Wybierz jak długo trwa ten dostęp — czasowo lub liczbą użyć.';
+
+  @override
+  String get approvalLimitExpiry => 'Wygasa po';
+
+  @override
+  String get approvalLimitUses => 'Liczba użyć';
+
+  @override
+  String get approvalLimitUsesLabel => 'Maks. użyć';
+
+  @override
+  String get approvalApprove => 'Zatwierdź';
+
+  @override
+  String get approvalDenySectionTitle => 'Albo odrzuć';
+
+  @override
+  String get approvalDenyReasonLabel => 'Powód (opcjonalnie)';
+
+  @override
+  String get approvalDenyReasonHint => 'Dlaczego odrzucasz tę prośbę?';
+
+  @override
+  String get approvalDeny => 'Odrzuć prośbę';
+
+  @override
+  String get approvalErrorNotFound => 'Ta prośba już nie istnieje.';
+
+  @override
+  String get approvalErrorForbidden =>
+      'Nie masz uprawnień do zarządzania dostępami.';
+
+  @override
+  String get approvalErrorValidation =>
+      'Żądanie zostało odrzucone. Sprawdź dane i spróbuj ponownie.';
+
+  @override
+  String get approvalErrorNetwork =>
+      'Nie można połączyć się z serwerem. Sprawdź połączenie.';
+
+  @override
+  String get approvalErrorCrypto =>
+      'Nie udało się bezpiecznie przygotować poświadczenia. Spróbuj ponownie.';
+
+  @override
+  String get approvalErrorVaultLocked =>
+      'Najpierw odblokuj sejf, aby zatwierdzić tę prośbę.';
+
+  @override
+  String get approvalErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
 }

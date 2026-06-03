@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../shell/presentation/pages/app_shell.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
@@ -333,30 +335,52 @@ class _HeaderRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+    final auth = context.watch<AuthBloc>().state;
+    final canManageGrants = auth is AuthAuthenticated &&
+        (auth.permissions & Permissions.grantManage) != 0;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            l10n.vaultListTitle,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l10n.vaultListTitle,
+                  style: TextStyle(
+                    color: AppColors.onSurface(brightness),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l10n.vaultListSummary(vaultCount, entryCount),
+                  style: TextStyle(
+                    color: AppColors.onSurfaceSubtle(brightness),
+                    fontSize: 11,
+                    height: 1.2,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            l10n.vaultListSummary(vaultCount, entryCount),
-            style: TextStyle(
-              color: AppColors.onSurfaceSubtle(brightness),
-              fontSize: 11,
-              height: 1.2,
+          if (canManageGrants)
+            IconButton(
+              tooltip: l10n.approvalInboxTitle,
+              visualDensity: VisualDensity.compact,
+              icon: Icon(
+                Icons.inbox_outlined,
+                size: 22,
+                color: AppColors.onSurface(brightness),
+              ),
+              onPressed: () => context.push('/approvals'),
             ),
-          ),
         ],
       ),
     );

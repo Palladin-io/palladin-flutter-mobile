@@ -1235,4 +1235,100 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentsDetailLastHostname => 'Last Hostname';
+
+  @override
+  String get approvalInboxTitle => 'Approvals';
+
+  @override
+  String get approvalInboxEmpty => 'Nothing to approve';
+
+  @override
+  String get approvalInboxEmptyHint =>
+      'When an agent requests access to a credential, the request shows up here for you to approve or deny.';
+
+  @override
+  String get approvalRetry => 'Retry';
+
+  @override
+  String approvalCardRequest(String entry, String vault) {
+    return 'Wants $entry in $vault';
+  }
+
+  @override
+  String get approvalScreenTitle => 'Review request';
+
+  @override
+  String get approvalSummaryEntry => 'Entry';
+
+  @override
+  String get approvalSummaryVault => 'Vault';
+
+  @override
+  String get approvalSummaryReason => 'Agent\'s reason';
+
+  @override
+  String get approvalUnnamedAgent => 'Unnamed agent';
+
+  @override
+  String get approvalEntryUnknown => 'this credential';
+
+  @override
+  String get approvalVaultUnknown => 'a vault';
+
+  @override
+  String get approvalLimitSectionTitle => 'Access limit';
+
+  @override
+  String get approvalLimitSectionHint =>
+      'Choose how long this access lasts — by time or by number of uses.';
+
+  @override
+  String get approvalLimitExpiry => 'Expires after';
+
+  @override
+  String get approvalLimitUses => 'Number of uses';
+
+  @override
+  String get approvalLimitUsesLabel => 'Max uses';
+
+  @override
+  String get approvalApprove => 'Approve';
+
+  @override
+  String get approvalDenySectionTitle => 'Deny instead';
+
+  @override
+  String get approvalDenyReasonLabel => 'Reason (optional)';
+
+  @override
+  String get approvalDenyReasonHint => 'Why are you denying this request?';
+
+  @override
+  String get approvalDeny => 'Deny request';
+
+  @override
+  String get approvalErrorNotFound => 'This request no longer exists.';
+
+  @override
+  String get approvalErrorForbidden =>
+      'You do not have permission to manage grants.';
+
+  @override
+  String get approvalErrorValidation =>
+      'The request was rejected. Please check and try again.';
+
+  @override
+  String get approvalErrorNetwork =>
+      'Cannot reach the server. Check your connection.';
+
+  @override
+  String get approvalErrorCrypto =>
+      'Could not securely prepare the credential. Please try again.';
+
+  @override
+  String get approvalErrorVaultLocked =>
+      'Unlock your vault first to approve this request.';
+
+  @override
+  String get approvalErrorUnknown => 'Something went wrong. Please try again.';
 }
