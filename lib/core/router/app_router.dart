@@ -29,8 +29,9 @@ import '../permissions.dart';
 ///    is allowed for locked sessions — that's the whole point of it)
 /// 4. Fully set-up and unlocked user on `/login`, `/onboarding`,
 ///    `/unlock`, or `/recovery` → `/`
-GoRouter createRouter(AuthBloc authBloc) {
+GoRouter createRouter(AuthBloc authBloc, {GlobalKey<NavigatorState>? navigatorKey}) {
   return GoRouter(
+    navigatorKey: navigatorKey,
     initialLocation: '/login',
     refreshListenable: _AuthBlocListenable(authBloc),
     redirect: (context, state) {

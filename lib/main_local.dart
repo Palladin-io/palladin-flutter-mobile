@@ -6,6 +6,7 @@ import 'config/env_config.dart';
 import 'core/analytics/analytics_headers_service.dart';
 import 'core/analytics/analytics_service.dart';
 import 'core/di/injection.dart';
+import 'core/firebase/push_bootstrap.dart';
 import 'core/storage/user_preferences.dart';
 
 /// Entry point for the **local** flavor (localhost backend).
@@ -21,6 +22,7 @@ void main() async {
 
   await AnalyticsService.instance.init(config);
   await AnalyticsHeadersService.instance.init();
+  await bootstrapPush();
   configureDependencies(config);
 
   final prefs = UserPreferences(const FlutterSecureStorage());

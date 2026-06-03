@@ -17,6 +17,9 @@ import '../../features/agents/data/datasources/agents_remote_data_source.dart';
 import '../../features/agents/data/repositories/agents_repository_impl.dart';
 import '../../features/agents/domain/repositories/agents_repository.dart';
 import '../../features/agents/presentation/bloc/agents_cubit.dart';
+import '../../features/notifications/data/datasources/push_token_remote_datasource.dart';
+import '../../features/notifications/data/services/push_notification_service.dart';
+import '../../features/notifications/presentation/cubit/push_navigation_cubit.dart';
 import '../../features/recovery/data/datasources/recovery_remote_datasource.dart';
 import '../../features/settings/data/datasources/settings_remote_data_source.dart';
 import '../../features/settings/data/repositories/settings_repository_impl.dart';
@@ -245,5 +248,28 @@ void configureDependencies(EnvConfig config) {
   // AgentsCubit.reset() on logout / org-switch to clear the prior session.
   getIt.registerLazySingleton<AgentsCubit>(
     () => AgentsCubit(repository: getIt<AgentsRepository>()),
+  );
+
+  // Notifications (push) — data layer
+  getIt.registerLazySingleton<PushTokenRemoteDatasource>(
+    () => PushTokenRemoteDatasource(getIt<Dio>()),
+  );
+
+  // Push service is a singleton: it owns long-lived FCM stream
+  // subscriptions and the device's token lifecycle for the whole app
+  // session. Driven by the auth listener — registerForCurrentUser() on
+  // login, unregister() on logout.
+  getIt.registerLazySingleton<PushNotificationService>(
+    () => PushNotificationService(
+      datasource: getIt<PushTokenRemoteDatasource>(),
+      secureStorage: getIt<FlutterSecureStorage>(),
+    ),
+  );
+
+  // PushNavigationCubit is a singleton so the app-level deep-link
+  // listener stays bound for the whole session; the push service feeds
+  // tapped messages into it and the listener performs router.go(...).
+  getIt.registerLazySingleton<PushNavigationCubit>(
+    () => PushNavigationCubit(),
   );
 }
