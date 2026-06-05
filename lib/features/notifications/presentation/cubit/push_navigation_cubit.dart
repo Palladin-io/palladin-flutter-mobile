@@ -16,8 +16,8 @@ import '../../domain/entities/push_message.dart';
 /// Emits `null` for messages that have no meaningful destination (e.g.
 /// [PushNotificationType.unknown]) so the listener can no-op.
 class PushNavigationCubit extends Cubit<String?> {
-  PushNavigationCubit({AnalyticsService? analytics})
-      : _analytics = analytics ?? AnalyticsService.instance,
+  PushNavigationCubit({required AnalyticsService analytics})
+      : _analytics = analytics,
         super(null);
 
   final AnalyticsService _analytics;

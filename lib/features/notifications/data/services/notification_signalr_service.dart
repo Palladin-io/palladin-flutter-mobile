@@ -49,10 +49,13 @@ class NotificationSignalRService {
         .build();
 
     connection.on('ReceiveNotification', _handleNotification);
-    _connection = connection;
 
     try {
       await connection.start();
+      // Only retain the connection after a successful start — otherwise a
+      // failed start (offline, 401) would leave `_connection != null`, and
+      // the early-return above would permanently block any reconnect attempt.
+      _connection = connection;
       AppLogger.i('SignalR', 'Connected to $_hubUrl');
     } catch (e) {
       AppLogger.w('SignalR', 'Connect failed (best-effort): $e');
@@ -75,7 +78,6 @@ class NotificationSignalRService {
 
   void _handleNotification(List<Object?>? arguments) {
     // arguments: [type (String), payload (Map: type/title/body/data/timestamp)]
-    AppLogger.d('SignalR', 'Raw notification: $arguments');
     if (arguments == null || arguments.isEmpty) return;
 
     final typeFromArg = arguments[0] is String ? arguments[0] as String : null;

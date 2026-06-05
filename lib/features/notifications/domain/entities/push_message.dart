@@ -7,17 +7,24 @@
 /// screen — see the presentation layer for the navigation table.
 enum PushNotificationType {
   /// A new grant is awaiting the user's approval.
-  grantPending,
+  grantPending('grant_pending'),
 
   /// A grant the user requested/owns changed to approved.
-  grantApproved,
+  grantApproved('grant_approved'),
 
   /// A new agent enrolled and is pending approval.
-  agentPending,
+  agentPending('agent_pending'),
 
   /// Unknown / future type — the app shows the notification but performs
   /// no deep-link navigation.
-  unknown;
+  unknown('unknown');
+
+  const PushNotificationType(this.wireValue);
+
+  /// The on-the-wire snake_case identifier the backend emits in `data.type`.
+  /// Symmetric with [fromRaw] — round-tripping through [wireValue] then
+  /// [fromRaw] returns the same enum value.
+  final String wireValue;
 
   /// Maps the raw `data.type` string from the FCM payload to a typed
   /// value. Unrecognized values fall back to [unknown] so a future
@@ -87,5 +94,17 @@ class PushMessage {
       agentId: str('agentId'),
       entryId: str('entryId'),
     );
+  }
+
+  /// Serializes the routing-relevant fields back to the same shape
+  /// [PushMessage.fromData] consumes — so a round-trip through the
+  /// local-notification payload preserves the deep-link target.
+  Map<String, dynamic> toRoutingData() {
+    return <String, dynamic>{
+      'type': type.wireValue,
+      if (grantId != null) 'grantId': grantId,
+      if (agentId != null) 'agentId': agentId,
+      if (entryId != null) 'entryId': entryId,
+    };
   }
 }

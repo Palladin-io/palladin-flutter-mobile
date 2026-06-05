@@ -52,10 +52,29 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Set the initial label here (not in initState) so MaterialLocalizations
+    // is available, and refresh on locale change.
+    _syncDateText();
+  }
+
+  @override
   void dispose() {
     _usesController.dispose();
     _dateController.dispose();
     super.dispose();
+  }
+
+  /// Renders the picked instant into the read-only expiry field. Called from
+  /// [didChangeDependencies] (initial / locale change) and after each pick —
+  /// never from `build()`, which would notify the controller's listeners
+  /// mid-build (`setState during build`).
+  void _syncDateText() {
+    final ml = MaterialLocalizations.of(context);
+    _dateController.text =
+        '${ml.formatMediumDate(_expiresOn)}, '
+        '${ml.formatTimeOfDay(TimeOfDay.fromDateTime(_expiresOn))}';
   }
 
   void _emit() {
@@ -121,6 +140,7 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
       initialTime: TimeOfDay.fromDateTime(_expiresOn),
       builder: _pickerTheme,
     );
+    if (!mounted) return;
     final picked = DateTime(
       date.year,
       date.month,
@@ -129,6 +149,7 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
       time?.minute ?? _expiresOn.minute,
     );
     setState(() => _expiresOn = picked);
+    _syncDateText();
     _emit();
   }
 
@@ -136,12 +157,6 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    // Keep the read-only expiry field in sync with the picked day + time
-    // (locale-aware).
-    final ml = MaterialLocalizations.of(context);
-    _dateController.text =
-        '${ml.formatMediumDate(_expiresOn)}, '
-        '${ml.formatTimeOfDay(TimeOfDay.fromDateTime(_expiresOn))}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

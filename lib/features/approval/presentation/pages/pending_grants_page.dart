@@ -24,23 +24,36 @@ import '../widgets/regrant_sheet.dart';
 /// grant with status pills, search + status filter, and inline revoke — the
 /// web `OrgGrantsPanel`, right on web). Single-column with a segmented toggle
 /// is the mobile-native equivalent of the two-pane desktop layout.
-class PendingGrantsPage extends StatelessWidget {
+class PendingGrantsPage extends StatefulWidget {
   const PendingGrantsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final pending = getIt<PendingGrantsCubit>();
-    // Singleton (drives the nav badge too) — show a skeleton only on the very
-    // first load, otherwise refresh quietly so an already-populated list never
-    // flickers. Provided by value so this page's dispose won't close it.
-    if (pending.state.status == PendingGrantsStatus.initial) {
-      pending.load();
+  State<PendingGrantsPage> createState() => _PendingGrantsPageState();
+}
+
+class _PendingGrantsPageState extends State<PendingGrantsPage> {
+  // Singleton (drives the nav badge too) — provided by value so this page's
+  // dispose won't close it. Held as a state field so we don't pull it from
+  // getIt on every rebuild (and so the load/refresh side-effect fires once).
+  late final PendingGrantsCubit _pending = getIt<PendingGrantsCubit>();
+
+  @override
+  void initState() {
+    super.initState();
+    // Show a skeleton only on the very first load; otherwise refresh quietly
+    // so an already-populated list never flickers.
+    if (_pending.state.status == PendingGrantsStatus.initial) {
+      _pending.load();
     } else {
-      pending.refresh();
+      _pending.refresh();
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<PendingGrantsCubit>.value(value: pending),
+        BlocProvider<PendingGrantsCubit>.value(value: _pending),
         BlocProvider<OrgGrantsCubit>(
           create: (_) => getIt<OrgGrantsCubit>()..load(),
         ),

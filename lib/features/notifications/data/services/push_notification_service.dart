@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -49,16 +51,24 @@ class PushNotificationService {
     required FlutterSecureStorage secureStorage,
     FirebaseMessaging? messaging,
     FlutterLocalNotificationsPlugin? localNotifications,
+    DeviceInfoPlugin? deviceInfo,
   })  : _datasource = datasource,
         _secureStorage = secureStorage,
         _messaging = messaging ?? FirebaseMessaging.instance,
         _localNotifications =
-            localNotifications ?? FlutterLocalNotificationsPlugin();
+            localNotifications ?? FlutterLocalNotificationsPlugin(),
+        _deviceInfo = deviceInfo ?? DeviceInfoPlugin();
 
   final PushTokenRemoteDatasource _datasource;
   final FlutterSecureStorage _secureStorage;
   final FirebaseMessaging _messaging;
   final FlutterLocalNotificationsPlugin _localNotifications;
+  final DeviceInfoPlugin _deviceInfo;
+
+  /// Monotonic counter for the local-notification id — id must fit a Java
+  /// `int` (32-bit signed) on Android, and `Object.hash()` does not. A
+  /// per-instance counter is both in-range and collision-free.
+  int _localNotificationSeq = 0;
 
   /// Secure-storage key for the backend-issued push-token record id.
   /// Stored so we can `DELETE /api/push-tokens/{id}` on logout. This is
@@ -257,7 +267,7 @@ class PushNotificationService {
     showLocalNotification(
       title: notification.title,
       body: notification.body,
-      type: message.data['type'] as String?,
+      data: message.data,
     );
   }
 
@@ -268,12 +278,24 @@ class PushNotificationService {
   /// event would update lists silently with nothing visible to the user
   /// (the web shows a toast for the same events). No-op when both title and
   /// body are empty.
-  void showLocalNotification({String? title, String? body, String? type}) {
+  ///
+  /// [data] is the full notification data map (type + ids) — JSON-encoded
+  /// into the payload so a tap on the banner can deep-link to the specific
+  /// agent / grant (not just the list). Callers that have only the type
+  /// can pass `{'type': type}`.
+  void showLocalNotification({
+    String? title,
+    String? body,
+    Map<String, dynamic>? data,
+    @Deprecated('Pass data: {"type": type} instead so deep-link ids survive.')
+    String? type,
+  }) {
     if ((title == null || title.isEmpty) && (body == null || body.isEmpty)) {
       return;
     }
+    final payloadMap = data ?? (type != null ? {'type': type} : null);
     _localNotifications.show(
-      Object.hash(title, body, DateTime.now().millisecondsSinceEpoch),
+      _nextLocalNotificationId(),
       title,
       body,
       NotificationDetails(
@@ -286,9 +308,21 @@ class PushNotificationService {
         ),
         iOS: const DarwinNotificationDetails(),
       ),
-      // Carry the type so a tap on the foreground banner can route.
-      payload: type,
+      // JSON-encoded data so a tap on the foreground banner preserves
+      // grantId / agentId and the deep-link lands on the specific entity
+      // (not just the agents list).
+      payload: payloadMap != null ? jsonEncode(payloadMap) : null,
     );
+  }
+
+  /// Produces a deterministic, in-range id for the local notification.
+  ///
+  /// `flutter_local_notifications` requires a Java `int` (32-bit signed) on
+  /// Android — `Object.hash(...)` may exceed that. A monotonic counter is
+  /// trivially in-range and avoids any collision risk.
+  int _nextLocalNotificationId() {
+    _localNotificationSeq = (_localNotificationSeq + 1) & 0x7fffffff;
+    return _localNotificationSeq;
   }
 
   void _onMessageOpened(RemoteMessage message) {
@@ -296,14 +330,27 @@ class PushNotificationService {
   }
 
   void _onLocalNotificationTapped(NotificationResponse response) {
-    // Foreground-banner tap: we only carried `type` in the payload, so
-    // build a minimal message. Id-specific deep links come through the
-    // background path which has the full data map.
-    final type = response.payload;
-    if (type == null) return;
-    onMessageTapped?.call(
-      PushMessage.fromData(<String, dynamic>{'type': type}),
-    );
+    // Foreground-banner tap: decode the JSON payload we wrote in
+    // [showLocalNotification] so the full data map (type + grantId /
+    // agentId) survives and the deep-link can land on the specific entity.
+    final raw = response.payload;
+    if (raw == null || raw.isEmpty) return;
+    onMessageTapped?.call(PushMessage.fromData(_decodePayload(raw)));
+  }
+
+  /// Decodes a local-notification payload back to a routing data map. Falls
+  /// back to a `{type: raw}` map for legacy (pre-JSON) payloads that may
+  /// still be sitting in the OS tray after upgrade.
+  Map<String, dynamic> _decodePayload(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        return decoded.map((key, value) => MapEntry('$key', value));
+      }
+    } catch (_) {
+      // fallthrough
+    }
+    return <String, dynamic>{'type': raw};
   }
 
   PushMessage _toPushMessage(RemoteMessage message) {
@@ -315,10 +362,32 @@ class PushNotificationService {
   }
 
   Future<String?> _deviceName() async {
-    // Keep it cheap and dependency-free — a coarse platform label is
-    // enough for the user to identify the device in the web panel.
-    if (Platform.isIOS) return 'iOS device';
-    if (Platform.isAndroid) return 'Android device';
+    // Use the real device identifier (e.g. "iPhone 15", "Pixel 8") so the
+    // user can tell their devices apart in the web panel — far more useful
+    // than the previous hardcoded "iOS device" / "Android device" labels,
+    // and avoids leaking the mobile UI locale into a string the web shows.
+    try {
+      if (Platform.isIOS) {
+        final info = await _deviceInfo.iosInfo;
+        final name = info.name.trim();
+        final model = info.utsname.machine.trim();
+        if (name.isNotEmpty) return name;
+        if (model.isNotEmpty) return model;
+        return 'iOS device';
+      }
+      if (Platform.isAndroid) {
+        final info = await _deviceInfo.androidInfo;
+        final manufacturer = info.manufacturer.trim();
+        final model = info.model.trim();
+        if (manufacturer.isNotEmpty && model.isNotEmpty) {
+          return '$manufacturer $model';
+        }
+        if (model.isNotEmpty) return model;
+        return 'Android device';
+      }
+    } catch (e) {
+      AppLogger.w('Push', 'device_info lookup failed: $e');
+    }
     return null;
   }
 }

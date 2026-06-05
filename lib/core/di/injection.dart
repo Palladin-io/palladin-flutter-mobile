@@ -31,8 +31,10 @@ import '../../features/grants/presentation/cubit/grant_detail_cubit.dart';
 import '../../features/grants/presentation/cubit/grants_list_cubit.dart';
 import '../../features/grants/presentation/cubit/org_grants_cubit.dart';
 import '../../features/notifications/data/datasources/push_token_remote_datasource.dart';
+import '../../features/notifications/data/services/notification_signalr_service.dart';
 import '../../features/notifications/data/services/push_notification_service.dart';
 import '../../features/notifications/presentation/cubit/push_navigation_cubit.dart';
+import '../analytics/analytics_service.dart';
 import '../../features/recovery/data/datasources/recovery_remote_datasource.dart';
 import '../../features/settings/data/datasources/settings_remote_data_source.dart';
 import '../../features/settings/data/repositories/settings_repository_impl.dart';
@@ -279,11 +281,28 @@ void configureDependencies(EnvConfig config) {
     ),
   );
 
+  // AnalyticsService is a process-wide singleton (initialized in bootstrap)
+  // — register it in the locator so callers depend on the interface rather
+  // than the static `instance`, which makes them unit-testable.
+  getIt.registerLazySingleton<AnalyticsService>(
+    () => AnalyticsService.instance,
+  );
+
   // PushNavigationCubit is a singleton so the app-level deep-link
   // listener stays bound for the whole session; the push service feeds
   // tapped messages into it and the listener performs router.go(...).
   getIt.registerLazySingleton<PushNavigationCubit>(
-    () => PushNavigationCubit(),
+    () => PushNavigationCubit(analytics: getIt<AnalyticsService>()),
+  );
+
+  // In-app real-time channel (SignalR). Singleton: holds the live hub
+  // connection for the session, driven by the auth listener in app.dart
+  // (connect on login, disconnect on logout).
+  getIt.registerLazySingleton<NotificationSignalRService>(
+    () => NotificationSignalRService(
+      config: getIt<EnvConfig>(),
+      tokenStorage: getIt<SecureTokenStorage>(),
+    ),
   );
 
   // Grants — data layer

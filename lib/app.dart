@@ -8,7 +8,6 @@ import 'config/env_config.dart';
 import 'core/di/injection.dart';
 import 'core/l10n/locale_cubit.dart';
 import 'core/router/app_router.dart';
-import 'core/storage/secure_token_storage.dart';
 import 'core/storage/user_preferences.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/theme_cubit.dart';
@@ -57,10 +56,8 @@ class _ClawVaultAppState extends State<ClawVaultApp>
 
   // In-app real-time channel (foreground). Works on the simulator too, unlike
   // FCM. Connected while authenticated; FCM/APNs covers the background.
-  late final NotificationSignalRService _signalR = NotificationSignalRService(
-    config: widget.config,
-    tokenStorage: getIt<SecureTokenStorage>(),
-  );
+  final NotificationSignalRService _signalR =
+      getIt<NotificationSignalRService>();
 
   @override
   void initState() {
@@ -74,11 +71,12 @@ class _ClawVaultAppState extends State<ClawVaultApp>
     _pushService.onMessageReceived = _onForegroundPush;
     // In-app real-time over SignalR → same refresh handler.
     _signalR.onNotification = _onSignalRNotification;
-    // Handle a cold start triggered by a notification tap.
+    // Handle a cold start triggered by a notification tap. Guard on `mounted`
+    // — if the app is torn down before the future resolves, the cubit may
+    // already be closed (Bad state: Cubit is already closed).
     _pushService.initialMessage().then((message) {
-      if (message != null) {
-        _pushNavigationCubit.onNotificationTapped(message);
-      }
+      if (!mounted || message == null) return;
+      _pushNavigationCubit.onNotificationTapped(message);
     });
   }
 
@@ -135,10 +133,12 @@ class _ClawVaultAppState extends State<ClawVaultApp>
   void _onSignalRNotification(PushMessage message) {
     _onForegroundPush(message);
     if (_authBloc.state is! AuthAuthenticated) return;
+    // Pass the full routing data so a tap on the banner deep-links to the
+    // specific agent / grant (not just the list).
     _pushService.showLocalNotification(
       title: message.title,
       body: message.body,
-      type: message.type.name,
+      data: message.toRoutingData(),
     );
   }
 
