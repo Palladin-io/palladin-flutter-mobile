@@ -3,101 +3,185 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 
-/// Persistent bottom navigation bar shared by every authenticated
-/// screen — both shell-hosted tabs (Home, Vaults, Agents, Audit,
-/// Settings) and screens that live outside the [ShellRoute] but still
-/// want to render the same chrome (e.g. the vault detail page).
-///
-/// Owns purely visual concerns — colors, item icons/labels and the
-/// `top` border. Behaviour is delegated to the caller via [onTap], so
-/// hosts that aren't in the shell can route by `context.go(...)` while
-/// the shell can short-circuit the Settings index into opening its
-/// end-drawer.
-///
-/// Tab indices are exposed as static constants so callers don't have to
-/// memorize the order — use [AppBottomNav.tabVaults] etc. when wiring
-/// `currentIndex` from outside the shell.
+/// Persistent bottom navigation — five equal slots: Vaults, Agents, Home
+/// (the app logo, slightly larger and poking above the bar), Approvals,
+/// Settings. All labels share one baseline at the bottom; the bigger Home
+/// logo extends upward into the small overhang above the bar.
 class AppBottomNav extends StatelessWidget {
   const AppBottomNav({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.agentsBadgeCount = 0,
+    this.approvalsBadgeCount = 0,
   });
 
-  /// Index of the currently selected tab. See the `tab*` constants for
-  /// canonical values.
   final int currentIndex;
-
-  /// Tap handler — receives the tapped tab index. Hosts should map the
-  /// index to navigation (or, for Settings, to opening the drawer).
   final ValueChanged<int> onTap;
 
-  static const int tabHome = 0;
-  static const int tabVaults = 1;
-  static const int tabAgents = 2;
-  static const int tabAudit = 3;
+  /// Agents awaiting approval — shown as a badge on the Agents tab.
+  final int agentsBadgeCount;
+
+  /// Pending grant approvals — shown as a badge on the Approvals tab.
+  final int approvalsBadgeCount;
+
+  static const int tabVaults = 0;
+  static const int tabAgents = 1;
+  static const int tabHome = 2;
+  static const int tabApprovals = 3;
   static const int tabSettings = 4;
+
+  static const double _barHeight = 58;
+  // Transparent headroom above the bar that the larger Home logo pokes into.
+  static const double _overhang = 14;
+  static const double _logoSize = 44; // grows upward only (labels stay aligned)
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    // Owning the background + border on the wrapping [Container] (rather
-    // than letting [BottomNavigationBar] paint its own background) is
-    // what makes the 1-px top hairline actually visible. With the old
-    // `DecoratedBox` setup the nav's solid background painted on top of
-    // the border and clipped it away — moving the fill out and setting
-    // the inner bar to transparent fixes that.
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.navBackground(brightness),
-        border: Border(
-          top: BorderSide(color: AppColors.navBorder(brightness), width: 1),
-        ),
-      ),
-      child: BottomNavigationBar(
-        currentIndex: currentIndex,
-        onTap: onTap,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.transparent,
-        selectedItemColor: AppColors.brandRed,
-        unselectedItemColor: AppColors.textTertiary,
-        selectedLabelStyle: const TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w500,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w500,
-        ),
-        elevation: 0,
-        items: [
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.home_outlined),
-            activeIcon: const Icon(Icons.home),
-            label: l10n.navHome,
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+
+    return SizedBox(
+      height: _overhang + _barHeight + bottomInset,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Bar background, anchored to the bottom.
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              height: _barHeight + bottomInset,
+              decoration: BoxDecoration(
+                color: AppColors.navBackground(brightness),
+                border: Border(
+                  top: BorderSide(
+                    color: AppColors.navBorder(brightness),
+                    width: 1,
+                  ),
+                ),
+              ),
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.shield_outlined),
-            activeIcon: const Icon(Icons.shield),
-            label: l10n.navVaults,
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.smart_toy_outlined),
-            activeIcon: const Icon(Icons.smart_toy),
-            label: l10n.navAgents,
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.history),
-            activeIcon: const Icon(Icons.history),
-            label: l10n.navAudit,
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(Icons.settings_outlined),
-            activeIcon: const Icon(Icons.settings),
-            label: l10n.navSettings,
+          // Items — span the full height (incl. overhang) so the Home logo can
+          // extend above the bar, while every label stays bottom-aligned.
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: bottomInset,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _NavItem(
+                  label: l10n.navVaults,
+                  icon: Icons.shield_outlined,
+                  activeIcon: Icons.shield,
+                  selected: currentIndex == tabVaults,
+                  onTap: () => onTap(tabVaults),
+                ),
+                _NavItem(
+                  label: l10n.navAgents,
+                  icon: Icons.smart_toy_outlined,
+                  activeIcon: Icons.smart_toy,
+                  selected: currentIndex == tabAgents,
+                  onTap: () => onTap(tabAgents),
+                  badgeCount: agentsBadgeCount,
+                ),
+                _NavItem(
+                  label: l10n.navHome,
+                  iconWidget: Image.asset(
+                    'assets/images/logo.png',
+                    height: _logoSize,
+                    width: _logoSize,
+                    fit: BoxFit.contain,
+                  ),
+                  selected: currentIndex == tabHome,
+                  onTap: () => onTap(tabHome),
+                ),
+                _NavItem(
+                  label: l10n.navApprovals,
+                  icon: Icons.verified_user_outlined,
+                  activeIcon: Icons.verified_user,
+                  selected: currentIndex == tabApprovals,
+                  onTap: () => onTap(tabApprovals),
+                  badgeCount: approvalsBadgeCount,
+                ),
+                _NavItem(
+                  label: l10n.navSettings,
+                  icon: Icons.settings_outlined,
+                  activeIcon: Icons.settings,
+                  selected: currentIndex == tabSettings,
+                  onTap: () => onTap(tabSettings),
+                ),
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A single bottom-nav slot. Content is bottom-aligned so labels share one
+/// baseline across slots regardless of icon size. Pass [icon]/[activeIcon]
+/// (Material glyph) or a custom [iconWidget] (the Home logo).
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.icon,
+    this.activeIcon,
+    this.iconWidget,
+    this.badgeCount = 0,
+  });
+
+  final String label;
+  final IconData? icon;
+  final IconData? activeIcon;
+  final Widget? iconWidget;
+  final bool selected;
+  final VoidCallback onTap;
+  final int badgeCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppColors.brandRed : AppColors.textTertiary;
+    Widget iconChild = iconWidget ??
+        Icon(selected ? (activeIcon ?? icon) : icon, size: 24, color: color);
+    if (badgeCount > 0) {
+      iconChild = Badge.count(
+        count: badgeCount,
+        backgroundColor: AppColors.brandRed,
+        textColor: AppColors.onBrandRed,
+        child: iconChild,
+      );
+    }
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              iconChild,
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

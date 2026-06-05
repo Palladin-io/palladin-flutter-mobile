@@ -60,7 +60,7 @@ class AgentCard extends StatelessWidget {
               child: InkWell(
                 onTap: onTap,
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
                       AgentAvatar(
@@ -121,7 +121,7 @@ class _AgentCardIdentity extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: AppColors.onSurface(brightness),
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -137,7 +137,7 @@ class _AgentCardIdentity extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: AppColors.onSurfaceSubtle(brightness),
-            fontSize: 11,
+            fontSize: 12,
           ),
         ),
       ],

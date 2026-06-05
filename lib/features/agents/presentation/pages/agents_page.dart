@@ -43,10 +43,10 @@ class _AgentsPageInitState extends State<AgentsPage> {
   @override
   void initState() {
     super.initState();
-    final cubit = getIt<AgentsCubit>();
-    if (cubit.state.status == AgentsStatus.initial) {
-      cubit.load();
-    }
+    // First open loads (skeleton); returning to the tab does a quiet refresh
+    // so the list reflects agents enrolled meanwhile (mobile has no SignalR —
+    // staleness is corrected on focus, on app resume, and on push).
+    getIt<AgentsCubit>().refresh();
   }
 
   @override
@@ -147,16 +147,20 @@ class _AgentsViewState extends State<_AgentsView> {
                       color: AppColors.onSurface(brightness),
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
+                      height: 1.2,
                     ),
                   ),
-                  if (showSummary)
+                  if (showSummary) ...[
+                    const SizedBox(height: 3),
                     Text(
                       l10n.agentsListSummary(total, state.activeCount),
                       style: TextStyle(
                         color: AppColors.onSurfaceSubtle(brightness),
                         fontSize: 11,
+                        height: 1.2,
                       ),
                     ),
+                  ],
                 ],
               );
             },
@@ -263,7 +267,7 @@ class _Body extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           child: AppSearchField(
             controller: searchController,
             hint: l10n.agentsSearchHint,
@@ -492,47 +496,58 @@ class _AgentsEmpty extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
+    // Non-scrollable content: this sits inside the list's
+    // SliverFillRemaining(hasScrollBody: false), and the parent
+    // CustomScrollView (AlwaysScrollableScrollPhysics) already drives
+    // pull-to-refresh. A nested ListView here gets unbounded height and
+    // throws a viewport layout exception.
+    return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-          decoration: BoxDecoration(
-            color: AppColors.cardFill(brightness),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.cardBorder(brightness)),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                Icons.smart_toy_outlined,
-                size: 32,
-                color: AppColors.onSurfaceSubtle(brightness),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                l10n.agentsEmpty,
-                style: TextStyle(
-                  color: AppColors.onSurface(brightness),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                l10n.agentsEmptyHint,
-                textAlign: TextAlign.center,
-                style: TextStyle(
+      // Column (mainAxisSize.max) absorbs the height that
+      // SliverFillRemaining(hasScrollBody: false) stretches us to, keeping the
+      // card at its natural size and pinned to the top, full width.
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            decoration: BoxDecoration(
+              color: AppColors.cardFill(brightness),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.cardBorder(brightness)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.smart_toy_outlined,
+                  size: 32,
                   color: AppColors.onSurfaceSubtle(brightness),
-                  fontSize: 12,
-                  height: 1.4,
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Text(
+                  l10n.agentsEmpty,
+                  style: TextStyle(
+                    color: AppColors.onSurface(brightness),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.agentsEmptyHint,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.onSurfaceSubtle(brightness),
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

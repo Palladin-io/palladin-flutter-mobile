@@ -17,6 +17,22 @@ import '../../features/agents/data/datasources/agents_remote_data_source.dart';
 import '../../features/agents/data/repositories/agents_repository_impl.dart';
 import '../../features/agents/domain/repositories/agents_repository.dart';
 import '../../features/agents/presentation/bloc/agents_cubit.dart';
+import '../../features/approval/data/datasources/approval_remote_datasource.dart';
+import '../../features/approval/data/repositories/approval_repository_impl.dart';
+import '../../features/approval/data/services/grant_crypto_service.dart';
+import '../../features/approval/domain/repositories/approval_repository.dart';
+import '../../features/approval/presentation/cubit/grant_approval_cubit.dart';
+import '../../features/approval/presentation/cubit/pending_grants_cubit.dart';
+import '../../features/approval/presentation/cubit/regrant_cubit.dart';
+import '../../features/grants/data/datasources/grants_remote_datasource.dart';
+import '../../features/grants/data/repositories/grants_repository_impl.dart';
+import '../../features/grants/domain/repositories/grants_repository.dart';
+import '../../features/grants/presentation/cubit/grant_detail_cubit.dart';
+import '../../features/grants/presentation/cubit/grants_list_cubit.dart';
+import '../../features/grants/presentation/cubit/org_grants_cubit.dart';
+import '../../features/notifications/data/datasources/push_token_remote_datasource.dart';
+import '../../features/notifications/data/services/push_notification_service.dart';
+import '../../features/notifications/presentation/cubit/push_navigation_cubit.dart';
 import '../../features/recovery/data/datasources/recovery_remote_datasource.dart';
 import '../../features/settings/data/datasources/settings_remote_data_source.dart';
 import '../../features/settings/data/repositories/settings_repository_impl.dart';
@@ -245,5 +261,103 @@ void configureDependencies(EnvConfig config) {
   // AgentsCubit.reset() on logout / org-switch to clear the prior session.
   getIt.registerLazySingleton<AgentsCubit>(
     () => AgentsCubit(repository: getIt<AgentsRepository>()),
+  );
+
+  // Notifications (push) — data layer
+  getIt.registerLazySingleton<PushTokenRemoteDatasource>(
+    () => PushTokenRemoteDatasource(getIt<Dio>()),
+  );
+
+  // Push service is a singleton: it owns long-lived FCM stream
+  // subscriptions and the device's token lifecycle for the whole app
+  // session. Driven by the auth listener — registerForCurrentUser() on
+  // login, unregister() on logout.
+  getIt.registerLazySingleton<PushNotificationService>(
+    () => PushNotificationService(
+      datasource: getIt<PushTokenRemoteDatasource>(),
+      secureStorage: getIt<FlutterSecureStorage>(),
+    ),
+  );
+
+  // PushNavigationCubit is a singleton so the app-level deep-link
+  // listener stays bound for the whole session; the push service feeds
+  // tapped messages into it and the listener performs router.go(...).
+  getIt.registerLazySingleton<PushNavigationCubit>(
+    () => PushNavigationCubit(),
+  );
+
+  // Grants — data layer
+  getIt.registerLazySingleton<GrantsRemoteDatasource>(
+    () => GrantsRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<GrantsRepository>(
+    () => GrantsRepositoryImpl(getIt<GrantsRemoteDatasource>()),
+  );
+
+  // Grants — presentation layer (factory per page mount so filter /
+  // pagination state never leaks across vaults). `param1` is the vaultId
+  // the list / detail screens are scoped to; the detail cubit also takes
+  // `param2` = grantId.
+  getIt.registerFactoryParam<GrantsListCubit, String, void>(
+    (vaultId, _) => GrantsListCubit(
+      repository: getIt<GrantsRepository>(),
+      vaultId: vaultId,
+    ),
+  );
+  getIt.registerFactoryParam<GrantDetailCubit, String, String>(
+    (vaultId, grantId) => GrantDetailCubit(
+      repository: getIt<GrantsRepository>(),
+      vaultId: vaultId,
+      grantId: grantId,
+    ),
+  );
+  // OrgGrantsCubit: factory per Approvals "history" segment mount so filter /
+  // search state never leaks across visits.
+  getIt.registerFactory<OrgGrantsCubit>(
+    () => OrgGrantsCubit(repository: getIt<GrantsRepository>()),
+  );
+
+  // Approval flow (CVT-58) — data layer.
+  getIt.registerLazySingleton<ApprovalRemoteDatasource>(
+    () => ApprovalRemoteDatasource(getIt<Dio>()),
+  );
+  // GrantCryptoService produces the zero-knowledge approval envelope
+  // on-device. Stateless — safe as a lazy singleton.
+  getIt.registerLazySingleton<GrantCryptoService>(
+    () => GrantCryptoService(),
+  );
+  getIt.registerLazySingleton<ApprovalRepository>(
+    () => ApprovalRepositoryImpl(
+      approvalDatasource: getIt<ApprovalRemoteDatasource>(),
+      entryDatasource: getIt<EntryRemoteDatasource>(),
+      vaultDatasource: getIt<VaultRemoteDatasource>(),
+      cryptoService: getIt<GrantCryptoService>(),
+    ),
+  );
+
+  // Approval flow — presentation layer.
+  // PendingGrantsCubit: singleton so the shell can drive the Approvals nav
+  // badge (pending count) and the inbox page shares the same live list. The
+  // page provides it via BlocProvider.value (never closes the singleton).
+  getIt.registerLazySingleton<PendingGrantsCubit>(
+    () => PendingGrantsCubit(repository: getIt<ApprovalRepository>()),
+  );
+  // GrantApprovalCubit: factory parameterized by the PendingGrant being
+  // acted on. param1 = the grant; the owner's private key is passed at
+  // call time (never held by DI / the cubit), so the in-memory key
+  // material stays scoped to the approve action.
+  getIt.registerFactoryParam<GrantApprovalCubit, PendingGrant, void>(
+    (grant, _) => GrantApprovalCubit(
+      repository: getIt<ApprovalRepository>(),
+      grant: grant,
+    ),
+  );
+  // RegrantCubit: factory per "Grant again" sheet; param1 = the re-grant args
+  // derived from the terminal grant.
+  getIt.registerFactoryParam<RegrantCubit, RegrantArgs, void>(
+    (args, _) => RegrantCubit(
+      repository: getIt<ApprovalRepository>(),
+      args: args,
+    ),
   );
 }

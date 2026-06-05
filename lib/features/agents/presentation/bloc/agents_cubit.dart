@@ -52,6 +52,29 @@ class AgentsCubit extends Cubit<AgentsState> {
     }
   }
 
+  /// Quiet refresh — refetches the list WITHOUT flipping to the loading
+  /// (skeleton) state, keeping the current list visible. Used when returning
+  /// to the tab, on app resume, and on an incoming push, so the list stays
+  /// live without a jarring skeleton flash. Falls back to [load] when nothing
+  /// has been loaded yet; failures are swallowed (best-effort background sync).
+  Future<void> refresh() async {
+    if (state.status == AgentsStatus.initial ||
+        state.status == AgentsStatus.error) {
+      return load();
+    }
+    AppLogger.d('Agents', 'Refreshing agents (quiet)');
+    try {
+      final agents = await repository.listAgents();
+      emit(state.copyWith(
+        status: AgentsStatus.loaded,
+        agents: agents,
+        clearError: true,
+      ));
+    } catch (e) {
+      AppLogger.w('Agents', 'Quiet refresh failed (keeping current list): $e');
+    }
+  }
+
   /// Approves a pending agent, then refreshes the list.
   ///
   /// Optionally assigns the agent's [name], [type] and [iconKey] at

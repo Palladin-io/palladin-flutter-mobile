@@ -1082,6 +1082,12 @@ abstract class AppLocalizations {
   /// **'Audit'**
   String get navAudit;
 
+  /// Bottom nav label for the Approvals (pending grants) tab
+  ///
+  /// In en, this message translates to:
+  /// **'Approvals'**
+  String get navApprovals;
+
   /// Bottom nav label for the Settings tab
   ///
   /// In en, this message translates to:
@@ -2197,6 +2203,642 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Last Hostname'**
   String get agentsDetailLastHostname;
+
+  /// Title of the grant-management list screen
+  ///
+  /// In en, this message translates to:
+  /// **'Grants'**
+  String get grantsScreenTitle;
+
+  /// Status filter chip — show grants of every status
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get grantsFilterAll;
+
+  /// Retry button on the grants error state
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get grantsRetry;
+
+  /// Empty-state title on the grants list
+  ///
+  /// In en, this message translates to:
+  /// **'No grants yet'**
+  String get grantsEmpty;
+
+  /// Empty-state hint on the grants list
+  ///
+  /// In en, this message translates to:
+  /// **'Grants appear here when an agent requests access to this vault.'**
+  String get grantsEmptyHint;
+
+  /// Revoke action button label
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke grant'**
+  String get grantsRevoke;
+
+  /// Title of the revoke confirmation sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke grant?'**
+  String get grantsRevokeConfirmTitle;
+
+  /// Body of the revoke confirmation sheet
+  ///
+  /// In en, this message translates to:
+  /// **'{agentName} will immediately lose access. This cannot be undone.'**
+  String grantsRevokeConfirmBody(String agentName);
+
+  /// Label for the optional revoke reason field
+  ///
+  /// In en, this message translates to:
+  /// **'Reason (optional)'**
+  String get grantsRevokeReasonLabel;
+
+  /// Hint for the optional revoke reason field
+  ///
+  /// In en, this message translates to:
+  /// **'Why are you revoking this grant?'**
+  String get grantsRevokeReasonHint;
+
+  /// One-line target summary on a grant card
+  ///
+  /// In en, this message translates to:
+  /// **'Access to {target}'**
+  String grantCardTarget(String target);
+
+  /// Fallback when a granular grant's entry label is missing
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown entry'**
+  String get grantEntryUnknown;
+
+  /// Fallback display name for an agent without a name
+  ///
+  /// In en, this message translates to:
+  /// **'Unnamed agent'**
+  String get grantUnnamedAgent;
+
+  /// Grant status label — pending approval
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get grantStatusPending;
+
+  /// Grant status label — active
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get grantStatusActive;
+
+  /// Grant status label — denied
+  ///
+  /// In en, this message translates to:
+  /// **'Denied'**
+  String get grantStatusDenied;
+
+  /// Grant status label — revoked
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked'**
+  String get grantStatusRevoked;
+
+  /// Grant status label — expired
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get grantStatusExpired;
+
+  /// Grant status label — query limit exhausted
+  ///
+  /// In en, this message translates to:
+  /// **'Consumed'**
+  String get grantStatusConsumed;
+
+  /// Grant scope label — full vault access
+  ///
+  /// In en, this message translates to:
+  /// **'All entries'**
+  String get grantScopeFull;
+
+  /// Grant scope label — granular single-entry access
+  ///
+  /// In en, this message translates to:
+  /// **'Single entry'**
+  String get grantScopeGranular;
+
+  /// Approvals screen segment — pending approval inbox
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get approvalSegmentPending;
+
+  /// Approvals screen segment — org-wide grant history
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get approvalSegmentHistory;
+
+  /// Search placeholder on the Approvals history segment
+  ///
+  /// In en, this message translates to:
+  /// **'Search grants…'**
+  String get approvalHistorySearchHint;
+
+  /// Empty state title for the Approvals history feed
+  ///
+  /// In en, this message translates to:
+  /// **'No grants yet'**
+  String get approvalHistoryEmpty;
+
+  /// Empty state hint for the Approvals history feed
+  ///
+  /// In en, this message translates to:
+  /// **'Granted, expired and revoked access will appear here.'**
+  String get approvalHistoryEmptyHint;
+
+  /// Clears the status filter on the Approvals history feed
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get approvalHistoryFilterClear;
+
+  /// Subtitle under the agent name on a pending-approval card
+  ///
+  /// In en, this message translates to:
+  /// **'requests access'**
+  String get approvalPendingRequestsAccess;
+
+  /// Pending card row label — when the request was made
+  ///
+  /// In en, this message translates to:
+  /// **'Requested'**
+  String get approvalPendingRowRequested;
+
+  /// Org grant card row label — target vault (FULL grant)
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get orgGrantRowVault;
+
+  /// Org grant card row label — target entry (granular grant)
+  ///
+  /// In en, this message translates to:
+  /// **'Entry'**
+  String get orgGrantRowEntry;
+
+  /// Org grant card row label — actor who last acted on the grant
+  ///
+  /// In en, this message translates to:
+  /// **'By'**
+  String get orgGrantRowActor;
+
+  /// Org grant card row label — access policy summary
+  ///
+  /// In en, this message translates to:
+  /// **'Access'**
+  String get orgGrantRowAccess;
+
+  /// Org grant card row label — agent's access request reason
+  ///
+  /// In en, this message translates to:
+  /// **'Reason'**
+  String get orgGrantRowReason;
+
+  /// Org grant card row label — owner's deny reason
+  ///
+  /// In en, this message translates to:
+  /// **'Deny reason'**
+  String get orgGrantRowDenyReason;
+
+  /// Org grant card row label — owner's revoke reason
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke reason'**
+  String get orgGrantRowRevokeReason;
+
+  /// Fallback actor name when no user acted (e.g. automatic expiry)
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get orgGrantActorSystem;
+
+  /// Access summary — no usage or time limit
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get orgGrantUnlimited;
+
+  /// Access summary — remaining query uses for a use-limited grant
+  ///
+  /// In en, this message translates to:
+  /// **'{left} of {limit} uses left'**
+  String orgGrantUsesLeft(int left, int limit);
+
+  /// Access summary — absolute expiry date for a time-limited grant
+  ///
+  /// In en, this message translates to:
+  /// **'Until {date}'**
+  String orgGrantExpiresOn(String date);
+
+  /// Footer on a terminal grant whose agent already holds active coverage
+  ///
+  /// In en, this message translates to:
+  /// **'Already active'**
+  String get orgGrantAlreadyActive;
+
+  /// Title of the grant detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Grant'**
+  String get grantDetailTitle;
+
+  /// Detail field label — grant scope
+  ///
+  /// In en, this message translates to:
+  /// **'Scope'**
+  String get grantDetailScope;
+
+  /// Detail field label — target entry
+  ///
+  /// In en, this message translates to:
+  /// **'Entry'**
+  String get grantDetailEntry;
+
+  /// Detail field label — expiry / use limit
+  ///
+  /// In en, this message translates to:
+  /// **'Expiry'**
+  String get grantDetailExpiry;
+
+  /// Detail section label — agent-supplied reason
+  ///
+  /// In en, this message translates to:
+  /// **'Agent\'s reason'**
+  String get grantDetailReason;
+
+  /// Detail field label — request timestamp
+  ///
+  /// In en, this message translates to:
+  /// **'Requested'**
+  String get grantDetailRequested;
+
+  /// Detail field label — approval timestamp
+  ///
+  /// In en, this message translates to:
+  /// **'Approved'**
+  String get grantDetailApproved;
+
+  /// Approval timestamp with approver name
+  ///
+  /// In en, this message translates to:
+  /// **'{date} by {name}'**
+  String grantDetailApprovedBy(String date, String name);
+
+  /// Detail field label — revoke timestamp
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked'**
+  String get grantDetailRevoked;
+
+  /// Expiry line — absolute TTL
+  ///
+  /// In en, this message translates to:
+  /// **'Expires {date}'**
+  String grantDetailExpiresAt(String date);
+
+  /// Expiry line — use-limited grant
+  ///
+  /// In en, this message translates to:
+  /// **'{used} of {limit} uses'**
+  String grantDetailUsesLimit(int used, int limit);
+
+  /// Expiry line — unbounded grant
+  ///
+  /// In en, this message translates to:
+  /// **'No expiry'**
+  String get grantDetailNoExpiry;
+
+  /// Error — 404 on grants
+  ///
+  /// In en, this message translates to:
+  /// **'This grant no longer exists.'**
+  String get grantsErrorNotFound;
+
+  /// Error — 403 on grants
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to manage grants.'**
+  String get grantsErrorForbidden;
+
+  /// Error — 400/409 on grants
+  ///
+  /// In en, this message translates to:
+  /// **'The request was rejected. Please check and try again.'**
+  String get grantsErrorValidation;
+
+  /// Error — network failure on grants
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot reach the server. Check your connection.'**
+  String get grantsErrorNetwork;
+
+  /// Error — on-device crypto failure during approval
+  ///
+  /// In en, this message translates to:
+  /// **'Could not securely prepare the credential. Please try again.'**
+  String get grantsErrorCrypto;
+
+  /// Error — unexpected failure on grants
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get grantsErrorUnknown;
+
+  /// Title of the cross-vault pending-grant approval inbox
+  ///
+  /// In en, this message translates to:
+  /// **'Approvals'**
+  String get approvalInboxTitle;
+
+  /// Empty-state title on the approval inbox
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to approve'**
+  String get approvalInboxEmpty;
+
+  /// Empty-state hint on the approval inbox
+  ///
+  /// In en, this message translates to:
+  /// **'When an agent requests access to a credential, the request shows up here for you to approve or deny.'**
+  String get approvalInboxEmptyHint;
+
+  /// Retry button on the approval inbox error state
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get approvalRetry;
+
+  /// One-line summary on a pending-grant card
+  ///
+  /// In en, this message translates to:
+  /// **'Wants {entry} in {vault}'**
+  String approvalCardRequest(String entry, String vault);
+
+  /// Title of the approve/deny screen for a single grant
+  ///
+  /// In en, this message translates to:
+  /// **'Review request'**
+  String get approvalScreenTitle;
+
+  /// Label for the requested entry in the approval summary
+  ///
+  /// In en, this message translates to:
+  /// **'Entry'**
+  String get approvalSummaryEntry;
+
+  /// Label for the vault in the approval summary
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get approvalSummaryVault;
+
+  /// Label for the agent-supplied reason in the approval summary
+  ///
+  /// In en, this message translates to:
+  /// **'Agent\'s reason'**
+  String get approvalSummaryReason;
+
+  /// Fallback display name for an agent without a name
+  ///
+  /// In en, this message translates to:
+  /// **'Unnamed agent'**
+  String get approvalUnnamedAgent;
+
+  /// Fallback when the requested entry label is missing
+  ///
+  /// In en, this message translates to:
+  /// **'this credential'**
+  String get approvalEntryUnknown;
+
+  /// Fallback when the vault name is missing
+  ///
+  /// In en, this message translates to:
+  /// **'a vault'**
+  String get approvalVaultUnknown;
+
+  /// Section title for the XOR expiry/use-count limit picker
+  ///
+  /// In en, this message translates to:
+  /// **'Access limit'**
+  String get approvalLimitSectionTitle;
+
+  /// Hint under the access-limit section title
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how long this access lasts — by time or by number of uses.'**
+  String get approvalLimitSectionHint;
+
+  /// Segmented toggle option — time-to-live limit
+  ///
+  /// In en, this message translates to:
+  /// **'Expires after'**
+  String get approvalLimitExpiry;
+
+  /// Segmented toggle option — use-count limit
+  ///
+  /// In en, this message translates to:
+  /// **'Number of uses'**
+  String get approvalLimitUses;
+
+  /// Text field label for the maximum number of uses
+  ///
+  /// In en, this message translates to:
+  /// **'Max uses'**
+  String get approvalLimitUsesLabel;
+
+  /// Approve button label
+  ///
+  /// In en, this message translates to:
+  /// **'Approve'**
+  String get approvalApprove;
+
+  /// Section title for the deny action
+  ///
+  /// In en, this message translates to:
+  /// **'Deny instead'**
+  String get approvalDenySectionTitle;
+
+  /// Label for the optional deny reason field
+  ///
+  /// In en, this message translates to:
+  /// **'Reason (optional)'**
+  String get approvalDenyReasonLabel;
+
+  /// Hint for the optional deny reason field
+  ///
+  /// In en, this message translates to:
+  /// **'Why are you denying this request?'**
+  String get approvalDenyReasonHint;
+
+  /// Deny button label
+  ///
+  /// In en, this message translates to:
+  /// **'Deny'**
+  String get approvalDeny;
+
+  /// Cancel button on approval sheets
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get approvalCancel;
+
+  /// Title of the approve bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Approve request'**
+  String get approvalApproveTitle;
+
+  /// Approve subtitle fragment — leading verb before the agent name
+  ///
+  /// In en, this message translates to:
+  /// **'Grant'**
+  String get approvalApproveSubGrant;
+
+  /// Approve subtitle fragment — between agent and entry
+  ///
+  /// In en, this message translates to:
+  /// **'access to'**
+  String get approvalApproveSubAccessTo;
+
+  /// Approve subtitle fragment — between entry and vault
+  ///
+  /// In en, this message translates to:
+  /// **'in'**
+  String get approvalApproveSubIn;
+
+  /// Label above the access policy selector
+  ///
+  /// In en, this message translates to:
+  /// **'Access type'**
+  String get approvalAccessType;
+
+  /// Approve button label while submitting
+  ///
+  /// In en, this message translates to:
+  /// **'Approving…'**
+  String get approvalApproving;
+
+  /// Access policy option — time-limited (TTL)
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get approvalPolicyTime;
+
+  /// Access policy option — use-count limited
+  ///
+  /// In en, this message translates to:
+  /// **'Uses'**
+  String get approvalPolicyUses;
+
+  /// Access policy option — unlimited / until revoked
+  ///
+  /// In en, this message translates to:
+  /// **'Lifetime'**
+  String get approvalPolicyLifetime;
+
+  /// Hint shown when the lifetime access policy is selected
+  ///
+  /// In en, this message translates to:
+  /// **'The agent keeps access until you revoke it.'**
+  String get approvalLifetimeHint;
+
+  /// Label for the expiry date picker field
+  ///
+  /// In en, this message translates to:
+  /// **'Expires on'**
+  String get approvalExpiresOnLabel;
+
+  /// Title of the deny bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Deny {name}?'**
+  String approvalDenyTitle(String name);
+
+  /// Body text of the deny bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'The agent won\'t get access to this entry.'**
+  String get approvalDenyText;
+
+  /// Deny button label while submitting
+  ///
+  /// In en, this message translates to:
+  /// **'Denying…'**
+  String get approvalDenying;
+
+  /// Title of the re-grant (grant again) bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Grant again'**
+  String get approvalRegrantTitle;
+
+  /// Re-grant button label
+  ///
+  /// In en, this message translates to:
+  /// **'Grant again'**
+  String get approvalRegrant;
+
+  /// Re-grant button label while submitting
+  ///
+  /// In en, this message translates to:
+  /// **'Granting…'**
+  String get approvalRegranting;
+
+  /// Error — 404 on approval
+  ///
+  /// In en, this message translates to:
+  /// **'This request no longer exists.'**
+  String get approvalErrorNotFound;
+
+  /// Error — 403 on approval
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to manage grants.'**
+  String get approvalErrorForbidden;
+
+  /// Error — 400/409 on approval
+  ///
+  /// In en, this message translates to:
+  /// **'The request was rejected. Please check and try again.'**
+  String get approvalErrorValidation;
+
+  /// Error — network failure on approval
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot reach the server. Check your connection.'**
+  String get approvalErrorNetwork;
+
+  /// Error — on-device crypto failure producing the envelope
+  ///
+  /// In en, this message translates to:
+  /// **'Could not securely prepare the credential. Please try again.'**
+  String get approvalErrorCrypto;
+
+  /// Error — vault locked, no in-memory key to produce the envelope
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock your vault first to approve this request.'**
+  String get approvalErrorVaultLocked;
+
+  /// Error — unexpected failure on approval
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get approvalErrorUnknown;
 }
 
 class _AppLocalizationsDelegate

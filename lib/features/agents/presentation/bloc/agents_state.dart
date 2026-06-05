@@ -44,6 +44,10 @@ class AgentsState {
   /// Number of agents in the [AgentStatus.active] state.
   int get activeCount => agents.where((a) => a.isActive).length;
 
+  /// Number of agents awaiting approval ([AgentStatus.pending]) — drives the
+  /// Agents nav badge.
+  int get pendingCount => agents.where((a) => a.isPending).length;
+
   /// Resolves a single agent by id, or `null` if it is not in the list.
   Agent? agentById(String agentId) {
     for (final agent in agents) {

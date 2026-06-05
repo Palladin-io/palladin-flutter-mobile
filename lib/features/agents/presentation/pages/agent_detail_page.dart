@@ -229,16 +229,20 @@ class _AppBarTitle extends StatelessWidget {
             color: AppColors.onSurface(brightness),
             fontSize: 16,
             fontWeight: FontWeight.w700,
+            height: 1.2,
           ),
         ),
-        if (statusLabel.isNotEmpty)
+        if (statusLabel.isNotEmpty) ...[
+          const SizedBox(height: 3),
           Text(
             statusLabel,
             style: TextStyle(
               color: AppColors.onSurfaceSubtle(brightness),
               fontSize: 11,
+              height: 1.2,
             ),
           ),
+        ],
       ],
     );
   }

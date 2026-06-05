@@ -26,7 +26,7 @@ class ApiKeyCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           decoration: BoxDecoration(
             color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(12),
@@ -45,7 +45,7 @@ class ApiKeyCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: AppColors.onSurface(brightness),
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -54,7 +54,7 @@ class ApiKeyCard extends StatelessWidget {
                       maskedApiKey(apiKey.keySuffix),
                       style: TextStyle(
                         color: AppColors.onSurfaceSubtle(brightness),
-                        fontSize: 11,
+                        fontSize: 12,
                         fontFamily: 'monospace',
                       ),
                     ),
@@ -72,7 +72,7 @@ class ApiKeyCard extends StatelessWidget {
                     formatApiKeyDate(apiKey.createdAt),
                     style: TextStyle(
                       color: AppColors.onSurfaceSubtle(brightness),
-                      fontSize: 11,
+                      fontSize: 12,
                     ),
                   ),
                 ],

@@ -7,6 +7,7 @@ import '../../features/agents/presentation/pages/agent_detail_page.dart';
 import '../../features/agents/presentation/pages/agents_page.dart';
 import '../../features/api_keys/presentation/pages/api_key_detail_page.dart';
 import '../../features/api_keys/presentation/pages/api_keys_page.dart';
+import '../../features/approval/presentation/pages/pending_grants_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_wizard_page.dart';
@@ -29,8 +30,9 @@ import '../permissions.dart';
 ///    is allowed for locked sessions — that's the whole point of it)
 /// 4. Fully set-up and unlocked user on `/login`, `/onboarding`,
 ///    `/unlock`, or `/recovery` → `/`
-GoRouter createRouter(AuthBloc authBloc) {
+GoRouter createRouter(AuthBloc authBloc, {GlobalKey<NavigatorState>? navigatorKey}) {
   return GoRouter(
+    navigatorKey: navigatorKey,
     initialLocation: '/login',
     refreshListenable: _AuthBlocListenable(authBloc),
     redirect: (context, state) {
@@ -137,6 +139,22 @@ GoRouter createRouter(AuthBloc authBloc) {
               icon: Icons.history,
               title: AppLocalizations.of(context)!.placeholderAuditTitle,
             ),
+          ),
+          // Approvals — cross-vault inbox of pending grant requests. The
+          // approve/deny screen is pushed via Navigator (not a route) so
+          // it can return a bool result to the inbox. Gated on
+          // GrantManage; users without it are bounced to /vaults.
+          GoRoute(
+            path: '/approvals',
+            redirect: (context, state) {
+              final auth = authBloc.state;
+              if (auth is AuthAuthenticated &&
+                  (auth.permissions & Permissions.grantManage) == 0) {
+                return '/vaults';
+              }
+              return null;
+            },
+            builder: (_, _) => const PendingGrantsPage(),
           ),
           // Settings — organization details. Lives inside the shell so
           // the persistent bottom nav stays mounted while the user is

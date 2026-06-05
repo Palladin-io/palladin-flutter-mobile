@@ -641,6 +641,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get navAudit => 'Logi';
 
   @override
+  String get navApprovals => 'Zatwierdzenia';
+
+  @override
   String get navSettings => 'Ustawienia';
 
   @override
@@ -1255,4 +1258,354 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get agentsDetailLastHostname => 'Ostatni hostname';
+
+  @override
+  String get grantsScreenTitle => 'Dostępy';
+
+  @override
+  String get grantsFilterAll => 'Wszystkie';
+
+  @override
+  String get grantsRetry => 'Ponów';
+
+  @override
+  String get grantsEmpty => 'Brak dostępów';
+
+  @override
+  String get grantsEmptyHint =>
+      'Dostępy pojawią się tutaj, gdy agent poprosi o dostęp do tego sejfu.';
+
+  @override
+  String get grantsRevoke => 'Odbierz dostęp';
+
+  @override
+  String get grantsRevokeConfirmTitle => 'Odebrać dostęp?';
+
+  @override
+  String grantsRevokeConfirmBody(String agentName) {
+    return '$agentName natychmiast straci dostęp. Tej operacji nie można cofnąć.';
+  }
+
+  @override
+  String get grantsRevokeReasonLabel => 'Powód (opcjonalnie)';
+
+  @override
+  String get grantsRevokeReasonHint => 'Dlaczego odbierasz ten dostęp?';
+
+  @override
+  String grantCardTarget(String target) {
+    return 'Dostęp do $target';
+  }
+
+  @override
+  String get grantEntryUnknown => 'Nieznany wpis';
+
+  @override
+  String get grantUnnamedAgent => 'Agent bez nazwy';
+
+  @override
+  String get grantStatusPending => 'Oczekuje';
+
+  @override
+  String get grantStatusActive => 'Aktywny';
+
+  @override
+  String get grantStatusDenied => 'Odrzucony';
+
+  @override
+  String get grantStatusRevoked => 'Odebrany';
+
+  @override
+  String get grantStatusExpired => 'Wygasły';
+
+  @override
+  String get grantStatusConsumed => 'Wykorzystany';
+
+  @override
+  String get grantScopeFull => 'Wszystkie wpisy';
+
+  @override
+  String get grantScopeGranular => 'Pojedynczy wpis';
+
+  @override
+  String get approvalSegmentPending => 'Oczekujące';
+
+  @override
+  String get approvalSegmentHistory => 'Historia';
+
+  @override
+  String get approvalHistorySearchHint => 'Szukaj dostępów…';
+
+  @override
+  String get approvalHistoryEmpty => 'Brak dostępów';
+
+  @override
+  String get approvalHistoryEmptyHint =>
+      'Przyznane, wygasłe i odebrane dostępy pojawią się tutaj.';
+
+  @override
+  String get approvalHistoryFilterClear => 'Wyczyść';
+
+  @override
+  String get approvalPendingRequestsAccess => 'prosi o dostęp';
+
+  @override
+  String get approvalPendingRowRequested => 'Zażądano';
+
+  @override
+  String get orgGrantRowVault => 'Sejf';
+
+  @override
+  String get orgGrantRowEntry => 'Wpis';
+
+  @override
+  String get orgGrantRowActor => 'Przez';
+
+  @override
+  String get orgGrantRowAccess => 'Dostęp';
+
+  @override
+  String get orgGrantRowReason => 'Powód';
+
+  @override
+  String get orgGrantRowDenyReason => 'Powód odmowy';
+
+  @override
+  String get orgGrantRowRevokeReason => 'Powód odebrania';
+
+  @override
+  String get orgGrantActorSystem => 'System';
+
+  @override
+  String get orgGrantUnlimited => 'Bez limitu';
+
+  @override
+  String orgGrantUsesLeft(int left, int limit) {
+    return 'Pozostało $left z $limit użyć';
+  }
+
+  @override
+  String orgGrantExpiresOn(String date) {
+    return 'Do $date';
+  }
+
+  @override
+  String get orgGrantAlreadyActive => 'Już aktywny';
+
+  @override
+  String get grantDetailTitle => 'Dostęp';
+
+  @override
+  String get grantDetailScope => 'Zakres';
+
+  @override
+  String get grantDetailEntry => 'Wpis';
+
+  @override
+  String get grantDetailExpiry => 'Wygaśnięcie';
+
+  @override
+  String get grantDetailReason => 'Powód agenta';
+
+  @override
+  String get grantDetailRequested => 'Poproszono';
+
+  @override
+  String get grantDetailApproved => 'Zatwierdzono';
+
+  @override
+  String grantDetailApprovedBy(String date, String name) {
+    return '$date przez $name';
+  }
+
+  @override
+  String get grantDetailRevoked => 'Odebrano';
+
+  @override
+  String grantDetailExpiresAt(String date) {
+    return 'Wygasa $date';
+  }
+
+  @override
+  String grantDetailUsesLimit(int used, int limit) {
+    return '$used z $limit użyć';
+  }
+
+  @override
+  String get grantDetailNoExpiry => 'Bez wygaśnięcia';
+
+  @override
+  String get grantsErrorNotFound => 'Ten dostęp już nie istnieje.';
+
+  @override
+  String get grantsErrorForbidden =>
+      'Nie masz uprawnień do zarządzania dostępami.';
+
+  @override
+  String get grantsErrorValidation =>
+      'Żądanie zostało odrzucone. Sprawdź dane i spróbuj ponownie.';
+
+  @override
+  String get grantsErrorNetwork =>
+      'Nie można połączyć się z serwerem. Sprawdź połączenie.';
+
+  @override
+  String get grantsErrorCrypto =>
+      'Nie udało się bezpiecznie przygotować poświadczenia. Spróbuj ponownie.';
+
+  @override
+  String get grantsErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
+
+  @override
+  String get approvalInboxTitle => 'Zatwierdzenia';
+
+  @override
+  String get approvalInboxEmpty => 'Nic do zatwierdzenia';
+
+  @override
+  String get approvalInboxEmptyHint =>
+      'Gdy agent poprosi o dostęp do poświadczenia, prośba pojawi się tutaj — możesz ją zatwierdzić lub odrzucić.';
+
+  @override
+  String get approvalRetry => 'Ponów';
+
+  @override
+  String approvalCardRequest(String entry, String vault) {
+    return 'Prosi o $entry w $vault';
+  }
+
+  @override
+  String get approvalScreenTitle => 'Przejrzyj prośbę';
+
+  @override
+  String get approvalSummaryEntry => 'Wpis';
+
+  @override
+  String get approvalSummaryVault => 'Sejf';
+
+  @override
+  String get approvalSummaryReason => 'Powód agenta';
+
+  @override
+  String get approvalUnnamedAgent => 'Agent bez nazwy';
+
+  @override
+  String get approvalEntryUnknown => 'to poświadczenie';
+
+  @override
+  String get approvalVaultUnknown => 'sejf';
+
+  @override
+  String get approvalLimitSectionTitle => 'Limit dostępu';
+
+  @override
+  String get approvalLimitSectionHint =>
+      'Wybierz jak długo trwa ten dostęp — czasowo lub liczbą użyć.';
+
+  @override
+  String get approvalLimitExpiry => 'Wygasa po';
+
+  @override
+  String get approvalLimitUses => 'Liczba użyć';
+
+  @override
+  String get approvalLimitUsesLabel => 'Maks. użyć';
+
+  @override
+  String get approvalApprove => 'Zatwierdź';
+
+  @override
+  String get approvalDenySectionTitle => 'Albo odrzuć';
+
+  @override
+  String get approvalDenyReasonLabel => 'Powód (opcjonalnie)';
+
+  @override
+  String get approvalDenyReasonHint => 'Dlaczego odrzucasz tę prośbę?';
+
+  @override
+  String get approvalDeny => 'Odrzuć';
+
+  @override
+  String get approvalCancel => 'Anuluj';
+
+  @override
+  String get approvalApproveTitle => 'Zatwierdź prośbę';
+
+  @override
+  String get approvalApproveSubGrant => 'Przyznaj';
+
+  @override
+  String get approvalApproveSubAccessTo => 'dostęp do';
+
+  @override
+  String get approvalApproveSubIn => 'w sejfie';
+
+  @override
+  String get approvalAccessType => 'Typ dostępu';
+
+  @override
+  String get approvalApproving => 'Zatwierdzanie…';
+
+  @override
+  String get approvalPolicyTime => 'Czas';
+
+  @override
+  String get approvalPolicyUses => 'Użycia';
+
+  @override
+  String get approvalPolicyLifetime => 'Bezterminowo';
+
+  @override
+  String get approvalLifetimeHint =>
+      'Agent zachowa dostęp, dopóki go nie odbierzesz.';
+
+  @override
+  String get approvalExpiresOnLabel => 'Wygasa dnia';
+
+  @override
+  String approvalDenyTitle(String name) {
+    return 'Odrzucić $name?';
+  }
+
+  @override
+  String get approvalDenyText => 'Agent nie otrzyma dostępu do tego wpisu.';
+
+  @override
+  String get approvalDenying => 'Odrzucanie…';
+
+  @override
+  String get approvalRegrantTitle => 'Przyznaj ponownie';
+
+  @override
+  String get approvalRegrant => 'Przyznaj ponownie';
+
+  @override
+  String get approvalRegranting => 'Przyznawanie…';
+
+  @override
+  String get approvalErrorNotFound => 'Ta prośba już nie istnieje.';
+
+  @override
+  String get approvalErrorForbidden =>
+      'Nie masz uprawnień do zarządzania dostępami.';
+
+  @override
+  String get approvalErrorValidation =>
+      'Żądanie zostało odrzucone. Sprawdź dane i spróbuj ponownie.';
+
+  @override
+  String get approvalErrorNetwork =>
+      'Nie można połączyć się z serwerem. Sprawdź połączenie.';
+
+  @override
+  String get approvalErrorCrypto =>
+      'Nie udało się bezpiecznie przygotować poświadczenia. Spróbuj ponownie.';
+
+  @override
+  String get approvalErrorVaultLocked =>
+      'Najpierw odblokuj sejf, aby zatwierdzić tę prośbę.';
+
+  @override
+  String get approvalErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
 }
