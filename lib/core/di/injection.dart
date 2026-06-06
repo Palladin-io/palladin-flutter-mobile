@@ -27,8 +27,6 @@ import '../../features/approval/presentation/cubit/regrant_cubit.dart';
 import '../../features/grants/data/datasources/grants_remote_datasource.dart';
 import '../../features/grants/data/repositories/grants_repository_impl.dart';
 import '../../features/grants/domain/repositories/grants_repository.dart';
-import '../../features/grants/presentation/cubit/grant_detail_cubit.dart';
-import '../../features/grants/presentation/cubit/grants_list_cubit.dart';
 import '../../features/grants/presentation/cubit/org_grants_cubit.dart';
 import '../../features/notifications/data/datasources/push_token_remote_datasource.dart';
 import '../../features/notifications/data/services/notification_signalr_service.dart';
@@ -313,23 +311,6 @@ void configureDependencies(EnvConfig config) {
     () => GrantsRepositoryImpl(getIt<GrantsRemoteDatasource>()),
   );
 
-  // Grants — presentation layer (factory per page mount so filter /
-  // pagination state never leaks across vaults). `param1` is the vaultId
-  // the list / detail screens are scoped to; the detail cubit also takes
-  // `param2` = grantId.
-  getIt.registerFactoryParam<GrantsListCubit, String, void>(
-    (vaultId, _) => GrantsListCubit(
-      repository: getIt<GrantsRepository>(),
-      vaultId: vaultId,
-    ),
-  );
-  getIt.registerFactoryParam<GrantDetailCubit, String, String>(
-    (vaultId, grantId) => GrantDetailCubit(
-      repository: getIt<GrantsRepository>(),
-      vaultId: vaultId,
-      grantId: grantId,
-    ),
-  );
   // OrgGrantsCubit: factory per Approvals "history" segment mount so filter /
   // search state never leaks across visits.
   getIt.registerFactory<OrgGrantsCubit>(

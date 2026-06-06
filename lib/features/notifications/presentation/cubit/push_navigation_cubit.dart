@@ -49,13 +49,16 @@ class PushNavigationCubit extends Cubit<String?> {
   ///
   /// | type            | destination                         |
   /// |-----------------|-------------------------------------|
-  /// | grant_pending   | `/agents/{agentId}` else `/agents`  |
+  /// | grant_pending   | `/approvals` (owner approval inbox) |
   /// | agent_pending   | `/agents/{agentId}` else `/agents`  |
   /// | grant_approved  | `/agents/{agentId}` else `/agents`  |
   /// | unknown         | `null` (no navigation)              |
   String? _resolveRoute(PushMessage message) {
     switch (message.type) {
+      // A new pending grant is owned by the Approvals inbox, not the agent
+      // detail — that's where the owner approves/denies it.
       case PushNotificationType.grantPending:
+        return '/approvals';
       case PushNotificationType.grantApproved:
       case PushNotificationType.agentPending:
         final agentId = message.agentId;

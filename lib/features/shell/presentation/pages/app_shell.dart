@@ -3,9 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../agents/presentation/bloc/agents_cubit.dart';
 import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/settings_drawer.dart';
 
@@ -54,7 +56,16 @@ class _AppShellState extends State<AppShell> {
     // grant approvals). Live updates then arrive over SignalR (see app.dart);
     // a tab tap / app resume / tab focus quietly refreshes as a fallback.
     getIt<AgentsCubit>().refresh();
-    getIt<PendingGrantsCubit>().load();
+    // Pending-grants feed is GrantManage-only — loading it without the
+    // permission 403s on cold start, so gate the badge load.
+    if (_canManageGrants()) getIt<PendingGrantsCubit>().load();
+  }
+
+  /// True when the current session holds the GrantManage permission.
+  bool _canManageGrants() {
+    final state = context.read<AuthBloc>().state;
+    return state is AuthAuthenticated &&
+        (state.permissions & Permissions.grantManage) != 0;
   }
 
   void _openSettingsDrawer() => _scaffoldKey.currentState?.openEndDrawer();
@@ -149,7 +160,7 @@ class _AppShellState extends State<AppShell> {
     // Any tab interaction is a good moment to refresh the badges so they update
     // without having to open the owning tab.
     getIt<AgentsCubit>().refresh();
-    getIt<PendingGrantsCubit>().refresh();
+    if (_canManageGrants()) getIt<PendingGrantsCubit>().refresh();
     switch (index) {
       case AppBottomNav.tabHome:
         context.go('/');
