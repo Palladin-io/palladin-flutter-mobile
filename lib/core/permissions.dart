@@ -6,6 +6,9 @@ abstract final class Permissions {
   /// Manage agents — approve, deactivate, reactivate and edit agents.
   static const int agentManage = 16;
 
+  /// Manage grants — list, view, approve, deny and revoke agent grants.
+  static const int grantManage = 32;
+
   static const int readApiKey = 4096;
   static const int writeApiKey = 8192;
 }

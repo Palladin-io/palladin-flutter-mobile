@@ -333,6 +333,9 @@ class _HeaderRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+
+    // Grants/approvals are centralised in the Approvals nav tab — no header
+    // shortcut here.
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       child: Column(
@@ -348,7 +351,7 @@ class _HeaderRow extends StatelessWidget {
               height: 1.2,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 3),
           Text(
             l10n.vaultListSummary(vaultCount, entryCount),
             style: TextStyle(

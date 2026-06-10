@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
@@ -142,6 +143,11 @@ class OnboardingTextField extends StatelessWidget {
     this.enableSuggestions = false,
     this.textCapitalization = TextCapitalization.none,
     this.textInputAction,
+    this.keyboardType,
+    this.inputFormatters,
+    this.readOnly = false,
+    this.onTap,
+    this.enabled = true,
     this.onSubmitted,
     this.onChanged,
     this.borderColor,
@@ -173,6 +179,23 @@ class OnboardingTextField extends StatelessWidget {
   final bool enableSuggestions;
   final TextCapitalization textCapitalization;
   final TextInputAction? textInputAction;
+
+  /// Keyboard type — e.g. [TextInputType.number] for numeric fields.
+  final TextInputType? keyboardType;
+
+  /// Input formatters — e.g. `[FilteringTextInputFormatter.digitsOnly]`.
+  final List<TextInputFormatter>? inputFormatters;
+
+  /// When true the field shows no keyboard/cursor and is tap-only — pair
+  /// with [onTap] to drive a picker (date, select, …).
+  final bool readOnly;
+
+  /// Tap handler — used with [readOnly] for picker-style fields.
+  final VoidCallback? onTap;
+
+  /// When false the field is greyed out and non-interactive.
+  final bool enabled;
+
   final ValueChanged<String>? onSubmitted;
   final ValueChanged<String>? onChanged;
   final Color? borderColor;
@@ -213,17 +236,23 @@ class OnboardingTextField extends StatelessWidget {
       enableSuggestions: enableSuggestions,
       textCapitalization: textCapitalization,
       textInputAction: textInputAction,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      readOnly: readOnly,
+      onTap: onTap,
+      enabled: enabled,
       onSubmitted: onSubmitted,
       onChanged: onChanged,
-      style: TextStyle(color: AppColors.inputText(brightness), fontSize: 14),
+      style: TextStyle(color: AppColors.inputText(brightness), fontSize: 13),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(color: AppColors.inputHint(brightness)),
+        hintStyle:
+            TextStyle(color: AppColors.inputHint(brightness), fontSize: 13),
         filled: true,
         fillColor: fillColor ?? AppColors.inputFill(brightness),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 14,
+          vertical: 12,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),

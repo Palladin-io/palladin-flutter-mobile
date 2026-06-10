@@ -628,6 +628,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navAudit => 'Audit';
 
   @override
+  String get navApprovals => 'Approvals';
+
+  @override
   String get navSettings => 'Settings';
 
   @override
@@ -1235,4 +1238,354 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentsDetailLastHostname => 'Last Hostname';
+
+  @override
+  String get grantsScreenTitle => 'Grants';
+
+  @override
+  String get grantsFilterAll => 'All';
+
+  @override
+  String get grantsRetry => 'Retry';
+
+  @override
+  String get grantsEmpty => 'No grants yet';
+
+  @override
+  String get grantsEmptyHint =>
+      'Grants appear here when an agent requests access to this vault.';
+
+  @override
+  String get grantsRevoke => 'Revoke grant';
+
+  @override
+  String get grantsRevokeConfirmTitle => 'Revoke grant?';
+
+  @override
+  String grantsRevokeConfirmBody(String agentName) {
+    return '$agentName will immediately lose access. This cannot be undone.';
+  }
+
+  @override
+  String get grantsRevokeReasonLabel => 'Reason (optional)';
+
+  @override
+  String get grantsRevokeReasonHint => 'Why are you revoking this grant?';
+
+  @override
+  String grantCardTarget(String target) {
+    return 'Access to $target';
+  }
+
+  @override
+  String get grantEntryUnknown => 'Unknown entry';
+
+  @override
+  String get grantUnnamedAgent => 'Unnamed agent';
+
+  @override
+  String get grantStatusPending => 'Pending';
+
+  @override
+  String get grantStatusActive => 'Active';
+
+  @override
+  String get grantStatusDenied => 'Denied';
+
+  @override
+  String get grantStatusRevoked => 'Revoked';
+
+  @override
+  String get grantStatusExpired => 'Expired';
+
+  @override
+  String get grantStatusConsumed => 'Consumed';
+
+  @override
+  String get grantScopeFull => 'All entries';
+
+  @override
+  String get grantScopeGranular => 'Single entry';
+
+  @override
+  String get approvalSegmentPending => 'Pending';
+
+  @override
+  String get approvalSegmentHistory => 'History';
+
+  @override
+  String get approvalHistorySearchHint => 'Search grants…';
+
+  @override
+  String get approvalHistoryEmpty => 'No grants yet';
+
+  @override
+  String get approvalHistoryEmptyHint =>
+      'Granted, expired and revoked access will appear here.';
+
+  @override
+  String get approvalHistoryFilterClear => 'Clear';
+
+  @override
+  String get approvalPendingRequestsAccess => 'requests access';
+
+  @override
+  String get approvalPendingRowRequested => 'Requested';
+
+  @override
+  String get orgGrantRowVault => 'Vault';
+
+  @override
+  String get orgGrantRowEntry => 'Entry';
+
+  @override
+  String get orgGrantRowActor => 'By';
+
+  @override
+  String get orgGrantRowAccess => 'Access';
+
+  @override
+  String get orgGrantRowReason => 'Reason';
+
+  @override
+  String get orgGrantRowDenyReason => 'Deny reason';
+
+  @override
+  String get orgGrantRowRevokeReason => 'Revoke reason';
+
+  @override
+  String get orgGrantActorSystem => 'System';
+
+  @override
+  String get orgGrantUnlimited => 'Unlimited';
+
+  @override
+  String orgGrantUsesLeft(int left, int limit) {
+    return '$left of $limit uses left';
+  }
+
+  @override
+  String orgGrantExpiresOn(String date) {
+    return 'Until $date';
+  }
+
+  @override
+  String get orgGrantAlreadyActive => 'Already active';
+
+  @override
+  String get grantDetailTitle => 'Grant';
+
+  @override
+  String get grantDetailScope => 'Scope';
+
+  @override
+  String get grantDetailEntry => 'Entry';
+
+  @override
+  String get grantDetailExpiry => 'Expiry';
+
+  @override
+  String get grantDetailReason => 'Agent\'s reason';
+
+  @override
+  String get grantDetailRequested => 'Requested';
+
+  @override
+  String get grantDetailApproved => 'Approved';
+
+  @override
+  String grantDetailApprovedBy(String date, String name) {
+    return '$date by $name';
+  }
+
+  @override
+  String get grantDetailRevoked => 'Revoked';
+
+  @override
+  String grantDetailExpiresAt(String date) {
+    return 'Expires $date';
+  }
+
+  @override
+  String grantDetailUsesLimit(int used, int limit) {
+    return '$used of $limit uses';
+  }
+
+  @override
+  String get grantDetailNoExpiry => 'No expiry';
+
+  @override
+  String get grantsErrorNotFound => 'This grant no longer exists.';
+
+  @override
+  String get grantsErrorForbidden =>
+      'You do not have permission to manage grants.';
+
+  @override
+  String get grantsErrorValidation =>
+      'The request was rejected. Please check and try again.';
+
+  @override
+  String get grantsErrorNetwork =>
+      'Cannot reach the server. Check your connection.';
+
+  @override
+  String get grantsErrorCrypto =>
+      'Could not securely prepare the credential. Please try again.';
+
+  @override
+  String get grantsErrorUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get approvalInboxTitle => 'Approvals';
+
+  @override
+  String get approvalInboxEmpty => 'Nothing to approve';
+
+  @override
+  String get approvalInboxEmptyHint =>
+      'When an agent requests access to a credential, the request shows up here for you to approve or deny.';
+
+  @override
+  String get approvalRetry => 'Retry';
+
+  @override
+  String approvalCardRequest(String entry, String vault) {
+    return 'Wants $entry in $vault';
+  }
+
+  @override
+  String get approvalScreenTitle => 'Review request';
+
+  @override
+  String get approvalSummaryEntry => 'Entry';
+
+  @override
+  String get approvalSummaryVault => 'Vault';
+
+  @override
+  String get approvalSummaryReason => 'Agent\'s reason';
+
+  @override
+  String get approvalUnnamedAgent => 'Unnamed agent';
+
+  @override
+  String get approvalEntryUnknown => 'this credential';
+
+  @override
+  String get approvalVaultUnknown => 'a vault';
+
+  @override
+  String get approvalLimitSectionTitle => 'Access limit';
+
+  @override
+  String get approvalLimitSectionHint =>
+      'Choose how long this access lasts — by time or by number of uses.';
+
+  @override
+  String get approvalLimitExpiry => 'Expires after';
+
+  @override
+  String get approvalLimitUses => 'Number of uses';
+
+  @override
+  String get approvalLimitUsesLabel => 'Max uses';
+
+  @override
+  String get approvalApprove => 'Approve';
+
+  @override
+  String get approvalDenySectionTitle => 'Deny instead';
+
+  @override
+  String get approvalDenyReasonLabel => 'Reason (optional)';
+
+  @override
+  String get approvalDenyReasonHint => 'Why are you denying this request?';
+
+  @override
+  String get approvalDeny => 'Deny';
+
+  @override
+  String get approvalCancel => 'Cancel';
+
+  @override
+  String get approvalApproveTitle => 'Approve request';
+
+  @override
+  String get approvalApproveSubGrant => 'Grant';
+
+  @override
+  String get approvalApproveSubAccessTo => 'access to';
+
+  @override
+  String get approvalApproveSubIn => 'in';
+
+  @override
+  String get approvalAccessType => 'Access type';
+
+  @override
+  String get approvalApproving => 'Approving…';
+
+  @override
+  String get approvalPolicyTime => 'Time';
+
+  @override
+  String get approvalPolicyUses => 'Uses';
+
+  @override
+  String get approvalPolicyLifetime => 'Lifetime';
+
+  @override
+  String get approvalLifetimeHint =>
+      'The agent keeps access until you revoke it.';
+
+  @override
+  String get approvalExpiresOnLabel => 'Expires on';
+
+  @override
+  String approvalDenyTitle(String name) {
+    return 'Deny $name?';
+  }
+
+  @override
+  String get approvalDenyText => 'The agent won\'t get access to this entry.';
+
+  @override
+  String get approvalDenying => 'Denying…';
+
+  @override
+  String get approvalRegrantTitle => 'Grant again';
+
+  @override
+  String get approvalRegrant => 'Grant again';
+
+  @override
+  String get approvalRegranting => 'Granting…';
+
+  @override
+  String get approvalErrorNotFound => 'This request no longer exists.';
+
+  @override
+  String get approvalErrorForbidden =>
+      'You do not have permission to manage grants.';
+
+  @override
+  String get approvalErrorValidation =>
+      'The request was rejected. Please check and try again.';
+
+  @override
+  String get approvalErrorNetwork =>
+      'Cannot reach the server. Check your connection.';
+
+  @override
+  String get approvalErrorCrypto =>
+      'Could not securely prepare the credential. Please try again.';
+
+  @override
+  String get approvalErrorVaultLocked =>
+      'Unlock your vault first to approve this request.';
+
+  @override
+  String get approvalErrorUnknown => 'Something went wrong. Please try again.';
 }

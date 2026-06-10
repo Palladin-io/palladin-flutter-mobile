@@ -96,6 +96,7 @@ class _UnlockViewState extends State<_UnlockView> {
                   _buildForm(context),
                   const Spacer(flex: 2),
                   _buildForgotPassword(context),
+                  _buildLogout(context),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -241,6 +242,24 @@ class _UnlockViewState extends State<_UnlockView> {
       onPressed: () => context.go('/recovery'),
       child: Text(
         l10n.unlockForgotPassword,
+        style: const TextStyle(
+          fontSize: 13,
+          color: AppColors.textTertiary,
+        ),
+      ),
+    );
+  }
+
+  /// Escape hatch from a stale session — clears stored credentials and
+  /// returns to the login screen (e.g. when the account no longer exists
+  /// server-side and the master password can't unlock).
+  Widget _buildLogout(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return TextButton(
+      onPressed: () =>
+          context.read<AuthBloc>().add(const AuthLogoutRequested()),
+      child: Text(
+        l10n.settingsLogout,
         style: const TextStyle(
           fontSize: 13,
           color: AppColors.textTertiary,

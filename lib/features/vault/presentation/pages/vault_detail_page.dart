@@ -14,7 +14,6 @@ import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
 import '../cubit/entry_list_cubit.dart';
 import '../cubit/vault_detail_cubit.dart';
-import '../widgets/vault_agents_tab.dart';
 import '../widgets/vault_entries_tab.dart';
 import '../widgets/vault_form.dart';
 import '../widgets/vault_placeholder_tab.dart';
@@ -69,7 +68,7 @@ class VaultDetailPage extends StatelessWidget {
   }
 }
 
-enum _VaultTab { entries, agents, logs, members, settings }
+enum _VaultTab { entries, logs, members, settings }
 
 class _VaultDetailView extends StatefulWidget {
   const _VaultDetailView({required this.vaultId});
@@ -158,15 +157,15 @@ class _VaultDetailViewState extends State<_VaultDetailView>
   /// receives `null` and clears its FAB slot so we don't show a
   /// stale add affordance on the Logs / Members / Settings tabs.
   Widget? _detailFab(AppLocalizations l10n) {
-    final showOnEntries = _tabController.index == _VaultTab.entries.index;
-    final showOnAgents = _tabController.index == _VaultTab.agents.index;
-    if (!showOnEntries && !showOnAgents) return null;
+    // FAB only on the Entries tab (add entry). Grants live in the Approvals
+    // tab now, not per-vault.
+    if (_tabController.index != _VaultTab.entries.index) return null;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, right: 4),
       child: AppFab(
         onPressed: _onFabPressed,
-        tooltip: showOnEntries ? l10n.vaultAddEntryFab : l10n.vaultAddGrantFab,
+        tooltip: l10n.vaultAddEntryFab,
       ),
     );
   }
@@ -384,16 +383,20 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
               color: onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w700,
+              height: 1.2,
             ),
           ),
-          if (subtitle.isNotEmpty)
+          if (subtitle.isNotEmpty) ...[
+            const SizedBox(height: 3),
             Text(
               subtitle,
               style: TextStyle(
                 color: subtle,
                 fontSize: 11,
+                height: 1.2,
               ),
             ),
+          ],
         ],
       ),
       bottom: PreferredSize(
@@ -426,7 +429,6 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
             tabs: [
               Tab(text: l10n.vaultTabEntries),
-              Tab(text: l10n.vaultTabAgents),
               Tab(text: l10n.vaultTabLogs),
               Tab(text: l10n.vaultTabMembers),
               Tab(text: l10n.vaultTabSettings),
@@ -460,15 +462,12 @@ class _LoadedBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: TabBarView(
         controller: tabController,
         children: [
           // Entries are sourced from `EntryListCubit` provided above.
-          // The grants tab still uses placeholder data until the
-          // grants ticket lands.
           const VaultEntriesTab(),
-          const VaultAgentsTab(grants: []),
           _PlaceholderTabBuilder(
             messageKey: (l10n) => l10n.vaultLogsEmpty,
             icon: Icons.history,

@@ -127,17 +127,30 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> logout() async {
     AppLogger.d('Auth', 'Starting logout');
     final currentRefreshToken = await tokenStorage.refreshToken;
+
+    // Clear local state FIRST so the session is truly gone even if the remote
+    // revoke or Google sign-out hangs/fails — otherwise a hanging network call
+    // would leave the user stuck on a loading screen with tokens intact.
+    await tokenStorage.clearAll();
+    await BiometricKeyStorage.clear(secureStorage);
+
+    // Best-effort, time-boxed remote revoke + Google sign-out. Never let these
+    // block logout (backend down, no APNs, simulator quirks, etc.).
     if (currentRefreshToken != null && currentRefreshToken.isNotEmpty) {
       try {
-        await remoteDatasource.logout(currentRefreshToken);
+        await remoteDatasource
+            .logout(currentRefreshToken)
+            .timeout(const Duration(seconds: 4));
       } catch (e) {
         AppLogger.w('Auth', 'Backend logout failed (best-effort): $e');
       }
     }
 
-    await _googleSignIn.signOut();
-    await tokenStorage.clearAll();
-    await BiometricKeyStorage.clear(secureStorage);
+    try {
+      await _googleSignIn.signOut().timeout(const Duration(seconds: 4));
+    } catch (e) {
+      AppLogger.w('Auth', 'Google sign-out failed (best-effort): $e');
+    }
     AppLogger.i('Auth', 'Logout complete, tokens cleared');
   }
 

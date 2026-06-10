@@ -5,8 +5,8 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/vault_entity.dart';
 import 'vault_visuals.dart';
 
-/// A single row in the vault list — mirrors the Astro
-/// `ui/VaultCard.astro` prototype exactly.
+/// A single row in the vault list. Identity zone (icon + name + counts) over
+/// a distinct footer zone (last-updated), matching the AgentCard proportions.
 ///
 /// Visual structure:
 ///
@@ -14,8 +14,8 @@ import 'vault_visuals.dart';
 /// ┌──────────────────────────────────────────────┐
 /// │ [icon]  Vault name              N grants     │
 /// │         N entries                            │
-/// │ ── divider ──                                │
-/// │ 🔒 N active grants    Updated Xh ago         │
+/// │ ── footer zone ──                            │
+/// │ 🕘 Updated Xh ago                            │
 /// └──────────────────────────────────────────────┘
 /// ```
 class VaultCard extends StatelessWidget {
@@ -36,43 +36,38 @@ class VaultCard extends StatelessWidget {
     final isUrl = VaultVisuals.isCustomUrl(vault.icon);
     final icon = isUrl ? Icons.shield : VaultVisuals.iconFor(vault.icon);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(12),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: AppColors.cardFill(brightness),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: AppColors.cardBorder(brightness),
-              width: 1,
+        border: Border.all(color: AppColors.cardBorder(brightness), width: 1),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Identification zone — tappable (mirrors AgentCard).
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onTap,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: _CardHeader(
+                    vaultName: vault.name,
+                    entryCount: vault.entryCount,
+                    icon: icon,
+                    iconUrl: isUrl ? vault.icon : null,
+                    accent: accent,
+                    l10n: l10n,
+                  ),
+                ),
+              ),
             ),
-          ),
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _CardHeader(
-                vaultName: vault.name,
-                entryCount: vault.entryCount,
-                grantCount: vault.activeGrantCount,
-                icon: icon,
-                iconUrl: isUrl ? vault.icon : null,
-                accent: accent,
-                l10n: l10n,
-              ),
-              const SizedBox(height: 8),
-              const _Divider(),
-              const SizedBox(height: 8),
-              _CardFooter(
-                grantCount: vault.activeGrantCount,
-                lastUpdated: vault.updatedAt,
-                l10n: l10n,
-              ),
-            ],
-          ),
+            _CardFooter(lastUpdated: vault.updatedAt, l10n: l10n),
+          ],
         ),
       ),
     );
@@ -83,7 +78,6 @@ class _CardHeader extends StatelessWidget {
   const _CardHeader({
     required this.vaultName,
     required this.entryCount,
-    required this.grantCount,
     required this.icon,
     required this.accent,
     required this.l10n,
@@ -92,7 +86,6 @@ class _CardHeader extends StatelessWidget {
 
   final String vaultName;
   final int entryCount;
-  final int grantCount;
   final IconData icon;
   final String? iconUrl;
   final Color accent;
@@ -117,7 +110,7 @@ class _CardHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: AppColors.onSurface(brightness),
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                   height: 1.2,
                 ),
@@ -127,19 +120,11 @@ class _CardHeader extends StatelessWidget {
                 l10n.vaultEntryCount(entryCount),
                 style: TextStyle(
                   color: AppColors.onSurfaceSubtle(brightness),
-                  fontSize: 11,
+                  fontSize: 12,
                   height: 1.2,
                 ),
               ),
             ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          l10n.vaultGrantCount(grantCount),
-          style: TextStyle(
-            color: AppColors.onSurfaceSubtle(brightness),
-            fontSize: 11,
           ),
         ),
       ],
@@ -160,8 +145,8 @@ class _IconCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 32,
-      height: 32,
+      width: 40,
+      height: 40,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -171,39 +156,24 @@ class _IconCircle extends StatelessWidget {
           ? ClipOval(
               child: Image.network(
                 iconUrl!,
-                width: 32,
-                height: 32,
+                width: 40,
+                height: 40,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stack) =>
-                    Icon(icon, color: accent, size: 16),
+                    Icon(icon, color: accent, size: 20),
               ),
             )
-          : Icon(icon, color: accent, size: 16),
-    );
-  }
-}
-
-class _Divider extends StatelessWidget {
-  const _Divider();
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Container(
-      height: 1,
-      color: AppColors.cardBorder(brightness),
+          : Icon(icon, color: accent, size: 20),
     );
   }
 }
 
 class _CardFooter extends StatelessWidget {
   const _CardFooter({
-    required this.grantCount,
     required this.lastUpdated,
     required this.l10n,
   });
 
-  final int grantCount;
   final DateTime lastUpdated;
   final AppLocalizations l10n;
 
@@ -211,31 +181,30 @@ class _CardFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final subtle = AppColors.onSurfaceSubtle(brightness);
-    return Row(
-      children: [
-        Icon(
-          Icons.lock,
-          size: 12,
-          color: subtle,
+    // Distinct footer zone with the same treatment as AgentCard's footer —
+    // overlay fill, hairline top border, 12/8 padding.
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardFooterOverlay(brightness),
+        border: Border(
+          top: BorderSide(color: AppColors.cardBorder(brightness), width: 1),
         ),
-        const SizedBox(width: 4),
-        Text(
-          l10n.vaultActiveGrantCount(grantCount),
-          style: TextStyle(
-            color: subtle,
-            fontSize: 11,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          Icon(Icons.schedule, size: 12, color: subtle),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              l10n.vaultUpdatedAt(_formatRelative(l10n, lastUpdated)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: subtle, fontSize: 11),
+            ),
           ),
-        ),
-        const Spacer(),
-        Text(
-          l10n.vaultUpdatedAt(_formatRelative(l10n, lastUpdated)),
-          style: TextStyle(
-            color: subtle,
-            fontSize: 11,
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+        ],
+      ),
     );
   }
 

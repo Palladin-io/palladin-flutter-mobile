@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/di/injection.dart';
+import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../agents/presentation/bloc/agents_cubit.dart';
+import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/settings_drawer.dart';
 
@@ -41,6 +47,26 @@ class _AppShellState extends State<AppShell> {
   late final VoidCallback _openSettingsDrawerRef = _openSettingsDrawer;
   late final ValueChanged<bool> _setBottomNavHiddenRef = _setBottomNavHidden;
   late final ValueChanged<Widget?> _setFabRef = _setFab;
+
+  @override
+  void initState() {
+    super.initState();
+    // Populate the nav badges up-front, before the user opens the tabs: the
+    // Agents tab badge (pending agents) and the Approvals tab badge (pending
+    // grant approvals). Live updates then arrive over SignalR (see app.dart);
+    // a tab tap / app resume / tab focus quietly refreshes as a fallback.
+    getIt<AgentsCubit>().refresh();
+    // Pending-grants feed is GrantManage-only — loading it without the
+    // permission 403s on cold start, so gate the badge load.
+    if (_canManageGrants()) getIt<PendingGrantsCubit>().load();
+  }
+
+  /// True when the current session holds the GrantManage permission.
+  bool _canManageGrants() {
+    final state = context.read<AuthBloc>().state;
+    return state is AuthAuthenticated &&
+        (state.permissions & Permissions.grantManage) != 0;
+  }
 
   void _openSettingsDrawer() => _scaffoldKey.currentState?.openEndDrawer();
 
@@ -100,9 +126,18 @@ class _AppShellState extends State<AppShell> {
           offset: _isBottomNavHidden ? const Offset(0, 1) : Offset.zero,
           duration: const Duration(milliseconds: 280),
           curve: _isBottomNavHidden ? Curves.easeIn : Curves.easeOut,
-          child: AppBottomNav(
-            currentIndex: currentIndex,
-            onTap: (i) => _onTap(context, i),
+          child: BlocBuilder<AgentsCubit, AgentsState>(
+            bloc: getIt<AgentsCubit>(),
+            builder: (context, agentsState) =>
+                BlocBuilder<PendingGrantsCubit, PendingGrantsState>(
+              bloc: getIt<PendingGrantsCubit>(),
+              builder: (context, pendingState) => AppBottomNav(
+                currentIndex: currentIndex,
+                onTap: (i) => _onTap(context, i),
+                agentsBadgeCount: agentsState.pendingCount,
+                approvalsBadgeCount: pendingState.grants.length,
+              ),
+            ),
           ),
         ),
         ),
@@ -113,7 +148,7 @@ class _AppShellState extends State<AppShell> {
   int _tabIndex(String location) {
     if (location.startsWith('/vaults')) return AppBottomNav.tabVaults;
     if (location.startsWith('/agents')) return AppBottomNav.tabAgents;
-    if (location.startsWith('/audit')) return AppBottomNav.tabAudit;
+    if (location.startsWith('/approvals')) return AppBottomNav.tabApprovals;
     return AppBottomNav.tabHome;
   }
 
@@ -122,6 +157,10 @@ class _AppShellState extends State<AppShell> {
       _openSettingsDrawer();
       return;
     }
+    // Any tab interaction is a good moment to refresh the badges so they update
+    // without having to open the owning tab.
+    getIt<AgentsCubit>().refresh();
+    if (_canManageGrants()) getIt<PendingGrantsCubit>().refresh();
     switch (index) {
       case AppBottomNav.tabHome:
         context.go('/');
@@ -132,8 +171,8 @@ class _AppShellState extends State<AppShell> {
       case AppBottomNav.tabAgents:
         context.go('/agents');
         break;
-      case AppBottomNav.tabAudit:
-        context.go('/audit');
+      case AppBottomNav.tabApprovals:
+        context.go('/approvals');
         break;
     }
   }

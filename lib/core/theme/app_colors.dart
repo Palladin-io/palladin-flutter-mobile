@@ -64,8 +64,10 @@ abstract final class AppColors {
   /// Secondary text color in dark mode — cool blue-gray.
   static const Color textSecondary = Color(0xFFB8C5D4);
 
-  /// Tertiary / muted text color in dark mode — darker blue-gray.
-  static const Color textTertiary = Color(0xFF6B7A8E);
+  /// Tertiary / muted text color — `#8A95A6`, matching the web panel's
+  /// `--cv-t3` token (both modes). Brighter than the old `#6B7A8E` so muted
+  /// text / nav labels are legible on the dark gradient.
+  static const Color textTertiary = Color(0xFF8A95A6);
 
   /// Mobile-prototype secondary text — warm sand (Astro `--t2`). Used
   /// for input labels and supporting copy on the vault screens.
@@ -162,8 +164,9 @@ abstract final class AppColors {
   static const Color onboardingGradientMidBottom = Color(0xFF0E1230);
   static const Color onboardingGradientEnd = Color(0xFF000B2E);
 
-  /// Assembled dark-background gradient — apply via
-  /// `BoxDecoration(gradient: AppColors.darkBackgroundGradient)`.
+  /// Assembled dark background — matches the web panel's authenticated
+  /// background exactly: `linear-gradient(160deg, #000B2E 0%, #0A1A3E 30%,
+  /// #0E1230 60%, #000B2E 100%)` (see web `_authenticated.tsx` GRADIENTS).
   static const LinearGradient darkBackgroundGradient = LinearGradient(
     begin: Alignment(-0.34, -0.94),
     end: Alignment(0.34, 0.94),
@@ -173,7 +176,9 @@ abstract final class AppColors {
       onboardingGradientMidBottom,
       onboardingGradientEnd,
     ],
-    stops: [0.0, 0.3, 0.6, 1.0],
+    // Mid stops pushed lower than the web (0.3/0.6) so the brighter band sits
+    // a bit further down on the taller mobile screen.
+    stops: [0.0, 0.5, 0.8, 1.0],
   );
 
   // ── Light background gradient ────────────────────────────────────────
@@ -181,8 +186,9 @@ abstract final class AppColors {
   // 160deg gradient mirroring the Astro prototype's light-mode warm
   // cream/peach blend. Use [lightBackgroundGradient] directly or via
   // [backgroundGradient] for the brightness-aware helper.
-  /// Assembled light-background gradient — `160deg` warm cream/peach
-  /// matching `docs/design/mobile-app-prototype/styles.css`.
+  /// Assembled light-background gradient — matches the web panel exactly:
+  /// `linear-gradient(160deg, #FDF9E4 0%, #FFF0E0 35%, #FDF9E4 65%, #FFF5E8
+  /// 100%)` (see web `_authenticated.tsx` GRADIENTS).
   static const LinearGradient lightBackgroundGradient = LinearGradient(
     begin: Alignment(-0.34, -0.94),
     end: Alignment(0.34, 0.94),
@@ -192,7 +198,8 @@ abstract final class AppColors {
       Color(0xFFFDF9E4),
       Color(0xFFFFF5E8),
     ],
-    stops: [0.0, 0.35, 0.65, 1.0],
+    // Mid stops pushed lower than the web (0.35/0.65) for the taller screen.
+    stops: [0.0, 0.5, 0.8, 1.0],
   );
 
   /// Brightness-aware background gradient — picks the dark or light

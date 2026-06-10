@@ -101,6 +101,11 @@ class SettingsDrawer extends StatelessWidget {
               onTap: () => _onNavigate(context, '/api-keys'),
             ),
             _DrawerItem(
+              icon: Icons.history,
+              label: l10n.navAudit,
+              onTap: () => _onNavigate(context, '/audit'),
+            ),
+            _DrawerItem(
               icon: Icons.lock_outline,
               label: l10n.settingsLockVault,
               onTap: () => _onLock(context),

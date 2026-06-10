@@ -14,7 +14,7 @@ import 'agent_status_badge.dart';
 
 /// Tab segments shown on the agent detail screen — mirrors the web
 /// panel's `AgentDetail` so the two surfaces feel consistent.
-enum _AgentDetailTab { details, grants, logs }
+enum _AgentDetailTab { details, logs }
 
 /// Scrollable detail body for a single agent.
 ///
@@ -68,17 +68,10 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
     if (oldWidget.agent.agentId != widget.agent.agentId) {
       _activeTab = _AgentDetailTab.details;
     }
-    // The Grants tab is only meaningful for an active agent — if the
-    // current agent flips back to non-active while we are on it, drop
-    // back to Details so we never render a disabled-tab content view.
-    if (_activeTab == _AgentDetailTab.grants && !widget.agent.isActive) {
-      _activeTab = _AgentDetailTab.details;
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final authState = context.watch<AuthBloc>().state;
     final permissions =
         authState is AuthAuthenticated ? authState.permissions : 0;
@@ -90,7 +83,6 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
       children: [
         _TabBar(
           active: _activeTab,
-          isAgentActive: widget.agent.isActive,
           onSelected: (tab) => setState(() => _activeTab = tab),
         ),
         const SizedBox(height: 16),
@@ -107,11 +99,6 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
             ),
           ],
         ],
-        if (_activeTab == _AgentDetailTab.grants)
-          _EmptyCard(
-            message: l10n.agentsGrantsEmpty,
-            hint: l10n.agentsGrantsEmptyHint,
-          ),
         if (_activeTab == _AgentDetailTab.logs) _LogsCard(agent: widget.agent),
       ],
     );
@@ -130,12 +117,10 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
 class _TabBar extends StatelessWidget {
   const _TabBar({
     required this.active,
-    required this.isAgentActive,
     required this.onSelected,
   });
 
   final _AgentDetailTab active;
-  final bool isAgentActive;
   final ValueChanged<_AgentDetailTab> onSelected;
 
   @override
@@ -145,11 +130,6 @@ class _TabBar extends StatelessWidget {
 
     final tabs = <({_AgentDetailTab tab, String label, bool disabled})>[
       (tab: _AgentDetailTab.details, label: l10n.agentsTabDetails, disabled: false),
-      (
-        tab: _AgentDetailTab.grants,
-        label: l10n.agentsTabGrants,
-        disabled: !isAgentActive
-      ),
       (tab: _AgentDetailTab.logs, label: l10n.agentsTabLogs, disabled: false),
     ];
 
@@ -748,55 +728,6 @@ class _LogRow extends StatelessWidget {
               fontSize: 11,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Generic empty-state card (used by Grants tab)
-// ─────────────────────────────────────────────────────────────────────────
-
-class _EmptyCard extends StatelessWidget {
-  const _EmptyCard({required this.message, this.hint});
-
-  final String message;
-  final String? hint;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-      decoration: BoxDecoration(
-        color: AppColors.cardFill(brightness),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder(brightness)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (hint != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              hint!,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.onSurfaceSubtle(brightness),
-                fontSize: 11,
-                height: 1.4,
-              ),
-            ),
-          ],
         ],
       ),
     );

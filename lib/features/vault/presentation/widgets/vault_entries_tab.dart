@@ -565,8 +565,8 @@ class _EntryCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: AppColors.onSurface(brightness),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           if (meta.isNotEmpty) ...[
@@ -577,7 +577,7 @@ class _EntryCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: AppColors.onSurfaceSubtle(brightness),
-                                fontSize: 11,
+                                fontSize: 12,
                               ),
                             ),
                           ],
@@ -795,7 +795,8 @@ class _RevealRow extends StatelessWidget {
 
 // ── Entry icon ─────────────────────────────────────────────────────
 
-/// Renders the entry's icon as a 28×28 circle. Uses the `entry.icon`
+/// Renders the entry's icon as a 40×40 circle (matching vault/agent list
+/// icons). Uses the `entry.icon`
 /// field when set — custom URLs (publicly readable S3) become a network
 /// image with a cache-busting `?v=` param tied to `entry.updatedAt`,
 /// preset names map to the matching [EntryVisuals] palette color.
@@ -818,13 +819,13 @@ class _EntryIconWidget extends StatelessWidget {
     // forces Flutter's image cache to refetch the new bytes.
     final url = '$icon?v=${entry.updatedAt.millisecondsSinceEpoch}';
     return SizedBox(
-      width: 28,
-      height: 28,
+      width: 40,
+      height: 40,
       child: ClipOval(
         child: Image.network(
           url,
-          width: 28,
-          height: 28,
+          width: 40,
+          height: 40,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => _presetIcon(null),
         ),
@@ -846,11 +847,11 @@ class _EntryIconWidget extends StatelessWidget {
     final iconColor = choice.paletteColor;
     final iconBg = iconColor.withValues(alpha: 0.15);
     return Container(
-      width: 28,
-      height: 28,
+      width: 40,
+      height: 40,
       alignment: Alignment.center,
       decoration: BoxDecoration(shape: BoxShape.circle, color: iconBg),
-      child: Icon(choice.icon, size: 14, color: iconColor),
+      child: Icon(choice.icon, size: 20, color: iconColor),
     );
   }
 }
