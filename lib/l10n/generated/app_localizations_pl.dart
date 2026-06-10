@@ -1365,6 +1365,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get orgGrantRowAccess => 'Dostęp';
 
   @override
+  String get orgGrantRowMethods => 'Metody';
+
+  @override
   String get orgGrantRowReason => 'Powód';
 
   @override
@@ -1543,6 +1546,43 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get approvalAccessType => 'Typ dostępu';
+
+  @override
+  String get approvalMethodsLegend => 'Jak agent może użyć';
+
+  @override
+  String get approvalMethodsHelp =>
+      'Wybierz, jak ten credential może zostać użyty. Ograniczenie do Exec/Inject trzyma sekret poza kontekstem LLM agenta.';
+
+  @override
+  String get approvalMethodRequested => 'PROŚBA';
+
+  @override
+  String get approvalMethodNoneSelected => 'Wybierz co najmniej jedną metodę.';
+
+  @override
+  String get approvalMethodGetLabel => 'Get (plaintext)';
+
+  @override
+  String get approvalMethodGetDesc => 'Zwraca sekret jako plaintext do agenta.';
+
+  @override
+  String get approvalMethodGetWarning =>
+      'Sekret trafia do kontekstu agenta — na hostowanym LLM może opuścić urządzenie.';
+
+  @override
+  String get approvalMethodExecLabel => 'Exec';
+
+  @override
+  String get approvalMethodExecDesc =>
+      'Uruchamia komendę z sekretem w środowisku — nie trafia do kontekstu agenta.';
+
+  @override
+  String get approvalMethodInjectLabel => 'Inject';
+
+  @override
+  String get approvalMethodInjectDesc =>
+      'Wypełnia formularz logowania w przeglądarce agenta — nie trafia do kontekstu agenta.';
 
   @override
   String get approvalApproving => 'Zatwierdzanie…';

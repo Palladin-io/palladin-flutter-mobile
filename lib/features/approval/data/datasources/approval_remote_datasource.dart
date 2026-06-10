@@ -46,6 +46,7 @@ class ApprovalRemoteDatasource {
     required List<({String entryId, GrantEnvelope envelope})> entries,
     String? expiresAt,
     int? queryLimit,
+    String? methods,
   }) async {
     final body = <String, dynamic>{
       'agentId': agentId,
@@ -62,6 +63,7 @@ class ApprovalRemoteDatasource {
       ],
       'expiresAt': ?expiresAt,
       'queryLimit': ?queryLimit,
+      'methods': ?methods,
     };
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/vaults/$vaultId/grants',
@@ -83,6 +85,7 @@ class ApprovalRemoteDatasource {
     required GrantEnvelope envelope,
     String? expiresAt,
     int? queryLimit,
+    String? methods,
   }) async {
     final body = <String, dynamic>{
       'grantEntry': <String, dynamic>{
@@ -93,6 +96,7 @@ class ApprovalRemoteDatasource {
       },
       'expiresAt': ?expiresAt,
       'queryLimit': ?queryLimit,
+      'methods': ?methods,
     };
     await _dio.put<void>(
       '/api/vaults/$vaultId/grants/$grantId/approve',

@@ -20,6 +20,7 @@ class GrantModel {
     this.entryId,
     this.entryLabel,
     this.reason,
+    this.methods,
     this.expiresAt,
     this.queryLimit,
     this.queryCount,
@@ -48,6 +49,7 @@ class GrantModel {
   final String? entryId;
   final String? entryLabel;
   final String? reason;
+  final String? methods;
   final String? expiresAt;
   final int? queryLimit;
   final int? queryCount;
@@ -82,6 +84,7 @@ class GrantModel {
       entryId: json['entryId'] as String?,
       entryLabel: json['entryLabel'] as String?,
       reason: json['reason'] as String?,
+      methods: json['methods'] as String?,
       expiresAt: json['expiresAt'] as String?,
       queryLimit: json['queryLimit'] as int?,
       queryCount: json['queryCount'] as int?,
@@ -115,6 +118,7 @@ class GrantModel {
       entryId: entryId,
       entryLabel: entryLabel,
       reason: reason,
+      methods: parseGrantMethods(methods),
       createdAt: DateTime.parse(createdAt).toLocal(),
       expiresAt: parse(expiresAt),
       queryLimit: queryLimit,

@@ -1,3 +1,5 @@
+import '../../../grants/domain/entities/grant_method.dart';
+
 /// Domain entity for a pending grant request awaiting the owner's
 /// approval, as surfaced by `GET /api/dashboard/pending-grants`
 /// (cross-vault).
@@ -18,6 +20,7 @@ class PendingGrant {
     this.agentName,
     this.entryLabel,
     this.reason,
+    this.requestedMethods = const [],
   });
 
   final String grantId;
@@ -38,6 +41,10 @@ class PendingGrant {
 
   /// Agent-supplied justification — required by the security model.
   final String? reason;
+
+  /// Methods the agent requested (CVT-149) — used to pre-select the approval
+  /// choices. Empty when the backend predates the methods feature.
+  final List<GrantMethod> requestedMethods;
 
   final DateTime createdAt;
 }

@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../vault/data/datasources/entry_remote_datasource.dart';
 import '../../../vault/data/datasources/vault_remote_datasource.dart';
+import '../../../grants/domain/entities/grant_method.dart';
 import '../../domain/entities/pending_grant.dart';
 import '../../domain/exceptions/approval_exceptions.dart';
 import '../../domain/repositories/approval_repository.dart';
@@ -57,6 +58,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required PendingGrant grant,
     required Uint8List privateKey,
     required GrantLimit limit,
+    required List<GrantMethod> methods,
   }) async {
     // 1. + 2. Fetch the entry blob and the sealed VK (server round-trips).
     final String wrappedVK;
@@ -102,6 +104,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         envelope: envelope,
         expiresAt: wire.expiresAt,
         queryLimit: wire.queryLimit,
+        methods: serializeGrantMethods(methods),
       );
     } on DioException catch (e, s) {
       AppLogger.e('Approval', 'approve submit failed', error: e, stackTrace: s);
@@ -118,6 +121,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     String? entryId,
     required Uint8List privateKey,
     required GrantLimit limit,
+    required List<GrantMethod> methods,
   }) async {
     // 1. Resolve which entries to wrap: every vault entry (full) or just one
     //    (granular). Fetch the sealed VK once.
@@ -178,6 +182,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         entries: wrapped,
         expiresAt: wire.expiresAt,
         queryLimit: wire.queryLimit,
+        methods: serializeGrantMethods(methods),
       );
     } on DioException catch (e, s) {
       AppLogger.e('Approval', 're-grant submit failed', error: e, stackTrace: s);

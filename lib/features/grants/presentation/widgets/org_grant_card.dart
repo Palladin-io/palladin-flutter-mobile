@@ -72,6 +72,15 @@ class OrgGrantCard extends StatelessWidget {
                     label: l10n.orgGrantRowAccess,
                     value: orgGrantAccessSummary(l10n, grant),
                   ),
+                  if (grant.methods.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    GrantDetailRow(
+                      label: l10n.orgGrantRowMethods,
+                      value: grant.methods
+                          .map((m) => m.name.toUpperCase())
+                          .join(' · '),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   GrantDetailRow(label: reason.label, value: reason.text),
                 ],

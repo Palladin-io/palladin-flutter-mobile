@@ -3,10 +3,12 @@ import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../grants/domain/entities/grant_method.dart';
 import '../../domain/entities/pending_grant.dart';
 import '../../domain/exceptions/approval_exceptions.dart';
 import '../../domain/repositories/approval_repository.dart';
 
+export '../../../grants/domain/entities/grant_method.dart' show GrantMethod;
 export '../../domain/entities/pending_grant.dart';
 export '../../domain/repositories/approval_repository.dart'
     show GrantLimit, GrantExpiry, GrantUseLimit, GrantLifetime;
@@ -59,6 +61,7 @@ class GrantApprovalCubit extends Cubit<GrantApprovalState> {
   Future<void> approve({
     required Uint8List privateKey,
     required GrantLimit limit,
+    required List<GrantMethod> methods,
   }) async {
     emit(state.copyWith(
         status: GrantApprovalStatus.submitting, clearError: true));
@@ -67,6 +70,7 @@ class GrantApprovalCubit extends Cubit<GrantApprovalState> {
         grant: grant,
         privateKey: privateKey,
         limit: limit,
+        methods: methods,
       );
       AppLogger.i('Approval', 'Grant approved: ${grant.grantId}');
       emit(state.copyWith(status: GrantApprovalStatus.done));
