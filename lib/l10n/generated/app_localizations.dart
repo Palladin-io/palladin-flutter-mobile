@@ -2744,12 +2744,6 @@ abstract class AppLocalizations {
   /// **'Choose how this credential can be used. Restricting to Exec/Inject keeps the secret out of the agent\'s LLM context.'**
   String get approvalMethodsHelp;
 
-  /// Badge marking methods the agent asked for
-  ///
-  /// In en, this message translates to:
-  /// **'REQUESTED'**
-  String get approvalMethodRequested;
-
   /// Error when no method is selected on approve
   ///
   /// In en, this message translates to:
@@ -2761,12 +2755,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Get (plaintext)'**
   String get approvalMethodGetLabel;
-
-  /// Description for the get method
-  ///
-  /// In en, this message translates to:
-  /// **'Returns the secret as plaintext to the agent.'**
-  String get approvalMethodGetDesc;
 
   /// Warning shown for the get method
   ///
@@ -2780,23 +2768,11 @@ abstract class AppLocalizations {
   /// **'Exec'**
   String get approvalMethodExecLabel;
 
-  /// Description for the exec method
-  ///
-  /// In en, this message translates to:
-  /// **'Runs a command with the secret in its environment — never enters the agent\'s context.'**
-  String get approvalMethodExecDesc;
-
   /// Label for the inject method
   ///
   /// In en, this message translates to:
   /// **'Inject'**
   String get approvalMethodInjectLabel;
-
-  /// Description for the inject method
-  ///
-  /// In en, this message translates to:
-  /// **'Fills a login form in the agent\'s browser — never enters the agent\'s context.'**
-  String get approvalMethodInjectDesc;
 
   /// Approve button label while submitting
   ///

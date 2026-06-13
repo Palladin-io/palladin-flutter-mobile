@@ -4,10 +4,11 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../grants/domain/entities/grant_method.dart';
 
-/// Checkbox group choosing which methods a grant permits (CVT-148/149) — the
-/// mobile counterpart of the web `GrantMethodsField`. At least one must be
-/// selected. `get` carries an explicit warning because it returns the plaintext
-/// into the agent's context (and, for a hosted LLM, off the device).
+/// Compact multi-select for grant methods (CVT-148/149) — the mobile counterpart of the web
+/// methods dropdown. Replaces the tall checkbox-tile stack with toggleable chips in a [Wrap]
+/// (same visual language as the access-policy segmented control), so the sheet stays small and
+/// scales by wrapping as more methods are added. The `get` warning is surfaced compactly — only
+/// when `get` is selected.
 class GrantMethodsSelector extends StatelessWidget {
   const GrantMethodsSelector({
     super.key,
@@ -40,21 +41,32 @@ class GrantMethodsSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final method in GrantMethod.values)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _MethodTile(
-              method: method,
-              label: _label(l10n, method),
-              description: _description(l10n, method),
-              warning: method == GrantMethod.get ? l10n.approvalMethodGetWarning : null,
-              checked: value.contains(method),
-              requested: requested.contains(method),
-              enabled: enabled,
-              brightness: brightness,
-              onTap: () => _toggle(method),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final method in GrantMethod.values)
+              _MethodChip(
+                label: _label(l10n, method),
+                selected: value.contains(method),
+                requested: requested.contains(method),
+                enabled: enabled,
+                brightness: brightness,
+                onTap: () => _toggle(method),
+              ),
+          ],
+        ),
+        if (value.contains(GrantMethod.get)) ...[
+          const SizedBox(height: 8),
+          Text(
+            l10n.approvalMethodGetWarning,
+            style: TextStyle(
+              color: AppColors.premium(brightness),
+              fontSize: 11,
+              height: 1.35,
             ),
           ),
+        ],
       ],
     );
   }
@@ -64,32 +76,22 @@ class GrantMethodsSelector extends StatelessWidget {
         GrantMethod.exec => l10n.approvalMethodExecLabel,
         GrantMethod.inject => l10n.approvalMethodInjectLabel,
       };
-
-  static String _description(AppLocalizations l10n, GrantMethod m) => switch (m) {
-        GrantMethod.get => l10n.approvalMethodGetDesc,
-        GrantMethod.exec => l10n.approvalMethodExecDesc,
-        GrantMethod.inject => l10n.approvalMethodInjectDesc,
-      };
 }
 
-class _MethodTile extends StatelessWidget {
-  const _MethodTile({
-    required this.method,
+/// A single toggleable method chip — selected state mirrors the segmented policy buttons (brand
+/// fill when on). A small dot marks a method the agent requested.
+class _MethodChip extends StatelessWidget {
+  const _MethodChip({
     required this.label,
-    required this.description,
-    required this.warning,
-    required this.checked,
+    required this.selected,
     required this.requested,
     required this.enabled,
     required this.brightness,
     required this.onTap,
   });
 
-  final GrantMethod method;
   final String label;
-  final String description;
-  final String? warning;
-  final bool checked;
+  final bool selected;
   final bool requested;
   final bool enabled;
   final Brightness brightness;
@@ -97,76 +99,45 @@ class _MethodTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return InkWell(
+    return GestureDetector(
       onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.all(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.cardBorder(brightness)),
+          color: selected ? AppColors.tealAccent.withValues(alpha: 0.16) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? AppColors.tealAccent : AppColors.cardBorder(brightness),
+            width: selected ? 1.5 : 1,
+          ),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Checkbox(
-              value: checked,
-              onChanged: enabled ? (_) => onTap() : null,
-              visualDensity: VisualDensity.compact,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          color: AppColors.onSurface(brightness),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (requested) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          l10n.approvalMethodRequested,
-                          style: TextStyle(
-                            color: AppColors.onSurfaceSubtle(brightness),
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      color: AppColors.onSurfaceMuted(brightness),
-                      fontSize: 11,
-                      height: 1.35,
-                    ),
-                  ),
-                  if (warning != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      warning!,
-                      style: TextStyle(
-                        color: AppColors.premium(brightness),
-                        fontSize: 11,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ],
+            if (selected) ...[
+              Icon(Icons.check, size: 14, color: AppColors.onSurface(brightness)),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: AppColors.onSurface(brightness),
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               ),
             ),
+            if (requested) ...[
+              const SizedBox(width: 6),
+              Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: AppColors.onSurfaceSubtle(brightness),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
           ],
         ),
       ),

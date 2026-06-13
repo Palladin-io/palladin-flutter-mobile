@@ -1535,17 +1535,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose how this credential can be used. Restricting to Exec/Inject keeps the secret out of the agent\'s LLM context.';
 
   @override
-  String get approvalMethodRequested => 'REQUESTED';
-
-  @override
   String get approvalMethodNoneSelected => 'Select at least one method.';
 
   @override
   String get approvalMethodGetLabel => 'Get (plaintext)';
-
-  @override
-  String get approvalMethodGetDesc =>
-      'Returns the secret as plaintext to the agent.';
 
   @override
   String get approvalMethodGetWarning =>
@@ -1555,15 +1548,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get approvalMethodExecLabel => 'Exec';
 
   @override
-  String get approvalMethodExecDesc =>
-      'Runs a command with the secret in its environment — never enters the agent\'s context.';
-
-  @override
   String get approvalMethodInjectLabel => 'Inject';
-
-  @override
-  String get approvalMethodInjectDesc =>
-      'Fills a login form in the agent\'s browser — never enters the agent\'s context.';
 
   @override
   String get approvalApproving => 'Approving…';
