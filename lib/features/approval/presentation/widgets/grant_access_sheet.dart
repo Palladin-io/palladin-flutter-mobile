@@ -274,16 +274,7 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.approvalMethodsHelp,
-                      style: TextStyle(
-                        color: AppColors.onSurfaceMuted(brightness),
-                        fontSize: 11,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     GrantMethodsSelector(
                       value: _methods,
                       enabled: !state.isSubmitting,

@@ -1982,10 +1982,6 @@
   "@approvalMethodsLegend": {
     "description": "Label above the grant methods selector"
   },
-  "approvalMethodsHelp": "Choose how this credential can be used. Restricting to Exec/Inject keeps the secret out of the agent's LLM context.",
-  "@approvalMethodsHelp": {
-    "description": "Helper text under the methods legend"
-  },
   "approvalMethodNoneSelected": "Select at least one method.",
   "@approvalMethodNoneSelected": {
     "description": "Error when no method is selected on approve"
@@ -2101,5 +2097,8 @@
   "grantAddGrant": "Add grant",
   "approvalMethodGetDesc": "Returns the secret as plaintext to the agent.",
   "approvalMethodExecDesc": "Runs a command with the secret in its environment — never enters the agent's context.",
-  "approvalMethodInjectDesc": "Fills a login form in the agent's browser — never enters the agent's context."
+  "approvalMethodInjectDesc": "Fills a login form in the agent's browser — never enters the agent's context.",
+  "approvalMethodsSelect": "Select methods",
+  "approvalMethodsDone": "Done",
+  "approvalMethodRequested": "requested"
 }

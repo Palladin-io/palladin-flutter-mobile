@@ -1572,10 +1572,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get approvalMethodWarningZone => 'Strefa ostrzeżenia';
 
   @override
-  String get approvalMethodsHelp =>
-      'Wybierz, jak ten credential może zostać użyty. Ograniczenie do Exec/Inject trzyma sekret poza kontekstem LLM agenta.';
-
-  @override
   String get approvalMethodNoneSelected => 'Wybierz co najmniej jedną metodę.';
 
   @override
@@ -1703,4 +1699,13 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get approvalMethodInjectDesc =>
       'Wypełnia formularz logowania w przeglądarce agenta — nie trafia do kontekstu agenta.';
+
+  @override
+  String get approvalMethodsSelect => 'Wybierz metody';
+
+  @override
+  String get approvalMethodsDone => 'Gotowe';
+
+  @override
+  String get approvalMethodRequested => 'prośba';
 }

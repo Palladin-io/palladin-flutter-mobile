@@ -4,11 +4,10 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../grants/domain/entities/grant_method.dart';
 
-/// Compact multi-select for grant methods (CVT-148/149) — the mobile counterpart of the web
-/// methods dropdown. Replaces the tall checkbox-tile stack with toggleable chips in a [Wrap]
-/// (same visual language as the access-policy segmented control), so the sheet stays small and
-/// scales by wrapping as more methods are added. The `get` warning is surfaced compactly — only
-/// when `get` is selected.
+/// Compact multi-select for grant methods (CVT-148/149) — the mobile counterpart of the web methods
+/// dropdown. A single 44px field (matching the app's inputs) shows the chosen methods as a summary
+/// and opens a picker with one checkable row + description per method (so the modal stays small and
+/// scales as methods are added). The `get` warning lives inside the picker.
 class GrantMethodsSelector extends StatelessWidget {
   const GrantMethodsSelector({
     super.key,
@@ -23,102 +22,258 @@ class GrantMethodsSelector extends StatelessWidget {
   final bool enabled;
   final ValueChanged<List<GrantMethod>> onChanged;
 
-  void _toggle(GrantMethod method) {
-    final next = List<GrantMethod>.from(value);
-    if (next.contains(method)) {
-      next.remove(method);
-    } else {
-      next.add(method);
-    }
-    onChanged(next);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final method in GrantMethod.values)
-              _MethodChip(
-                label: _label(l10n, method),
-                selected: value.contains(method),
-                requested: requested.contains(method),
-                enabled: enabled,
-                brightness: brightness,
-                onTap: () => _toggle(method),
-              ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        // Per-method explanations (the web dropdown shows these inline) — so the owner knows what
-        // each option does before choosing. The selected method's line is emphasised.
-        for (final method in GrantMethod.values)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: '${_label(l10n, method)} — ',
-                    style: TextStyle(
-                      color: AppColors.onSurface(brightness),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  TextSpan(
-                    text: _description(l10n, method),
-                    style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 11),
-                  ),
-                ],
-              ),
-              style: const TextStyle(height: 1.35),
-            ),
-          ),
-        // Warning Zone — framed like the Danger Zone but in amber. Animates open/closed (height +
-        // fade) when the plaintext `get` method is toggled.
-        _WarningZone(
-          show: value.contains(GrantMethod.get),
-          title: l10n.approvalMethodWarningZone,
-          message: l10n.approvalMethodGetWarning,
-          brightness: brightness,
-        ),
-      ],
-    );
-  }
-
   static String _label(AppLocalizations l10n, GrantMethod m) => switch (m) {
         GrantMethod.get => l10n.approvalMethodGetLabel,
         GrantMethod.exec => l10n.approvalMethodExecLabel,
         GrantMethod.inject => l10n.approvalMethodInjectLabel,
       };
 
-  static String _description(AppLocalizations l10n, GrantMethod m) => switch (m) {
+  Future<void> _openPicker(BuildContext context) async {
+    final result = await showModalBottomSheet<List<GrantMethod>>(
+      context: context,
+      isScrollControlled: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _MethodsPickerSheet(initial: value, requested: requested),
+    );
+    if (result != null) onChanged(result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    final summary = GrantMethod.values
+        .where(value.contains)
+        .map((m) => _label(l10n, m))
+        .join(', ');
+
+    return InkWell(
+      onTap: enabled ? () => _openPicker(context) : null,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.cardBorder(brightness)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                summary.isEmpty ? l10n.approvalMethodsSelect : summary,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: summary.isEmpty
+                      ? AppColors.onSurfaceMuted(brightness)
+                      : AppColors.onSurface(brightness),
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            Icon(Icons.expand_more, size: 18, color: AppColors.onSurfaceSubtle(brightness)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom-sheet picker: one checkable row + description per method (mirrors the web dropdown's
+/// option list), plus the amber `get` warning. Returns the chosen list on "Done".
+class _MethodsPickerSheet extends StatefulWidget {
+  const _MethodsPickerSheet({required this.initial, required this.requested});
+
+  final List<GrantMethod> initial;
+  final List<GrantMethod> requested;
+
+  @override
+  State<_MethodsPickerSheet> createState() => _MethodsPickerSheetState();
+}
+
+class _MethodsPickerSheetState extends State<_MethodsPickerSheet> {
+  late final List<GrantMethod> _selected = List.of(widget.initial);
+
+  void _toggle(GrantMethod m) {
+    setState(() {
+      if (_selected.contains(m)) {
+        _selected.remove(m);
+      } else {
+        _selected.add(m);
+      }
+    });
+  }
+
+  String _label(AppLocalizations l10n, GrantMethod m) => GrantMethodsSelector._label(l10n, m);
+
+  String _desc(AppLocalizations l10n, GrantMethod m) => switch (m) {
         GrantMethod.get => l10n.approvalMethodGetDesc,
         GrantMethod.exec => l10n.approvalMethodExecDesc,
         GrantMethod.inject => l10n.approvalMethodInjectDesc,
       };
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.modalBackground(brightness),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + MediaQuery.viewPaddingOf(context).bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.cardBorder(brightness),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            l10n.approvalMethodsLegend,
+            style: TextStyle(
+              color: AppColors.onSurface(brightness),
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (final m in GrantMethod.values)
+            _MethodRow(
+              label: _label(l10n, m),
+              description: _desc(l10n, m),
+              selected: _selected.contains(m),
+              requested: widget.requested.contains(m),
+              requestedLabel: l10n.approvalMethodRequested,
+              brightness: brightness,
+              onTap: () => _toggle(m),
+            ),
+          if (_selected.contains(GrantMethod.get)) ...[
+            const SizedBox(height: 8),
+            _WarningZone(
+              title: l10n.approvalMethodWarningZone,
+              message: l10n.approvalMethodGetWarning,
+              brightness: brightness,
+            ),
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 44,
+            child: FilledButton(
+              onPressed: _selected.isEmpty ? null : () => Navigator.of(context).pop(_selected),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.positiveAccent,
+                foregroundColor: AppColors.onBrandRed,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: Text(
+                l10n.approvalMethodsDone,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-/// Amber "Warning Zone" box, styled like the app's Danger Zone (rounded border + uppercase title)
-/// but in the premium-amber tone. Animates its height and opacity open/closed via [AnimatedSize] +
-/// [AnimatedOpacity] so it slides in when `get` is selected instead of popping.
-class _WarningZone extends StatelessWidget {
-  const _WarningZone({
-    required this.show,
-    required this.title,
-    required this.message,
+class _MethodRow extends StatelessWidget {
+  const _MethodRow({
+    required this.label,
+    required this.description,
+    required this.selected,
+    required this.requested,
+    required this.requestedLabel,
     required this.brightness,
+    required this.onTap,
   });
 
-  final bool show;
+  final String label;
+  final String description;
+  final bool selected;
+  final bool requested;
+  final String requestedLabel;
+  final Brightness brightness;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              selected ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 20,
+              color: selected ? AppColors.positiveAccent : AppColors.onSurfaceSubtle(brightness),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: AppColors.onSurface(brightness),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (requested) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          requestedLabel,
+                          style: TextStyle(
+                            color: AppColors.onSurfaceSubtle(brightness),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      color: AppColors.onSurfaceMuted(brightness),
+                      fontSize: 11,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Amber warning box shown inside the picker when `get` is selected.
+class _WarningZone extends StatelessWidget {
+  const _WarningZone({required this.title, required this.message, required this.brightness});
+
   final String title;
   final String message;
   final Brightness brightness;
@@ -126,117 +281,27 @@ class _WarningZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final amber = AppColors.premium(brightness);
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-      alignment: Alignment.topCenter,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 200),
-        opacity: show ? 1 : 0,
-        child: show
-            ? Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: amber.withValues(alpha: 0.3)),
-                    color: amber.withValues(alpha: 0.06),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: amber,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        message,
-                        style: TextStyle(
-                          color: AppColors.onSurfaceMuted(brightness),
-                          fontSize: 11,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : const SizedBox(width: double.infinity),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: amber.withValues(alpha: 0.3)),
+        color: amber.withValues(alpha: 0.06),
       ),
-    );
-  }
-}
-
-/// A single toggleable method chip — selected state mirrors the segmented policy buttons (brand
-/// fill when on). A small dot marks a method the agent requested.
-class _MethodChip extends StatelessWidget {
-  const _MethodChip({
-    required this.label,
-    required this.selected,
-    required this.requested,
-    required this.enabled,
-    required this.brightness,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final bool requested;
-  final bool enabled;
-  final Brightness brightness;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.tealAccent.withValues(alpha: 0.16) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? AppColors.tealAccent : AppColors.cardBorder(brightness),
-            width: selected ? 1.5 : 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(color: amber, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (selected) ...[
-              Icon(Icons.check, size: 14, color: AppColors.onSurface(brightness)),
-              const SizedBox(width: 6),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                color: AppColors.onSurface(brightness),
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              ),
-            ),
-            if (requested) ...[
-              const SizedBox(width: 6),
-              Container(
-                width: 5,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: AppColors.onSurfaceSubtle(brightness),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ],
-          ],
-        ),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 11, height: 1.35),
+          ),
+        ],
       ),
     );
   }

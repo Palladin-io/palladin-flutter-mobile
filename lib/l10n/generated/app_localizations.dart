@@ -2774,12 +2774,6 @@ abstract class AppLocalizations {
   /// **'Warning Zone'**
   String get approvalMethodWarningZone;
 
-  /// Helper text under the methods legend
-  ///
-  /// In en, this message translates to:
-  /// **'Choose how this credential can be used. Restricting to Exec/Inject keeps the secret out of the agent\'s LLM context.'**
-  String get approvalMethodsHelp;
-
   /// Error when no method is selected on approve
   ///
   /// In en, this message translates to:
@@ -3013,6 +3007,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Fills a login form in the agent\'s browser — never enters the agent\'s context.'**
   String get approvalMethodInjectDesc;
+
+  /// No description provided for @approvalMethodsSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select methods'**
+  String get approvalMethodsSelect;
+
+  /// No description provided for @approvalMethodsDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get approvalMethodsDone;
+
+  /// No description provided for @approvalMethodRequested.
+  ///
+  /// In en, this message translates to:
+  /// **'requested'**
+  String get approvalMethodRequested;
 }
 
 class _AppLocalizationsDelegate
