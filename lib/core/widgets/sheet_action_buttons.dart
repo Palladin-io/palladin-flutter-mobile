@@ -37,8 +37,7 @@ class SheetActionButtons extends StatelessWidget {
   /// Shows a spinner on Confirm and disables both buttons.
   final bool busy;
 
-  // Matches the in-card action buttons (e.g. grant card Revoke/Re-grant) for a lighter footer.
-  static const double _height = 36;
+  static const double _height = 44;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +73,7 @@ class SheetActionButtons extends StatelessWidget {
                 child: Text(
                   cancelLabel ?? l10n.approvalCancel,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -108,7 +107,7 @@ class SheetActionButtons extends StatelessWidget {
                     : Text(
                         confirmLabel,
                         style: const TextStyle(
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

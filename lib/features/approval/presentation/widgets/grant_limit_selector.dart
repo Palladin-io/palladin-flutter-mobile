@@ -256,7 +256,7 @@ class _SegmentButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 9),
+          padding: const EdgeInsets.symmetric(vertical: 7),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: selected
