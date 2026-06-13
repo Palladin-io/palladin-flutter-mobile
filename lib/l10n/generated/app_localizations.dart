@@ -2995,6 +2995,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add grant'**
   String get grantAddGrant;
+
+  /// No description provided for @approvalMethodGetDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Returns the secret as plaintext to the agent.'**
+  String get approvalMethodGetDesc;
+
+  /// No description provided for @approvalMethodExecDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Runs a command with the secret in its environment — never enters the agent\'s context.'**
+  String get approvalMethodExecDesc;
+
+  /// No description provided for @approvalMethodInjectDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Fills a login form in the agent\'s browser — never enters the agent\'s context.'**
+  String get approvalMethodInjectDesc;
 }
 
 class _AppLocalizationsDelegate

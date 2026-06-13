@@ -56,6 +56,32 @@ class GrantMethodsSelector extends StatelessWidget {
               ),
           ],
         ),
+        const SizedBox(height: 10),
+        // Per-method explanations (the web dropdown shows these inline) — so the owner knows what
+        // each option does before choosing. The selected method's line is emphasised.
+        for (final method in GrantMethod.values)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '${_label(l10n, method)} — ',
+                    style: TextStyle(
+                      color: AppColors.onSurface(brightness),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  TextSpan(
+                    text: _description(l10n, method),
+                    style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 11),
+                  ),
+                ],
+              ),
+              style: const TextStyle(height: 1.35),
+            ),
+          ),
         // Warning Zone — framed like the Danger Zone but in amber. Animates open/closed (height +
         // fade) when the plaintext `get` method is toggled.
         _WarningZone(
@@ -72,6 +98,12 @@ class GrantMethodsSelector extends StatelessWidget {
         GrantMethod.get => l10n.approvalMethodGetLabel,
         GrantMethod.exec => l10n.approvalMethodExecLabel,
         GrantMethod.inject => l10n.approvalMethodInjectLabel,
+      };
+
+  static String _description(AppLocalizations l10n, GrantMethod m) => switch (m) {
+        GrantMethod.get => l10n.approvalMethodGetDesc,
+        GrantMethod.exec => l10n.approvalMethodExecDesc,
+        GrantMethod.inject => l10n.approvalMethodInjectDesc,
       };
 }
 

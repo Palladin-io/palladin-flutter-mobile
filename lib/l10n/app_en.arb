@@ -2098,5 +2098,8 @@
   "grantAccessConfirm": "Grant access",
   "grantAccessGranting": "Granting…",
   "grantAccessError": "Could not create the grant. Please try again.",
-  "grantAddGrant": "Add grant"
+  "grantAddGrant": "Add grant",
+  "approvalMethodGetDesc": "Returns the secret as plaintext to the agent.",
+  "approvalMethodExecDesc": "Runs a command with the secret in its environment — never enters the agent's context.",
+  "approvalMethodInjectDesc": "Fills a login form in the agent's browser — never enters the agent's context."
 }

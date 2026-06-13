@@ -1692,4 +1692,15 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get grantAddGrant => 'Dodaj grant';
+
+  @override
+  String get approvalMethodGetDesc => 'Zwraca sekret jako plaintext do agenta.';
+
+  @override
+  String get approvalMethodExecDesc =>
+      'Uruchamia komendę z sekretem w środowisku — nie trafia do kontekstu agenta.';
+
+  @override
+  String get approvalMethodInjectDesc =>
+      'Wypełnia formularz logowania w przeglądarce agenta — nie trafia do kontekstu agenta.';
 }

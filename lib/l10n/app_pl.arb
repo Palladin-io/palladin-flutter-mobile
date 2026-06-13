@@ -482,5 +482,8 @@
   "grantAccessConfirm": "Przyznaj dostęp",
   "grantAccessGranting": "Przyznawanie…",
   "grantAccessError": "Nie udało się utworzyć grantu. Spróbuj ponownie.",
-  "grantAddGrant": "Dodaj grant"
+  "grantAddGrant": "Dodaj grant",
+  "approvalMethodGetDesc": "Zwraca sekret jako plaintext do agenta.",
+  "approvalMethodExecDesc": "Uruchamia komendę z sekretem w środowisku — nie trafia do kontekstu agenta.",
+  "approvalMethodInjectDesc": "Wypełnia formularz logowania w przeglądarce agenta — nie trafia do kontekstu agenta."
 }

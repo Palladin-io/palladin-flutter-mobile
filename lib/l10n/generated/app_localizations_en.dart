@@ -1672,4 +1672,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get grantAddGrant => 'Add grant';
+
+  @override
+  String get approvalMethodGetDesc =>
+      'Returns the secret as plaintext to the agent.';
+
+  @override
+  String get approvalMethodExecDesc =>
+      'Runs a command with the secret in its environment — never enters the agent\'s context.';
+
+  @override
+  String get approvalMethodInjectDesc =>
+      'Fills a login form in the agent\'s browser — never enters the agent\'s context.';
 }
