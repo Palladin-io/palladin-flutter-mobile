@@ -361,7 +361,9 @@ class _Picker extends StatelessWidget {
           )
         else
           Container(
+            height: 44,
             padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: AppColors.cardBorder(brightness)),
@@ -370,9 +372,11 @@ class _Picker extends StatelessWidget {
               child: DropdownButton<String>(
                 value: selectedId,
                 isExpanded: true,
+                isDense: true,
+                icon: Icon(Icons.expand_more, size: 18, color: AppColors.onSurfaceSubtle(brightness)),
                 hint: Text(
                   emptyText,
-                  style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 12),
+                  style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 13),
                 ),
                 dropdownColor: AppColors.modalBackground(brightness),
                 style: TextStyle(color: AppColors.onSurface(brightness), fontSize: 13),
