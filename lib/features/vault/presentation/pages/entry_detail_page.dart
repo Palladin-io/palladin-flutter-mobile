@@ -16,6 +16,7 @@ import '../../data/datasources/entry_remote_datasource.dart';
 import '../../data/services/entry_icon_upload_service.dart';
 import '../../data/services/vault_icon_upload_service.dart'
     show VaultIconUploadErrorKind, VaultIconUploadException;
+import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../cubit/edit_entry_cubit.dart';
 import '../widgets/entry_form_utils.dart';
@@ -432,9 +433,10 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                 controller: _tabController,
                 children: [
                   _buildDetailsTab(l10n, brightness, state),
-                  VaultPlaceholderTab(
-                    icon: Icons.security,
-                    message: l10n.vaultAgentsEmpty,
+                  ContextGrantsTab(
+                    entryId: widget.entry.id,
+                    emptyTitle: l10n.entryAgentsEmptyTitle,
+                    emptyHint: l10n.entryAgentsEmptyHint,
                   ),
                   VaultPlaceholderTab(
                     icon: Icons.history,

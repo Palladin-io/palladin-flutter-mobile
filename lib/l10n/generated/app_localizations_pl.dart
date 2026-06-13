@@ -578,6 +578,13 @@ class AppLocalizationsPl extends AppLocalizations {
   String get vaultAgentsEmpty => 'Żaden agent nie ma jeszcze dostępu';
 
   @override
+  String get entryAgentsEmptyTitle => 'Brak agentów z dostępem';
+
+  @override
+  String get entryAgentsEmptyHint =>
+      'Żaden agent nie ma jeszcze dostępu do tego wpisu.';
+
+  @override
   String get vaultLogsEmpty => 'Dziennik aktywności już wkrótce';
 
   @override

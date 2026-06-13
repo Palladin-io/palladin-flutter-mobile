@@ -650,6 +650,10 @@
     "description": "Empty-state title for the Entries tab when no entries exist"
   },
   "vaultAgentsEmpty": "No agents granted access",
+  "entryAgentsEmptyTitle": "No agents have access",
+  "@entryAgentsEmptyTitle": { "description": "Entry Agents tab — empty state title" },
+  "entryAgentsEmptyHint": "No agent has been granted access to this entry yet.",
+  "@entryAgentsEmptyHint": { "description": "Entry Agents tab — empty state hint" },
   "@vaultAgentsEmpty": {
     "description": "Empty-state title for the Agents tab when no grants exist"
   },

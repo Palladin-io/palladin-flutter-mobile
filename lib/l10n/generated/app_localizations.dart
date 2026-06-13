@@ -962,6 +962,18 @@ abstract class AppLocalizations {
   /// **'No agents granted access'**
   String get vaultAgentsEmpty;
 
+  /// Entry Agents tab — empty state title
+  ///
+  /// In en, this message translates to:
+  /// **'No agents have access'**
+  String get entryAgentsEmptyTitle;
+
+  /// Entry Agents tab — empty state hint
+  ///
+  /// In en, this message translates to:
+  /// **'No agent has been granted access to this entry yet.'**
+  String get entryAgentsEmptyHint;
+
   /// Placeholder copy on the Logs tab
   ///
   /// In en, this message translates to:

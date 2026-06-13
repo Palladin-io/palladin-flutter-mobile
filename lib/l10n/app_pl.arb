@@ -144,6 +144,8 @@
   "vaultRestoreButton": "Wznów",
   "vaultEntriesEmpty": "Brak wpisów",
   "vaultAgentsEmpty": "Żaden agent nie ma jeszcze dostępu",
+  "entryAgentsEmptyTitle": "Brak agentów z dostępem",
+  "entryAgentsEmptyHint": "Żaden agent nie ma jeszcze dostępu do tego wpisu.",
   "vaultLogsEmpty": "Dziennik aktywności już wkrótce",
   "vaultMembersEmpty": "Zarządzanie członkami już wkrótce",
   "vaultRevealEntry": "Pokaż dane wpisu",

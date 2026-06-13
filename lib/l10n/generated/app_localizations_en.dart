@@ -566,6 +566,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get vaultAgentsEmpty => 'No agents granted access';
 
   @override
+  String get entryAgentsEmptyTitle => 'No agents have access';
+
+  @override
+  String get entryAgentsEmptyHint =>
+      'No agent has been granted access to this entry yet.';
+
+  @override
   String get vaultLogsEmpty => 'Activity log coming soon';
 
   @override
