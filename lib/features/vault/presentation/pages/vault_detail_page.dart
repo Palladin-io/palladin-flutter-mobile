@@ -16,6 +16,7 @@ import '../cubit/entry_list_cubit.dart';
 import '../cubit/vault_detail_cubit.dart';
 import '../widgets/vault_entries_tab.dart';
 import '../widgets/vault_form.dart';
+import '../../../approval/presentation/widgets/grant_access_sheet.dart';
 import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../widgets/vault_placeholder_tab.dart';
 import '../widgets/vault_settings_tab.dart';
@@ -86,6 +87,10 @@ class _VaultDetailViewState extends State<_VaultDetailView>
   VaultFormData? _initialFormData;
   VaultFormData? _currentFormData;
 
+  // Bumped after a grant is created on the Agents tab so the (self-providing) grants list remounts
+  // and reloads — keyed in [_LoadedBody].
+  int _grantsRefresh = 0;
+
   @override
   void initState() {
     super.initState();
@@ -129,8 +134,15 @@ class _VaultDetailViewState extends State<_VaultDetailView>
 
   Future<void> _onFabPressed() async {
     if (!mounted) return;
+    // Agents tab: proactively grant an agent access to this vault (FULL).
+    if (_tabController.index == _VaultTab.agents.index) {
+      final granted = await GrantAccessSheet.show(context, GrantForVault(widget.vaultId));
+      if (granted == true && mounted) {
+        setState(() => _grantsRefresh++);
+      }
+      return;
+    }
     if (_tabController.index != _VaultTab.entries.index) {
-      // Grants flow ships in a separate ticket — no-op for now.
       return;
     }
     // Capture the cubit before the async gap so no context access is needed
@@ -158,15 +170,16 @@ class _VaultDetailViewState extends State<_VaultDetailView>
   /// receives `null` and clears its FAB slot so we don't show a
   /// stale add affordance on the Logs / Members / Settings tabs.
   Widget? _detailFab(AppLocalizations l10n) {
-    // FAB only on the Entries tab (add entry). Grants live in the Approvals
-    // tab now, not per-vault.
-    if (_tabController.index != _VaultTab.entries.index) return null;
+    // FAB on Entries (add entry) and Agents (grant an agent access). Other tabs show none.
+    final onEntries = _tabController.index == _VaultTab.entries.index;
+    final onAgents = _tabController.index == _VaultTab.agents.index;
+    if (!onEntries && !onAgents) return null;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, right: 4),
       child: AppFab(
         onPressed: _onFabPressed,
-        tooltip: l10n.vaultAddEntryFab,
+        tooltip: onAgents ? l10n.grantAccessTitleVault : l10n.vaultAddEntryFab,
       ),
     );
   }
@@ -298,6 +311,7 @@ class _VaultDetailViewState extends State<_VaultDetailView>
                     VaultDetailLoaded(:final vault) => _LoadedBody(
                         vault: vault,
                         tabController: _tabController,
+                        grantsRefresh: _grantsRefresh,
                         initialFormData: _initialFormData,
                         onFormChanged: (data) =>
                             setState(() => _currentFormData = data),
@@ -448,6 +462,7 @@ class _LoadedBody extends StatelessWidget {
   const _LoadedBody({
     required this.vault,
     required this.tabController,
+    required this.grantsRefresh,
     required this.initialFormData,
     required this.onFormChanged,
     required this.onDelete,
@@ -456,6 +471,7 @@ class _LoadedBody extends StatelessWidget {
 
   final VaultEntity vault;
   final TabController tabController;
+  final int grantsRefresh;
   final VaultFormData? initialFormData;
   final ValueChanged<VaultFormData> onFormChanged;
   final VoidCallback onDelete;
@@ -470,7 +486,7 @@ class _LoadedBody extends StatelessWidget {
         children: [
           // Entries are sourced from `EntryListCubit` provided above.
           const VaultEntriesTab(),
-          _VaultAgentsTab(vaultId: vault.id),
+          _VaultAgentsTab(key: ValueKey(grantsRefresh), vaultId: vault.id),
           _PlaceholderTabBuilder(
             messageKey: (l10n) => l10n.vaultLogsEmpty,
             icon: Icons.history,
@@ -514,7 +530,7 @@ class _PlaceholderTabBuilder extends StatelessWidget {
 /// Agents tab — the vault's grants list (filtered by vaultId), mirroring the web Vault→Agents tab.
 /// Horizontal padding is zeroed because the parent TabBarView is already padded.
 class _VaultAgentsTab extends StatelessWidget {
-  const _VaultAgentsTab({required this.vaultId});
+  const _VaultAgentsTab({super.key, required this.vaultId});
 
   final String vaultId;
 

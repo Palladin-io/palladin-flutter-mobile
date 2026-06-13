@@ -356,7 +356,6 @@
   "agentsTypeUnknown": "Nieznany",
   "agentsDetailLastIp": "Ostatnie IP",
   "agentsDetailLastHostname": "Ostatni hostname",
-
   "grantsScreenTitle": "Dostępy",
   "grantsFilterAll": "Wszystkie",
   "grantsRetry": "Ponów",
@@ -367,21 +366,17 @@
   "grantsRevokeConfirmBody": "{agentName} natychmiast straci dostęp. Tej operacji nie można cofnąć.",
   "grantsRevokeReasonLabel": "Powód (opcjonalnie)",
   "grantsRevokeReasonHint": "Dlaczego odbierasz ten dostęp?",
-
   "grantCardTarget": "Dostęp do {target}",
   "grantEntryUnknown": "Nieznany wpis",
   "grantUnnamedAgent": "Agent bez nazwy",
-
   "grantStatusPending": "Oczekuje",
   "grantStatusActive": "Aktywny",
   "grantStatusDenied": "Odrzucony",
   "grantStatusRevoked": "Odebrany",
   "grantStatusExpired": "Wygasły",
   "grantStatusConsumed": "Wykorzystany",
-
   "grantScopeFull": "Wszystkie wpisy",
   "grantScopeGranular": "Pojedynczy wpis",
-
   "approvalSegmentPending": "Oczekujące",
   "approvalSegmentHistory": "Historia",
   "approvalHistorySearchHint": "Szukaj dostępów…",
@@ -390,7 +385,6 @@
   "approvalHistoryFilterClear": "Wyczyść",
   "approvalPendingRequestsAccess": "prosi o dostęp",
   "approvalPendingRowRequested": "Zażądano",
-
   "orgGrantRowVault": "Sejf",
   "orgGrantRowEntry": "Wpis",
   "orgGrantRowActor": "Przez",
@@ -404,7 +398,6 @@
   "orgGrantUsesLeft": "Pozostało {left} z {limit} użyć",
   "orgGrantExpiresOn": "Do {date}",
   "orgGrantAlreadyActive": "Już aktywny",
-
   "grantDetailTitle": "Dostęp",
   "grantDetailScope": "Zakres",
   "grantDetailEntry": "Wpis",
@@ -417,14 +410,12 @@
   "grantDetailExpiresAt": "Wygasa {date}",
   "grantDetailUsesLimit": "{used} z {limit} użyć",
   "grantDetailNoExpiry": "Bez wygaśnięcia",
-
   "grantsErrorNotFound": "Ten dostęp już nie istnieje.",
   "grantsErrorForbidden": "Nie masz uprawnień do zarządzania dostępami.",
   "grantsErrorValidation": "Żądanie zostało odrzucone. Sprawdź dane i spróbuj ponownie.",
   "grantsErrorNetwork": "Nie można połączyć się z serwerem. Sprawdź połączenie.",
   "grantsErrorCrypto": "Nie udało się bezpiecznie przygotować poświadczenia. Spróbuj ponownie.",
   "grantsErrorUnknown": "Coś poszło nie tak. Spróbuj ponownie.",
-
   "approvalInboxTitle": "Zatwierdzenia",
   "approvalInboxEmpty": "Nic do zatwierdzenia",
   "approvalInboxEmptyHint": "Gdy agent poprosi o dostęp do poświadczenia, prośba pojawi się tutaj — możesz ją zatwierdzić lub odrzucić.",
@@ -479,5 +470,17 @@
   "approvalErrorNetwork": "Nie można połączyć się z serwerem. Sprawdź połączenie.",
   "approvalErrorCrypto": "Nie udało się bezpiecznie przygotować poświadczenia. Spróbuj ponownie.",
   "approvalErrorVaultLocked": "Najpierw odblokuj sejf, aby zatwierdzić tę prośbę.",
-  "approvalErrorUnknown": "Coś poszło nie tak. Spróbuj ponownie."
+  "approvalErrorUnknown": "Coś poszło nie tak. Spróbuj ponownie.",
+  "grantAccessTitleAgent": "Dodaj agenta",
+  "grantAccessTitleVault": "Przyznaj dostęp",
+  "grantAccessPickAgent": "Agent",
+  "grantAccessPickVault": "Sejf",
+  "grantAccessNoAgents": "Brak aktywnych agentów",
+  "grantAccessNoVaults": "Brak dostępnych sejfów",
+  "grantAccessSelectAgent": "Wybierz agenta",
+  "grantAccessSelectVault": "Wybierz sejf",
+  "grantAccessConfirm": "Przyznaj dostęp",
+  "grantAccessGranting": "Przyznawanie…",
+  "grantAccessError": "Nie udało się utworzyć grantu. Spróbuj ponownie.",
+  "grantAddGrant": "Dodaj grant"
 }

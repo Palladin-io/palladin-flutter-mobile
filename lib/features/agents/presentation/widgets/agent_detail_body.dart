@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/approve_action_button.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../approval/presentation/widgets/grant_access_sheet.dart';
 import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../../domain/entities/agent.dart';
 import 'agent_avatar.dart';
@@ -116,6 +117,9 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
                 agentId: widget.agent.agentId,
                 emptyTitle: l10n.agentGrantsEmptyTitle,
                 emptyHint: l10n.agentGrantsEmptyHint,
+                addLabel: l10n.grantAddGrant,
+                onAdd: () async =>
+                    await GrantAccessSheet.show(context, GrantForAgent(widget.agent.agentId)) == true,
               ),
             _AgentDetailTab.logs => ListView(
                 physics: const AlwaysScrollableScrollPhysics(),

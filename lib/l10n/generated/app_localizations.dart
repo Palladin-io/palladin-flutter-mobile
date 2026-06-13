@@ -2923,6 +2923,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
   String get approvalErrorUnknown;
+
+  /// No description provided for @grantAccessTitleAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Add agent'**
+  String get grantAccessTitleAgent;
+
+  /// No description provided for @grantAccessTitleVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant access'**
+  String get grantAccessTitleVault;
+
+  /// No description provided for @grantAccessPickAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent'**
+  String get grantAccessPickAgent;
+
+  /// No description provided for @grantAccessPickVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get grantAccessPickVault;
+
+  /// No description provided for @grantAccessNoAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'No active agents to grant'**
+  String get grantAccessNoAgents;
+
+  /// No description provided for @grantAccessNoVaults.
+  ///
+  /// In en, this message translates to:
+  /// **'No vaults available'**
+  String get grantAccessNoVaults;
+
+  /// No description provided for @grantAccessSelectAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Select an agent'**
+  String get grantAccessSelectAgent;
+
+  /// No description provided for @grantAccessSelectVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a vault'**
+  String get grantAccessSelectVault;
+
+  /// No description provided for @grantAccessConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant access'**
+  String get grantAccessConfirm;
+
+  /// No description provided for @grantAccessGranting.
+  ///
+  /// In en, this message translates to:
+  /// **'Granting…'**
+  String get grantAccessGranting;
+
+  /// No description provided for @grantAccessError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create the grant. Please try again.'**
+  String get grantAccessError;
+
+  /// No description provided for @grantAddGrant.
+  ///
+  /// In en, this message translates to:
+  /// **'Add grant'**
+  String get grantAddGrant;
 }
 
 class _AppLocalizationsDelegate

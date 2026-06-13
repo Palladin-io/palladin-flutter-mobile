@@ -1655,4 +1655,41 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get approvalErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
+
+  @override
+  String get grantAccessTitleAgent => 'Dodaj agenta';
+
+  @override
+  String get grantAccessTitleVault => 'Przyznaj dostęp';
+
+  @override
+  String get grantAccessPickAgent => 'Agent';
+
+  @override
+  String get grantAccessPickVault => 'Sejf';
+
+  @override
+  String get grantAccessNoAgents => 'Brak aktywnych agentów';
+
+  @override
+  String get grantAccessNoVaults => 'Brak dostępnych sejfów';
+
+  @override
+  String get grantAccessSelectAgent => 'Wybierz agenta';
+
+  @override
+  String get grantAccessSelectVault => 'Wybierz sejf';
+
+  @override
+  String get grantAccessConfirm => 'Przyznaj dostęp';
+
+  @override
+  String get grantAccessGranting => 'Przyznawanie…';
+
+  @override
+  String get grantAccessError =>
+      'Nie udało się utworzyć grantu. Spróbuj ponownie.';
+
+  @override
+  String get grantAddGrant => 'Dodaj grant';
 }

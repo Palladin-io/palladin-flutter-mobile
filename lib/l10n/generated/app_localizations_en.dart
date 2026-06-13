@@ -1635,4 +1635,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get approvalErrorUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get grantAccessTitleAgent => 'Add agent';
+
+  @override
+  String get grantAccessTitleVault => 'Grant access';
+
+  @override
+  String get grantAccessPickAgent => 'Agent';
+
+  @override
+  String get grantAccessPickVault => 'Vault';
+
+  @override
+  String get grantAccessNoAgents => 'No active agents to grant';
+
+  @override
+  String get grantAccessNoVaults => 'No vaults available';
+
+  @override
+  String get grantAccessSelectAgent => 'Select an agent';
+
+  @override
+  String get grantAccessSelectVault => 'Select a vault';
+
+  @override
+  String get grantAccessConfirm => 'Grant access';
+
+  @override
+  String get grantAccessGranting => 'Granting…';
+
+  @override
+  String get grantAccessError =>
+      'Could not create the grant. Please try again.';
+
+  @override
+  String get grantAddGrant => 'Add grant';
 }

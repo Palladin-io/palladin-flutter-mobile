@@ -16,6 +16,7 @@ import '../../data/datasources/entry_remote_datasource.dart';
 import '../../data/services/entry_icon_upload_service.dart';
 import '../../data/services/vault_icon_upload_service.dart'
     show VaultIconUploadErrorKind, VaultIconUploadException;
+import '../../../approval/presentation/widgets/grant_access_sheet.dart';
 import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../cubit/edit_entry_cubit.dart';
@@ -437,6 +438,13 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                     entryId: widget.entry.id,
                     emptyTitle: l10n.entryAgentsEmptyTitle,
                     emptyHint: l10n.entryAgentsEmptyHint,
+                    addLabel: l10n.grantAccessTitleAgent,
+                    onAdd: () async =>
+                        await GrantAccessSheet.show(
+                          context,
+                          GrantForEntry(vaultId: widget.entry.vaultId, entryId: widget.entry.id),
+                        ) ==
+                        true,
                   ),
                   VaultPlaceholderTab(
                     icon: Icons.history,
