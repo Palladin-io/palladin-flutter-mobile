@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_dropdown_field.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/icon_picker_grid.dart'
     show IconPickerGrid, IconMoreTile, IconPresetTile, ImagePresetTile;
@@ -386,44 +387,13 @@ class _TypeDropdown extends StatelessWidget {
         ),
     ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.agentTypeLabel,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppColors.onSurfaceMuted(brightness),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: AppColors.inputFill(brightness),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.inputBorder(brightness)),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String?>(
-              isExpanded: true,
-              value: value,
-              dropdownColor: AppColors.modalBackground(brightness),
-              icon: Icon(
-                Icons.keyboard_arrow_down,
-                color: AppColors.onSurfaceSubtle(brightness),
-              ),
-              style: TextStyle(
-                color: AppColors.inputText(brightness),
-                fontSize: 14,
-              ),
-              onChanged: enabled ? onChanged : null,
-              items: items,
-            ),
-          ),
-        ),
-      ],
+    // The null item renders [agentTypeLabel] as the placeholder inside the box,
+    // so no caption above. Shares the 44px height/style via [AppDropdownField].
+    return AppDropdownField<String?>(
+      value: value,
+      enabled: enabled,
+      onChanged: onChanged,
+      items: items,
     );
   }
 }

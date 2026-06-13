@@ -191,46 +191,41 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
           ],
         ),
         const SizedBox(height: 12),
-        // Lifetime has no field — show the "never expires" caveat in the shared Warning Zone
-        // (consistent with the `get` method warning). Time / Uses keep the fixed-height field slot.
-        if (_mode == _Mode.lifetime)
-          WarningZone(
-            title: l10n.approvalMethodWarningZone,
-            message: l10n.approvalLifetimeHint,
-          )
-        else
-        SizedBox(
-          height: 64,
-          child: switch (_mode) {
-            _Mode.expiry => OnboardingTextField(
-                controller: _dateController,
-                label: l10n.approvalExpiresOnLabel,
-                readOnly: true,
-                enabled: widget.enabled,
-                feedbackReserveSpace: false,
-                onTap: widget.enabled ? _pickDateTime : null,
-                suffixIcon: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Icon(
-                    Icons.calendar_today_outlined,
-                    size: 18,
-                    color: AppColors.onSurfaceSubtle(brightness),
-                  ),
+        // The field below sizes naturally — no fixed-height slot (which caused an
+        // 8px overflow). Time / Uses are the same label+field height; Lifetime has
+        // no field and instead shows the "never expires" caveat in the shared
+        // Warning Zone (consistent with the `get` method warning).
+        switch (_mode) {
+          _Mode.expiry => OnboardingTextField(
+              controller: _dateController,
+              label: l10n.approvalExpiresOnLabel,
+              readOnly: true,
+              enabled: widget.enabled,
+              feedbackReserveSpace: false,
+              onTap: widget.enabled ? _pickDateTime : null,
+              suffixIcon: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Icon(
+                  Icons.calendar_today_outlined,
+                  size: 18,
+                  color: AppColors.onSurfaceSubtle(brightness),
                 ),
               ),
-            _Mode.uses => OnboardingTextField(
-                controller: _usesController,
-                label: l10n.approvalLimitUsesLabel,
-                enabled: widget.enabled,
-                feedbackReserveSpace: false,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                onChanged: (_) => _emit(),
-              ),
-            // Handled above by the Warning Zone; unreachable here.
-            _Mode.lifetime => const SizedBox.shrink(),
-          },
-        ),
+            ),
+          _Mode.uses => OnboardingTextField(
+              controller: _usesController,
+              label: l10n.approvalLimitUsesLabel,
+              enabled: widget.enabled,
+              feedbackReserveSpace: false,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (_) => _emit(),
+            ),
+          _Mode.lifetime => WarningZone(
+              title: l10n.approvalMethodWarningZone,
+              message: l10n.approvalLifetimeHint,
+            ),
+        },
       ],
     );
   }

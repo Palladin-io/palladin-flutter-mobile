@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_dropdown_field.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
@@ -31,52 +32,18 @@ class EntryTypeDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.entryTypeLabel,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppColors.onSurfaceMuted(brightness),
-          ),
+    return AppDropdownField<EntryType>(
+      label: l10n.entryTypeLabel,
+      value: value,
+      onChanged: onChanged,
+      items: [
+        DropdownMenuItem(
+          value: EntryType.credential,
+          child: Text(l10n.entryTypeCredential),
         ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: AppColors.inputFill(brightness),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: AppColors.inputBorder(brightness),
-              width: 1,
-            ),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<EntryType>(
-              value: value,
-              isExpanded: true,
-              dropdownColor: AppColors.modalBackground(brightness),
-              iconEnabledColor: AppColors.onSurfaceMuted(brightness),
-              style: TextStyle(
-                color: AppColors.inputText(brightness),
-                fontSize: 14,
-              ),
-              items: [
-                DropdownMenuItem(
-                  value: EntryType.credential,
-                  child: Text(l10n.entryTypeCredential),
-                ),
-                DropdownMenuItem(
-                  value: EntryType.key,
-                  child: Text(l10n.entryTypeKey),
-                ),
-              ],
-              onChanged: onChanged,
-            ),
-          ),
+        DropdownMenuItem(
+          value: EntryType.key,
+          child: Text(l10n.entryTypeKey),
         ),
       ],
     );

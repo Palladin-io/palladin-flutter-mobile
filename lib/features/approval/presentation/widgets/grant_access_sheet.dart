@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_dropdown_field.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/domain/entities/agent.dart';
@@ -351,33 +352,22 @@ class _Picker extends StatelessWidget {
             style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 12),
           )
         else
-          Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.cardBorder(brightness)),
+          // Transparent fill — the sheet surface is already tinted.
+          AppDropdownField<String>(
+            value: selectedId,
+            enabled: enabled,
+            filled: false,
+            onChanged: (v) {
+              if (v != null) onChanged(v);
+            },
+            hint: Text(
+              emptyText,
+              style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 13),
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: selectedId,
-                isExpanded: true,
-                isDense: true,
-                icon: Icon(Icons.expand_more, size: 18, color: AppColors.onSurfaceSubtle(brightness)),
-                hint: Text(
-                  emptyText,
-                  style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 13),
-                ),
-                dropdownColor: AppColors.modalBackground(brightness),
-                style: TextStyle(color: AppColors.onSurface(brightness), fontSize: 13),
-                items: [
-                  for (final o in options)
-                    DropdownMenuItem<String>(value: o.id, child: Text(o.label)),
-                ],
-                onChanged: enabled ? (v) => v != null ? onChanged(v) : null : null,
-              ),
-            ),
+            items: [
+              for (final o in options)
+                DropdownMenuItem<String>(value: o.id, child: Text(o.label)),
+            ],
           ),
       ],
     );
