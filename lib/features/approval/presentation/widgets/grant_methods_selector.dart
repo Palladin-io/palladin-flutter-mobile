@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../grants/domain/entities/grant_method.dart';
 
@@ -161,10 +162,9 @@ class _MethodsPickerSheetState extends State<_MethodsPickerSheet> {
             ),
           if (_selected.contains(GrantMethod.get)) ...[
             const SizedBox(height: 8),
-            _WarningZone(
+            WarningZone(
               title: l10n.approvalMethodWarningZone,
               message: l10n.approvalMethodGetWarning,
-              brightness: brightness,
             ),
           ],
           const SizedBox(height: 16),
@@ -265,43 +265,6 @@ class _MethodRow extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Amber warning box shown inside the picker when `get` is selected.
-class _WarningZone extends StatelessWidget {
-  const _WarningZone({required this.title, required this.message, required this.brightness});
-
-  final String title;
-  final String message;
-  final Brightness brightness;
-
-  @override
-  Widget build(BuildContext context) {
-    final amber = AppColors.premium(brightness);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: amber.withValues(alpha: 0.3)),
-        color: amber.withValues(alpha: 0.06),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(color: amber, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            message,
-            style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 11, height: 1.35),
-          ),
-        ],
       ),
     );
   }

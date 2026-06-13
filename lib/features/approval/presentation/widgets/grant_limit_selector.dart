@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../cubit/grant_approval_cubit.dart';
@@ -190,8 +191,14 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
           ],
         ),
         const SizedBox(height: 12),
-        // Fixed-height slot so switching Time / Uses / Lifetime never resizes
-        // the sheet (the three variants have different natural heights).
+        // Lifetime has no field — show the "never expires" caveat in the shared Warning Zone
+        // (consistent with the `get` method warning). Time / Uses keep the fixed-height field slot.
+        if (_mode == _Mode.lifetime)
+          WarningZone(
+            title: l10n.approvalMethodWarningZone,
+            message: l10n.approvalLifetimeHint,
+          )
+        else
         SizedBox(
           height: 72,
           child: switch (_mode) {
@@ -218,41 +225,8 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 onChanged: (_) => _emit(),
               ),
-            _Mode.lifetime => Container(
-                width: double.infinity,
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: AppColors.premiumAmber.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: AppColors.premiumAmber.withValues(alpha: 0.5),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.warning_amber_rounded,
-                      size: 16,
-                      color: AppColors.premiumAmber,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        l10n.approvalLifetimeHint,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppColors.premiumAmber,
-                          fontSize: 12,
-                          height: 1.3,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // Handled above by the Warning Zone; unreachable here.
+            _Mode.lifetime => const SizedBox.shrink(),
           },
         ),
       ],

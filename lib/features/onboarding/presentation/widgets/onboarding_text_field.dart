@@ -245,6 +245,9 @@ class OnboardingTextField extends StatelessWidget {
       onChanged: onChanged,
       style: TextStyle(color: AppColors.inputText(brightness), fontSize: 13),
       decoration: InputDecoration(
+        // isDense + tighter vertical padding brings the field to ~44px, in line with the app's
+        // buttons/controls (the default was ~48-52, which read as oversized).
+        isDense: true,
         hintText: hintText,
         hintStyle:
             TextStyle(color: AppColors.inputHint(brightness), fontSize: 13),
