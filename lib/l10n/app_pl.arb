@@ -448,6 +448,7 @@
   "approvalApproveSubAccessTo": "dostęp do",
   "approvalApproveSubIn": "w sejfie",
   "approvalMethodsLegend": "Jak agent może użyć",
+  "approvalMethodWarningZone": "Strefa ostrzeżenia",
   "approvalMethodsHelp": "Wybierz, jak ten credential może zostać użyty. Ograniczenie do Exec/Inject trzyma sekret poza kontekstem LLM agenta.",
   "approvalMethodNoneSelected": "Wybierz co najmniej jedną metodę.",
   "approvalMethodGetLabel": "Get (plaintext)",

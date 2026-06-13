@@ -1553,6 +1553,8 @@
   "approvalAccessType": "Access type",
   "@approvalAccessType": { "description": "Label above the access policy selector" },
   "approvalMethodsLegend": "How the agent may use it",
+  "approvalMethodWarningZone": "Warning Zone",
+  "@approvalMethodWarningZone": { "description": "Title of the amber warning box shown when the plaintext get method is selected" },
   "@approvalMethodsLegend": { "description": "Label above the grant methods selector" },
   "approvalMethodsHelp": "Choose how this credential can be used. Restricting to Exec/Inject keeps the secret out of the agent's LLM context.",
   "@approvalMethodsHelp": { "description": "Helper text under the methods legend" },

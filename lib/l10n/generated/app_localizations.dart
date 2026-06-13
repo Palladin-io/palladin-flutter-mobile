@@ -2738,6 +2738,12 @@ abstract class AppLocalizations {
   /// **'How the agent may use it'**
   String get approvalMethodsLegend;
 
+  /// Title of the amber warning box shown when the plaintext get method is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Warning Zone'**
+  String get approvalMethodWarningZone;
+
   /// Helper text under the methods legend
   ///
   /// In en, this message translates to:

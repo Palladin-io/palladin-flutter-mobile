@@ -1531,6 +1531,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get approvalMethodsLegend => 'How the agent may use it';
 
   @override
+  String get approvalMethodWarningZone => 'Warning Zone';
+
+  @override
   String get approvalMethodsHelp =>
       'Choose how this credential can be used. Restricting to Exec/Inject keeps the secret out of the agent\'s LLM context.';
 

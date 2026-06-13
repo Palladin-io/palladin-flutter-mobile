@@ -56,17 +56,14 @@ class GrantMethodsSelector extends StatelessWidget {
               ),
           ],
         ),
-        if (value.contains(GrantMethod.get)) ...[
-          const SizedBox(height: 8),
-          Text(
-            l10n.approvalMethodGetWarning,
-            style: TextStyle(
-              color: AppColors.premium(brightness),
-              fontSize: 11,
-              height: 1.35,
-            ),
-          ),
-        ],
+        // Warning Zone — framed like the Danger Zone but in amber. Animates open/closed (height +
+        // fade) when the plaintext `get` method is toggled.
+        _WarningZone(
+          show: value.contains(GrantMethod.get),
+          title: l10n.approvalMethodWarningZone,
+          message: l10n.approvalMethodGetWarning,
+          brightness: brightness,
+        ),
       ],
     );
   }
@@ -76,6 +73,74 @@ class GrantMethodsSelector extends StatelessWidget {
         GrantMethod.exec => l10n.approvalMethodExecLabel,
         GrantMethod.inject => l10n.approvalMethodInjectLabel,
       };
+}
+
+/// Amber "Warning Zone" box, styled like the app's Danger Zone (rounded border + uppercase title)
+/// but in the premium-amber tone. Animates its height and opacity open/closed via [AnimatedSize] +
+/// [AnimatedOpacity] so it slides in when `get` is selected instead of popping.
+class _WarningZone extends StatelessWidget {
+  const _WarningZone({
+    required this.show,
+    required this.title,
+    required this.message,
+    required this.brightness,
+  });
+
+  final bool show;
+  final String title;
+  final String message;
+  final Brightness brightness;
+
+  @override
+  Widget build(BuildContext context) {
+    final amber = AppColors.premium(brightness);
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      alignment: Alignment.topCenter,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: show ? 1 : 0,
+        child: show
+            ? Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: amber.withValues(alpha: 0.3)),
+                    color: amber.withValues(alpha: 0.06),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: amber,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        message,
+                        style: TextStyle(
+                          color: AppColors.onSurfaceMuted(brightness),
+                          fontSize: 11,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : const SizedBox(width: double.infinity),
+      ),
+    );
+  }
 }
 
 /// A single toggleable method chip — selected state mirrors the segmented policy buttons (brand
