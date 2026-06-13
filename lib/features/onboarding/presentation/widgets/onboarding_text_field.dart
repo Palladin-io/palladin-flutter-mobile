@@ -148,6 +148,7 @@ class OnboardingTextField extends StatelessWidget {
     this.readOnly = false,
     this.onTap,
     this.enabled = true,
+    this.focusNode,
     this.onSubmitted,
     this.onChanged,
     this.borderColor,
@@ -196,6 +197,10 @@ class OnboardingTextField extends StatelessWidget {
   /// When false the field is greyed out and non-interactive.
   final bool enabled;
 
+  /// Optional focus node — pass when an external controller (e.g. an
+  /// [Autocomplete] field) needs to drive focus and its options overlay.
+  final FocusNode? focusNode;
+
   final ValueChanged<String>? onSubmitted;
   final ValueChanged<String>? onChanged;
   final Color? borderColor;
@@ -230,6 +235,7 @@ class OnboardingTextField extends StatelessWidget {
     final field = TextField(
       cursorColor: activeColor,
       controller: controller,
+      focusNode: focusNode,
       obscureText: obscureText,
       maxLines: obscureText ? 1 : maxLines,
       autocorrect: autocorrect,
@@ -283,6 +289,11 @@ class OnboardingTextField extends StatelessWidget {
         // [Padding] to control the gap between icon and text.
         prefixIconConstraints: const BoxConstraints(),
         suffixIcon: suffixIcon,
+        // Same treatment as the prefix — strip the default 48px min so a plain
+        // suffix glyph (e.g. the date picker's calendar) doesn't inflate the
+        // field above the app's ~44px input height. Buttons supplied as a
+        // suffix (e.g. the password eye IconButton) keep their own min size.
+        suffixIconConstraints: const BoxConstraints(),
       ),
     );
 

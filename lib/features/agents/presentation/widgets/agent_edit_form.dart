@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/app_dropdown_field.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/icon_picker_grid.dart'
     show IconPickerGrid, IconMoreTile, IconPresetTile, ImagePresetTile;
@@ -281,8 +280,11 @@ class _AgentEditFormState extends State<AgentEditForm> {
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 12),
-                _TypeDropdown(
-                  value: _type,
+                _TypeAutocomplete(
+                  // Keyed by agent so the field resets when a different agent
+                  // loads, but stays put (focus + text) during editing.
+                  key: ValueKey('type-${widget.agent.agentId}'),
+                  initialValue: widget.agent.type,
                   enabled: enabled,
                   onChanged: (next) => setState(() => _type = next),
                 ),
@@ -330,70 +332,147 @@ class _AgentEditFormState extends State<AgentEditForm> {
   }
 }
 
-/// Type dropdown — mirrors the web `<select>` rendering. Lists the 13
-/// built-in agent types from [agentTypeOptions]; when the agent already
-/// carries a custom type that is not in the list, that value is appended
-/// so it survives a round-trip through the form.
-class _TypeDropdown extends StatelessWidget {
-  const _TypeDropdown({
-    required this.value,
+/// Free-text type field with preset suggestions — mirrors the web combobox.
+///
+/// Lists the 13 built-in agent types from [agentTypeOptions] as suggestions
+/// while still accepting a custom type the operator types in (so a value not
+/// in the preset list survives a round-trip). Built-in presets display their
+/// localized label but emit the camelCase wire value; free text is emitted
+/// verbatim. Styled with [OnboardingTextField] + a label above, consistent
+/// with the rest of the form's inputs.
+typedef _TypeOption = ({String value, String label});
+
+class _TypeAutocomplete extends StatelessWidget {
+  const _TypeAutocomplete({
+    super.key,
+    required this.initialValue,
     required this.enabled,
     required this.onChanged,
   });
 
-  final String? value;
+  /// The agent's saved type (wire value or custom string), or null.
+  final String? initialValue;
   final bool enabled;
+
+  /// Emits the resolved type: a preset's wire value, the raw custom text, or
+  /// null when the field is cleared.
   final ValueChanged<String?> onChanged;
+
+  /// Display string for a saved value — the preset label if it matches a
+  /// built-in wire value, otherwise the raw value (a custom type).
+  String _displayFor(String value, List<_TypeOption> options) {
+    for (final o in options) {
+      if (o.value == value) return o.label;
+    }
+    return value;
+  }
+
+  /// Maps the typed text back to a wire value: a preset's value on an exact
+  /// (case-insensitive) label match, otherwise the trimmed text, or null.
+  String? _resolve(String text, List<_TypeOption> options) {
+    final t = text.trim();
+    if (t.isEmpty) return null;
+    for (final o in options) {
+      if (o.label.toLowerCase() == t.toLowerCase()) return o.value;
+    }
+    return t;
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
     final options = agentTypeOptions(l10n);
-    final builtInValues = options.map((o) => o.value).toSet();
+    final seed = initialValue == null || initialValue!.isEmpty
+        ? ''
+        : _displayFor(initialValue!, options);
 
-    final items = <DropdownMenuItem<String?>>[
-      DropdownMenuItem<String?>(
-        value: null,
-        child: Text(
-          l10n.agentTypeLabel,
-          style: TextStyle(
-            color: AppColors.inputHint(brightness),
-            fontSize: 14,
+    return Autocomplete<_TypeOption>(
+      // Set once when the field is created (the widget is keyed by agent, so
+      // it re-seeds on agent switch but not while editing). Safe vs. mutating
+      // the controller during build.
+      initialValue: TextEditingValue(text: seed),
+      optionsBuilder: (TextEditingValue value) {
+        final q = value.text.trim().toLowerCase();
+        if (q.isEmpty) return options;
+        return options.where((o) => o.label.toLowerCase().contains(q));
+      },
+      displayStringForOption: (o) => o.label,
+      onSelected: (o) => onChanged(o.value),
+      fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+        final brightness = Theme.of(context).brightness;
+        return OnboardingTextField(
+          controller: controller,
+          focusNode: focusNode,
+          label: l10n.agentTypeLabel,
+          enabled: enabled,
+          textInputAction: TextInputAction.next,
+          onChanged: (text) => onChanged(_resolve(text, options)),
+          onSubmitted: (_) => onSubmit(),
+          suffixIcon: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Icon(
+              Icons.expand_more,
+              size: 18,
+              color: AppColors.onSurfaceSubtle(brightness),
+            ),
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, opts) =>
+          _TypeOptionsList(options: opts.toList(), onSelected: onSelected),
+    );
+  }
+}
+
+/// Themed suggestion list for [_TypeAutocomplete] — matches the app's modal
+/// surface instead of the default white Material popup.
+class _TypeOptionsList extends StatelessWidget {
+  const _TypeOptionsList({required this.options, required this.onSelected});
+
+  final List<_TypeOption> options;
+  final ValueChanged<_TypeOption> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          margin: const EdgeInsets.only(top: 4),
+          constraints: const BoxConstraints(maxHeight: 240),
+          decoration: BoxDecoration(
+            color: AppColors.modalBackground(brightness),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.cardBorder(brightness)),
+          ),
+          child: ListView.builder(
+            padding: EdgeInsets.zero,
+            shrinkWrap: true,
+            itemCount: options.length,
+            itemBuilder: (context, i) {
+              final o = options[i];
+              return InkWell(
+                onTap: () => onSelected(o),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  child: Text(
+                    o.label,
+                    style: TextStyle(
+                      color: AppColors.onSurface(brightness),
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
-      for (final option in options)
-        DropdownMenuItem<String?>(
-          value: option.value,
-          child: Text(
-            option.label,
-            style: TextStyle(
-              color: AppColors.inputText(brightness),
-              fontSize: 14,
-            ),
-          ),
-        ),
-      if (value != null && !builtInValues.contains(value))
-        DropdownMenuItem<String?>(
-          value: value,
-          child: Text(
-            value!,
-            style: TextStyle(
-              color: AppColors.inputText(brightness),
-              fontSize: 14,
-            ),
-          ),
-        ),
-    ];
-
-    // The null item renders [agentTypeLabel] as the placeholder inside the box,
-    // so no caption above. Shares the 44px height/style via [AppDropdownField].
-    return AppDropdownField<String?>(
-      value: value,
-      enabled: enabled,
-      onChanged: onChanged,
-      items: items,
     );
   }
 }
