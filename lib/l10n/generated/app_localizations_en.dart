@@ -573,6 +573,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'No agent has been granted access to this entry yet.';
 
   @override
+  String get vaultAgentsEmptyHint =>
+      'No agent has been granted access to this vault yet.';
+
+  @override
   String get vaultLogsEmpty => 'Activity log coming soon';
 
   @override
@@ -1199,6 +1203,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentsTabGrants => 'Grants';
+
+  @override
+  String get agentGrantsEmptyTitle => 'No grants yet';
+
+  @override
+  String get agentGrantsEmptyHint =>
+      'This agent has no grants. Add one to give it access to a vault or entry.';
 
   @override
   String get agentsTabLogs => 'Logs';

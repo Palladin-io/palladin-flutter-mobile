@@ -26,6 +26,7 @@ class ContextGrantsTab extends StatelessWidget {
     this.entryId,
     required this.emptyTitle,
     required this.emptyHint,
+    this.contentPadding = const EdgeInsets.fromLTRB(20, 4, 20, 96),
   });
 
   final String? agentId;
@@ -34,21 +35,34 @@ class ContextGrantsTab extends StatelessWidget {
   final String emptyTitle;
   final String emptyHint;
 
+  /// List/empty padding. Defaults to the standard screen padding; pass zero
+  /// horizontal when the host already provides it (e.g. the vault TabBarView).
+  final EdgeInsets contentPadding;
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider<OrgGrantsCubit>(
       create: (_) => getIt<OrgGrantsCubit>()
         ..load(agentId: agentId, vaultId: vaultId, entryId: entryId),
-      child: _ContextGrantsView(emptyTitle: emptyTitle, emptyHint: emptyHint),
+      child: _ContextGrantsView(
+        emptyTitle: emptyTitle,
+        emptyHint: emptyHint,
+        contentPadding: contentPadding,
+      ),
     );
   }
 }
 
 class _ContextGrantsView extends StatelessWidget {
-  const _ContextGrantsView({required this.emptyTitle, required this.emptyHint});
+  const _ContextGrantsView({
+    required this.emptyTitle,
+    required this.emptyHint,
+    required this.contentPadding,
+  });
 
   final String emptyTitle;
   final String emptyHint;
+  final EdgeInsets contentPadding;
 
   Future<void> _revoke(BuildContext context, Grant grant) async {
     final l10n = AppLocalizations.of(context)!;
@@ -96,13 +110,18 @@ class _ContextGrantsView extends StatelessWidget {
               onRetry: () => context.read<OrgGrantsCubit>().reload(),
             ),
           OrgGrantsStatus.loaded => state.grants.isEmpty
-              ? _EmptyState(title: emptyTitle, hint: emptyHint, brightness: brightness)
+              ? _EmptyState(
+                  title: emptyTitle,
+                  hint: emptyHint,
+                  brightness: brightness,
+                  padding: contentPadding,
+                )
               : RefreshIndicator(
                   color: AppColors.tealAccent,
                   onRefresh: () => context.read<OrgGrantsCubit>().reload(),
                   child: ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 96),
+                    padding: contentPadding,
                     itemCount: state.grants.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (_, i) => OrgGrantCard(
@@ -120,17 +139,23 @@ class _ContextGrantsView extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.title, required this.hint, required this.brightness});
+  const _EmptyState({
+    required this.title,
+    required this.hint,
+    required this.brightness,
+    required this.padding,
+  });
 
   final String title;
   final String hint;
   final Brightness brightness;
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 40, 20, 32),
+      padding: padding.copyWith(top: 40),
       children: [
         Icon(Icons.key_off_outlined, size: 40, color: AppColors.onSurfaceSubtle(brightness)),
         const SizedBox(height: 12),

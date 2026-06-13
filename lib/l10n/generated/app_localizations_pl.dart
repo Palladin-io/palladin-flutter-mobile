@@ -585,6 +585,10 @@ class AppLocalizationsPl extends AppLocalizations {
       'Żaden agent nie ma jeszcze dostępu do tego wpisu.';
 
   @override
+  String get vaultAgentsEmptyHint =>
+      'Żaden agent nie ma jeszcze dostępu do tego sejfu.';
+
+  @override
   String get vaultLogsEmpty => 'Dziennik aktywności już wkrótce';
 
   @override
@@ -1219,6 +1223,13 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get agentsTabGrants => 'Dostępy';
+
+  @override
+  String get agentGrantsEmptyTitle => 'Brak grantów';
+
+  @override
+  String get agentGrantsEmptyHint =>
+      'Ten agent nie ma żadnych grantów. Dodaj grant, aby dać dostęp do sejfu lub wpisu.';
 
   @override
   String get agentsTabLogs => 'Historia';

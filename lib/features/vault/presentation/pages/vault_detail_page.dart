@@ -16,6 +16,7 @@ import '../cubit/entry_list_cubit.dart';
 import '../cubit/vault_detail_cubit.dart';
 import '../widgets/vault_entries_tab.dart';
 import '../widgets/vault_form.dart';
+import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../widgets/vault_placeholder_tab.dart';
 import '../widgets/vault_settings_tab.dart';
 import '../widgets/vault_visuals.dart';
@@ -68,7 +69,7 @@ class VaultDetailPage extends StatelessWidget {
   }
 }
 
-enum _VaultTab { entries, logs, members, settings }
+enum _VaultTab { entries, agents, logs, members, settings }
 
 class _VaultDetailView extends StatefulWidget {
   const _VaultDetailView({required this.vaultId});
@@ -429,6 +430,7 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
             tabs: [
               Tab(text: l10n.vaultTabEntries),
+              Tab(text: l10n.vaultTabAgents),
               Tab(text: l10n.vaultTabLogs),
               Tab(text: l10n.vaultTabMembers),
               Tab(text: l10n.vaultTabSettings),
@@ -468,6 +470,7 @@ class _LoadedBody extends StatelessWidget {
         children: [
           // Entries are sourced from `EntryListCubit` provided above.
           const VaultEntriesTab(),
+          _VaultAgentsTab(vaultId: vault.id),
           _PlaceholderTabBuilder(
             messageKey: (l10n) => l10n.vaultLogsEmpty,
             icon: Icons.history,
@@ -505,6 +508,25 @@ class _PlaceholderTabBuilder extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return VaultPlaceholderTab(icon: icon, message: messageKey(l10n));
+  }
+}
+
+/// Agents tab — the vault's grants list (filtered by vaultId), mirroring the web Vault→Agents tab.
+/// Horizontal padding is zeroed because the parent TabBarView is already padded.
+class _VaultAgentsTab extends StatelessWidget {
+  const _VaultAgentsTab({required this.vaultId});
+
+  final String vaultId;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return ContextGrantsTab(
+      vaultId: vaultId,
+      emptyTitle: l10n.entryAgentsEmptyTitle,
+      emptyHint: l10n.vaultAgentsEmptyHint,
+      contentPadding: const EdgeInsets.fromLTRB(0, 4, 0, 96),
+    );
   }
 }
 

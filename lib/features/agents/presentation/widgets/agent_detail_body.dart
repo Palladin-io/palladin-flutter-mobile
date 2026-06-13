@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/approve_action_button.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../../domain/entities/agent.dart';
 import 'agent_avatar.dart';
 import 'agent_edit_form.dart';
@@ -14,7 +15,7 @@ import 'agent_status_badge.dart';
 
 /// Tab segments shown on the agent detail screen — mirrors the web
 /// panel's `AgentDetail` so the two surfaces feel consistent.
-enum _AgentDetailTab { details, logs }
+enum _AgentDetailTab { details, grants, logs }
 
 /// Scrollable detail body for a single agent.
 ///
@@ -77,29 +78,52 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
         authState is AuthAuthenticated ? authState.permissions : 0;
     final canManage = (permissions & Permissions.agentManage) != 0;
 
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+    final l10n = AppLocalizations.of(context)!;
+
+    // Fixed tab bar + scrolling content (Expanded) — so the Grants tab can host its own scrollable
+    // list (ContextGrantsTab). The host gives this body a bounded height (split-view pane).
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _TabBar(
-          active: _activeTab,
-          onSelected: (tab) => setState(() => _activeTab = tab),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          child: _TabBar(
+            active: _activeTab,
+            onSelected: (tab) => setState(() => _activeTab = tab),
+          ),
         ),
         const SizedBox(height: 16),
-        if (_activeTab == _AgentDetailTab.details) ...[
-          _DetailsCard(agent: widget.agent, canEdit: canManage),
-          if (canManage) ...[
-            const SizedBox(height: 14),
-            _ActionZone(
-              agent: widget.agent,
-              isMutating: widget.isMutating,
-              onApprove: widget.onApprove,
-              onDeactivate: widget.onDeactivate,
-              onReactivate: widget.onReactivate,
-            ),
-          ],
-        ],
-        if (_activeTab == _AgentDetailTab.logs) _LogsCard(agent: widget.agent),
+        Expanded(
+          child: switch (_activeTab) {
+            _AgentDetailTab.details => ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                children: [
+                  _DetailsCard(agent: widget.agent, canEdit: canManage),
+                  if (canManage) ...[
+                    const SizedBox(height: 14),
+                    _ActionZone(
+                      agent: widget.agent,
+                      isMutating: widget.isMutating,
+                      onApprove: widget.onApprove,
+                      onDeactivate: widget.onDeactivate,
+                      onReactivate: widget.onReactivate,
+                    ),
+                  ],
+                ],
+              ),
+            _AgentDetailTab.grants => ContextGrantsTab(
+                agentId: widget.agent.agentId,
+                emptyTitle: l10n.agentGrantsEmptyTitle,
+                emptyHint: l10n.agentGrantsEmptyHint,
+              ),
+            _AgentDetailTab.logs => ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                children: [_LogsCard(agent: widget.agent)],
+              ),
+          },
+        ),
       ],
     );
   }
@@ -130,6 +154,7 @@ class _TabBar extends StatelessWidget {
 
     final tabs = <({_AgentDetailTab tab, String label, bool disabled})>[
       (tab: _AgentDetailTab.details, label: l10n.agentsTabDetails, disabled: false),
+      (tab: _AgentDetailTab.grants, label: l10n.agentsTabGrants, disabled: false),
       (tab: _AgentDetailTab.logs, label: l10n.agentsTabLogs, disabled: false),
     ];
 

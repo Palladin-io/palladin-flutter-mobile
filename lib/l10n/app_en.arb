@@ -653,6 +653,8 @@
   "entryAgentsEmptyTitle": "No agents have access",
   "@entryAgentsEmptyTitle": { "description": "Entry Agents tab — empty state title" },
   "entryAgentsEmptyHint": "No agent has been granted access to this entry yet.",
+  "vaultAgentsEmptyHint": "No agent has been granted access to this vault yet.",
+  "@vaultAgentsEmptyHint": { "description": "Vault Agents tab — empty hint" },
   "@entryAgentsEmptyHint": { "description": "Entry Agents tab — empty state hint" },
   "@vaultAgentsEmpty": {
     "description": "Empty-state title for the Agents tab when no grants exist"
@@ -1308,6 +1310,10 @@
   "agentsTabDetails": "Details",
   "@agentsTabDetails": { "description": "Tab label — agent details tab" },
   "agentsTabGrants": "Grants",
+  "agentGrantsEmptyTitle": "No grants yet",
+  "@agentGrantsEmptyTitle": { "description": "Agent Grants tab — empty title" },
+  "agentGrantsEmptyHint": "This agent has no grants. Add one to give it access to a vault or entry.",
+  "@agentGrantsEmptyHint": { "description": "Agent Grants tab — empty hint" },
   "@agentsTabGrants": { "description": "Tab label — agent grants tab" },
   "agentsTabLogs": "Logs",
   "@agentsTabLogs": { "description": "Tab label — agent logs tab" },

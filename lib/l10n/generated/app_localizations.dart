@@ -974,6 +974,12 @@ abstract class AppLocalizations {
   /// **'No agent has been granted access to this entry yet.'**
   String get entryAgentsEmptyHint;
 
+  /// Vault Agents tab — empty hint
+  ///
+  /// In en, this message translates to:
+  /// **'No agent has been granted access to this vault yet.'**
+  String get vaultAgentsEmptyHint;
+
   /// Placeholder copy on the Logs tab
   ///
   /// In en, this message translates to:
@@ -2125,6 +2131,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Grants'**
   String get agentsTabGrants;
+
+  /// Agent Grants tab — empty title
+  ///
+  /// In en, this message translates to:
+  /// **'No grants yet'**
+  String get agentGrantsEmptyTitle;
+
+  /// Agent Grants tab — empty hint
+  ///
+  /// In en, this message translates to:
+  /// **'This agent has no grants. Add one to give it access to a vault or entry.'**
+  String get agentGrantsEmptyHint;
 
   /// Tab label — agent logs tab
   ///
