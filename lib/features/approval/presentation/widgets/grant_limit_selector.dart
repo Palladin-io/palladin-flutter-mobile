@@ -200,13 +200,14 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
           )
         else
         SizedBox(
-          height: 72,
+          height: 64,
           child: switch (_mode) {
             _Mode.expiry => OnboardingTextField(
                 controller: _dateController,
                 label: l10n.approvalExpiresOnLabel,
                 readOnly: true,
                 enabled: widget.enabled,
+                feedbackReserveSpace: false,
                 onTap: widget.enabled ? _pickDateTime : null,
                 suffixIcon: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -221,6 +222,7 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
                 controller: _usesController,
                 label: l10n.approvalLimitUsesLabel,
                 enabled: widget.enabled,
+                feedbackReserveSpace: false,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 onChanged: (_) => _emit(),
@@ -254,7 +256,7 @@ class _SegmentButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 9),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: selected
