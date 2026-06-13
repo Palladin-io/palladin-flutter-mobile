@@ -16,6 +16,7 @@ import '../../data/datasources/entry_remote_datasource.dart';
 import '../../data/services/entry_icon_upload_service.dart';
 import '../../data/services/vault_icon_upload_service.dart'
     show VaultIconUploadErrorKind, VaultIconUploadException;
+import '../../../../core/widgets/app_fab.dart';
 import '../../../approval/presentation/widgets/grant_access_sheet.dart';
 import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../../domain/entities/entry_entity.dart';
@@ -150,10 +151,27 @@ class _EntryDetailViewState extends State<_EntryDetailView>
   bool _passwordObscured = true;
   bool _populated = false;
 
+  // Bumped after a grant is created on the Agents tab so the (self-providing) grants list remounts.
+  int _grantsRefresh = 0;
+
+  static const int _agentsTabIndex = 1;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 3, vsync: this)
+      // Rebuild so the FAB shows only on the Agents tab.
+      ..addListener(() => setState(() {}));
+  }
+
+  Future<void> _onAddAgent() async {
+    final granted = await GrantAccessSheet.show(
+      context,
+      GrantForEntry(vaultId: widget.entry.vaultId, entryId: widget.entry.id),
+    );
+    if (granted == true && mounted) {
+      setState(() => _grantsRefresh++);
+    }
   }
 
   @override
@@ -421,6 +439,9 @@ class _EntryDetailViewState extends State<_EntryDetailView>
               BoxDecoration(gradient: AppColors.backgroundGradient(brightness)),
           child: Scaffold(
             backgroundColor: Colors.transparent,
+            floatingActionButton: _tabController.index == _agentsTabIndex
+                ? AppFab(onPressed: _onAddAgent, tooltip: l10n.grantAccessTitleAgent)
+                : null,
             appBar: _EntryDetailAppBar(
               label: widget.entry.label,
               tabController: _tabController,
@@ -435,16 +456,10 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                 children: [
                   _buildDetailsTab(l10n, brightness, state),
                   ContextGrantsTab(
+                    key: ValueKey(_grantsRefresh),
                     entryId: widget.entry.id,
                     emptyTitle: l10n.entryAgentsEmptyTitle,
                     emptyHint: l10n.entryAgentsEmptyHint,
-                    addLabel: l10n.grantAccessTitleAgent,
-                    onAdd: () async =>
-                        await GrantAccessSheet.show(
-                          context,
-                          GrantForEntry(vaultId: widget.entry.vaultId, entryId: widget.entry.id),
-                        ) ==
-                        true,
                   ),
                   VaultPlaceholderTab(
                     icon: Icons.history,

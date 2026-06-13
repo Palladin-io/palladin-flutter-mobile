@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/approve_action_button.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -61,6 +62,16 @@ class AgentDetailBody extends StatefulWidget {
 class _AgentDetailBodyState extends State<AgentDetailBody> {
   _AgentDetailTab _activeTab = _AgentDetailTab.details;
 
+  // Bumped after a grant is created so the (self-providing) grants list remounts and reloads.
+  int _grantsRefresh = 0;
+
+  Future<void> _onAddGrant() async {
+    final granted = await GrantAccessSheet.show(context, GrantForAgent(widget.agent.agentId));
+    if (granted == true && mounted) {
+      setState(() => _grantsRefresh++);
+    }
+  }
+
   @override
   void didUpdateWidget(AgentDetailBody oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -113,13 +124,21 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
                   ],
                 ],
               ),
-            _AgentDetailTab.grants => ContextGrantsTab(
-                agentId: widget.agent.agentId,
-                emptyTitle: l10n.agentGrantsEmptyTitle,
-                emptyHint: l10n.agentGrantsEmptyHint,
-                addLabel: l10n.grantAddGrant,
-                onAdd: () async =>
-                    await GrantAccessSheet.show(context, GrantForAgent(widget.agent.agentId)) == true,
+            _AgentDetailTab.grants => Stack(
+                children: [
+                  ContextGrantsTab(
+                    key: ValueKey(_grantsRefresh),
+                    agentId: widget.agent.agentId,
+                    emptyTitle: l10n.agentGrantsEmptyTitle,
+                    emptyHint: l10n.agentGrantsEmptyHint,
+                  ),
+                  if (canManage)
+                    Positioned(
+                      right: 16,
+                      bottom: 16,
+                      child: AppFab(onPressed: _onAddGrant, tooltip: l10n.grantAddGrant),
+                    ),
+                ],
               ),
             _AgentDetailTab.logs => ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
