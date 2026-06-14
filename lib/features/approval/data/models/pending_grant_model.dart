@@ -1,3 +1,4 @@
+import '../../../grants/domain/entities/grant_method.dart';
 import '../../domain/entities/pending_grant.dart';
 
 /// DTO for a pending grant returned by `GET /api/dashboard/pending-grants`.
@@ -17,6 +18,7 @@ class PendingGrantModel {
     this.agentName,
     this.entryLabel,
     this.reason,
+    this.methods,
   });
 
   final String grantId;
@@ -29,6 +31,9 @@ class PendingGrantModel {
   final String? agentName;
   final String? entryLabel;
   final String? reason;
+
+  /// Combined-flags string the agent requested, e.g. "get, exec" (CVT-149).
+  final String? methods;
 
   factory PendingGrantModel.fromJson(Map<String, dynamic> json) {
     return PendingGrantModel(
@@ -43,6 +48,7 @@ class PendingGrantModel {
       agentName: json['agentName'] as String?,
       entryLabel: json['entryLabel'] as String?,
       reason: json['reason'] as String?,
+      methods: json['methods'] as String?,
     );
   }
 
@@ -57,6 +63,7 @@ class PendingGrantModel {
       agentName: agentName,
       entryLabel: entryLabel,
       reason: reason,
+      requestedMethods: parseGrantMethods(methods),
       createdAt: DateTime.parse(createdAt).toLocal(),
     );
   }

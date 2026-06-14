@@ -18,15 +18,34 @@ class OrgGrantsCubit extends Cubit<OrgGrantsState> {
 
   static const _pageSize = 100;
 
-  /// Loads the history feed (newest-first), dropping pending grants. Called on
-  /// mount and on pull-to-refresh.
-  Future<void> load() async {
+  // Context filter (CVT-120/132): when set, the feed is scoped server-side to a single
+  // agent / vault / entry (the detail-screen Agents/Grants tabs). Stored so revoke→reload keeps the
+  // same scope. All null = the Approvals org-wide history feed.
+  String? _agentId;
+  String? _vaultId;
+  String? _entryId;
+
+  /// Loads the grants feed (newest-first). With no context filter this is the Approvals history
+  /// feed and pending grants are dropped (they live in the Pending segment). With a context filter
+  /// (agent/vault/entry detail tab) ALL statuses are kept — mirrors the web OrgGrantsPanel.
+  Future<void> load({String? agentId, String? vaultId, String? entryId}) async {
+    _agentId = agentId;
+    _vaultId = vaultId;
+    _entryId = entryId;
+    final scoped = agentId != null || vaultId != null || entryId != null;
     emit(state.copyWith(status: OrgGrantsStatus.loading, clearError: true));
     try {
-      final page = await repository.listOrgGrants(pageSize: _pageSize);
-      final grants = page.grants
-          .where((g) => g.status != GrantStatus.pending)
-          .toList(growable: false);
+      final page = await repository.listOrgGrants(
+        agentId: agentId,
+        vaultId: vaultId,
+        entryId: entryId,
+        pageSize: _pageSize,
+      );
+      final grants = scoped
+          ? page.grants
+          : page.grants
+              .where((g) => g.status != GrantStatus.pending)
+              .toList(growable: false);
       AppLogger.i('Grants', 'Loaded ${grants.length} org grants');
       emit(state.copyWith(status: OrgGrantsStatus.loaded, grants: grants));
     } on GrantsException catch (e) {
@@ -41,6 +60,10 @@ class OrgGrantsCubit extends Cubit<OrgGrantsState> {
       ));
     }
   }
+
+  /// Reloads keeping the current context scope (agent/vault/entry). Use after a mutation that
+  /// changes the feed (revoke, re-grant) so a scoped tab stays scoped.
+  Future<void> reload() => load(agentId: _agentId, vaultId: _vaultId, entryId: _entryId);
 
   /// Toggles a status in the client-side filter (no refetch).
   void toggleStatus(GrantStatus status) {
@@ -64,7 +87,8 @@ class OrgGrantsCubit extends Cubit<OrgGrantsState> {
     emit(state.copyWith(revokingGrantId: grantId, clearMutationError: true));
     try {
       await repository.revokeGrant(vaultId, grantId, reason: reason);
-      await load();
+      // Reload within the same scope so a context-filtered tab stays filtered.
+      await reload();
       emit(state.copyWith(clearRevokingGrantId: true));
     } on GrantsException catch (e) {
       AppLogger.w('Grants', 'revokeGrant failed: ${e.kind.name}');

@@ -962,6 +962,30 @@ abstract class AppLocalizations {
   /// **'No agents granted access'**
   String get vaultAgentsEmpty;
 
+  /// Entry Agents tab — empty state title
+  ///
+  /// In en, this message translates to:
+  /// **'No agents have access'**
+  String get entryAgentsEmptyTitle;
+
+  /// Entry Agents tab — empty state hint
+  ///
+  /// In en, this message translates to:
+  /// **'No agent has been granted access to this entry yet.'**
+  String get entryAgentsEmptyHint;
+
+  /// Vault Agents tab — empty state title
+  ///
+  /// In en, this message translates to:
+  /// **'No agents have access'**
+  String get vaultAgentsEmptyTitle;
+
+  /// Vault Agents tab — empty hint
+  ///
+  /// In en, this message translates to:
+  /// **'No agent has been granted access to this vault yet.'**
+  String get vaultAgentsEmptyHint;
+
   /// Placeholder copy on the Logs tab
   ///
   /// In en, this message translates to:
@@ -2114,6 +2138,18 @@ abstract class AppLocalizations {
   /// **'Grants'**
   String get agentsTabGrants;
 
+  /// Agent Grants tab — empty title
+  ///
+  /// In en, this message translates to:
+  /// **'No grants yet'**
+  String get agentGrantsEmptyTitle;
+
+  /// Agent Grants tab — empty hint
+  ///
+  /// In en, this message translates to:
+  /// **'This agent has no grants. Add one to give it access to a vault or entry.'**
+  String get agentGrantsEmptyHint;
+
   /// Tab label — agent logs tab
   ///
   /// In en, this message translates to:
@@ -2401,6 +2437,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Access'**
   String get orgGrantRowAccess;
+
+  /// Org grant card row label — permitted methods
+  ///
+  /// In en, this message translates to:
+  /// **'Methods'**
+  String get orgGrantRowMethods;
 
   /// Org grant card row label — agent's access request reason
   ///
@@ -2726,6 +2768,48 @@ abstract class AppLocalizations {
   /// **'Access type'**
   String get approvalAccessType;
 
+  /// Label above the grant methods selector
+  ///
+  /// In en, this message translates to:
+  /// **'How the agent may use it'**
+  String get approvalMethodsLegend;
+
+  /// Title of the amber warning box shown when the plaintext get method is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Warning Zone'**
+  String get approvalMethodWarningZone;
+
+  /// Error when no method is selected on approve
+  ///
+  /// In en, this message translates to:
+  /// **'Select at least one method.'**
+  String get approvalMethodNoneSelected;
+
+  /// Label for the get method
+  ///
+  /// In en, this message translates to:
+  /// **'Get (plaintext)'**
+  String get approvalMethodGetLabel;
+
+  /// Warning shown for the get method
+  ///
+  /// In en, this message translates to:
+  /// **'The secret enters the agent\'s context — on a hosted LLM it may leave the device.'**
+  String get approvalMethodGetWarning;
+
+  /// Label for the exec method
+  ///
+  /// In en, this message translates to:
+  /// **'Exec'**
+  String get approvalMethodExecLabel;
+
+  /// Label for the inject method
+  ///
+  /// In en, this message translates to:
+  /// **'Inject'**
+  String get approvalMethodInjectLabel;
+
   /// Approve button label while submitting
   ///
   /// In en, this message translates to:
@@ -2839,6 +2923,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
   String get approvalErrorUnknown;
+
+  /// No description provided for @grantAccessTitleAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Add agent'**
+  String get grantAccessTitleAgent;
+
+  /// No description provided for @grantAccessTitleVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant access'**
+  String get grantAccessTitleVault;
+
+  /// No description provided for @grantAccessPickAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent'**
+  String get grantAccessPickAgent;
+
+  /// No description provided for @grantAccessPickVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get grantAccessPickVault;
+
+  /// No description provided for @grantAccessNoAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'No active agents to grant'**
+  String get grantAccessNoAgents;
+
+  /// No description provided for @grantAccessNoVaults.
+  ///
+  /// In en, this message translates to:
+  /// **'No vaults available'**
+  String get grantAccessNoVaults;
+
+  /// No description provided for @grantAccessSelectAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Select an agent'**
+  String get grantAccessSelectAgent;
+
+  /// No description provided for @grantAccessSelectVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a vault'**
+  String get grantAccessSelectVault;
+
+  /// No description provided for @grantAccessConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant access'**
+  String get grantAccessConfirm;
+
+  /// No description provided for @grantAccessGranting.
+  ///
+  /// In en, this message translates to:
+  /// **'Granting…'**
+  String get grantAccessGranting;
+
+  /// No description provided for @grantAccessError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create the grant. Please try again.'**
+  String get grantAccessError;
+
+  /// No description provided for @grantAddGrant.
+  ///
+  /// In en, this message translates to:
+  /// **'Add grant'**
+  String get grantAddGrant;
+
+  /// No description provided for @approvalMethodGetDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Returns the secret as plaintext to the agent.'**
+  String get approvalMethodGetDesc;
+
+  /// No description provided for @approvalMethodExecDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Runs a command with the secret in its environment — never enters the agent\'s context.'**
+  String get approvalMethodExecDesc;
+
+  /// No description provided for @approvalMethodInjectDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Fills a login form in the agent\'s browser — never enters the agent\'s context.'**
+  String get approvalMethodInjectDesc;
+
+  /// No description provided for @approvalMethodsSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select methods'**
+  String get approvalMethodsSelect;
+
+  /// No description provided for @approvalMethodsDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get approvalMethodsDone;
+
+  /// No description provided for @approvalMethodRequested.
+  ///
+  /// In en, this message translates to:
+  /// **'requested'**
+  String get approvalMethodRequested;
 }
 
 class _AppLocalizationsDelegate

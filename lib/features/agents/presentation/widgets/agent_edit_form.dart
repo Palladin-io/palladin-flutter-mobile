@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_autocomplete_field.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/icon_picker_grid.dart'
     show IconPickerGrid, IconMoreTile, IconPresetTile, ImagePresetTile;
@@ -38,11 +39,7 @@ String _withCacheBust(String url) =>
 /// is active). The Save button is hidden when [canEdit] is false and
 /// disabled when the form is not dirty / valid.
 class AgentEditForm extends StatefulWidget {
-  const AgentEditForm({
-    super.key,
-    required this.agent,
-    required this.canEdit,
-  });
+  const AgentEditForm({super.key, required this.agent, required this.canEdit});
 
   final Agent agent;
 
@@ -67,12 +64,12 @@ class _AgentEditFormState extends State<AgentEditForm> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.agent.name ?? '');
-    _descriptionController =
-        TextEditingController(text: widget.agent.description ?? '');
+    _descriptionController = TextEditingController(
+      text: widget.agent.description ?? '',
+    );
     _type = widget.agent.type;
     _iconKey = widget.agent.iconKey;
-    _iconColor =
-        _parseHexColor(widget.agent.iconColor) ?? defaultAgentColor;
+    _iconColor = _parseHexColor(widget.agent.iconColor) ?? defaultAgentColor;
     _lastAgentId = widget.agent.agentId;
   }
 
@@ -87,8 +84,7 @@ class _AgentEditFormState extends State<AgentEditForm> {
       _descriptionController.text = widget.agent.description ?? '';
       _type = widget.agent.type;
       _iconKey = widget.agent.iconKey;
-      _iconColor =
-          _parseHexColor(widget.agent.iconColor) ?? defaultAgentColor;
+      _iconColor = _parseHexColor(widget.agent.iconColor) ?? defaultAgentColor;
       _lastAgentId = widget.agent.agentId;
     }
   }
@@ -141,11 +137,13 @@ class _AgentEditFormState extends State<AgentEditForm> {
     final result = await IconColorBrowserSheet.show(
       context,
       icons: agentIconAll
-          .map((name) => (
-                name: name,
-                icon: agentIconData(name),
-                paletteColor: agentIconColor(name),
-              ))
+          .map(
+            (name) => (
+              name: name,
+              icon: agentIconData(name),
+              paletteColor: agentIconColor(name),
+            ),
+          )
           .toList(),
       colorOptions: agentColorOptions,
       initialIconKey: _iconKey,
@@ -165,8 +163,9 @@ class _AgentEditFormState extends State<AgentEditForm> {
         // sheet still shows a preview, but the URL is stripped before
         // the PATCH so it won't reach the API.
         try {
-          final service =
-              AgentIconUploadService(getIt<AgentsRemoteDataSource>());
+          final service = AgentIconUploadService(
+            getIt<AgentsRemoteDataSource>(),
+          );
           final publicUrl = await service.uploadIcon(
             widget.agent.agentId,
             File(picked.path),
@@ -179,23 +178,28 @@ class _AgentEditFormState extends State<AgentEditForm> {
           //      the canonical URL is unchanged → Save button enables.
           //   2. Every `NetworkImage` in the tree refetches fresh bytes
           //      instead of serving the stale cached image.
-          PaintingBinding.instance.imageCache
-              .evict(NetworkImage(publicUrl));
+          PaintingBinding.instance.imageCache.evict(NetworkImage(publicUrl));
           return _withCacheBust(publicUrl);
         } on AgentIconUploadException catch (e) {
           if (!mounted) return null;
           final l10n = AppLocalizations.of(context)!;
           final msg = switch (e.kind) {
-            AgentIconUploadErrorKind.fileTooLarge => l10n.vaultIconUploadSizeError,
-            AgentIconUploadErrorKind.unsupportedFormat => l10n.vaultIconUploadFormatError,
+            AgentIconUploadErrorKind.fileTooLarge =>
+              l10n.vaultIconUploadSizeError,
+            AgentIconUploadErrorKind.unsupportedFormat =>
+              l10n.vaultIconUploadFormatError,
             _ => l10n.vaultIconUploadError,
           };
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(msg)));
           return null;
         } catch (_) {
           if (!mounted) return null;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppLocalizations.of(context)!.vaultIconUploadError)),
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.vaultIconUploadError),
+            ),
           );
           return null;
         }
@@ -266,8 +270,10 @@ class _AgentEditFormState extends State<AgentEditForm> {
         // Rebuild the canSubmit check on each field change to drive the
         // Save button's enabled state.
         return AnimatedBuilder(
-          animation: Listenable.merge(
-              [_nameController, _descriptionController]),
+          animation: Listenable.merge([
+            _nameController,
+            _descriptionController,
+          ]),
           builder: (context, _) {
             final canSubmit = _canSubmit(isSaving: isSaving);
             return Column(
@@ -280,8 +286,11 @@ class _AgentEditFormState extends State<AgentEditForm> {
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 12),
-                _TypeDropdown(
-                  value: _type,
+                _TypeAutocomplete(
+                  // Keyed by agent so the field resets when a different agent
+                  // loads, but stays put (focus + text) during editing.
+                  key: ValueKey('type-${widget.agent.agentId}'),
+                  initialValue: widget.agent.type,
                   enabled: enabled,
                   onChanged: (next) => setState(() => _type = next),
                 ),
@@ -329,101 +338,69 @@ class _AgentEditFormState extends State<AgentEditForm> {
   }
 }
 
-/// Type dropdown — mirrors the web `<select>` rendering. Lists the 13
-/// built-in agent types from [agentTypeOptions]; when the agent already
-/// carries a custom type that is not in the list, that value is appended
-/// so it survives a round-trip through the form.
-class _TypeDropdown extends StatelessWidget {
-  const _TypeDropdown({
-    required this.value,
+/// Free-text type field with preset suggestions — mirrors the web combobox.
+///
+/// Lists the 13 built-in agent types from [agentTypeOptions] as suggestions
+/// while still accepting a custom type the operator types in (so a value not
+/// in the preset list survives a round-trip). Built-in presets display their
+/// localized label but emit the camelCase wire value; free text is emitted
+/// verbatim. Styled with [OnboardingTextField] + a label above, consistent
+/// with the rest of the form's inputs.
+typedef _TypeOption = ({String value, String label});
+
+class _TypeAutocomplete extends StatelessWidget {
+  const _TypeAutocomplete({
+    super.key,
+    required this.initialValue,
     required this.enabled,
     required this.onChanged,
   });
 
-  final String? value;
+  /// The agent's saved type (wire value or custom string), or null.
+  final String? initialValue;
   final bool enabled;
+
+  /// Emits the resolved type: a preset's wire value, the raw custom text, or
+  /// null when the field is cleared.
   final ValueChanged<String?> onChanged;
+
+  /// Display string for a saved value — the preset label if it matches a
+  /// built-in wire value, otherwise the raw value (a custom type).
+  String _displayFor(String value, List<_TypeOption> options) {
+    for (final o in options) {
+      if (o.value == value) return o.label;
+    }
+    return value;
+  }
+
+  /// Maps the typed text back to a wire value: a preset's value on an exact
+  /// (case-insensitive) label match, otherwise the trimmed text, or null.
+  String? _resolve(String text, List<_TypeOption> options) {
+    final t = text.trim();
+    if (t.isEmpty) return null;
+    for (final o in options) {
+      if (o.label.toLowerCase() == t.toLowerCase()) return o.value;
+    }
+    return t;
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
     final options = agentTypeOptions(l10n);
-    final builtInValues = options.map((o) => o.value).toSet();
+    final seed = initialValue == null || initialValue!.isEmpty
+        ? ''
+        : _displayFor(initialValue!, options);
 
-    final items = <DropdownMenuItem<String?>>[
-      DropdownMenuItem<String?>(
-        value: null,
-        child: Text(
-          l10n.agentTypeLabel,
-          style: TextStyle(
-            color: AppColors.inputHint(brightness),
-            fontSize: 14,
-          ),
-        ),
-      ),
-      for (final option in options)
-        DropdownMenuItem<String?>(
-          value: option.value,
-          child: Text(
-            option.label,
-            style: TextStyle(
-              color: AppColors.inputText(brightness),
-              fontSize: 14,
-            ),
-          ),
-        ),
-      if (value != null && !builtInValues.contains(value))
-        DropdownMenuItem<String?>(
-          value: value,
-          child: Text(
-            value!,
-            style: TextStyle(
-              color: AppColors.inputText(brightness),
-              fontSize: 14,
-            ),
-          ),
-        ),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.agentTypeLabel,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppColors.onSurfaceMuted(brightness),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: AppColors.inputFill(brightness),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.inputBorder(brightness)),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String?>(
-              isExpanded: true,
-              value: value,
-              dropdownColor: AppColors.modalBackground(brightness),
-              icon: Icon(
-                Icons.keyboard_arrow_down,
-                color: AppColors.onSurfaceSubtle(brightness),
-              ),
-              style: TextStyle(
-                color: AppColors.inputText(brightness),
-                fontSize: 14,
-              ),
-              onChanged: enabled ? onChanged : null,
-              items: items,
-            ),
-          ),
-        ),
-      ],
+    // Combo box: suggest presets, but accept a custom typed value too.
+    return AppAutocompleteField<_TypeOption>(
+      label: l10n.agentTypeLabel,
+      initialText: seed,
+      options: options,
+      enabled: enabled,
+      displayString: (o) => o.label,
+      onSelected: (o) => onChanged(o.value),
+      onTextChanged: (text) => onChanged(_resolve(text, options)),
     );
   }
 }
@@ -485,7 +462,8 @@ class _EditIconPickerState extends State<_EditIconPicker> {
 
     // Non-URL browser icon (e.g. "computer") — only inject at last slot when
     // no custom image is saved; if one is saved it occupies that slot.
-    final isFromBrowser = !isCustomActive &&
+    final isFromBrowser =
+        !isCustomActive &&
         customUrl == null &&
         widget.selected != null &&
         !presets.contains(widget.selected);
@@ -561,15 +539,13 @@ class _SaveButton extends StatelessWidget {
           backgroundColor: AppColors.brandRed,
           disabledBackgroundColor: AppColors.brandRed.withValues(alpha: 0.3),
           foregroundColor: AppColors.onBrandRed,
-          disabledForegroundColor:
-              AppColors.onBrandRed.withValues(alpha: 0.5),
+          disabledForegroundColor: AppColors.onBrandRed.withValues(alpha: 0.5),
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 18),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          textStyle:
-              const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
         child: isSaving
             ? const SizedBox(

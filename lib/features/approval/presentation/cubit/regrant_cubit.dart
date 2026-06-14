@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../grants/domain/entities/grant_method.dart';
 import '../../domain/exceptions/approval_exceptions.dart';
 import '../../domain/repositories/approval_repository.dart';
 
@@ -55,6 +56,7 @@ class RegrantCubit extends Cubit<RegrantState> {
   Future<void> submit({
     required Uint8List privateKey,
     required GrantLimit limit,
+    List<GrantMethod> methods = kDefaultGrantMethods,
   }) async {
     emit(state.copyWith(status: RegrantStatus.submitting, clearError: true));
     try {
@@ -66,6 +68,7 @@ class RegrantCubit extends Cubit<RegrantState> {
         entryId: args.entryId,
         privateKey: privateKey,
         limit: limit,
+        methods: methods,
       );
       AppLogger.i('Approval', 'Re-granted agent ${args.agentId}');
       emit(state.copyWith(status: RegrantStatus.done));

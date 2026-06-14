@@ -566,6 +566,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get vaultAgentsEmpty => 'No agents granted access';
 
   @override
+  String get entryAgentsEmptyTitle => 'No agents have access';
+
+  @override
+  String get entryAgentsEmptyHint =>
+      'No agent has been granted access to this entry yet.';
+
+  @override
+  String get vaultAgentsEmptyTitle => 'No agents have access';
+
+  @override
+  String get vaultAgentsEmptyHint =>
+      'No agent has been granted access to this vault yet.';
+
+  @override
   String get vaultLogsEmpty => 'Activity log coming soon';
 
   @override
@@ -1194,6 +1208,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentsTabGrants => 'Grants';
 
   @override
+  String get agentGrantsEmptyTitle => 'No grants yet';
+
+  @override
+  String get agentGrantsEmptyHint =>
+      'This agent has no grants. Add one to give it access to a vault or entry.';
+
+  @override
   String get agentsTabLogs => 'Logs';
 
   @override
@@ -1343,6 +1364,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get orgGrantRowAccess => 'Access';
+
+  @override
+  String get orgGrantRowMethods => 'Methods';
 
   @override
   String get orgGrantRowReason => 'Reason';
@@ -1525,6 +1549,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get approvalAccessType => 'Access type';
 
   @override
+  String get approvalMethodsLegend => 'How the agent may use it';
+
+  @override
+  String get approvalMethodWarningZone => 'Warning Zone';
+
+  @override
+  String get approvalMethodNoneSelected => 'Select at least one method.';
+
+  @override
+  String get approvalMethodGetLabel => 'Get (plaintext)';
+
+  @override
+  String get approvalMethodGetWarning =>
+      'The secret enters the agent\'s context — on a hosted LLM it may leave the device.';
+
+  @override
+  String get approvalMethodExecLabel => 'Exec';
+
+  @override
+  String get approvalMethodInjectLabel => 'Inject';
+
+  @override
   String get approvalApproving => 'Approving…';
 
   @override
@@ -1588,4 +1634,62 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get approvalErrorUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get grantAccessTitleAgent => 'Add agent';
+
+  @override
+  String get grantAccessTitleVault => 'Grant access';
+
+  @override
+  String get grantAccessPickAgent => 'Agent';
+
+  @override
+  String get grantAccessPickVault => 'Vault';
+
+  @override
+  String get grantAccessNoAgents => 'No active agents to grant';
+
+  @override
+  String get grantAccessNoVaults => 'No vaults available';
+
+  @override
+  String get grantAccessSelectAgent => 'Select an agent';
+
+  @override
+  String get grantAccessSelectVault => 'Select a vault';
+
+  @override
+  String get grantAccessConfirm => 'Grant access';
+
+  @override
+  String get grantAccessGranting => 'Granting…';
+
+  @override
+  String get grantAccessError =>
+      'Could not create the grant. Please try again.';
+
+  @override
+  String get grantAddGrant => 'Add grant';
+
+  @override
+  String get approvalMethodGetDesc =>
+      'Returns the secret as plaintext to the agent.';
+
+  @override
+  String get approvalMethodExecDesc =>
+      'Runs a command with the secret in its environment — never enters the agent\'s context.';
+
+  @override
+  String get approvalMethodInjectDesc =>
+      'Fills a login form in the agent\'s browser — never enters the agent\'s context.';
+
+  @override
+  String get approvalMethodsSelect => 'Select methods';
+
+  @override
+  String get approvalMethodsDone => 'Done';
+
+  @override
+  String get approvalMethodRequested => 'requested';
 }

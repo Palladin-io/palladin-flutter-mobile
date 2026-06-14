@@ -11,6 +11,10 @@
 /// surfaced back into a list/detail response.
 library;
 
+import 'grant_method.dart';
+
+export 'grant_method.dart';
+
 /// Lifecycle status of a grant. Mirrors the backend `GrantStatus` enum,
 /// serialized as a camelCase string.
 enum GrantStatus {
@@ -89,6 +93,7 @@ class Grant {
     this.entryId,
     this.entryLabel,
     this.reason,
+    this.methods = const [],
     this.expiresAt,
     this.queryLimit,
     this.queryCount,
@@ -132,6 +137,10 @@ class Grant {
 
   /// Display label of the target entry, or `null` for FULL grants.
   final String? entryLabel;
+
+  /// Methods the grant permits (CVT-149). Empty when the backend predates the
+  /// feature; the card hides the badges in that case.
+  final List<GrantMethod> methods;
 
   /// Agent-supplied justification shown to the owner. Required on every
   /// request per the security model, but tolerated as `null` here for

@@ -578,6 +578,20 @@ class AppLocalizationsPl extends AppLocalizations {
   String get vaultAgentsEmpty => 'Żaden agent nie ma jeszcze dostępu';
 
   @override
+  String get entryAgentsEmptyTitle => 'Brak agentów z dostępem';
+
+  @override
+  String get entryAgentsEmptyHint =>
+      'Żaden agent nie ma jeszcze dostępu do tego wpisu.';
+
+  @override
+  String get vaultAgentsEmptyTitle => 'Brak agentów z dostępem';
+
+  @override
+  String get vaultAgentsEmptyHint =>
+      'Żaden agent nie ma jeszcze dostępu do tego sejfu.';
+
+  @override
   String get vaultLogsEmpty => 'Dziennik aktywności już wkrótce';
 
   @override
@@ -1214,6 +1228,13 @@ class AppLocalizationsPl extends AppLocalizations {
   String get agentsTabGrants => 'Dostępy';
 
   @override
+  String get agentGrantsEmptyTitle => 'Brak grantów';
+
+  @override
+  String get agentGrantsEmptyHint =>
+      'Ten agent nie ma żadnych grantów. Dodaj grant, aby dać dostęp do sejfu lub wpisu.';
+
+  @override
   String get agentsTabLogs => 'Historia';
 
   @override
@@ -1363,6 +1384,9 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get orgGrantRowAccess => 'Dostęp';
+
+  @override
+  String get orgGrantRowMethods => 'Metody';
 
   @override
   String get orgGrantRowReason => 'Powód';
@@ -1545,6 +1569,28 @@ class AppLocalizationsPl extends AppLocalizations {
   String get approvalAccessType => 'Typ dostępu';
 
   @override
+  String get approvalMethodsLegend => 'Jak agent może użyć';
+
+  @override
+  String get approvalMethodWarningZone => 'Strefa ostrzeżenia';
+
+  @override
+  String get approvalMethodNoneSelected => 'Wybierz co najmniej jedną metodę.';
+
+  @override
+  String get approvalMethodGetLabel => 'Get (plaintext)';
+
+  @override
+  String get approvalMethodGetWarning =>
+      'Sekret trafia do kontekstu agenta — na hostowanym LLM może opuścić urządzenie.';
+
+  @override
+  String get approvalMethodExecLabel => 'Exec';
+
+  @override
+  String get approvalMethodInjectLabel => 'Inject';
+
+  @override
   String get approvalApproving => 'Zatwierdzanie…';
 
   @override
@@ -1608,4 +1654,61 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get approvalErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
+
+  @override
+  String get grantAccessTitleAgent => 'Dodaj agenta';
+
+  @override
+  String get grantAccessTitleVault => 'Przyznaj dostęp';
+
+  @override
+  String get grantAccessPickAgent => 'Agent';
+
+  @override
+  String get grantAccessPickVault => 'Sejf';
+
+  @override
+  String get grantAccessNoAgents => 'Brak aktywnych agentów';
+
+  @override
+  String get grantAccessNoVaults => 'Brak dostępnych sejfów';
+
+  @override
+  String get grantAccessSelectAgent => 'Wybierz agenta';
+
+  @override
+  String get grantAccessSelectVault => 'Wybierz sejf';
+
+  @override
+  String get grantAccessConfirm => 'Przyznaj dostęp';
+
+  @override
+  String get grantAccessGranting => 'Przyznawanie…';
+
+  @override
+  String get grantAccessError =>
+      'Nie udało się utworzyć grantu. Spróbuj ponownie.';
+
+  @override
+  String get grantAddGrant => 'Dodaj grant';
+
+  @override
+  String get approvalMethodGetDesc => 'Zwraca sekret jako plaintext do agenta.';
+
+  @override
+  String get approvalMethodExecDesc =>
+      'Uruchamia komendę z sekretem w środowisku — nie trafia do kontekstu agenta.';
+
+  @override
+  String get approvalMethodInjectDesc =>
+      'Wypełnia formularz logowania w przeglądarce agenta — nie trafia do kontekstu agenta.';
+
+  @override
+  String get approvalMethodsSelect => 'Wybierz metody';
+
+  @override
+  String get approvalMethodsDone => 'Gotowe';
+
+  @override
+  String get approvalMethodRequested => 'prośba';
 }

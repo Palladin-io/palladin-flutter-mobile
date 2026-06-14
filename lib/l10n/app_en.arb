@@ -614,23 +614,37 @@
   "@vaultGrantGrantedBy": {
     "description": "Footer line on an active / expired grant card",
     "placeholders": {
-      "person": {"type": "String", "example": "Patryk"},
-      "date": {"type": "String", "example": "Apr 26 at 20:22 (in 6h)"}
+      "person": {
+        "type": "String",
+        "example": "Patryk"
+      },
+      "date": {
+        "type": "String",
+        "example": "Apr 26 at 20:22 (in 6h)"
+      }
     }
   },
   "vaultGrantRevokedBy": "Revoked by {person} at {date}",
   "@vaultGrantRevokedBy": {
     "description": "Footer line on a revoked grant card",
     "placeholders": {
-      "person": {"type": "String", "example": "Patryk"},
-      "date": {"type": "String", "example": "Apr 25 at 09:15 (1d ago)"}
+      "person": {
+        "type": "String",
+        "example": "Patryk"
+      },
+      "date": {
+        "type": "String",
+        "example": "Apr 25 at 09:15 (1d ago)"
+      }
     }
   },
   "vaultGrantMoreEntries": "+{count} more",
   "@vaultGrantMoreEntries": {
     "description": "Trailing chip indicating extra entries hidden inside a granular grant",
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "vaultRevokeButton": "Revoke",
@@ -650,6 +664,22 @@
     "description": "Empty-state title for the Entries tab when no entries exist"
   },
   "vaultAgentsEmpty": "No agents granted access",
+  "entryAgentsEmptyTitle": "No agents have access",
+  "@entryAgentsEmptyTitle": {
+    "description": "Entry Agents tab — empty state title"
+  },
+  "entryAgentsEmptyHint": "No agent has been granted access to this entry yet.",
+  "vaultAgentsEmptyTitle": "No agents have access",
+  "@vaultAgentsEmptyTitle": {
+    "description": "Vault Agents tab — empty state title"
+  },
+  "vaultAgentsEmptyHint": "No agent has been granted access to this vault yet.",
+  "@vaultAgentsEmptyHint": {
+    "description": "Vault Agents tab — empty hint"
+  },
+  "@entryAgentsEmptyHint": {
+    "description": "Entry Agents tab — empty state hint"
+  },
   "@vaultAgentsEmpty": {
     "description": "Empty-state title for the Agents tab when no grants exist"
   },
@@ -749,8 +779,12 @@
   "@vaultListSummary": {
     "description": "Subtitle under the vault list header — count of vaults and total entries across them",
     "placeholders": {
-      "vaultCount": {"type": "int"},
-      "entryCount": {"type": "int"}
+      "vaultCount": {
+        "type": "int"
+      },
+      "entryCount": {
+        "type": "int"
+      }
     }
   },
   "vaultSearchHint": "Search vaults…",
@@ -777,7 +811,10 @@
   "@settingsAppVersion": {
     "description": "Footer text in the settings drawer showing the app version",
     "placeholders": {
-      "version": {"type": "String", "example": "1.0.0"}
+      "version": {
+        "type": "String",
+        "example": "1.0.0"
+      }
     }
   },
   "settingsTooltip": "Open settings",
@@ -980,7 +1017,9 @@
   "@settingsOrgMembers": {
     "description": "Member count shown under the organization name",
     "placeholders": {
-      "count": { "type": "int" }
+      "count": {
+        "type": "int"
+      }
     }
   },
   "settingsSave": "Save",
@@ -1095,7 +1134,9 @@
   "@apiKeysRevokeConfirmBody": {
     "description": "Body of the revoke-API-key confirmation dialog",
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "apiKeysDetailTitle": "API key",
@@ -1127,19 +1168,33 @@
     "description": "Label for the revoked-date row on the API key detail screen"
   },
   "apiKeysActivate": "Activate",
-  "@apiKeysActivate": { "description": "Button label to re-activate a revoked API key" },
+  "@apiKeysActivate": {
+    "description": "Button label to re-activate a revoked API key"
+  },
   "apiKeysActivating": "Activating…",
-  "@apiKeysActivating": { "description": "Button label while activation is in flight" },
+  "@apiKeysActivating": {
+    "description": "Button label while activation is in flight"
+  },
   "apiKeysDeletePermanently": "Delete permanently",
-  "@apiKeysDeletePermanently": { "description": "Button label to permanently delete a revoked API key" },
+  "@apiKeysDeletePermanently": {
+    "description": "Button label to permanently delete a revoked API key"
+  },
   "apiKeysDeleting": "Deleting…",
-  "@apiKeysDeleting": { "description": "Button label while delete is in flight" },
+  "@apiKeysDeleting": {
+    "description": "Button label while delete is in flight"
+  },
   "apiKeysDeleteConfirmTitle": "Delete API key?",
-  "@apiKeysDeleteConfirmTitle": { "description": "Title of the permanent-delete confirmation dialog" },
+  "@apiKeysDeleteConfirmTitle": {
+    "description": "Title of the permanent-delete confirmation dialog"
+  },
   "apiKeysDeleteConfirmBody": "This will permanently delete \"{name}\". This cannot be undone.",
   "@apiKeysDeleteConfirmBody": {
     "description": "Body of the permanent-delete confirmation dialog",
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "apiKeysActivateZone": "ACTIVATE KEY",
   "@apiKeysActivateZone": {
@@ -1153,442 +1208,901 @@
   "@apiKeysListSummary": {
     "description": "Count summary in the API keys screen AppBar subtitle",
     "placeholders": {
-      "total": { "type": "int" },
-      "active": { "type": "int" }
+      "total": {
+        "type": "int"
+      },
+      "active": {
+        "type": "int"
+      }
     }
   },
   "agentsScreenTitle": "Agents",
-  "@agentsScreenTitle": { "description": "Title of the agents list screen" },
+  "@agentsScreenTitle": {
+    "description": "Title of the agents list screen"
+  },
   "agentsListSummary": "{total} agents, {active} active",
   "@agentsListSummary": {
     "description": "Count summary in the agents screen AppBar subtitle",
     "placeholders": {
-      "total": { "type": "int" },
-      "active": { "type": "int" }
+      "total": {
+        "type": "int"
+      },
+      "active": {
+        "type": "int"
+      }
     }
   },
   "agentsEmpty": "No agents yet",
-  "@agentsEmpty": { "description": "Empty-state title for the agents list" },
+  "@agentsEmpty": {
+    "description": "Empty-state title for the agents list"
+  },
   "agentsEmptyHint": "Connect your first agent using the CLI to get started",
-  "@agentsEmptyHint": { "description": "Empty-state hint for the agents list" },
+  "@agentsEmptyHint": {
+    "description": "Empty-state hint for the agents list"
+  },
   "agentsSearchHint": "Search agents…",
-  "@agentsSearchHint": { "description": "Placeholder text for the agents search field" },
+  "@agentsSearchHint": {
+    "description": "Placeholder text for the agents search field"
+  },
   "agentsSearchEmpty": "No agents match your search",
-  "@agentsSearchEmpty": { "description": "Shown when the search query returns no results" },
+  "@agentsSearchEmpty": {
+    "description": "Shown when the search query returns no results"
+  },
   "agentsUnnamed": "Unnamed agent",
-  "@agentsUnnamed": { "description": "Fallback display name for an agent with no name set" },
+  "@agentsUnnamed": {
+    "description": "Fallback display name for an agent with no name set"
+  },
   "agentsSplitPrompt": "Select an agent to see its details",
-  "@agentsSplitPrompt": { "description": "Prompt shown in the split-view detail pane when no agent is selected" },
+  "@agentsSplitPrompt": {
+    "description": "Prompt shown in the split-view detail pane when no agent is selected"
+  },
   "agentsStatusActive": "Active",
-  "@agentsStatusActive": { "description": "Agent status label — active" },
+  "@agentsStatusActive": {
+    "description": "Agent status label — active"
+  },
   "agentsStatusPending": "Pending",
-  "@agentsStatusPending": { "description": "Agent status label — pending approval" },
+  "@agentsStatusPending": {
+    "description": "Agent status label — pending approval"
+  },
   "agentsStatusDeactivated": "Deactivated",
-  "@agentsStatusDeactivated": { "description": "Agent status label — deactivated" },
+  "@agentsStatusDeactivated": {
+    "description": "Agent status label — deactivated"
+  },
   "agentsEnrolled": "Enrolled",
-  "@agentsEnrolled": { "description": "Prefix for the enrolled-date subtitle on an agent card" },
+  "@agentsEnrolled": {
+    "description": "Prefix for the enrolled-date subtitle on an agent card"
+  },
   "agentsDeactivated": "Deactivated",
-  "@agentsDeactivated": { "description": "Prefix for the deactivated-date subtitle on an agent card" },
+  "@agentsDeactivated": {
+    "description": "Prefix for the deactivated-date subtitle on an agent card"
+  },
   "agentsDeactivatedOn": "Deactivated on",
-  "@agentsDeactivatedOn": { "description": "Prefix for the deactivated-date in the agent card footer" },
+  "@agentsDeactivatedOn": {
+    "description": "Prefix for the deactivated-date in the agent card footer"
+  },
   "agentsConnectedOn": "Connected on",
-  "@agentsConnectedOn": { "description": "Prefix for the first-connected-date in the agent card footer" },
+  "@agentsConnectedOn": {
+    "description": "Prefix for the first-connected-date in the agent card footer"
+  },
   "agentsLastAccess": "Last access",
-  "@agentsLastAccess": { "description": "Prefix for the last-access-date in the agent card footer" },
+  "@agentsLastAccess": {
+    "description": "Prefix for the last-access-date in the agent card footer"
+  },
   "agentsPendingApproval": "Pending approval",
-  "@agentsPendingApproval": { "description": "Subtitle on a pending agent card" },
+  "@agentsPendingApproval": {
+    "description": "Subtitle on a pending agent card"
+  },
   "agentsDetailTitle": "Agent",
-  "@agentsDetailTitle": { "description": "Generic title of the agent detail screen while loading" },
+  "@agentsDetailTitle": {
+    "description": "Generic title of the agent detail screen while loading"
+  },
   "agentsDetailNotFound": "Agent not found",
-  "@agentsDetailNotFound": { "description": "Shown when the requested agent does not exist" },
+  "@agentsDetailNotFound": {
+    "description": "Shown when the requested agent does not exist"
+  },
   "agentsDetailId": "Id",
-  "@agentsDetailId": { "description": "Label for the agent id row on the detail screen" },
+  "@agentsDetailId": {
+    "description": "Label for the agent id row on the detail screen"
+  },
   "agentsDetailPublicKey": "Public Key",
-  "@agentsDetailPublicKey": { "description": "Label for the public key suffix row" },
+  "@agentsDetailPublicKey": {
+    "description": "Label for the public key suffix row"
+  },
   "agentsDetailCreatedAt": "Connected",
-  "@agentsDetailCreatedAt": { "description": "Label for the date the agent first connected" },
+  "@agentsDetailCreatedAt": {
+    "description": "Label for the date the agent first connected"
+  },
   "agentsDetailEnrolledAt": "Enrolled",
-  "@agentsDetailEnrolledAt": { "description": "Label for the date the agent was approved" },
+  "@agentsDetailEnrolledAt": {
+    "description": "Label for the date the agent was approved"
+  },
   "agentsDetailEnrolledBy": "Enrolled by",
-  "@agentsDetailEnrolledBy": { "description": "Label for who approved the agent" },
+  "@agentsDetailEnrolledBy": {
+    "description": "Label for who approved the agent"
+  },
   "agentsDetailDeactivatedAt": "Deactivated",
-  "@agentsDetailDeactivatedAt": { "description": "Label for the date the agent was deactivated" },
+  "@agentsDetailDeactivatedAt": {
+    "description": "Label for the date the agent was deactivated"
+  },
   "agentsApproveZone": "APPROVE AGENT",
-  "@agentsApproveZone": { "description": "Section header for the approve zone on a pending agent" },
+  "@agentsApproveZone": {
+    "description": "Section header for the approve zone on a pending agent"
+  },
   "agentsApproveHint": "Grant this agent access to the organization",
-  "@agentsApproveHint": { "description": "Hint in the approve zone" },
+  "@agentsApproveHint": {
+    "description": "Hint in the approve zone"
+  },
   "agentsApprove": "Approve Agent",
-  "@agentsApprove": { "description": "Button label to approve a pending agent" },
+  "@agentsApprove": {
+    "description": "Button label to approve a pending agent"
+  },
   "agentsApproving": "Approving…",
-  "@agentsApproving": { "description": "Button label while approval is in flight" },
+  "@agentsApproving": {
+    "description": "Button label while approval is in flight"
+  },
   "agentsDeactivateZone": "DANGER ZONE",
-  "@agentsDeactivateZone": { "description": "Section header for the deactivate danger zone" },
+  "@agentsDeactivateZone": {
+    "description": "Section header for the deactivate danger zone"
+  },
   "agentsDeactivateHint": "This agent will immediately lose access to all vaults",
-  "@agentsDeactivateHint": { "description": "Hint inside the deactivate danger zone" },
+  "@agentsDeactivateHint": {
+    "description": "Hint inside the deactivate danger zone"
+  },
   "agentsDeactivate": "Deactivate Agent",
-  "@agentsDeactivate": { "description": "Button label to deactivate an active agent" },
+  "@agentsDeactivate": {
+    "description": "Button label to deactivate an active agent"
+  },
   "agentsDeactivating": "Deactivating…",
-  "@agentsDeactivating": { "description": "Button label while deactivation is in flight" },
+  "@agentsDeactivating": {
+    "description": "Button label while deactivation is in flight"
+  },
   "agentsReactivateZone": "REACTIVATE",
-  "@agentsReactivateZone": { "description": "Section header for the reactivate zone on a deactivated agent" },
+  "@agentsReactivateZone": {
+    "description": "Section header for the reactivate zone on a deactivated agent"
+  },
   "agentsReactivateHint": "Re-enable access for this agent",
-  "@agentsReactivateHint": { "description": "Hint in the reactivate zone" },
+  "@agentsReactivateHint": {
+    "description": "Hint in the reactivate zone"
+  },
   "agentsReactivate": "Reactivate Agent",
-  "@agentsReactivate": { "description": "Button label to reactivate a deactivated agent" },
+  "@agentsReactivate": {
+    "description": "Button label to reactivate a deactivated agent"
+  },
   "agentsReactivating": "Reactivating…",
-  "@agentsReactivating": { "description": "Button label while reactivation is in flight" },
+  "@agentsReactivating": {
+    "description": "Button label while reactivation is in flight"
+  },
   "agentsApproveConfirmTitle": "Approve Agent",
-  "@agentsApproveConfirmTitle": { "description": "Title of the approve confirmation sheet" },
+  "@agentsApproveConfirmTitle": {
+    "description": "Title of the approve confirmation sheet"
+  },
   "agentsApproveConfirmBody": "Allow \"{name}\" to access organization vaults?",
   "@agentsApproveConfirmBody": {
     "description": "Body of the approve confirmation sheet",
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "agentsDeactivateConfirmTitle": "Deactivate Agent",
-  "@agentsDeactivateConfirmTitle": { "description": "Title of the deactivate confirmation sheet" },
+  "@agentsDeactivateConfirmTitle": {
+    "description": "Title of the deactivate confirmation sheet"
+  },
   "agentsDeactivateConfirmBody": "Deactivate \"{name}\"? It will immediately lose access.",
   "@agentsDeactivateConfirmBody": {
     "description": "Body of the deactivate confirmation sheet",
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "agentsEditTitle": "Edit Agent",
-  "@agentsEditTitle": { "description": "Title of the agent edit screen" },
+  "@agentsEditTitle": {
+    "description": "Title of the agent edit screen"
+  },
   "agentsEditName": "Display Name",
-  "@agentsEditName": { "description": "Label for the agent display-name field" },
+  "@agentsEditName": {
+    "description": "Label for the agent display-name field"
+  },
   "agentsEditDescription": "Description",
-  "@agentsEditDescription": { "description": "Label for the agent description field" },
+  "@agentsEditDescription": {
+    "description": "Label for the agent description field"
+  },
   "agentsEditSave": "Save",
-  "@agentsEditSave": { "description": "Save button on the agent edit screen" },
+  "@agentsEditSave": {
+    "description": "Save button on the agent edit screen"
+  },
   "agentsRetry": "Retry",
-  "@agentsRetry": { "description": "Retry button on the agents error state" },
+  "@agentsRetry": {
+    "description": "Retry button on the agents error state"
+  },
   "agentsEditIcon": "Edit",
-  "@agentsEditIcon": { "description": "Label / tooltip for the edit-agent action" },
+  "@agentsEditIcon": {
+    "description": "Label / tooltip for the edit-agent action"
+  },
   "agentApproveTitle": "Approve Agent",
-  "@agentApproveTitle": { "description": "Title of the approve-agent form sheet" },
+  "@agentApproveTitle": {
+    "description": "Title of the approve-agent form sheet"
+  },
   "agentNameLabel": "Name (optional)",
-  "@agentNameLabel": { "description": "Label for the optional agent name input in the approve form" },
+  "@agentNameLabel": {
+    "description": "Label for the optional agent name input in the approve form"
+  },
   "agentTypeLabel": "Agent type",
-  "@agentTypeLabel": { "description": "Label for the agent type chip group in the approve form" },
+  "@agentTypeLabel": {
+    "description": "Label for the agent type chip group in the approve form"
+  },
   "agentIconLabel": "Icon",
-  "@agentIconLabel": { "description": "Label for the agent icon picker in the approve form" },
+  "@agentIconLabel": {
+    "description": "Label for the agent icon picker in the approve form"
+  },
   "agentTypeOpenClaw": "Open Claw",
-  "@agentTypeOpenClaw": { "description": "Agent type option — Open Claw" },
+  "@agentTypeOpenClaw": {
+    "description": "Agent type option — Open Claw"
+  },
   "agentTypeClaudeCode": "Claude Code",
-  "@agentTypeClaudeCode": { "description": "Agent type option — Claude Code" },
+  "@agentTypeClaudeCode": {
+    "description": "Agent type option — Claude Code"
+  },
   "agentTypeHermes": "Hermes",
-  "@agentTypeHermes": { "description": "Agent type option — Hermes" },
+  "@agentTypeHermes": {
+    "description": "Agent type option — Hermes"
+  },
   "agentTypeCursor": "Cursor",
-  "@agentTypeCursor": { "description": "Agent type option — Cursor" },
+  "@agentTypeCursor": {
+    "description": "Agent type option — Cursor"
+  },
   "agentTypeCopilot": "GitHub Copilot",
-  "@agentTypeCopilot": { "description": "Agent type option — GitHub Copilot" },
+  "@agentTypeCopilot": {
+    "description": "Agent type option — GitHub Copilot"
+  },
   "agentTypeGemini": "Gemini",
-  "@agentTypeGemini": { "description": "Agent type option — Gemini" },
+  "@agentTypeGemini": {
+    "description": "Agent type option — Gemini"
+  },
   "agentTypeCodex": "OpenAI Codex",
-  "@agentTypeCodex": { "description": "Agent type option — OpenAI Codex" },
+  "@agentTypeCodex": {
+    "description": "Agent type option — OpenAI Codex"
+  },
   "agentTypeKimiCode": "Kimi Code",
-  "@agentTypeKimiCode": { "description": "Agent type option — Kimi Code" },
+  "@agentTypeKimiCode": {
+    "description": "Agent type option — Kimi Code"
+  },
   "agentTypeDevin": "Devin",
-  "@agentTypeDevin": { "description": "Agent type option — Devin" },
+  "@agentTypeDevin": {
+    "description": "Agent type option — Devin"
+  },
   "agentTypeAider": "Aider",
-  "@agentTypeAider": { "description": "Agent type option — Aider" },
+  "@agentTypeAider": {
+    "description": "Agent type option — Aider"
+  },
   "agentTypeCline": "Cline",
-  "@agentTypeCline": { "description": "Agent type option — Cline" },
+  "@agentTypeCline": {
+    "description": "Agent type option — Cline"
+  },
   "agentTypeRoo": "Roo Code",
-  "@agentTypeRoo": { "description": "Agent type option — Roo Code" },
+  "@agentTypeRoo": {
+    "description": "Agent type option — Roo Code"
+  },
   "agentTypeOther": "Other",
-  "@agentTypeOther": { "description": "Agent type option — Other" },
+  "@agentTypeOther": {
+    "description": "Agent type option — Other"
+  },
   "agentApproveSetupHint": "Optionally set a name, type, and icon before activating.",
-  "@agentApproveSetupHint": { "description": "Subtitle under the approve-agent dialog title" },
+  "@agentApproveSetupHint": {
+    "description": "Subtitle under the approve-agent dialog title"
+  },
   "agentNamePlaceholder": "e.g. Claude Code, Cursor",
-  "@agentNamePlaceholder": { "description": "Placeholder for the agent name input on the approve form" },
+  "@agentNamePlaceholder": {
+    "description": "Placeholder for the agent name input on the approve form"
+  },
   "agentsTabDetails": "Details",
-  "@agentsTabDetails": { "description": "Tab label — agent details tab" },
+  "@agentsTabDetails": {
+    "description": "Tab label — agent details tab"
+  },
   "agentsTabGrants": "Grants",
-  "@agentsTabGrants": { "description": "Tab label — agent grants tab" },
+  "agentGrantsEmptyTitle": "No grants yet",
+  "@agentGrantsEmptyTitle": {
+    "description": "Agent Grants tab — empty title"
+  },
+  "agentGrantsEmptyHint": "This agent has no grants. Add one to give it access to a vault or entry.",
+  "@agentGrantsEmptyHint": {
+    "description": "Agent Grants tab — empty hint"
+  },
+  "@agentsTabGrants": {
+    "description": "Tab label — agent grants tab"
+  },
   "agentsTabLogs": "Logs",
-  "@agentsTabLogs": { "description": "Tab label — agent logs tab" },
+  "@agentsTabLogs": {
+    "description": "Tab label — agent logs tab"
+  },
   "agentsGrantsEmpty": "No active grants",
-  "@agentsGrantsEmpty": { "description": "Empty state for the agent grants tab" },
+  "@agentsGrantsEmpty": {
+    "description": "Empty state for the agent grants tab"
+  },
   "agentsGrantsEmptyHint": "This agent has not been granted access to any vault entries yet",
-  "@agentsGrantsEmptyHint": { "description": "Empty state hint for the agent grants tab" },
+  "@agentsGrantsEmptyHint": {
+    "description": "Empty state hint for the agent grants tab"
+  },
   "agentsLogsFirstConnected": "First connected",
-  "@agentsLogsFirstConnected": { "description": "Timeline entry — agent first connected" },
+  "@agentsLogsFirstConnected": {
+    "description": "Timeline entry — agent first connected"
+  },
   "agentsLogsEnrolled": "Enrolled",
-  "@agentsLogsEnrolled": { "description": "Timeline entry — agent was enrolled / approved" },
+  "@agentsLogsEnrolled": {
+    "description": "Timeline entry — agent was enrolled / approved"
+  },
   "agentsLogsDeactivated": "Deactivated",
-  "@agentsLogsDeactivated": { "description": "Timeline entry — agent was deactivated" },
+  "@agentsLogsDeactivated": {
+    "description": "Timeline entry — agent was deactivated"
+  },
   "agentsEditSaved": "Agent saved",
-  "@agentsEditSaved": { "description": "Snackbar after saving agent edit changes" },
+  "@agentsEditSaved": {
+    "description": "Snackbar after saving agent edit changes"
+  },
   "agentTypePlaceholder": "Pick a preset or type a custom value",
-  "@agentTypePlaceholder": { "description": "Placeholder for the agent type combobox in the approve form" },
+  "@agentTypePlaceholder": {
+    "description": "Placeholder for the agent type combobox in the approve form"
+  },
   "agentIconMore": "More icons",
-  "@agentIconMore": { "description": "Accessibility label for the 'more' tile that opens the icon browser" },
+  "@agentIconMore": {
+    "description": "Accessibility label for the 'more' tile that opens the icon browser"
+  },
   "agentIconBrowserTitle": "Browse icons",
-  "@agentIconBrowserTitle": { "description": "Header of the icon browser modal" },
+  "@agentIconBrowserTitle": {
+    "description": "Header of the icon browser modal"
+  },
   "agentIconColorLabel": "Color",
-  "@agentIconColorLabel": { "description": "Label above the color swatches in the icon browser modal" },
+  "@agentIconColorLabel": {
+    "description": "Label above the color swatches in the icon browser modal"
+  },
   "agentIconChoose": "Choose",
-  "@agentIconChoose": { "description": "Confirm button label inside the icon browser modal" },
+  "@agentIconChoose": {
+    "description": "Confirm button label inside the icon browser modal"
+  },
   "agentsTypeUnknown": "Unknown",
-  "@agentsTypeUnknown": { "description": "Fallback type label on the agent card when no type is set" },
+  "@agentsTypeUnknown": {
+    "description": "Fallback type label on the agent card when no type is set"
+  },
   "agentsDetailLastIp": "Last IP",
-  "@agentsDetailLastIp": { "description": "Label for the last known IP address of the agent" },
+  "@agentsDetailLastIp": {
+    "description": "Label for the last known IP address of the agent"
+  },
   "agentsDetailLastHostname": "Last Hostname",
-  "@agentsDetailLastHostname": { "description": "Label for the last known hostname of the agent" },
-
+  "@agentsDetailLastHostname": {
+    "description": "Label for the last known hostname of the agent"
+  },
   "grantsScreenTitle": "Grants",
-  "@grantsScreenTitle": { "description": "Title of the grant-management list screen" },
+  "@grantsScreenTitle": {
+    "description": "Title of the grant-management list screen"
+  },
   "grantsFilterAll": "All",
-  "@grantsFilterAll": { "description": "Status filter chip — show grants of every status" },
+  "@grantsFilterAll": {
+    "description": "Status filter chip — show grants of every status"
+  },
   "grantsRetry": "Retry",
-  "@grantsRetry": { "description": "Retry button on the grants error state" },
+  "@grantsRetry": {
+    "description": "Retry button on the grants error state"
+  },
   "grantsEmpty": "No grants yet",
-  "@grantsEmpty": { "description": "Empty-state title on the grants list" },
+  "@grantsEmpty": {
+    "description": "Empty-state title on the grants list"
+  },
   "grantsEmptyHint": "Grants appear here when an agent requests access to this vault.",
-  "@grantsEmptyHint": { "description": "Empty-state hint on the grants list" },
+  "@grantsEmptyHint": {
+    "description": "Empty-state hint on the grants list"
+  },
   "grantsRevoke": "Revoke grant",
-  "@grantsRevoke": { "description": "Revoke action button label" },
+  "@grantsRevoke": {
+    "description": "Revoke action button label"
+  },
   "grantsRevokeConfirmTitle": "Revoke grant?",
-  "@grantsRevokeConfirmTitle": { "description": "Title of the revoke confirmation sheet" },
+  "@grantsRevokeConfirmTitle": {
+    "description": "Title of the revoke confirmation sheet"
+  },
   "grantsRevokeConfirmBody": "{agentName} will immediately lose access. This cannot be undone.",
   "@grantsRevokeConfirmBody": {
     "description": "Body of the revoke confirmation sheet",
-    "placeholders": { "agentName": { "type": "String" } }
+    "placeholders": {
+      "agentName": {
+        "type": "String"
+      }
+    }
   },
   "grantsRevokeReasonLabel": "Reason (optional)",
-  "@grantsRevokeReasonLabel": { "description": "Label for the optional revoke reason field" },
+  "@grantsRevokeReasonLabel": {
+    "description": "Label for the optional revoke reason field"
+  },
   "grantsRevokeReasonHint": "Why are you revoking this grant?",
-  "@grantsRevokeReasonHint": { "description": "Hint for the optional revoke reason field" },
-
+  "@grantsRevokeReasonHint": {
+    "description": "Hint for the optional revoke reason field"
+  },
   "grantCardTarget": "Access to {target}",
   "@grantCardTarget": {
     "description": "One-line target summary on a grant card",
-    "placeholders": { "target": { "type": "String" } }
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
   },
   "grantEntryUnknown": "Unknown entry",
-  "@grantEntryUnknown": { "description": "Fallback when a granular grant's entry label is missing" },
+  "@grantEntryUnknown": {
+    "description": "Fallback when a granular grant's entry label is missing"
+  },
   "grantUnnamedAgent": "Unnamed agent",
-  "@grantUnnamedAgent": { "description": "Fallback display name for an agent without a name" },
-
+  "@grantUnnamedAgent": {
+    "description": "Fallback display name for an agent without a name"
+  },
   "grantStatusPending": "Pending",
-  "@grantStatusPending": { "description": "Grant status label — pending approval" },
+  "@grantStatusPending": {
+    "description": "Grant status label — pending approval"
+  },
   "grantStatusActive": "Active",
-  "@grantStatusActive": { "description": "Grant status label — active" },
+  "@grantStatusActive": {
+    "description": "Grant status label — active"
+  },
   "grantStatusDenied": "Denied",
-  "@grantStatusDenied": { "description": "Grant status label — denied" },
+  "@grantStatusDenied": {
+    "description": "Grant status label — denied"
+  },
   "grantStatusRevoked": "Revoked",
-  "@grantStatusRevoked": { "description": "Grant status label — revoked" },
+  "@grantStatusRevoked": {
+    "description": "Grant status label — revoked"
+  },
   "grantStatusExpired": "Expired",
-  "@grantStatusExpired": { "description": "Grant status label — expired" },
+  "@grantStatusExpired": {
+    "description": "Grant status label — expired"
+  },
   "grantStatusConsumed": "Consumed",
-  "@grantStatusConsumed": { "description": "Grant status label — query limit exhausted" },
-
+  "@grantStatusConsumed": {
+    "description": "Grant status label — query limit exhausted"
+  },
   "grantScopeFull": "All entries",
-  "@grantScopeFull": { "description": "Grant scope label — full vault access" },
+  "@grantScopeFull": {
+    "description": "Grant scope label — full vault access"
+  },
   "grantScopeGranular": "Single entry",
-  "@grantScopeGranular": { "description": "Grant scope label — granular single-entry access" },
-
+  "@grantScopeGranular": {
+    "description": "Grant scope label — granular single-entry access"
+  },
   "approvalSegmentPending": "Pending",
-  "@approvalSegmentPending": { "description": "Approvals screen segment — pending approval inbox" },
+  "@approvalSegmentPending": {
+    "description": "Approvals screen segment — pending approval inbox"
+  },
   "approvalSegmentHistory": "History",
-  "@approvalSegmentHistory": { "description": "Approvals screen segment — org-wide grant history" },
+  "@approvalSegmentHistory": {
+    "description": "Approvals screen segment — org-wide grant history"
+  },
   "approvalHistorySearchHint": "Search grants…",
-  "@approvalHistorySearchHint": { "description": "Search placeholder on the Approvals history segment" },
+  "@approvalHistorySearchHint": {
+    "description": "Search placeholder on the Approvals history segment"
+  },
   "approvalHistoryEmpty": "No grants yet",
-  "@approvalHistoryEmpty": { "description": "Empty state title for the Approvals history feed" },
+  "@approvalHistoryEmpty": {
+    "description": "Empty state title for the Approvals history feed"
+  },
   "approvalHistoryEmptyHint": "Granted, expired and revoked access will appear here.",
-  "@approvalHistoryEmptyHint": { "description": "Empty state hint for the Approvals history feed" },
+  "@approvalHistoryEmptyHint": {
+    "description": "Empty state hint for the Approvals history feed"
+  },
   "approvalHistoryFilterClear": "Clear",
-  "@approvalHistoryFilterClear": { "description": "Clears the status filter on the Approvals history feed" },
+  "@approvalHistoryFilterClear": {
+    "description": "Clears the status filter on the Approvals history feed"
+  },
   "approvalPendingRequestsAccess": "requests access",
-  "@approvalPendingRequestsAccess": { "description": "Subtitle under the agent name on a pending-approval card" },
+  "@approvalPendingRequestsAccess": {
+    "description": "Subtitle under the agent name on a pending-approval card"
+  },
   "approvalPendingRowRequested": "Requested",
-  "@approvalPendingRowRequested": { "description": "Pending card row label — when the request was made" },
-
+  "@approvalPendingRowRequested": {
+    "description": "Pending card row label — when the request was made"
+  },
   "orgGrantRowVault": "Vault",
-  "@orgGrantRowVault": { "description": "Org grant card row label — target vault (FULL grant)" },
+  "@orgGrantRowVault": {
+    "description": "Org grant card row label — target vault (FULL grant)"
+  },
   "orgGrantRowEntry": "Entry",
-  "@orgGrantRowEntry": { "description": "Org grant card row label — target entry (granular grant)" },
+  "@orgGrantRowEntry": {
+    "description": "Org grant card row label — target entry (granular grant)"
+  },
   "orgGrantRowActor": "By",
-  "@orgGrantRowActor": { "description": "Org grant card row label — actor who last acted on the grant" },
+  "@orgGrantRowActor": {
+    "description": "Org grant card row label — actor who last acted on the grant"
+  },
   "orgGrantRowAccess": "Access",
-  "@orgGrantRowAccess": { "description": "Org grant card row label — access policy summary" },
+  "@orgGrantRowAccess": {
+    "description": "Org grant card row label — access policy summary"
+  },
+  "orgGrantRowMethods": "Methods",
+  "@orgGrantRowMethods": {
+    "description": "Org grant card row label — permitted methods"
+  },
   "orgGrantRowReason": "Reason",
-  "@orgGrantRowReason": { "description": "Org grant card row label — agent's access request reason" },
+  "@orgGrantRowReason": {
+    "description": "Org grant card row label — agent's access request reason"
+  },
   "orgGrantRowDenyReason": "Deny reason",
-  "@orgGrantRowDenyReason": { "description": "Org grant card row label — owner's deny reason" },
+  "@orgGrantRowDenyReason": {
+    "description": "Org grant card row label — owner's deny reason"
+  },
   "orgGrantRowRevokeReason": "Revoke reason",
-  "@orgGrantRowRevokeReason": { "description": "Org grant card row label — owner's revoke reason" },
+  "@orgGrantRowRevokeReason": {
+    "description": "Org grant card row label — owner's revoke reason"
+  },
   "orgGrantActorSystem": "System",
-  "@orgGrantActorSystem": { "description": "Fallback actor name when no user acted (e.g. automatic expiry)" },
+  "@orgGrantActorSystem": {
+    "description": "Fallback actor name when no user acted (e.g. automatic expiry)"
+  },
   "orgGrantUnlimited": "Unlimited",
-  "@orgGrantUnlimited": { "description": "Access summary — no usage or time limit" },
+  "@orgGrantUnlimited": {
+    "description": "Access summary — no usage or time limit"
+  },
   "orgGrantUsesLeft": "{left} of {limit} uses left",
   "@orgGrantUsesLeft": {
     "description": "Access summary — remaining query uses for a use-limited grant",
     "placeholders": {
-      "left": { "type": "int" },
-      "limit": { "type": "int" }
+      "left": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
     }
   },
   "orgGrantExpiresOn": "Until {date}",
   "@orgGrantExpiresOn": {
     "description": "Access summary — absolute expiry date for a time-limited grant",
     "placeholders": {
-      "date": { "type": "String" }
+      "date": {
+        "type": "String"
+      }
     }
   },
   "orgGrantAlreadyActive": "Already active",
-  "@orgGrantAlreadyActive": { "description": "Footer on a terminal grant whose agent already holds active coverage" },
-
+  "@orgGrantAlreadyActive": {
+    "description": "Footer on a terminal grant whose agent already holds active coverage"
+  },
   "grantDetailTitle": "Grant",
-  "@grantDetailTitle": { "description": "Title of the grant detail screen" },
+  "@grantDetailTitle": {
+    "description": "Title of the grant detail screen"
+  },
   "grantDetailScope": "Scope",
-  "@grantDetailScope": { "description": "Detail field label — grant scope" },
+  "@grantDetailScope": {
+    "description": "Detail field label — grant scope"
+  },
   "grantDetailEntry": "Entry",
-  "@grantDetailEntry": { "description": "Detail field label — target entry" },
+  "@grantDetailEntry": {
+    "description": "Detail field label — target entry"
+  },
   "grantDetailExpiry": "Expiry",
-  "@grantDetailExpiry": { "description": "Detail field label — expiry / use limit" },
+  "@grantDetailExpiry": {
+    "description": "Detail field label — expiry / use limit"
+  },
   "grantDetailReason": "Agent's reason",
-  "@grantDetailReason": { "description": "Detail section label — agent-supplied reason" },
+  "@grantDetailReason": {
+    "description": "Detail section label — agent-supplied reason"
+  },
   "grantDetailRequested": "Requested",
-  "@grantDetailRequested": { "description": "Detail field label — request timestamp" },
+  "@grantDetailRequested": {
+    "description": "Detail field label — request timestamp"
+  },
   "grantDetailApproved": "Approved",
-  "@grantDetailApproved": { "description": "Detail field label — approval timestamp" },
+  "@grantDetailApproved": {
+    "description": "Detail field label — approval timestamp"
+  },
   "grantDetailApprovedBy": "{date} by {name}",
   "@grantDetailApprovedBy": {
     "description": "Approval timestamp with approver name",
-    "placeholders": { "date": { "type": "String" }, "name": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "grantDetailRevoked": "Revoked",
-  "@grantDetailRevoked": { "description": "Detail field label — revoke timestamp" },
+  "@grantDetailRevoked": {
+    "description": "Detail field label — revoke timestamp"
+  },
   "grantDetailExpiresAt": "Expires {date}",
   "@grantDetailExpiresAt": {
     "description": "Expiry line — absolute TTL",
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "grantDetailUsesLimit": "{used} of {limit} uses",
   "@grantDetailUsesLimit": {
     "description": "Expiry line — use-limited grant",
-    "placeholders": { "used": { "type": "int" }, "limit": { "type": "int" } }
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
   },
   "grantDetailNoExpiry": "No expiry",
-  "@grantDetailNoExpiry": { "description": "Expiry line — unbounded grant" },
-
+  "@grantDetailNoExpiry": {
+    "description": "Expiry line — unbounded grant"
+  },
   "grantsErrorNotFound": "This grant no longer exists.",
-  "@grantsErrorNotFound": { "description": "Error — 404 on grants" },
+  "@grantsErrorNotFound": {
+    "description": "Error — 404 on grants"
+  },
   "grantsErrorForbidden": "You do not have permission to manage grants.",
-  "@grantsErrorForbidden": { "description": "Error — 403 on grants" },
+  "@grantsErrorForbidden": {
+    "description": "Error — 403 on grants"
+  },
   "grantsErrorValidation": "The request was rejected. Please check and try again.",
-  "@grantsErrorValidation": { "description": "Error — 400/409 on grants" },
+  "@grantsErrorValidation": {
+    "description": "Error — 400/409 on grants"
+  },
   "grantsErrorNetwork": "Cannot reach the server. Check your connection.",
-  "@grantsErrorNetwork": { "description": "Error — network failure on grants" },
+  "@grantsErrorNetwork": {
+    "description": "Error — network failure on grants"
+  },
   "grantsErrorCrypto": "Could not securely prepare the credential. Please try again.",
-  "@grantsErrorCrypto": { "description": "Error — on-device crypto failure during approval" },
+  "@grantsErrorCrypto": {
+    "description": "Error — on-device crypto failure during approval"
+  },
   "grantsErrorUnknown": "Something went wrong. Please try again.",
-  "@grantsErrorUnknown": { "description": "Error — unexpected failure on grants" },
-
+  "@grantsErrorUnknown": {
+    "description": "Error — unexpected failure on grants"
+  },
   "approvalInboxTitle": "Approvals",
-  "@approvalInboxTitle": { "description": "Title of the cross-vault pending-grant approval inbox" },
+  "@approvalInboxTitle": {
+    "description": "Title of the cross-vault pending-grant approval inbox"
+  },
   "approvalInboxEmpty": "Nothing to approve",
-  "@approvalInboxEmpty": { "description": "Empty-state title on the approval inbox" },
+  "@approvalInboxEmpty": {
+    "description": "Empty-state title on the approval inbox"
+  },
   "approvalInboxEmptyHint": "When an agent requests access to a credential, the request shows up here for you to approve or deny.",
-  "@approvalInboxEmptyHint": { "description": "Empty-state hint on the approval inbox" },
+  "@approvalInboxEmptyHint": {
+    "description": "Empty-state hint on the approval inbox"
+  },
   "approvalRetry": "Retry",
-  "@approvalRetry": { "description": "Retry button on the approval inbox error state" },
+  "@approvalRetry": {
+    "description": "Retry button on the approval inbox error state"
+  },
   "approvalCardRequest": "Wants {entry} in {vault}",
   "@approvalCardRequest": {
     "description": "One-line summary on a pending-grant card",
     "placeholders": {
-      "entry": { "type": "String" },
-      "vault": { "type": "String" }
+      "entry": {
+        "type": "String"
+      },
+      "vault": {
+        "type": "String"
+      }
     }
   },
   "approvalScreenTitle": "Review request",
-  "@approvalScreenTitle": { "description": "Title of the approve/deny screen for a single grant" },
+  "@approvalScreenTitle": {
+    "description": "Title of the approve/deny screen for a single grant"
+  },
   "approvalSummaryEntry": "Entry",
-  "@approvalSummaryEntry": { "description": "Label for the requested entry in the approval summary" },
+  "@approvalSummaryEntry": {
+    "description": "Label for the requested entry in the approval summary"
+  },
   "approvalSummaryVault": "Vault",
-  "@approvalSummaryVault": { "description": "Label for the vault in the approval summary" },
+  "@approvalSummaryVault": {
+    "description": "Label for the vault in the approval summary"
+  },
   "approvalSummaryReason": "Agent's reason",
-  "@approvalSummaryReason": { "description": "Label for the agent-supplied reason in the approval summary" },
+  "@approvalSummaryReason": {
+    "description": "Label for the agent-supplied reason in the approval summary"
+  },
   "approvalUnnamedAgent": "Unnamed agent",
-  "@approvalUnnamedAgent": { "description": "Fallback display name for an agent without a name" },
+  "@approvalUnnamedAgent": {
+    "description": "Fallback display name for an agent without a name"
+  },
   "approvalEntryUnknown": "this credential",
-  "@approvalEntryUnknown": { "description": "Fallback when the requested entry label is missing" },
+  "@approvalEntryUnknown": {
+    "description": "Fallback when the requested entry label is missing"
+  },
   "approvalVaultUnknown": "a vault",
-  "@approvalVaultUnknown": { "description": "Fallback when the vault name is missing" },
+  "@approvalVaultUnknown": {
+    "description": "Fallback when the vault name is missing"
+  },
   "approvalLimitSectionTitle": "Access limit",
-  "@approvalLimitSectionTitle": { "description": "Section title for the XOR expiry/use-count limit picker" },
+  "@approvalLimitSectionTitle": {
+    "description": "Section title for the XOR expiry/use-count limit picker"
+  },
   "approvalLimitSectionHint": "Choose how long this access lasts — by time or by number of uses.",
-  "@approvalLimitSectionHint": { "description": "Hint under the access-limit section title" },
+  "@approvalLimitSectionHint": {
+    "description": "Hint under the access-limit section title"
+  },
   "approvalLimitExpiry": "Expires after",
-  "@approvalLimitExpiry": { "description": "Segmented toggle option — time-to-live limit" },
+  "@approvalLimitExpiry": {
+    "description": "Segmented toggle option — time-to-live limit"
+  },
   "approvalLimitUses": "Number of uses",
-  "@approvalLimitUses": { "description": "Segmented toggle option — use-count limit" },
+  "@approvalLimitUses": {
+    "description": "Segmented toggle option — use-count limit"
+  },
   "approvalLimitUsesLabel": "Max uses",
-  "@approvalLimitUsesLabel": { "description": "Text field label for the maximum number of uses" },
+  "@approvalLimitUsesLabel": {
+    "description": "Text field label for the maximum number of uses"
+  },
   "approvalApprove": "Approve",
-  "@approvalApprove": { "description": "Approve button label" },
+  "@approvalApprove": {
+    "description": "Approve button label"
+  },
   "approvalDenySectionTitle": "Deny instead",
-  "@approvalDenySectionTitle": { "description": "Section title for the deny action" },
+  "@approvalDenySectionTitle": {
+    "description": "Section title for the deny action"
+  },
   "approvalDenyReasonLabel": "Reason (optional)",
-  "@approvalDenyReasonLabel": { "description": "Label for the optional deny reason field" },
+  "@approvalDenyReasonLabel": {
+    "description": "Label for the optional deny reason field"
+  },
   "approvalDenyReasonHint": "Why are you denying this request?",
-  "@approvalDenyReasonHint": { "description": "Hint for the optional deny reason field" },
+  "@approvalDenyReasonHint": {
+    "description": "Hint for the optional deny reason field"
+  },
   "approvalDeny": "Deny",
-  "@approvalDeny": { "description": "Deny button label" },
+  "@approvalDeny": {
+    "description": "Deny button label"
+  },
   "approvalCancel": "Cancel",
-  "@approvalCancel": { "description": "Cancel button on approval sheets" },
+  "@approvalCancel": {
+    "description": "Cancel button on approval sheets"
+  },
   "approvalApproveTitle": "Approve request",
-  "@approvalApproveTitle": { "description": "Title of the approve bottom sheet" },
+  "@approvalApproveTitle": {
+    "description": "Title of the approve bottom sheet"
+  },
   "approvalApproveSubGrant": "Grant",
-  "@approvalApproveSubGrant": { "description": "Approve subtitle fragment — leading verb before the agent name" },
+  "@approvalApproveSubGrant": {
+    "description": "Approve subtitle fragment — leading verb before the agent name"
+  },
   "approvalApproveSubAccessTo": "access to",
-  "@approvalApproveSubAccessTo": { "description": "Approve subtitle fragment — between agent and entry" },
+  "@approvalApproveSubAccessTo": {
+    "description": "Approve subtitle fragment — between agent and entry"
+  },
   "approvalApproveSubIn": "in",
-  "@approvalApproveSubIn": { "description": "Approve subtitle fragment — between entry and vault" },
+  "@approvalApproveSubIn": {
+    "description": "Approve subtitle fragment — between entry and vault"
+  },
   "approvalAccessType": "Access type",
-  "@approvalAccessType": { "description": "Label above the access policy selector" },
+  "@approvalAccessType": {
+    "description": "Label above the access policy selector"
+  },
+  "approvalMethodsLegend": "How the agent may use it",
+  "approvalMethodWarningZone": "Warning Zone",
+  "@approvalMethodWarningZone": {
+    "description": "Title of the amber warning box shown when the plaintext get method is selected"
+  },
+  "@approvalMethodsLegend": {
+    "description": "Label above the grant methods selector"
+  },
+  "approvalMethodNoneSelected": "Select at least one method.",
+  "@approvalMethodNoneSelected": {
+    "description": "Error when no method is selected on approve"
+  },
+  "approvalMethodGetLabel": "Get (plaintext)",
+  "@approvalMethodGetLabel": {
+    "description": "Label for the get method"
+  },
+  "approvalMethodGetWarning": "The secret enters the agent's context — on a hosted LLM it may leave the device.",
+  "@approvalMethodGetWarning": {
+    "description": "Warning shown for the get method"
+  },
+  "approvalMethodExecLabel": "Exec",
+  "@approvalMethodExecLabel": {
+    "description": "Label for the exec method"
+  },
+  "approvalMethodInjectLabel": "Inject",
+  "@approvalMethodInjectLabel": {
+    "description": "Label for the inject method"
+  },
   "approvalApproving": "Approving…",
-  "@approvalApproving": { "description": "Approve button label while submitting" },
+  "@approvalApproving": {
+    "description": "Approve button label while submitting"
+  },
   "approvalPolicyTime": "Time",
-  "@approvalPolicyTime": { "description": "Access policy option — time-limited (TTL)" },
+  "@approvalPolicyTime": {
+    "description": "Access policy option — time-limited (TTL)"
+  },
   "approvalPolicyUses": "Uses",
-  "@approvalPolicyUses": { "description": "Access policy option — use-count limited" },
+  "@approvalPolicyUses": {
+    "description": "Access policy option — use-count limited"
+  },
   "approvalPolicyLifetime": "Lifetime",
-  "@approvalPolicyLifetime": { "description": "Access policy option — unlimited / until revoked" },
+  "@approvalPolicyLifetime": {
+    "description": "Access policy option — unlimited / until revoked"
+  },
   "approvalLifetimeHint": "The agent keeps access until you revoke it.",
-  "@approvalLifetimeHint": { "description": "Hint shown when the lifetime access policy is selected" },
+  "@approvalLifetimeHint": {
+    "description": "Hint shown when the lifetime access policy is selected"
+  },
   "approvalExpiresOnLabel": "Expires on",
-  "@approvalExpiresOnLabel": { "description": "Label for the expiry date picker field" },
+  "@approvalExpiresOnLabel": {
+    "description": "Label for the expiry date picker field"
+  },
   "approvalDenyTitle": "Deny {name}?",
   "@approvalDenyTitle": {
     "description": "Title of the deny bottom sheet",
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "approvalDenyText": "The agent won't get access to this entry.",
-  "@approvalDenyText": { "description": "Body text of the deny bottom sheet" },
+  "@approvalDenyText": {
+    "description": "Body text of the deny bottom sheet"
+  },
   "approvalDenying": "Denying…",
-  "@approvalDenying": { "description": "Deny button label while submitting" },
+  "@approvalDenying": {
+    "description": "Deny button label while submitting"
+  },
   "approvalRegrantTitle": "Grant again",
-  "@approvalRegrantTitle": { "description": "Title of the re-grant (grant again) bottom sheet" },
+  "@approvalRegrantTitle": {
+    "description": "Title of the re-grant (grant again) bottom sheet"
+  },
   "approvalRegrant": "Grant again",
-  "@approvalRegrant": { "description": "Re-grant button label" },
+  "@approvalRegrant": {
+    "description": "Re-grant button label"
+  },
   "approvalRegranting": "Granting…",
-  "@approvalRegranting": { "description": "Re-grant button label while submitting" },
+  "@approvalRegranting": {
+    "description": "Re-grant button label while submitting"
+  },
   "approvalErrorNotFound": "This request no longer exists.",
-  "@approvalErrorNotFound": { "description": "Error — 404 on approval" },
+  "@approvalErrorNotFound": {
+    "description": "Error — 404 on approval"
+  },
   "approvalErrorForbidden": "You do not have permission to manage grants.",
-  "@approvalErrorForbidden": { "description": "Error — 403 on approval" },
+  "@approvalErrorForbidden": {
+    "description": "Error — 403 on approval"
+  },
   "approvalErrorValidation": "The request was rejected. Please check and try again.",
-  "@approvalErrorValidation": { "description": "Error — 400/409 on approval" },
+  "@approvalErrorValidation": {
+    "description": "Error — 400/409 on approval"
+  },
   "approvalErrorNetwork": "Cannot reach the server. Check your connection.",
-  "@approvalErrorNetwork": { "description": "Error — network failure on approval" },
+  "@approvalErrorNetwork": {
+    "description": "Error — network failure on approval"
+  },
   "approvalErrorCrypto": "Could not securely prepare the credential. Please try again.",
-  "@approvalErrorCrypto": { "description": "Error — on-device crypto failure producing the envelope" },
+  "@approvalErrorCrypto": {
+    "description": "Error — on-device crypto failure producing the envelope"
+  },
   "approvalErrorVaultLocked": "Unlock your vault first to approve this request.",
-  "@approvalErrorVaultLocked": { "description": "Error — vault locked, no in-memory key to produce the envelope" },
+  "@approvalErrorVaultLocked": {
+    "description": "Error — vault locked, no in-memory key to produce the envelope"
+  },
   "approvalErrorUnknown": "Something went wrong. Please try again.",
-  "@approvalErrorUnknown": { "description": "Error — unexpected failure on approval" }
+  "@approvalErrorUnknown": {
+    "description": "Error — unexpected failure on approval"
+  },
+  "grantAccessTitleAgent": "Add agent",
+  "grantAccessTitleVault": "Grant access",
+  "grantAccessPickAgent": "Agent",
+  "grantAccessPickVault": "Vault",
+  "grantAccessNoAgents": "No active agents to grant",
+  "grantAccessNoVaults": "No vaults available",
+  "grantAccessSelectAgent": "Select an agent",
+  "grantAccessSelectVault": "Select a vault",
+  "grantAccessConfirm": "Grant access",
+  "grantAccessGranting": "Granting…",
+  "grantAccessError": "Could not create the grant. Please try again.",
+  "grantAddGrant": "Add grant",
+  "approvalMethodGetDesc": "Returns the secret as plaintext to the agent.",
+  "approvalMethodExecDesc": "Runs a command with the secret in its environment — never enters the agent's context.",
+  "approvalMethodInjectDesc": "Fills a login form in the agent's browser — never enters the agent's context.",
+  "approvalMethodsSelect": "Select methods",
+  "approvalMethodsDone": "Done",
+  "approvalMethodRequested": "requested"
 }

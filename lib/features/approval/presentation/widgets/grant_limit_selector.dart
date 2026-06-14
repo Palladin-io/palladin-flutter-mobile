@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../cubit/grant_approval_cubit.dart';
@@ -33,8 +34,9 @@ enum _Mode { expiry, uses, lifetime }
 class _GrantLimitSelectorState extends State<GrantLimitSelector> {
   late _Mode _mode;
   late DateTime _expiresOn;
-  final TextEditingController _usesController =
-      TextEditingController(text: '1');
+  final TextEditingController _usesController = TextEditingController(
+    text: '1',
+  );
   final TextEditingController _dateController = TextEditingController();
 
   @override
@@ -115,9 +117,7 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
           headerBackgroundColor: white,
           headerForegroundColor: dark,
         ),
-        timePickerTheme: const TimePickerThemeData(
-          backgroundColor: white,
-        ),
+        timePickerTheme: const TimePickerThemeData(backgroundColor: white),
       ),
       child: child!,
     );
@@ -190,69 +190,46 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
           ],
         ),
         const SizedBox(height: 12),
-        // Fixed-height slot so switching Time / Uses / Lifetime never resizes
-        // the sheet (the three variants have different natural heights).
-        SizedBox(
-          height: 72,
+        // The field below sizes naturally — no fixed-height slot (which caused an
+        // 8px overflow). Time / Uses are the same label+field height; Lifetime has
+        // no field and instead shows the "never expires" caveat in the shared
+        // Warning Zone (consistent with the `get` method warning). AnimatedSize
+        // smooths the height change (and the sheet around it) when switching to
+        // / from the taller lifetime warning instead of snapping.
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
           child: switch (_mode) {
             _Mode.expiry => OnboardingTextField(
-                controller: _dateController,
-                label: l10n.approvalExpiresOnLabel,
-                readOnly: true,
-                enabled: widget.enabled,
-                onTap: widget.enabled ? _pickDateTime : null,
-                suffixIcon: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Icon(
-                    Icons.calendar_today_outlined,
-                    size: 18,
-                    color: AppColors.onSurfaceSubtle(brightness),
-                  ),
+              controller: _dateController,
+              label: l10n.approvalExpiresOnLabel,
+              readOnly: true,
+              enabled: widget.enabled,
+              feedbackReserveSpace: false,
+              onTap: widget.enabled ? _pickDateTime : null,
+              suffixIcon: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Icon(
+                  Icons.calendar_today_outlined,
+                  size: 18,
+                  color: AppColors.onSurfaceSubtle(brightness),
                 ),
               ),
+            ),
             _Mode.uses => OnboardingTextField(
-                controller: _usesController,
-                label: l10n.approvalLimitUsesLabel,
-                enabled: widget.enabled,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                onChanged: (_) => _emit(),
-              ),
-            _Mode.lifetime => Container(
-                width: double.infinity,
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: AppColors.premiumAmber.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: AppColors.premiumAmber.withValues(alpha: 0.5),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.warning_amber_rounded,
-                      size: 16,
-                      color: AppColors.premiumAmber,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        l10n.approvalLifetimeHint,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppColors.premiumAmber,
-                          fontSize: 12,
-                          height: 1.3,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              controller: _usesController,
+              label: l10n.approvalLimitUsesLabel,
+              enabled: widget.enabled,
+              feedbackReserveSpace: false,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (_) => _emit(),
+            ),
+            _Mode.lifetime => WarningZone(
+              title: l10n.approvalMethodWarningZone,
+              message: l10n.approvalLifetimeHint,
+            ),
           },
         ),
       ],
@@ -280,7 +257,7 @@ class _SegmentButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 7),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: selected

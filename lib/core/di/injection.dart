@@ -21,6 +21,7 @@ import '../../features/approval/data/datasources/approval_remote_datasource.dart
 import '../../features/approval/data/repositories/approval_repository_impl.dart';
 import '../../features/approval/data/services/grant_crypto_service.dart';
 import '../../features/approval/domain/repositories/approval_repository.dart';
+import '../../features/approval/presentation/cubit/grant_access_cubit.dart';
 import '../../features/approval/presentation/cubit/grant_approval_cubit.dart';
 import '../../features/approval/presentation/cubit/pending_grants_cubit.dart';
 import '../../features/approval/presentation/cubit/regrant_cubit.dart';
@@ -359,5 +360,11 @@ void configureDependencies(EnvConfig config) {
       repository: getIt<ApprovalRepository>(),
       args: args,
     ),
+  );
+
+  // GrantAccessCubit: factory per "Add agent / Add grant" sheet (CVT-120/132). Subject is chosen
+  // in-sheet, so no construction args.
+  getIt.registerFactory<GrantAccessCubit>(
+    () => GrantAccessCubit(repository: getIt<ApprovalRepository>()),
   );
 }

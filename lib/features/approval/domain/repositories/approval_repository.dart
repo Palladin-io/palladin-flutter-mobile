@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../../grants/domain/entities/grant_method.dart';
 import '../entities/pending_grant.dart';
 
 /// The wire representation of a [GrantLimit]: at most one of the two fields
@@ -71,6 +72,7 @@ abstract interface class ApprovalRepository {
     required PendingGrant grant,
     required Uint8List privateKey,
     required GrantLimit limit,
+    required List<GrantMethod> methods,
   });
 
   /// Denies [grant] with an optional [reason].
@@ -91,5 +93,6 @@ abstract interface class ApprovalRepository {
     String? entryId,
     required Uint8List privateKey,
     required GrantLimit limit,
+    required List<GrantMethod> methods,
   });
 }

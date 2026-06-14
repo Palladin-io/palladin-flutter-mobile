@@ -8,9 +8,11 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../grants/domain/entities/grant_method.dart';
 import '../cubit/grant_approval_cubit.dart';
 import 'approval_format.dart';
 import 'grant_limit_selector.dart';
+import 'grant_methods_selector.dart';
 
 /// Bottom sheet to approve a pending GRANULAR grant — the mobile counterpart of
 /// the web `ApproveGrantDialog`. The owner picks an access policy (Time / Uses /
@@ -51,6 +53,12 @@ class _ApproveSheetBody extends StatefulWidget {
 class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
   GrantLimit _limit = GrantExpiry(DateTime.now().add(const Duration(hours: 24)));
 
+  // Pre-select what the agent requested; fall back to the privacy-preserving
+  // default when the request predates the methods feature.
+  late List<GrantMethod> _methods = widget.grant.requestedMethods.isNotEmpty
+      ? List.of(widget.grant.requestedMethods)
+      : List.of(kDefaultGrantMethods);
+
   Uint8List? _privateKey() {
     final auth = context.read<AuthBloc>().state;
     if (auth is AuthAuthenticated && !auth.isVaultLocked) return auth.privateKey;
@@ -63,7 +71,17 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
       context.read<GrantApprovalCubit>().reportVaultLocked();
       return;
     }
-    context.read<GrantApprovalCubit>().approve(privateKey: key, limit: _limit);
+    if (_methods.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(AppLocalizations.of(context)!.approvalMethodNoneSelected),
+        ));
+      return;
+    }
+    context
+        .read<GrantApprovalCubit>()
+        .approve(privateKey: key, limit: _limit, methods: _methods);
   }
 
   @override
@@ -140,6 +158,22 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
                       value: _limit,
                       enabled: !state.isSubmitting,
                       onChanged: (l) => setState(() => _limit = l),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      l10n.approvalMethodsLegend,
+                      style: TextStyle(
+                        color: AppColors.onSurfaceSubtle(brightness),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    GrantMethodsSelector(
+                      value: _methods,
+                      requested: grant.requestedMethods,
+                      enabled: !state.isSubmitting,
+                      onChanged: (m) => setState(() => _methods = m),
                     ),
                   ],
                 ),
