@@ -974,6 +974,12 @@ abstract class AppLocalizations {
   /// **'No agent has been granted access to this entry yet.'**
   String get entryAgentsEmptyHint;
 
+  /// Vault Agents tab — empty state title
+  ///
+  /// In en, this message translates to:
+  /// **'No agents have access'**
+  String get vaultAgentsEmptyTitle;
+
   /// Vault Agents tab — empty hint
   ///
   /// In en, this message translates to:

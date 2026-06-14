@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/presentation/widgets/agent_avatar.dart';
 import '../../domain/entities/grant.dart';
+import '../grant_method_label.dart';
 import 'grant_format.dart';
 
 /// Rich grant card for the Approvals "history" feed — the mobile counterpart
@@ -77,7 +78,7 @@ class OrgGrantCard extends StatelessWidget {
                     GrantDetailRow(
                       label: l10n.orgGrantRowMethods,
                       value: grant.methods
-                          .map((m) => m.name.toUpperCase())
+                          .map((m) => grantMethodLabel(l10n, m))
                           .join(' · '),
                     ),
                   ],

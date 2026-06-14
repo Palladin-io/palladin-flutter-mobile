@@ -539,7 +539,7 @@ class _VaultAgentsTab extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     return ContextGrantsTab(
       vaultId: vaultId,
-      emptyTitle: l10n.entryAgentsEmptyTitle,
+      emptyTitle: l10n.vaultAgentsEmptyTitle,
       emptyHint: l10n.vaultAgentsEmptyHint,
       contentPadding: const EdgeInsets.fromLTRB(0, 4, 0, 96),
     );

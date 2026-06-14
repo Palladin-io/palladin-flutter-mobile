@@ -5,6 +5,7 @@ import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../grants/domain/entities/grant_method.dart';
+import '../../../grants/presentation/grant_method_label.dart';
 
 /// Compact multi-select for grant methods (CVT-148/149) — the mobile counterpart of the web methods
 /// dropdown. A single 44px field (matching the app's inputs) shows the chosen methods as a summary
@@ -24,11 +25,7 @@ class GrantMethodsSelector extends StatelessWidget {
   final bool enabled;
   final ValueChanged<List<GrantMethod>> onChanged;
 
-  static String _label(AppLocalizations l10n, GrantMethod m) => switch (m) {
-    GrantMethod.get => l10n.approvalMethodGetLabel,
-    GrantMethod.exec => l10n.approvalMethodExecLabel,
-    GrantMethod.inject => l10n.approvalMethodInjectLabel,
-  };
+  static String _label(AppLocalizations l10n, GrantMethod m) => grantMethodLabel(l10n, m);
 
   Future<void> _openPicker(BuildContext context) async {
     final result = await showModalBottomSheet<List<GrantMethod>>(

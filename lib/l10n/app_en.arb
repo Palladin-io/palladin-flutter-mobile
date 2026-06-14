@@ -669,6 +669,10 @@
     "description": "Entry Agents tab — empty state title"
   },
   "entryAgentsEmptyHint": "No agent has been granted access to this entry yet.",
+  "vaultAgentsEmptyTitle": "No agents have access",
+  "@vaultAgentsEmptyTitle": {
+    "description": "Vault Agents tab — empty state title"
+  },
   "vaultAgentsEmptyHint": "No agent has been granted access to this vault yet.",
   "@vaultAgentsEmptyHint": {
     "description": "Vault Agents tab — empty hint"
