@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/app_dropdown_field.dart';
+import '../../../../core/widgets/app_autocomplete_field.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/domain/entities/agent.dart';
@@ -81,14 +81,17 @@ class _GrantAccessBody extends StatefulWidget {
 }
 
 class _GrantAccessBodyState extends State<_GrantAccessBody> {
-  bool get _pickAgent => widget.mode is GrantForVault || widget.mode is GrantForEntry;
+  bool get _pickAgent =>
+      widget.mode is GrantForVault || widget.mode is GrantForEntry;
 
   List<_Option> _options = const [];
   bool _loadingOptions = true;
   String? _loadError;
   String? _selectedId;
 
-  GrantLimit _limit = GrantExpiry(DateTime.now().add(const Duration(hours: 24)));
+  GrantLimit _limit = GrantExpiry(
+    DateTime.now().add(const Duration(hours: 24)),
+  );
   late List<GrantMethod> _methods = List.of(kDefaultGrantMethods);
 
   @override
@@ -108,7 +111,9 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
             .toList(growable: false);
       } else {
         final vaults = await getIt<VaultRepository>().listVaults();
-        options = vaults.map((v) => (id: v.id, label: v.name)).toList(growable: false);
+        options = vaults
+            .map((v) => (id: v.id, label: v.name))
+            .toList(growable: false);
       }
       if (!mounted) return;
       setState(() {
@@ -126,19 +131,25 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
 
   String _agentLabel(Agent a) {
     final name = a.name?.trim();
-    return name != null && name.isNotEmpty ? name : '${a.publicKeyPrefix}•••${a.publicKeySuffix}';
+    return name != null && name.isNotEmpty
+        ? name
+        : '${a.publicKeyPrefix}•••${a.publicKeySuffix}';
   }
 
   Uint8List? _privateKey() {
     final auth = context.read<AuthBloc>().state;
-    if (auth is AuthAuthenticated && !auth.isVaultLocked) return auth.privateKey;
+    if (auth is AuthAuthenticated && !auth.isVaultLocked) {
+      return auth.privateKey;
+    }
     return null;
   }
 
   Future<void> _onConfirm() async {
     final l10n = AppLocalizations.of(context)!;
     if (_selectedId == null) {
-      _snack(_pickAgent ? l10n.grantAccessSelectAgent : l10n.grantAccessSelectVault);
+      _snack(
+        _pickAgent ? l10n.grantAccessSelectAgent : l10n.grantAccessSelectVault,
+      );
       return;
     }
     if (_methods.isEmpty) {
@@ -154,11 +165,27 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
     // Resolve the parameters for each mode. The agent's full public key (needed to seal the DEK)
     // comes from the single-agent endpoint.
     final cubit = context.read<GrantAccessCubit>();
-    final ({String agentId, String vaultId, bool isFull, String? entryId}) r = switch (widget.mode) {
-      GrantForVault(:final vaultId) => (agentId: _selectedId!, vaultId: vaultId, isFull: true, entryId: null),
-      GrantForEntry(:final vaultId, :final entryId) => (agentId: _selectedId!, vaultId: vaultId, isFull: false, entryId: entryId),
-      GrantForAgent(:final agentId) => (agentId: agentId, vaultId: _selectedId!, isFull: true, entryId: null),
-    };
+    final ({String agentId, String vaultId, bool isFull, String? entryId}) r =
+        switch (widget.mode) {
+          GrantForVault(:final vaultId) => (
+            agentId: _selectedId!,
+            vaultId: vaultId,
+            isFull: true,
+            entryId: null,
+          ),
+          GrantForEntry(:final vaultId, :final entryId) => (
+            agentId: _selectedId!,
+            vaultId: vaultId,
+            isFull: false,
+            entryId: entryId,
+          ),
+          GrantForAgent(:final agentId) => (
+            agentId: agentId,
+            vaultId: _selectedId!,
+            isFull: true,
+            entryId: null,
+          ),
+        };
 
     final String agentPublicKey;
     try {
@@ -194,8 +221,10 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
     final brightness = Theme.of(context).brightness;
 
     return BlocConsumer<GrantAccessCubit, GrantAccessState>(
-      listenWhen: (p, c) => p.status != c.status &&
-          (c.status == GrantAccessStatus.done || c.status == GrantAccessStatus.error),
+      listenWhen: (p, c) =>
+          p.status != c.status &&
+          (c.status == GrantAccessStatus.done ||
+              c.status == GrantAccessStatus.error),
       listener: (context, state) {
         if (state.status == GrantAccessStatus.done) {
           Navigator.of(context).pop(true);
@@ -214,80 +243,95 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppColors.cardBorder(brightness),
-                          borderRadius: BorderRadius.circular(2),
+              // Scrollable so the type-ahead picker's keyboard never overflows
+              // the sheet; the footer band stays pinned below.
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 36,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: AppColors.cardBorder(brightness),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _pickAgent
+                              ? l10n.grantAccessTitleAgent
+                              : l10n.grantAccessTitleVault,
+                          style: TextStyle(
+                            color: AppColors.onSurface(brightness),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _Picker(
+                          label: _pickAgent
+                              ? l10n.grantAccessPickAgent
+                              : l10n.grantAccessPickVault,
+                          options: _options,
+                          loading: _loadingOptions,
+                          loadError: _loadError != null,
+                          emptyText: _pickAgent
+                              ? l10n.grantAccessNoAgents
+                              : l10n.grantAccessNoVaults,
+                          selectedId: _selectedId,
+                          enabled: !state.isSubmitting,
+                          brightness: brightness,
+                          onChanged: (id) => setState(() => _selectedId = id),
+                        ),
+                        // ^ null when the typed text matches no option.
+                        const SizedBox(height: 18),
+                        Text(
+                          l10n.approvalAccessType,
+                          style: TextStyle(
+                            color: AppColors.onSurfaceSubtle(brightness),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        GrantLimitSelector(
+                          value: _limit,
+                          enabled: !state.isSubmitting,
+                          onChanged: (l) => setState(() => _limit = l),
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          l10n.approvalMethodsLegend,
+                          style: TextStyle(
+                            color: AppColors.onSurfaceSubtle(brightness),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        GrantMethodsSelector(
+                          value: _methods,
+                          enabled: !state.isSubmitting,
+                          onChanged: (m) => setState(() => _methods = m),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _pickAgent ? l10n.grantAccessTitleAgent : l10n.grantAccessTitleVault,
-                      style: TextStyle(
-                        color: AppColors.onSurface(brightness),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _Picker(
-                      label: _pickAgent ? l10n.grantAccessPickAgent : l10n.grantAccessPickVault,
-                      options: _options,
-                      loading: _loadingOptions,
-                      loadError: _loadError != null,
-                      emptyText: _pickAgent ? l10n.grantAccessNoAgents : l10n.grantAccessNoVaults,
-                      selectedId: _selectedId,
-                      enabled: !state.isSubmitting,
-                      brightness: brightness,
-                      onChanged: (id) => setState(() => _selectedId = id),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      l10n.approvalAccessType,
-                      style: TextStyle(
-                        color: AppColors.onSurfaceSubtle(brightness),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    GrantLimitSelector(
-                      value: _limit,
-                      enabled: !state.isSubmitting,
-                      onChanged: (l) => setState(() => _limit = l),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      l10n.approvalMethodsLegend,
-                      style: TextStyle(
-                        color: AppColors.onSurfaceSubtle(brightness),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    GrantMethodsSelector(
-                      value: _methods,
-                      enabled: !state.isSubmitting,
-                      onChanged: (m) => setState(() => _methods = m),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               SheetActionButtons(
                 onCancel: () => Navigator.of(context).pop(),
                 onConfirm: _onConfirm,
-                confirmLabel: state.isSubmitting ? l10n.grantAccessGranting : l10n.grantAccessConfirm,
+                confirmLabel: state.isSubmitting
+                    ? l10n.grantAccessGranting
+                    : l10n.grantAccessConfirm,
                 confirmColor: AppColors.positiveAccent,
                 busy: state.isSubmitting,
               ),
@@ -321,7 +365,9 @@ class _Picker extends StatelessWidget {
   final String? selectedId;
   final bool enabled;
   final Brightness brightness;
-  final ValueChanged<String> onChanged;
+
+  /// Null when the typed text matches no option (forces a real pick).
+  final ValueChanged<String?> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -343,33 +389,45 @@ class _Picker extends StatelessWidget {
             child: SizedBox(
               height: 18,
               width: 18,
-              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.tealAccent),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.tealAccent,
+              ),
             ),
           )
         else if (loadError || options.isEmpty)
           Text(
             emptyText,
-            style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 12),
+            style: TextStyle(
+              color: AppColors.onSurfaceMuted(brightness),
+              fontSize: 12,
+            ),
           )
         else
-          // Transparent fill — the sheet surface is already tinted.
-          AppDropdownField<String>(
-            value: selectedId,
+          // Type-to-search — the agent / vault list can be large, so a plain
+          // dropdown won't scale. Strict: clears the selection unless the text
+          // exactly matches an option label.
+          AppAutocompleteField<_Option>(
+            initialText: _labelFor(selectedId),
+            options: options,
             enabled: enabled,
-            filled: false,
-            onChanged: (v) {
-              if (v != null) onChanged(v);
+            displayString: (o) => o.label,
+            onSelected: (o) => onChanged(o.id),
+            onTextChanged: (text) {
+              final q = text.trim().toLowerCase();
+              final match = options.where((o) => o.label.toLowerCase() == q);
+              onChanged(match.isEmpty ? null : match.first.id);
             },
-            hint: Text(
-              emptyText,
-              style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 13),
-            ),
-            items: [
-              for (final o in options)
-                DropdownMenuItem<String>(value: o.id, child: Text(o.label)),
-            ],
           ),
       ],
     );
+  }
+
+  String _labelFor(String? id) {
+    if (id == null) return '';
+    for (final o in options) {
+      if (o.id == id) return o.label;
+    }
+    return '';
   }
 }

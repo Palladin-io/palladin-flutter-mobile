@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_autocomplete_field.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/icon_picker_grid.dart'
     show IconPickerGrid, IconMoreTile, IconPresetTile, ImagePresetTile;
@@ -38,11 +39,7 @@ String _withCacheBust(String url) =>
 /// is active). The Save button is hidden when [canEdit] is false and
 /// disabled when the form is not dirty / valid.
 class AgentEditForm extends StatefulWidget {
-  const AgentEditForm({
-    super.key,
-    required this.agent,
-    required this.canEdit,
-  });
+  const AgentEditForm({super.key, required this.agent, required this.canEdit});
 
   final Agent agent;
 
@@ -67,12 +64,12 @@ class _AgentEditFormState extends State<AgentEditForm> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.agent.name ?? '');
-    _descriptionController =
-        TextEditingController(text: widget.agent.description ?? '');
+    _descriptionController = TextEditingController(
+      text: widget.agent.description ?? '',
+    );
     _type = widget.agent.type;
     _iconKey = widget.agent.iconKey;
-    _iconColor =
-        _parseHexColor(widget.agent.iconColor) ?? defaultAgentColor;
+    _iconColor = _parseHexColor(widget.agent.iconColor) ?? defaultAgentColor;
     _lastAgentId = widget.agent.agentId;
   }
 
@@ -87,8 +84,7 @@ class _AgentEditFormState extends State<AgentEditForm> {
       _descriptionController.text = widget.agent.description ?? '';
       _type = widget.agent.type;
       _iconKey = widget.agent.iconKey;
-      _iconColor =
-          _parseHexColor(widget.agent.iconColor) ?? defaultAgentColor;
+      _iconColor = _parseHexColor(widget.agent.iconColor) ?? defaultAgentColor;
       _lastAgentId = widget.agent.agentId;
     }
   }
@@ -141,11 +137,13 @@ class _AgentEditFormState extends State<AgentEditForm> {
     final result = await IconColorBrowserSheet.show(
       context,
       icons: agentIconAll
-          .map((name) => (
-                name: name,
-                icon: agentIconData(name),
-                paletteColor: agentIconColor(name),
-              ))
+          .map(
+            (name) => (
+              name: name,
+              icon: agentIconData(name),
+              paletteColor: agentIconColor(name),
+            ),
+          )
           .toList(),
       colorOptions: agentColorOptions,
       initialIconKey: _iconKey,
@@ -165,8 +163,9 @@ class _AgentEditFormState extends State<AgentEditForm> {
         // sheet still shows a preview, but the URL is stripped before
         // the PATCH so it won't reach the API.
         try {
-          final service =
-              AgentIconUploadService(getIt<AgentsRemoteDataSource>());
+          final service = AgentIconUploadService(
+            getIt<AgentsRemoteDataSource>(),
+          );
           final publicUrl = await service.uploadIcon(
             widget.agent.agentId,
             File(picked.path),
@@ -179,23 +178,28 @@ class _AgentEditFormState extends State<AgentEditForm> {
           //      the canonical URL is unchanged → Save button enables.
           //   2. Every `NetworkImage` in the tree refetches fresh bytes
           //      instead of serving the stale cached image.
-          PaintingBinding.instance.imageCache
-              .evict(NetworkImage(publicUrl));
+          PaintingBinding.instance.imageCache.evict(NetworkImage(publicUrl));
           return _withCacheBust(publicUrl);
         } on AgentIconUploadException catch (e) {
           if (!mounted) return null;
           final l10n = AppLocalizations.of(context)!;
           final msg = switch (e.kind) {
-            AgentIconUploadErrorKind.fileTooLarge => l10n.vaultIconUploadSizeError,
-            AgentIconUploadErrorKind.unsupportedFormat => l10n.vaultIconUploadFormatError,
+            AgentIconUploadErrorKind.fileTooLarge =>
+              l10n.vaultIconUploadSizeError,
+            AgentIconUploadErrorKind.unsupportedFormat =>
+              l10n.vaultIconUploadFormatError,
             _ => l10n.vaultIconUploadError,
           };
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(msg)));
           return null;
         } catch (_) {
           if (!mounted) return null;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppLocalizations.of(context)!.vaultIconUploadError)),
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.vaultIconUploadError),
+            ),
           );
           return null;
         }
@@ -266,8 +270,10 @@ class _AgentEditFormState extends State<AgentEditForm> {
         // Rebuild the canSubmit check on each field change to drive the
         // Save button's enabled state.
         return AnimatedBuilder(
-          animation: Listenable.merge(
-              [_nameController, _descriptionController]),
+          animation: Listenable.merge([
+            _nameController,
+            _descriptionController,
+          ]),
           builder: (context, _) {
             final canSubmit = _canSubmit(isSaving: isSaving);
             return Column(
@@ -386,93 +392,15 @@ class _TypeAutocomplete extends StatelessWidget {
         ? ''
         : _displayFor(initialValue!, options);
 
-    return Autocomplete<_TypeOption>(
-      // Set once when the field is created (the widget is keyed by agent, so
-      // it re-seeds on agent switch but not while editing). Safe vs. mutating
-      // the controller during build.
-      initialValue: TextEditingValue(text: seed),
-      optionsBuilder: (TextEditingValue value) {
-        final q = value.text.trim().toLowerCase();
-        if (q.isEmpty) return options;
-        return options.where((o) => o.label.toLowerCase().contains(q));
-      },
-      displayStringForOption: (o) => o.label,
+    // Combo box: suggest presets, but accept a custom typed value too.
+    return AppAutocompleteField<_TypeOption>(
+      label: l10n.agentTypeLabel,
+      initialText: seed,
+      options: options,
+      enabled: enabled,
+      displayString: (o) => o.label,
       onSelected: (o) => onChanged(o.value),
-      fieldViewBuilder: (context, controller, focusNode, onSubmit) {
-        final brightness = Theme.of(context).brightness;
-        return OnboardingTextField(
-          controller: controller,
-          focusNode: focusNode,
-          label: l10n.agentTypeLabel,
-          enabled: enabled,
-          textInputAction: TextInputAction.next,
-          onChanged: (text) => onChanged(_resolve(text, options)),
-          onSubmitted: (_) => onSubmit(),
-          suffixIcon: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Icon(
-              Icons.expand_more,
-              size: 18,
-              color: AppColors.onSurfaceSubtle(brightness),
-            ),
-          ),
-        );
-      },
-      optionsViewBuilder: (context, onSelected, opts) =>
-          _TypeOptionsList(options: opts.toList(), onSelected: onSelected),
-    );
-  }
-}
-
-/// Themed suggestion list for [_TypeAutocomplete] — matches the app's modal
-/// surface instead of the default white Material popup.
-class _TypeOptionsList extends StatelessWidget {
-  const _TypeOptionsList({required this.options, required this.onSelected});
-
-  final List<_TypeOption> options;
-  final ValueChanged<_TypeOption> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Align(
-      alignment: Alignment.topLeft,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          margin: const EdgeInsets.only(top: 4),
-          constraints: const BoxConstraints(maxHeight: 240),
-          decoration: BoxDecoration(
-            color: AppColors.modalBackground(brightness),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.cardBorder(brightness)),
-          ),
-          child: ListView.builder(
-            padding: EdgeInsets.zero,
-            shrinkWrap: true,
-            itemCount: options.length,
-            itemBuilder: (context, i) {
-              final o = options[i];
-              return InkWell(
-                onTap: () => onSelected(o),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
-                  child: Text(
-                    o.label,
-                    style: TextStyle(
-                      color: AppColors.onSurface(brightness),
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
+      onTextChanged: (text) => onChanged(_resolve(text, options)),
     );
   }
 }
@@ -534,7 +462,8 @@ class _EditIconPickerState extends State<_EditIconPicker> {
 
     // Non-URL browser icon (e.g. "computer") — only inject at last slot when
     // no custom image is saved; if one is saved it occupies that slot.
-    final isFromBrowser = !isCustomActive &&
+    final isFromBrowser =
+        !isCustomActive &&
         customUrl == null &&
         widget.selected != null &&
         !presets.contains(widget.selected);
@@ -610,15 +539,13 @@ class _SaveButton extends StatelessWidget {
           backgroundColor: AppColors.brandRed,
           disabledBackgroundColor: AppColors.brandRed.withValues(alpha: 0.3),
           foregroundColor: AppColors.onBrandRed,
-          disabledForegroundColor:
-              AppColors.onBrandRed.withValues(alpha: 0.5),
+          disabledForegroundColor: AppColors.onBrandRed.withValues(alpha: 0.5),
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 18),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          textStyle:
-              const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
         child: isSaving
             ? const SizedBox(

@@ -34,8 +34,9 @@ enum _Mode { expiry, uses, lifetime }
 class _GrantLimitSelectorState extends State<GrantLimitSelector> {
   late _Mode _mode;
   late DateTime _expiresOn;
-  final TextEditingController _usesController =
-      TextEditingController(text: '1');
+  final TextEditingController _usesController = TextEditingController(
+    text: '1',
+  );
   final TextEditingController _dateController = TextEditingController();
 
   @override
@@ -116,9 +117,7 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
           headerBackgroundColor: white,
           headerForegroundColor: dark,
         ),
-        timePickerTheme: const TimePickerThemeData(
-          backgroundColor: white,
-        ),
+        timePickerTheme: const TimePickerThemeData(backgroundColor: white),
       ),
       child: child!,
     );
@@ -194,9 +193,15 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
         // The field below sizes naturally — no fixed-height slot (which caused an
         // 8px overflow). Time / Uses are the same label+field height; Lifetime has
         // no field and instead shows the "never expires" caveat in the shared
-        // Warning Zone (consistent with the `get` method warning).
-        switch (_mode) {
-          _Mode.expiry => OnboardingTextField(
+        // Warning Zone (consistent with the `get` method warning). AnimatedSize
+        // smooths the height change (and the sheet around it) when switching to
+        // / from the taller lifetime warning instead of snapping.
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: switch (_mode) {
+            _Mode.expiry => OnboardingTextField(
               controller: _dateController,
               label: l10n.approvalExpiresOnLabel,
               readOnly: true,
@@ -212,7 +217,7 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
                 ),
               ),
             ),
-          _Mode.uses => OnboardingTextField(
+            _Mode.uses => OnboardingTextField(
               controller: _usesController,
               label: l10n.approvalLimitUsesLabel,
               enabled: widget.enabled,
@@ -221,11 +226,12 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (_) => _emit(),
             ),
-          _Mode.lifetime => WarningZone(
+            _Mode.lifetime => WarningZone(
               title: l10n.approvalMethodWarningZone,
               message: l10n.approvalLifetimeHint,
             ),
-        },
+          },
+        ),
       ],
     );
   }

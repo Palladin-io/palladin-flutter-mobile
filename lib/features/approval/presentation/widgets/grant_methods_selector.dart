@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../grants/domain/entities/grant_method.dart';
@@ -24,10 +25,10 @@ class GrantMethodsSelector extends StatelessWidget {
   final ValueChanged<List<GrantMethod>> onChanged;
 
   static String _label(AppLocalizations l10n, GrantMethod m) => switch (m) {
-        GrantMethod.get => l10n.approvalMethodGetLabel,
-        GrantMethod.exec => l10n.approvalMethodExecLabel,
-        GrantMethod.inject => l10n.approvalMethodInjectLabel,
-      };
+    GrantMethod.get => l10n.approvalMethodGetLabel,
+    GrantMethod.exec => l10n.approvalMethodExecLabel,
+    GrantMethod.inject => l10n.approvalMethodInjectLabel,
+  };
 
   Future<void> _openPicker(BuildContext context) async {
     final result = await showModalBottomSheet<List<GrantMethod>>(
@@ -74,7 +75,11 @@ class GrantMethodsSelector extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.expand_more, size: 18, color: AppColors.onSurfaceSubtle(brightness)),
+            Icon(
+              Icons.expand_more,
+              size: 18,
+              color: AppColors.onSurfaceSubtle(brightness),
+            ),
           ],
         ),
       ),
@@ -107,13 +112,14 @@ class _MethodsPickerSheetState extends State<_MethodsPickerSheet> {
     });
   }
 
-  String _label(AppLocalizations l10n, GrantMethod m) => GrantMethodsSelector._label(l10n, m);
+  String _label(AppLocalizations l10n, GrantMethod m) =>
+      GrantMethodsSelector._label(l10n, m);
 
   String _desc(AppLocalizations l10n, GrantMethod m) => switch (m) {
-        GrantMethod.get => l10n.approvalMethodGetDesc,
-        GrantMethod.exec => l10n.approvalMethodExecDesc,
-        GrantMethod.inject => l10n.approvalMethodInjectDesc,
-      };
+    GrantMethod.get => l10n.approvalMethodGetDesc,
+    GrantMethod.exec => l10n.approvalMethodExecDesc,
+    GrantMethod.inject => l10n.approvalMethodInjectDesc,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -125,63 +131,73 @@ class _MethodsPickerSheetState extends State<_MethodsPickerSheet> {
         color: AppColors.modalBackground(brightness),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + MediaQuery.viewPaddingOf(context).bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.cardBorder(brightness),
-                borderRadius: BorderRadius.circular(2),
-              ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.cardBorder(brightness),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  l10n.approvalMethodsLegend,
+                  style: TextStyle(
+                    color: AppColors.onSurface(brightness),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                for (final m in GrantMethod.values)
+                  _MethodRow(
+                    label: _label(l10n, m),
+                    description: _desc(l10n, m),
+                    selected: _selected.contains(m),
+                    requested: widget.requested.contains(m),
+                    requestedLabel: l10n.approvalMethodRequested,
+                    brightness: brightness,
+                    onTap: () => _toggle(m),
+                  ),
+                // AnimatedSize grows/collapses the sheet smoothly as the `get`
+                // warning appears, instead of snapping to the new height.
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  alignment: Alignment.topCenter,
+                  child: _selected.contains(GrantMethod.get)
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: WarningZone(
+                            title: l10n.approvalMethodWarningZone,
+                            message: l10n.approvalMethodGetWarning,
+                          ),
+                        )
+                      : const SizedBox(width: double.infinity),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            l10n.approvalMethodsLegend,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          for (final m in GrantMethod.values)
-            _MethodRow(
-              label: _label(l10n, m),
-              description: _desc(l10n, m),
-              selected: _selected.contains(m),
-              requested: widget.requested.contains(m),
-              requestedLabel: l10n.approvalMethodRequested,
-              brightness: brightness,
-              onTap: () => _toggle(m),
-            ),
-          if (_selected.contains(GrantMethod.get)) ...[
-            const SizedBox(height: 8),
-            WarningZone(
-              title: l10n.approvalMethodWarningZone,
-              message: l10n.approvalMethodGetWarning,
-            ),
-          ],
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 44,
-            child: FilledButton(
-              onPressed: _selected.isEmpty ? null : () => Navigator.of(context).pop(_selected),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.positiveAccent,
-                foregroundColor: AppColors.onBrandRed,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: Text(
-                l10n.approvalMethodsDone,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              ),
-            ),
+          // Shared gray footer band — same convention as every other sheet.
+          SheetActionButtons(
+            onCancel: () => Navigator.of(context).pop(),
+            onConfirm: _selected.isEmpty
+                ? null
+                : () => Navigator.of(context).pop(_selected),
+            confirmLabel: l10n.approvalMethodsDone,
+            confirmColor: AppColors.positiveAccent,
           ),
         ],
       ),
@@ -221,7 +237,9 @@ class _MethodRow extends StatelessWidget {
             Icon(
               selected ? Icons.check_box : Icons.check_box_outline_blank,
               size: 20,
-              color: selected ? AppColors.positiveAccent : AppColors.onSurfaceSubtle(brightness),
+              color: selected
+                  ? AppColors.positiveAccent
+                  : AppColors.onSurfaceSubtle(brightness),
             ),
             const SizedBox(width: 10),
             Expanded(
