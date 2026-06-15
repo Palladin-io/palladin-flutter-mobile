@@ -29,9 +29,13 @@ import '../../features/grants/data/datasources/grants_remote_datasource.dart';
 import '../../features/grants/data/repositories/grants_repository_impl.dart';
 import '../../features/grants/domain/repositories/grants_repository.dart';
 import '../../features/grants/presentation/cubit/org_grants_cubit.dart';
+import '../../features/notifications/data/datasources/notification_center_remote_datasource.dart';
 import '../../features/notifications/data/datasources/push_token_remote_datasource.dart';
+import '../../features/notifications/data/repositories/notification_center_repository_impl.dart';
 import '../../features/notifications/data/services/notification_signalr_service.dart';
 import '../../features/notifications/data/services/push_notification_service.dart';
+import '../../features/notifications/domain/repositories/notification_center_repository.dart';
+import '../../features/notifications/presentation/cubit/notification_center_cubit.dart';
 import '../../features/notifications/presentation/cubit/push_navigation_cubit.dart';
 import '../analytics/analytics_service.dart';
 import '../../features/recovery/data/datasources/recovery_remote_datasource.dart';
@@ -267,6 +271,21 @@ void configureDependencies(EnvConfig config) {
   // Notifications (push) — data layer
   getIt.registerLazySingleton<PushTokenRemoteDatasource>(
     () => PushTokenRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<NotificationCenterRemoteDatasource>(
+    () => NotificationCenterRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<NotificationCenterRepository>(
+    () => NotificationCenterRepositoryImpl(
+      getIt<NotificationCenterRemoteDatasource>(),
+    ),
+  );
+  // Singleton: the shell reads summary state for the Inbox badge while the
+  // Inbox page owns the same cached list.
+  getIt.registerLazySingleton<NotificationCenterCubit>(
+    () => NotificationCenterCubit(
+      repository: getIt<NotificationCenterRepository>(),
+    ),
   );
 
   // Push service is a singleton: it owns long-lived FCM stream

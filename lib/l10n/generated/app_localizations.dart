@@ -1112,6 +1112,12 @@ abstract class AppLocalizations {
   /// **'Approvals'**
   String get navApprovals;
 
+  /// Bottom nav label for the business notification inbox
+  ///
+  /// In en, this message translates to:
+  /// **'Inbox'**
+  String get navInbox;
+
   /// Bottom nav label for the Settings tab
   ///
   /// In en, this message translates to:
@@ -3031,6 +3037,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'requested'**
   String get approvalMethodRequested;
+
+  /// No description provided for @inboxTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Inbox'**
+  String get inboxTitle;
+
+  /// No description provided for @inboxTodo.
+  ///
+  /// In en, this message translates to:
+  /// **'To do'**
+  String get inboxTodo;
+
+  /// No description provided for @inboxUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates'**
+  String get inboxUpdates;
+
+  /// No description provided for @inboxSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search notifications…'**
+  String get inboxSearchHint;
+
+  /// No description provided for @inboxMarkAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all read'**
+  String get inboxMarkAllRead;
+
+  /// No description provided for @inboxReviewAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get inboxReviewAction;
+
+  /// No description provided for @inboxLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load more'**
+  String get inboxLoadMore;
+
+  /// No description provided for @inboxActionGone.
+  ///
+  /// In en, this message translates to:
+  /// **'This action is no longer available.'**
+  String get inboxActionGone;
+
+  /// No description provided for @inboxTodoEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing needs your attention'**
+  String get inboxTodoEmpty;
+
+  /// No description provided for @inboxUpdatesEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No updates yet'**
+  String get inboxUpdatesEmpty;
+
+  /// No description provided for @inboxTopicAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All topics'**
+  String get inboxTopicAll;
+
+  /// No description provided for @inboxTopicAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Access'**
+  String get inboxTopicAccess;
+
+  /// No description provided for @inboxTopicAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents'**
+  String get inboxTopicAgents;
+
+  /// No description provided for @inboxTopicSecurity.
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get inboxTopicSecurity;
+
+  /// No description provided for @inboxTopicBilling.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing'**
+  String get inboxTopicBilling;
+
+  /// No description provided for @inboxTopicSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get inboxTopicSystem;
+
+  /// No description provided for @inboxErrorForbidden.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to view notifications.'**
+  String get inboxErrorForbidden;
+
+  /// No description provided for @inboxErrorNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot reach the server. Check your connection.'**
+  String get inboxErrorNetwork;
+
+  /// No description provided for @inboxErrorUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load notifications. Please try again.'**
+  String get inboxErrorUnknown;
 }
 
 class _AppLocalizationsDelegate

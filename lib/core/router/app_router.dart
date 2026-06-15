@@ -7,9 +7,9 @@ import '../../features/agents/presentation/pages/agent_detail_page.dart';
 import '../../features/agents/presentation/pages/agents_page.dart';
 import '../../features/api_keys/presentation/pages/api_key_detail_page.dart';
 import '../../features/api_keys/presentation/pages/api_keys_page.dart';
-import '../../features/approval/presentation/pages/pending_grants_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/notifications/presentation/pages/notification_center_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_wizard_page.dart';
 import '../../features/recovery/presentation/pages/recovery_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
@@ -140,21 +140,16 @@ GoRouter createRouter(AuthBloc authBloc, {GlobalKey<NavigatorState>? navigatorKe
               title: AppLocalizations.of(context)!.placeholderAuditTitle,
             ),
           ),
-          // Approvals — cross-vault inbox of pending grant requests. The
-          // approve/deny screen is pushed via Navigator (not a route) so
-          // it can return a bool result to the inbox. Gated on
-          // GrantManage; users without it are bounced to /vaults.
+          // Keep older push/deep links working after Approvals became Inbox.
           GoRoute(
             path: '/approvals',
-            redirect: (context, state) {
-              final auth = authBloc.state;
-              if (auth is AuthAuthenticated &&
-                  (auth.permissions & Permissions.grantManage) == 0) {
-                return '/vaults';
-              }
-              return null;
-            },
-            builder: (_, _) => const PendingGrantsPage(),
+            redirect: (_, _) => '/inbox',
+          ),
+          // Business Inbox — durable notifications for every authenticated
+          // user. Grant actions reuse the existing zero-knowledge sheets.
+          GoRoute(
+            path: '/inbox',
+            builder: (_, _) => const NotificationCenterPage(),
           ),
           // Settings — organization details. Lives inside the shell so
           // the persistent bottom nav stays mounted while the user is

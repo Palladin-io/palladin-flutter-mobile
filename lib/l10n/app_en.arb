@@ -767,6 +767,10 @@
   "@navApprovals": {
     "description": "Bottom nav label for the Approvals (pending grants) tab"
   },
+  "navInbox": "Inbox",
+  "@navInbox": {
+    "description": "Bottom nav label for the business notification inbox"
+  },
   "navSettings": "Settings",
   "@navSettings": {
     "description": "Bottom nav label for the Settings tab"
@@ -2104,5 +2108,24 @@
   "approvalMethodInjectDesc": "Fills a login form in the agent's browser — never enters the agent's context.",
   "approvalMethodsSelect": "Select methods",
   "approvalMethodsDone": "Done",
-  "approvalMethodRequested": "requested"
+  "approvalMethodRequested": "requested",
+  "inboxTitle": "Inbox",
+  "inboxTodo": "To do",
+  "inboxUpdates": "Updates",
+  "inboxSearchHint": "Search notifications…",
+  "inboxMarkAllRead": "Mark all read",
+  "inboxReviewAction": "Review",
+  "inboxLoadMore": "Load more",
+  "inboxActionGone": "This action is no longer available.",
+  "inboxTodoEmpty": "Nothing needs your attention",
+  "inboxUpdatesEmpty": "No updates yet",
+  "inboxTopicAll": "All topics",
+  "inboxTopicAccess": "Access",
+  "inboxTopicAgents": "Agents",
+  "inboxTopicSecurity": "Security",
+  "inboxTopicBilling": "Billing",
+  "inboxTopicSystem": "System",
+  "inboxErrorForbidden": "You do not have permission to view notifications.",
+  "inboxErrorNetwork": "Cannot reach the server. Check your connection.",
+  "inboxErrorUnknown": "Could not load notifications. Please try again."
 }

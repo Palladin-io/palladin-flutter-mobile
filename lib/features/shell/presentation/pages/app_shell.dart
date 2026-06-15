@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../agents/presentation/bloc/agents_cubit.dart';
 import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../notifications/presentation/cubit/notification_center_cubit.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/settings_drawer.dart';
 
@@ -51,11 +52,10 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
-    // Populate the nav badges up-front, before the user opens the tabs: the
-    // Agents tab badge (pending agents) and the Approvals tab badge (pending
-    // grant approvals). Live updates then arrive over SignalR (see app.dart);
-    // a tab tap / app resume / tab focus quietly refreshes as a fallback.
+    // Populate nav badges before the user opens the tabs. Live updates arrive
+    // over SignalR (see app.dart); tab taps and app resume refresh as fallback.
     getIt<AgentsCubit>().refresh();
+    getIt<NotificationCenterCubit>().refreshSummary();
     // Pending-grants feed is GrantManage-only — loading it without the
     // permission 403s on cold start, so gate the badge load.
     if (_canManageGrants()) getIt<PendingGrantsCubit>().load();
@@ -129,13 +129,13 @@ class _AppShellState extends State<AppShell> {
           child: BlocBuilder<AgentsCubit, AgentsState>(
             bloc: getIt<AgentsCubit>(),
             builder: (context, agentsState) =>
-                BlocBuilder<PendingGrantsCubit, PendingGrantsState>(
-              bloc: getIt<PendingGrantsCubit>(),
-              builder: (context, pendingState) => AppBottomNav(
+                BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
+              bloc: getIt<NotificationCenterCubit>(),
+              builder: (context, notificationState) => AppBottomNav(
                 currentIndex: currentIndex,
                 onTap: (i) => _onTap(context, i),
                 agentsBadgeCount: agentsState.pendingCount,
-                approvalsBadgeCount: pendingState.grants.length,
+                inboxBadgeCount: notificationState.unreadCount,
               ),
             ),
           ),
@@ -148,7 +148,9 @@ class _AppShellState extends State<AppShell> {
   int _tabIndex(String location) {
     if (location.startsWith('/vaults')) return AppBottomNav.tabVaults;
     if (location.startsWith('/agents')) return AppBottomNav.tabAgents;
-    if (location.startsWith('/approvals')) return AppBottomNav.tabApprovals;
+    if (location.startsWith('/inbox') || location.startsWith('/approvals')) {
+      return AppBottomNav.tabInbox;
+    }
     return AppBottomNav.tabHome;
   }
 
@@ -160,6 +162,7 @@ class _AppShellState extends State<AppShell> {
     // Any tab interaction is a good moment to refresh the badges so they update
     // without having to open the owning tab.
     getIt<AgentsCubit>().refresh();
+    getIt<NotificationCenterCubit>().refreshSummary();
     if (_canManageGrants()) getIt<PendingGrantsCubit>().refresh();
     switch (index) {
       case AppBottomNav.tabHome:
@@ -171,8 +174,8 @@ class _AppShellState extends State<AppShell> {
       case AppBottomNav.tabAgents:
         context.go('/agents');
         break;
-      case AppBottomNav.tabApprovals:
-        context.go('/approvals');
+      case AppBottomNav.tabInbox:
+        context.go('/inbox');
         break;
     }
   }

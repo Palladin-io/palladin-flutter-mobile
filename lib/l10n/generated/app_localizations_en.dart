@@ -645,6 +645,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navApprovals => 'Approvals';
 
   @override
+  String get navInbox => 'Inbox';
+
+  @override
   String get navSettings => 'Settings';
 
   @override
@@ -1692,4 +1695,64 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get approvalMethodRequested => 'requested';
+
+  @override
+  String get inboxTitle => 'Inbox';
+
+  @override
+  String get inboxTodo => 'To do';
+
+  @override
+  String get inboxUpdates => 'Updates';
+
+  @override
+  String get inboxSearchHint => 'Search notifications…';
+
+  @override
+  String get inboxMarkAllRead => 'Mark all read';
+
+  @override
+  String get inboxReviewAction => 'Review';
+
+  @override
+  String get inboxLoadMore => 'Load more';
+
+  @override
+  String get inboxActionGone => 'This action is no longer available.';
+
+  @override
+  String get inboxTodoEmpty => 'Nothing needs your attention';
+
+  @override
+  String get inboxUpdatesEmpty => 'No updates yet';
+
+  @override
+  String get inboxTopicAll => 'All topics';
+
+  @override
+  String get inboxTopicAccess => 'Access';
+
+  @override
+  String get inboxTopicAgents => 'Agents';
+
+  @override
+  String get inboxTopicSecurity => 'Security';
+
+  @override
+  String get inboxTopicBilling => 'Billing';
+
+  @override
+  String get inboxTopicSystem => 'System';
+
+  @override
+  String get inboxErrorForbidden =>
+      'You do not have permission to view notifications.';
+
+  @override
+  String get inboxErrorNetwork =>
+      'Cannot reach the server. Check your connection.';
+
+  @override
+  String get inboxErrorUnknown =>
+      'Could not load notifications. Please try again.';
 }

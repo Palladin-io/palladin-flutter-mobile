@@ -658,6 +658,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get navApprovals => 'Zatwierdzenia';
 
   @override
+  String get navInbox => 'Inbox';
+
+  @override
   String get navSettings => 'Ustawienia';
 
   @override
@@ -1711,4 +1714,64 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get approvalMethodRequested => 'prośba';
+
+  @override
+  String get inboxTitle => 'Inbox';
+
+  @override
+  String get inboxTodo => 'Do zrobienia';
+
+  @override
+  String get inboxUpdates => 'Aktualizacje';
+
+  @override
+  String get inboxSearchHint => 'Szukaj powiadomień…';
+
+  @override
+  String get inboxMarkAllRead => 'Oznacz wszystkie';
+
+  @override
+  String get inboxReviewAction => 'Przejrzyj';
+
+  @override
+  String get inboxLoadMore => 'Wczytaj więcej';
+
+  @override
+  String get inboxActionGone => 'Ta akcja nie jest już dostępna.';
+
+  @override
+  String get inboxTodoEmpty => 'Nic nie wymaga Twojej uwagi';
+
+  @override
+  String get inboxUpdatesEmpty => 'Brak aktualizacji';
+
+  @override
+  String get inboxTopicAll => 'Wszystkie tematy';
+
+  @override
+  String get inboxTopicAccess => 'Dostępy';
+
+  @override
+  String get inboxTopicAgents => 'Agenci';
+
+  @override
+  String get inboxTopicSecurity => 'Bezpieczeństwo';
+
+  @override
+  String get inboxTopicBilling => 'Rozliczenia';
+
+  @override
+  String get inboxTopicSystem => 'System';
+
+  @override
+  String get inboxErrorForbidden =>
+      'Nie masz uprawnień do wyświetlania powiadomień.';
+
+  @override
+  String get inboxErrorNetwork =>
+      'Nie można połączyć się z serwerem. Sprawdź połączenie.';
+
+  @override
+  String get inboxErrorUnknown =>
+      'Nie udało się wczytać powiadomień. Spróbuj ponownie.';
 }

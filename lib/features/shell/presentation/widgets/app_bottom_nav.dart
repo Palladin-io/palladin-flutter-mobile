@@ -4,7 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 
 /// Persistent bottom navigation — five equal slots: Vaults, Agents, Home
-/// (the app logo, slightly larger and poking above the bar), Approvals,
+/// (the app logo, slightly larger and poking above the bar), Inbox,
 /// Settings. All labels share one baseline at the bottom; the bigger Home
 /// logo extends upward into the small overhang above the bar.
 class AppBottomNav extends StatelessWidget {
@@ -13,7 +13,7 @@ class AppBottomNav extends StatelessWidget {
     required this.currentIndex,
     required this.onTap,
     this.agentsBadgeCount = 0,
-    this.approvalsBadgeCount = 0,
+    this.inboxBadgeCount = 0,
   });
 
   final int currentIndex;
@@ -22,13 +22,13 @@ class AppBottomNav extends StatelessWidget {
   /// Agents awaiting approval — shown as a badge on the Agents tab.
   final int agentsBadgeCount;
 
-  /// Pending grant approvals — shown as a badge on the Approvals tab.
-  final int approvalsBadgeCount;
+  /// All unread business notifications — shown as a badge on the Inbox tab.
+  final int inboxBadgeCount;
 
   static const int tabVaults = 0;
   static const int tabAgents = 1;
   static const int tabHome = 2;
-  static const int tabApprovals = 3;
+  static const int tabInbox = 3;
   static const int tabSettings = 4;
 
   static const double _barHeight = 58;
@@ -102,12 +102,12 @@ class AppBottomNav extends StatelessWidget {
                   onTap: () => onTap(tabHome),
                 ),
                 _NavItem(
-                  label: l10n.navApprovals,
-                  icon: Icons.verified_user_outlined,
-                  activeIcon: Icons.verified_user,
-                  selected: currentIndex == tabApprovals,
-                  onTap: () => onTap(tabApprovals),
-                  badgeCount: approvalsBadgeCount,
+                  label: l10n.navInbox,
+                  icon: Icons.notifications_outlined,
+                  activeIcon: Icons.notifications,
+                  selected: currentIndex == tabInbox,
+                  onTap: () => onTap(tabInbox),
+                  badgeCount: inboxBadgeCount,
                 ),
                 _NavItem(
                   label: l10n.navSettings,
