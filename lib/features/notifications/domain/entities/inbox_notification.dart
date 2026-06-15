@@ -9,6 +9,9 @@ enum NotificationCategory {
 
   static NotificationCategory fromWire(String? raw) {
     switch (raw) {
+      // Backend serializes camelCase (`actionRequired`); the others are
+      // tolerant fallbacks for PascalCase / snake_case just in case.
+      case 'actionRequired':
       case 'ActionRequired':
       case 'action_required':
         return NotificationCategory.actionRequired;
@@ -68,7 +71,10 @@ class InboxNotification {
 
   final NotificationCategory category;
 
-  /// i18n key, NOT rendered text. Resolved by the presentation layer.
+  /// i18n key from the contract. The presentation layer currently renders copy
+  /// keyed off [type] (see `notification_format.dart`) because each type needs
+  /// distinct title/subtitle/rows, so [titleKey] is retained from the wire for
+  /// forward-compatibility / debugging rather than read directly.
   final String titleKey;
 
   /// Safe presentational data — names + resource ids (vaultId/entryId/

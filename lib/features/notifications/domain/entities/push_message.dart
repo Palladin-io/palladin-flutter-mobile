@@ -15,6 +15,12 @@ enum PushNotificationType {
   /// A new agent enrolled and is pending approval.
   agentPending('agent_pending'),
 
+  /// An agent's grant was revoked — surfaced in the inbox.
+  grantRevoked('grant_revoked'),
+
+  /// An agent reported a credential no longer works (action-required).
+  credentialStale('credential_stale'),
+
   /// Unknown / future type — the app shows the notification but performs
   /// no deep-link navigation.
   unknown('unknown');
@@ -37,6 +43,10 @@ enum PushNotificationType {
         return PushNotificationType.grantApproved;
       case 'agent_pending':
         return PushNotificationType.agentPending;
+      case 'grant_revoked':
+        return PushNotificationType.grantRevoked;
+      case 'credential_stale':
+        return PushNotificationType.credentialStale;
       default:
         return PushNotificationType.unknown;
     }

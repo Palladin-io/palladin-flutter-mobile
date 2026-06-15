@@ -3,14 +3,15 @@ import 'package:mobile_claw_vault/features/notifications/data/models/inbox_notif
 import 'package:mobile_claw_vault/features/notifications/domain/entities/inbox_notification.dart';
 
 void main() {
-  test('parses an open action-required notification', () {
+  test('parses an open action-required notification (backend camelCase)', () {
     final model = InboxNotificationModel.fromJson({
       'id': 'notification-1',
       'type': 'grant_pending',
-      'category': 'ActionRequired',
+      // Backend serializes camelCase enum values.
+      'category': 'actionRequired',
       'titleKey': 'grant_pending',
       'metadata': {'grantId': 'grant-1', 'agentName': 'Acme-bot'},
-      'actionState': 'Pending',
+      'actionState': 'pending',
       'occurredAt': '2026-06-15T12:00:00Z',
     }).toEntity();
 
@@ -24,14 +25,31 @@ void main() {
     expect(model.occurredAt.isUtc, isFalse);
   });
 
+  test('tolerates PascalCase / snake_case category fallbacks', () {
+    for (final raw in ['actionRequired', 'ActionRequired', 'action_required']) {
+      final model = InboxNotificationModel.fromJson({
+        'id': 'n',
+        'type': 'grant_pending',
+        'category': raw,
+        'actionState': 'pending',
+        'occurredAt': '2026-06-15T12:00:00Z',
+      }).toEntity();
+      expect(
+        model.category,
+        NotificationCategory.actionRequired,
+        reason: 'category "$raw" should map to actionRequired',
+      );
+    }
+  });
+
   test('resolved action-required item is not an open action', () {
     final model = InboxNotificationModel.fromJson({
       'id': 'notification-3',
       'type': 'grant_revoked',
-      'category': 'ActionRequired',
+      'category': 'actionRequired',
       'titleKey': 'grant_revoked',
       'metadata': {'agentName': 'old-bot'},
-      'actionState': 'Resolved',
+      'actionState': 'resolved',
       'occurredAt': '2026-06-15T12:00:00Z',
       'readAt': '2026-06-15T12:30:00Z',
     }).toEntity();

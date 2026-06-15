@@ -119,10 +119,14 @@ class _ClawVaultAppState extends State<ClawVaultApp>
         getIt<AgentsCubit>().refresh();
       case PushNotificationType.grantPending:
       case PushNotificationType.grantApproved:
+      case PushNotificationType.grantRevoked:
         // A grant lifecycle change also touches agents and the pending-grants
         // queue used by Inbox actions.
         getIt<AgentsCubit>().refresh();
         getIt<PendingGrantsCubit>().refresh();
+      case PushNotificationType.credentialStale:
+        // Inbox already refreshed above; nothing else to sync.
+        break;
       case PushNotificationType.unknown:
         break;
     }

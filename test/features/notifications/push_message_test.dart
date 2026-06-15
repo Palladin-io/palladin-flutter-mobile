@@ -16,6 +16,21 @@ void main() {
         PushNotificationType.fromRaw('agent_pending'),
         PushNotificationType.agentPending,
       );
+      expect(
+        PushNotificationType.fromRaw('grant_revoked'),
+        PushNotificationType.grantRevoked,
+      );
+      expect(
+        PushNotificationType.fromRaw('credential_stale'),
+        PushNotificationType.credentialStale,
+      );
+    });
+
+    test('wireValue round-trips for every known type', () {
+      for (final type in PushNotificationType.values) {
+        if (type == PushNotificationType.unknown) continue;
+        expect(PushNotificationType.fromRaw(type.wireValue), type);
+      }
     });
 
     test('falls back to unknown for null / unrecognized', () {
