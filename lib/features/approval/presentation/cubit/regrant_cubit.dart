@@ -48,7 +48,7 @@ class RegrantState {
 /// time and never stored.
 class RegrantCubit extends Cubit<RegrantState> {
   RegrantCubit({required this.repository, required this.args})
-      : super(const RegrantState());
+    : super(const RegrantState());
 
   final ApprovalRepository repository;
   final RegrantArgs args;
@@ -56,7 +56,7 @@ class RegrantCubit extends Cubit<RegrantState> {
   Future<void> submit({
     required Uint8List privateKey,
     required GrantLimit limit,
-    List<GrantMethod> methods = kDefaultGrantMethods,
+    required List<GrantMethod> methods,
   }) async {
     emit(state.copyWith(status: RegrantStatus.submitting, clearError: true));
     try {
@@ -76,21 +76,29 @@ class RegrantCubit extends Cubit<RegrantState> {
       AppLogger.w('Approval', 're-grant failed: ${e.kind.name}');
       emit(state.copyWith(status: RegrantStatus.error, error: e.kind));
     } catch (e, s) {
-      AppLogger.e('Approval', 're-grant failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        status: RegrantStatus.error,
-        error: ApprovalErrorKind.unknown,
-      ));
+      AppLogger.e(
+        'Approval',
+        're-grant failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          status: RegrantStatus.error,
+          error: ApprovalErrorKind.unknown,
+        ),
+      );
     }
   }
 
   /// Reports the vault is locked so the envelope cannot be produced.
   void reportVaultLocked() {
-    emit(state.copyWith(
-      status: RegrantStatus.error,
-      error: ApprovalErrorKind.vaultLocked,
-    ));
+    emit(
+      state.copyWith(
+        status: RegrantStatus.error,
+        error: ApprovalErrorKind.vaultLocked,
+      ),
+    );
   }
 
   void acknowledgeError() {

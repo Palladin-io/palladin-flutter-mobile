@@ -13,6 +13,7 @@ import '../../../grants/presentation/widgets/grant_format.dart';
 import '../cubit/regrant_cubit.dart';
 import 'approval_format.dart';
 import 'grant_limit_selector.dart';
+import 'grant_methods_selector.dart';
 
 /// Bottom sheet to re-grant ("Grant again") a terminal grant — the mobile
 /// counterpart of the web `GrantAgainDialog`. Same policy picker + footer as
@@ -62,10 +63,15 @@ class _RegrantSheetBody extends StatefulWidget {
 
 class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
   GrantLimit _limit = GrantExpiry(DateTime.now().add(const Duration(days: 1)));
+  late List<GrantMethod> _methods = widget.grant.methods.isNotEmpty
+      ? List.of(widget.grant.methods)
+      : List.of(kDefaultGrantMethods);
 
   Uint8List? _privateKey() {
     final auth = context.read<AuthBloc>().state;
-    if (auth is AuthAuthenticated && !auth.isVaultLocked) return auth.privateKey;
+    if (auth is AuthAuthenticated && !auth.isVaultLocked) {
+      return auth.privateKey;
+    }
     return null;
   }
 
@@ -75,7 +81,23 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
       context.read<RegrantCubit>().reportVaultLocked();
       return;
     }
-    context.read<RegrantCubit>().submit(privateKey: key, limit: _limit);
+    if (_methods.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)!.approvalMethodNoneSelected,
+            ),
+          ),
+        );
+      return;
+    }
+    context.read<RegrantCubit>().submit(
+      privateKey: key,
+      limit: _limit,
+      methods: _methods,
+    );
   }
 
   @override
@@ -93,9 +115,9 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
         } else if (state.status == RegrantStatus.error) {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(
-              content: Text(approvalErrorMessage(l10n, state.error!)),
-            ));
+            ..showSnackBar(
+              SnackBar(content: Text(approvalErrorMessage(l10n, state.error!))),
+            );
           context.read<RegrantCubit>().acknowledgeError();
         }
       },
@@ -150,6 +172,22 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
                       value: _limit,
                       enabled: !state.isSubmitting,
                       onChanged: (l) => setState(() => _limit = l),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      l10n.approvalMethodsLegend,
+                      style: TextStyle(
+                        color: AppColors.onSurfaceSubtle(brightness),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    GrantMethodsSelector(
+                      value: _methods,
+                      enabled: !state.isSubmitting,
+                      onChanged: (methods) =>
+                          setState(() => _methods = methods),
                     ),
                   ],
                 ),
