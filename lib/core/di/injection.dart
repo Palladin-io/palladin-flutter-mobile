@@ -36,6 +36,7 @@ import '../../features/notifications/data/services/notification_signalr_service.
 import '../../features/notifications/data/services/push_notification_service.dart';
 import '../../features/notifications/domain/repositories/notification_center_repository.dart';
 import '../../features/notifications/presentation/cubit/notification_center_cubit.dart';
+import '../../features/notifications/presentation/cubit/notification_preferences_cubit.dart';
 import '../../features/notifications/presentation/cubit/push_navigation_cubit.dart';
 import '../analytics/analytics_service.dart';
 import '../../features/recovery/data/datasources/recovery_remote_datasource.dart';
@@ -284,6 +285,13 @@ void configureDependencies(EnvConfig config) {
   // Inbox page owns the same cached list.
   getIt.registerLazySingleton<NotificationCenterCubit>(
     () => NotificationCenterCubit(
+      repository: getIt<NotificationCenterRepository>(),
+    ),
+  );
+  // Factory: the preferences screen owns transient per-row saving state, so a
+  // fresh instance per page mount keeps it from leaking across visits.
+  getIt.registerFactory<NotificationPreferencesCubit>(
+    () => NotificationPreferencesCubit(
       repository: getIt<NotificationCenterRepository>(),
     ),
   );

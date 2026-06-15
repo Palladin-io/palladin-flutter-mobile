@@ -53,12 +53,17 @@ class PushMessage {
     required this.type,
     this.title,
     this.body,
+    this.notificationId,
     this.grantId,
     this.agentId,
     this.entryId,
   });
 
   final PushNotificationType type;
+
+  /// Inbox notification id (frozen contract: push carries `notificationId` +
+  /// `type`). Used to deep-link to `/inbox?focus=<id>` and mark it read.
+  final String? notificationId;
 
   /// Notification title (for the in-app foreground banner only — the OS
   /// renders the background/terminated notification itself).
@@ -90,6 +95,7 @@ class PushMessage {
       type: PushNotificationType.fromRaw(str('type')),
       title: title,
       body: body,
+      notificationId: str('notificationId'),
       grantId: str('grantId'),
       agentId: str('agentId'),
       entryId: str('entryId'),
@@ -102,6 +108,7 @@ class PushMessage {
   Map<String, dynamic> toRoutingData() {
     return <String, dynamic>{
       'type': type.wireValue,
+      if (notificationId != null) 'notificationId': notificationId,
       if (grantId != null) 'grantId': grantId,
       if (agentId != null) 'agentId': agentId,
       if (entryId != null) 'entryId': entryId,

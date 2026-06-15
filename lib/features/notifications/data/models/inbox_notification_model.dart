@@ -1,37 +1,27 @@
 import '../../domain/entities/inbox_notification.dart';
 
+/// JSON ⇄ entity mapper for a `NotificationItem` from the frozen contract:
+/// `{ id, type, category, titleKey, metadata, occurredAt, readAt?, actionState }`.
 class InboxNotificationModel {
   const InboxNotificationModel({
     required this.id,
     required this.type,
-    required this.topic,
-    required this.title,
-    required this.body,
-    required this.data,
-    required this.isActionRequired,
-    required this.isSecurityCritical,
-    required this.isRead,
-    required this.isResolved,
+    required this.category,
+    required this.titleKey,
+    required this.metadata,
+    required this.actionState,
     required this.occurredAt,
-    this.resolution,
-    this.actionType,
-    this.actionTarget,
+    this.readAt,
   });
 
   final String id;
   final String type;
-  final String topic;
-  final String title;
-  final String body;
-  final Map<String, dynamic> data;
-  final bool isActionRequired;
-  final bool isSecurityCritical;
-  final bool isRead;
-  final bool isResolved;
-  final String? resolution;
-  final String? actionType;
-  final String? actionTarget;
-  final DateTime occurredAt;
+  final String category;
+  final String titleKey;
+  final Map<String, dynamic> metadata;
+  final String? actionState;
+  final String occurredAt;
+  final String? readAt;
 
   factory InboxNotificationModel.fromJson(Map<String, dynamic> json) {
     String string(String key) => json[key] as String? ?? '';
@@ -40,43 +30,31 @@ class InboxNotificationModel {
       return value is String && value.isNotEmpty ? value : null;
     }
 
-    final rawData = json['data'];
+    final rawMetadata = json['metadata'];
     return InboxNotificationModel(
       id: string('id'),
       type: string('type'),
-      topic: string('topic'),
-      title: string('title'),
-      body: string('body'),
-      data: rawData is Map
-          ? Map<String, dynamic>.from(rawData)
+      category: string('category'),
+      titleKey: string('titleKey'),
+      metadata: rawMetadata is Map
+          ? Map<String, dynamic>.from(rawMetadata)
           : const <String, dynamic>{},
-      isActionRequired: json['isActionRequired'] as bool? ?? false,
-      isSecurityCritical: json['isSecurityCritical'] as bool? ?? false,
-      isRead: json['isRead'] as bool? ?? false,
-      isResolved: json['isResolved'] as bool? ?? false,
-      resolution: nullableString('resolution'),
-      actionType: nullableString('actionType'),
-      actionTarget: nullableString('actionTarget'),
-      occurredAt:
-          DateTime.tryParse(string('occurredAt'))?.toLocal() ??
-          DateTime.fromMillisecondsSinceEpoch(0),
+      actionState: nullableString('actionState'),
+      occurredAt: string('occurredAt'),
+      readAt: nullableString('readAt'),
     );
   }
 
   InboxNotification toEntity() => InboxNotification(
     id: id,
     type: type,
-    topic: topic,
-    title: title,
-    body: body,
-    data: data,
-    isActionRequired: isActionRequired,
-    isSecurityCritical: isSecurityCritical,
-    isRead: isRead,
-    isResolved: isResolved,
-    resolution: resolution,
-    actionType: actionType,
-    actionTarget: actionTarget,
-    occurredAt: occurredAt,
+    category: NotificationCategory.fromWire(category),
+    titleKey: titleKey,
+    metadata: metadata,
+    actionState: NotificationActionState.fromWire(actionState),
+    occurredAt:
+        DateTime.tryParse(occurredAt)?.toLocal() ??
+        DateTime.fromMillisecondsSinceEpoch(0),
+    readAt: readAt == null ? null : DateTime.tryParse(readAt!)?.toLocal(),
   );
 }

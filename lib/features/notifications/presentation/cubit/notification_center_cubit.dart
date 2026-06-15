@@ -12,7 +12,7 @@ class NotificationCenterState {
     this.status = NotificationCenterStatus.initial,
     this.items = const [],
     this.unreadCount = 0,
-    this.openActionRequiredCount = 0,
+    this.pendingActionCount = 0,
     this.isLoadingMore = false,
     this.isMarkingAllRead = false,
     this.nextCursor,
@@ -22,7 +22,7 @@ class NotificationCenterState {
   final NotificationCenterStatus status;
   final List<InboxNotification> items;
   final int unreadCount;
-  final int openActionRequiredCount;
+  final int pendingActionCount;
   final bool isLoadingMore;
   final bool isMarkingAllRead;
   final String? nextCursor;
@@ -32,7 +32,7 @@ class NotificationCenterState {
     NotificationCenterStatus? status,
     List<InboxNotification>? items,
     int? unreadCount,
-    int? openActionRequiredCount,
+    int? pendingActionCount,
     bool? isLoadingMore,
     bool? isMarkingAllRead,
     String? nextCursor,
@@ -44,8 +44,7 @@ class NotificationCenterState {
       status: status ?? this.status,
       items: items ?? this.items,
       unreadCount: unreadCount ?? this.unreadCount,
-      openActionRequiredCount:
-          openActionRequiredCount ?? this.openActionRequiredCount,
+      pendingActionCount: pendingActionCount ?? this.pendingActionCount,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       isMarkingAllRead: isMarkingAllRead ?? this.isMarkingAllRead,
       nextCursor: clearCursor ? null : (nextCursor ?? this.nextCursor),
@@ -82,7 +81,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
           status: NotificationCenterStatus.loaded,
           items: page.items,
           unreadCount: summary.unreadCount,
-          openActionRequiredCount: summary.openActionRequiredCount,
+          pendingActionCount: summary.pendingActionCount,
           nextCursor: page.nextCursor,
           clearCursor: page.nextCursor == null,
         ),
@@ -123,7 +122,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
           status: NotificationCenterStatus.loaded,
           items: page.items,
           unreadCount: summary.unreadCount,
-          openActionRequiredCount: summary.openActionRequiredCount,
+          pendingActionCount: summary.pendingActionCount,
           nextCursor: page.nextCursor,
           clearCursor: page.nextCursor == null,
           clearError: true,
@@ -140,7 +139,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       emit(
         state.copyWith(
           unreadCount: summary.unreadCount,
-          openActionRequiredCount: summary.openActionRequiredCount,
+          pendingActionCount: summary.pendingActionCount,
         ),
       );
     } catch (error) {
@@ -173,7 +172,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     if (index < 0 || state.items[index].isRead) return;
     final previous = state;
     final updated = [...state.items];
-    updated[index] = updated[index].copyWith(isRead: true);
+    updated[index] = updated[index].copyWith(markRead: true);
     emit(
       state.copyWith(
         items: updated,
@@ -193,7 +192,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     final previous = state;
     emit(
       state.copyWith(
-        items: [for (final item in state.items) item.copyWith(isRead: true)],
+        items: [for (final item in state.items) item.copyWith(markRead: true)],
         unreadCount: 0,
         isMarkingAllRead: true,
       ),

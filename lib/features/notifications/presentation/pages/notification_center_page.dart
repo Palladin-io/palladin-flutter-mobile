@@ -1,7 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
@@ -14,11 +15,20 @@ import '../../../approval/presentation/widgets/approve_grant_sheet.dart';
 import '../../../approval/presentation/widgets/deny_grant_sheet.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../domain/entities/inbox_notification.dart';
-import '../../domain/exceptions/notification_center_exceptions.dart';
 import '../cubit/notification_center_cubit.dart';
+import '../widgets/notification_card.dart';
+import '../widgets/notification_format.dart';
 
+/// The Notification Center / Inbox — the durable replacement for Approvals.
+///
+/// Two segments: **To-do** (open action-required items) and **History**
+/// (everything resolved). Grant approve/deny reuses the existing
+/// zero-knowledge sheets; other types deep-link to their owning surface.
 class NotificationCenterPage extends StatefulWidget {
-  const NotificationCenterPage({super.key});
+  const NotificationCenterPage({super.key, this.focusId});
+
+  /// Notification id to mark read on open (push deep-link `/inbox?focus=…`).
+  final String? focusId;
 
   @override
   State<NotificationCenterPage> createState() => _NotificationCenterPageState();
@@ -32,16 +42,24 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
   @override
   void initState() {
     super.initState();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
     if (_notifications.state.status == NotificationCenterStatus.initial) {
-      _notifications.load();
+      await _notifications.load();
     } else {
-      _notifications.refresh();
+      await _notifications.refresh();
     }
+    if (_canManageGrants()) _pendingGrants.refresh();
+    final focusId = widget.focusId;
+    if (focusId != null) await _notifications.markRead(focusId);
+  }
+
+  bool _canManageGrants() {
     final auth = context.read<AuthBloc>().state;
-    if (auth is AuthAuthenticated &&
-        (auth.permissions & Permissions.grantManage) != 0) {
-      _pendingGrants.refresh();
-    }
+    return auth is AuthAuthenticated &&
+        (auth.permissions & Permissions.grantManage) != 0;
   }
 
   @override
@@ -66,9 +84,7 @@ class _NotificationCenterView extends StatefulWidget {
 
 class _NotificationCenterViewState extends State<_NotificationCenterView> {
   final TextEditingController _searchController = TextEditingController();
-  int _segment = 0;
-  bool _filtersOpen = false;
-  String? _topic;
+  int _segment = 0; // 0 = to-do, 1 = history
 
   @override
   void dispose() {
@@ -76,57 +92,56 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     super.dispose();
   }
 
-  Future<void> _openItem(InboxNotification item) async {
+  // ── actions ──────────────────────────────────────────────────────────
+
+  Future<void> _onTap(InboxNotification item) async {
     final notifications = context.read<NotificationCenterCubit>();
     await notifications.markRead(item.id);
-    if (!mounted || !item.isOpenAction) return;
-
-    if (_isGrantAction(item)) {
-      await _openGrantAction(item);
-      return;
-    }
-    final target = item.actionTarget;
-    if (target != null && target.startsWith('/')) context.go(target);
-  }
-
-  bool _isGrantAction(InboxNotification item) {
-    final action = item.actionType?.toLowerCase() ?? '';
-    final type = item.type.toLowerCase();
-    return action.contains('grant') || type.contains('grant');
-  }
-
-  Future<void> _openGrantAction(InboxNotification item) async {
-    final pending = context.read<PendingGrantsCubit>();
-    // Resolve against fresh source data: the Inbox event can arrive before
-    // the pending-grants singleton has observed the new request.
-    await pending.refresh();
     if (!mounted) return;
-    final grantId = _grantId(item);
-    PendingGrant? grant;
-    for (final candidate in pending.state.grants) {
-      if (candidate.grantId == grantId) {
-        grant = candidate;
-        break;
-      }
-    }
-    if (grant == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.inboxActionGone)),
-      );
-      await context.read<NotificationCenterCubit>().refresh();
+    if (item.isOpenAction && _isGrant(item)) {
+      await _approveGrant(item);
       return;
     }
-    final handled = await ApproveGrantSheet.show(context, grant);
-    if (!mounted || handled != true) return;
-    pending.removeGrant(grant.grantId);
-    await context.read<NotificationCenterCubit>().refresh();
+    _deepLink(item);
   }
+
+  bool _isGrant(InboxNotification item) => item.type.startsWith('grant_');
+
+  /// Resolves the pending grant from the source feed and shows the existing
+  /// zero-knowledge approval sheet. The Inbox event can arrive before the
+  /// pending-grants singleton observed the request, so we refresh first.
+  Future<void> _approveGrant(InboxNotification item) =>
+      _runGrantSheet(item, approve: true);
 
   Future<void> _denyGrant(InboxNotification item) async {
     await context.read<NotificationCenterCubit>().markRead(item.id);
     if (!mounted) return;
+    await _runGrantSheet(item, approve: false);
+  }
+
+  Future<void> _runGrantSheet(
+    InboxNotification item, {
+    required bool approve,
+  }) async {
     final pending = context.read<PendingGrantsCubit>();
-    final grantId = _grantId(item);
+    // The Inbox event can arrive before the pending-grants singleton observed
+    // the new request, so refresh the source feed first, then resolve it.
+    await pending.refresh();
+    if (!context.mounted) return;
+    _showGrantSheet(item, approve: approve);
+  }
+
+  /// Synchronous continuation of [_runGrantSheet]: resolves the pending grant
+  /// from the (already refreshed) source feed and shows the existing
+  /// zero-knowledge sheet. Kept sync up to the sheet call so the BuildContext
+  /// is used without crossing an async gap.
+  void _showGrantSheet(InboxNotification item, {required bool approve}) {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    final notifications = context.read<NotificationCenterCubit>();
+    final pending = context.read<PendingGrantsCubit>();
+
+    final grantId = item.grantId;
     PendingGrant? grant;
     for (final candidate in pending.state.grants) {
       if (candidate.grantId == grantId) {
@@ -135,30 +150,38 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
       }
     }
     if (grant == null) {
-      await _openGrantAction(item);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.inboxActionGone)));
+      unawaited(notifications.refresh());
       return;
     }
-    final handled = await DenyGrantSheet.show(context, grant);
-    if (!mounted || handled != true) return;
-    pending.removeGrant(grant.grantId);
-    await context.read<NotificationCenterCubit>().refresh();
+
+    final resolved = grant;
+    final future = approve
+        ? ApproveGrantSheet.show(context, resolved)
+        : DenyGrantSheet.show(context, resolved);
+    future.then((handled) {
+      if (handled != true) return;
+      pending.removeGrant(resolved.grantId);
+      notifications.refresh();
+    });
   }
 
-  String? _grantId(InboxNotification item) {
-    for (final key in const ['grantId', 'grant_id']) {
-      final value = item.data[key];
-      if (value is String && value.isNotEmpty) return value;
+  /// Navigates a non-grant (or resolved) item to its owning surface.
+  void _deepLink(InboxNotification item) {
+    final agentId = item.agentId;
+    final vaultId = item.vaultId;
+    switch (item.type) {
+      case 'agent_pending':
+      case 'grant_revoked':
+      case 'grant_approved':
+      case 'grant_denied':
+        if (agentId != null) context.go('/agents/$agentId');
+      case 'credential_stale':
+        if (vaultId != null) context.go('/vaults/$vaultId');
     }
-    final target = item.actionTarget;
-    if (target == null) return null;
-    if (!target.contains('/')) return target;
-    final segments = Uri.tryParse(target)?.pathSegments ?? const <String>[];
-    final grantIndex = segments.indexOf('grants');
-    if (grantIndex >= 0 && grantIndex + 1 < segments.length) {
-      return segments[grantIndex + 1];
-    }
-    return null;
   }
+
+  // ── build ────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -175,7 +198,9 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           scrolledUnderElevation: 0,
+          elevation: 0,
           titleSpacing: 20,
+          iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
           title: Text(
             l10n.inboxTitle,
             style: TextStyle(
@@ -185,178 +210,295 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
             ),
           ),
           actions: [
+            IconButton(
+              tooltip: l10n.notifPrefsTitle,
+              icon: Icon(
+                Icons.tune,
+                size: 20,
+                color: AppColors.onSurface(brightness),
+              ),
+              onPressed: () => context.push('/inbox/preferences'),
+            ),
             BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
-              buildWhen: (previous, current) =>
-                  previous.unreadCount != current.unreadCount ||
-                  previous.isMarkingAllRead != current.isMarkingAllRead,
+              buildWhen: (p, c) =>
+                  p.unreadCount != c.unreadCount ||
+                  p.isMarkingAllRead != c.isMarkingAllRead,
               builder: (context, state) => TextButton(
                 onPressed: state.unreadCount == 0 || state.isMarkingAllRead
                     ? null
-                    : () =>
-                          context.read<NotificationCenterCubit>().markAllRead(),
+                    : () => context.read<NotificationCenterCubit>().markAllRead(),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.tealAccent,
+                ),
                 child: Text(l10n.inboxMarkAllRead),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
           ],
         ),
         body: SafeArea(
           top: false,
-          child: BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
-            builder: (context, state) {
-              final topics =
-                  state.items
-                      .map((item) => item.topic)
-                      .where((topic) => topic.isNotEmpty)
-                      .toSet()
-                      .toList()
-                    ..sort();
-              final items = _filtered(state.items);
-              return Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                    child: _SegmentToggle(
-                      segment: _segment,
-                      actionCount: state.openActionRequiredCount,
-                      onChanged: (segment) =>
-                          setState(() => _segment = segment),
-                    ),
+          child: Column(
+            children: [
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: BlocBuilder<NotificationCenterCubit,
+                    NotificationCenterState>(
+                  buildWhen: (p, c) =>
+                      p.pendingActionCount != c.pendingActionCount,
+                  builder: (context, state) => _SegmentToggle(
+                    segment: _segment,
+                    todoCount: state.pendingActionCount,
+                    onChanged: (i) => setState(() => _segment = i),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: AppSearchField(
-                      controller: _searchController,
-                      hint: l10n.inboxSearchHint,
-                      filterActive: _filtersOpen,
-                      onChanged: (_) => setState(() {}),
-                      onToggleFilter: () =>
-                          setState(() => _filtersOpen = !_filtersOpen),
-                    ),
-                  ),
-                  if (_filtersOpen)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                      child: _TopicFilters(
-                        topics: topics,
-                        selected: _topic,
-                        onSelected: (topic) => setState(() => _topic = topic),
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-                  Expanded(child: _content(state, items)),
-                ],
-              );
-            },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: AppSearchField(
+                  controller: _searchController,
+                  hint: l10n.inboxSearchHint,
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(child: _Feed(
+                segment: _segment,
+                query: _searchController.text,
+                onTapItem: _onTap,
+                onDenyGrant: _denyGrant,
+                isGrant: _isGrant,
+              )),
+            ],
           ),
         ),
       ),
     );
   }
+}
 
-  List<InboxNotification> _filtered(List<InboxNotification> items) {
-    final query = _searchController.text.trim().toLowerCase();
+// ── feed ───────────────────────────────────────────────────────────────
+
+class _Feed extends StatelessWidget {
+  const _Feed({
+    required this.segment,
+    required this.query,
+    required this.onTapItem,
+    required this.onDenyGrant,
+    required this.isGrant,
+  });
+
+  final int segment;
+  final String query;
+  final ValueChanged<InboxNotification> onTapItem;
+  final ValueChanged<InboxNotification> onDenyGrant;
+  final bool Function(InboxNotification) isGrant;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return RefreshIndicator(
+      color: AppColors.brandRed,
+      backgroundColor: AppColors.cardSurface(Theme.of(context).brightness),
+      onRefresh: () => context.read<NotificationCenterCubit>().refresh(),
+      child: BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
+        builder: (context, state) => switch (state.status) {
+          NotificationCenterStatus.initial ||
+          NotificationCenterStatus.loading => const _Skeleton(),
+          NotificationCenterStatus.error => _ErrorView(
+              message: notificationErrorMessage(l10n, state.error!),
+              onRetry: () => context.read<NotificationCenterCubit>().load(),
+            ),
+          NotificationCenterStatus.loaded => _List(
+              items: _filter(state.items),
+              isLoadingMore: state.isLoadingMore,
+              hasMore: state.nextCursor != null,
+              segment: segment,
+              onTapItem: onTapItem,
+              onDenyGrant: onDenyGrant,
+              isGrant: isGrant,
+            ),
+        },
+      ),
+    );
+  }
+
+  List<InboxNotification> _filter(List<InboxNotification> items) {
+    final q = query.trim().toLowerCase();
     return items
         .where((item) {
-          final segmentMatches = _segment == 0
+          final segmentMatches = segment == 0
               ? item.isOpenAction
               : !item.isOpenAction;
-          final topicMatches = _topic == null || item.topic == _topic;
-          final queryMatches =
-              query.isEmpty ||
-              item.title.toLowerCase().contains(query) ||
-              item.body.toLowerCase().contains(query);
-          return segmentMatches && topicMatches && queryMatches;
+          if (!segmentMatches) return false;
+          if (q.isEmpty) return true;
+          final haystack = [
+            item.type,
+            ...item.metadata.values.whereType<String>(),
+          ].join(' ').toLowerCase();
+          return haystack.contains(q);
         })
         .toList(growable: false);
   }
+}
 
-  Widget _content(
-    NotificationCenterState state,
-    List<InboxNotification> items,
-  ) {
+class _List extends StatelessWidget {
+  const _List({
+    required this.items,
+    required this.isLoadingMore,
+    required this.hasMore,
+    required this.segment,
+    required this.onTapItem,
+    required this.onDenyGrant,
+    required this.isGrant,
+  });
+
+  final List<InboxNotification> items;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final int segment;
+  final ValueChanged<InboxNotification> onTapItem;
+  final ValueChanged<InboxNotification> onDenyGrant;
+  final bool Function(InboxNotification) isGrant;
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return switch (state.status) {
-      NotificationCenterStatus.initial ||
-      NotificationCenterStatus.loading => const _InboxSkeleton(),
-      NotificationCenterStatus.error => _ErrorView(
-        message: _errorMessage(l10n, state.error!),
-        onRetry: () => context.read<NotificationCenterCubit>().load(),
-      ),
-      NotificationCenterStatus.loaded => RefreshIndicator(
-        color: AppColors.brandRed,
-        backgroundColor: AppColors.cardSurface(Theme.of(context).brightness),
-        onRefresh: () => context.read<NotificationCenterCubit>().refresh(),
-        child: items.isEmpty
-            ? _EmptyView(
-                title: _segment == 0
-                    ? l10n.inboxTodoEmpty
-                    : l10n.inboxUpdatesEmpty,
-                canLoadMore: state.nextCursor != null,
-                isLoadingMore: state.isLoadingMore,
-                onLoadMore: () =>
-                    context.read<NotificationCenterCubit>().loadMore(),
-              )
-            : NotificationListener<ScrollEndNotification>(
-                onNotification: (notification) {
-                  if (notification.metrics.extentAfter < 160) {
-                    context.read<NotificationCenterCubit>().loadMore();
-                  }
-                  return false;
-                },
-                child: ListView.separated(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 96),
-                  itemCount: items.length + (state.isLoadingMore ? 1 : 0),
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    if (index == items.length) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: CircularProgressIndicator(
-                            color: AppColors.brandRed,
-                          ),
-                        ),
-                      );
-                    }
-                    final item = items[index];
-                    return _NotificationCard(
-                      item: item,
-                      onTap: () => _openItem(item),
-                      onDeny: _isGrantAction(item) && item.isOpenAction
-                          ? () => _denyGrant(item)
-                          : null,
-                    );
-                  },
-                ),
+    if (items.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+        children: [
+          _EmptyCard(
+            icon: segment == 0 ? Icons.task_alt : Icons.history,
+            title: segment == 0 ? l10n.inboxTodoEmpty : l10n.inboxUpdatesEmpty,
+            hint: segment == 0
+                ? l10n.inboxTodoEmptyHint
+                : l10n.inboxUpdatesEmptyHint,
+          ),
+        ],
+      );
+    }
+    return NotificationListener<ScrollEndNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.extentAfter < 160) {
+          context.read<NotificationCenterCubit>().loadMore();
+        }
+        return false;
+      },
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 96),
+        itemCount: items.length + (isLoadingMore ? 1 : 0),
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          if (index == items.length) {
+            return const Padding(
+              padding: EdgeInsets.all(12),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.brandRed),
               ),
+            );
+          }
+          return _NotificationItemTile(
+            item: items[index],
+            onTap: () => onTapItem(items[index]),
+            onDeny: isGrant(items[index]) && items[index].isOpenAction
+                ? () => onDenyGrant(items[index])
+                : null,
+          );
+        },
       ),
-    };
+    );
   }
+}
 
-  String _errorMessage(
-    AppLocalizations l10n,
-    NotificationCenterErrorKind error,
-  ) {
-    return switch (error) {
-      NotificationCenterErrorKind.forbidden => l10n.inboxErrorForbidden,
-      NotificationCenterErrorKind.networkError => l10n.inboxErrorNetwork,
-      NotificationCenterErrorKind.serverError ||
-      NotificationCenterErrorKind.unknown => l10n.inboxErrorUnknown,
+/// Maps a notification to the right [NotificationCard] footer wiring.
+class _NotificationItemTile extends StatelessWidget {
+  const _NotificationItemTile({
+    required this.item,
+    required this.onTap,
+    this.onDeny,
+  });
+
+  final InboxNotification item;
+  final VoidCallback onTap;
+  final VoidCallback? onDeny;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
+    // To-do: live action buttons per type.
+    if (item.isOpenAction) {
+      return switch (item.type) {
+        'grant_pending' => NotificationCard(
+            item: item,
+            onTap: onTap,
+            onSecondary: onDeny,
+            secondaryLabel: l10n.approvalDeny,
+            onPrimary: onTap,
+            primaryLabel: l10n.approvalApprove,
+            primaryIcon: Icons.check,
+          ),
+        'agent_pending' => NotificationCard(
+            item: item,
+            onTap: onTap,
+            onSecondary: onDeny,
+            onPrimary: onTap,
+            primaryLabel: l10n.inboxAcceptAction,
+            primaryIcon: Icons.check,
+          ),
+        'credential_stale' => NotificationCard(
+            item: item,
+            onTap: onTap,
+            onPrimary: onTap,
+            primaryLabel: l10n.inboxUpdateAction,
+            primaryIcon: Icons.refresh,
+          ),
+        _ => NotificationCard(
+            item: item,
+            onTap: onTap,
+            onPrimary: onTap,
+            primaryLabel: l10n.inboxReviewAction,
+          ),
+      };
+    }
+
+    // History: status pill + single contextual action / note.
+    final pill = notificationStatusPill(l10n, item);
+    return switch (item.type) {
+      'grant_approved' => NotificationCard(
+          item: item,
+          onTap: onTap,
+          statusPill: pill,
+          footerNote: l10n.inboxActiveAccessNote,
+        ),
+      'grant_revoked' || 'grant_denied' => NotificationCard(
+          item: item,
+          onTap: onTap,
+          statusPill: pill,
+          onPrimary: onTap,
+          primaryLabel: l10n.inboxRegrantAction,
+          primaryIcon: Icons.refresh,
+        ),
+      _ => NotificationCard(item: item, onTap: onTap, statusPill: pill),
     };
   }
 }
 
+// ── segmented toggle ─────────────────────────────────────────────────────
+
 class _SegmentToggle extends StatelessWidget {
   const _SegmentToggle({
     required this.segment,
-    required this.actionCount,
+    required this.todoCount,
     required this.onChanged,
   });
 
   final int segment;
-  final int actionCount;
+  final int todoCount;
   final ValueChanged<int> onChanged;
 
   @override
@@ -374,12 +516,12 @@ class _SegmentToggle extends StatelessWidget {
         children: [
           _SegmentButton(
             label: l10n.inboxTodo,
-            badge: actionCount,
+            badge: todoCount > 0 ? todoCount : null,
             selected: segment == 0,
             onTap: () => onChanged(0),
           ),
           _SegmentButton(
-            label: l10n.inboxUpdates,
+            label: l10n.inboxHistory,
             selected: segment == 1,
             onTap: () => onChanged(1),
           ),
@@ -394,18 +536,18 @@ class _SegmentButton extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
-    this.badge = 0,
+    this.badge,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  final int badge;
+  final int? badge;
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    final color = selected
+    final fg = selected
         ? AppColors.onBrandRed
         : AppColors.onSurfaceMuted(brightness);
     return Expanded(
@@ -423,12 +565,12 @@ class _SegmentButton extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: color,
-                    fontSize: 12,
+                    color: fg,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (badge > 0) ...[
+                if (badge != null) ...[
                   const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -437,16 +579,14 @@ class _SegmentButton extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: selected
-                          ? AppColors.onBrandRed.withValues(alpha: 0.2)
-                          : AppColors.brandRed.withValues(alpha: 0.14),
+                          ? AppColors.onBrandRed.withValues(alpha: 0.25)
+                          : AppColors.brandRed,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
                       '$badge',
-                      style: TextStyle(
-                        color: selected
-                            ? AppColors.onBrandRed
-                            : AppColors.brandRed,
+                      style: const TextStyle(
+                        color: AppColors.onBrandRed,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                       ),
@@ -462,279 +602,73 @@ class _SegmentButton extends StatelessWidget {
   }
 }
 
-class _TopicFilters extends StatelessWidget {
-  const _TopicFilters({
-    required this.topics,
-    required this.selected,
-    required this.onSelected,
+// ── shared sub-widgets ───────────────────────────────────────────────────
+
+class _EmptyCard extends StatelessWidget {
+  const _EmptyCard({
+    required this.icon,
+    required this.title,
+    required this.hint,
   });
 
-  final List<String> topics;
-  final String? selected;
-  final ValueChanged<String?> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        _TopicChip(
-          label: l10n.inboxTopicAll,
-          selected: selected == null,
-          onTap: () => onSelected(null),
-        ),
-        for (final topic in topics)
-          _TopicChip(
-            label: _topicLabel(l10n, topic),
-            selected: selected == topic,
-            onTap: () => onSelected(topic),
-          ),
-      ],
-    );
-  }
-}
-
-class _TopicChip extends StatelessWidget {
-  const _TopicChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+  final IconData icon;
+  final String title;
+  final String hint;
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    return ActionChip(
-      onPressed: onTap,
-      label: Text(label),
-      labelStyle: TextStyle(
-        color: selected
-            ? AppColors.brandRed
-            : AppColors.onSurfaceMuted(brightness),
-        fontSize: 11,
-        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-      ),
-      backgroundColor: Colors.transparent,
-      side: BorderSide(
-        color: selected ? AppColors.brandRed : AppColors.cardBorder(brightness),
-      ),
-      shape: const StadiumBorder(),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-    );
-  }
-}
-
-class _NotificationCard extends StatelessWidget {
-  const _NotificationCard({
-    required this.item,
-    required this.onTap,
-    this.onDeny,
-  });
-
-  final InboxNotification item;
-  final VoidCallback onTap;
-  final VoidCallback? onDeny;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    final accent = item.isSecurityCritical
-        ? AppColors.brandRed
-        : item.isOpenAction
-        ? AppColors.premiumAmber
-        : AppColors.vaultBlue;
-    return DecoratedBox(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: item.isRead
-              ? AppColors.cardBorder(brightness)
-              : accent.withValues(alpha: 0.55),
-        ),
+        border: Border.all(color: AppColors.cardBorder(brightness)),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onTap,
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: accent.withValues(alpha: 0.14),
-                        ),
-                        child: Icon(_icon(item), size: 17, color: accent),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    item.title,
-                                    style: TextStyle(
-                                      color: AppColors.onSurface(brightness),
-                                      fontSize: 13,
-                                      fontWeight: item.isRead
-                                          ? FontWeight.w600
-                                          : FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                                if (!item.isRead)
-                                  Container(
-                                    width: 7,
-                                    height: 7,
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.brandRed,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              item.body,
-                              style: TextStyle(
-                                color: AppColors.onSurfaceMuted(brightness),
-                                fontSize: 11,
-                                height: 1.35,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '${_topicLabel(l10n, item.topic)} · ${_formatDate(context, item.occurredAt)}',
-                              style: TextStyle(
-                                color: AppColors.onSurfaceSubtle(brightness),
-                                fontSize: 10,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            if (item.isOpenAction)
-              Container(
-                padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-                decoration: BoxDecoration(
-                  color: AppColors.cardFooterOverlay(brightness),
-                  border: Border(
-                    top: BorderSide(color: AppColors.cardBorder(brightness)),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (onDeny != null) ...[
-                      TextButton(
-                        onPressed: onDeny,
-                        child: Text(l10n.approvalDeny),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    FilledButton(
-                      onPressed: onTap,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.brandRed,
-                        foregroundColor: AppColors.onBrandRed,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      child: Text(l10n.inboxReviewAction),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  IconData _icon(InboxNotification item) {
-    if (item.isSecurityCritical) return Icons.gpp_maybe_outlined;
-    final topic = item.topic.toLowerCase();
-    if (topic.contains('grant') || topic.contains('access')) {
-      return Icons.key_outlined;
-    }
-    if (topic.contains('agent') || topic.contains('identity')) {
-      return Icons.smart_toy_outlined;
-    }
-    if (topic.contains('billing')) return Icons.receipt_long_outlined;
-    return item.isOpenAction
-        ? Icons.task_alt_outlined
-        : Icons.notifications_outlined;
-  }
-}
-
-class _EmptyView extends StatelessWidget {
-  const _EmptyView({
-    required this.title,
-    required this.canLoadMore,
-    required this.isLoadingMore,
-    required this.onLoadMore,
-  });
-
-  final String title;
-  final bool canLoadMore;
-  final bool isLoadingMore;
-  final VoidCallback onLoadMore;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-      children: [
-        Icon(
-          Icons.inbox_outlined,
-          size: 40,
-          color: AppColors.onSurfaceSubtle(brightness),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.onSurface(brightness),
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (canLoadMore) ...[
+      child: Column(
+        children: [
+          Icon(icon, size: 32, color: AppColors.onSurfaceSubtle(brightness)),
           const SizedBox(height: 12),
-          Center(
-            child: TextButton(
-              onPressed: isLoadingMore ? null : onLoadMore,
-              child: Text(AppLocalizations.of(context)!.inboxLoadMore),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.onSurface(brightness),
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hint,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.onSurfaceSubtle(brightness),
+              fontSize: 12,
+              height: 1.4,
             ),
           ),
         ],
-      ],
+      ),
+    );
+  }
+}
+
+class _Skeleton extends StatelessWidget {
+  const _Skeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+      children: List.generate(
+        4,
+        (i) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: SkeletonBox(height: 112, delay: Duration(milliseconds: i * 80)),
+        ),
+      ),
     );
   }
 }
@@ -748,55 +682,41 @@ class _ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
       children: [
-        Text(message, textAlign: TextAlign.center),
-        const SizedBox(height: 12),
-        Center(
-          child: OutlinedButton(
-            onPressed: onRetry,
-            child: Text(l10n.approvalRetry),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.cardFill(brightness),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.cardBorder(brightness)),
+          ),
+          child: Column(
+            children: [
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.onSurface(brightness),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: onRetry,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.tealAccent,
+                ),
+                child: Text(l10n.approvalRetry),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
-}
-
-class _InboxSkeleton extends StatelessWidget {
-  const _InboxSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-      itemCount: 4,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (_, _) => const SkeletonBox(height: 112, borderRadius: 12),
-    );
-  }
-}
-
-String _topicLabel(AppLocalizations l10n, String topic) {
-  return switch (topic.toLowerCase()) {
-    'vault' || 'grants' || 'grant' || 'access' => l10n.inboxTopicAccess,
-    'identity' || 'agents' || 'agent' => l10n.inboxTopicAgents,
-    'security' => l10n.inboxTopicSecurity,
-    'billing' => l10n.inboxTopicBilling,
-    'system' => l10n.inboxTopicSystem,
-    _ =>
-      topic
-          .replaceAll(RegExp(r'[_-]+'), ' ')
-          .split(' ')
-          .where((part) => part.isNotEmpty)
-          .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
-          .join(' '),
-  };
-}
-
-String _formatDate(BuildContext context, DateTime date) {
-  final locale = Localizations.localeOf(context).toString();
-  return DateFormat.MMMd(locale).add_Hm().format(date);
 }

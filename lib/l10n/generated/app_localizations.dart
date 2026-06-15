@@ -3047,19 +3047,19 @@ abstract class AppLocalizations {
   /// No description provided for @inboxTodo.
   ///
   /// In en, this message translates to:
-  /// **'To do'**
+  /// **'To-do'**
   String get inboxTodo;
 
-  /// No description provided for @inboxUpdates.
+  /// No description provided for @inboxHistory.
   ///
   /// In en, this message translates to:
-  /// **'Updates'**
-  String get inboxUpdates;
+  /// **'History'**
+  String get inboxHistory;
 
   /// No description provided for @inboxSearchHint.
   ///
   /// In en, this message translates to:
-  /// **'Search notifications…'**
+  /// **'Search by agent, entry or vault…'**
   String get inboxSearchHint;
 
   /// No description provided for @inboxMarkAllRead.
@@ -3074,11 +3074,29 @@ abstract class AppLocalizations {
   /// **'Review'**
   String get inboxReviewAction;
 
-  /// No description provided for @inboxLoadMore.
+  /// No description provided for @inboxAcceptAction.
   ///
   /// In en, this message translates to:
-  /// **'Load more'**
-  String get inboxLoadMore;
+  /// **'Accept'**
+  String get inboxAcceptAction;
+
+  /// No description provided for @inboxUpdateAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get inboxUpdateAction;
+
+  /// No description provided for @inboxRegrantAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant again'**
+  String get inboxRegrantAction;
+
+  /// No description provided for @inboxActiveAccessNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent has active access'**
+  String get inboxActiveAccessNote;
 
   /// No description provided for @inboxActionGone.
   ///
@@ -3092,47 +3110,23 @@ abstract class AppLocalizations {
   /// **'Nothing needs your attention'**
   String get inboxTodoEmpty;
 
+  /// No description provided for @inboxTodoEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Access requests and other actions from your agents will show up here.'**
+  String get inboxTodoEmptyHint;
+
   /// No description provided for @inboxUpdatesEmpty.
   ///
   /// In en, this message translates to:
-  /// **'No updates yet'**
+  /// **'No history yet'**
   String get inboxUpdatesEmpty;
 
-  /// No description provided for @inboxTopicAll.
+  /// No description provided for @inboxUpdatesEmptyHint.
   ///
   /// In en, this message translates to:
-  /// **'All topics'**
-  String get inboxTopicAll;
-
-  /// No description provided for @inboxTopicAccess.
-  ///
-  /// In en, this message translates to:
-  /// **'Access'**
-  String get inboxTopicAccess;
-
-  /// No description provided for @inboxTopicAgents.
-  ///
-  /// In en, this message translates to:
-  /// **'Agents'**
-  String get inboxTopicAgents;
-
-  /// No description provided for @inboxTopicSecurity.
-  ///
-  /// In en, this message translates to:
-  /// **'Security'**
-  String get inboxTopicSecurity;
-
-  /// No description provided for @inboxTopicBilling.
-  ///
-  /// In en, this message translates to:
-  /// **'Billing'**
-  String get inboxTopicBilling;
-
-  /// No description provided for @inboxTopicSystem.
-  ///
-  /// In en, this message translates to:
-  /// **'System'**
-  String get inboxTopicSystem;
+  /// **'Approved, revoked and other resolved items will appear here.'**
+  String get inboxUpdatesEmptyHint;
 
   /// No description provided for @inboxErrorForbidden.
   ///
@@ -3151,6 +3145,210 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not load notifications. Please try again.'**
   String get inboxErrorUnknown;
+
+  /// Fallback for a notification agent name
+  ///
+  /// In en, this message translates to:
+  /// **'An agent'**
+  String get notifUnnamedAgent;
+
+  /// No description provided for @notifTitleGrantPending.
+  ///
+  /// In en, this message translates to:
+  /// **'{agent} requests access'**
+  String notifTitleGrantPending(String agent);
+
+  /// No description provided for @notifTitleAgentPending.
+  ///
+  /// In en, this message translates to:
+  /// **'{agent} is waiting for approval'**
+  String notifTitleAgentPending(String agent);
+
+  /// No description provided for @notifTitleGrantRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'Access revoked for {agent}'**
+  String notifTitleGrantRevoked(String agent);
+
+  /// No description provided for @notifTitleGrantApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Access approved for {agent}'**
+  String notifTitleGrantApproved(String agent);
+
+  /// No description provided for @notifTitleGrantDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Access denied for {agent}'**
+  String notifTitleGrantDenied(String agent);
+
+  /// No description provided for @notifTitleCredentialStale.
+  ///
+  /// In en, this message translates to:
+  /// **'Credential may be stale'**
+  String get notifTitleCredentialStale;
+
+  /// No description provided for @notifSubGrantPending.
+  ///
+  /// In en, this message translates to:
+  /// **'requests access'**
+  String get notifSubGrantPending;
+
+  /// No description provided for @notifSubAgentPending.
+  ///
+  /// In en, this message translates to:
+  /// **'new agent · waiting for approval'**
+  String get notifSubAgentPending;
+
+  /// No description provided for @notifSubCredentialStale.
+  ///
+  /// In en, this message translates to:
+  /// **'reported by {agent}'**
+  String notifSubCredentialStale(String agent);
+
+  /// No description provided for @notifSubGrantUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'grant update'**
+  String get notifSubGrantUpdate;
+
+  /// No description provided for @notifRowEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry'**
+  String get notifRowEntry;
+
+  /// No description provided for @notifRowMethods.
+  ///
+  /// In en, this message translates to:
+  /// **'Methods'**
+  String get notifRowMethods;
+
+  /// No description provided for @notifRowReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason'**
+  String get notifRowReason;
+
+  /// No description provided for @notifRowHost.
+  ///
+  /// In en, this message translates to:
+  /// **'Host'**
+  String get notifRowHost;
+
+  /// No description provided for @notifRowError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get notifRowError;
+
+  /// No description provided for @notifRowBy.
+  ///
+  /// In en, this message translates to:
+  /// **'By'**
+  String get notifRowBy;
+
+  /// No description provided for @notifStatusActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get notifStatusActive;
+
+  /// No description provided for @notifStatusRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked'**
+  String get notifStatusRevoked;
+
+  /// No description provided for @notifStatusDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Denied'**
+  String get notifStatusDenied;
+
+  /// No description provided for @notifPrefsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification settings'**
+  String get notifPrefsTitle;
+
+  /// No description provided for @notifPrefsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how you want to be notified for each type. Some critical types stay on in your inbox.'**
+  String get notifPrefsHint;
+
+  /// No description provided for @notifPrefsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No preferences available.'**
+  String get notifPrefsEmpty;
+
+  /// No description provided for @notifPrefsSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save your preference. Please try again.'**
+  String get notifPrefsSaveError;
+
+  /// No description provided for @notifPrefsMandatory.
+  ///
+  /// In en, this message translates to:
+  /// **'Always on'**
+  String get notifPrefsMandatory;
+
+  /// No description provided for @notifPrefsChannelInbox.
+  ///
+  /// In en, this message translates to:
+  /// **'Inbox'**
+  String get notifPrefsChannelInbox;
+
+  /// No description provided for @notifPrefsChannelRealtime.
+  ///
+  /// In en, this message translates to:
+  /// **'Live'**
+  String get notifPrefsChannelRealtime;
+
+  /// No description provided for @notifPrefsChannelPush.
+  ///
+  /// In en, this message translates to:
+  /// **'Push'**
+  String get notifPrefsChannelPush;
+
+  /// No description provided for @notifPrefsTypeAgentPending.
+  ///
+  /// In en, this message translates to:
+  /// **'New agent to accept'**
+  String get notifPrefsTypeAgentPending;
+
+  /// No description provided for @notifPrefsTypeGrantPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Access requests'**
+  String get notifPrefsTypeGrantPending;
+
+  /// No description provided for @notifPrefsTypeGrantRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'Access revoked'**
+  String get notifPrefsTypeGrantRevoked;
+
+  /// No description provided for @notifPrefsTypeGrantApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Access approved'**
+  String get notifPrefsTypeGrantApproved;
+
+  /// No description provided for @notifPrefsTypeGrantDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Access denied'**
+  String get notifPrefsTypeGrantDenied;
+
+  /// No description provided for @notifPrefsTypeCredentialStale.
+  ///
+  /// In en, this message translates to:
+  /// **'Credential stale'**
+  String get notifPrefsTypeCredentialStale;
 }
 
 class _AppLocalizationsDelegate

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../domain/entities/inbox_notification.dart';
+import '../../domain/entities/notification_preference.dart';
 import '../../domain/exceptions/notification_center_exceptions.dart';
 import '../../domain/repositories/notification_center_repository.dart';
 import '../datasources/notification_center_remote_datasource.dart';
@@ -31,7 +32,7 @@ class NotificationCenterRepositoryImpl implements NotificationCenterRepository {
       final summary = await _datasource.summary();
       return NotificationSummary(
         unreadCount: summary.unreadCount,
-        openActionRequiredCount: summary.openActionRequiredCount,
+        pendingActionCount: summary.pendingActionCount,
       );
     } on DioException catch (error) {
       throw NotificationCenterException(_classify(error));
@@ -51,6 +52,36 @@ class NotificationCenterRepositoryImpl implements NotificationCenterRepository {
   Future<void> markAllRead() async {
     try {
       await _datasource.markAllRead();
+    } on DioException catch (error) {
+      throw NotificationCenterException(_classify(error));
+    }
+  }
+
+  @override
+  Future<List<NotificationPreference>> preferences() async {
+    try {
+      final items = await _datasource.preferences();
+      return items.map((item) => item.toEntity()).toList(growable: false);
+    } on DioException catch (error) {
+      throw NotificationCenterException(_classify(error));
+    }
+  }
+
+  @override
+  Future<List<NotificationPreference>> updatePreference({
+    required String type,
+    bool? inboxEnabled,
+    bool? signalREnabled,
+    bool? pushEnabled,
+  }) async {
+    try {
+      final items = await _datasource.updatePreferences(
+        type: type,
+        inboxEnabled: inboxEnabled,
+        signalREnabled: signalREnabled,
+        pushEnabled: pushEnabled,
+      );
+      return items.map((item) => item.toEntity()).toList(growable: false);
     } on DioException catch (error) {
       throw NotificationCenterException(_classify(error));
     }

@@ -10,6 +10,7 @@ import '../../features/api_keys/presentation/pages/api_keys_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/notifications/presentation/pages/notification_center_page.dart';
+import '../../features/notifications/presentation/pages/notification_preferences_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_wizard_page.dart';
 import '../../features/recovery/presentation/pages/recovery_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
@@ -147,9 +148,20 @@ GoRouter createRouter(AuthBloc authBloc, {GlobalKey<NavigatorState>? navigatorKe
           ),
           // Business Inbox — durable notifications for every authenticated
           // user. Grant actions reuse the existing zero-knowledge sheets.
+          // `?focus=<id>` (from a tapped push) marks that item read on open.
           GoRoute(
             path: '/inbox',
-            builder: (_, _) => const NotificationCenterPage(),
+            builder: (_, state) => NotificationCenterPage(
+              focusId: state.uri.queryParameters['focus'],
+            ),
+            routes: [
+              // Per-type × per-channel notification preferences. Pushed (not a
+              // tab) so the back arrow returns to the inbox.
+              GoRoute(
+                path: 'preferences',
+                builder: (_, _) => const NotificationPreferencesPage(),
+              ),
+            ],
           ),
           // Settings — organization details. Lives inside the shell so
           // the persistent bottom nav stays mounted while the user is

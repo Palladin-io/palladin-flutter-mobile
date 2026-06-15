@@ -1722,10 +1722,10 @@ class AppLocalizationsPl extends AppLocalizations {
   String get inboxTodo => 'Do zrobienia';
 
   @override
-  String get inboxUpdates => 'Aktualizacje';
+  String get inboxHistory => 'History';
 
   @override
-  String get inboxSearchHint => 'Szukaj powiadomień…';
+  String get inboxSearchHint => 'Szukaj po agencie, wpisie lub vaultcie…';
 
   @override
   String get inboxMarkAllRead => 'Oznacz wszystkie';
@@ -1734,7 +1734,16 @@ class AppLocalizationsPl extends AppLocalizations {
   String get inboxReviewAction => 'Przejrzyj';
 
   @override
-  String get inboxLoadMore => 'Wczytaj więcej';
+  String get inboxAcceptAction => 'Akceptuj';
+
+  @override
+  String get inboxUpdateAction => 'Zaktualizuj';
+
+  @override
+  String get inboxRegrantAction => 'Nadaj ponownie';
+
+  @override
+  String get inboxActiveAccessNote => 'Agent ma aktywny dostęp';
 
   @override
   String get inboxActionGone => 'Ta akcja nie jest już dostępna.';
@@ -1743,25 +1752,15 @@ class AppLocalizationsPl extends AppLocalizations {
   String get inboxTodoEmpty => 'Nic nie wymaga Twojej uwagi';
 
   @override
-  String get inboxUpdatesEmpty => 'Brak aktualizacji';
+  String get inboxTodoEmptyHint =>
+      'Prośby o dostęp i inne działania od Twoich agentów pojawią się tutaj.';
 
   @override
-  String get inboxTopicAll => 'Wszystkie tematy';
+  String get inboxUpdatesEmpty => 'Brak historii';
 
   @override
-  String get inboxTopicAccess => 'Dostępy';
-
-  @override
-  String get inboxTopicAgents => 'Agenci';
-
-  @override
-  String get inboxTopicSecurity => 'Bezpieczeństwo';
-
-  @override
-  String get inboxTopicBilling => 'Rozliczenia';
-
-  @override
-  String get inboxTopicSystem => 'System';
+  String get inboxUpdatesEmptyHint =>
+      'Zatwierdzone, cofnięte i inne zakończone elementy pojawią się tutaj.';
 
   @override
   String get inboxErrorForbidden =>
@@ -1774,4 +1773,120 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get inboxErrorUnknown =>
       'Nie udało się wczytać powiadomień. Spróbuj ponownie.';
+
+  @override
+  String get notifUnnamedAgent => 'Agent';
+
+  @override
+  String notifTitleGrantPending(String agent) {
+    return '$agent prosi o dostęp';
+  }
+
+  @override
+  String notifTitleAgentPending(String agent) {
+    return '$agent czeka na akceptację';
+  }
+
+  @override
+  String notifTitleGrantRevoked(String agent) {
+    return 'Cofnięto dostęp dla $agent';
+  }
+
+  @override
+  String notifTitleGrantApproved(String agent) {
+    return 'Zatwierdzono dostęp dla $agent';
+  }
+
+  @override
+  String notifTitleGrantDenied(String agent) {
+    return 'Odrzucono dostęp dla $agent';
+  }
+
+  @override
+  String get notifTitleCredentialStale => 'Hasło może nie działać';
+
+  @override
+  String get notifSubGrantPending => 'prosi o dostęp';
+
+  @override
+  String get notifSubAgentPending => 'nowy agent · czeka na akceptację';
+
+  @override
+  String notifSubCredentialStale(String agent) {
+    return 'zgłoszone przez $agent';
+  }
+
+  @override
+  String get notifSubGrantUpdate => 'aktualizacja grantu';
+
+  @override
+  String get notifRowEntry => 'Wpis';
+
+  @override
+  String get notifRowMethods => 'Metody';
+
+  @override
+  String get notifRowReason => 'Powód';
+
+  @override
+  String get notifRowHost => 'Host';
+
+  @override
+  String get notifRowError => 'Błąd';
+
+  @override
+  String get notifRowBy => 'Przez';
+
+  @override
+  String get notifStatusActive => 'Aktywny';
+
+  @override
+  String get notifStatusRevoked => 'Cofnięty';
+
+  @override
+  String get notifStatusDenied => 'Odrzucony';
+
+  @override
+  String get notifPrefsTitle => 'Ustawienia powiadomień';
+
+  @override
+  String get notifPrefsHint =>
+      'Wybierz, jak chcesz otrzymywać powiadomienia dla każdego typu. Niektóre krytyczne typy zawsze pozostają w skrzynce.';
+
+  @override
+  String get notifPrefsEmpty => 'Brak dostępnych preferencji.';
+
+  @override
+  String get notifPrefsSaveError =>
+      'Nie udało się zapisać preferencji. Spróbuj ponownie.';
+
+  @override
+  String get notifPrefsMandatory => 'Zawsze włączone';
+
+  @override
+  String get notifPrefsChannelInbox => 'Inbox';
+
+  @override
+  String get notifPrefsChannelRealtime => 'Na żywo';
+
+  @override
+  String get notifPrefsChannelPush => 'Push';
+
+  @override
+  String get notifPrefsTypeAgentPending => 'Nowy agent do akceptacji';
+
+  @override
+  String get notifPrefsTypeGrantPending => 'Prośby o dostęp';
+
+  @override
+  String get notifPrefsTypeGrantRevoked => 'Cofnięcie dostępu';
+
+  @override
+  String get notifPrefsTypeGrantApproved => 'Zatwierdzenie dostępu';
+
+  @override
+  String get notifPrefsTypeGrantDenied => 'Odrzucenie dostępu';
+
+  @override
+  String get notifPrefsTypeCredentialStale => 'Nieaktualne hasło';
 }
