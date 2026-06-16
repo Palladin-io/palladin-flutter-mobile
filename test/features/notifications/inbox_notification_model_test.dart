@@ -71,4 +71,35 @@ void main() {
     expect(model.isRead, isFalse);
     expect(model.isOpenAction, isFalse);
   });
+
+  test('resolved grant/agent pending items are collapsed', () {
+    for (final type in ['grant_pending', 'agent_pending']) {
+      final model = InboxNotificationModel.fromJson({
+        'id': 'n',
+        'type': type,
+        'category': 'actionRequired',
+        'actionState': 'resolved',
+        'occurredAt': '2026-06-16T12:00:00Z',
+      }).toEntity();
+      expect(
+        model.isCollapsedPending,
+        isTrue,
+        reason: 'resolved $type should be collapsed (hidden)',
+      );
+      expect(model.isOpenAction, isFalse);
+    }
+  });
+
+  test('pending grant request is not collapsed', () {
+    final model = InboxNotificationModel.fromJson({
+      'id': 'n',
+      'type': 'grant_pending',
+      'category': 'actionRequired',
+      'actionState': 'pending',
+      'occurredAt': '2026-06-16T12:00:00Z',
+    }).toEntity();
+
+    expect(model.isCollapsedPending, isFalse);
+    expect(model.isOpenAction, isTrue);
+  });
 }

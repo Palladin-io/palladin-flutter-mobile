@@ -24,6 +24,10 @@ void main() {
         PushNotificationType.fromRaw('credential_stale'),
         PushNotificationType.credentialStale,
       );
+      expect(
+        PushNotificationType.fromRaw('agent_approved'),
+        PushNotificationType.agentApproved,
+      );
     });
 
     test('wireValue round-trips for every known type', () {

@@ -94,6 +94,13 @@ class InboxNotification {
       category == NotificationCategory.actionRequired &&
       actionState == NotificationActionState.pending;
 
+  /// A pending-request type (grant/agent) that has since been resolved. The
+  /// backend collapses these server-side; the client hides them too as
+  /// defense-in-depth so a resolved "approve" card never lingers in History.
+  bool get isCollapsedPending =>
+      actionState == NotificationActionState.resolved &&
+      (type == 'grant_pending' || type == 'agent_pending');
+
   /// Convenience metadata accessors (null when absent / empty).
   String? get grantId => _str('grantId');
   String? get vaultId => _str('vaultId');

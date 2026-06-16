@@ -66,6 +66,7 @@ class PushNavigationCubit extends Cubit<String?> {
         return id != null ? '/inbox?focus=$id' : '/inbox';
       case PushNotificationType.grantApproved:
       case PushNotificationType.agentPending:
+      case PushNotificationType.agentApproved:
         final agentId = message.agentId;
         return agentId != null ? '/agents/$agentId' : '/agents';
       case PushNotificationType.unknown:

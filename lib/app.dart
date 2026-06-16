@@ -116,6 +116,7 @@ class _ClawVaultAppState extends State<ClawVaultApp>
     getIt<NotificationCenterCubit>().refresh();
     switch (message.type) {
       case PushNotificationType.agentPending:
+      case PushNotificationType.agentApproved:
         getIt<AgentsCubit>().refresh();
       case PushNotificationType.grantPending:
       case PushNotificationType.grantApproved:

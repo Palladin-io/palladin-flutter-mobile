@@ -1727,6 +1727,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get inboxActiveAccessNote => 'Agent has active access';
 
   @override
+  String get inboxDismiss => 'Dismiss';
+
+  @override
   String get inboxActionGone => 'This action is no longer available.';
 
   @override
@@ -1769,6 +1772,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String notifTitleAgentApproved(String agent) {
+    return '$agent was approved';
+  }
+
+  @override
   String notifTitleGrantRevoked(String agent) {
     return 'Access revoked for $agent';
   }
@@ -1791,6 +1799,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notifSubAgentPending => 'new agent · waiting for approval';
+
+  @override
+  String get notifSubAgentApproved => 'agent approved';
 
   @override
   String notifSubCredentialStale(String agent) {
@@ -1817,6 +1828,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notifRowBy => 'By';
+
+  @override
+  String get notifRowAgentId => 'Agent id';
+
+  @override
+  String get notifRowIp => 'IP';
+
+  @override
+  String get notifRowPublicKey => 'Public key';
 
   @override
   String get notifStatusActive => 'Active';

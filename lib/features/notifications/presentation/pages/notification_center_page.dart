@@ -10,6 +10,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../agents/presentation/bloc/agents_cubit.dart';
+import '../../../agents/presentation/widgets/approve_agent_sheet.dart';
+import '../../../agents/presentation/widgets/deactivate_agent_sheet.dart';
 import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
 import '../../../approval/presentation/widgets/approve_grant_sheet.dart';
 import '../../../approval/presentation/widgets/deny_grant_sheet.dart';
@@ -38,6 +41,7 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
   late final NotificationCenterCubit _notifications =
       getIt<NotificationCenterCubit>();
   late final PendingGrantsCubit _pendingGrants = getIt<PendingGrantsCubit>();
+  late final AgentsCubit _agents = getIt<AgentsCubit>();
 
   @override
   void initState() {
@@ -68,6 +72,7 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
       providers: [
         BlocProvider<NotificationCenterCubit>.value(value: _notifications),
         BlocProvider<PendingGrantsCubit>.value(value: _pendingGrants),
+        BlocProvider<AgentsCubit>.value(value: _agents),
       ],
       child: const _NotificationCenterView(),
     );
@@ -98,14 +103,58 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     final notifications = context.read<NotificationCenterCubit>();
     await notifications.markRead(item.id);
     if (!mounted) return;
-    if (item.isOpenAction && _isGrant(item)) {
-      await _approveGrant(item);
-      return;
+    if (item.isOpenAction) {
+      if (_isGrant(item)) {
+        await _approveGrant(item);
+        return;
+      }
+      if (item.type == 'agent_pending') {
+        await _approveAgent(item);
+        return;
+      }
     }
     _deepLink(item);
   }
 
   bool _isGrant(InboxNotification item) => item.type.startsWith('grant_');
+
+  // ── agent flows ────────────────────────────────────────────────────────
+
+  /// Approve a pending agent — opens the existing activation sheet, then runs
+  /// the agent approval mutation and marks the notification read.
+  Future<void> _approveAgent(InboxNotification item) async {
+    final agentId = item.agentId;
+    if (agentId == null) return;
+    final agents = context.read<AgentsCubit>();
+    final notifications = context.read<NotificationCenterCubit>();
+    final result = await ApproveAgentSheet.show(
+      context,
+      initialName: item.metadata['agentName'] as String?,
+    );
+    if (result == null) return;
+    await agents.approveAgent(
+      agentId,
+      name: result.name,
+      type: result.type,
+      iconKey: result.iconKey,
+    );
+    await notifications.refresh();
+  }
+
+  /// Deny a pending agent = deactivate it (no separate reject endpoint).
+  Future<void> _denyAgent(InboxNotification item) async {
+    final agentId = item.agentId;
+    if (agentId == null) return;
+    final agents = context.read<AgentsCubit>();
+    final notifications = context.read<NotificationCenterCubit>();
+    final agentName =
+        (item.metadata['agentName'] as String?) ?? item.agentId ?? '';
+    final confirmed = await DeactivateAgentSheet.show(context, agentName);
+    if (!confirmed) return;
+    await agents.deactivateAgent(agentId);
+    await notifications.markRead(item.id);
+    await notifications.refresh();
+  }
 
   /// Resolves the pending grant from the source feed and shows the existing
   /// zero-knowledge approval sheet. The Inbox event can arrive before the
@@ -172,6 +221,7 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     final vaultId = item.vaultId;
     switch (item.type) {
       case 'agent_pending':
+      case 'agent_approved':
       case 'grant_revoked':
       case 'grant_approved':
       case 'grant_denied':
@@ -179,6 +229,20 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
       case 'credential_stale':
         if (vaultId != null) context.go('/vaults/$vaultId');
     }
+  }
+
+  /// Secondary footer action (Deny / Dismiss) dispatched by type.
+  Future<void> _onSecondary(InboxNotification item) async {
+    if (_isGrant(item)) {
+      await _denyGrant(item);
+      return;
+    }
+    if (item.type == 'agent_pending') {
+      await _denyAgent(item);
+      return;
+    }
+    // Other action-required types: dismiss = mark read.
+    await context.read<NotificationCenterCubit>().markRead(item.id);
   }
 
   // ── build ────────────────────────────────────────────────────────────
@@ -212,10 +276,10 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
           actions: [
             IconButton(
               tooltip: l10n.notifPrefsTitle,
-              icon: Icon(
-                Icons.tune,
+              icon: const Icon(
+                Icons.settings,
                 size: 20,
-                color: AppColors.onSurface(brightness),
+                color: AppColors.brandRed,
               ),
               onPressed: () => context.push('/inbox/preferences'),
             ),
@@ -267,8 +331,7 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
                 segment: _segment,
                 query: _searchController.text,
                 onTapItem: _onTap,
-                onDenyGrant: _denyGrant,
-                isGrant: _isGrant,
+                onSecondary: _onSecondary,
               )),
             ],
           ),
@@ -285,15 +348,13 @@ class _Feed extends StatelessWidget {
     required this.segment,
     required this.query,
     required this.onTapItem,
-    required this.onDenyGrant,
-    required this.isGrant,
+    required this.onSecondary,
   });
 
   final int segment;
   final String query;
   final ValueChanged<InboxNotification> onTapItem;
-  final ValueChanged<InboxNotification> onDenyGrant;
-  final bool Function(InboxNotification) isGrant;
+  final ValueChanged<InboxNotification> onSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -313,11 +374,9 @@ class _Feed extends StatelessWidget {
           NotificationCenterStatus.loaded => _List(
               items: _filter(state.items),
               isLoadingMore: state.isLoadingMore,
-              hasMore: state.nextCursor != null,
               segment: segment,
               onTapItem: onTapItem,
-              onDenyGrant: onDenyGrant,
-              isGrant: isGrant,
+              onSecondary: onSecondary,
             ),
         },
       ),
@@ -328,6 +387,9 @@ class _Feed extends StatelessWidget {
     final q = query.trim().toLowerCase();
     return items
         .where((item) {
+          // Collapse resolved pending action items — the backend zips them up
+          // once approved/denied, so never show a resolved To-do card.
+          if (item.isCollapsedPending) return false;
           final segmentMatches = segment == 0
               ? item.isOpenAction
               : !item.isOpenAction;
@@ -347,20 +409,16 @@ class _List extends StatelessWidget {
   const _List({
     required this.items,
     required this.isLoadingMore,
-    required this.hasMore,
     required this.segment,
     required this.onTapItem,
-    required this.onDenyGrant,
-    required this.isGrant,
+    required this.onSecondary,
   });
 
   final List<InboxNotification> items;
   final bool isLoadingMore;
-  final bool hasMore;
   final int segment;
   final ValueChanged<InboxNotification> onTapItem;
-  final ValueChanged<InboxNotification> onDenyGrant;
-  final bool Function(InboxNotification) isGrant;
+  final ValueChanged<InboxNotification> onSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -380,6 +438,9 @@ class _List extends StatelessWidget {
         ],
       );
     }
+    // History segment carries a single sentence-case "History" section label
+    // above the cards; the To-do segment shows action cards with no header.
+    final headerCount = segment == 1 ? 1 : 0;
     return NotificationListener<ScrollEndNotification>(
       onNotification: (notification) {
         if (notification.metrics.extentAfter < 160) {
@@ -390,10 +451,14 @@ class _List extends StatelessWidget {
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 96),
-        itemCount: items.length + (isLoadingMore ? 1 : 0),
+        itemCount: headerCount + items.length + (isLoadingMore ? 1 : 0),
         separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
-          if (index == items.length) {
+          if (headerCount == 1 && index == 0) {
+            return const _HistoryLabel();
+          }
+          final itemIndex = index - headerCount;
+          if (itemIndex == items.length) {
             return const Padding(
               padding: EdgeInsets.all(12),
               child: Center(
@@ -402,13 +467,34 @@ class _List extends StatelessWidget {
             );
           }
           return _NotificationItemTile(
-            item: items[index],
-            onTap: () => onTapItem(items[index]),
-            onDeny: isGrant(items[index]) && items[index].isOpenAction
-                ? () => onDenyGrant(items[index])
-                : null,
+            item: items[itemIndex],
+            onTap: () => onTapItem(items[itemIndex]),
+            onSecondary: () => onSecondary(items[itemIndex]),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Sentence-case "History" section label (no all-caps), shown above the
+/// History cards.
+class _HistoryLabel extends StatelessWidget {
+  const _HistoryLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Text(
+        l10n.inboxHistory,
+        style: TextStyle(
+          color: AppColors.onSurfaceSubtle(brightness),
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -419,16 +505,17 @@ class _NotificationItemTile extends StatelessWidget {
   const _NotificationItemTile({
     required this.item,
     required this.onTap,
-    this.onDeny,
+    required this.onSecondary,
   });
 
   final InboxNotification item;
   final VoidCallback onTap;
-  final VoidCallback? onDeny;
+  final VoidCallback onSecondary;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
 
     // To-do: live action buttons per type.
     if (item.isOpenAction) {
@@ -436,7 +523,7 @@ class _NotificationItemTile extends StatelessWidget {
         'grant_pending' => NotificationCard(
             item: item,
             onTap: onTap,
-            onSecondary: onDeny,
+            onSecondary: onSecondary,
             secondaryLabel: l10n.approvalDeny,
             onPrimary: onTap,
             primaryLabel: l10n.approvalApprove,
@@ -445,7 +532,8 @@ class _NotificationItemTile extends StatelessWidget {
         'agent_pending' => NotificationCard(
             item: item,
             onTap: onTap,
-            onSecondary: onDeny,
+            onSecondary: onSecondary,
+            secondaryLabel: l10n.approvalDeny,
             onPrimary: onTap,
             primaryLabel: l10n.inboxAcceptAction,
             primaryIcon: Icons.check,
@@ -453,6 +541,8 @@ class _NotificationItemTile extends StatelessWidget {
         'credential_stale' => NotificationCard(
             item: item,
             onTap: onTap,
+            onSecondary: onSecondary,
+            secondaryLabel: l10n.inboxDismiss,
             onPrimary: onTap,
             primaryLabel: l10n.inboxUpdateAction,
             primaryIcon: Icons.refresh,
@@ -460,14 +550,14 @@ class _NotificationItemTile extends StatelessWidget {
         _ => NotificationCard(
             item: item,
             onTap: onTap,
-            onPrimary: onTap,
-            primaryLabel: l10n.inboxReviewAction,
+            onSecondary: onSecondary,
+            secondaryLabel: l10n.inboxDismiss,
           ),
       };
     }
 
     // History: status pill + single contextual action / note.
-    final pill = notificationStatusPill(l10n, item);
+    final pill = notificationStatusPill(l10n, item, brightness);
     return switch (item.type) {
       'grant_approved' => NotificationCard(
           item: item,
@@ -482,6 +572,14 @@ class _NotificationItemTile extends StatelessWidget {
           onPrimary: onTap,
           primaryLabel: l10n.inboxRegrantAction,
           primaryIcon: Icons.refresh,
+        ),
+      'agent_approved' => NotificationCard(
+          item: item,
+          onTap: onTap,
+          statusPill: pill,
+          onPrimary: onTap,
+          primaryLabel: l10n.inboxReviewAction,
+          primaryIcon: Icons.arrow_forward,
         ),
       _ => NotificationCard(item: item, onTap: onTap, statusPill: pill),
     };

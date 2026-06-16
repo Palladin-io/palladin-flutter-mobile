@@ -3098,6 +3098,12 @@ abstract class AppLocalizations {
   /// **'Agent has active access'**
   String get inboxActiveAccessNote;
 
+  /// No description provided for @inboxDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get inboxDismiss;
+
   /// No description provided for @inboxActionGone.
   ///
   /// In en, this message translates to:
@@ -3164,6 +3170,12 @@ abstract class AppLocalizations {
   /// **'{agent} is waiting for approval'**
   String notifTitleAgentPending(String agent);
 
+  /// No description provided for @notifTitleAgentApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'{agent} was approved'**
+  String notifTitleAgentApproved(String agent);
+
   /// No description provided for @notifTitleGrantRevoked.
   ///
   /// In en, this message translates to:
@@ -3199,6 +3211,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'new agent · waiting for approval'**
   String get notifSubAgentPending;
+
+  /// No description provided for @notifSubAgentApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'agent approved'**
+  String get notifSubAgentApproved;
 
   /// No description provided for @notifSubCredentialStale.
   ///
@@ -3247,6 +3265,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'By'**
   String get notifRowBy;
+
+  /// No description provided for @notifRowAgentId.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent id'**
+  String get notifRowAgentId;
+
+  /// No description provided for @notifRowIp.
+  ///
+  /// In en, this message translates to:
+  /// **'IP'**
+  String get notifRowIp;
+
+  /// No description provided for @notifRowPublicKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Public key'**
+  String get notifRowPublicKey;
 
   /// No description provided for @notifStatusActive.
   ///
