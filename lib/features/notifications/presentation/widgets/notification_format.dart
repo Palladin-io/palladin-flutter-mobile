@@ -78,71 +78,100 @@ String notificationSubtitle(AppLocalizations l10n, InboxNotification n) {
 }
 
 /// Detail rows shown inside the card body, label → value, value names bold.
+///
+/// Every card renders EXACTLY 3 rows with a fixed label set per type, so all
+/// cards line up at the same height. A missing value shows the "—" placeholder
+/// rather than dropping the row.
 List<({String label, String value})> notificationRows(
   AppLocalizations l10n,
   InboxNotification n,
 ) {
+  final dash = l10n.notifPlaceholder;
+  String row(String key) => _str(n, key) ?? dash;
   final entry = _entryLabel(l10n, n);
+
   switch (n.type) {
     case 'grant_pending':
       return [
-        (label: l10n.notifRowEntry, value: entry),
-        if (_has(n, 'methods'))
-          (label: l10n.notifRowMethods, value: _str(n, 'methods')!),
-        if (_has(n, 'reason'))
-          (label: l10n.notifRowReason, value: _str(n, 'reason')!),
+        (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
+        (label: l10n.notifRowMethods, value: row('methods')),
+        (label: l10n.notifRowReason, value: row('reason')),
       ];
     case 'agent_pending':
       return _agentRows(l10n, n);
     case 'agent_approved':
-      return [
-        ..._agentRows(l10n, n),
-        if (_has(n, 'actorName'))
-          (label: l10n.notifRowBy, value: _str(n, 'actorName')!),
-      ];
+      // Same identity rows as agent_pending — no "By" row (per CVT-165).
+      return _agentRows(l10n, n);
     case 'credential_stale':
       return [
-        (label: l10n.notifRowEntry, value: entry),
-        if (_has(n, 'error'))
-          (label: l10n.notifRowError, value: _str(n, 'error')!),
+        (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
+        (label: l10n.notifRowError, value: row('error')),
+        (label: l10n.notifRowAttempts, value: row('attempts')),
+      ];
+    case 'grant_approved':
+      return [
+        (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
+        (label: l10n.notifRowAccess, value: _accessSummary(l10n, n)),
+        (label: l10n.notifRowBy, value: row('actorName')),
       ];
     case 'grant_revoked':
     case 'grant_denied':
       return [
-        (label: l10n.notifRowEntry, value: entry),
-        if (_has(n, 'reason'))
-          (label: l10n.notifRowReason, value: _str(n, 'reason')!),
-        if (_has(n, 'actorName'))
-          (label: l10n.notifRowBy, value: _str(n, 'actorName')!),
-      ];
-    case 'grant_approved':
-      return [
-        (label: l10n.notifRowEntry, value: entry),
+        (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
+        (label: l10n.notifRowReason, value: row('reason')),
+        (label: l10n.notifRowBy, value: row('actorName')),
       ];
     default:
       return [
-        if (entry.isNotEmpty) (label: l10n.notifRowEntry, value: entry),
+        (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
+        (label: l10n.notifRowReason, value: row('reason')),
+        (label: l10n.notifRowBy, value: row('actorName')),
       ];
   }
 }
 
-/// Agent identity rows — capped at 3 so the card stays compact. Order:
-/// Public key → Agent Id → Host / Ip. Host and IP are merged into a single
-/// "Host / Ip" row (host shortened) to save a row. Each renders only when the
-/// backend sent it (graceful degradation). The public key surfaces under a
-/// "Public key" label, never a vague "key".
+/// Agent identity rows — always 3: Public key → Agent Id → Host · Ip. Missing
+/// values fall back to the "—" placeholder so the card stays a fixed height.
+/// The public key surfaces under a "Public key" label, never a vague "key".
 List<({String label, String value})> _agentRows(
   AppLocalizations l10n,
   InboxNotification n,
 ) {
-  final hostIp = _hostIp(n);
+  final dash = l10n.notifPlaceholder;
   return [
-    if (_keyHint(n) != null)
-      (label: l10n.notifRowPublicKey, value: _keyHint(n)!),
-    if (_has(n, 'agentId'))
-      (label: l10n.notifRowAgentId, value: _str(n, 'agentId')!),
-    if (hostIp != null) (label: l10n.notifRowHostIp, value: hostIp),
+    (label: l10n.notifRowPublicKey, value: _keyHint(n) ?? dash),
+    (label: l10n.notifRowAgentId, value: _str(n, 'agentId') ?? dash),
+    (label: l10n.notifRowHostIp, value: _hostIp(n) ?? dash),
   ];
+}
+
+/// Access-policy summary for an approved grant, mirroring what the grants list
+/// shows: remaining uses, expiry date, or "Unlimited". Reads `queryLimit` /
+/// `queryCount` / `expiresAt` from the notification metadata (strings).
+String _accessSummary(AppLocalizations l10n, InboxNotification n) {
+  final limit = _int(n, 'queryLimit');
+  if (limit != null) {
+    final used = _int(n, 'queryCount') ?? 0;
+    final left = (limit - used).clamp(0, limit);
+    return l10n.orgGrantUsesLeft(left, limit);
+  }
+  final expires = _str(n, 'expiresAt');
+  if (expires != null) {
+    final dt = DateTime.tryParse(expires);
+    if (dt != null) {
+      final iso = dt.toIso8601String();
+      return l10n.orgGrantExpiresOn(iso.substring(0, 10));
+    }
+  }
+  return l10n.notifAccessUnlimited;
+}
+
+int? _int(InboxNotification n, String key) {
+  final raw = n.metadata[key];
+  if (raw is int) return raw;
+  if (raw is String) return int.tryParse(raw.trim());
+  if (raw is num) return raw.toInt();
+  return null;
 }
 
 /// Combines host + IP into one "host · ip" value (host shortened so a long
@@ -254,8 +283,6 @@ String _entryLabel(AppLocalizations l10n, InboxNotification n) {
   if (entry == null) return '';
   return vault == null ? entry : '$entry · $vault';
 }
-
-bool _has(InboxNotification n, String key) => _str(n, key) != null;
 
 String? _str(InboxNotification n, String key) {
   final value = n.metadata[key];

@@ -3266,6 +3266,18 @@ abstract class AppLocalizations {
   /// **'Error'**
   String get notifRowError;
 
+  /// No description provided for @notifRowAttempts.
+  ///
+  /// In en, this message translates to:
+  /// **'Attempts'**
+  String get notifRowAttempts;
+
+  /// No description provided for @notifRowAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Access'**
+  String get notifRowAccess;
+
   /// No description provided for @notifRowBy.
   ///
   /// In en, this message translates to:
@@ -3283,6 +3295,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Public key'**
   String get notifRowPublicKey;
+
+  /// No description provided for @notifAccessUnlimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited'**
+  String get notifAccessUnlimited;
+
+  /// No description provided for @notifPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'—'**
+  String get notifPlaceholder;
 
   /// No description provided for @notifStatusPending.
   ///

@@ -1845,6 +1845,12 @@ class AppLocalizationsPl extends AppLocalizations {
   String get notifRowError => 'Błąd';
 
   @override
+  String get notifRowAttempts => 'Próby';
+
+  @override
+  String get notifRowAccess => 'Dostęp';
+
+  @override
   String get notifRowBy => 'Przez';
 
   @override
@@ -1852,6 +1858,12 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get notifRowPublicKey => 'Klucz publiczny';
+
+  @override
+  String get notifAccessUnlimited => 'Bez limitu';
+
+  @override
+  String get notifPlaceholder => '—';
 
   @override
   String get notifStatusPending => 'Oczekuje';
