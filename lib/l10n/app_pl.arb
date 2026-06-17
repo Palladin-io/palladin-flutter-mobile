@@ -526,7 +526,7 @@
   "notifRowEntry": "Wpis",
   "notifRowMethods": "Metody",
   "notifRowReason": "Powód",
-  "notifRowHostIp": "Host / Ip",
+  "notifRowHostIp": "Host · Ip",
   "notifRowError": "Błąd",
   "notifRowBy": "Przez",
   "notifRowAgentId": "Id agenta",

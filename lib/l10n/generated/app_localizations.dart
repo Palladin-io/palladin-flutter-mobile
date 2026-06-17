@@ -3257,7 +3257,7 @@ abstract class AppLocalizations {
   /// No description provided for @notifRowHostIp.
   ///
   /// In en, this message translates to:
-  /// **'Host / Ip'**
+  /// **'Host · Ip'**
   String get notifRowHostIp;
 
   /// No description provided for @notifRowError.

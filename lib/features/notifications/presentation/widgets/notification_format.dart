@@ -145,16 +145,16 @@ List<({String label, String value})> _agentRows(
   ];
 }
 
-/// Combines host + IP into one "host / ip" value (host shortened so a long
+/// Combines host + IP into one "host · ip" value (host shortened so a long
 /// FQDN never floods the row). Returns just whichever part is present, or null
-/// when neither is.
+/// when neither is. Uses the "·" separator (same idiom as entry rows).
 String? _hostIp(InboxNotification n) {
   final host = _str(n, 'host');
   final ip = _str(n, 'ip');
   final shortHost = host == null
       ? null
       : (host.length <= 28 ? host : '${host.substring(0, 27)}…');
-  if (shortHost != null && ip != null) return '$shortHost / $ip';
+  if (shortHost != null && ip != null) return '$shortHost · $ip';
   return shortHost ?? ip;
 }
 

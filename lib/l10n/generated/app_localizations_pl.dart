@@ -1839,7 +1839,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get notifRowReason => 'Powód';
 
   @override
-  String get notifRowHostIp => 'Host / Ip';
+  String get notifRowHostIp => 'Host · Ip';
 
   @override
   String get notifRowError => 'Błąd';

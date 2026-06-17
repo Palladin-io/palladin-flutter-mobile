@@ -157,14 +157,14 @@ class _Header extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 32,
-          height: 32,
+          width: 36,
+          height: 36,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: glyphTint.withValues(alpha: 0.14),
           ),
-          child: Icon(notificationIcon(item), size: 16, color: glyphTint),
+          child: Icon(notificationIcon(item), size: 18, color: glyphTint),
         ),
         const SizedBox(width: 10),
         Expanded(

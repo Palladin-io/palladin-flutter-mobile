@@ -2152,7 +2152,7 @@
   "notifRowEntry": "Entry",
   "notifRowMethods": "Methods",
   "notifRowReason": "Reason",
-  "notifRowHostIp": "Host / Ip",
+  "notifRowHostIp": "Host · Ip",
   "notifRowError": "Error",
   "notifRowBy": "By",
   "notifRowAgentId": "Agent Id",
