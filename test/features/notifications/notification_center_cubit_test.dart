@@ -88,26 +88,51 @@ void main() {
 
     expect(repository.markedRead, isEmpty);
   });
+
+  test('mark-read is optimistic-only — never refetches the feed (no storm)',
+      () async {
+    await cubit.load();
+    expect(repository.listCallCount, 1, reason: 'one fetch from load()');
+
+    // Simulate many tile rebuilds firing mark-on-view for the same item
+    // (the web storm scenario): scroll → remount → onSeen → markRead → …
+    for (var i = 0; i < 50; i++) {
+      cubit.markReadOnView('n-1');
+    }
+    await Future<void>.delayed(Duration.zero);
+
+    // Exactly one PUT, and crucially NO extra feed fetch (would re-trigger
+    // the loop on web). listCallCount stays at the single load() fetch.
+    expect(repository.markedRead, ['n-1']);
+    expect(repository.listCallCount, 1, reason: 'markRead must not refetch feed');
+  });
 }
 
 class _FakeRepository implements NotificationCenterRepository {
   final List<String> markedRead = [];
   bool didMarkAllRead = false;
 
+  /// Counts feed list fetches — used to prove mark-read never refetches the
+  /// feed (the web request-storm root cause).
+  int listCallCount = 0;
+
   @override
-  Future<NotificationPage> list({String? cursor}) async => NotificationPage(
-    items: [
-      InboxNotification(
-        id: 'n-1',
-        type: 'grant_pending',
-        category: NotificationCategory.actionRequired,
-        titleKey: 'grant_pending',
-        metadata: const {'grantId': 'g-1', 'agentName': 'Acme-bot'},
-        actionState: NotificationActionState.pending,
-        occurredAt: DateTime(2026),
-      ),
-    ],
-  );
+  Future<NotificationPage> list({String? cursor}) async {
+    listCallCount++;
+    return NotificationPage(
+      items: [
+        InboxNotification(
+          id: 'n-1',
+          type: 'grant_pending',
+          category: NotificationCategory.actionRequired,
+          titleKey: 'grant_pending',
+          metadata: const {'grantId': 'g-1', 'agentName': 'Acme-bot'},
+          actionState: NotificationActionState.pending,
+          occurredAt: DateTime(2026),
+        ),
+      ],
+    );
+  }
 
   @override
   Future<NotificationSummary> summary() async =>

@@ -263,6 +263,13 @@ String? notificationAgentName(InboxNotification n) => _str(n, 'agentName');
 /// the color matches the Agents list. Falls back to an empty string.
 String notificationAgentId(InboxNotification n) => _str(n, 'agentId') ?? '';
 
+/// The agent's custom icon color from metadata (`agentIconColor`, hex string)
+/// — passed straight to [AgentAvatar] so a custom-colored agent looks 1:1 with
+/// the Agents list. Null when the backend sent none; the avatar then degrades
+/// to its deterministic per-icon / per-id tint.
+String? notificationAgentIconColor(InboxNotification n) =>
+    _str(n, 'agentIconColor');
+
 /// Status pill (label + color) shown under the date on **every** card.
 /// Open action-required items (agent_pending / grant_pending / credential_stale)
 /// read "Pending"; terminal items read Active / Denied / Revoked.

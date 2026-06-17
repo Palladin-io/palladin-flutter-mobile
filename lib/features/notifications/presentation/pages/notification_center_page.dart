@@ -278,30 +278,51 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
             ),
           ),
           actions: [
-            IconButton(
-              tooltip: l10n.notifPrefsTitle,
-              icon: const Icon(
-                Icons.settings,
-                size: 20,
-                color: AppColors.brandRed,
-              ),
-              onPressed: () => context.push('/inbox/preferences'),
-            ),
             BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
               buildWhen: (p, c) =>
                   p.unreadCount != c.unreadCount ||
                   p.isMarkingAllRead != c.isMarkingAllRead,
-              builder: (context, state) => TextButton(
-                onPressed: state.unreadCount == 0 || state.isMarkingAllRead
-                    ? null
-                    : () => context.read<NotificationCenterCubit>().markAllRead(),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.tealAccent,
-                ),
-                child: Text(l10n.inboxMarkAllRead),
-              ),
+              builder: (context, state) {
+                final enabled =
+                    state.unreadCount > 0 && !state.isMarkingAllRead;
+                return TextButton.icon(
+                  onPressed: enabled
+                      ? () =>
+                          context.read<NotificationCenterCubit>().markAllRead()
+                      : null,
+                  icon: Icon(
+                    Icons.done_all,
+                    size: 16,
+                    color: enabled
+                        ? AppColors.tealAccent
+                        : AppColors.onSurfaceSubtle(brightness),
+                  ),
+                  label: Text(l10n.inboxMarkAllRead),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.tealAccent,
+                    disabledForegroundColor:
+                        AppColors.onSurfaceSubtle(brightness),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                );
+              },
             ),
-            const SizedBox(width: 4),
+            IconButton(
+              tooltip: l10n.notifPrefsTitle,
+              visualDensity: VisualDensity.compact,
+              icon: Icon(
+                Icons.tune,
+                size: 20,
+                color: AppColors.iconDefault(brightness),
+              ),
+              onPressed: () => context.push('/inbox/preferences'),
+            ),
+            const SizedBox(width: 8),
           ],
         ),
         body: SafeArea(

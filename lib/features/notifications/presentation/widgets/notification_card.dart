@@ -165,6 +165,7 @@ class _Header extends StatelessWidget {
             agentId: notificationAgentId(item),
             name: notificationAgentName(item),
             iconKey: notificationAgentIconKey(item),
+            iconColor: notificationAgentIconColor(item),
             size: 36,
           )
         else

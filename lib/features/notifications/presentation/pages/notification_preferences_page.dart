@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_toggle.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/notification_preference.dart';
@@ -100,20 +101,21 @@ class _Content extends StatelessWidget {
         ),
       );
     }
+    final brightness = Theme.of(context).brightness;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
         Text(
           l10n.notifPrefsHint,
           style: TextStyle(
-            color: AppColors.onSurfaceSubtle(Theme.of(context).brightness),
+            color: AppColors.onSurfaceSubtle(brightness),
             fontSize: 12,
             height: 1.4,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         const _ChannelLegend(),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         for (final pref in state.items)
           _PreferenceRow(
             pref: pref,
@@ -136,8 +138,10 @@ class _ChannelLegend extends StatelessWidget {
       fontSize: 10,
       fontWeight: FontWeight.w600,
     );
+    // Right padding (6) matches the preference row's right padding so the
+    // three legend columns sit exactly above the three toggle columns.
     return Padding(
-      padding: const EdgeInsets.only(right: 4, bottom: 4),
+      padding: const EdgeInsets.only(right: 6, bottom: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -272,9 +276,8 @@ class _ChannelToggle extends StatelessWidget {
                   color: AppColors.brandRed,
                 ),
               )
-            : Switch.adaptive(
+            : AppToggle(
                 value: value,
-                activeThumbColor: AppColors.brandRed,
                 onChanged: locked
                     ? null
                     : (next) => context
