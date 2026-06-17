@@ -30,7 +30,6 @@ class NotificationCard extends StatelessWidget {
     this.onSecondary,
     this.primaryLabel,
     this.secondaryLabel,
-    this.primaryIcon,
     this.primaryTone = NotificationPrimaryTone.positive,
     this.statusPill,
     this.footerNote,
@@ -40,10 +39,10 @@ class NotificationCard extends StatelessWidget {
   final InboxNotification item;
   final VoidCallback onTap;
 
-  /// Primary footer button (e.g. Approve / Update / Re-grant).
+  /// Primary footer button (e.g. Approve / Update / Re-grant). Text-only — no
+  /// icon, to avoid an icon/text mix across the footer actions.
   final VoidCallback? onPrimary;
   final String? primaryLabel;
-  final IconData? primaryIcon;
 
   /// Background tone of the primary action (positive = teal, danger = red).
   final NotificationPrimaryTone primaryTone;
@@ -122,7 +121,6 @@ class NotificationCard extends StatelessWidget {
             if (hasFooter)
               _Footer(
                 primaryLabel: primaryLabel,
-                primaryIcon: primaryIcon,
                 onPrimary: onPrimary,
                 secondaryLabel: secondaryLabel,
                 onSecondary: onSecondary,
@@ -278,7 +276,6 @@ enum NotificationPrimaryTone { positive, danger }
 class _Footer extends StatelessWidget {
   const _Footer({
     required this.primaryLabel,
-    required this.primaryIcon,
     required this.onPrimary,
     required this.secondaryLabel,
     required this.onSecondary,
@@ -288,7 +285,6 @@ class _Footer extends StatelessWidget {
   });
 
   final String? primaryLabel;
-  final IconData? primaryIcon;
   final VoidCallback? onPrimary;
   final String? secondaryLabel;
   final VoidCallback? onSecondary;
@@ -392,21 +388,12 @@ class _Footer extends StatelessWidget {
                   color: AppColors.onBrandRed,
                 ),
               )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (primaryIcon != null) ...[
-                    Icon(primaryIcon, size: 14),
-                    const SizedBox(width: 5),
-                  ],
-                  Text(
-                    primaryLabel ?? '',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+            : Text(
+                primaryLabel ?? '',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
       ),
     );

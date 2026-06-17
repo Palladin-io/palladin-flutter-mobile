@@ -483,9 +483,9 @@ class _List extends StatelessWidget {
         ],
       );
     }
-    // History segment carries a single sentence-case "History" section label
-    // above the cards; the To-do segment shows action cards with no header.
-    final headerCount = segment == 1 ? 1 : 0;
+    // No section header: each segment renders a single section (To-do or
+    // History), and we never label the first rendered section. The segment
+    // toggle already names the active list.
     return NotificationListener<ScrollEndNotification>(
       onNotification: (notification) {
         if (notification.metrics.extentAfter < 160) {
@@ -496,14 +496,10 @@ class _List extends StatelessWidget {
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 96),
-        itemCount: headerCount + items.length + (isLoadingMore ? 1 : 0),
+        itemCount: items.length + (isLoadingMore ? 1 : 0),
         separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
-          if (headerCount == 1 && index == 0) {
-            return const _HistoryLabel();
-          }
-          final itemIndex = index - headerCount;
-          if (itemIndex == items.length) {
+          if (index == items.length) {
             return const Padding(
               padding: EdgeInsets.all(12),
               child: Center(
@@ -512,9 +508,9 @@ class _List extends StatelessWidget {
             );
           }
           return _NotificationItemTile(
-            item: items[itemIndex],
-            onTap: () => onTapItem(items[itemIndex]),
-            onSecondary: () => onSecondary(items[itemIndex]),
+            item: items[index],
+            onTap: () => onTapItem(items[index]),
+            onSecondary: () => onSecondary(items[index]),
           );
         },
       ),
@@ -608,29 +604,6 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-/// Sentence-case "History" section label (no all-caps), shown above the
-/// History cards.
-class _HistoryLabel extends StatelessWidget {
-  const _HistoryLabel();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Text(
-        l10n.inboxHistory,
-        style: TextStyle(
-          color: AppColors.onSurfaceSubtle(brightness),
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
 /// Maps a notification to the right [NotificationCard] footer wiring.
 class _NotificationItemTile extends StatelessWidget {
   const _NotificationItemTile({
@@ -675,7 +648,6 @@ class _NotificationItemTile extends StatelessWidget {
             secondaryLabel: l10n.approvalDeny,
             onPrimary: onTap,
             primaryLabel: l10n.approvalApprove,
-            primaryIcon: Icons.check,
           ),
         'agent_pending' => NotificationCard(
             item: item,
@@ -685,7 +657,6 @@ class _NotificationItemTile extends StatelessWidget {
             secondaryLabel: l10n.approvalDeny,
             onPrimary: onTap,
             primaryLabel: l10n.inboxAcceptAction,
-            primaryIcon: Icons.check,
           ),
         'credential_stale' => NotificationCard(
             item: item,
@@ -695,7 +666,6 @@ class _NotificationItemTile extends StatelessWidget {
             secondaryLabel: l10n.inboxDismiss,
             onPrimary: onTap,
             primaryLabel: l10n.inboxUpdateAction,
-            primaryIcon: Icons.refresh,
           ),
         _ => NotificationCard(
             item: item,
@@ -721,7 +691,6 @@ class _NotificationItemTile extends StatelessWidget {
           statusPill: pill,
           onPrimary: onTap,
           primaryLabel: l10n.inboxRegrantAction,
-          primaryIcon: Icons.refresh,
         ),
       'agent_approved' => NotificationCard(
           item: item,
@@ -729,7 +698,6 @@ class _NotificationItemTile extends StatelessWidget {
           statusPill: pill,
           onPrimary: onTap,
           primaryLabel: l10n.inboxReviewAction,
-          primaryIcon: Icons.arrow_forward,
         ),
       _ => NotificationCard(item: item, onTap: onTap, statusPill: pill),
     };
