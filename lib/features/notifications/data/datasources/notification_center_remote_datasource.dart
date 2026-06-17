@@ -70,8 +70,10 @@ class NotificationCenterRemoteDatasource {
         .toList(growable: false);
   }
 
-  /// Upserts the deltas for one type+channel and returns the effective state.
-  /// The backend ignores inbox/realtime changes on mandatory types.
+  /// Upserts the full channel triple for one type and returns the effective
+  /// state. Callers send all three booleans (the backend stores non-nullable
+  /// flags, so a partial payload would zero the omitted channels). The backend
+  /// still ignores inbox/realtime changes on mandatory types.
   Future<List<NotificationPreferenceModel>> updatePreferences({
     required String type,
     bool? inboxEnabled,

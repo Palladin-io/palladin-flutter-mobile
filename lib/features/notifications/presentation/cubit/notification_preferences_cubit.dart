@@ -105,11 +105,12 @@ class NotificationPreferencesCubit extends Cubit<NotificationPreferencesState> {
 
     final previous = state;
     final optimistic = [...state.items];
-    optimistic[index] = switch (channel) {
+    final next = switch (channel) {
       NotificationChannel.inbox => current.copyWith(inboxEnabled: value),
       NotificationChannel.realtime => current.copyWith(signalREnabled: value),
       NotificationChannel.push => current.copyWith(pushEnabled: value),
     };
+    optimistic[index] = next;
     emit(
       state.copyWith(
         items: optimistic,
@@ -119,11 +120,15 @@ class NotificationPreferencesCubit extends Cubit<NotificationPreferencesState> {
     );
 
     try {
+      // Send the FULL channel triple for the type, not just the toggled one.
+      // The backend stores non-nullable booleans, so a partial payload would
+      // zero the omitted channels — disabling one channel must not disable the
+      // others.
       final effective = await repository.updatePreference(
         type: type,
-        inboxEnabled: channel == NotificationChannel.inbox ? value : null,
-        signalREnabled: channel == NotificationChannel.realtime ? value : null,
-        pushEnabled: channel == NotificationChannel.push ? value : null,
+        inboxEnabled: next.inboxEnabled,
+        signalREnabled: next.signalREnabled,
+        pushEnabled: next.pushEnabled,
       );
       emit(
         state.copyWith(

@@ -3209,19 +3209,19 @@ abstract class AppLocalizations {
   /// No description provided for @notifSubGrantPending.
   ///
   /// In en, this message translates to:
-  /// **'{agent} requests access'**
+  /// **'{agent}'**
   String notifSubGrantPending(String agent);
 
   /// No description provided for @notifSubAgentPending.
   ///
   /// In en, this message translates to:
-  /// **'{agent} · awaiting approval'**
+  /// **'{agent}'**
   String notifSubAgentPending(String agent);
 
   /// No description provided for @notifSubAgentApproved.
   ///
   /// In en, this message translates to:
-  /// **'{agent} approved'**
+  /// **'{agent}'**
   String notifSubAgentApproved(String agent);
 
   /// No description provided for @notifSubCredentialStale.

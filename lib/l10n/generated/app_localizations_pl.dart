@@ -1806,17 +1806,17 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String notifSubGrantPending(String agent) {
-    return '$agent prosi o dostęp';
+    return '$agent';
   }
 
   @override
   String notifSubAgentPending(String agent) {
-    return '$agent · czeka na akceptację';
+    return '$agent';
   }
 
   @override
   String notifSubAgentApproved(String agent) {
-    return '$agent zaakceptowany';
+    return '$agent';
   }
 
   @override

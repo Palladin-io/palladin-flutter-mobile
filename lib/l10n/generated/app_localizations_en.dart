@@ -1787,17 +1787,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String notifSubGrantPending(String agent) {
-    return '$agent requests access';
+    return '$agent';
   }
 
   @override
   String notifSubAgentPending(String agent) {
-    return '$agent · awaiting approval';
+    return '$agent';
   }
 
   @override
   String notifSubAgentApproved(String agent) {
-    return '$agent approved';
+    return '$agent';
   }
 
   @override

@@ -35,6 +35,42 @@ void main() {
     expect(repository.lastUpdate?.pushEnabled, isTrue);
   });
 
+  test('toggle sends the FULL channel triple, never a partial payload', () async {
+    await cubit.load();
+    // grant_approved starts inbox=true, signalR=true, push=false.
+    await cubit.toggle(
+      type: 'grant_approved',
+      channel: NotificationChannel.push,
+      value: true,
+    );
+
+    // All three channels must be present and non-null so the backend can't
+    // zero the channels we did not toggle.
+    expect(repository.lastUpdate?.inboxEnabled, isTrue);
+    expect(repository.lastUpdate?.signalREnabled, isTrue);
+    expect(repository.lastUpdate?.pushEnabled, isTrue);
+  });
+
+  test('disabling one channel keeps the others enabled in the payload', () async {
+    await cubit.load();
+    // Turn OFF realtime on grant_approved (inbox/push must stay as-is).
+    await cubit.toggle(
+      type: 'grant_approved',
+      channel: NotificationChannel.realtime,
+      value: false,
+    );
+
+    expect(repository.lastUpdate?.signalREnabled, isFalse);
+    expect(repository.lastUpdate?.inboxEnabled, isTrue,
+        reason: 'inbox not zeroed by a realtime toggle');
+    expect(repository.lastUpdate?.pushEnabled, isFalse,
+        reason: 'push preserved (was already false)');
+
+    final pref = cubit.state.items.firstWhere((p) => p.type == 'grant_approved');
+    expect(pref.inboxEnabled, isTrue);
+    expect(pref.signalREnabled, isFalse);
+  });
+
   test('mandatory inbox toggle is blocked client-side', () async {
     await cubit.load();
     await cubit.toggle(
