@@ -14,48 +14,64 @@ import '../../domain/exceptions/notification_center_exceptions.dart';
 
 /// Resolves the localized title for a notification from its [titleKey],
 /// substituting names from [metadata]. Falls back to a humanized type.
-String notificationTitle(AppLocalizations l10n, InboxNotification n) {
-  final agent = _name(n, 'agentName', l10n.notifUnnamedAgent);
-  // Agent-centric cards use a clearer "Unknown agent" placeholder when an
-  // agent has no name yet (e.g. registered via `search`).
-  final agentOrUnknown = _name(n, 'agentName', l10n.notifUnknownAgent);
-  switch (n.type) {
+/// The notification types offered in the multi-select filter, in display order.
+const notificationFilterTypes = <String>[
+  'grant_pending',
+  'agent_pending',
+  'credential_stale',
+  'grant_approved',
+  'grant_denied',
+  'grant_revoked',
+  'agent_approved',
+];
+
+/// Localized type name for a raw type string — used by the filter chips so
+/// they share the exact capitalized type titles used on the cards.
+String notificationTypeName(AppLocalizations l10n, String type) {
+  switch (type) {
     case 'grant_pending':
-      return l10n.notifTitleGrantPending(agent);
+      return l10n.notifTitleGrantPending;
     case 'agent_pending':
-      return l10n.notifTitleAgentPending(agentOrUnknown);
+      return l10n.notifTitleAgentPending;
     case 'agent_approved':
-      return l10n.notifTitleAgentApproved(agentOrUnknown);
+      return l10n.notifTitleAgentApproved;
     case 'grant_revoked':
-      return l10n.notifTitleGrantRevoked(agent);
+      return l10n.notifTitleGrantRevoked;
     case 'grant_approved':
-      return l10n.notifTitleGrantApproved(agent);
+      return l10n.notifTitleGrantApproved;
     case 'grant_denied':
-      return l10n.notifTitleGrantDenied(agent);
+      return l10n.notifTitleGrantDenied;
     case 'credential_stale':
       return l10n.notifTitleCredentialStale;
     default:
-      return _humanize(n.type);
+      return _humanize(type);
   }
 }
 
-/// A short subtitle under the title (e.g. "requests access").
+/// Card title — a capitalized, sentence-case **type name** (e.g. "New agent",
+/// "Access request"). The agent name moves to the subtitle.
+String notificationTitle(AppLocalizations l10n, InboxNotification n) =>
+    notificationTypeName(l10n, n.type);
+
+/// Subtitle under the type title — carries the agent name / context. Agent-
+/// centric cards fall back to "Unknown agent" when the name is empty (e.g.
+/// agent registered via `search`); grant cards use the softer "An agent".
 String notificationSubtitle(AppLocalizations l10n, InboxNotification n) {
+  final agent = _name(n, 'agentName', l10n.notifUnnamedAgent);
+  final agentOrUnknown = _name(n, 'agentName', l10n.notifUnknownAgent);
   switch (n.type) {
     case 'grant_pending':
-      return l10n.notifSubGrantPending;
+      return l10n.notifSubGrantPending(agent);
     case 'agent_pending':
-      return l10n.notifSubAgentPending;
+      return l10n.notifSubAgentPending(agentOrUnknown);
     case 'agent_approved':
-      return l10n.notifSubAgentApproved;
+      return l10n.notifSubAgentApproved(agentOrUnknown);
     case 'credential_stale':
-      return l10n.notifSubCredentialStale(
-        _name(n, 'agentName', l10n.notifUnnamedAgent),
-      );
+      return l10n.notifSubCredentialStale(agent);
     case 'grant_revoked':
     case 'grant_approved':
     case 'grant_denied':
-      return l10n.notifSubGrantUpdate;
+      return l10n.notifSubGrantUpdate(agent);
     default:
       return '';
   }
@@ -110,22 +126,36 @@ List<({String label, String value})> notificationRows(
   }
 }
 
-/// Agent identity rows — agent id, host, IP, and the agent's public key. Each
-/// renders only when the backend sent it (graceful degradation). The public
-/// key surfaces under a "Public key" label, never a vague "key".
+/// Agent identity rows — capped at 3 so the card stays compact. Order:
+/// Public key → Agent Id → Host / Ip. Host and IP are merged into a single
+/// "Host / Ip" row (host shortened) to save a row. Each renders only when the
+/// backend sent it (graceful degradation). The public key surfaces under a
+/// "Public key" label, never a vague "key".
 List<({String label, String value})> _agentRows(
   AppLocalizations l10n,
   InboxNotification n,
 ) {
+  final hostIp = _hostIp(n);
   return [
-    if (_has(n, 'agentId'))
-      (label: l10n.notifRowAgentId, value: _str(n, 'agentId')!),
-    if (_has(n, 'host'))
-      (label: l10n.notifRowHost, value: _str(n, 'host')!),
-    if (_has(n, 'ip')) (label: l10n.notifRowIp, value: _str(n, 'ip')!),
     if (_keyHint(n) != null)
       (label: l10n.notifRowPublicKey, value: _keyHint(n)!),
+    if (_has(n, 'agentId'))
+      (label: l10n.notifRowAgentId, value: _str(n, 'agentId')!),
+    if (hostIp != null) (label: l10n.notifRowHostIp, value: hostIp),
   ];
+}
+
+/// Combines host + IP into one "host / ip" value (host shortened so a long
+/// FQDN never floods the row). Returns just whichever part is present, or null
+/// when neither is.
+String? _hostIp(InboxNotification n) {
+  final host = _str(n, 'host');
+  final ip = _str(n, 'ip');
+  final shortHost = host == null
+      ? null
+      : (host.length <= 28 ? host : '${host.substring(0, 27)}…');
+  if (shortHost != null && ip != null) return '$shortHost / $ip';
+  return shortHost ?? ip;
 }
 
 /// Public-key hint for display. The backend sends `keyHint` already shortened
@@ -175,14 +205,19 @@ Color notificationGlyphTint(InboxNotification n) {
   return AppColors.vaultBlue;
 }
 
-/// History status pill (label + color) for a resolved notification, derived
-/// from its type. Returns null for types that carry no meaningful status.
-/// [brightness] picks the on-palette amber (darker in light mode) for denied.
-({String label, Color color})? notificationStatusPill(
+/// Status pill (label + color) shown under the date on **every** card.
+/// Open action-required items (agent_pending / grant_pending / credential_stale)
+/// read "Pending"; terminal items read Active / Denied / Revoked.
+/// [brightness] picks the on-palette amber (darker in light mode) for
+/// pending / denied.
+({String label, Color color}) notificationStatusPill(
   AppLocalizations l10n,
   InboxNotification n,
   Brightness brightness,
 ) {
+  if (n.isOpenAction) {
+    return (label: l10n.notifStatusPending, color: AppColors.premium(brightness));
+  }
   switch (n.type) {
     case 'grant_approved':
     case 'agent_approved':
@@ -192,7 +227,9 @@ Color notificationGlyphTint(InboxNotification n) {
     case 'grant_denied':
       return (label: l10n.notifStatusDenied, color: AppColors.premium(brightness));
     default:
-      return null;
+      // Resolved/informational with no specific terminal status — show
+      // "Active" as a neutral positive marker so the layout stays consistent.
+      return (label: l10n.notifStatusActive, color: AppColors.positiveAccent);
   }
 }
 

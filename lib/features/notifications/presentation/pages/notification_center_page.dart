@@ -90,6 +90,10 @@ class _NotificationCenterView extends StatefulWidget {
 class _NotificationCenterViewState extends State<_NotificationCenterView> {
   final TextEditingController _searchController = TextEditingController();
   int _segment = 0; // 0 = to-do, 1 = history
+  bool _filtersOpen = false;
+
+  /// Multi-select type filter (empty = show all). Mirrors the web filter.
+  final Set<String> _typeFilter = <String>{};
 
   @override
   void dispose() {
@@ -324,12 +328,27 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
                   controller: _searchController,
                   hint: l10n.inboxSearchHint,
                   onChanged: (_) => setState(() {}),
+                  filterActive: _filtersOpen || _typeFilter.isNotEmpty,
+                  onToggleFilter: () =>
+                      setState(() => _filtersOpen = !_filtersOpen),
                 ),
               ),
+              if (_filtersOpen)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                  child: _TypeFilterChips(
+                    selected: _typeFilter,
+                    onToggle: (type) => setState(() {
+                      if (!_typeFilter.add(type)) _typeFilter.remove(type);
+                    }),
+                    onClear: () => setState(_typeFilter.clear),
+                  ),
+                ),
               const SizedBox(height: 12),
               Expanded(child: _Feed(
                 segment: _segment,
                 query: _searchController.text,
+                typeFilter: _typeFilter,
                 onTapItem: _onTap,
                 onSecondary: _onSecondary,
               )),
@@ -347,12 +366,14 @@ class _Feed extends StatelessWidget {
   const _Feed({
     required this.segment,
     required this.query,
+    required this.typeFilter,
     required this.onTapItem,
     required this.onSecondary,
   });
 
   final int segment;
   final String query;
+  final Set<String> typeFilter;
   final ValueChanged<InboxNotification> onTapItem;
   final ValueChanged<InboxNotification> onSecondary;
 
@@ -390,6 +411,9 @@ class _Feed extends StatelessWidget {
           // Collapse resolved pending action items — the backend zips them up
           // once approved/denied, so never show a resolved To-do card.
           if (item.isCollapsedPending) return false;
+          if (typeFilter.isNotEmpty && !typeFilter.contains(item.type)) {
+            return false;
+          }
           final segmentMatches = segment == 0
               ? item.isOpenAction
               : !item.isOpenAction;
@@ -477,6 +501,92 @@ class _List extends StatelessWidget {
   }
 }
 
+/// Multi-select type filter chips (parity with web) — revealed by the search
+/// bar's `tune` toggle. Empty selection = show all. Each chip toggles one
+/// notification type; a "Clear" chip resets the selection.
+class _TypeFilterChips extends StatelessWidget {
+  const _TypeFilterChips({
+    required this.selected,
+    required this.onToggle,
+    required this.onClear,
+  });
+
+  final Set<String> selected;
+  final ValueChanged<String> onToggle;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final type in notificationFilterTypes)
+          _FilterChip(
+            label: notificationTypeName(l10n, type),
+            selected: selected.contains(type),
+            onTap: () => onToggle(type),
+          ),
+        if (selected.isNotEmpty)
+          _FilterChip(
+            label: l10n.notifFilterClear,
+            selected: false,
+            onTap: onClear,
+            tint: AppColors.onSurfaceMuted(brightness),
+          ),
+      ],
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.tint,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Color? tint;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final accent = tint ?? AppColors.brandRed;
+    final fg = selected ? AppColors.onBrandRed : AppColors.onSurfaceMuted(brightness);
+    return Material(
+      color: selected ? AppColors.brandRed : Colors.transparent,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? AppColors.brandRed : AppColors.cardBorder(brightness),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? fg : accent,
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Sentence-case "History" section label (no all-caps), shown above the
 /// History cards.
 class _HistoryLabel extends StatelessWidget {
@@ -516,6 +626,10 @@ class _NotificationItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+    // Every card carries a status pill under the date — "Pending" for open
+    // action-required items, terminal statuses (Active/Denied/Revoked) for the
+    // rest.
+    final pill = notificationStatusPill(l10n, item, brightness);
 
     // To-do: live action buttons per type.
     if (item.isOpenAction) {
@@ -523,6 +637,7 @@ class _NotificationItemTile extends StatelessWidget {
         'grant_pending' => NotificationCard(
             item: item,
             onTap: onTap,
+            statusPill: pill,
             onSecondary: onSecondary,
             secondaryLabel: l10n.approvalDeny,
             onPrimary: onTap,
@@ -532,6 +647,7 @@ class _NotificationItemTile extends StatelessWidget {
         'agent_pending' => NotificationCard(
             item: item,
             onTap: onTap,
+            statusPill: pill,
             onSecondary: onSecondary,
             secondaryLabel: l10n.approvalDeny,
             onPrimary: onTap,
@@ -541,6 +657,7 @@ class _NotificationItemTile extends StatelessWidget {
         'credential_stale' => NotificationCard(
             item: item,
             onTap: onTap,
+            statusPill: pill,
             onSecondary: onSecondary,
             secondaryLabel: l10n.inboxDismiss,
             onPrimary: onTap,
@@ -550,6 +667,7 @@ class _NotificationItemTile extends StatelessWidget {
         _ => NotificationCard(
             item: item,
             onTap: onTap,
+            statusPill: pill,
             onSecondary: onSecondary,
             secondaryLabel: l10n.inboxDismiss,
           ),
@@ -557,7 +675,6 @@ class _NotificationItemTile extends StatelessWidget {
     }
 
     // History: status pill + single contextual action / note.
-    final pill = notificationStatusPill(l10n, item, brightness);
     return switch (item.type) {
       'grant_approved' => NotificationCard(
           item: item,

@@ -3167,62 +3167,62 @@ abstract class AppLocalizations {
   /// No description provided for @notifTitleGrantPending.
   ///
   /// In en, this message translates to:
-  /// **'{agent} requests access'**
-  String notifTitleGrantPending(String agent);
+  /// **'Access request'**
+  String get notifTitleGrantPending;
 
   /// No description provided for @notifTitleAgentPending.
   ///
   /// In en, this message translates to:
-  /// **'{agent} is waiting for approval'**
-  String notifTitleAgentPending(String agent);
+  /// **'New agent'**
+  String get notifTitleAgentPending;
 
   /// No description provided for @notifTitleAgentApproved.
   ///
   /// In en, this message translates to:
-  /// **'{agent} was approved'**
-  String notifTitleAgentApproved(String agent);
+  /// **'Agent approved'**
+  String get notifTitleAgentApproved;
 
   /// No description provided for @notifTitleGrantRevoked.
   ///
   /// In en, this message translates to:
-  /// **'Access revoked for {agent}'**
-  String notifTitleGrantRevoked(String agent);
+  /// **'Access revoked'**
+  String get notifTitleGrantRevoked;
 
   /// No description provided for @notifTitleGrantApproved.
   ///
   /// In en, this message translates to:
-  /// **'Access approved for {agent}'**
-  String notifTitleGrantApproved(String agent);
+  /// **'Access approved'**
+  String get notifTitleGrantApproved;
 
   /// No description provided for @notifTitleGrantDenied.
   ///
   /// In en, this message translates to:
-  /// **'Access denied for {agent}'**
-  String notifTitleGrantDenied(String agent);
+  /// **'Access denied'**
+  String get notifTitleGrantDenied;
 
   /// No description provided for @notifTitleCredentialStale.
   ///
   /// In en, this message translates to:
-  /// **'Credential may be stale'**
+  /// **'Credential not working'**
   String get notifTitleCredentialStale;
 
   /// No description provided for @notifSubGrantPending.
   ///
   /// In en, this message translates to:
-  /// **'requests access'**
-  String get notifSubGrantPending;
+  /// **'{agent} requests access'**
+  String notifSubGrantPending(String agent);
 
   /// No description provided for @notifSubAgentPending.
   ///
   /// In en, this message translates to:
-  /// **'new agent · waiting for approval'**
-  String get notifSubAgentPending;
+  /// **'{agent} · awaiting approval'**
+  String notifSubAgentPending(String agent);
 
   /// No description provided for @notifSubAgentApproved.
   ///
   /// In en, this message translates to:
-  /// **'agent approved'**
-  String get notifSubAgentApproved;
+  /// **'{agent} approved'**
+  String notifSubAgentApproved(String agent);
 
   /// No description provided for @notifSubCredentialStale.
   ///
@@ -3233,8 +3233,8 @@ abstract class AppLocalizations {
   /// No description provided for @notifSubGrantUpdate.
   ///
   /// In en, this message translates to:
-  /// **'grant update'**
-  String get notifSubGrantUpdate;
+  /// **'{agent}'**
+  String notifSubGrantUpdate(String agent);
 
   /// No description provided for @notifRowEntry.
   ///
@@ -3254,11 +3254,11 @@ abstract class AppLocalizations {
   /// **'Reason'**
   String get notifRowReason;
 
-  /// No description provided for @notifRowHost.
+  /// No description provided for @notifRowHostIp.
   ///
   /// In en, this message translates to:
-  /// **'Host'**
-  String get notifRowHost;
+  /// **'Host / Ip'**
+  String get notifRowHostIp;
 
   /// No description provided for @notifRowError.
   ///
@@ -3278,17 +3278,17 @@ abstract class AppLocalizations {
   /// **'Agent Id'**
   String get notifRowAgentId;
 
-  /// No description provided for @notifRowIp.
-  ///
-  /// In en, this message translates to:
-  /// **'IP'**
-  String get notifRowIp;
-
   /// No description provided for @notifRowPublicKey.
   ///
   /// In en, this message translates to:
   /// **'Public key'**
   String get notifRowPublicKey;
+
+  /// No description provided for @notifStatusPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get notifStatusPending;
 
   /// No description provided for @notifStatusActive.
   ///
@@ -3307,6 +3307,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Denied'**
   String get notifStatusDenied;
+
+  /// No description provided for @notifFilterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by type'**
+  String get notifFilterTitle;
+
+  /// No description provided for @notifFilterClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get notifFilterClear;
 
   /// No description provided for @notifPrefsTitle.
   ///

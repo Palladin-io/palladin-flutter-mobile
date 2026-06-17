@@ -1765,46 +1765,40 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifUnknownAgent => 'Unknown agent';
 
   @override
-  String notifTitleGrantPending(String agent) {
+  String get notifTitleGrantPending => 'Access request';
+
+  @override
+  String get notifTitleAgentPending => 'New agent';
+
+  @override
+  String get notifTitleAgentApproved => 'Agent approved';
+
+  @override
+  String get notifTitleGrantRevoked => 'Access revoked';
+
+  @override
+  String get notifTitleGrantApproved => 'Access approved';
+
+  @override
+  String get notifTitleGrantDenied => 'Access denied';
+
+  @override
+  String get notifTitleCredentialStale => 'Credential not working';
+
+  @override
+  String notifSubGrantPending(String agent) {
     return '$agent requests access';
   }
 
   @override
-  String notifTitleAgentPending(String agent) {
-    return '$agent is waiting for approval';
+  String notifSubAgentPending(String agent) {
+    return '$agent · awaiting approval';
   }
 
   @override
-  String notifTitleAgentApproved(String agent) {
-    return '$agent was approved';
+  String notifSubAgentApproved(String agent) {
+    return '$agent approved';
   }
-
-  @override
-  String notifTitleGrantRevoked(String agent) {
-    return 'Access revoked for $agent';
-  }
-
-  @override
-  String notifTitleGrantApproved(String agent) {
-    return 'Access approved for $agent';
-  }
-
-  @override
-  String notifTitleGrantDenied(String agent) {
-    return 'Access denied for $agent';
-  }
-
-  @override
-  String get notifTitleCredentialStale => 'Credential may be stale';
-
-  @override
-  String get notifSubGrantPending => 'requests access';
-
-  @override
-  String get notifSubAgentPending => 'new agent · waiting for approval';
-
-  @override
-  String get notifSubAgentApproved => 'agent approved';
 
   @override
   String notifSubCredentialStale(String agent) {
@@ -1812,7 +1806,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get notifSubGrantUpdate => 'grant update';
+  String notifSubGrantUpdate(String agent) {
+    return '$agent';
+  }
 
   @override
   String get notifRowEntry => 'Entry';
@@ -1824,7 +1820,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifRowReason => 'Reason';
 
   @override
-  String get notifRowHost => 'Host';
+  String get notifRowHostIp => 'Host / Ip';
 
   @override
   String get notifRowError => 'Error';
@@ -1836,10 +1832,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifRowAgentId => 'Agent Id';
 
   @override
-  String get notifRowIp => 'IP';
+  String get notifRowPublicKey => 'Public key';
 
   @override
-  String get notifRowPublicKey => 'Public key';
+  String get notifStatusPending => 'Pending';
 
   @override
   String get notifStatusActive => 'Active';
@@ -1849,6 +1845,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notifStatusDenied => 'Denied';
+
+  @override
+  String get notifFilterTitle => 'Filter by type';
+
+  @override
+  String get notifFilterClear => 'Clear';
 
   @override
   String get notifPrefsTitle => 'Notification settings';
