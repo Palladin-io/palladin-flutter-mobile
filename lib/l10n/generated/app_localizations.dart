@@ -3158,6 +3158,12 @@ abstract class AppLocalizations {
   /// **'An agent'**
   String get notifUnnamedAgent;
 
+  /// Placeholder on agent cards when the agent has no name yet
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown agent'**
+  String get notifUnknownAgent;
+
   /// No description provided for @notifTitleGrantPending.
   ///
   /// In en, this message translates to:
@@ -3269,7 +3275,7 @@ abstract class AppLocalizations {
   /// No description provided for @notifRowAgentId.
   ///
   /// In en, this message translates to:
-  /// **'Agent id'**
+  /// **'Agent Id'**
   String get notifRowAgentId;
 
   /// No description provided for @notifRowIp.

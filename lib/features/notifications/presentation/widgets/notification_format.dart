@@ -16,13 +16,16 @@ import '../../domain/exceptions/notification_center_exceptions.dart';
 /// substituting names from [metadata]. Falls back to a humanized type.
 String notificationTitle(AppLocalizations l10n, InboxNotification n) {
   final agent = _name(n, 'agentName', l10n.notifUnnamedAgent);
+  // Agent-centric cards use a clearer "Unknown agent" placeholder when an
+  // agent has no name yet (e.g. registered via `search`).
+  final agentOrUnknown = _name(n, 'agentName', l10n.notifUnknownAgent);
   switch (n.type) {
     case 'grant_pending':
       return l10n.notifTitleGrantPending(agent);
     case 'agent_pending':
-      return l10n.notifTitleAgentPending(agent);
+      return l10n.notifTitleAgentPending(agentOrUnknown);
     case 'agent_approved':
-      return l10n.notifTitleAgentApproved(agent);
+      return l10n.notifTitleAgentApproved(agentOrUnknown);
     case 'grant_revoked':
       return l10n.notifTitleGrantRevoked(agent);
     case 'grant_approved':
@@ -125,14 +128,18 @@ List<({String label, String value})> _agentRows(
   ];
 }
 
-/// Short public-key hint — prefers an explicit `keyHint`, else truncates a
-/// raw `agentPublicKey` so the full key never floods the card.
+/// Public-key hint for display. The backend sends `keyHint` already shortened
+/// to the `prefix…suffix` form (root CLAUDE.md key-shortening standard), so it
+/// is rendered as-is. Falls back to shortening a raw `agentPublicKey` only if
+/// the backend ever sends the full key.
 String? _keyHint(InboxNotification n) {
   final hint = _str(n, 'keyHint');
   if (hint != null) return hint;
   final key = _str(n, 'agentPublicKey');
   if (key == null) return null;
-  return key.length <= 16 ? key : '${key.substring(0, 8)}…${key.substring(key.length - 6)}';
+  return key.length <= 16
+      ? key
+      : '${key.substring(0, 8)}…${key.substring(key.length - 6)}';
 }
 
 /// Relative "5 min" style timestamp — reuses the grants formatter.

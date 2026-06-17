@@ -1781,6 +1781,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get notifUnnamedAgent => 'Agent';
 
   @override
+  String get notifUnknownAgent => 'Nieznany agent';
+
+  @override
   String notifTitleGrantPending(String agent) {
     return '$agent prosi o dostęp';
   }
@@ -1849,7 +1852,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get notifRowBy => 'Przez';
 
   @override
-  String get notifRowAgentId => 'ID agenta';
+  String get notifRowAgentId => 'Id agenta';
 
   @override
   String get notifRowIp => 'IP';
