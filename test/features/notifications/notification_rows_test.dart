@@ -91,4 +91,46 @@ void main() {
         .firstWhere((r) => r.label == l10n.notifRowAccess);
     expect(unlimitedRow.value, l10n.notifAccessUnlimited);
   });
+
+  group('agent avatar header', () {
+    test('agent-bearing types use the real agent avatar', () {
+      for (final type in const [
+        'grant_pending',
+        'grant_approved',
+        'grant_revoked',
+        'grant_denied',
+        'agent_pending',
+        'agent_approved',
+      ]) {
+        expect(
+          notificationUsesAgentAvatar(make(type)),
+          isTrue,
+          reason: '$type should use the agent avatar',
+        );
+      }
+    });
+
+    test('credential_stale and unknown keep the glyph chip', () {
+      expect(notificationUsesAgentAvatar(make('credential_stale')), isFalse);
+      expect(notificationUsesAgentAvatar(make('future_unknown_type')), isFalse);
+    });
+
+    test('avatar reads agentId / agentName / agentIconKey from metadata', () {
+      final n = make('grant_pending', metadata: const {
+        'agentId': 'a-1',
+        'agentName': 'Acme-bot',
+        'agentIconKey': 'terminal',
+      });
+      expect(notificationAgentId(n), 'a-1');
+      expect(notificationAgentName(n), 'Acme-bot');
+      expect(notificationAgentIconKey(n), 'terminal');
+    });
+
+    test('avatar degrades gracefully when metadata is missing', () {
+      final n = make('agent_pending');
+      expect(notificationAgentId(n), '');
+      expect(notificationAgentName(n), isNull);
+      expect(notificationAgentIconKey(n), isNull);
+    });
+  });
 }

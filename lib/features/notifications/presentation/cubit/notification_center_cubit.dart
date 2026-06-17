@@ -59,8 +59,33 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
 
   final NotificationCenterRepository repository;
 
+  /// Ids currently being marked read via [markReadOnView] — prevents a failed
+  /// optimistic mark from re-firing every time the tile rebuilds (which would
+  /// loop). Cleared on success or terminal failure.
+  final Set<String> _markingOnView = <String>{};
+
   /// Clears user-specific notification titles and metadata on logout.
-  void reset() => emit(const NotificationCenterState());
+  void reset() {
+    _markingOnView.clear();
+    emit(const NotificationCenterState());
+  }
+
+  /// Marks a notification read because its card became visible in the list
+  /// (mark-on-view). Idempotent and de-duped: no-op for already-read items or
+  /// ids already in flight, so it is safe to call from a tile's build. Does
+  /// NOT touch [NotificationCenterState.pendingActionCount] — the To-do/action
+  /// counter is independent of read state. Reuses [markRead] for the optimistic
+  /// update + rollback.
+  void markReadOnView(String id) {
+    if (_markingOnView.contains(id)) return;
+    final index = state.items.indexWhere((item) => item.id == id);
+    if (index < 0 || state.items[index].isRead) return;
+    _markingOnView.add(id);
+    // Fire-and-forget; markRead handles optimistic state + rollback. We keep
+    // the id flagged afterwards so a transient failure does not thrash the
+    // request on every rebuild within the same session.
+    markRead(id);
+  }
 
   Future<void> load() async {
     emit(

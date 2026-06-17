@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../agents/presentation/widgets/agent_avatar.dart';
 import '../../../grants/presentation/widgets/org_grant_card.dart' show GrantDetailRow;
 import '../../domain/entities/inbox_notification.dart';
 import 'notification_format.dart';
@@ -156,16 +157,27 @@ class _Header extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 36,
-          height: 36,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: glyphTint.withValues(alpha: 0.14),
+        // Agent-bearing cards use the real Agents-list avatar (glyph/image +
+        // deterministic tint) so the icon and color match the Agents screen;
+        // non-agent cards (credential_stale) keep a tinted glyph chip.
+        if (notificationUsesAgentAvatar(item))
+          AgentAvatar(
+            agentId: notificationAgentId(item),
+            name: notificationAgentName(item),
+            iconKey: notificationAgentIconKey(item),
+            size: 36,
+          )
+        else
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: glyphTint.withValues(alpha: 0.14),
+            ),
+            child: Icon(notificationIcon(item), size: 18, color: glyphTint),
           ),
-          child: Icon(notificationIcon(item), size: 18, color: glyphTint),
-        ),
         const SizedBox(width: 10),
         Expanded(
           child: Column(

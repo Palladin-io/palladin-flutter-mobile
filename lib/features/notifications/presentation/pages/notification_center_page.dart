@@ -626,6 +626,18 @@ class _NotificationItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+
+    // Mark-on-view: an unread card that builds has scrolled into view, so mark
+    // it read (drops the unread badge after scrolling/opening). Scheduled
+    // post-frame so we never mutate cubit state during build; idempotent +
+    // de-duped in the cubit. Does NOT affect the To-do/action counter.
+    if (!item.isRead) {
+      final cubit = context.read<NotificationCenterCubit>();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        cubit.markReadOnView(item.id);
+      });
+    }
+
     // Every card carries a status pill under the date — "Pending" for open
     // action-required items, terminal statuses (Active/Denied/Revoked) for the
     // rest.

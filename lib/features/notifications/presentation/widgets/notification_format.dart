@@ -234,6 +234,35 @@ Color notificationGlyphTint(InboxNotification n) {
   return AppColors.vaultBlue;
 }
 
+/// True when the card's header should render the real agent avatar (matching
+/// the Agents list) instead of a generic glyph chip. Every agent-bearing type
+/// qualifies; only `credential_stale` and unknown types keep the glyph.
+bool notificationUsesAgentAvatar(InboxNotification n) {
+  switch (n.type) {
+    case 'grant_pending':
+    case 'grant_approved':
+    case 'grant_revoked':
+    case 'grant_denied':
+    case 'agent_pending':
+    case 'agent_approved':
+      return true;
+    default:
+      return false;
+  }
+}
+
+/// The agent's icon key from metadata (`agentIconKey`) — a Material icon name
+/// or an uploaded image URL — used to render [AgentAvatar] exactly like the
+/// Agents list. Null when the backend sent none.
+String? notificationAgentIconKey(InboxNotification n) => _str(n, 'agentIconKey');
+
+/// The agent's display name from metadata, or null.
+String? notificationAgentName(InboxNotification n) => _str(n, 'agentName');
+
+/// The agent's id from metadata — seeds [AgentAvatar]'s deterministic tint so
+/// the color matches the Agents list. Falls back to an empty string.
+String notificationAgentId(InboxNotification n) => _str(n, 'agentId') ?? '';
+
 /// Status pill (label + color) shown under the date on **every** card.
 /// Open action-required items (agent_pending / grant_pending / credential_stale)
 /// read "Pending"; terminal items read Active / Denied / Revoked.

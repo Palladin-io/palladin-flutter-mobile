@@ -52,6 +52,42 @@ void main() {
     expect(statuses, isNot(contains(NotificationCenterStatus.loading)));
     expect(cubit.state.status, NotificationCenterStatus.loaded);
   });
+
+  test('markReadOnView drops the unread badge but keeps pendingActionCount',
+      () async {
+    await cubit.load();
+    expect(cubit.state.pendingActionCount, 1);
+
+    cubit.markReadOnView('n-1');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(cubit.state.items.single.isRead, isTrue);
+    expect(cubit.state.unreadCount, 2);
+    // The action / To-do counter is independent of read state.
+    expect(cubit.state.pendingActionCount, 1);
+    expect(repository.markedRead, ['n-1']);
+  });
+
+  test('markReadOnView is de-duped — never fires twice for the same id',
+      () async {
+    await cubit.load();
+    cubit.markReadOnView('n-1');
+    cubit.markReadOnView('n-1');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(repository.markedRead, ['n-1']);
+  });
+
+  test('markReadOnView is a no-op for an already-read item', () async {
+    await cubit.load();
+    await cubit.markRead('n-1'); // already read
+    repository.markedRead.clear();
+
+    cubit.markReadOnView('n-1');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(repository.markedRead, isEmpty);
+  });
 }
 
 class _FakeRepository implements NotificationCenterRepository {
