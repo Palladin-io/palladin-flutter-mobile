@@ -59,9 +59,10 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
 
   final NotificationCenterRepository repository;
 
-  /// Ids currently being marked read via [markReadOnView] — prevents a failed
-  /// optimistic mark from re-firing every time the tile rebuilds (which would
-  /// loop). Cleared on success or terminal failure.
+  /// Ids already marked read via [markReadOnView] — prevents the optimistic
+  /// mark from re-firing every time a tile rebuilds (which would loop on a
+  /// transient failure). Cleared only on logout ([reset]); intentionally
+  /// sticky within a session to avoid request storms.
   final Set<String> _markingOnView = <String>{};
 
   /// Clears user-specific notification titles and metadata on logout.

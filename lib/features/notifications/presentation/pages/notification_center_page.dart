@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/skeleton_box.dart';
@@ -229,9 +230,9 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
       case 'grant_revoked':
       case 'grant_approved':
       case 'grant_denied':
-        if (agentId != null) context.go('/agents/$agentId');
+        if (agentId != null) context.go(AppRoutes.agentDetail(agentId));
       case 'credential_stale':
-        if (vaultId != null) context.go('/vaults/$vaultId');
+        if (vaultId != null) context.go(AppRoutes.vaultDetail(vaultId));
     }
   }
 
@@ -605,7 +606,7 @@ class _FilterChip extends StatelessWidget {
 }
 
 /// Maps a notification to the right [NotificationCard] footer wiring.
-class _NotificationItemTile extends StatelessWidget {
+class _NotificationItemTile extends StatefulWidget {
   const _NotificationItemTile({
     required this.item,
     required this.onTap,
@@ -617,20 +618,33 @@ class _NotificationItemTile extends StatelessWidget {
   final VoidCallback onSecondary;
 
   @override
+  State<_NotificationItemTile> createState() => _NotificationItemTileState();
+}
+
+class _NotificationItemTileState extends State<_NotificationItemTile> {
+  @override
+  void initState() {
+    super.initState();
+    // Mark-on-view: a tile that mounts has scrolled into view, so mark it read
+    // (drops the unread badge after scrolling/opening). Scoped to the mount
+    // lifecycle — not re-fired on every rebuild — and scheduled post-frame so
+    // we never mutate cubit state during build; idempotent + de-duped in the
+    // cubit. Does NOT affect the To-do/action counter.
+    if (!widget.item.isRead) {
+      final cubit = context.read<NotificationCenterCubit>();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        cubit.markReadOnView(widget.item.id);
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-
-    // Mark-on-view: an unread card that builds has scrolled into view, so mark
-    // it read (drops the unread badge after scrolling/opening). Scheduled
-    // post-frame so we never mutate cubit state during build; idempotent +
-    // de-duped in the cubit. Does NOT affect the To-do/action counter.
-    if (!item.isRead) {
-      final cubit = context.read<NotificationCenterCubit>();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        cubit.markReadOnView(item.id);
-      });
-    }
+    final item = widget.item;
+    final onTap = widget.onTap;
+    final onSecondary = widget.onSecondary;
 
     // Every card carries a status pill under the date — "Pending" for open
     // action-required items, terminal statuses (Active/Denied/Revoked) for the

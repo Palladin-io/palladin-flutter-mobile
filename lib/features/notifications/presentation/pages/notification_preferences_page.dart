@@ -126,6 +126,11 @@ class _Content extends StatelessWidget {
   }
 }
 
+/// Fixed width of each channel column. Shared by [_ChannelLegend] and
+/// [_ChannelToggle] so the three legend headers always sit exactly above the
+/// three toggle columns.
+const double _channelColumnWidth = 56;
+
 class _ChannelLegend extends StatelessWidget {
   const _ChannelLegend();
 
@@ -145,12 +150,18 @@ class _ChannelLegend extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          SizedBox(width: 56, child: Text(l10n.notifPrefsChannelInbox,
-              textAlign: TextAlign.center, style: style())),
-          SizedBox(width: 56, child: Text(l10n.notifPrefsChannelRealtime,
-              textAlign: TextAlign.center, style: style())),
-          SizedBox(width: 56, child: Text(l10n.notifPrefsChannelPush,
-              textAlign: TextAlign.center, style: style())),
+          SizedBox(
+              width: _channelColumnWidth,
+              child: Text(l10n.notifPrefsChannelInbox,
+                  textAlign: TextAlign.center, style: style())),
+          SizedBox(
+              width: _channelColumnWidth,
+              child: Text(l10n.notifPrefsChannelRealtime,
+                  textAlign: TextAlign.center, style: style())),
+          SizedBox(
+              width: _channelColumnWidth,
+              child: Text(l10n.notifPrefsChannelPush,
+                  textAlign: TextAlign.center, style: style())),
         ],
       ),
     );
@@ -236,12 +247,9 @@ class _PreferenceRow extends StatelessWidget {
       'grant_approved' => l10n.notifPrefsTypeGrantApproved,
       'grant_denied' => l10n.notifPrefsTypeGrantDenied,
       'credential_stale' => l10n.notifPrefsTypeCredentialStale,
-      _ => type
-          .replaceAll(RegExp(r'[_-]+'), ' ')
-          .split(' ')
-          .where((p) => p.isNotEmpty)
-          .map((p) => '${p[0].toUpperCase()}${p.substring(1)}')
-          .join(' '),
+      // Unknown/future types: reuse the shared notification type-name helper,
+      // which carries the same humanized fallback — no duplicate regex here.
+      _ => notificationTypeName(l10n, type),
     };
   }
 }
@@ -265,7 +273,7 @@ class _ChannelToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final saving = savingKeys.contains('${pref.type}:${channel.name}');
     return SizedBox(
-      width: 56,
+      width: _channelColumnWidth,
       child: Center(
         child: saving
             ? const SizedBox(

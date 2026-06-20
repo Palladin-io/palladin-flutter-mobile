@@ -1722,7 +1722,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get inboxTodo => 'Do zrobienia';
 
   @override
-  String get inboxHistory => 'History';
+  String get inboxHistory => 'Historia';
 
   @override
   String get inboxSearchHint => 'Szukaj po agencie, wpisie lub vaultcie…';

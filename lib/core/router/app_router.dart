@@ -22,6 +22,18 @@ import '../../features/vault/presentation/pages/vault_list_page.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../permissions.dart';
 
+/// Centralized route paths and builders, so widgets navigate via
+/// `AppRoutes.agentDetail(id)` instead of scattering string literals
+/// (CLAUDE.md routing criteria #6). Keep every path used by `context.go/push`
+/// here next to its [GoRoute] definition below.
+abstract final class AppRoutes {
+  /// Agent detail screen for [agentId] (e.g. `/agents/abc`).
+  static String agentDetail(String agentId) => '/agents/$agentId';
+
+  /// Vault detail screen for [vaultId] (e.g. `/vaults/abc`).
+  static String vaultDetail(String vaultId) => '/vaults/$vaultId';
+}
+
 /// Creates the app-level [GoRouter] with auth-aware redirects.
 ///
 /// Redirect rules, in order:
