@@ -3044,6 +3044,12 @@ abstract class AppLocalizations {
   /// **'Inbox'**
   String get inboxTitle;
 
+  /// No description provided for @inboxSegAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get inboxSegAll;
+
   /// No description provided for @inboxTodo.
   ///
   /// In en, this message translates to:
@@ -3056,12 +3062,6 @@ abstract class AppLocalizations {
   /// **'History'**
   String get inboxHistory;
 
-  /// No description provided for @inboxSegGrants.
-  ///
-  /// In en, this message translates to:
-  /// **'Grants'**
-  String get inboxSegGrants;
-
   /// No description provided for @inboxSearchHint.
   ///
   /// In en, this message translates to:
@@ -3073,6 +3073,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Mark all read'**
   String get inboxMarkAllRead;
+
+  /// No description provided for @inboxMoreActions.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get inboxMoreActions;
+
+  /// No description provided for @inboxGrantsMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Grants'**
+  String get inboxGrantsMenu;
+
+  /// No description provided for @inboxPreferencesMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification preferences'**
+  String get inboxPreferencesMenu;
 
   /// No description provided for @inboxAcceptAction.
   ///
@@ -3115,6 +3133,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This action is no longer available.'**
   String get inboxActionGone;
+
+  /// No description provided for @inboxAllEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Your inbox is empty'**
+  String get inboxAllEmpty;
+
+  /// No description provided for @inboxAllEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Requests, approvals and other agent activity will appear here.'**
+  String get inboxAllEmptyHint;
 
   /// No description provided for @inboxTodoEmpty.
   ///

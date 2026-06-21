@@ -1719,19 +1719,28 @@ class AppLocalizationsPl extends AppLocalizations {
   String get inboxTitle => 'Inbox';
 
   @override
+  String get inboxSegAll => 'Wszystkie';
+
+  @override
   String get inboxTodo => 'Do zrobienia';
 
   @override
   String get inboxHistory => 'Historia';
 
   @override
-  String get inboxSegGrants => 'Granty';
-
-  @override
   String get inboxSearchHint => 'Szukaj po agencie, wpisie lub vaultcie…';
 
   @override
   String get inboxMarkAllRead => 'Oznacz wszystkie';
+
+  @override
+  String get inboxMoreActions => 'Więcej';
+
+  @override
+  String get inboxGrantsMenu => 'Granty';
+
+  @override
+  String get inboxPreferencesMenu => 'Ustawienia powiadomień';
 
   @override
   String get inboxAcceptAction => 'Akceptuj';
@@ -1754,6 +1763,13 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get inboxActionGone => 'Ta akcja nie jest już dostępna.';
+
+  @override
+  String get inboxAllEmpty => 'Twój inbox jest pusty';
+
+  @override
+  String get inboxAllEmptyHint =>
+      'Prośby, zatwierdzenia i inna aktywność agentów pojawią się tutaj.';
 
   @override
   String get inboxTodoEmpty => 'Nic nie wymaga Twojej uwagi';

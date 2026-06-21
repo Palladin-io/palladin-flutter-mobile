@@ -17,11 +17,19 @@ import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
 import '../../../approval/presentation/widgets/approve_grant_sheet.dart';
 import '../../../approval/presentation/widgets/deny_grant_sheet.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../../domain/entities/inbox_notification.dart';
 import '../cubit/notification_center_cubit.dart';
 import '../widgets/notification_card.dart';
 import '../widgets/notification_format.dart';
+
+/// Log segments in the inbox toggle. Mirrors the web (All / To-do / History).
+/// `all` = `todo` ∪ `history`. Grants is NOT a segment — it lives behind the
+/// AppBar kebab as a separate full-screen page.
+enum InboxSegment { all, todo, history }
+
+/// Secondary inbox actions surfaced under the AppBar kebab. Mark-all-read stays
+/// a primary AppBar action and is intentionally excluded.
+enum _InboxMenuAction { grants, preferences }
 
 /// The Notification Center / Inbox — the durable replacement for Approvals.
 ///
@@ -89,12 +97,11 @@ class _NotificationCenterView extends StatefulWidget {
 }
 
 class _NotificationCenterViewState extends State<_NotificationCenterView> {
-  /// Grants is the last segment (after To-do / History) and the only one that
-  /// renders a live, mutable list instead of the immutable log feed.
-  static const int _grantsSegment = 2;
-
   final TextEditingController _searchController = TextEditingController();
-  int _segment = 0; // 0 = to-do, 1 = history, 2 = grants
+
+  /// Active log segment. Grants is NOT a segment — it lives behind the AppBar
+  /// kebab as a separate full-screen page.
+  InboxSegment _segment = InboxSegment.all;
   bool _filtersOpen = false;
 
   /// Multi-select type filter (empty = show all). Mirrors the web filter.
@@ -304,15 +311,37 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
                 );
               },
             ),
-            IconButton(
-              tooltip: l10n.notifPrefsTitle,
-              visualDensity: VisualDensity.compact,
+            // Kebab overflow: secondary actions (Grants list, preferences).
+            // Mark-all-read stays a primary AppBar action above.
+            PopupMenuButton<_InboxMenuAction>(
+              tooltip: l10n.inboxMoreActions,
               icon: Icon(
-                Icons.tune,
+                Icons.more_vert,
                 size: 20,
                 color: AppColors.iconDefault(brightness),
               ),
-              onPressed: () => context.push('/inbox/preferences'),
+              color: AppColors.cardSurface(brightness),
+              onSelected: (action) => switch (action) {
+                _InboxMenuAction.grants => context.push('/inbox/grants'),
+                _InboxMenuAction.preferences =>
+                  context.push('/inbox/preferences'),
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: _InboxMenuAction.grants,
+                  child: _MenuRow(
+                    icon: Icons.vpn_key_outlined,
+                    label: l10n.inboxGrantsMenu,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _InboxMenuAction.preferences,
+                  child: _MenuRow(
+                    icon: Icons.tune,
+                    label: l10n.inboxPreferencesMenu,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(width: 8),
           ],
@@ -331,53 +360,43 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
                   builder: (context, state) => _SegmentToggle(
                     segment: _segment,
                     todoCount: state.pendingActionCount,
-                    onChanged: (i) => setState(() => _segment = i),
+                    onChanged: (s) => setState(() => _segment = s),
                   ),
                 ),
               ),
-              // Search + type-filter apply to the immutable log segments only;
-              // the Grants segment reuses the org-grants list with its own UI.
-              if (_segment != _grantsSegment) ...[
+              // Search + type-filter apply to all three log segments. The
+              // Grants list is a separate page (kebab) with its own UI.
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: AppSearchField(
+                  controller: _searchController,
+                  hint: l10n.inboxSearchHint,
+                  onChanged: (_) => setState(() {}),
+                  filterActive: _filtersOpen || _typeFilter.isNotEmpty,
+                  onToggleFilter: () =>
+                      setState(() => _filtersOpen = !_filtersOpen),
+                ),
+              ),
+              if (_filtersOpen)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: AppSearchField(
-                    controller: _searchController,
-                    hint: l10n.inboxSearchHint,
-                    onChanged: (_) => setState(() {}),
-                    filterActive: _filtersOpen || _typeFilter.isNotEmpty,
-                    onToggleFilter: () =>
-                        setState(() => _filtersOpen = !_filtersOpen),
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                  child: _TypeFilterChips(
+                    selected: _typeFilter,
+                    onToggle: (type) => setState(() {
+                      if (!_typeFilter.add(type)) _typeFilter.remove(type);
+                    }),
+                    onClear: () => setState(_typeFilter.clear),
                   ),
                 ),
-                if (_filtersOpen)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                    child: _TypeFilterChips(
-                      selected: _typeFilter,
-                      onToggle: (type) => setState(() {
-                        if (!_typeFilter.add(type)) _typeFilter.remove(type);
-                      }),
-                      onClear: () => setState(_typeFilter.clear),
-                    ),
-                  ),
-              ],
               const SizedBox(height: 12),
               Expanded(
-                child: _segment == _grantsSegment
-                    // Live-state org-wide grants list (the only mutable surface
-                    // in the inbox) — reuses ContextGrantsTab with no filter so
-                    // it shows every org grant with inline Revoke / re-grant.
-                    ? ContextGrantsTab(
-                        emptyTitle: l10n.inboxGrantsEmpty,
-                        emptyHint: l10n.inboxGrantsEmptyHint,
-                      )
-                    : _Feed(
-                        segment: _segment,
-                        query: _searchController.text,
-                        typeFilter: _typeFilter,
-                        onTapItem: _onTap,
-                        onSecondary: _onSecondary,
-                      ),
+                child: _Feed(
+                  segment: _segment,
+                  query: _searchController.text,
+                  typeFilter: _typeFilter,
+                  onTapItem: _onTap,
+                  onSecondary: _onSecondary,
+                ),
               ),
             ],
           ),
@@ -398,7 +417,7 @@ class _Feed extends StatelessWidget {
     required this.onSecondary,
   });
 
-  final int segment;
+  final InboxSegment segment;
   final String query;
   final Set<String> typeFilter;
   final ValueChanged<InboxNotification> onTapItem;
@@ -441,9 +460,13 @@ class _Feed extends StatelessWidget {
           if (typeFilter.isNotEmpty && !typeFilter.contains(item.type)) {
             return false;
           }
-          final segmentMatches = segment == 0
-              ? item.isOpenAction
-              : !item.isOpenAction;
+          // All = To-do ∪ History (every non-collapsed item); To-do = open
+          // actions only; History = everything resolved/informational.
+          final segmentMatches = switch (segment) {
+            InboxSegment.all => true,
+            InboxSegment.todo => item.isOpenAction,
+            InboxSegment.history => !item.isOpenAction,
+          };
           if (!segmentMatches) return false;
           if (q.isEmpty) return true;
           final haystack = [
@@ -467,7 +490,7 @@ class _List extends StatelessWidget {
 
   final List<InboxNotification> items;
   final bool isLoadingMore;
-  final int segment;
+  final InboxSegment segment;
   final ValueChanged<InboxNotification> onTapItem;
   final ValueChanged<InboxNotification> onSecondary;
 
@@ -475,18 +498,27 @@ class _List extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     if (items.isEmpty) {
+      final (icon, title, hint) = switch (segment) {
+        InboxSegment.todo => (
+            Icons.task_alt,
+            l10n.inboxTodoEmpty,
+            l10n.inboxTodoEmptyHint,
+          ),
+        InboxSegment.history => (
+            Icons.history,
+            l10n.inboxUpdatesEmpty,
+            l10n.inboxUpdatesEmptyHint,
+          ),
+        InboxSegment.all => (
+            Icons.inbox_outlined,
+            l10n.inboxAllEmpty,
+            l10n.inboxAllEmptyHint,
+          ),
+      };
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
-        children: [
-          _EmptyCard(
-            icon: segment == 0 ? Icons.task_alt : Icons.history,
-            title: segment == 0 ? l10n.inboxTodoEmpty : l10n.inboxUpdatesEmpty,
-            hint: segment == 0
-                ? l10n.inboxTodoEmptyHint
-                : l10n.inboxUpdatesEmptyHint,
-          ),
-        ],
+        children: [_EmptyCard(icon: icon, title: title, hint: hint)],
       );
     }
     // No section header: each segment renders a single section (To-do or
@@ -683,6 +715,34 @@ class _NotificationItemTileState extends State<_NotificationItemTile> {
   }
 }
 
+// ── kebab menu ───────────────────────────────────────────────────────────
+
+/// Icon + label row for a kebab [PopupMenuItem].
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: AppColors.iconDefault(brightness)),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.onSurface(brightness),
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ── segmented toggle ─────────────────────────────────────────────────────
 
 class _SegmentToggle extends StatelessWidget {
@@ -692,9 +752,9 @@ class _SegmentToggle extends StatelessWidget {
     required this.onChanged,
   });
 
-  final int segment;
+  final InboxSegment segment;
   final int todoCount;
-  final ValueChanged<int> onChanged;
+  final ValueChanged<InboxSegment> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -710,20 +770,20 @@ class _SegmentToggle extends StatelessWidget {
       child: Row(
         children: [
           _SegmentButton(
+            label: l10n.inboxSegAll,
+            selected: segment == InboxSegment.all,
+            onTap: () => onChanged(InboxSegment.all),
+          ),
+          _SegmentButton(
             label: l10n.inboxTodo,
             badge: todoCount > 0 ? todoCount : null,
-            selected: segment == 0,
-            onTap: () => onChanged(0),
+            selected: segment == InboxSegment.todo,
+            onTap: () => onChanged(InboxSegment.todo),
           ),
           _SegmentButton(
             label: l10n.inboxHistory,
-            selected: segment == 1,
-            onTap: () => onChanged(1),
-          ),
-          _SegmentButton(
-            label: l10n.inboxSegGrants,
-            selected: segment == 2,
-            onTap: () => onChanged(2),
+            selected: segment == InboxSegment.history,
+            onTap: () => onChanged(InboxSegment.history),
           ),
         ],
       ),
