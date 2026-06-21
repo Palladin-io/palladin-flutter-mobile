@@ -17,6 +17,7 @@ import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
 import '../../../approval/presentation/widgets/approve_grant_sheet.dart';
 import '../../../approval/presentation/widgets/deny_grant_sheet.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../../domain/entities/inbox_notification.dart';
 import '../cubit/notification_center_cubit.dart';
 import '../widgets/notification_card.dart';
@@ -88,8 +89,12 @@ class _NotificationCenterView extends StatefulWidget {
 }
 
 class _NotificationCenterViewState extends State<_NotificationCenterView> {
+  /// Grants is the last segment (after To-do / History) and the only one that
+  /// renders a live, mutable list instead of the immutable log feed.
+  static const int _grantsSegment = 2;
+
   final TextEditingController _searchController = TextEditingController();
-  int _segment = 0; // 0 = to-do, 1 = history
+  int _segment = 0; // 0 = to-do, 1 = history, 2 = grants
   bool _filtersOpen = false;
 
   /// Multi-select type filter (empty = show all). Mirrors the web filter.
@@ -330,36 +335,50 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: AppSearchField(
-                  controller: _searchController,
-                  hint: l10n.inboxSearchHint,
-                  onChanged: (_) => setState(() {}),
-                  filterActive: _filtersOpen || _typeFilter.isNotEmpty,
-                  onToggleFilter: () =>
-                      setState(() => _filtersOpen = !_filtersOpen),
-                ),
-              ),
-              if (_filtersOpen)
+              // Search + type-filter apply to the immutable log segments only;
+              // the Grants segment reuses the org-grants list with its own UI.
+              if (_segment != _grantsSegment) ...[
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                  child: _TypeFilterChips(
-                    selected: _typeFilter,
-                    onToggle: (type) => setState(() {
-                      if (!_typeFilter.add(type)) _typeFilter.remove(type);
-                    }),
-                    onClear: () => setState(_typeFilter.clear),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: AppSearchField(
+                    controller: _searchController,
+                    hint: l10n.inboxSearchHint,
+                    onChanged: (_) => setState(() {}),
+                    filterActive: _filtersOpen || _typeFilter.isNotEmpty,
+                    onToggleFilter: () =>
+                        setState(() => _filtersOpen = !_filtersOpen),
                   ),
                 ),
+                if (_filtersOpen)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                    child: _TypeFilterChips(
+                      selected: _typeFilter,
+                      onToggle: (type) => setState(() {
+                        if (!_typeFilter.add(type)) _typeFilter.remove(type);
+                      }),
+                      onClear: () => setState(_typeFilter.clear),
+                    ),
+                  ),
+              ],
               const SizedBox(height: 12),
-              Expanded(child: _Feed(
-                segment: _segment,
-                query: _searchController.text,
-                typeFilter: _typeFilter,
-                onTapItem: _onTap,
-                onSecondary: _onSecondary,
-              )),
+              Expanded(
+                child: _segment == _grantsSegment
+                    // Live-state org-wide grants list (the only mutable surface
+                    // in the inbox) — reuses ContextGrantsTab with no filter so
+                    // it shows every org grant with inline Revoke / re-grant.
+                    ? ContextGrantsTab(
+                        emptyTitle: l10n.inboxGrantsEmpty,
+                        emptyHint: l10n.inboxGrantsEmptyHint,
+                      )
+                    : _Feed(
+                        segment: _segment,
+                        query: _searchController.text,
+                        typeFilter: _typeFilter,
+                        onTapItem: _onTap,
+                        onSecondary: _onSecondary,
+                      ),
+              ),
             ],
           ),
         ),
@@ -649,14 +668,17 @@ class _NotificationItemTileState extends State<_NotificationItemTile> {
     }
 
     // Everything else (resolved, informational, or unknown future types): a
-    // single "View" link to the owning surface — rendered only when a
-    // deep-link target exists, otherwise the card has no footer.
-    final target = notificationDeepLink(item);
+    // single contextual "View" link (View Agent / View Access / View Entry) to
+    // the owning surface — rendered only when a deep-link target exists,
+    // otherwise the card has no footer.
+    final route = notificationDeepLink(item);
+    final target = notificationViewTarget(item);
+    final hasView = route != null && target != null;
     return NotificationCard(
       item: item,
       onTap: onTap,
-      onView: target != null ? onTap : null,
-      viewLabel: target != null ? l10n.inboxView : null,
+      onView: hasView ? onTap : null,
+      viewLabel: hasView ? notificationViewLabel(l10n, target) : null,
     );
   }
 }
@@ -697,6 +719,11 @@ class _SegmentToggle extends StatelessWidget {
             label: l10n.inboxHistory,
             selected: segment == 1,
             onTap: () => onChanged(1),
+          ),
+          _SegmentButton(
+            label: l10n.inboxSegGrants,
+            selected: segment == 2,
+            onTap: () => onChanged(2),
           ),
         ],
       ),

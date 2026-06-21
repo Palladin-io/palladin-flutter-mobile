@@ -1725,6 +1725,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get inboxHistory => 'Historia';
 
   @override
+  String get inboxSegGrants => 'Granty';
+
+  @override
   String get inboxSearchHint => 'Szukaj po agencie, wpisie lub vaultcie…';
 
   @override
@@ -1734,7 +1737,20 @@ class AppLocalizationsPl extends AppLocalizations {
   String get inboxAcceptAction => 'Akceptuj';
 
   @override
-  String get inboxView => 'Zobacz';
+  String get inboxViewAgent => 'Zobacz agenta';
+
+  @override
+  String get inboxViewAccess => 'Zobacz dostęp';
+
+  @override
+  String get inboxViewEntry => 'Zobacz wpis';
+
+  @override
+  String get inboxGrantsEmpty => 'Brak grantów';
+
+  @override
+  String get inboxGrantsEmptyHint =>
+      'Dostęp nadany Twoim agentom pojawi się tutaj.';
 
   @override
   String get inboxActionGone => 'Ta akcja nie jest już dostępna.';

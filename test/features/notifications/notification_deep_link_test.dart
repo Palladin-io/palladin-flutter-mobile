@@ -1,8 +1,12 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_claw_vault/features/notifications/domain/entities/inbox_notification.dart';
 import 'package:mobile_claw_vault/features/notifications/presentation/widgets/notification_format.dart';
+import 'package:mobile_claw_vault/l10n/generated/app_localizations.dart';
 
 void main() {
+  final l10n = lookupAppLocalizations(const Locale('en'));
+
   InboxNotification make(String type, Map<String, dynamic> metadata) {
     return InboxNotification(
       id: 'n',
@@ -65,6 +69,63 @@ void main() {
         'agentId': 'a-5',
       });
       expect(notificationDeepLink(n), '/agents/a-5');
+    });
+  });
+
+  group('notificationViewTarget (contextual View label)', () {
+    test('agent deep-link → agent target → "View Agent"', () {
+      final n = make('agent_approved', {'actionDeepLink': '/agents/a-1'});
+      expect(notificationViewTarget(n), NotificationViewTarget.agent);
+      expect(
+        notificationViewLabel(l10n, notificationViewTarget(n)!),
+        l10n.inboxViewAgent,
+      );
+    });
+
+    test('grant deep-link → access target → "View Access"', () {
+      final n = make('grant_approved', {
+        'actionDeepLink': '/vaults/v-1/grants/g-1',
+      });
+      expect(notificationViewTarget(n), NotificationViewTarget.access);
+      expect(
+        notificationViewLabel(l10n, notificationViewTarget(n)!),
+        l10n.inboxViewAccess,
+      );
+    });
+
+    test('entry deep-link → entry target → "View Entry"', () {
+      final n = make('credential_stale', {
+        'actionDeepLink': '/vaults/v-1/entries/e-1',
+      });
+      expect(notificationViewTarget(n), NotificationViewTarget.entry);
+      expect(
+        notificationViewLabel(l10n, notificationViewTarget(n)!),
+        l10n.inboxViewEntry,
+      );
+    });
+
+    test('bare vault deep-link → access target (grant context)', () {
+      final n = make('grant_denied', {'actionDeepLink': '/vaults/v-1'});
+      expect(notificationViewTarget(n), NotificationViewTarget.access);
+    });
+
+    test('falls back to notification type when no deep-link present', () {
+      expect(
+        notificationViewTarget(make('agent_approved', const {})),
+        NotificationViewTarget.agent,
+      );
+      expect(
+        notificationViewTarget(make('grant_revoked', const {})),
+        NotificationViewTarget.access,
+      );
+      expect(
+        notificationViewTarget(make('credential_stale', const {})),
+        NotificationViewTarget.entry,
+      );
+    });
+
+    test('unknown type with no deep-link has no view target', () {
+      expect(notificationViewTarget(make('future_unknown', const {})), isNull);
     });
   });
 }

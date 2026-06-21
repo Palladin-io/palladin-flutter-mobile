@@ -3056,6 +3056,12 @@ abstract class AppLocalizations {
   /// **'History'**
   String get inboxHistory;
 
+  /// No description provided for @inboxSegGrants.
+  ///
+  /// In en, this message translates to:
+  /// **'Grants'**
+  String get inboxSegGrants;
+
   /// No description provided for @inboxSearchHint.
   ///
   /// In en, this message translates to:
@@ -3074,11 +3080,35 @@ abstract class AppLocalizations {
   /// **'Accept'**
   String get inboxAcceptAction;
 
-  /// No description provided for @inboxView.
+  /// No description provided for @inboxViewAgent.
   ///
   /// In en, this message translates to:
-  /// **'View'**
-  String get inboxView;
+  /// **'View Agent'**
+  String get inboxViewAgent;
+
+  /// No description provided for @inboxViewAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'View Access'**
+  String get inboxViewAccess;
+
+  /// No description provided for @inboxViewEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'View Entry'**
+  String get inboxViewEntry;
+
+  /// No description provided for @inboxGrantsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No grants yet'**
+  String get inboxGrantsEmpty;
+
+  /// No description provided for @inboxGrantsEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Access you grant to your agents will appear here.'**
+  String get inboxGrantsEmptyHint;
 
   /// No description provided for @inboxActionGone.
   ///

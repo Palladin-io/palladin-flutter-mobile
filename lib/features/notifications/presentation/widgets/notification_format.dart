@@ -301,6 +301,59 @@ String? notificationDeepLink(InboxNotification n) {
   return null;
 }
 
+/// The kind of surface a notification's "View" link points at — drives the
+/// contextual footer label (View Agent / View Access / View Entry).
+enum NotificationViewTarget { agent, access, entry }
+
+/// Classifies a notification's deep-link target so the "View" footer can carry
+/// a contextual label instead of a generic "View". Derives the target from the
+/// `actionDeepLink` prefix first (authoritative), then falls back to the
+/// notification [type]. Returns null when the type/link is unknown — the caller
+/// then shows no footer.
+NotificationViewTarget? notificationViewTarget(InboxNotification n) {
+  final raw = _str(n, 'actionDeepLink');
+  if (raw != null) {
+    final segments =
+        raw.split('/').where((part) => part.isNotEmpty).toList(growable: false);
+    if (segments.isNotEmpty) {
+      switch (segments[0]) {
+        case 'agents':
+          return NotificationViewTarget.agent;
+        case 'vaults':
+          // /vaults/{id}/entries/... → entry, /vaults/{id}/grants/... → access,
+          // bare /vaults/{id} → access (grant context).
+          if (segments.length >= 3 && segments[2] == 'entries') {
+            return NotificationViewTarget.entry;
+          }
+          return NotificationViewTarget.access;
+      }
+    }
+  }
+  switch (n.type) {
+    case 'agent_pending':
+    case 'agent_approved':
+      return NotificationViewTarget.agent;
+    case 'grant_pending':
+    case 'grant_approved':
+    case 'grant_denied':
+    case 'grant_revoked':
+      return NotificationViewTarget.access;
+    case 'credential_stale':
+      return NotificationViewTarget.entry;
+    default:
+      return null;
+  }
+}
+
+/// Localized contextual "View" label for a notification's footer link.
+String notificationViewLabel(AppLocalizations l10n, NotificationViewTarget t) {
+  return switch (t) {
+    NotificationViewTarget.agent => l10n.inboxViewAgent,
+    NotificationViewTarget.access => l10n.inboxViewAccess,
+    NotificationViewTarget.entry => l10n.inboxViewEntry,
+  };
+}
+
 /// Localized error copy for the inbox.
 String notificationErrorMessage(
   AppLocalizations l10n,
