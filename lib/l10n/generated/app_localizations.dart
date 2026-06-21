@@ -3068,41 +3068,17 @@ abstract class AppLocalizations {
   /// **'Mark all read'**
   String get inboxMarkAllRead;
 
-  /// No description provided for @inboxReviewAction.
-  ///
-  /// In en, this message translates to:
-  /// **'Review'**
-  String get inboxReviewAction;
-
   /// No description provided for @inboxAcceptAction.
   ///
   /// In en, this message translates to:
   /// **'Accept'**
   String get inboxAcceptAction;
 
-  /// No description provided for @inboxUpdateAction.
+  /// No description provided for @inboxView.
   ///
   /// In en, this message translates to:
-  /// **'Update'**
-  String get inboxUpdateAction;
-
-  /// No description provided for @inboxRegrantAction.
-  ///
-  /// In en, this message translates to:
-  /// **'Grant again'**
-  String get inboxRegrantAction;
-
-  /// No description provided for @inboxActiveAccessNote.
-  ///
-  /// In en, this message translates to:
-  /// **'Agent has active access'**
-  String get inboxActiveAccessNote;
-
-  /// No description provided for @inboxDismiss.
-  ///
-  /// In en, this message translates to:
-  /// **'Dismiss'**
-  String get inboxDismiss;
+  /// **'View'**
+  String get inboxView;
 
   /// No description provided for @inboxActionGone.
   ///
@@ -3307,30 +3283,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'—'**
   String get notifPlaceholder;
-
-  /// No description provided for @notifStatusPending.
-  ///
-  /// In en, this message translates to:
-  /// **'Pending'**
-  String get notifStatusPending;
-
-  /// No description provided for @notifStatusActive.
-  ///
-  /// In en, this message translates to:
-  /// **'Active'**
-  String get notifStatusActive;
-
-  /// No description provided for @notifStatusRevoked.
-  ///
-  /// In en, this message translates to:
-  /// **'Revoked'**
-  String get notifStatusRevoked;
-
-  /// No description provided for @notifStatusDenied.
-  ///
-  /// In en, this message translates to:
-  /// **'Denied'**
-  String get notifStatusDenied;
 
   /// No description provided for @notifFilterTitle.
   ///

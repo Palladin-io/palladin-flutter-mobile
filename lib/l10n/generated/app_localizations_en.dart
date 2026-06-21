@@ -1712,22 +1712,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get inboxMarkAllRead => 'Mark all read';
 
   @override
-  String get inboxReviewAction => 'Review';
-
-  @override
   String get inboxAcceptAction => 'Accept';
 
   @override
-  String get inboxUpdateAction => 'Update';
-
-  @override
-  String get inboxRegrantAction => 'Grant again';
-
-  @override
-  String get inboxActiveAccessNote => 'Agent has active access';
-
-  @override
-  String get inboxDismiss => 'Dismiss';
+  String get inboxView => 'View';
 
   @override
   String get inboxActionGone => 'This action is no longer available.';
@@ -1845,18 +1833,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notifPlaceholder => '—';
-
-  @override
-  String get notifStatusPending => 'Pending';
-
-  @override
-  String get notifStatusActive => 'Active';
-
-  @override
-  String get notifStatusRevoked => 'Revoked';
-
-  @override
-  String get notifStatusDenied => 'Denied';
 
   @override
   String get notifFilterTitle => 'Filter by type';

@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
-import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/skeleton_box.dart';
@@ -109,7 +108,7 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     await notifications.markRead(item.id);
     if (!mounted) return;
     if (item.isOpenAction) {
-      if (_isGrant(item)) {
+      if (item.type == 'grant_pending') {
         await _approveGrant(item);
         return;
       }
@@ -120,8 +119,6 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     }
     _deepLink(item);
   }
-
-  bool _isGrant(InboxNotification item) => item.type.startsWith('grant_');
 
   // ── agent flows ────────────────────────────────────────────────────────
 
@@ -220,34 +217,23 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     });
   }
 
-  /// Navigates a non-grant (or resolved) item to its owning surface.
+  /// Navigates a resolved/informational item to its owning surface via the
+  /// backend-supplied `actionDeepLink` (collapsed to agent/vault detail on
+  /// mobile). No-op when there is no usable target.
   void _deepLink(InboxNotification item) {
-    final agentId = item.agentId;
-    final vaultId = item.vaultId;
-    switch (item.type) {
-      case 'agent_pending':
-      case 'agent_approved':
-      case 'grant_revoked':
-      case 'grant_approved':
-      case 'grant_denied':
-        if (agentId != null) context.go(AppRoutes.agentDetail(agentId));
-      case 'credential_stale':
-        if (vaultId != null) context.go(AppRoutes.vaultDetail(vaultId));
-    }
+    final target = notificationDeepLink(item);
+    if (target != null) context.go(target);
   }
 
-  /// Secondary footer action (Deny / Dismiss) dispatched by type.
+  /// Secondary footer action (Deny) for the two action-required pending types.
   Future<void> _onSecondary(InboxNotification item) async {
-    if (_isGrant(item)) {
+    if (item.type == 'grant_pending') {
       await _denyGrant(item);
       return;
     }
     if (item.type == 'agent_pending') {
       await _denyAgent(item);
-      return;
     }
-    // Other action-required types: dismiss = mark read.
-    await context.read<NotificationCenterCubit>().markRead(item.id);
   }
 
   // ── build ────────────────────────────────────────────────────────────
@@ -641,80 +627,37 @@ class _NotificationItemTileState extends State<_NotificationItemTile> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
     final item = widget.item;
     final onTap = widget.onTap;
     final onSecondary = widget.onSecondary;
 
-    // Every card carries a status pill under the date — "Pending" for open
-    // action-required items, terminal statuses (Active/Denied/Revoked) for the
-    // rest.
-    final pill = notificationStatusPill(l10n, item, brightness);
-
-    // To-do: live action buttons per type.
-    if (item.isOpenAction) {
-      return switch (item.type) {
-        'grant_pending' => NotificationCard(
-            item: item,
-            onTap: onTap,
-            statusPill: pill,
-            onSecondary: onSecondary,
-            secondaryLabel: l10n.approvalDeny,
-            onPrimary: onTap,
-            primaryLabel: l10n.approvalApprove,
-          ),
-        'agent_pending' => NotificationCard(
-            item: item,
-            onTap: onTap,
-            statusPill: pill,
-            onSecondary: onSecondary,
-            secondaryLabel: l10n.approvalDeny,
-            onPrimary: onTap,
-            primaryLabel: l10n.inboxAcceptAction,
-          ),
-        'credential_stale' => NotificationCard(
-            item: item,
-            onTap: onTap,
-            statusPill: pill,
-            onSecondary: onSecondary,
-            secondaryLabel: l10n.inboxDismiss,
-            onPrimary: onTap,
-            primaryLabel: l10n.inboxUpdateAction,
-          ),
-        _ => NotificationCard(
-            item: item,
-            onTap: onTap,
-            statusPill: pill,
-            onSecondary: onSecondary,
-            secondaryLabel: l10n.inboxDismiss,
-          ),
-      };
+    // Action-required PENDING grant/agent: the only cards with inline
+    // mutating actions (Approve / Deny). Every other card is an immutable log
+    // entry with at most a non-mutating "View" deep-link.
+    if (item.isOpenAction &&
+        (item.type == 'grant_pending' || item.type == 'agent_pending')) {
+      return NotificationCard(
+        item: item,
+        onTap: onTap,
+        onSecondary: onSecondary,
+        secondaryLabel: l10n.approvalDeny,
+        onPrimary: onTap,
+        primaryLabel: item.type == 'agent_pending'
+            ? l10n.inboxAcceptAction
+            : l10n.approvalApprove,
+      );
     }
 
-    // History: status pill + single contextual action / note.
-    return switch (item.type) {
-      'grant_approved' => NotificationCard(
-          item: item,
-          onTap: onTap,
-          statusPill: pill,
-          footerNote: l10n.inboxActiveAccessNote,
-        ),
-      'grant_revoked' || 'grant_denied' => NotificationCard(
-          item: item,
-          onTap: onTap,
-          statusPill: pill,
-          onPrimary: onTap,
-          primaryLabel: l10n.inboxRegrantAction,
-        ),
-      'agent_approved' => NotificationCard(
-          item: item,
-          onTap: onTap,
-          statusPill: pill,
-          onPrimary: onTap,
-          primaryLabel: l10n.inboxReviewAction,
-        ),
-      _ => NotificationCard(item: item, onTap: onTap, statusPill: pill),
-    };
+    // Everything else (resolved, informational, or unknown future types): a
+    // single "View" link to the owning surface — rendered only when a
+    // deep-link target exists, otherwise the card has no footer.
+    final target = notificationDeepLink(item);
+    return NotificationCard(
+      item: item,
+      onTap: onTap,
+      onView: target != null ? onTap : null,
+      viewLabel: target != null ? l10n.inboxView : null,
+    );
   }
 }
 

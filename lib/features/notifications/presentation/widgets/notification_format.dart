@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../grants/presentation/widgets/grant_format.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -270,32 +271,34 @@ String notificationAgentId(InboxNotification n) => _str(n, 'agentId') ?? '';
 String? notificationAgentIconColor(InboxNotification n) =>
     _str(n, 'agentIconColor');
 
-/// Status pill (label + color) shown under the date on **every** card.
-/// Open action-required items (agent_pending / grant_pending / credential_stale)
-/// read "Pending"; terminal items read Active / Denied / Revoked.
-/// [brightness] picks the on-palette amber (darker in light mode) for
-/// pending / denied.
-({String label, Color color}) notificationStatusPill(
-  AppLocalizations l10n,
-  InboxNotification n,
-  Brightness brightness,
-) {
-  if (n.isOpenAction) {
-    return (label: l10n.notifStatusPending, color: AppColors.premium(brightness));
+/// Resolves the in-app navigation target for a notification's `actionDeepLink`
+/// metadata (sent by the backend, e.g. `/agents/{id}`,
+/// `/vaults/{vaultId}/grants/{grantId}`, `/vaults/{vaultId}/entries/{entryId}`).
+///
+/// Mobile only has agent- and vault-detail screens, so grant/entry deep-links
+/// collapse to their owning vault. Returns null when there is no usable target
+/// — the card then renders without a footer.
+String? notificationDeepLink(InboxNotification n) {
+  final raw = _str(n, 'actionDeepLink');
+  if (raw != null) {
+    final segments =
+        raw.split('/').where((part) => part.isNotEmpty).toList(growable: false);
+    if (segments.length >= 2) {
+      switch (segments[0]) {
+        case 'agents':
+          return AppRoutes.agentDetail(segments[1]);
+        case 'vaults':
+          // Any vault sub-resource (grant/entry) collapses to vault detail.
+          return AppRoutes.vaultDetail(segments[1]);
+      }
+    }
   }
-  switch (n.type) {
-    case 'grant_approved':
-    case 'agent_approved':
-      return (label: l10n.notifStatusActive, color: AppColors.positiveAccent);
-    case 'grant_revoked':
-      return (label: l10n.notifStatusRevoked, color: AppColors.brandRed);
-    case 'grant_denied':
-      return (label: l10n.notifStatusDenied, color: AppColors.premium(brightness));
-    default:
-      // Resolved/informational with no specific terminal status — show
-      // "Active" as a neutral positive marker so the layout stays consistent.
-      return (label: l10n.notifStatusActive, color: AppColors.positiveAccent);
-  }
+  // Fallback to ids in metadata when the backend sent no deep-link.
+  final agentId = _str(n, 'agentId');
+  if (agentId != null) return AppRoutes.agentDetail(agentId);
+  final vaultId = _str(n, 'vaultId');
+  if (vaultId != null) return AppRoutes.vaultDetail(vaultId);
+  return null;
 }
 
 /// Localized error copy for the inbox.
