@@ -263,6 +263,13 @@ abstract final class AppColors {
           ? const Color(0x0FFDF9E4)
           : const Color(0x0F000B2E);
 
+  /// Neutral OFF-state track for the compact [AppToggle] — a muted grey that
+  /// reads clearly as "off" (not disabled) in both themes.
+  static Color toggleTrackOff(Brightness b) =>
+      b == Brightness.dark
+          ? const Color(0x33FDF9E4)
+          : const Color(0x33000B2E);
+
   /// Footer overlay on a glass card — nearly transparent navy tint in
   /// light mode (`rgba(0,11,46,0.015)`) and a nearly transparent cream
   /// tint in dark mode (`rgba(253,249,228,0.02)`). Used to subtly set the

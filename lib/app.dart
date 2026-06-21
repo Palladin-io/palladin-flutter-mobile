@@ -17,6 +17,7 @@ import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/notifications/data/services/notification_signalr_service.dart';
 import 'features/notifications/data/services/push_notification_service.dart';
 import 'features/notifications/domain/entities/push_message.dart';
+import 'features/notifications/presentation/cubit/notification_center_cubit.dart';
 import 'features/notifications/presentation/cubit/push_navigation_cubit.dart';
 
 class ClawVaultApp extends StatefulWidget {
@@ -105,22 +106,28 @@ class _ClawVaultAppState extends State<ClawVaultApp>
     if (_authBloc.state is! AuthAuthenticated) return;
     getIt<AgentsCubit>().refresh();
     getIt<PendingGrantsCubit>().refresh();
+    getIt<NotificationCenterCubit>().refresh();
   }
 
-  /// A foreground push arrived — refresh the list it affects (agents for
-  /// agent_pending; grant lifecycle events also touch the agents/approvals
-  /// surfaces). Best-effort and auth-gated.
+  /// A foreground push arrived — refresh the Inbox plus the source list it
+  /// affects. Best-effort and auth-gated.
   void _onForegroundPush(PushMessage message) {
     if (_authBloc.state is! AuthAuthenticated) return;
+    getIt<NotificationCenterCubit>().refresh();
     switch (message.type) {
       case PushNotificationType.agentPending:
+      case PushNotificationType.agentApproved:
         getIt<AgentsCubit>().refresh();
       case PushNotificationType.grantPending:
       case PushNotificationType.grantApproved:
-        // A grant lifecycle change touches both the agents surface and the
-        // pending-approvals queue (and its nav badge).
+      case PushNotificationType.grantRevoked:
+        // A grant lifecycle change also touches agents and the pending-grants
+        // queue used by Inbox actions.
         getIt<AgentsCubit>().refresh();
         getIt<PendingGrantsCubit>().refresh();
+      case PushNotificationType.credentialStale:
+        // Inbox already refreshed above; nothing else to sync.
+        break;
       case PushNotificationType.unknown:
         break;
     }
@@ -212,6 +219,7 @@ class _ClawVaultAppState extends State<ClawVaultApp>
     } else if (state is AuthUnauthenticated) {
       _pushService.unregister();
       _signalR.disconnect();
+      getIt<NotificationCenterCubit>().reset();
     }
   }
 

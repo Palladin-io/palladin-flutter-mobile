@@ -15,6 +15,15 @@ enum PushNotificationType {
   /// A new agent enrolled and is pending approval.
   agentPending('agent_pending'),
 
+  /// An agent was approved — informational update; deep-links to the agent.
+  agentApproved('agent_approved'),
+
+  /// An agent's grant was revoked — surfaced in the inbox.
+  grantRevoked('grant_revoked'),
+
+  /// An agent reported a credential no longer works (action-required).
+  credentialStale('credential_stale'),
+
   /// Unknown / future type — the app shows the notification but performs
   /// no deep-link navigation.
   unknown('unknown');
@@ -37,6 +46,12 @@ enum PushNotificationType {
         return PushNotificationType.grantApproved;
       case 'agent_pending':
         return PushNotificationType.agentPending;
+      case 'agent_approved':
+        return PushNotificationType.agentApproved;
+      case 'grant_revoked':
+        return PushNotificationType.grantRevoked;
+      case 'credential_stale':
+        return PushNotificationType.credentialStale;
       default:
         return PushNotificationType.unknown;
     }
@@ -53,12 +68,17 @@ class PushMessage {
     required this.type,
     this.title,
     this.body,
+    this.notificationId,
     this.grantId,
     this.agentId,
     this.entryId,
   });
 
   final PushNotificationType type;
+
+  /// Inbox notification id (frozen contract: push carries `notificationId` +
+  /// `type`). Used to deep-link to `/inbox?focus=<id>` and mark it read.
+  final String? notificationId;
 
   /// Notification title (for the in-app foreground banner only — the OS
   /// renders the background/terminated notification itself).
@@ -90,6 +110,7 @@ class PushMessage {
       type: PushNotificationType.fromRaw(str('type')),
       title: title,
       body: body,
+      notificationId: str('notificationId'),
       grantId: str('grantId'),
       agentId: str('agentId'),
       entryId: str('entryId'),
@@ -102,6 +123,7 @@ class PushMessage {
   Map<String, dynamic> toRoutingData() {
     return <String, dynamic>{
       'type': type.wireValue,
+      if (notificationId != null) 'notificationId': notificationId,
       if (grantId != null) 'grantId': grantId,
       if (agentId != null) 'agentId': agentId,
       if (entryId != null) 'entryId': entryId,

@@ -1,0 +1,105 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_claw_vault/features/notifications/data/models/inbox_notification_model.dart';
+import 'package:mobile_claw_vault/features/notifications/domain/entities/inbox_notification.dart';
+
+void main() {
+  test('parses an open action-required notification (backend camelCase)', () {
+    final model = InboxNotificationModel.fromJson({
+      'id': 'notification-1',
+      'type': 'grant_pending',
+      // Backend serializes camelCase enum values.
+      'category': 'actionRequired',
+      'titleKey': 'grant_pending',
+      'metadata': {'grantId': 'grant-1', 'agentName': 'Acme-bot'},
+      'actionState': 'pending',
+      'occurredAt': '2026-06-15T12:00:00Z',
+    }).toEntity();
+
+    expect(model.id, 'notification-1');
+    expect(model.grantId, 'grant-1');
+    expect(model.metadata['agentName'], 'Acme-bot');
+    expect(model.category, NotificationCategory.actionRequired);
+    expect(model.actionState, NotificationActionState.pending);
+    expect(model.isOpenAction, isTrue);
+    expect(model.isRead, isFalse);
+    expect(model.occurredAt.isUtc, isFalse);
+  });
+
+  test('tolerates PascalCase / snake_case category fallbacks', () {
+    for (final raw in ['actionRequired', 'ActionRequired', 'action_required']) {
+      final model = InboxNotificationModel.fromJson({
+        'id': 'n',
+        'type': 'grant_pending',
+        'category': raw,
+        'actionState': 'pending',
+        'occurredAt': '2026-06-15T12:00:00Z',
+      }).toEntity();
+      expect(
+        model.category,
+        NotificationCategory.actionRequired,
+        reason: 'category "$raw" should map to actionRequired',
+      );
+    }
+  });
+
+  test('resolved action-required item is not an open action', () {
+    final model = InboxNotificationModel.fromJson({
+      'id': 'notification-3',
+      'type': 'grant_revoked',
+      'category': 'actionRequired',
+      'titleKey': 'grant_revoked',
+      'metadata': {'agentName': 'old-bot'},
+      'actionState': 'resolved',
+      'occurredAt': '2026-06-15T12:00:00Z',
+      'readAt': '2026-06-15T12:30:00Z',
+    }).toEntity();
+
+    expect(model.isOpenAction, isFalse);
+    expect(model.isRead, isTrue);
+  });
+
+  test('tolerates missing optional and open-contract fields', () {
+    final model = InboxNotificationModel.fromJson({
+      'id': 'notification-2',
+      'type': 'future_type',
+      'occurredAt': 'invalid',
+    }).toEntity();
+
+    expect(model.metadata, isEmpty);
+    expect(model.category, NotificationCategory.update);
+    expect(model.actionState, NotificationActionState.none);
+    expect(model.isRead, isFalse);
+    expect(model.isOpenAction, isFalse);
+  });
+
+  test('resolved grant/agent pending items are collapsed', () {
+    for (final type in ['grant_pending', 'agent_pending']) {
+      final model = InboxNotificationModel.fromJson({
+        'id': 'n',
+        'type': type,
+        'category': 'actionRequired',
+        'actionState': 'resolved',
+        'occurredAt': '2026-06-16T12:00:00Z',
+      }).toEntity();
+      expect(
+        model.isCollapsedPending,
+        isTrue,
+        reason: 'resolved $type should be collapsed (hidden)',
+      );
+      expect(model.isOpenAction, isFalse);
+    }
+  });
+
+  test('pending grant request is not collapsed', () {
+    final model = InboxNotificationModel.fromJson({
+      'id': 'n',
+      'type': 'grant_pending',
+      'category': 'actionRequired',
+      'actionState': 'pending',
+      'occurredAt': '2026-06-16T12:00:00Z',
+    }).toEntity();
+
+    expect(model.isCollapsedPending, isFalse);
+    expect(model.isOpenAction, isTrue);
+  });
+}

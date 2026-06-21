@@ -1,0 +1,952 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../core/di/injection.dart';
+import '../../../../core/permissions.dart';
+import '../../../../core/router/app_router.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_search_field.dart';
+import '../../../../core/widgets/skeleton_box.dart';
+import '../../../../l10n/generated/app_localizations.dart';
+import '../../../agents/presentation/bloc/agents_cubit.dart';
+import '../../../agents/presentation/widgets/approve_agent_sheet.dart';
+import '../../../agents/presentation/widgets/deactivate_agent_sheet.dart';
+import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
+import '../../../approval/presentation/widgets/approve_grant_sheet.dart';
+import '../../../approval/presentation/widgets/deny_grant_sheet.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../domain/entities/inbox_notification.dart';
+import '../cubit/notification_center_cubit.dart';
+import '../widgets/notification_card.dart';
+import '../widgets/notification_format.dart';
+
+/// The Notification Center / Inbox — the durable replacement for Approvals.
+///
+/// Two segments: **To-do** (open action-required items) and **History**
+/// (everything resolved). Grant approve/deny reuses the existing
+/// zero-knowledge sheets; other types deep-link to their owning surface.
+class NotificationCenterPage extends StatefulWidget {
+  const NotificationCenterPage({super.key, this.focusId});
+
+  /// Notification id to mark read on open (push deep-link `/inbox?focus=…`).
+  final String? focusId;
+
+  @override
+  State<NotificationCenterPage> createState() => _NotificationCenterPageState();
+}
+
+class _NotificationCenterPageState extends State<NotificationCenterPage> {
+  late final NotificationCenterCubit _notifications =
+      getIt<NotificationCenterCubit>();
+  late final PendingGrantsCubit _pendingGrants = getIt<PendingGrantsCubit>();
+  late final AgentsCubit _agents = getIt<AgentsCubit>();
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    if (_notifications.state.status == NotificationCenterStatus.initial) {
+      await _notifications.load();
+    } else {
+      await _notifications.refresh();
+    }
+    if (_canManageGrants()) _pendingGrants.refresh();
+    final focusId = widget.focusId;
+    if (focusId != null) await _notifications.markRead(focusId);
+  }
+
+  bool _canManageGrants() {
+    final auth = context.read<AuthBloc>().state;
+    return auth is AuthAuthenticated &&
+        (auth.permissions & Permissions.grantManage) != 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<NotificationCenterCubit>.value(value: _notifications),
+        BlocProvider<PendingGrantsCubit>.value(value: _pendingGrants),
+        BlocProvider<AgentsCubit>.value(value: _agents),
+      ],
+      child: const _NotificationCenterView(),
+    );
+  }
+}
+
+class _NotificationCenterView extends StatefulWidget {
+  const _NotificationCenterView();
+
+  @override
+  State<_NotificationCenterView> createState() =>
+      _NotificationCenterViewState();
+}
+
+class _NotificationCenterViewState extends State<_NotificationCenterView> {
+  final TextEditingController _searchController = TextEditingController();
+  int _segment = 0; // 0 = to-do, 1 = history
+  bool _filtersOpen = false;
+
+  /// Multi-select type filter (empty = show all). Mirrors the web filter.
+  final Set<String> _typeFilter = <String>{};
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // ── actions ──────────────────────────────────────────────────────────
+
+  Future<void> _onTap(InboxNotification item) async {
+    final notifications = context.read<NotificationCenterCubit>();
+    await notifications.markRead(item.id);
+    if (!mounted) return;
+    if (item.isOpenAction) {
+      if (_isGrant(item)) {
+        await _approveGrant(item);
+        return;
+      }
+      if (item.type == 'agent_pending') {
+        await _approveAgent(item);
+        return;
+      }
+    }
+    _deepLink(item);
+  }
+
+  bool _isGrant(InboxNotification item) => item.type.startsWith('grant_');
+
+  // ── agent flows ────────────────────────────────────────────────────────
+
+  /// Approve a pending agent — opens the existing activation sheet, then runs
+  /// the agent approval mutation and marks the notification read.
+  Future<void> _approveAgent(InboxNotification item) async {
+    final agentId = item.agentId;
+    if (agentId == null) return;
+    final agents = context.read<AgentsCubit>();
+    final notifications = context.read<NotificationCenterCubit>();
+    final result = await ApproveAgentSheet.show(
+      context,
+      initialName: item.metadata['agentName'] as String?,
+    );
+    if (result == null) return;
+    await agents.approveAgent(
+      agentId,
+      name: result.name,
+      type: result.type,
+      iconKey: result.iconKey,
+    );
+    await notifications.refresh();
+  }
+
+  /// Deny a pending agent = deactivate it (no separate reject endpoint).
+  Future<void> _denyAgent(InboxNotification item) async {
+    final agentId = item.agentId;
+    if (agentId == null) return;
+    final agents = context.read<AgentsCubit>();
+    final notifications = context.read<NotificationCenterCubit>();
+    final agentName =
+        (item.metadata['agentName'] as String?) ?? item.agentId ?? '';
+    final confirmed = await DeactivateAgentSheet.show(context, agentName);
+    if (!confirmed) return;
+    await agents.deactivateAgent(agentId);
+    await notifications.markRead(item.id);
+    await notifications.refresh();
+  }
+
+  /// Resolves the pending grant from the source feed and shows the existing
+  /// zero-knowledge approval sheet. The Inbox event can arrive before the
+  /// pending-grants singleton observed the request, so we refresh first.
+  Future<void> _approveGrant(InboxNotification item) =>
+      _runGrantSheet(item, approve: true);
+
+  Future<void> _denyGrant(InboxNotification item) async {
+    await context.read<NotificationCenterCubit>().markRead(item.id);
+    if (!mounted) return;
+    await _runGrantSheet(item, approve: false);
+  }
+
+  Future<void> _runGrantSheet(
+    InboxNotification item, {
+    required bool approve,
+  }) async {
+    final pending = context.read<PendingGrantsCubit>();
+    // The Inbox event can arrive before the pending-grants singleton observed
+    // the new request, so refresh the source feed first, then resolve it.
+    await pending.refresh();
+    if (!context.mounted) return;
+    _showGrantSheet(item, approve: approve);
+  }
+
+  /// Synchronous continuation of [_runGrantSheet]: resolves the pending grant
+  /// from the (already refreshed) source feed and shows the existing
+  /// zero-knowledge sheet. Kept sync up to the sheet call so the BuildContext
+  /// is used without crossing an async gap.
+  void _showGrantSheet(InboxNotification item, {required bool approve}) {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    final notifications = context.read<NotificationCenterCubit>();
+    final pending = context.read<PendingGrantsCubit>();
+
+    final grantId = item.grantId;
+    PendingGrant? grant;
+    for (final candidate in pending.state.grants) {
+      if (candidate.grantId == grantId) {
+        grant = candidate;
+        break;
+      }
+    }
+    if (grant == null) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.inboxActionGone)));
+      unawaited(notifications.refresh());
+      return;
+    }
+
+    final resolved = grant;
+    final future = approve
+        ? ApproveGrantSheet.show(context, resolved)
+        : DenyGrantSheet.show(context, resolved);
+    future.then((handled) {
+      if (handled != true) return;
+      pending.removeGrant(resolved.grantId);
+      notifications.refresh();
+    });
+  }
+
+  /// Navigates a non-grant (or resolved) item to its owning surface.
+  void _deepLink(InboxNotification item) {
+    final agentId = item.agentId;
+    final vaultId = item.vaultId;
+    switch (item.type) {
+      case 'agent_pending':
+      case 'agent_approved':
+      case 'grant_revoked':
+      case 'grant_approved':
+      case 'grant_denied':
+        if (agentId != null) context.go(AppRoutes.agentDetail(agentId));
+      case 'credential_stale':
+        if (vaultId != null) context.go(AppRoutes.vaultDetail(vaultId));
+    }
+  }
+
+  /// Secondary footer action (Deny / Dismiss) dispatched by type.
+  Future<void> _onSecondary(InboxNotification item) async {
+    if (_isGrant(item)) {
+      await _denyGrant(item);
+      return;
+    }
+    if (item.type == 'agent_pending') {
+      await _denyAgent(item);
+      return;
+    }
+    // Other action-required types: dismiss = mark read.
+    await context.read<NotificationCenterCubit>().markRead(item.id);
+  }
+
+  // ── build ────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: AppColors.backgroundGradient(brightness),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          centerTitle: false,
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          scrolledUnderElevation: 0,
+          elevation: 0,
+          titleSpacing: 20,
+          iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
+          title: Text(
+            l10n.inboxTitle,
+            style: TextStyle(
+              color: AppColors.onSurface(brightness),
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          actions: [
+            BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
+              buildWhen: (p, c) =>
+                  p.unreadCount != c.unreadCount ||
+                  p.isMarkingAllRead != c.isMarkingAllRead,
+              builder: (context, state) {
+                final enabled =
+                    state.unreadCount > 0 && !state.isMarkingAllRead;
+                return TextButton.icon(
+                  onPressed: enabled
+                      ? () =>
+                          context.read<NotificationCenterCubit>().markAllRead()
+                      : null,
+                  icon: Icon(
+                    Icons.done_all,
+                    size: 16,
+                    color: enabled
+                        ? AppColors.tealAccent
+                        : AppColors.onSurfaceSubtle(brightness),
+                  ),
+                  label: Text(l10n.inboxMarkAllRead),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.tealAccent,
+                    disabledForegroundColor:
+                        AppColors.onSurfaceSubtle(brightness),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                );
+              },
+            ),
+            IconButton(
+              tooltip: l10n.notifPrefsTitle,
+              visualDensity: VisualDensity.compact,
+              icon: Icon(
+                Icons.tune,
+                size: 20,
+                color: AppColors.iconDefault(brightness),
+              ),
+              onPressed: () => context.push('/inbox/preferences'),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: BlocBuilder<NotificationCenterCubit,
+                    NotificationCenterState>(
+                  buildWhen: (p, c) =>
+                      p.pendingActionCount != c.pendingActionCount,
+                  builder: (context, state) => _SegmentToggle(
+                    segment: _segment,
+                    todoCount: state.pendingActionCount,
+                    onChanged: (i) => setState(() => _segment = i),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: AppSearchField(
+                  controller: _searchController,
+                  hint: l10n.inboxSearchHint,
+                  onChanged: (_) => setState(() {}),
+                  filterActive: _filtersOpen || _typeFilter.isNotEmpty,
+                  onToggleFilter: () =>
+                      setState(() => _filtersOpen = !_filtersOpen),
+                ),
+              ),
+              if (_filtersOpen)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                  child: _TypeFilterChips(
+                    selected: _typeFilter,
+                    onToggle: (type) => setState(() {
+                      if (!_typeFilter.add(type)) _typeFilter.remove(type);
+                    }),
+                    onClear: () => setState(_typeFilter.clear),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              Expanded(child: _Feed(
+                segment: _segment,
+                query: _searchController.text,
+                typeFilter: _typeFilter,
+                onTapItem: _onTap,
+                onSecondary: _onSecondary,
+              )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── feed ───────────────────────────────────────────────────────────────
+
+class _Feed extends StatelessWidget {
+  const _Feed({
+    required this.segment,
+    required this.query,
+    required this.typeFilter,
+    required this.onTapItem,
+    required this.onSecondary,
+  });
+
+  final int segment;
+  final String query;
+  final Set<String> typeFilter;
+  final ValueChanged<InboxNotification> onTapItem;
+  final ValueChanged<InboxNotification> onSecondary;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return RefreshIndicator(
+      color: AppColors.brandRed,
+      backgroundColor: AppColors.cardSurface(Theme.of(context).brightness),
+      onRefresh: () => context.read<NotificationCenterCubit>().refresh(),
+      child: BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
+        builder: (context, state) => switch (state.status) {
+          NotificationCenterStatus.initial ||
+          NotificationCenterStatus.loading => const _Skeleton(),
+          NotificationCenterStatus.error => _ErrorView(
+              message: notificationErrorMessage(l10n, state.error!),
+              onRetry: () => context.read<NotificationCenterCubit>().load(),
+            ),
+          NotificationCenterStatus.loaded => _List(
+              items: _filter(state.items),
+              isLoadingMore: state.isLoadingMore,
+              segment: segment,
+              onTapItem: onTapItem,
+              onSecondary: onSecondary,
+            ),
+        },
+      ),
+    );
+  }
+
+  List<InboxNotification> _filter(List<InboxNotification> items) {
+    final q = query.trim().toLowerCase();
+    return items
+        .where((item) {
+          // Collapse resolved pending action items — the backend zips them up
+          // once approved/denied, so never show a resolved To-do card.
+          if (item.isCollapsedPending) return false;
+          if (typeFilter.isNotEmpty && !typeFilter.contains(item.type)) {
+            return false;
+          }
+          final segmentMatches = segment == 0
+              ? item.isOpenAction
+              : !item.isOpenAction;
+          if (!segmentMatches) return false;
+          if (q.isEmpty) return true;
+          final haystack = [
+            item.type,
+            ...item.metadata.values.whereType<String>(),
+          ].join(' ').toLowerCase();
+          return haystack.contains(q);
+        })
+        .toList(growable: false);
+  }
+}
+
+class _List extends StatelessWidget {
+  const _List({
+    required this.items,
+    required this.isLoadingMore,
+    required this.segment,
+    required this.onTapItem,
+    required this.onSecondary,
+  });
+
+  final List<InboxNotification> items;
+  final bool isLoadingMore;
+  final int segment;
+  final ValueChanged<InboxNotification> onTapItem;
+  final ValueChanged<InboxNotification> onSecondary;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    if (items.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+        children: [
+          _EmptyCard(
+            icon: segment == 0 ? Icons.task_alt : Icons.history,
+            title: segment == 0 ? l10n.inboxTodoEmpty : l10n.inboxUpdatesEmpty,
+            hint: segment == 0
+                ? l10n.inboxTodoEmptyHint
+                : l10n.inboxUpdatesEmptyHint,
+          ),
+        ],
+      );
+    }
+    // No section header: each segment renders a single section (To-do or
+    // History), and we never label the first rendered section. The segment
+    // toggle already names the active list.
+    return NotificationListener<ScrollEndNotification>(
+      onNotification: (notification) {
+        if (notification.metrics.extentAfter < 160) {
+          context.read<NotificationCenterCubit>().loadMore();
+        }
+        return false;
+      },
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 96),
+        itemCount: items.length + (isLoadingMore ? 1 : 0),
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          if (index == items.length) {
+            return const Padding(
+              padding: EdgeInsets.all(12),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.brandRed),
+              ),
+            );
+          }
+          return _NotificationItemTile(
+            item: items[index],
+            onTap: () => onTapItem(items[index]),
+            onSecondary: () => onSecondary(items[index]),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Multi-select type filter chips (parity with web) — revealed by the search
+/// bar's `tune` toggle. Empty selection = show all. Each chip toggles one
+/// notification type; a "Clear" chip resets the selection.
+class _TypeFilterChips extends StatelessWidget {
+  const _TypeFilterChips({
+    required this.selected,
+    required this.onToggle,
+    required this.onClear,
+  });
+
+  final Set<String> selected;
+  final ValueChanged<String> onToggle;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final type in notificationFilterTypes)
+          _FilterChip(
+            label: notificationTypeName(l10n, type),
+            selected: selected.contains(type),
+            onTap: () => onToggle(type),
+          ),
+        if (selected.isNotEmpty)
+          _FilterChip(
+            label: l10n.notifFilterClear,
+            selected: false,
+            onTap: onClear,
+            tint: AppColors.onSurfaceMuted(brightness),
+          ),
+      ],
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.tint,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Color? tint;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final accent = tint ?? AppColors.brandRed;
+    final fg = selected ? AppColors.onBrandRed : AppColors.onSurfaceMuted(brightness);
+    return Material(
+      color: selected ? AppColors.brandRed : Colors.transparent,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? AppColors.brandRed : AppColors.cardBorder(brightness),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? fg : accent,
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Maps a notification to the right [NotificationCard] footer wiring.
+class _NotificationItemTile extends StatefulWidget {
+  const _NotificationItemTile({
+    required this.item,
+    required this.onTap,
+    required this.onSecondary,
+  });
+
+  final InboxNotification item;
+  final VoidCallback onTap;
+  final VoidCallback onSecondary;
+
+  @override
+  State<_NotificationItemTile> createState() => _NotificationItemTileState();
+}
+
+class _NotificationItemTileState extends State<_NotificationItemTile> {
+  @override
+  void initState() {
+    super.initState();
+    // Mark-on-view: a tile that mounts has scrolled into view, so mark it read
+    // (drops the unread badge after scrolling/opening). Scoped to the mount
+    // lifecycle — not re-fired on every rebuild — and scheduled post-frame so
+    // we never mutate cubit state during build; idempotent + de-duped in the
+    // cubit. Does NOT affect the To-do/action counter.
+    if (!widget.item.isRead) {
+      final cubit = context.read<NotificationCenterCubit>();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        cubit.markReadOnView(widget.item.id);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    final item = widget.item;
+    final onTap = widget.onTap;
+    final onSecondary = widget.onSecondary;
+
+    // Every card carries a status pill under the date — "Pending" for open
+    // action-required items, terminal statuses (Active/Denied/Revoked) for the
+    // rest.
+    final pill = notificationStatusPill(l10n, item, brightness);
+
+    // To-do: live action buttons per type.
+    if (item.isOpenAction) {
+      return switch (item.type) {
+        'grant_pending' => NotificationCard(
+            item: item,
+            onTap: onTap,
+            statusPill: pill,
+            onSecondary: onSecondary,
+            secondaryLabel: l10n.approvalDeny,
+            onPrimary: onTap,
+            primaryLabel: l10n.approvalApprove,
+          ),
+        'agent_pending' => NotificationCard(
+            item: item,
+            onTap: onTap,
+            statusPill: pill,
+            onSecondary: onSecondary,
+            secondaryLabel: l10n.approvalDeny,
+            onPrimary: onTap,
+            primaryLabel: l10n.inboxAcceptAction,
+          ),
+        'credential_stale' => NotificationCard(
+            item: item,
+            onTap: onTap,
+            statusPill: pill,
+            onSecondary: onSecondary,
+            secondaryLabel: l10n.inboxDismiss,
+            onPrimary: onTap,
+            primaryLabel: l10n.inboxUpdateAction,
+          ),
+        _ => NotificationCard(
+            item: item,
+            onTap: onTap,
+            statusPill: pill,
+            onSecondary: onSecondary,
+            secondaryLabel: l10n.inboxDismiss,
+          ),
+      };
+    }
+
+    // History: status pill + single contextual action / note.
+    return switch (item.type) {
+      'grant_approved' => NotificationCard(
+          item: item,
+          onTap: onTap,
+          statusPill: pill,
+          footerNote: l10n.inboxActiveAccessNote,
+        ),
+      'grant_revoked' || 'grant_denied' => NotificationCard(
+          item: item,
+          onTap: onTap,
+          statusPill: pill,
+          onPrimary: onTap,
+          primaryLabel: l10n.inboxRegrantAction,
+        ),
+      'agent_approved' => NotificationCard(
+          item: item,
+          onTap: onTap,
+          statusPill: pill,
+          onPrimary: onTap,
+          primaryLabel: l10n.inboxReviewAction,
+        ),
+      _ => NotificationCard(item: item, onTap: onTap, statusPill: pill),
+    };
+  }
+}
+
+// ── segmented toggle ─────────────────────────────────────────────────────
+
+class _SegmentToggle extends StatelessWidget {
+  const _SegmentToggle({
+    required this.segment,
+    required this.todoCount,
+    required this.onChanged,
+  });
+
+  final int segment;
+  final int todoCount;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: AppColors.cardFill(brightness),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.cardBorder(brightness)),
+      ),
+      child: Row(
+        children: [
+          _SegmentButton(
+            label: l10n.inboxTodo,
+            badge: todoCount > 0 ? todoCount : null,
+            selected: segment == 0,
+            onTap: () => onChanged(0),
+          ),
+          _SegmentButton(
+            label: l10n.inboxHistory,
+            selected: segment == 1,
+            onTap: () => onChanged(1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SegmentButton extends StatelessWidget {
+  const _SegmentButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.badge,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final int? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final fg = selected
+        ? AppColors.onBrandRed
+        : AppColors.onSurfaceMuted(brightness);
+    return Expanded(
+      child: Material(
+        color: selected ? AppColors.brandRed : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (badge != null) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? AppColors.onBrandRed.withValues(alpha: 0.25)
+                          : AppColors.brandRed,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '$badge',
+                      style: const TextStyle(
+                        color: AppColors.onBrandRed,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── shared sub-widgets ───────────────────────────────────────────────────
+
+class _EmptyCard extends StatelessWidget {
+  const _EmptyCard({
+    required this.icon,
+    required this.title,
+    required this.hint,
+  });
+
+  final IconData icon;
+  final String title;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      decoration: BoxDecoration(
+        color: AppColors.cardFill(brightness),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder(brightness)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 32, color: AppColors.onSurfaceSubtle(brightness)),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.onSurface(brightness),
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hint,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.onSurfaceSubtle(brightness),
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Skeleton extends StatelessWidget {
+  const _Skeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+      children: List.generate(
+        4,
+        (i) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: SkeletonBox(height: 112, delay: Duration(milliseconds: i * 80)),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.cardFill(brightness),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.cardBorder(brightness)),
+          ),
+          child: Column(
+            children: [
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.onSurface(brightness),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: onRetry,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.tealAccent,
+                ),
+                child: Text(l10n.approvalRetry),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}

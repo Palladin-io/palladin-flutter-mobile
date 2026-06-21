@@ -47,20 +47,26 @@ class PushNavigationCubit extends Cubit<String?> {
 
   /// Maps a [PushMessage] to a router location.
   ///
-  /// | type            | destination                         |
-  /// |-----------------|-------------------------------------|
-  /// | grant_pending   | `/approvals` (owner approval inbox) |
-  /// | agent_pending   | `/agents/{agentId}` else `/agents`  |
-  /// | grant_approved  | `/agents/{agentId}` else `/agents`  |
-  /// | unknown         | `null` (no navigation)              |
+  /// | type             | destination                               |
+  /// |------------------|-------------------------------------------|
+  /// | grant_pending    | `/inbox?focus=<id>` (owner business inbox)|
+  /// | grant_revoked    | `/inbox?focus=<id>`                        |
+  /// | credential_stale | `/inbox?focus=<id>`                        |
+  /// | agent_pending    | `/agents/{agentId}` else `/agents`        |
+  /// | grant_approved   | `/agents/{agentId}` else `/agents`        |
+  /// | unknown          | `null` (no navigation)                    |
   String? _resolveRoute(PushMessage message) {
     switch (message.type) {
-      // A new pending grant is owned by the Approvals inbox, not the agent
-      // detail — that's where the owner approves/denies it.
+      // Inbox-owned notifications open the business Inbox, not agent detail.
+      // Carry the notification id so the inbox can focus + mark it read.
       case PushNotificationType.grantPending:
-        return '/approvals';
+      case PushNotificationType.grantRevoked:
+      case PushNotificationType.credentialStale:
+        final id = message.notificationId;
+        return id != null ? '/inbox?focus=$id' : '/inbox';
       case PushNotificationType.grantApproved:
       case PushNotificationType.agentPending:
+      case PushNotificationType.agentApproved:
         final agentId = message.agentId;
         return agentId != null ? '/agents/$agentId' : '/agents';
       case PushNotificationType.unknown:

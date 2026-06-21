@@ -16,6 +16,25 @@ void main() {
         PushNotificationType.fromRaw('agent_pending'),
         PushNotificationType.agentPending,
       );
+      expect(
+        PushNotificationType.fromRaw('grant_revoked'),
+        PushNotificationType.grantRevoked,
+      );
+      expect(
+        PushNotificationType.fromRaw('credential_stale'),
+        PushNotificationType.credentialStale,
+      );
+      expect(
+        PushNotificationType.fromRaw('agent_approved'),
+        PushNotificationType.agentApproved,
+      );
+    });
+
+    test('wireValue round-trips for every known type', () {
+      for (final type in PushNotificationType.values) {
+        if (type == PushNotificationType.unknown) continue;
+        expect(PushNotificationType.fromRaw(type.wireValue), type);
+      }
     });
 
     test('falls back to unknown for null / unrecognized', () {
@@ -32,6 +51,7 @@ void main() {
       final message = PushMessage.fromData(
         <String, dynamic>{
           'type': 'grant_pending',
+          'notificationId': 'n-1',
           'grantId': 'g-1',
           'agentId': 'a-1',
           'entryId': 'e-1',
@@ -41,11 +61,25 @@ void main() {
       );
 
       expect(message.type, PushNotificationType.grantPending);
+      expect(message.notificationId, 'n-1');
       expect(message.grantId, 'g-1');
       expect(message.agentId, 'a-1');
       expect(message.entryId, 'e-1');
       expect(message.title, 'New grant');
       expect(message.body, 'Agent wants access');
+    });
+
+    test('toRoutingData round-trips the notification id', () {
+      final message = PushMessage.fromData(<String, dynamic>{
+        'type': 'grant_pending',
+        'notificationId': 'n-1',
+        'grantId': 'g-1',
+      });
+      final round = PushMessage.fromData(message.toRoutingData());
+
+      expect(round.notificationId, 'n-1');
+      expect(round.grantId, 'g-1');
+      expect(round.type, PushNotificationType.grantPending);
     });
 
     test('treats empty-string ids as null', () {
