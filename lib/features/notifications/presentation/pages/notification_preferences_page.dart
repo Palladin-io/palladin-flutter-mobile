@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_toggle.dart';
+import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/notification_preference.dart';
@@ -38,6 +39,8 @@ class _PreferencesView extends StatelessWidget {
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        // Suppress any FAB leaking from the page we were pushed over.
+        floatingActionButton: const FabRegistrar(fab: null),
         appBar: AppBar(
           centerTitle: false,
           backgroundColor: Colors.transparent,

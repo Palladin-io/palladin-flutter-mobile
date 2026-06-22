@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../bloc/settings_cubit.dart';
 import '../widgets/org_settings_section.dart';
@@ -40,6 +41,8 @@ class _SettingsView extends StatelessWidget {
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        // Suppress any FAB leaking from the page we were pushed over.
+        floatingActionButton: const FabRegistrar(fab: null),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,

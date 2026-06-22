@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../grants/presentation/widgets/context_grants_tab.dart';
 
@@ -23,6 +24,8 @@ class InboxGrantsPage extends StatelessWidget {
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        // Suppress any FAB leaking from the page we were pushed over.
+        floatingActionButton: const FabRegistrar(fab: null),
         appBar: AppBar(
           centerTitle: false,
           backgroundColor: Colors.transparent,

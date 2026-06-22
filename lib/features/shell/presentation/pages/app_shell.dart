@@ -11,6 +11,7 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../notifications/presentation/cubit/notification_center_cubit.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/settings_drawer.dart';
+import 'fab_ownership_stack.dart';
 
 /// Top-level scaffold that wraps the five authenticated tabs (Home,
 /// Vaults, Agents, Audit, Settings) with a persistent
@@ -40,14 +41,21 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isBottomNavHidden = false;
-  Widget? _fab;
+
+  /// Ownership stack of FAB registrations. The shell renders the top
+  /// entry's `fab`; pushing a page's entry on top wins, popping it
+  /// resurfaces the covered page's FAB. See [FabOwnershipStack] for the
+  /// full rationale — this is what stops a covered page's FAB from leaking
+  /// onto a page that declares a different (or no) FAB.
+  final FabOwnershipStack _fabStack = FabOwnershipStack();
 
   // Cache tearoffs so AppShellScope.updateShouldNotify returns false on
   // rebuilds — prevents all mounted FabRegistrars from re-firing
   // didChangeDependencies and overwriting each other's setFab calls.
   late final VoidCallback _openSettingsDrawerRef = _openSettingsDrawer;
   late final ValueChanged<bool> _setBottomNavHiddenRef = _setBottomNavHidden;
-  late final ValueChanged<Widget?> _setFabRef = _setFab;
+  late final SetFabCallback _setFabRef = _setFab;
+  late final ClearFabCallback _clearFabRef = _clearFab;
 
   @override
   void initState() {
@@ -78,17 +86,28 @@ class _AppShellState extends State<AppShell> {
     setState(() => _isBottomNavHidden = hidden);
   }
 
-  /// Lets descendants register the shell-level [FloatingActionButton]
-  /// without each page mounting its own copy on its [Scaffold]. Pages
-  /// that own a FAB hoist it here via [FabRegistrar] so the FAB stays
-  /// pinned in place during route transitions instead of animating with
-  /// the page body.
+  /// The FAB currently shown — the top of the ownership stack, or `null`
+  /// when nothing is registered.
+  Widget? get _fab => _fabStack.current;
+
+  /// Registers (or updates) the FAB owned by [owner], pushing it to the
+  /// top of the ownership stack so it becomes the visible FAB. Called via
+  /// [AppShellScope.setFab], typically by a [FabRegistrar] on mount /
+  /// update.
   ///
-  /// Pass `null` to clear the FAB. Identical-by-reference widgets are
-  /// no-ops to avoid pointless rebuilds.
-  void _setFab(Widget? fab) {
-    if (identical(_fab, fab)) return;
-    setState(() => _fab = fab);
+  /// Pass `null` for [fab] to claim the top of the stack with *no* FAB —
+  /// this is how a page suppresses a covered page's FAB (e.g. the Agents
+  /// list, or a detail tab with no add affordance).
+  void _setFab(Widget? fab, Object owner) {
+    if (_fabStack.set(fab, owner)) setState(() {});
+  }
+
+  /// Removes [owner]'s entry from the ownership stack — called when a
+  /// [FabRegistrar] disposes. If the owner was on top, the next entry
+  /// down (the previously-covered page) becomes visible again. No-op if
+  /// the owner never registered or was already removed.
+  void _clearFab(Object owner) {
+    if (_fabStack.clear(owner)) setState(() {});
   }
 
   @override
@@ -101,6 +120,7 @@ class _AppShellState extends State<AppShell> {
       openSettingsDrawer: _openSettingsDrawerRef,
       setBottomNavHidden: _setBottomNavHiddenRef,
       setFab: _setFabRef,
+      clearFab: _clearFabRef,
       child: Container(
         decoration: BoxDecoration(
           gradient: AppColors.backgroundGradient(brightness),
@@ -181,6 +201,13 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
+/// Registers (or updates) the FAB owned by `owner`. Pass `null` for
+/// `fab` to claim the top of the stack with no FAB.
+typedef SetFabCallback = void Function(Widget? fab, Object owner);
+
+/// Removes `owner`'s FAB registration from the shell.
+typedef ClearFabCallback = void Function(Object owner);
+
 /// Inherited handle that lets descendants of [AppShell] reach the
 /// shell's chrome without mounting duplicate copies — currently:
 ///
@@ -196,6 +223,7 @@ class AppShellScope extends InheritedWidget {
     required this.openSettingsDrawer,
     required this.setBottomNavHidden,
     required this.setFab,
+    required this.clearFab,
     required super.child,
   });
 
@@ -209,11 +237,17 @@ class AppShellScope extends InheritedWidget {
   /// awaiting the sheet and `false` after it dismisses.
   final ValueChanged<bool> setBottomNavHidden;
 
-  /// Registers (or clears, when `null`) the shell-level
-  /// [FloatingActionButton]. Drop a [FabRegistrar] into the page body
-  /// instead of calling this directly — the registrar wraps the
+  /// Registers (or updates) the shell-level [FloatingActionButton] owned
+  /// by a token. Drop a [FabRegistrar] into the page body instead of
+  /// calling this directly — the registrar owns the token and wraps the
   /// post-frame timing needed to play nicely with route transitions.
-  final ValueChanged<Widget?> setFab;
+  /// Pass `null` for the FAB to claim the top of the stack with no FAB.
+  final SetFabCallback setFab;
+
+  /// Removes a previously-registered FAB owned by the given token. The
+  /// next FAB down the ownership stack (the covered page's) becomes
+  /// visible again. [FabRegistrar] calls this on dispose.
+  final ClearFabCallback clearFab;
 
   /// Looks up the nearest [AppShellScope]. Throws if no shell is
   /// mounted above [context] — call sites should be reachable only
@@ -225,9 +259,16 @@ class AppShellScope extends InheritedWidget {
     return scope!;
   }
 
+  /// Like [of] but without registering a dependency and without asserting
+  /// — returns `null` if no shell is mounted above [context]. Safe to call
+  /// from `dispose`, where depending on an inherited widget is illegal.
+  static AppShellScope? maybeOf(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<AppShellScope>();
+
   @override
   bool updateShouldNotify(AppShellScope oldWidget) =>
       openSettingsDrawer != oldWidget.openSettingsDrawer ||
       setBottomNavHidden != oldWidget.setBottomNavHidden ||
-      setFab != oldWidget.setFab;
+      setFab != oldWidget.setFab ||
+      clearFab != oldWidget.clearFab;
 }

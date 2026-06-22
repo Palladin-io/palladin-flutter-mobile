@@ -12,7 +12,6 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../settings/domain/entities/api_key.dart';
 import '../../../settings/presentation/widgets/settings_error_text.dart';
-import '../../../shell/presentation/pages/app_shell.dart';
 import '../bloc/api_keys_cubit.dart';
 import '../widgets/api_key_card.dart';
 import '../widgets/generate_api_key_sheet.dart';
@@ -58,9 +57,9 @@ class _ApiKeysViewState extends State<_ApiKeysView> {
     final cubit = context.read<ApiKeysCubit>();
     await context.push('/api-keys/$keyId');
     if (context.mounted) {
-      // Restore the generate FAB after returning from the detail page
-      // (the detail page clears the shell FAB to avoid showing it there).
-      AppShellScope.of(context).setFab(_cachedFab);
+      // No need to restore the FAB: the detail page's FabRegistrar owns
+      // its own stack entry and removes it on dispose, so this list's
+      // entry (still on the stack underneath) resurfaces automatically.
       await cubit.load();
     }
   }
@@ -150,12 +149,16 @@ class _ApiKeysViewState extends State<_ApiKeysView> {
                   );
                 },
               ),
-              if (canWrite)
-                Positioned(
-                  width: 0,
-                  height: 0,
-                  child: FabRegistrar(fab: fab),
-                ),
+              // Always mount the registrar — even without write access —
+              // so this page deterministically claims the shell FAB. When
+              // the user can't generate keys we register `null`, which
+              // suppresses any FAB leaking from the page we were pushed
+              // over (e.g. a vault detail's "add entry").
+              Positioned(
+                width: 0,
+                height: 0,
+                child: FabRegistrar(fab: fab),
+              ),
             ],
           ),
         ),

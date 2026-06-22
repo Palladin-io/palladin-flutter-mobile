@@ -8,6 +8,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_search_field.dart';
+import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/presentation/bloc/agents_cubit.dart';
@@ -256,6 +257,8 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
       ),
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        // Suppress any FAB leaking from a page we were navigated over.
+        floatingActionButton: const FabRegistrar(fab: null),
         appBar: AppBar(
           centerTitle: false,
           backgroundColor: Colors.transparent,
