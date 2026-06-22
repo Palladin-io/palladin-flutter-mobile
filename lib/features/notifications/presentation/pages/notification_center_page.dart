@@ -141,6 +141,7 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     final result = await ApproveAgentSheet.show(
       context,
       initialName: item.metadata['agentName'] as String?,
+      initialType: item.metadata['agentType'] as String?,
     );
     if (result == null) return;
     await agents.approveAgent(

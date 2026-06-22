@@ -57,7 +57,11 @@ class _AgentDetailView extends StatelessWidget {
   final String agentId;
 
   Future<void> _onApprove(BuildContext context, Agent agent) async {
-    final result = await ApproveAgentSheet.show(context);
+    final result = await ApproveAgentSheet.show(
+      context,
+      initialName: agent.name,
+      initialType: agent.type,
+    );
     if (result == null || !context.mounted) return;
     await context.read<AgentsCubit>().approveAgent(
           agent.agentId,

@@ -92,6 +92,14 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
 
     final l10n = AppLocalizations.of(context)!;
 
+    // Grants and Logs are meaningless for an agent that has never been
+    // active — a pending agent has no grants and no activity yet. Lock
+    // those tabs (greyed out) and keep the view pinned to Details.
+    final lockedTabs = widget.agent.isPending;
+    final activeTab = lockedTabs && _activeTab != _AgentDetailTab.details
+        ? _AgentDetailTab.details
+        : _activeTab;
+
     // Fixed tab bar + scrolling content (Expanded) — so the Grants tab can host its own scrollable
     // list (ContextGrantsTab). The host gives this body a bounded height (split-view pane).
     return Column(
@@ -100,13 +108,14 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
           child: _TabBar(
-            active: _activeTab,
+            active: activeTab,
+            lockedTabs: lockedTabs,
             onSelected: (tab) => setState(() => _activeTab = tab),
           ),
         ),
         const SizedBox(height: 16),
         Expanded(
-          child: switch (_activeTab) {
+          child: switch (activeTab) {
             _AgentDetailTab.details => ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
@@ -164,10 +173,15 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
 class _TabBar extends StatelessWidget {
   const _TabBar({
     required this.active,
+    required this.lockedTabs,
     required this.onSelected,
   });
 
   final _AgentDetailTab active;
+
+  /// When true the Grants and Logs tabs are greyed out and unselectable —
+  /// the agent is still pending so neither has any content yet.
+  final bool lockedTabs;
   final ValueChanged<_AgentDetailTab> onSelected;
 
   @override
@@ -177,8 +191,8 @@ class _TabBar extends StatelessWidget {
 
     final tabs = <({_AgentDetailTab tab, String label, bool disabled})>[
       (tab: _AgentDetailTab.details, label: l10n.agentsTabDetails, disabled: false),
-      (tab: _AgentDetailTab.grants, label: l10n.agentsTabGrants, disabled: false),
-      (tab: _AgentDetailTab.logs, label: l10n.agentsTabLogs, disabled: false),
+      (tab: _AgentDetailTab.grants, label: l10n.agentsTabGrants, disabled: lockedTabs),
+      (tab: _AgentDetailTab.logs, label: l10n.agentsTabLogs, disabled: lockedTabs),
     ];
 
     return DecoratedBox(

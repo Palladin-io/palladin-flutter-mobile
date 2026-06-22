@@ -33,24 +33,33 @@ typedef ApproveAgentResult = ({
 /// Resolves to an [ApproveAgentResult] when the admin confirms, or
 /// `null` when they cancel / dismiss without confirming.
 class ApproveAgentSheet extends StatefulWidget {
-  const ApproveAgentSheet({super.key, this.initialName});
+  const ApproveAgentSheet({super.key, this.initialName, this.initialType});
 
   /// Pre-fills the name input — pass the agent's existing display name
   /// so re-opening the sheet does not lose the prior input.
   final String? initialName;
+
+  /// Pre-fills the type input — pass the type the agent reported during
+  /// enrollment (`X-Agent-Type`) so the operator confirms it rather than
+  /// re-typing it from scratch.
+  final String? initialType;
 
   /// Opens the sheet and returns the admin's choices, or `null` on
   /// cancel / dismiss.
   static Future<ApproveAgentResult?> show(
     BuildContext context, {
     String? initialName,
+    String? initialType,
   }) {
     return showModalBottomSheet<ApproveAgentResult>(
       context: context,
       isScrollControlled: true,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => ApproveAgentSheet(initialName: initialName),
+      builder: (_) => ApproveAgentSheet(
+        initialName: initialName,
+        initialType: initialType,
+      ),
     );
   }
 
@@ -80,7 +89,11 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
     super.initState();
     _nameController =
         TextEditingController(text: widget.initialName?.trim() ?? '');
-    _typeController = TextEditingController();
+    final type = widget.initialType?.trim() ?? '';
+    _typeController = TextEditingController(text: type);
+    // Seed the wire value directly — setting the controller text before the
+    // autocomplete mounts does not fire its onChanged listener.
+    _selectedTypeValue = type.isEmpty ? null : type;
   }
 
   @override
