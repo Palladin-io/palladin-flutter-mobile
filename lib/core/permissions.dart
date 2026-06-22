@@ -9,6 +9,10 @@ abstract final class Permissions {
   /// Manage grants — list, view, approve, deny and revoke agent grants.
   static const int grantManage = 32;
 
+  /// Billing plan flag — may own more than one vault (bit 256). Granted by the
+  /// backend; mirrors web `PERMISSION_MULTIPLE_VAULTS`.
+  static const int multipleVaults = 256;
+
   static const int readApiKey = 4096;
   static const int writeApiKey = 8192;
 }

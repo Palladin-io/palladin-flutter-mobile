@@ -102,10 +102,6 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
   /// Active log segment. Grants is NOT a segment — it lives behind the AppBar
   /// kebab as a separate full-screen page.
   InboxSegment _segment = InboxSegment.all;
-  bool _filtersOpen = false;
-
-  /// Multi-select type filter (empty = show all). Mirrors the web filter.
-  final Set<String> _typeFilter = <String>{};
 
   @override
   void dispose() {
@@ -364,36 +360,21 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
                   ),
                 ),
               ),
-              // Search + type-filter apply to all three log segments. The
-              // Grants list is a separate page (kebab) with its own UI.
+              // Search applies to all three log segments. The Grants list is a
+              // separate page (kebab) with its own UI.
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: AppSearchField(
                   controller: _searchController,
                   hint: l10n.inboxSearchHint,
                   onChanged: (_) => setState(() {}),
-                  filterActive: _filtersOpen || _typeFilter.isNotEmpty,
-                  onToggleFilter: () =>
-                      setState(() => _filtersOpen = !_filtersOpen),
                 ),
               ),
-              if (_filtersOpen)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                  child: _TypeFilterChips(
-                    selected: _typeFilter,
-                    onToggle: (type) => setState(() {
-                      if (!_typeFilter.add(type)) _typeFilter.remove(type);
-                    }),
-                    onClear: () => setState(_typeFilter.clear),
-                  ),
-                ),
               const SizedBox(height: 12),
               Expanded(
                 child: _Feed(
                   segment: _segment,
                   query: _searchController.text,
-                  typeFilter: _typeFilter,
                   onTapItem: _onTap,
                   onSecondary: _onSecondary,
                 ),
@@ -412,14 +393,12 @@ class _Feed extends StatelessWidget {
   const _Feed({
     required this.segment,
     required this.query,
-    required this.typeFilter,
     required this.onTapItem,
     required this.onSecondary,
   });
 
   final InboxSegment segment;
   final String query;
-  final Set<String> typeFilter;
   final ValueChanged<InboxNotification> onTapItem;
   final ValueChanged<InboxNotification> onSecondary;
 
@@ -457,9 +436,6 @@ class _Feed extends StatelessWidget {
           // Collapse resolved pending action items — the backend zips them up
           // once approved/denied, so never show a resolved To-do card.
           if (item.isCollapsedPending) return false;
-          if (typeFilter.isNotEmpty && !typeFilter.contains(item.type)) {
-            return false;
-          }
           // All = To-do ∪ History (every non-collapsed item); To-do = open
           // actions only; History = everything resolved/informational.
           final segmentMatches = switch (segment) {
@@ -551,92 +527,6 @@ class _List extends StatelessWidget {
             onSecondary: () => onSecondary(items[index]),
           );
         },
-      ),
-    );
-  }
-}
-
-/// Multi-select type filter chips (parity with web) — revealed by the search
-/// bar's `tune` toggle. Empty selection = show all. Each chip toggles one
-/// notification type; a "Clear" chip resets the selection.
-class _TypeFilterChips extends StatelessWidget {
-  const _TypeFilterChips({
-    required this.selected,
-    required this.onToggle,
-    required this.onClear,
-  });
-
-  final Set<String> selected;
-  final ValueChanged<String> onToggle;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final type in notificationFilterTypes)
-          _FilterChip(
-            label: notificationTypeName(l10n, type),
-            selected: selected.contains(type),
-            onTap: () => onToggle(type),
-          ),
-        if (selected.isNotEmpty)
-          _FilterChip(
-            label: l10n.notifFilterClear,
-            selected: false,
-            onTap: onClear,
-            tint: AppColors.onSurfaceMuted(brightness),
-          ),
-      ],
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.tint,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final Color? tint;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final accent = tint ?? AppColors.brandRed;
-    final fg = selected ? AppColors.onBrandRed : AppColors.onSurfaceMuted(brightness);
-    return Material(
-      color: selected ? AppColors.brandRed : Colors.transparent,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: selected ? AppColors.brandRed : AppColors.cardBorder(brightness),
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? fg : accent,
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            ),
-          ),
-        ),
       ),
     );
   }

@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../shell/presentation/pages/app_shell.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
@@ -116,19 +118,20 @@ class _VaultListViewState extends State<_VaultListView> {
     context.push('/vaults/${created.id}');
   }
 
-  /// Decide whether tapping the header "+" should open the create sheet
-  /// or the premium-gate bottom sheet. The gate is currently driven by
-  /// `vaults.length >= 1` because the backend temporarily issues
-  /// `(Permission)int.MaxValue` to every user, so the
-  /// `PERMISSION_MULTIPLE_VAULTS` bit is always set and a real
-  /// permissions check would never fire.
-  ///
-  // TODO: replace with permissions gate when backend assigns proper roles
+  /// Decide whether tapping "+" opens the create sheet or the premium-gate
+  /// sheet. Mirrors web: the first vault is always free; further vaults need
+  /// the `multipleVaults` permission. Backend currently grants it to everyone
+  /// (MaxValue), so creation is unblocked — the gate fires only once real
+  /// billing roles withhold the bit.
   Future<void> _onAddTapped() async {
     final state = context.read<VaultListCubit>().state;
     final vaultCount =
         state is VaultListLoaded ? state.vaults.length : 0;
-    if (vaultCount >= 1) {
+    final auth = context.read<AuthBloc>().state;
+    final permissions = auth is AuthAuthenticated ? auth.permissions : 0;
+    final canCreateMore =
+        vaultCount == 0 || (permissions & Permissions.multipleVaults) != 0;
+    if (!canCreateMore) {
       await _showPremiumSheet(reason: 'vaults');
       return;
     }
