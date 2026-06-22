@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
 
@@ -39,13 +40,18 @@ class RevokeApiKeySheet extends StatelessWidget {
           bottom: MediaQuery.viewPaddingOf(context).bottom,
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            AppSpacing.fieldGap,
+            AppSpacing.screenH,
+            AppSpacing.screenH,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _SheetHandle(),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.xl),
               Text(
                 l10n.apiKeysRevokeConfirmTitle,
                 style: TextStyle(
@@ -54,7 +60,7 @@ class RevokeApiKeySheet extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.innerGap),
               Text(
                 l10n.apiKeysRevokeConfirmBody(keyName),
                 style: TextStyle(
@@ -63,12 +69,12 @@ class RevokeApiKeySheet extends StatelessWidget {
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xxl),
               PrimaryButton(
                 label: l10n.apiKeysRevoke,
                 onPressed: () => Navigator.of(context).pop(true),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.innerGap),
               OutlinedButton(
                 onPressed: () => Navigator.of(context).pop(false),
                 style: OutlinedButton.styleFrom(

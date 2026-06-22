@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../settings/domain/entities/api_key.dart';
@@ -55,10 +56,15 @@ class ApiKeyDetailsTab extends StatelessWidget {
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.section,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.cardPadding),
           decoration: BoxDecoration(
             color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(12),
@@ -79,23 +85,23 @@ class ApiKeyDetailsTab extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.innerGap),
                   ApiKeyStatusBadge(status: apiKey.status),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.lg),
               _DetailRow(
                 label: l10n.apiKeysDetailKey,
                 value: maskedApiKey(apiKey.keySuffix),
                 mono: true,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.innerGap),
               _DetailRow(
                 label: l10n.apiKeysDetailCreatedAt,
                 value: formatApiKeyDate(apiKey.createdAt),
               ),
               if (apiKey.revokedAt != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.innerGap),
                 _DetailRow(
                   label: l10n.apiKeysDetailRevokedAt,
                   value: formatApiKeyDate(apiKey.revokedAt!),
@@ -105,7 +111,7 @@ class ApiKeyDetailsTab extends StatelessWidget {
           ),
         ),
         if (apiKey.isActive && canWrite) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.section),
           _DangerZone(
             label: l10n.vaultDangerZone,
             actionLabel: isRevoking ? '…' : l10n.apiKeysRevoke,
@@ -123,13 +129,13 @@ class ApiKeyDetailsTab extends StatelessWidget {
           ),
         ],
         if (!apiKey.isActive && canWrite) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.section),
           // Activate section — green-accented card, mirrors the danger zone
           // structure but uses positiveAccent (#2EC4B6) instead of brandRed.
           // positiveAccent is the "approve/restore" semantic colour shared
           // with the web panel — visible on both dark and light backgrounds.
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSpacing.cardPadding),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
@@ -148,7 +154,7 @@ class ApiKeyDetailsTab extends StatelessWidget {
                     letterSpacing: 0.6,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   l10n.apiKeysActivateHint,
                   style: const TextStyle(
@@ -157,7 +163,7 @@ class ApiKeyDetailsTab extends StatelessWidget {
                     height: 1.4,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.innerGap),
                 SizedBox(
                   width: double.infinity,
                   height: 44,
@@ -200,7 +206,7 @@ class ApiKeyDetailsTab extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.cardGap),
           // Danger zone — delete permanently.
           _DangerZone(
             label: l10n.vaultDangerZone,
@@ -247,7 +253,7 @@ class _DangerZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.cardPadding),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.brandRed.withValues(alpha: 0.25)),
@@ -264,7 +270,7 @@ class _DangerZone extends StatelessWidget {
               letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.innerGap),
           SizedBox(
             width: double.infinity,
             height: 44,

@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/icon_picker_grid.dart' show IconMoreTile;
 import '../../../../l10n/generated/app_localizations.dart';
@@ -494,7 +495,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                 color: AppColors.tealAccent,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.md),
             Text(
               l10n.entryRevealingForEdit,
               style: const TextStyle(
@@ -511,7 +512,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     if (!_populated && state is EditEntryError) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
           child: Text(
             EntryFormUtils.errorMessage(l10n, state.kind),
             textAlign: TextAlign.center,
@@ -534,7 +535,12 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     final canSubmit = !isBusy && _canSubmit;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.lg,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -546,14 +552,14 @@ class _EntryDetailViewState extends State<_EntryDetailView>
             textInputAction: TextInputAction.next,
             onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.fieldGap),
           OnboardingTextField(
             label: l10n.entryDescriptionLabel,
             controller: _descriptionController,
             textCapitalization: TextCapitalization.sentences,
             textInputAction: TextInputAction.next,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.fieldGap),
           OnboardingTextField(
             label: l10n.entryUrlLabel,
             controller: _urlController,
@@ -568,7 +574,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
             feedbackVisible: _urlError != null,
             feedbackReserveSpace: false,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.fieldGap),
           Text(
             l10n.vaultIconLabel,
             style: TextStyle(
@@ -577,14 +583,14 @@ class _EntryDetailViewState extends State<_EntryDetailView>
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.innerGap),
           EntryIconPicker(
             selected: _icon,
             accentColor: accentColor,
             onSelected: (name) => setState(() => _icon = name),
             moreTile: IconMoreTile(onTap: _openEntryBrowser),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.fieldGap),
           EntryTypeDropdown(
             value: _type,
             onChanged: (next) {
@@ -592,7 +598,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
               setState(() => _type = next);
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.fieldGap),
           if (_type == EntryType.key) ...[
             OnboardingTextField(
               label: l10n.entryValueLabel,
@@ -613,7 +619,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
               textInputAction: TextInputAction.next,
               onChanged: (_) => setState(() {}),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.fieldGap),
             OnboardingTextField(
               label: l10n.entryPasswordLabel,
               controller: _passwordController,
@@ -627,27 +633,27 @@ class _EntryDetailViewState extends State<_EntryDetailView>
               ),
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.fieldGap),
           EntryNotesField(
             controller: _notesController,
             label: l10n.entryNotesLabel,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.section),
           EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
           if (state is EditEntryError) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.fieldGap),
             Text(
               EntryFormUtils.errorMessage(l10n, state.kind),
               style: const TextStyle(color: AppColors.brandRed, fontSize: 12),
             ),
           ],
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.section),
           EntrySaveButton(
             isLoading: isLoading,
             onPressed: canSubmit ? _submit : null,
           ),
           // ── Danger Zone ────────────────────────────────────────────
-          const SizedBox(height: 32),
+          const SizedBox(height: AppSpacing.xxxl),
           _DangerZone(
             label: l10n.entryDangerZone,
             deleteLabel: isLoading ? l10n.entryDeleting : l10n.entryDeleteAction,
@@ -720,7 +726,8 @@ class _EntryDetailAppBar extends StatelessWidget
             controller: tabController,
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+            labelPadding:
+                const EdgeInsets.symmetric(horizontal: AppSpacing.cardPadding),
             labelColor: AppColors.brandRed,
             unselectedLabelColor: subtle,
             indicatorColor: AppColors.brandRed,
@@ -765,7 +772,7 @@ class _DangerZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.cardPadding),
       decoration: BoxDecoration(
         color: AppColors.brandRed.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
@@ -785,7 +792,7 @@ class _DangerZone extends StatelessWidget {
               letterSpacing: 0.4,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           SizedBox(
             height: 44,
             child: OutlinedButton(

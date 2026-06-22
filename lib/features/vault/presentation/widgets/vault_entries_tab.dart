@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -173,7 +174,7 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
               hint: l10n.entrySearchHint,
               onChanged: (_) => setState(() {}),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.fieldGap),
             Expanded(
               child: switch (state) {
                 EntryListInitial() ||
@@ -230,13 +231,13 @@ class _LoadedBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 96),
+      padding: const EdgeInsets.only(bottom: AppSpacing.listBottom),
       child: entries.isEmpty
           ? _EmptyEntries(l10n: l10n)
           : Column(
               children: [
                 for (var i = 0; i < entries.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 12),
+                  if (i > 0) const SizedBox(height: AppSpacing.cardGap),
                   _EntryCard(
                     entry: entries[i],
                     isExpanded: expanded.contains(entries[i].id),
@@ -266,12 +267,15 @@ class _EmptyEntries extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 24),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.xxxl,
+        horizontal: AppSpacing.screenH,
+      ),
       child: Column(
         children: [
           Icon(Icons.inbox_outlined,
               size: 36, color: AppColors.onSurfaceSubtle(brightness)),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           Text(
             l10n.entryEmpty,
             textAlign: TextAlign.center,
@@ -281,7 +285,7 @@ class _EmptyEntries extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.chipGap),
           Text(
             l10n.entryEmptyAdd,
             textAlign: TextAlign.center,
@@ -303,12 +307,17 @@ class _LoadingView extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.fieldGap,
+        AppSpacing.screenH,
+        0,
+      ),
       child: Column(
         children: List.generate(
           5,
           (i) => Padding(
-            padding: const EdgeInsets.only(bottom: 1),
+            padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
             child: _SkeletonRow(brightness: brightness, delay: i * 80),
           ),
         ),
@@ -393,7 +402,7 @@ class _ErrorView extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -406,7 +415,7 @@ class _ErrorView extends StatelessWidget {
                 height: 1.4,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.fieldGap),
             TextButton(
               onPressed: onRetry,
               child: Text(
@@ -464,18 +473,25 @@ class _EntryCard extends StatelessWidget {
               width: 1,
             ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.cardPadding,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Header row — icon + name/meta + action buttons.
               Padding(
-                padding: const EdgeInsets.fromLTRB(0, 12, 0, 10),
+                padding: const EdgeInsets.fromLTRB(
+                  0,
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.cardGap,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     _EntryIconWidget(entry: entry),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: AppSpacing.cardGap),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -491,7 +507,7 @@ class _EntryCard extends StatelessWidget {
                             ),
                           ),
                           if (meta.isNotEmpty) ...[
-                            const SizedBox(height: 2),
+                            const SizedBox(height: AppSpacing.xxs),
                             Text(
                               meta,
                               maxLines: 1,
@@ -505,7 +521,7 @@ class _EntryCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: AppSpacing.chipGap),
                     _SmallIconButton(
                       icon: isExpanded
                           ? Icons.visibility_off
@@ -513,7 +529,7 @@ class _EntryCard extends StatelessWidget {
                       tooltip: l10n.vaultRevealEntry,
                       onPressed: onToggleReveal,
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: AppSpacing.chipGap),
                     _SmallIconButton(
                       icon: Icons.arrow_forward,
                       tooltip: l10n.vaultViewEntry,
@@ -532,11 +548,14 @@ class _EntryCard extends StatelessWidget {
                   opacity: isExpanded ? 1.0 : 0.0,
                   child: isExpanded
                       ? Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.only(
+                            bottom: AppSpacing.md,
+                          ),
                           child: payload == null
                               ? const Padding(
-                                  padding:
-                                      EdgeInsets.symmetric(vertical: 8),
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: AppSpacing.innerGap,
+                                  ),
                                   child: Center(
                                     child: SizedBox(
                                       width: 14,
@@ -672,11 +691,11 @@ class _RevealRow extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     final displayed = isMasked && !revealed ? '••••••••••••' : value;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         children: [
           Icon(icon, size: 12, color: AppColors.onSurfaceSubtle(brightness)),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.innerGap),
           Expanded(
             child: Text(
               displayed,
@@ -697,7 +716,8 @@ class _RevealRow extends StatelessWidget {
               tooltip: l10n.vaultRevealValue,
               onPressed: onToggleReveal!,
             ),
-          if (onToggleReveal != null) const SizedBox(width: 4),
+          if (onToggleReveal != null)
+            const SizedBox(width: AppSpacing.xs),
           _SmallIconButton(
             icon: Icons.content_copy,
             size: 12,
@@ -705,7 +725,7 @@ class _RevealRow extends StatelessWidget {
             onPressed: onCopy,
           ),
           if (extraTrailing != null) ...[
-            const SizedBox(width: 4),
+            const SizedBox(width: AppSpacing.xs),
             extraTrailing!,
           ],
         ],
@@ -799,7 +819,7 @@ class _SmallIconButton extends StatelessWidget {
         onTap: onPressed,
         radius: 16,
         child: Padding(
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(AppSpacing.xs),
           child: Icon(
             icon,
             size: size,

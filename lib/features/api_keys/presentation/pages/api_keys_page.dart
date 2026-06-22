@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
@@ -77,7 +78,10 @@ class _ApiKeysViewState extends State<_ApiKeysView> {
     // on every rebuild.
     final fab = canWrite
         ? (_cachedFab ??= Padding(
-            padding: const EdgeInsets.only(bottom: 8, right: 4),
+            padding: const EdgeInsets.only(
+              bottom: AppSpacing.innerGap,
+              right: AppSpacing.xs,
+            ),
             child: AppFab(
               onPressed: () => _onGenerate(context),
               tooltip: l10n.apiKeysGenerate,
@@ -203,12 +207,17 @@ class _KeysList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.innerGap,
+        AppSpacing.screenH,
+        AppSpacing.listBottom,
+      ),
       itemCount: keys.length,
       itemBuilder: (context, index) {
         final key = keys[index];
         return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
           child: ApiKeyCard(
             apiKey: key,
             onTap: () => onOpenKey(key.apiKeyId),
@@ -229,10 +238,18 @@ class _KeysEmpty extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.innerGap,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xxl,
+            vertical: AppSpacing.xxl,
+          ),
           decoration: BoxDecoration(
             color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(12),
@@ -245,7 +262,7 @@ class _KeysEmpty extends StatelessWidget {
                 size: 32,
                 color: AppColors.onSurfaceSubtle(brightness),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               Text(
                 l10n.apiKeysEmpty,
                 style: TextStyle(
@@ -254,7 +271,7 @@ class _KeysEmpty extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 l10n.apiKeysEmptyHint,
                 textAlign: TextAlign.center,
@@ -283,11 +300,16 @@ class _KeysSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.innerGap,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
       children: List.generate(
         3,
         (i) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
           child: SkeletonBox(
             height: 78,
             delay: Duration(milliseconds: i * 80),
@@ -311,10 +333,15 @@ class _KeysError extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.innerGap,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.cardPadding),
           decoration: BoxDecoration(
             color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(12),
@@ -331,7 +358,7 @@ class _KeysError extends StatelessWidget {
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.innerGap),
               TextButton(
                 onPressed: onRetry,
                 style: TextButton.styleFrom(

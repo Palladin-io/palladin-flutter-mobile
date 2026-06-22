@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/mnemonic.dart';
 import '../../domain/repositories/onboarding_repository.dart';
@@ -131,9 +132,9 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
                 result: results[i],
                 l10n: l10n,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.fieldGap),
             ],
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSpacing.xs),
             PrimaryButton(
               label: l10n.onboardingConfirmVerify,
               isLoading: isSubmitting,
@@ -217,7 +218,7 @@ class _ConfirmationInput extends StatelessWidget {
                     ? AppColors.positiveAccent
                     : AppColors.brandRed,
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: AppSpacing.innerGap),
               Text(
                 isCorrect
                     ? l10n.onboardingConfirmCorrect

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/vault_entity.dart';
 import 'vault_visuals.dart';
@@ -54,7 +55,7 @@ class VaultCard extends StatelessWidget {
               child: InkWell(
                 onTap: onTap,
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.cardPadding),
                   child: _CardHeader(
                     vaultName: vault.name,
                     entryCount: vault.entryCount,
@@ -98,7 +99,7 @@ class _CardHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         _IconCircle(icon: icon, accent: accent, iconUrl: iconUrl),
-        const SizedBox(width: 10),
+        const SizedBox(width: AppSpacing.innerGap),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +116,7 @@ class _CardHeader extends StatelessWidget {
                   height: 1.2,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 l10n.vaultEntryCount(entryCount),
                 style: TextStyle(
@@ -190,11 +191,14 @@ class _CardFooter extends StatelessWidget {
           top: BorderSide(color: AppColors.cardBorder(brightness), width: 1),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.innerGap,
+      ),
       child: Row(
         children: [
           Icon(Icons.schedule, size: 12, color: subtle),
-          const SizedBox(width: 6),
+          const SizedBox(width: AppSpacing.chipGap),
           Expanded(
             child: Text(
               l10n.vaultUpdatedAt(_formatRelative(l10n, lastUpdated)),

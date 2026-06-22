@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 
 /// Shared labelled dropdown — the select counterpart of [OnboardingTextField].
 ///
@@ -51,11 +52,11 @@ class AppDropdownField<T> extends StatelessWidget {
               color: AppColors.onSurfaceMuted(brightness),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.innerGap),
         ],
         Container(
           height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.fieldGap),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: filled ? AppColors.inputFill(brightness) : null,

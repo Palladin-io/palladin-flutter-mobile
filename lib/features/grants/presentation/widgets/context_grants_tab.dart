@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../approval/presentation/widgets/regrant_sheet.dart';
 import '../../../grants/presentation/widgets/revoke_grant_sheet.dart';
@@ -28,7 +29,12 @@ class ContextGrantsTab extends StatelessWidget {
     this.entryId,
     required this.emptyTitle,
     required this.emptyHint,
-    this.contentPadding = const EdgeInsets.fromLTRB(20, 4, 20, 96),
+    this.contentPadding = const EdgeInsets.fromLTRB(
+      AppSpacing.screenH,
+      AppSpacing.xs,
+      AppSpacing.screenH,
+      AppSpacing.listBottom,
+    ),
   });
 
   final String? agentId;
@@ -102,7 +108,7 @@ class _ContextGrantsView extends StatelessWidget {
         return switch (state.status) {
           OrgGrantsStatus.initial || OrgGrantsStatus.loading => const Center(
               child: Padding(
-                padding: EdgeInsets.all(32),
+                padding: EdgeInsets.all(AppSpacing.xxxl),
                 child: CircularProgressIndicator(color: AppColors.tealAccent),
               ),
             ),
@@ -125,7 +131,7 @@ class _ContextGrantsView extends StatelessWidget {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: contentPadding,
                     itemCount: state.grants.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.cardGap),
                     itemBuilder: (_, i) => OrgGrantCard(
                       grant: state.grants[i],
                       isRevoking: state.revokingGrantId == state.grants[i].id,
@@ -157,10 +163,10 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: padding.copyWith(top: 40),
+      padding: padding.copyWith(top: AppSpacing.xxxl),
       children: [
         Icon(Icons.key_off_outlined, size: 40, color: AppColors.onSurfaceSubtle(brightness)),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         Text(
           title,
           textAlign: TextAlign.center,
@@ -170,7 +176,7 @@ class _EmptyState extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: AppSpacing.xs),
         Text(
           hint,
           textAlign: TextAlign.center,
@@ -199,7 +205,7 @@ class _ErrorState extends StatelessWidget {
             message,
             style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 12),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           TextButton(onPressed: onRetry, child: Text(l10n.vaultRetry)),
         ],
       ),

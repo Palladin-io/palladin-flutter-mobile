@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_spacing.dart';
+
 /// A full-width OAuth sign-in button matching the Claw Vault design
 /// prototype.
 ///
@@ -54,7 +56,7 @@ class OAuthButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             SizedBox(width: 24, height: 24, child: icon),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.fieldGap),
             Text(
               label,
               style: TextStyle(

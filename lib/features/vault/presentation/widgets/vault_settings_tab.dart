@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../data/datasources/vault_remote_datasource.dart';
 import '../../data/services/vault_icon_upload_service.dart';
@@ -124,7 +125,7 @@ class _VaultSettingsTabState extends State<VaultSettingsTab> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 32),
+      padding: const EdgeInsets.only(bottom: AppSpacing.screenBottom),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -133,12 +134,12 @@ class _VaultSettingsTabState extends State<VaultSettingsTab> {
             onChanged: _onFormChanged,
             onPickCustomIcon: _pickAndUploadIcon,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.section),
           _SaveButton(
             onSave: _isDirty ? widget.onSave : null,
             l10n: l10n,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.section),
           _DangerZone(l10n: l10n, onDelete: widget.onDelete),
         ],
       ),
@@ -192,7 +193,7 @@ class _DangerZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.cardPadding),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.brandRed.withValues(alpha: 0.25)),
@@ -209,7 +210,7 @@ class _DangerZone extends StatelessWidget {
               letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.innerGap),
           SizedBox(
             width: double.infinity,
             height: 44,

@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/app_toggle.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
@@ -33,54 +35,45 @@ class _PreferencesView extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppColors.backgroundGradient(brightness),
-      ),
-      child: Scaffold(
+    return AppScreen.appBar(
+      // Suppress any FAB leaking from the page we were pushed over.
+      floatingActionButton: const FabRegistrar(fab: null),
+      appBar: AppBar(
+        centerTitle: false,
         backgroundColor: Colors.transparent,
-        // Suppress any FAB leaking from the page we were pushed over.
-        floatingActionButton: const FabRegistrar(fab: null),
-        appBar: AppBar(
-          centerTitle: false,
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          scrolledUnderElevation: 0,
-          elevation: 0,
-          titleSpacing: 0,
-          iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
-          title: Text(
-            l10n.notifPrefsTitle,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        titleSpacing: 0,
+        iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
+        title: Text(
+          l10n.notifPrefsTitle,
+          style: TextStyle(
+            color: AppColors.onSurface(brightness),
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      body: BlocConsumer<NotificationPreferencesCubit,
+          NotificationPreferencesState>(
+        listenWhen: (p, c) => p.error != c.error && c.error != null,
+        listener: (context, state) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.notifPrefsSaveError)),
+          );
+          context.read<NotificationPreferencesCubit>().acknowledgeError();
+        },
+        builder: (context, state) => switch (state.status) {
+          NotificationPreferencesStatus.initial ||
+          NotificationPreferencesStatus.loading => const _Skeleton(),
+          NotificationPreferencesStatus.error => _ErrorView(
+              message: notificationErrorMessage(l10n, state.error!),
+              onRetry: () =>
+                  context.read<NotificationPreferencesCubit>().load(),
             ),
-          ),
-        ),
-        body: SafeArea(
-          top: false,
-          child: BlocConsumer<NotificationPreferencesCubit,
-              NotificationPreferencesState>(
-            listenWhen: (p, c) => p.error != c.error && c.error != null,
-            listener: (context, state) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(l10n.notifPrefsSaveError)),
-              );
-              context.read<NotificationPreferencesCubit>().acknowledgeError();
-            },
-            builder: (context, state) => switch (state.status) {
-              NotificationPreferencesStatus.initial ||
-              NotificationPreferencesStatus.loading => const _Skeleton(),
-              NotificationPreferencesStatus.error => _ErrorView(
-                  message: notificationErrorMessage(l10n, state.error!),
-                  onRetry: () =>
-                      context.read<NotificationPreferencesCubit>().load(),
-                ),
-              NotificationPreferencesStatus.loaded => _Content(state: state),
-            },
-          ),
-        ),
+          NotificationPreferencesStatus.loaded => _Content(state: state),
+        },
       ),
     );
   }
@@ -106,7 +99,12 @@ class _Content extends StatelessWidget {
     }
     final brightness = Theme.of(context).brightness;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.fieldGap,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
       children: [
         Text(
           l10n.notifPrefsHint,
@@ -116,9 +114,9 @@ class _Content extends StatelessWidget {
             height: 1.4,
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: AppSpacing.lg),
         const _ChannelLegend(),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.cardGap),
         for (final pref in state.items)
           _PreferenceRow(
             pref: pref,
@@ -146,10 +144,13 @@ class _ChannelLegend extends StatelessWidget {
       fontSize: 10,
       fontWeight: FontWeight.w600,
     );
-    // Right padding (6) matches the preference row's right padding so the
-    // three legend columns sit exactly above the three toggle columns.
+    // Right padding (chipGap) matches the preference row's right padding so
+    // the three legend columns sit exactly above the three toggle columns.
     return Padding(
-      padding: const EdgeInsets.only(right: 6, bottom: 2),
+      padding: const EdgeInsets.only(
+        right: AppSpacing.chipGap,
+        bottom: AppSpacing.xxs,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -181,8 +182,13 @@ class _PreferenceRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+      margin: const EdgeInsets.only(bottom: AppSpacing.cardGap),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.cardPadding,
+        AppSpacing.innerGap,
+        AppSpacing.chipGap,
+        AppSpacing.innerGap,
+      ),
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(12),
@@ -203,7 +209,7 @@ class _PreferenceRow extends StatelessWidget {
                   ),
                 ),
                 if (pref.mandatory) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: AppSpacing.xxs),
                   Text(
                     AppLocalizations.of(context)!.notifPrefsMandatory,
                     style: TextStyle(
@@ -306,11 +312,16 @@ class _Skeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.lg,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
       children: List.generate(
         5,
         (i) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
           child: SkeletonBox(height: 64, delay: Duration(milliseconds: i * 80)),
         ),
       ),
@@ -329,12 +340,12 @@ class _ErrorView extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.screenH),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.innerGap),
             TextButton(
               onPressed: onRetry,
               style: TextButton.styleFrom(

@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../cubit/onboarding_cubit.dart';
 import '../widgets/onboarding_scaffold.dart';
@@ -55,14 +56,14 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
             label: l10n.onboardingRecoveryCopy,
             onPressed: () => _copyToClipboard(mnemonic, l10n),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.innerGap),
           _SecondaryAction(
             key: _exportButtonKey,
             icon: Icons.file_download_outlined,
             label: l10n.onboardingRecoveryExport,
             onPressed: () => _exportToFile(mnemonic),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.innerGap),
           PrimaryButton(
             label: l10n.onboardingRecoverySaved,
             onPressed: () =>
@@ -72,7 +73,7 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
       ),
       children: [
         _WarningBanner(message: l10n.onboardingRecoveryWarning),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.section),
         _MnemonicGrid(words: mnemonic),
       ],
     );
@@ -130,7 +131,10 @@ class _WarningBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.cardPadding,
+        vertical: AppSpacing.md,
+      ),
       decoration: BoxDecoration(
         color: AppColors.warningBackground,
         borderRadius: BorderRadius.circular(10),
@@ -141,7 +145,7 @@ class _WarningBanner extends StatelessWidget {
         children: [
           const Icon(Icons.warning_amber_rounded,
               color: AppColors.brandRed, size: 18),
-          const SizedBox(width: 10),
+          const SizedBox(width: AppSpacing.innerGap),
           Expanded(
             child: Text(
               message,
@@ -172,13 +176,13 @@ class _MnemonicGrid extends StatelessWidget {
       itemCount: words.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 6,
-        mainAxisSpacing: 6,
+        crossAxisSpacing: AppSpacing.innerGap,
+        mainAxisSpacing: AppSpacing.innerGap,
         childAspectRatio: 4.8,
       ),
       itemBuilder: (_, index) {
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.innerGap),
           decoration: BoxDecoration(
             color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(8),

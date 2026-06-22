@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 
 /// Compact, single-accent on/off toggle — the app's switch idiom.
 ///
@@ -42,7 +43,7 @@ class AppToggle extends StatelessWidget {
         curve: Curves.easeInOut,
         width: _width,
         height: _height,
-        padding: const EdgeInsets.all(2),
+        padding: const EdgeInsets.all(AppSpacing.xxs),
         decoration: BoxDecoration(
           color: track,
           borderRadius: BorderRadius.circular(_height / 2),

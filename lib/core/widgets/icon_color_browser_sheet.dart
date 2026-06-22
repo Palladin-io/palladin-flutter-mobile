@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 import '../../l10n/generated/app_localizations.dart';
 import 'approve_action_button.dart';
 import 'icon_picker_grid.dart' show ImagePresetTile;
@@ -178,13 +179,18 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
         ),
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              AppSpacing.fieldGap,
+              AppSpacing.screenH,
+              AppSpacing.xl,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const _SheetHandle(),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.headerGap),
                 Row(
                   children: [
                     Expanded(
@@ -201,7 +207,7 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
                       onTap: () => Navigator.of(context).pop(),
                       borderRadius: BorderRadius.circular(999),
                       child: Padding(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.all(AppSpacing.xs),
                         child: Icon(
                           Icons.close,
                           size: 20,
@@ -211,7 +217,7 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 _BrowserIconGrid(
                   icons: widget.icons,
                   selectedIcon: _localIcon,
@@ -220,14 +226,14 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
                   customImageUrl: _customImageUrl,
                 ),
                 if (widget.onPickCustom != null) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: AppSpacing.md),
                   UploadIconButton(
                     accentColor: _localColor,
                     isLoading: _isLoadingCustom,
                     onTap: _isLoadingCustom ? null : _pickCustom,
                   ),
                 ],
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 Text(
                   l10n.agentIconColorLabel,
                   style: TextStyle(
@@ -236,13 +242,13 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.innerGap),
                 _ColorPickerRow(
                   colors: widget.colorOptions,
                   selected: _localColor,
                   onSelected: (color) => setState(() => _localColor = color),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.xl),
                 Row(
                   children: [
                     Expanded(
@@ -270,7 +276,7 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: AppSpacing.innerGap),
                     Expanded(
                       flex: 2,
                       child: ApproveActionButton(
@@ -311,7 +317,7 @@ class _BrowserIconGrid extends StatelessWidget {
   final ValueChanged<String> onSelected;
   final String? customImageUrl;
 
-  static const double _gap = 8;
+  static const double _gap = AppSpacing.innerGap;
   static const double _tileSize = 48;
 
   @override

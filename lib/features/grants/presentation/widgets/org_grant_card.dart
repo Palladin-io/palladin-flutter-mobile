@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/presentation/widgets/agent_avatar.dart';
 import '../../domain/entities/grant.dart';
@@ -49,7 +50,10 @@ class OrgGrantCard extends StatelessWidget {
             _IdentityRow(grant: grant),
             _Divider(brightness: brightness),
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.cardPadding,
+                vertical: AppSpacing.md,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -63,18 +67,18 @@ class OrgGrantCard extends StatelessWidget {
                       label: l10n.orgGrantRowEntry,
                       value: _entryValue(l10n),
                     ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.innerGap),
                   GrantDetailRow(
                     label: l10n.orgGrantRowActor,
                     value: orgGrantActorName(l10n, grant),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.innerGap),
                   GrantDetailRow(
                     label: l10n.orgGrantRowAccess,
                     value: orgGrantAccessSummary(l10n, grant),
                   ),
                   if (grant.methods.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.innerGap),
                     GrantDetailRow(
                       label: l10n.orgGrantRowMethods,
                       value: grant.methods
@@ -82,7 +86,7 @@ class OrgGrantCard extends StatelessWidget {
                           .join(' · '),
                     ),
                   ],
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.innerGap),
                   GrantDetailRow(label: reason.label, value: reason.text),
                 ],
               ),
@@ -119,7 +123,10 @@ class _IdentityRow extends StatelessWidget {
     final color = grantStatusColor(grant.status);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.cardPadding,
+        vertical: AppSpacing.innerGap,
+      ),
       child: Row(
         children: [
           AgentAvatar(
@@ -128,7 +135,7 @@ class _IdentityRow extends StatelessWidget {
             iconKey: grant.agentIconKey,
             size: 28,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.innerGap),
           Expanded(
             child: Text(
               grantAgentDisplayName(l10n, grant),
@@ -141,9 +148,9 @@ class _IdentityRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.innerGap),
           _StatusPill(status: grant.status, color: color),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.innerGap),
           Text(
             grantRelativeTime(l10n, grant.createdAt),
             style: TextStyle(
@@ -167,7 +174,10 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.innerGap,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
@@ -180,7 +190,7 @@ class _StatusPill extends StatelessWidget {
             height: 6,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: AppSpacing.xs),
           Text(
             grantStatusLabel(l10n, status),
             style: TextStyle(
@@ -221,7 +231,7 @@ class GrantDetailRow extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: AppSpacing.innerGap),
         Expanded(
           child: Text(
             value,
@@ -283,7 +293,7 @@ class _Footer extends StatelessWidget {
           children: [
             const Icon(Icons.check_circle,
                 size: 14, color: AppColors.positiveAccent),
-            const SizedBox(width: 6),
+            const SizedBox(width: AppSpacing.chipGap),
             Text(
               l10n.orgGrantAlreadyActive,
               style: const TextStyle(
@@ -347,7 +357,10 @@ class _FooterShell extends StatelessWidget {
           top: BorderSide(color: AppColors.cardBorder(brightness)),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.cardPadding,
+        vertical: AppSpacing.innerGap,
+      ),
       child: Center(child: child),
     );
   }

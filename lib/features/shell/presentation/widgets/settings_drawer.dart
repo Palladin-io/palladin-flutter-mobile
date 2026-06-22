@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/l10n/locale_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_cubit.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/presentation/bloc/agents_cubit.dart';
@@ -72,14 +73,19 @@ class SettingsDrawer extends StatelessWidget {
           children: [
             _DrawerHeader(email: email, isPro: isPro),
             Divider(color: AppColors.navBorder(brightness), height: 1),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.innerGap),
             const _ThemeToggleRow(),
             const _LanguageRow(),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.innerGap),
             Divider(color: AppColors.navBorder(brightness), height: 1),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.innerGap),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenH,
+                AppSpacing.innerGap,
+                AppSpacing.screenH,
+                AppSpacing.xs,
+              ),
               child: Text(
                 l10n.settingsAccountTitle.toUpperCase(),
                 style: const TextStyle(
@@ -181,7 +187,12 @@ class _DrawerHeader extends StatelessWidget {
       l10n.settingsDefaultDisplayName,
     );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.xxl,
+        AppSpacing.screenH,
+        AppSpacing.xl,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -202,7 +213,7 @@ class _DrawerHeader extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -222,7 +233,7 @@ class _DrawerHeader extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppSpacing.innerGap),
                     if (isPro)
                       _PlanBadgePro(label: l10n.settingsPlanPro)
                     else
@@ -230,7 +241,7 @@ class _DrawerHeader extends StatelessWidget {
                   ],
                 ),
                 if (email != null && email!.isNotEmpty) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: AppSpacing.xxs),
                   Text(
                     email!,
                     maxLines: 1,
@@ -267,7 +278,10 @@ class _PlanBadgePro extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.innerGap,
+        vertical: AppSpacing.xxs,
+      ),
       decoration: BoxDecoration(
         color: AppColors.premiumAmber.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
@@ -284,7 +298,7 @@ class _PlanBadgePro extends StatelessWidget {
             size: 12,
             color: AppColors.premiumAmber,
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: AppSpacing.xs),
           Text(
             label,
             style: const TextStyle(
@@ -336,7 +350,10 @@ class _ThemeToggleRow extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     final isDark = context.watch<ThemeCubit>().state == ThemeMode.dark;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.screenH,
+        vertical: AppSpacing.xs,
+      ),
       child: Row(
         children: [
           Icon(
@@ -348,7 +365,7 @@ class _ThemeToggleRow extends StatelessWidget {
             color: AppColors.iconDefault(brightness),
             size: 20,
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.lg),
           Expanded(
             child: Text(
               l10n.settingsThemeToggle,
@@ -415,7 +432,10 @@ class _LanguageRow extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     final current = context.watch<LocaleCubit>().state;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.screenH,
+        vertical: AppSpacing.xs,
+      ),
       child: Row(
         children: [
           Icon(
@@ -423,7 +443,7 @@ class _LanguageRow extends StatelessWidget {
             color: AppColors.iconDefault(brightness),
             size: 20,
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.lg),
           Expanded(
             child: Text(
               AppLocalizations.of(context)!.settingsLanguage,
@@ -460,7 +480,7 @@ class _LanguageRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('🇬🇧', style: TextStyle(fontSize: 14)),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: AppSpacing.xs),
                   Text(
                     'EN',
                     style: TextStyle(
@@ -475,7 +495,7 @@ class _LanguageRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('🇵🇱', style: TextStyle(fontSize: 14)),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: AppSpacing.xs),
                   Text(
                     'PL',
                     style: TextStyle(
@@ -494,7 +514,7 @@ class _LanguageRow extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text('🇬🇧', style: TextStyle(fontSize: 16)),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: AppSpacing.innerGap),
                     Text(
                       'English',
                       style: TextStyle(color: AppColors.onSurface(brightness)),
@@ -508,7 +528,7 @@ class _LanguageRow extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text('🇵🇱', style: TextStyle(fontSize: 16)),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: AppSpacing.innerGap),
                     Text(
                       'Polski',
                       style: TextStyle(color: AppColors.onSurface(brightness)),
@@ -552,11 +572,14 @@ class _DrawerItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.screenH,
+          vertical: AppSpacing.cardPadding,
+        ),
         child: Row(
           children: [
             Icon(icon, color: AppColors.iconDefault(brightness), size: 20),
-            const SizedBox(width: 16),
+            const SizedBox(width: AppSpacing.lg),
             Text(
               label,
               style: TextStyle(
@@ -585,7 +608,12 @@ class _AppVersionFooter extends StatelessWidget {
         // placeholder of the same height so the drawer doesn't jump.
         final version = snapshot.data?.version ?? '';
         return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            AppSpacing.innerGap,
+            AppSpacing.screenH,
+            AppSpacing.xl,
+          ),
           child: Text(
             version.isEmpty ? '' : l10n.settingsAppVersion(version),
             style: const TextStyle(

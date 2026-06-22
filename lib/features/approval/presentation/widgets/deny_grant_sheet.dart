@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -91,7 +92,12 @@ class _DenySheetBodyState extends State<_DenySheetBody> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenH,
+                  AppSpacing.sm,
+                  AppSpacing.screenH,
+                  AppSpacing.xl,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,7 +112,7 @@ class _DenySheetBodyState extends State<_DenySheetBody> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.headerGap),
                     Text(
                       l10n.approvalDenyTitle(
                           pendingAgentDisplayName(l10n, widget.grant)),
@@ -116,7 +122,7 @@ class _DenySheetBodyState extends State<_DenySheetBody> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppSpacing.innerGap),
                     Text(
                       l10n.approvalDenyText,
                       style: TextStyle(
@@ -125,7 +131,7 @@ class _DenySheetBodyState extends State<_DenySheetBody> {
                         height: 1.45,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.section),
                     OnboardingTextField(
                       controller: _reasonController,
                       label: l10n.approvalDenyReasonLabel,

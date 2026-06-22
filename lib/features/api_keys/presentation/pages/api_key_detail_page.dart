@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../settings/domain/entities/api_key.dart';
@@ -254,7 +255,7 @@ class _AgentsPlaceholderTab extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -263,7 +264,7 @@ class _AgentsPlaceholderTab extends StatelessWidget {
               size: 36,
               color: AppColors.textTertiaryMobile,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             Text(
               l10n.placeholderComingSoon,
               textAlign: TextAlign.center,
@@ -294,7 +295,7 @@ class _CenteredMessage extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -308,7 +309,7 @@ class _CenteredMessage extends StatelessWidget {
               ),
             ),
             if (onRetry != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.innerGap),
               TextButton(
                 onPressed: onRetry,
                 style: TextButton.styleFrom(

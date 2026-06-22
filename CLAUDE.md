@@ -151,6 +151,30 @@ Przed napisaniem nowego widgetu sprawdź czy coś podobnego już istnieje:
 - `Color(0xFFxxxxxx)` — always add to `AppColors` with a descriptive name
 - `onPrimary: Colors.white` in `ThemeData` — use `AppColors.onBrandRed`
 
+## Spacing
+
+**All spacing goes through `AppSpacing.*` (`lib/core/theme/app_spacing.dart`) — never a bare number.** This is the spacing analogue of `AppColors`: gaps and paddings (`SizedBox` height/width, `EdgeInsets`, `separatorBuilder` gaps, `Wrap` spacing) must reference a token. Only non-spacing dimensions stay raw: icon/font sizes, `BorderRadius`/`Radius`, border `width`, `strokeWidth`, and fixed component sizes (avatars, drag handles, button heights, spinners).
+
+**Top-level screens** use the shared `AppScreen` wrapper (`lib/core/widgets/app_screen.dart`) — it owns the gradient background, transparent `Scaffold`, `SafeArea`, the header slot, and the `headerGap` between header and content. Use `AppScreen.appBar(...)` for AppBar-over-gradient screens, or `AppScreen(header: ..., body: ...)` for a custom in-body header. Keep the AppBar transparent config (`surfaceTintColor: transparent`, `scrolledUnderElevation: 0`) and any `FabRegistrar` exactly as before.
+
+### Tokens
+
+| Token | Value | Use |
+|-------|-------|-----|
+| Raw scale | `xxs`=2, `xs`=4, `sm`=8, `md`=12, `lg`=16, `xl`=20, `xxl`=24, `xxxl`=32 | fall back here only when no semantic token fits |
+| `screenH` | 20 | screen horizontal padding (the only screen gutter) |
+| `headerGap` | 16 | header row → first content |
+| `section` | 16 | between sections (vertical) |
+| `fieldGap` | 12 | input↔input, search → content |
+| `cardGap` | 10 | between cards / list separators |
+| `cardPadding` | 14 | card internal padding |
+| `innerGap` | 8 | elements inside a card |
+| `chipGap` | 6 | between chips |
+| `screenBottom` | 32 | last element → bottom (non-scrolling) |
+| `listBottom` | 96 | scrollable list bottom (clears FAB + bottom nav) |
+
+Prefer the semantic token over a raw step when one fits the context.
+
 ## Loading States — Skeleton Pattern
 
 **Rule:** Skeletons go strictly in the list/content area (`Expanded`). Static chrome (header, page title, search bar) stays visible during loading.

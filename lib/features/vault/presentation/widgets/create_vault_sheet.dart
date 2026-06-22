@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
@@ -179,19 +180,24 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
                 bottom: MediaQuery.viewPaddingOf(context).bottom,
               ),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenH,
+                  AppSpacing.md,
+                  AppSpacing.screenH,
+                  AppSpacing.xl,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _SheetHandle(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.xxl),
                     _SheetHeader(
                       title: l10n.vaultNewVault,
                       onClose: isBusy
                           ? null
                           : () => Navigator.of(context).pop(),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.headerGap),
                     Flexible(
                       child: SingleChildScrollView(
                         child: VaultForm(
@@ -203,14 +209,14 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
                     ),
                     if (_pickingIcon)
                       const Padding(
-                        padding: EdgeInsets.only(top: 8),
+                        padding: EdgeInsets.only(top: AppSpacing.innerGap),
                         child: LinearProgressIndicator(
                           color: AppColors.brandRed,
                           backgroundColor: AppColors.hairline,
                         ),
                       ),
                     if (state is CreateVaultError) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.fieldGap),
                       Text(
                         _errorMessage(context, state.kind),
                         style: const TextStyle(
@@ -219,7 +225,7 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.section),
                     PrimaryButton(
                       label: isLoading
                           ? l10n.vaultCreating

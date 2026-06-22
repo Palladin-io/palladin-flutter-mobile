@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../bloc/settings_cubit.dart';
@@ -35,42 +37,38 @@ class _SettingsView extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppColors.backgroundGradient(brightness),
-      ),
-      child: Scaffold(
+    return AppScreen.appBar(
+      // Suppress any FAB leaking from the page we were pushed over.
+      floatingActionButton: const FabRegistrar(fab: null),
+      appBar: AppBar(
         backgroundColor: Colors.transparent,
-        // Suppress any FAB leaking from the page we were pushed over.
-        floatingActionButton: const FabRegistrar(fab: null),
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          scrolledUnderElevation: 0,
-          iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
-          title: Text(
-            l10n.settingsScreenTitle,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
+        title: Text(
+          l10n.settingsScreenTitle,
+          style: TextStyle(
+            color: AppColors.onSurface(brightness),
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
           ),
         ),
-        body: SafeArea(
-          top: false,
-          child: RefreshIndicator(
-            color: AppColors.brandRed,
-            backgroundColor: AppColors.cardSurface(brightness),
-            onRefresh: () => context.read<SettingsCubit>().load(),
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-              children: const [
-                OrgSettingsSection(),
-              ],
-            ),
+      ),
+      body: RefreshIndicator(
+        color: AppColors.brandRed,
+        backgroundColor: AppColors.cardSurface(brightness),
+        onRefresh: () => context.read<SettingsCubit>().load(),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            AppSpacing.innerGap,
+            AppSpacing.screenH,
+            AppSpacing.screenBottom,
           ),
+          children: const [
+            OrgSettingsSection(),
+          ],
         ),
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 
 /// Reusable animated feedback slot used below every input field.
 ///
@@ -38,7 +39,7 @@ class FieldFeedbackSlot extends StatefulWidget {
 
   /// Gap between the bottom of the input and the top of the feedback
   /// content. Defined once here — change it and every field updates.
-  static const double _kTopPadding = 4;
+  static const double _kTopPadding = AppSpacing.xs;
 
   @override
   State<FieldFeedbackSlot> createState() => _FieldFeedbackSlotState();
@@ -260,8 +261,8 @@ class OnboardingTextField extends StatelessWidget {
         filled: true,
         fillColor: fillColor ?? AppColors.inputFill(brightness),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -309,7 +310,7 @@ class OnboardingTextField extends StatelessWidget {
               color: AppColors.onSurfaceMuted(brightness),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.innerGap),
         ],
         field,
         if (feedbackChild != null)

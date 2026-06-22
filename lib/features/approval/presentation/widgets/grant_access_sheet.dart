@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_autocomplete_field.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -248,7 +249,12 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
               Flexible(
                 child: SingleChildScrollView(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.screenH,
+                      AppSpacing.sm,
+                      AppSpacing.screenH,
+                      AppSpacing.xl,
+                    ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,7 +269,7 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: AppSpacing.headerGap),
                         Text(
                           _pickAgent
                               ? l10n.grantAccessTitleAgent
@@ -274,7 +280,7 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: AppSpacing.md),
                         _Picker(
                           label: _pickAgent
                               ? l10n.grantAccessPickAgent
@@ -291,7 +297,7 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
                           onChanged: (id) => setState(() => _selectedId = id),
                         ),
                         // ^ null when the typed text matches no option.
-                        const SizedBox(height: 18),
+                        const SizedBox(height: AppSpacing.lg),
                         Text(
                           l10n.approvalAccessType,
                           style: TextStyle(
@@ -300,13 +306,13 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: AppSpacing.innerGap),
                         GrantLimitSelector(
                           value: _limit,
                           enabled: !state.isSubmitting,
                           onChanged: (l) => setState(() => _limit = l),
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: AppSpacing.lg),
                         Text(
                           l10n.approvalMethodsLegend,
                           style: TextStyle(
@@ -315,7 +321,7 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: AppSpacing.innerGap),
                         GrantMethodsSelector(
                           value: _methods,
                           enabled: !state.isSubmitting,
@@ -382,10 +388,10 @@ class _Picker extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.innerGap),
         if (loading)
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.innerGap),
             child: SizedBox(
               height: 18,
               width: 18,

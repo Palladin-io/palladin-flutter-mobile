@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 /// Full-width "Upload Custom Icon" button shared across all icon pickers
@@ -68,7 +69,7 @@ class _UploadIconButtonState extends State<UploadIconButton>
               ? AppColors.shimmerForeground
               : AppColors.onSurfaceMuted(brightness),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.innerGap),
         Text(
           text,
           style: TextStyle(
@@ -110,7 +111,10 @@ class _UploadIconButtonState extends State<UploadIconButton>
       onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.fieldGap,
+          vertical: AppSpacing.cardPadding,
+        ),
         decoration: BoxDecoration(
           color: AppColors.inputFill(brightness),
           borderRadius: BorderRadius.circular(10),

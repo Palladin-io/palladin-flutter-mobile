@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -171,7 +172,7 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
                 onTap: widget.enabled ? () => _setMode(_Mode.expiry) : null,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.innerGap),
             Expanded(
               child: _SegmentButton(
                 label: l10n.approvalPolicyUses,
@@ -179,7 +180,7 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
                 onTap: widget.enabled ? () => _setMode(_Mode.uses) : null,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.innerGap),
             Expanded(
               child: _SegmentButton(
                 label: l10n.approvalPolicyLifetime,
@@ -189,7 +190,7 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.fieldGap),
         // The field below sizes naturally — no fixed-height slot (which caused an
         // 8px overflow). Time / Uses are the same label+field height; Lifetime has
         // no field and instead shows the "never expires" caveat in the shared
@@ -209,7 +210,7 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
               feedbackReserveSpace: false,
               onTap: widget.enabled ? _pickDateTime : null,
               suffixIcon: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 child: Icon(
                   Icons.calendar_today_outlined,
                   size: 18,
@@ -257,7 +258,7 @@ class _SegmentButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 7),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.innerGap),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: selected

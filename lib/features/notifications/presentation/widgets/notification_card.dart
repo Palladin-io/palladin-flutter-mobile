@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/presentation/widgets/agent_avatar.dart';
 import '../../../grants/presentation/widgets/org_grant_card.dart' show GrantDetailRow;
@@ -86,7 +87,12 @@ class NotificationCard extends StatelessWidget {
               child: InkWell(
                 onTap: onTap,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.cardPadding,
+                  AppSpacing.md,
+                  AppSpacing.cardPadding,
+                  AppSpacing.md,
+                ),
                   child: _Header(item: item, glyphTint: glyphTint),
                 ),
               ),
@@ -98,12 +104,17 @@ class NotificationCard extends StatelessWidget {
                 color: AppColors.cardBorder(brightness),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.cardPadding,
+                  AppSpacing.md,
+                  AppSpacing.cardPadding,
+                  AppSpacing.md,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     for (var i = 0; i < rows.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 8),
+                      if (i > 0) const SizedBox(height: AppSpacing.innerGap),
                       GrantDetailRow(
                         label: rows[i].label,
                         value: rows[i].value,
@@ -168,7 +179,7 @@ class _Header extends StatelessWidget {
             ),
             child: Icon(notificationIcon(item), size: 18, color: glyphTint),
           ),
-        const SizedBox(width: 10),
+        const SizedBox(width: AppSpacing.innerGap),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,7 +196,7 @@ class _Header extends StatelessWidget {
                 ),
               ),
               if (subtitle.isNotEmpty) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   subtitle,
                   maxLines: 1,
@@ -199,7 +210,7 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.innerGap),
         // Date sits top-right on the title line. No status pill — the card is
         // an immutable log entry, so it carries no live state indicator.
         Text(
@@ -251,7 +262,10 @@ class _Footer extends StatelessWidget {
         color: AppColors.cardFooterOverlay(brightness),
         border: Border(top: BorderSide(color: AppColors.cardBorder(brightness))),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.cardPadding,
+        vertical: AppSpacing.innerGap,
+      ),
       // Pin a consistent footer min-height so action + log cards align.
       constraints: const BoxConstraints(minHeight: _buttonHeight + 16),
       child: hasInlineActions
@@ -259,7 +273,7 @@ class _Footer extends StatelessWidget {
               children: [
                 if (onSecondary != null) ...[
                   Expanded(child: _secondaryButton(brightness)),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.innerGap),
                 ],
                 if (onPrimary != null) Expanded(child: _primaryButton()),
               ],

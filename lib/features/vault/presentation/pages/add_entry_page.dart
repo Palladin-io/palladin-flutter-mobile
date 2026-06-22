@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/icon_picker_grid.dart' show IconMoreTile;
 import '../../../../l10n/generated/app_localizations.dart';
@@ -281,38 +283,36 @@ class _AddEntryViewState extends State<_AddEntryView> {
         final isBusy = isLoading || _pickingIcon;
         final canSubmit = !isBusy && _canSubmit;
 
-        return Container(
-          decoration: BoxDecoration(
-            gradient: AppColors.backgroundGradient(brightness),
-          ),
-          child: Scaffold(
+        return AppScreen.appBar(
+          appBar: AppBar(
             backgroundColor: Colors.transparent,
-            appBar: AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              scrolledUnderElevation: 0,
-              surfaceTintColor: Colors.transparent,
-              iconTheme:
-                  IconThemeData(color: AppColors.onSurface(brightness)),
-              leading: IconButton(
-                icon: const Icon(Icons.close, size: 22),
-                onPressed: isBusy ? null : () => Navigator.of(context).pop(),
-                tooltip: l10n.vaultCancel,
-              ),
-              title: Text(
-                l10n.entryAddTitle,
-                style: TextStyle(
-                  color: AppColors.onSurface(brightness),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            surfaceTintColor: Colors.transparent,
+            iconTheme:
+                IconThemeData(color: AppColors.onSurface(brightness)),
+            leading: IconButton(
+              icon: const Icon(Icons.close, size: 22),
+              onPressed: isBusy ? null : () => Navigator.of(context).pop(),
+              tooltip: l10n.vaultCancel,
+            ),
+            title: Text(
+              l10n.entryAddTitle,
+              style: TextStyle(
+                color: AppColors.onSurface(brightness),
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            body: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                child: Column(
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              AppSpacing.innerGap,
+              AppSpacing.screenH,
+              AppSpacing.screenBottom,
+            ),
+            child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // 1. Label
@@ -324,7 +324,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       textInputAction: TextInputAction.next,
                       onChanged: (_) => setState(() {}),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.fieldGap),
                     // 2. Description
                     OnboardingTextField(
                       label: l10n.entryDescriptionLabel,
@@ -332,7 +332,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       textCapitalization: TextCapitalization.sentences,
                       textInputAction: TextInputAction.next,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.fieldGap),
                     // 3. URL
                     OnboardingTextField(
                       label: l10n.entryUrlLabel,
@@ -351,7 +351,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       feedbackVisible: _urlError != null,
                       feedbackReserveSpace: false,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.fieldGap),
                     // 4. Icon picker
                     Text(
                       l10n.vaultIconLabel,
@@ -361,14 +361,14 @@ class _AddEntryViewState extends State<_AddEntryView> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.innerGap),
                     EntryIconPicker(
                       selected: _icon,
                       accentColor: accentColor,
                       onSelected: (name) => setState(() => _icon = name),
                       moreTile: IconMoreTile(onTap: _openEntryBrowser),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.fieldGap),
                     // 5. Type dropdown
                     EntryTypeDropdown(
                       value: _type,
@@ -377,7 +377,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                         setState(() => _type = next);
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.fieldGap),
                     // 7. Type-specific fields
                     if (_type == EntryType.key) ...[
                       OnboardingTextField(
@@ -400,7 +400,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                         textInputAction: TextInputAction.next,
                         onChanged: (_) => setState(() {}),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.fieldGap),
                       OnboardingTextField(
                         label: l10n.entryPasswordLabel,
                         controller: _passwordController,
@@ -415,17 +415,17 @@ class _AddEntryViewState extends State<_AddEntryView> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.fieldGap),
                     // 6. Notes
                     EntryNotesField(
                       controller: _notesController,
                       label: l10n.entryNotesLabel,
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: AppSpacing.section),
                     // 7. Encryption notice
                     EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
                     if (state is CreateEntryError) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.fieldGap),
                       Text(
                         EntryFormUtils.errorMessage(l10n, state.kind),
                         style: const TextStyle(
@@ -434,15 +434,13 @@ class _AddEntryViewState extends State<_AddEntryView> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 20),
+                    const SizedBox(height: AppSpacing.section),
                     // 8. Save button
                     EntrySaveButton(
                       isLoading: isLoading,
                       onPressed: canSubmit ? _submit : null,
                     ),
                   ],
-                ),
-              ),
             ),
           ),
         );

@@ -6,6 +6,7 @@ import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/fab_registrar.dart';
@@ -175,7 +176,10 @@ class _VaultListViewState extends State<_VaultListView> {
     // FabRegistrar.didUpdateWidget then sees no change and won't
     // re-register on every parent rebuild.
     final fab = _cachedFab ??= Padding(
-      padding: const EdgeInsets.only(bottom: 8, right: 4),
+      padding: const EdgeInsets.only(
+        bottom: AppSpacing.innerGap,
+        right: AppSpacing.xs,
+      ),
       child: AppFab(
         onPressed: _onAddTapped,
         tooltip: l10n.vaultNewVault,
@@ -280,7 +284,12 @@ class _LoadedContent extends StatelessWidget {
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenH,
+                0,
+                AppSpacing.screenH,
+                AppSpacing.fieldGap,
+              ),
               child: AppSearchField(
                 controller: searchController,
                 hint: AppLocalizations.of(context)!.vaultSearchHint,
@@ -294,10 +303,16 @@ class _LoadedContent extends StatelessWidget {
             )
           else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenH,
+                0,
+                AppSpacing.screenH,
+                AppSpacing.xxl,
+              ),
               sliver: SliverList.separated(
                 itemCount: filtered.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 12),
+                separatorBuilder: (_, _) =>
+                    const SizedBox(height: AppSpacing.cardGap),
                 itemBuilder: (_, index) {
                   final vault = filtered[index];
                   final cubit = context.read<VaultListCubit>();
@@ -340,7 +355,12 @@ class _HeaderRow extends StatelessWidget {
     // Grants/approvals are centralised in the Approvals nav tab — no header
     // shortcut here.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.headerGap,
+        AppSpacing.screenH,
+        AppSpacing.fieldGap,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -354,7 +374,7 @@ class _HeaderRow extends StatelessWidget {
               height: 1.2,
             ),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             l10n.vaultListSummary(vaultCount, entryCount),
             style: TextStyle(
@@ -377,7 +397,10 @@ class _SearchEmptyView extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.screenH,
+        vertical: AppSpacing.screenBottom,
+      ),
       child: Center(
         child: Text(
           l10n.vaultSearchEmpty,
@@ -434,7 +457,12 @@ class _PremiumGateSheet extends StatelessWidget {
         // the shell-reserved bottom-nav space.
         padding: EdgeInsets.only(bottom: MediaQuery.viewPaddingOf(context).bottom),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            AppSpacing.md,
+            AppSpacing.screenH,
+            AppSpacing.xl,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -450,7 +478,7 @@ class _PremiumGateSheet extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: AppSpacing.xxl),
               Center(
                 child: Icon(
                   Icons.workspace_premium,
@@ -458,7 +486,7 @@ class _PremiumGateSheet extends StatelessWidget {
                   size: 32,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               Text(
                 l10n.premiumGateTitle,
                 textAlign: TextAlign.center,
@@ -469,7 +497,7 @@ class _PremiumGateSheet extends StatelessWidget {
                   height: 1.3,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.innerGap),
               Text(
                 l10n.premiumGateSubtitle,
                 textAlign: TextAlign.center,
@@ -479,7 +507,7 @@ class _PremiumGateSheet extends StatelessWidget {
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xxl),
               // Amber outline CTA — mirrors the web panel's premium
               // button (transparent fill with low-alpha tint, amber
               // border and label) instead of the previous solid amber
@@ -499,8 +527,8 @@ class _PremiumGateSheet extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   padding: const EdgeInsets.symmetric(
-                    vertical: 14,
-                    horizontal: 16,
+                    vertical: AppSpacing.cardPadding,
+                    horizontal: AppSpacing.lg,
                   ),
                 ),
                 icon: const Icon(Icons.workspace_premium, size: 15),
@@ -514,12 +542,12 @@ class _PremiumGateSheet extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: AppSpacing.chipGap),
                     const Icon(Icons.arrow_forward, size: 14),
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.innerGap),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: TextButton.styleFrom(
@@ -549,12 +577,17 @@ class _SkeletonList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.xs,
+        AppSpacing.screenH,
+        0,
+      ),
       child: Column(
         children: List.generate(
           4,
           (_) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
             child: _SkeletonCard(brightness: brightness),
           ),
         ),
@@ -624,7 +657,10 @@ class _EmptyView extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.screenH,
+          vertical: AppSpacing.xxl,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -642,7 +678,7 @@ class _EmptyView extends StatelessWidget {
                 size: 36,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.xl),
             Text(
               l10n.vaultNoVaults,
               style: TextStyle(
@@ -651,7 +687,7 @@ class _EmptyView extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.innerGap),
             Text(
               l10n.vaultCreateFirst,
               textAlign: TextAlign.center,
@@ -661,7 +697,7 @@ class _EmptyView extends StatelessWidget {
                 height: 1.4,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.xxl),
             SizedBox(
               width: double.infinity,
               height: 44,
@@ -704,7 +740,7 @@ class _ErrorView extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -713,7 +749,7 @@ class _ErrorView extends StatelessWidget {
               color: AppColors.brandRed,
               size: 40,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.section),
             Text(
               _errorMessage(context, kind),
               textAlign: TextAlign.center,
@@ -723,7 +759,7 @@ class _ErrorView extends StatelessWidget {
                 height: 1.4,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.section),
             TextButton(
               onPressed: onRetry,
               style: TextButton.styleFrom(

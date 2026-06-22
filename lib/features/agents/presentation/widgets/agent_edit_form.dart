@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_autocomplete_field.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/icon_picker_grid.dart'
@@ -285,7 +286,7 @@ class _AgentEditFormState extends State<AgentEditForm> {
                   textCapitalization: TextCapitalization.none,
                   textInputAction: TextInputAction.next,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.fieldGap),
                 _TypeAutocomplete(
                   // Keyed by agent so the field resets when a different agent
                   // loads, but stays put (focus + text) during editing.
@@ -294,14 +295,14 @@ class _AgentEditFormState extends State<AgentEditForm> {
                   enabled: enabled,
                   onChanged: (next) => setState(() => _type = next),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.fieldGap),
                 OnboardingTextField(
                   controller: _descriptionController,
                   label: l10n.agentsEditDescription,
                   textCapitalization: TextCapitalization.sentences,
                   maxLines: 3,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.fieldGap),
                 _EditIconPicker(
                   selected: _iconKey,
                   selectedColor: _iconColor,
@@ -310,7 +311,7 @@ class _AgentEditFormState extends State<AgentEditForm> {
                   onMoreTapped: widget.canEdit ? _openIconBrowser : null,
                 ),
                 if (widget.canEdit) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.fieldGap),
                   _SaveButton(
                     isSaving: isSaving,
                     onPressed: canSubmit ? _onSave : null,
@@ -319,7 +320,7 @@ class _AgentEditFormState extends State<AgentEditForm> {
                 // When the form is read-only we surface a one-line hint so
                 // the operator understands why the inputs are greyed out.
                 if (!widget.canEdit && widget.agent.isPending) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.innerGap),
                   Text(
                     l10n.agentsApproveHint,
                     style: TextStyle(
@@ -482,7 +483,7 @@ class _EditIconPickerState extends State<_EditIconPicker> {
             color: AppColors.onSurfaceMuted(brightness),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.innerGap),
         Opacity(
           opacity: widget.enabled ? 1.0 : 0.4,
           child: AbsorbPointer(
@@ -541,7 +542,7 @@ class _SaveButton extends StatelessWidget {
           foregroundColor: AppColors.onBrandRed,
           disabledForegroundColor: AppColors.onBrandRed.withValues(alpha: 0.5),
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 18),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),

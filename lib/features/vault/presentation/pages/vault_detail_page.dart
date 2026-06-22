@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../cubit/vault_list_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -176,7 +177,10 @@ class _VaultDetailViewState extends State<_VaultDetailView>
     if (!onEntries && !onAgents) return null;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8, right: 4),
+      padding: const EdgeInsets.only(
+        bottom: AppSpacing.innerGap,
+        right: AppSpacing.xs,
+      ),
       child: AppFab(
         onPressed: _onFabPressed,
         tooltip: onAgents ? l10n.grantAccessTitleVault : l10n.vaultAddEntryFab,
@@ -402,7 +406,7 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
           ),
           if (subtitle.isNotEmpty) ...[
-            const SizedBox(height: 3),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               subtitle,
               style: TextStyle(
@@ -425,7 +429,8 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
             // navigate between tabs.
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+            labelPadding:
+                const EdgeInsets.symmetric(horizontal: AppSpacing.cardPadding),
             labelColor: AppColors.brandRed,
             unselectedLabelColor: subtle,
             indicatorColor: AppColors.brandRed,
@@ -480,7 +485,12 @@ class _LoadedBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.xl,
+        AppSpacing.screenH,
+        0,
+      ),
       child: TabBarView(
         controller: tabController,
         children: [
@@ -541,7 +551,8 @@ class _VaultAgentsTab extends StatelessWidget {
       vaultId: vaultId,
       emptyTitle: l10n.vaultAgentsEmptyTitle,
       emptyHint: l10n.vaultAgentsEmptyHint,
-      contentPadding: const EdgeInsets.fromLTRB(0, 4, 0, 96),
+      contentPadding:
+          const EdgeInsets.fromLTRB(0, AppSpacing.xs, 0, AppSpacing.listBottom),
     );
   }
 }
@@ -570,7 +581,7 @@ class _ErrorView extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
         child: Text(
           switch (kind) {
             VaultErrorKind.notFound => l10n.vaultErrorNotFound,
