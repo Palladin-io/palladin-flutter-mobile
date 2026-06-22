@@ -41,9 +41,15 @@ class FabRegistrar extends StatefulWidget {
 }
 
 class _FabRegistrarState extends State<FabRegistrar> {
+  // Cached in didChangeDependencies so dispose() can drop our FAB
+  // without looking up an InheritedWidget — that lookup is illegal once
+  // the element is deactivated (throws "deactivated widget's ancestor").
+  ClearFabCallback? _clearFab;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _clearFab = AppShellScope.of(context).clearFab;
     // Defer until after the current build so the InheritedWidget
     // lookup is safe and we don't mutate the shell's state during a
     // descendant's build. `this` is the stable ownership token.
@@ -70,7 +76,17 @@ class _FabRegistrarState extends State<FabRegistrar> {
     // where the incoming page already owns the FAB. If we *were* on top
     // (e.g. a detail page popping back), the covered page's entry below
     // ours surfaces automatically.
-    AppShellScope.maybeOf(context)?.clearFab(this);
+    //
+    // Run via post-frame on the cached callback (not an ancestor lookup):
+    // the lookup is illegal in dispose, and clearFab calls setState which
+    // is illegal while the tree is locked during finalizeTree. By the
+    // post-frame the frame is done and the shell can rebuild safely. The
+    // ownership stack is order-independent, so racing this against an
+    // incoming page's setFab still converges to the right top entry.
+    final clearFab = _clearFab;
+    if (clearFab != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => clearFab(this));
+    }
     super.dispose();
   }
 

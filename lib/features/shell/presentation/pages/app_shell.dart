@@ -99,6 +99,7 @@ class _AppShellState extends State<AppShell> {
   /// this is how a page suppresses a covered page's FAB (e.g. the Agents
   /// list, or a detail tab with no add affordance).
   void _setFab(Widget? fab, Object owner) {
+    if (!mounted) return;
     if (_fabStack.set(fab, owner)) setState(() {});
   }
 
@@ -107,7 +108,10 @@ class _AppShellState extends State<AppShell> {
   /// down (the previously-covered page) becomes visible again. No-op if
   /// the owner never registered or was already removed.
   void _clearFab(Object owner) {
-    if (_fabStack.clear(owner)) setState(() {});
+    // Removing from the stack is always valid; only rebuild if the shell
+    // is still mounted (a post-frame clear can fire after teardown).
+    final changed = _fabStack.clear(owner);
+    if (changed && mounted) setState(() {});
   }
 
   @override
@@ -258,12 +262,6 @@ class AppShellScope extends InheritedWidget {
     assert(scope != null, 'AppShellScope.of called without an AppShell ancestor');
     return scope!;
   }
-
-  /// Like [of] but without registering a dependency and without asserting
-  /// — returns `null` if no shell is mounted above [context]. Safe to call
-  /// from `dispose`, where depending on an inherited widget is illegal.
-  static AppShellScope? maybeOf(BuildContext context) =>
-      context.getInheritedWidgetOfExactType<AppShellScope>();
 
   @override
   bool updateShouldNotify(AppShellScope oldWidget) =>
