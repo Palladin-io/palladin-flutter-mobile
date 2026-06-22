@@ -112,10 +112,28 @@ class _OnboardingWizardView extends StatelessWidget {
       case OnboardingStep.completed:
         // Router redirect fires on the auth-check — show a spinner as a
         // brief placeholder while the transition happens.
-        return const Scaffold(
-          backgroundColor: AppColors.darkBackground,
-          body: Center(child: CircularProgressIndicator()),
-        );
+        return const _CompletedPlaceholder();
     }
+  }
+}
+
+/// Brief gradient placeholder shown while the router redirects home after
+/// onboarding completes. Matches the wizard's brightness-aware background
+/// so light mode stays consistent (no flash of dark navy).
+class _CompletedPlaceholder extends StatelessWidget {
+  const _CompletedPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: AppColors.backgroundGradient(brightness),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      ),
+    );
   }
 }

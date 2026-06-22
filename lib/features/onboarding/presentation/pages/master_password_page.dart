@@ -138,11 +138,12 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
   }
 
   Widget _visibilityButton(bool visible, VoidCallback onToggle) {
+    final brightness = Theme.of(context).brightness;
     return IconButton(
       icon: Icon(
         visible ? Icons.visibility_off : Icons.visibility,
         size: 20,
-        color: AppColors.iconMuted,
+        color: AppColors.iconDefault(brightness),
       ),
       onPressed: onToggle,
     );
@@ -178,6 +179,7 @@ class _RequirementsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     final hasLength = password.length >= 12;
     final hasCase = RegExp(r'[a-z]').hasMatch(password) &&
         RegExp(r'[A-Z]').hasMatch(password);
@@ -187,31 +189,32 @@ class _RequirementsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.darkSurface,
+        color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.cardBorder(brightness)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             l10n.onboardingPasswordRequirementsTitle,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: AppColors.onSurface(brightness),
             ),
           ),
           const SizedBox(height: 8),
-          _requirement(l10n.onboardingPasswordReqLength, hasLength),
-          _requirement(l10n.onboardingPasswordReqCase, hasCase),
-          _requirement(l10n.onboardingPasswordReqNumber, hasNumber),
-          _requirement(l10n.onboardingPasswordReqSymbol, hasSymbol),
+          _requirement(l10n.onboardingPasswordReqLength, hasLength, brightness),
+          _requirement(l10n.onboardingPasswordReqCase, hasCase, brightness),
+          _requirement(l10n.onboardingPasswordReqNumber, hasNumber, brightness),
+          _requirement(l10n.onboardingPasswordReqSymbol, hasSymbol, brightness),
         ],
       ),
     );
   }
 
-  Widget _requirement(String label, bool met) {
+  Widget _requirement(String label, bool met, Brightness brightness) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -221,14 +224,16 @@ class _RequirementsCard extends StatelessWidget {
             size: 14,
             color: met
                 ? AppColors.positiveAccent
-                : Colors.white.withValues(alpha: 0.3),
+                : AppColors.onSurfaceSubtle(brightness),
           ),
           const SizedBox(width: 8),
           Text(
             label,
             style: TextStyle(
               fontSize: 12,
-              color: met ? Colors.white : Colors.white.withValues(alpha: 0.55),
+              color: met
+                  ? AppColors.onSurface(brightness)
+                  : AppColors.onSurfaceMuted(brightness),
             ),
           ),
         ],

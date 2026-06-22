@@ -128,6 +128,7 @@ class _WarningBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -144,9 +145,9 @@ class _WarningBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: Colors.white,
+                color: AppColors.onSurface(brightness),
                 height: 1.4,
               ),
             ),
@@ -164,6 +165,7 @@ class _MnemonicGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -178,11 +180,9 @@ class _MnemonicGrid extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: AppColors.textPrimary.withValues(alpha: 0.04),
+            color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: AppColors.textPrimary.withValues(alpha: 0.06),
-            ),
+            border: Border.all(color: AppColors.cardBorder(brightness)),
           ),
           alignment: Alignment.centerLeft,
           child: Row(
@@ -193,7 +193,7 @@ class _MnemonicGrid extends StatelessWidget {
                   '${index + 1}',
                   style: TextStyle(
                     fontSize: 10,
-                    color: Colors.white.withValues(alpha: 0.45),
+                    color: AppColors.onSurfaceSubtle(brightness),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -201,9 +201,9 @@ class _MnemonicGrid extends StatelessWidget {
               Expanded(
                 child: Text(
                   words[index],
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textPrimary,
+                    color: AppColors.onSurface(brightness),
                     fontWeight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -231,22 +231,24 @@ class _SecondaryAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final foreground = AppColors.onSurface(brightness);
     return SizedBox(
       width: double.infinity,
       height: 44,
       child: OutlinedButton.icon(
-        icon: Icon(icon, size: 16, color: Colors.white),
+        icon: Icon(icon, size: 16, color: foreground),
         label: Text(
           label,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: foreground,
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
         ),
         style: OutlinedButton.styleFrom(
           backgroundColor: Colors.transparent,
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+          side: BorderSide(color: AppColors.cardBorder(brightness)),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
