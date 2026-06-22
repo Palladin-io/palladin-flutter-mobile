@@ -34,7 +34,6 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _expanded = <String>{};
   final Set<String> _revealedFields = <String>{}; // composite "$entryId:$field"
-  bool _filtersOpen = false;
 
   @override
   void dispose() {
@@ -172,15 +171,8 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
             AppSearchField(
               controller: _searchController,
               hint: l10n.entrySearchHint,
-              filterActive: _filtersOpen,
-              onToggleFilter: () =>
-                  setState(() => _filtersOpen = !_filtersOpen),
               onChanged: (_) => setState(() {}),
             ),
-            if (_filtersOpen) ...[
-              const SizedBox(height: 8),
-              const _FilterChipsRow(),
-            ],
             const SizedBox(height: 12),
             Expanded(
               child: switch (state) {
@@ -261,77 +253,6 @@ class _LoadedBody extends StatelessWidget {
                 ],
               ],
             ),
-    );
-  }
-}
-
-class _FilterChipsRow extends StatelessWidget {
-  const _FilterChipsRow();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        _FilterChip(
-          label: l10n.entryTypeKey,
-          dotColor: AppColors.positiveAccent,
-          borderColor: AppColors.positiveAccent.withValues(alpha: 0.35),
-        ),
-        _FilterChip(
-          label: l10n.entryTypeCredential,
-          dotColor: AppColors.vaultBlue,
-          borderColor: AppColors.vaultSlate.withValues(alpha: 0.15),
-        ),
-      ],
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.dotColor,
-    required this.borderColor,
-  });
-
-  final String label;
-  final Color dotColor;
-  final Color borderColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface(brightness),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: dotColor,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
