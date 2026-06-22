@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/agent.dart';
@@ -64,11 +66,11 @@ class _AgentDetailView extends StatelessWidget {
     );
     if (result == null || !context.mounted) return;
     await context.read<AgentsCubit>().approveAgent(
-          agent.agentId,
-          name: result.name,
-          type: result.type,
-          iconKey: result.iconKey,
-        );
+      agent.agentId,
+      name: result.name,
+      type: result.type,
+      iconKey: result.iconKey,
+    );
   }
 
   Future<void> _onDeactivate(BuildContext context, Agent agent) async {
@@ -86,80 +88,69 @@ class _AgentDetailView extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppColors.backgroundGradient(brightness),
-      ),
-      child: Scaffold(
+    // The shared AgentDetailBody owns the title→tabs (headerGap) gap so the
+    // split-view pane and this pushed page have identical rhythm — hence
+    // gapAfterHeader is left to the body here.
+    return AppScreen.appBar(
+      gapAfterHeader: false,
+      appBar: AppBar(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          scrolledUnderElevation: 0,
-          elevation: 0,
-          titleSpacing: 0,
-          centerTitle: false,
-          iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-            onPressed: () => context.pop(),
-          ),
-          title: _AppBarTitle(agentId: agentId),
-          // No edit action — the Details tab now hosts the edit form
-          // inline, matching the web panel's split-view detail.
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        titleSpacing: 0,
+        centerTitle: false,
+        iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+          onPressed: () => context.pop(),
         ),
-        body: SafeArea(
-          top: false,
-          child: Stack(
-            children: [
-              BlocConsumer<AgentsCubit, AgentsState>(
-                // Surface a failed approve / deactivate / reactivate as a
-                // snackbar so the agent card stays visible, then clear
-                // the transient flag so it does not re-fire.
-                listenWhen: (prev, curr) =>
-                    prev.mutationError != curr.mutationError &&
-                    curr.mutationError != null,
-                listener: (context, state) {
-                  ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          agentsErrorMessage(l10n, state.mutationError!),
-                        ),
-                      ),
-                    );
-                  context.read<AgentsCubit>().acknowledgeMutationError();
-                },
-                builder: (context, state) {
-                  return switch (state.status) {
-                    AgentsStatus.initial || AgentsStatus.loading => const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.brandRed,
-                        ),
-                      ),
-                    AgentsStatus.error => _CenteredMessage(
-                        message: agentsErrorMessage(l10n, state.error!),
-                        onRetry: () => context.read<AgentsCubit>().load(),
-                      ),
-                    AgentsStatus.loaded => _LoadedBody(
-                        agentId: agentId,
-                        state: state,
-                        onApprove: _onApprove,
-                        onDeactivate: _onDeactivate,
-                      ),
-                  };
-                },
-              ),
-              // Suppress any shell FAB on this screen.
-              const Positioned(
-                width: 0,
-                height: 0,
-                child: FabRegistrar(fab: null),
-              ),
-            ],
+        title: _AppBarTitle(agentId: agentId),
+        // No edit action — the Details tab now hosts the edit form
+        // inline, matching the web panel's split-view detail.
+      ),
+      body: Stack(
+        children: [
+          BlocConsumer<AgentsCubit, AgentsState>(
+            // Surface a failed approve / deactivate / reactivate as a
+            // snackbar so the agent card stays visible, then clear
+            // the transient flag so it does not re-fire.
+            listenWhen: (prev, curr) =>
+                prev.mutationError != curr.mutationError &&
+                curr.mutationError != null,
+            listener: (context, state) {
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      agentsErrorMessage(l10n, state.mutationError!),
+                    ),
+                  ),
+                );
+              context.read<AgentsCubit>().acknowledgeMutationError();
+            },
+            builder: (context, state) {
+              return switch (state.status) {
+                AgentsStatus.initial || AgentsStatus.loading => const Center(
+                  child: CircularProgressIndicator(color: AppColors.brandRed),
+                ),
+                AgentsStatus.error => _CenteredMessage(
+                  message: agentsErrorMessage(l10n, state.error!),
+                  onRetry: () => context.read<AgentsCubit>().load(),
+                ),
+                AgentsStatus.loaded => _LoadedBody(
+                  agentId: agentId,
+                  state: state,
+                  onApprove: _onApprove,
+                  onDeactivate: _onDeactivate,
+                ),
+              };
+            },
           ),
-        ),
+          // Suppress any shell FAB on this screen.
+          const Positioned(width: 0, height: 0, child: FabRegistrar(fab: null)),
+        ],
       ),
     );
   }
@@ -212,8 +203,9 @@ class _AppBarTitle extends StatelessWidget {
     final agent = context.select<AgentsCubit, Agent?>(
       (cubit) => cubit.state.agentById(agentId),
     );
-    final name =
-        agent == null ? l10n.agentsDetailTitle : agentDisplayName(l10n, agent);
+    final name = agent == null
+        ? l10n.agentsDetailTitle
+        : agentDisplayName(l10n, agent);
     final statusLabel = switch (agent?.status) {
       AgentStatus.active => l10n.agentsStatusActive,
       AgentStatus.pending => l10n.agentsStatusPending,
@@ -237,7 +229,7 @@ class _AppBarTitle extends StatelessWidget {
           ),
         ),
         if (statusLabel.isNotEmpty) ...[
-          const SizedBox(height: 3),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             statusLabel,
             style: TextStyle(
@@ -266,7 +258,7 @@ class _CenteredMessage extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxxl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -280,7 +272,7 @@ class _CenteredMessage extends StatelessWidget {
               ),
             ),
             if (onRetry != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               TextButton(
                 onPressed: onRetry,
                 style: TextButton.styleFrom(

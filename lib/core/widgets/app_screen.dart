@@ -41,8 +41,8 @@ class AppScreen extends StatelessWidget {
     required this.body,
     this.floatingActionButton,
     this.endDrawer,
-  })  : header = null,
-        gapAfterHeader = false;
+    this.gapAfterHeader = true,
+  }) : header = null;
 
   /// Content area. Owns its own horizontal padding (see [screenPadding]).
   final Widget body;
@@ -60,15 +60,17 @@ class AppScreen extends StatelessWidget {
   /// Optional end drawer.
   final Widget? endDrawer;
 
-  /// Whether to insert [AppSpacing.headerGap] between [header] and [body].
-  /// Ignored in the AppBar variant. Set `false` when [body] already manages
-  /// the leading gap (e.g. its own scrollable padding).
+  /// Whether to insert [AppSpacing.headerGap] between the title (header widget
+  /// or AppBar) and [body]. Defaults to `true` in both variants so every
+  /// screen has the same title→content rhythm. Set `false` only when [body]
+  /// must own the leading gap itself (rare).
   final bool gapAfterHeader;
 
   /// Symmetric horizontal screen padding helper, for the common case where a
   /// content section spans the full screen width minus the gutters.
-  static const EdgeInsets screenPadding =
-      EdgeInsets.symmetric(horizontal: AppSpacing.screenH);
+  static const EdgeInsets screenPadding = EdgeInsets.symmetric(
+    horizontal: AppSpacing.screenH,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +87,14 @@ class AppScreen extends StatelessWidget {
         body: SafeArea(
           top: appBar == null,
           child: appBar != null
-              ? body
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (gapAfterHeader)
+                      const SizedBox(height: AppSpacing.headerGap),
+                    Expanded(child: body),
+                  ],
+                )
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

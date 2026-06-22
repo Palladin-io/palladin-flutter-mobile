@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
@@ -252,109 +254,111 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppColors.backgroundGradient(brightness),
-      ),
-      child: Scaffold(
+    return AppScreen.appBar(
+      // Suppress any FAB leaking from a page we were navigated over.
+      floatingActionButton: const FabRegistrar(fab: null),
+      appBar: AppBar(
+        centerTitle: false,
         backgroundColor: Colors.transparent,
-        // Suppress any FAB leaking from a page we were navigated over.
-        floatingActionButton: const FabRegistrar(fab: null),
-        appBar: AppBar(
-          centerTitle: false,
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          scrolledUnderElevation: 0,
-          elevation: 0,
-          titleSpacing: 20,
-          iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
-          title: Text(
-            l10n.inboxTitle,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        titleSpacing: AppSpacing.screenH,
+        iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
+        title: Text(
+          l10n.inboxTitle,
+          style: TextStyle(
+            color: AppColors.onSurface(brightness),
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
           ),
-          actions: [
-            BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
-              buildWhen: (p, c) =>
-                  p.unreadCount != c.unreadCount ||
-                  p.isMarkingAllRead != c.isMarkingAllRead,
-              builder: (context, state) {
-                final enabled =
-                    state.unreadCount > 0 && !state.isMarkingAllRead;
-                return TextButton.icon(
-                  onPressed: enabled
-                      ? () =>
-                          context.read<NotificationCenterCubit>().markAllRead()
-                      : null,
-                  icon: Icon(
-                    Icons.done_all,
-                    size: 16,
-                    color: enabled
-                        ? AppColors.tealAccent
-                        : AppColors.onSurfaceSubtle(brightness),
-                  ),
-                  label: Text(l10n.inboxMarkAllRead),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.tealAccent,
-                    disabledForegroundColor:
-                        AppColors.onSurfaceSubtle(brightness),
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                );
-              },
-            ),
-            // Kebab overflow: secondary actions (Grants list, preferences).
-            // Mark-all-read stays a primary AppBar action above.
-            PopupMenuButton<_InboxMenuAction>(
-              tooltip: l10n.inboxMoreActions,
-              icon: Icon(
-                Icons.more_vert,
-                size: 20,
-                color: AppColors.iconDefault(brightness),
-              ),
-              color: AppColors.cardSurface(brightness),
-              onSelected: (action) => switch (action) {
-                _InboxMenuAction.grants => context.push('/inbox/grants'),
-                _InboxMenuAction.preferences =>
-                  context.push('/inbox/preferences'),
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: _InboxMenuAction.grants,
-                  child: _MenuRow(
-                    icon: Icons.vpn_key_outlined,
-                    label: l10n.inboxGrantsMenu,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: _InboxMenuAction.preferences,
-                  child: _MenuRow(
-                    icon: Icons.tune,
-                    label: l10n.inboxPreferencesMenu,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 8),
-          ],
         ),
-        body: SafeArea(
-          top: false,
-          child: Column(
-            children: [
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                child: BlocBuilder<NotificationCenterCubit,
-                    NotificationCenterState>(
+        actions: [
+          BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
+            buildWhen: (p, c) =>
+                p.unreadCount != c.unreadCount ||
+                p.isMarkingAllRead != c.isMarkingAllRead,
+            builder: (context, state) {
+              final enabled = state.unreadCount > 0 && !state.isMarkingAllRead;
+              return TextButton.icon(
+                onPressed: enabled
+                    ? () =>
+                          context.read<NotificationCenterCubit>().markAllRead()
+                    : null,
+                icon: Icon(
+                  Icons.done_all,
+                  size: 16,
+                  color: enabled
+                      ? AppColors.tealAccent
+                      : AppColors.onSurfaceSubtle(brightness),
+                ),
+                label: Text(l10n.inboxMarkAllRead),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.tealAccent,
+                  disabledForegroundColor: AppColors.onSurfaceSubtle(
+                    brightness,
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+              );
+            },
+          ),
+          // Kebab overflow: secondary actions (Grants list, preferences).
+          // Mark-all-read stays a primary AppBar action above.
+          PopupMenuButton<_InboxMenuAction>(
+            tooltip: l10n.inboxMoreActions,
+            icon: Icon(
+              Icons.more_vert,
+              size: 20,
+              color: AppColors.iconDefault(brightness),
+            ),
+            color: AppColors.cardSurface(brightness),
+            onSelected: (action) => switch (action) {
+              _InboxMenuAction.grants => context.push('/inbox/grants'),
+              _InboxMenuAction.preferences => context.push(
+                '/inbox/preferences',
+              ),
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: _InboxMenuAction.grants,
+                child: _MenuRow(
+                  icon: Icons.vpn_key_outlined,
+                  label: l10n.inboxGrantsMenu,
+                ),
+              ),
+              PopupMenuItem(
+                value: _InboxMenuAction.preferences,
+                child: _MenuRow(
+                  icon: Icons.tune,
+                  label: l10n.inboxPreferencesMenu,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: AppSpacing.innerGap),
+        ],
+      ),
+      // Title→segments gap (headerGap) is owned by AppScreen.appBar.
+      body: Column(
+        children: [
+          // segments → search: fieldGap
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              0,
+              AppSpacing.screenH,
+              AppSpacing.fieldGap,
+            ),
+            child:
+                BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
                   buildWhen: (p, c) =>
                       p.pendingActionCount != c.pendingActionCount,
                   builder: (context, state) => _SegmentToggle(
@@ -363,29 +367,28 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
                     onChanged: (s) => setState(() => _segment = s),
                   ),
                 ),
-              ),
-              // Search applies to all three log segments. The Grants list is a
-              // separate page (kebab) with its own UI.
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: AppSearchField(
-                  controller: _searchController,
-                  hint: l10n.inboxSearchHint,
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: _Feed(
-                  segment: _segment,
-                  query: _searchController.text,
-                  onTapItem: _onTap,
-                  onSecondary: _onSecondary,
-                ),
-              ),
-            ],
           ),
-        ),
+          // Search applies to all three log segments. The Grants list is a
+          // separate page (kebab) with its own UI.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
+            child: AppSearchField(
+              controller: _searchController,
+              hint: l10n.inboxSearchHint,
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          // search → first result / empty-state: fieldGap
+          const SizedBox(height: AppSpacing.fieldGap),
+          Expanded(
+            child: _Feed(
+              segment: _segment,
+              query: _searchController.text,
+              onTapItem: _onTap,
+              onSecondary: _onSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -418,16 +421,16 @@ class _Feed extends StatelessWidget {
           NotificationCenterStatus.initial ||
           NotificationCenterStatus.loading => const _Skeleton(),
           NotificationCenterStatus.error => _ErrorView(
-              message: notificationErrorMessage(l10n, state.error!),
-              onRetry: () => context.read<NotificationCenterCubit>().load(),
-            ),
+            message: notificationErrorMessage(l10n, state.error!),
+            onRetry: () => context.read<NotificationCenterCubit>().load(),
+          ),
           NotificationCenterStatus.loaded => _List(
-              items: _filter(state.items),
-              isLoadingMore: state.isLoadingMore,
-              segment: segment,
-              onTapItem: onTapItem,
-              onSecondary: onSecondary,
-            ),
+            items: _filter(state.items),
+            isLoadingMore: state.isLoadingMore,
+            segment: segment,
+            onTapItem: onTapItem,
+            onSecondary: onSecondary,
+          ),
         },
       ),
     );
@@ -480,24 +483,30 @@ class _List extends StatelessWidget {
     if (items.isEmpty) {
       final (icon, title, hint) = switch (segment) {
         InboxSegment.todo => (
-            Icons.task_alt,
-            l10n.inboxTodoEmpty,
-            l10n.inboxTodoEmptyHint,
-          ),
+          Icons.task_alt,
+          l10n.inboxTodoEmpty,
+          l10n.inboxTodoEmptyHint,
+        ),
         InboxSegment.history => (
-            Icons.history,
-            l10n.inboxUpdatesEmpty,
-            l10n.inboxUpdatesEmptyHint,
-          ),
+          Icons.history,
+          l10n.inboxUpdatesEmpty,
+          l10n.inboxUpdatesEmptyHint,
+        ),
         InboxSegment.all => (
-            Icons.inbox_outlined,
-            l10n.inboxAllEmpty,
-            l10n.inboxAllEmptyHint,
-          ),
+          Icons.inbox_outlined,
+          l10n.inboxAllEmpty,
+          l10n.inboxAllEmptyHint,
+        ),
       };
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+        // search → empty-state gap (fieldGap) is owned by the parent Column.
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.screenH,
+          0,
+          AppSpacing.screenH,
+          AppSpacing.screenBottom,
+        ),
         children: [_EmptyCard(icon: icon, title: title, hint: hint)],
       );
     }
@@ -513,13 +522,19 @@ class _List extends StatelessWidget {
       },
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 96),
+        // search → first result gap (fieldGap) is owned by the parent Column.
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.screenH,
+          0,
+          AppSpacing.screenH,
+          AppSpacing.listBottom,
+        ),
         itemCount: items.length + (isLoadingMore ? 1 : 0),
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
+        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.cardGap),
         itemBuilder: (context, index) {
           if (index == items.length) {
             return const Padding(
-              padding: EdgeInsets.all(12),
+              padding: EdgeInsets.all(AppSpacing.fieldGap),
               child: Center(
                 child: CircularProgressIndicator(color: AppColors.brandRed),
               ),
@@ -624,7 +639,7 @@ class _MenuRow extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, size: 18, color: AppColors.iconDefault(brightness)),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppSpacing.fieldGap),
         Text(
           label,
           style: TextStyle(
@@ -655,6 +670,8 @@ class _SegmentToggle extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     return Container(
+      // Segmented-control track inset — a fixed component dimension, not a
+      // layout gap, so it stays raw (no semantic token of this size).
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
@@ -712,7 +729,7 @@ class _SegmentButton extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(8),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -725,7 +742,7 @@ class _SegmentButton extends StatelessWidget {
                   ),
                 ),
                 if (badge != null) ...[
-                  const SizedBox(width: 6),
+                  const SizedBox(width: AppSpacing.chipGap),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
@@ -773,7 +790,10 @@ class _EmptyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xxl,
+        vertical: 28,
+      ),
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(12),
@@ -782,7 +802,7 @@ class _EmptyCard extends StatelessWidget {
       child: Column(
         children: [
           Icon(icon, size: 32, color: AppColors.onSurfaceSubtle(brightness)),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.fieldGap),
           Text(
             title,
             textAlign: TextAlign.center,
@@ -792,7 +812,7 @@ class _EmptyCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             hint,
             textAlign: TextAlign.center,
@@ -815,12 +835,21 @@ class _Skeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+      // search → first skeleton gap (fieldGap) is owned by the parent Column.
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        0,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
       children: List.generate(
         4,
         (i) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: SkeletonBox(height: 112, delay: Duration(milliseconds: i * 80)),
+          padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
+          child: SkeletonBox(
+            height: 112,
+            delay: Duration(milliseconds: i * 80),
+          ),
         ),
       ),
     );
@@ -839,10 +868,16 @@ class _ErrorView extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+      // search → error card gap (fieldGap) is owned by the parent Column.
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        0,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
             color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(12),
@@ -859,7 +894,7 @@ class _ErrorView extends StatelessWidget {
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               TextButton(
                 onPressed: onRetry,
                 style: TextButton.styleFrom(

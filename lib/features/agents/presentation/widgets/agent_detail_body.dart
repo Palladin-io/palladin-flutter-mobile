@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/approve_action_button.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -66,7 +67,10 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
   int _grantsRefresh = 0;
 
   Future<void> _onAddGrant() async {
-    final granted = await GrantAccessSheet.show(context, GrantForAgent(widget.agent.agentId));
+    final granted = await GrantAccessSheet.show(
+      context,
+      GrantForAgent(widget.agent.agentId),
+    );
     if (granted == true && mounted) {
       setState(() => _grantsRefresh++);
     }
@@ -86,8 +90,9 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthBloc>().state;
-    final permissions =
-        authState is AuthAuthenticated ? authState.permissions : 0;
+    final permissions = authState is AuthAuthenticated
+        ? authState.permissions
+        : 0;
     final canManage = (permissions & Permissions.agentManage) != 0;
 
     final l10n = AppLocalizations.of(context)!;
@@ -105,55 +110,76 @@ class _AgentDetailBodyState extends State<AgentDetailBody> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Header (pane title / AppBar) → tab bar: headerGap. Owned here so the
+        // split-view pane and the pushed page share one rhythm.
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            AppSpacing.headerGap,
+            AppSpacing.screenH,
+            0,
+          ),
           child: _TabBar(
             active: activeTab,
             lockedTabs: lockedTabs,
             onSelected: (tab) => setState(() => _activeTab = tab),
           ),
         ),
-        const SizedBox(height: 16),
+        // Tab bar → content: fieldGap.
+        const SizedBox(height: AppSpacing.fieldGap),
         Expanded(
           child: switch (activeTab) {
             _AgentDetailTab.details => ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-                children: [
-                  _DetailsCard(agent: widget.agent, canEdit: canManage),
-                  if (canManage) ...[
-                    const SizedBox(height: 14),
-                    _ActionZone(
-                      agent: widget.agent,
-                      isMutating: widget.isMutating,
-                      onApprove: widget.onApprove,
-                      onDeactivate: widget.onDeactivate,
-                      onReactivate: widget.onReactivate,
-                    ),
-                  ],
-                ],
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenH,
+                0,
+                AppSpacing.screenH,
+                AppSpacing.screenBottom,
               ),
-            _AgentDetailTab.grants => Stack(
-                children: [
-                  ContextGrantsTab(
-                    key: ValueKey(_grantsRefresh),
-                    agentId: widget.agent.agentId,
-                    emptyTitle: l10n.agentGrantsEmptyTitle,
-                    emptyHint: l10n.agentGrantsEmptyHint,
+              children: [
+                _DetailsCard(agent: widget.agent, canEdit: canManage),
+                if (canManage) ...[
+                  const SizedBox(height: AppSpacing.cardPadding),
+                  _ActionZone(
+                    agent: widget.agent,
+                    isMutating: widget.isMutating,
+                    onApprove: widget.onApprove,
+                    onDeactivate: widget.onDeactivate,
+                    onReactivate: widget.onReactivate,
                   ),
-                  if (canManage)
-                    Positioned(
-                      right: 16,
-                      bottom: 16,
-                      child: AppFab(onPressed: _onAddGrant, tooltip: l10n.grantAddGrant),
-                    ),
                 ],
-              ),
+              ],
+            ),
+            _AgentDetailTab.grants => Stack(
+              children: [
+                ContextGrantsTab(
+                  key: ValueKey(_grantsRefresh),
+                  agentId: widget.agent.agentId,
+                  emptyTitle: l10n.agentGrantsEmptyTitle,
+                  emptyHint: l10n.agentGrantsEmptyHint,
+                ),
+                if (canManage)
+                  Positioned(
+                    right: AppSpacing.headerGap,
+                    bottom: AppSpacing.headerGap,
+                    child: AppFab(
+                      onPressed: _onAddGrant,
+                      tooltip: l10n.grantAddGrant,
+                    ),
+                  ),
+              ],
+            ),
             _AgentDetailTab.logs => ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-                children: [_LogsCard(agent: widget.agent)],
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenH,
+                0,
+                AppSpacing.screenH,
+                AppSpacing.screenBottom,
               ),
+              children: [_LogsCard(agent: widget.agent)],
+            ),
           },
         ),
       ],
@@ -190,9 +216,21 @@ class _TabBar extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
 
     final tabs = <({_AgentDetailTab tab, String label, bool disabled})>[
-      (tab: _AgentDetailTab.details, label: l10n.agentsTabDetails, disabled: false),
-      (tab: _AgentDetailTab.grants, label: l10n.agentsTabGrants, disabled: lockedTabs),
-      (tab: _AgentDetailTab.logs, label: l10n.agentsTabLogs, disabled: lockedTabs),
+      (
+        tab: _AgentDetailTab.details,
+        label: l10n.agentsTabDetails,
+        disabled: false,
+      ),
+      (
+        tab: _AgentDetailTab.grants,
+        label: l10n.agentsTabGrants,
+        disabled: lockedTabs,
+      ),
+      (
+        tab: _AgentDetailTab.logs,
+        label: l10n.agentsTabLogs,
+        disabled: lockedTabs,
+      ),
     ];
 
     return DecoratedBox(
@@ -236,14 +274,17 @@ class _TabButton extends StatelessWidget {
     final color = disabled
         ? AppColors.onSurfaceSubtle(brightness).withValues(alpha: 0.4)
         : isActive
-            ? AppColors.brandRed
-            : AppColors.onSurfaceSubtle(brightness);
+        ? AppColors.brandRed
+        : AppColors.onSurfaceSubtle(brightness);
 
     return InkWell(
       onTap: disabled ? null : onTap,
       borderRadius: BorderRadius.circular(4),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.fieldGap,
+          vertical: AppSpacing.cardGap,
+        ),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
@@ -298,7 +339,7 @@ class _DetailsCard extends StatelessWidget {
     final showEditForm = canEdit && agent.isActive;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(12),
@@ -308,22 +349,22 @@ class _DetailsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _IdentityHeader(agent: agent),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.cardPadding),
           Divider(
             height: 1,
             thickness: 1,
             color: AppColors.cardBorder(brightness),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.cardPadding),
           _MetadataList(agent: agent, l10n: l10n),
           if (showEditForm) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.cardPadding),
             Divider(
               height: 1,
               thickness: 1,
               color: AppColors.cardBorder(brightness),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.cardPadding),
             AgentEditForm(agent: agent, canEdit: true),
           ],
         ],
@@ -348,8 +389,14 @@ class _IdentityHeader extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        AgentAvatar(agentId: agent.agentId, name: agent.name, iconKey: agent.iconKey, iconColor: agent.iconColor, size: 40),
-        const SizedBox(width: 12),
+        AgentAvatar(
+          agentId: agent.agentId,
+          name: agent.name,
+          iconKey: agent.iconKey,
+          iconColor: agent.iconColor,
+          size: 40,
+        ),
+        const SizedBox(width: AppSpacing.fieldGap),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,7 +411,7 @@ class _IdentityHeader extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.xs),
               AgentStatusBadge(status: agent.status),
             ],
           ),
@@ -387,11 +434,7 @@ class _MetadataList extends StatelessWidget {
   Widget build(BuildContext context) {
     final locale = Localizations.localeOf(context).toString();
     final rows = <Widget>[
-      _DetailRow(
-        label: l10n.agentsDetailId,
-        value: agent.agentId,
-        mono: true,
-      ),
+      _DetailRow(label: l10n.agentsDetailId, value: agent.agentId, mono: true),
       _DetailRow(
         label: l10n.agentsDetailPublicKey,
         value: agent.publicKeyDisplay,
@@ -400,14 +443,18 @@ class _MetadataList extends StatelessWidget {
       if (agent.enrolledAt != null)
         _DetailRow(
           label: l10n.agentsDetailEnrolledAt,
-          value: _withSignedBy(formatAgentDate(agent.enrolledAt!, locale),
-              agent.enrolledByName),
+          value: _withSignedBy(
+            formatAgentDate(agent.enrolledAt!, locale),
+            agent.enrolledByName,
+          ),
         ),
       if (agent.deactivatedAt != null)
         _DetailRow(
           label: l10n.agentsDetailDeactivatedAt,
-          value: _withSignedBy(formatAgentDate(agent.deactivatedAt!, locale),
-              agent.deactivatedByName),
+          value: _withSignedBy(
+            formatAgentDate(agent.deactivatedAt!, locale),
+            agent.deactivatedByName,
+          ),
         ),
       if (agent.lastIp != null)
         _DetailRow(
@@ -430,7 +477,7 @@ class _MetadataList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < rows.length; i++) ...[
-          if (i > 0) const SizedBox(height: 10),
+          if (i > 0) const SizedBox(height: AppSpacing.cardGap),
           rows[i],
         ],
       ],
@@ -474,30 +521,31 @@ class _ActionZone extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     return switch (agent.status) {
       AgentStatus.pending => _PositiveZone(
-          title: l10n.agentsApproveZone,
-          hint: l10n.agentsApproveHint,
-          actionLabel:
-              isMutating ? l10n.agentsApproving : l10n.agentsApprove,
-          isLoading: isMutating,
-          onPressed: isMutating ? null : onApprove,
-        ),
+        title: l10n.agentsApproveZone,
+        hint: l10n.agentsApproveHint,
+        actionLabel: isMutating ? l10n.agentsApproving : l10n.agentsApprove,
+        isLoading: isMutating,
+        onPressed: isMutating ? null : onApprove,
+      ),
       AgentStatus.active => _DangerZone(
-          title: l10n.agentsDeactivateZone,
-          heading: l10n.agentsDeactivate,
-          hint: l10n.agentsDeactivateHint,
-          actionLabel:
-              isMutating ? l10n.agentsDeactivating : l10n.agentsDeactivate,
-          isLoading: isMutating,
-          onPressed: isMutating ? null : onDeactivate,
-        ),
+        title: l10n.agentsDeactivateZone,
+        heading: l10n.agentsDeactivate,
+        hint: l10n.agentsDeactivateHint,
+        actionLabel: isMutating
+            ? l10n.agentsDeactivating
+            : l10n.agentsDeactivate,
+        isLoading: isMutating,
+        onPressed: isMutating ? null : onDeactivate,
+      ),
       AgentStatus.deactivated => _PositiveZone(
-          title: l10n.agentsReactivateZone,
-          hint: l10n.agentsReactivateHint,
-          actionLabel:
-              isMutating ? l10n.agentsReactivating : l10n.agentsReactivate,
-          isLoading: isMutating,
-          onPressed: isMutating ? null : onReactivate,
-        ),
+        title: l10n.agentsReactivateZone,
+        hint: l10n.agentsReactivateHint,
+        actionLabel: isMutating
+            ? l10n.agentsReactivating
+            : l10n.agentsReactivate,
+        isLoading: isMutating,
+        onPressed: isMutating ? null : onReactivate,
+      ),
     };
   }
 }
@@ -522,7 +570,7 @@ class _PositiveZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.cardPadding),
       decoration: BoxDecoration(
         color: AppColors.positiveAccent.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12),
@@ -542,7 +590,7 @@ class _PositiveZone extends StatelessWidget {
               letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             hint,
             style: TextStyle(
@@ -551,7 +599,7 @@ class _PositiveZone extends StatelessWidget {
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.fieldGap),
           ApproveActionButton(
             label: actionLabel,
             onPressed: onPressed,
@@ -586,13 +634,11 @@ class _DangerZone extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.cardPadding),
       decoration: BoxDecoration(
         color: AppColors.brandRed.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.brandRed.withValues(alpha: 0.25),
-        ),
+        border: Border.all(color: AppColors.brandRed.withValues(alpha: 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -606,7 +652,7 @@ class _DangerZone extends StatelessWidget {
               letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.chipGap),
           Text(
             heading,
             style: TextStyle(
@@ -615,7 +661,7 @@ class _DangerZone extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: AppSpacing.xxs),
           Text(
             hint,
             style: TextStyle(
@@ -624,7 +670,7 @@ class _DangerZone extends StatelessWidget {
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.fieldGap),
           SizedBox(
             width: double.infinity,
             height: 44,
@@ -638,7 +684,11 @@ class _DangerZone extends StatelessWidget {
                         color: AppColors.brandRed,
                       ),
                     )
-                  : const Icon(Icons.block, size: 16, color: AppColors.brandRed),
+                  : const Icon(
+                      Icons.block,
+                      size: 16,
+                      color: AppColors.brandRed,
+                    ),
               label: Text(
                 actionLabel,
                 style: const TextStyle(
@@ -649,8 +699,9 @@ class _DangerZone extends StatelessWidget {
               ),
               style: TextButton.styleFrom(
                 backgroundColor: AppColors.brandRed.withValues(alpha: 0.12),
-                disabledBackgroundColor:
-                    AppColors.brandRed.withValues(alpha: 0.06),
+                disabledBackgroundColor: AppColors.brandRed.withValues(
+                  alpha: 0.06,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                   side: BorderSide(
@@ -688,24 +739,24 @@ class _LogsCard extends StatelessWidget {
       (
         label: l10n.agentsLogsFirstConnected,
         date: agent.createdAt,
-        detail: null
+        detail: null,
       ),
       if (agent.enrolledAt != null)
         (
           label: l10n.agentsLogsEnrolled,
           date: agent.enrolledAt!,
-          detail: agent.enrolledByName
+          detail: agent.enrolledByName,
         ),
       if (agent.deactivatedAt != null)
         (
           label: l10n.agentsLogsDeactivated,
           date: agent.deactivatedAt!,
-          detail: agent.deactivatedByName
+          detail: agent.deactivatedByName,
         ),
     ];
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(12),
@@ -743,11 +794,12 @@ class _LogRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.cardGap),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
+            // Nudges the bullet down to align with the first text line.
             margin: const EdgeInsets.only(top: 5),
             width: 8,
             height: 8,
@@ -756,7 +808,7 @@ class _LogRow extends StatelessWidget {
               color: AppColors.onSurfaceSubtle(brightness),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: AppSpacing.cardGap),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -770,7 +822,7 @@ class _LogRow extends StatelessWidget {
                   ),
                 ),
                 if (detail != null && detail!.trim().isNotEmpty) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: AppSpacing.xxs),
                   Text(
                     detail!.trim(),
                     style: TextStyle(
@@ -782,7 +834,7 @@ class _LogRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.sm),
           Text(
             date,
             style: TextStyle(
@@ -827,7 +879,7 @@ class _DetailRow extends StatelessWidget {
             fontSize: 12,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppSpacing.fieldGap),
         Flexible(
           child: Text(
             value,

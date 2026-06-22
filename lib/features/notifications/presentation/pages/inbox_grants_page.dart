@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../grants/presentation/widgets/context_grants_tab.dart';
@@ -18,38 +19,30 @@ class InboxGrantsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppColors.backgroundGradient(brightness),
-      ),
-      child: Scaffold(
+    // Title→content gap (headerGap) is owned by AppScreen.appBar.
+    return AppScreen.appBar(
+      // Suppress any FAB leaking from the page we were pushed over.
+      floatingActionButton: const FabRegistrar(fab: null),
+      appBar: AppBar(
+        centerTitle: false,
         backgroundColor: Colors.transparent,
-        // Suppress any FAB leaking from the page we were pushed over.
-        floatingActionButton: const FabRegistrar(fab: null),
-        appBar: AppBar(
-          centerTitle: false,
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          scrolledUnderElevation: 0,
-          elevation: 0,
-          titleSpacing: 0,
-          iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
-          title: Text(
-            l10n.inboxGrantsMenu,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        titleSpacing: 0,
+        iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
+        title: Text(
+          l10n.inboxGrantsMenu,
+          style: TextStyle(
+            color: AppColors.onSurface(brightness),
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
           ),
         ),
-        body: SafeArea(
-          top: false,
-          child: ContextGrantsTab(
-            emptyTitle: l10n.inboxGrantsEmpty,
-            emptyHint: l10n.inboxGrantsEmptyHint,
-          ),
-        ),
+      ),
+      body: ContextGrantsTab(
+        emptyTitle: l10n.inboxGrantsEmpty,
+        emptyHint: l10n.inboxGrantsEmptyHint,
       ),
     );
   }

@@ -126,8 +126,7 @@ class _VaultListViewState extends State<_VaultListView> {
   /// billing roles withhold the bit.
   Future<void> _onAddTapped() async {
     final state = context.read<VaultListCubit>().state;
-    final vaultCount =
-        state is VaultListLoaded ? state.vaults.length : 0;
+    final vaultCount = state is VaultListLoaded ? state.vaults.length : 0;
     final auth = context.read<AuthBloc>().state;
     final permissions = auth is AuthAuthenticated ? auth.permissions : 0;
     final canCreateMore =
@@ -180,10 +179,7 @@ class _VaultListViewState extends State<_VaultListView> {
         bottom: AppSpacing.innerGap,
         right: AppSpacing.xs,
       ),
-      child: AppFab(
-        onPressed: _onAddTapped,
-        tooltip: l10n.vaultNewVault,
-      ),
+      child: AppFab(onPressed: _onAddTapped, tooltip: l10n.vaultNewVault),
     );
     return Container(
       decoration: BoxDecoration(
@@ -199,9 +195,9 @@ class _VaultListViewState extends State<_VaultListView> {
                   final brightness = Theme.of(context).brightness;
                   final (vaultCount, entryCount) = switch (state) {
                     VaultListLoaded(:final vaults) => (
-                        vaults.length,
-                        vaults.fold<int>(0, (s, v) => s + v.entryCount),
-                      ),
+                      vaults.length,
+                      vaults.fold<int>(0, (s, v) => s + v.entryCount),
+                    ),
                     _ => (0, 0),
                   };
                   return Column(
@@ -213,22 +209,21 @@ class _VaultListViewState extends State<_VaultListView> {
                       ),
                       Expanded(
                         child: switch (state) {
-                          VaultListInitial() ||
-                          VaultListLoading() =>
+                          VaultListInitial() || VaultListLoading() =>
                             _SkeletonList(brightness: brightness),
                           VaultListError(:final kind) => _ErrorView(
-                              kind: kind,
-                              onRetry: () =>
-                                  context.read<VaultListCubit>().loadVaults(),
-                            ),
+                            kind: kind,
+                            onRetry: () =>
+                                context.read<VaultListCubit>().loadVaults(),
+                          ),
                           VaultListLoaded(:final vaults) => _LoadedContent(
-                              vaults: vaults,
-                              filtered: _filter(vaults),
-                              searchController: _searchController,
-                              onCreate: _openCreateSheet,
-                              onRefresh: () =>
-                                  context.read<VaultListCubit>().loadVaults(),
-                            ),
+                            vaults: vaults,
+                            filtered: _filter(vaults),
+                            searchController: _searchController,
+                            onCreate: _openCreateSheet,
+                            onRefresh: () =>
+                                context.read<VaultListCubit>().loadVaults(),
+                          ),
                         },
                       ),
                     ],
@@ -240,11 +235,7 @@ class _VaultListViewState extends State<_VaultListView> {
             // pinned across page transitions instead of animating with
             // this page's body. Renders 0×0 — purely a side-effect
             // widget.
-            Positioned(
-              width: 0,
-              height: 0,
-              child: FabRegistrar(fab: fab),
-            ),
+            Positioned(width: 0, height: 0, child: FabRegistrar(fab: fab)),
           ],
         ),
       ),
@@ -339,10 +330,7 @@ class _LoadedContent extends StatelessWidget {
 /// floating action button and Settings is reachable from the bottom
 /// navigation, so the header no longer duplicates either.
 class _HeaderRow extends StatelessWidget {
-  const _HeaderRow({
-    required this.vaultCount,
-    required this.entryCount,
-  });
+  const _HeaderRow({required this.vaultCount, required this.entryCount});
 
   final int vaultCount;
   final int entryCount;
@@ -353,13 +341,14 @@ class _HeaderRow extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
 
     // Grants/approvals are centralised in the Approvals nav tab — no header
-    // shortcut here.
+    // shortcut here. Title→search uses headerGap (16) for the canonical
+    // page-title → next-component rhythm.
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
         AppSpacing.headerGap,
         AppSpacing.screenH,
-        AppSpacing.fieldGap,
+        AppSpacing.headerGap,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -455,7 +444,9 @@ class _PremiumGateSheet extends StatelessWidget {
         // Use the device's physical bottom inset (not Scaffold-adjusted)
         // so the sheet hugs the home indicator instead of floating above
         // the shell-reserved bottom-nav space.
-        padding: EdgeInsets.only(bottom: MediaQuery.viewPaddingOf(context).bottom),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewPaddingOf(context).bottom,
+        ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.screenH,
@@ -472,19 +463,16 @@ class _PremiumGateSheet extends StatelessWidget {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.onSurfaceSubtle(brightness)
-                        .withValues(alpha: 0.4),
+                    color: AppColors.onSurfaceSubtle(
+                      brightness,
+                    ).withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.xxl),
               Center(
-                child: Icon(
-                  Icons.workspace_premium,
-                  color: premium,
-                  size: 32,
-                ),
+                child: Icon(Icons.workspace_premium, color: premium, size: 32),
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
@@ -577,9 +565,10 @@ class _SkeletonList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
+      // Header→content gap (headerGap) is owned by the header above.
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
-        AppSpacing.xs,
+        0,
         AppSpacing.screenH,
         0,
       ),
@@ -616,9 +605,10 @@ class _SkeletonCardState extends State<_SkeletonCard>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.4, end: 0.85).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
+    _anim = Tween<double>(
+      begin: 0.4,
+      end: 0.85,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
@@ -637,9 +627,7 @@ class _SkeletonCardState extends State<_SkeletonCard>
         decoration: BoxDecoration(
           color: base.withValues(alpha: base.a * _anim.value),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.cardBorder(widget.brightness),
-          ),
+          border: Border.all(color: AppColors.cardBorder(widget.brightness)),
         ),
       ),
     );

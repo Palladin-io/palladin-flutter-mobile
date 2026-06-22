@@ -29,9 +29,11 @@ class ContextGrantsTab extends StatelessWidget {
     this.entryId,
     required this.emptyTitle,
     required this.emptyHint,
+    // Leading gap is owned by the host (AppScreen.appBar, a tab bar, or a
+    // TabBarView wrapper) — the tab itself starts flush at the top.
     this.contentPadding = const EdgeInsets.fromLTRB(
       AppSpacing.screenH,
-      AppSpacing.xs,
+      0,
       AppSpacing.screenH,
       AppSpacing.listBottom,
     ),
@@ -50,8 +52,9 @@ class ContextGrantsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<OrgGrantsCubit>(
-      create: (_) => getIt<OrgGrantsCubit>()
-        ..load(agentId: agentId, vaultId: vaultId, entryId: entryId),
+      create: (_) =>
+          getIt<OrgGrantsCubit>()
+            ..load(agentId: agentId, vaultId: vaultId, entryId: entryId),
       child: _ContextGrantsView(
         emptyTitle: emptyTitle,
         emptyHint: emptyHint,
@@ -97,49 +100,59 @@ class _ContextGrantsView extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
 
     return BlocConsumer<OrgGrantsCubit, OrgGrantsState>(
-      listenWhen: (p, c) => p.mutationError != c.mutationError && c.mutationError != null,
+      listenWhen: (p, c) =>
+          p.mutationError != c.mutationError && c.mutationError != null,
       listener: (context, state) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(grantsErrorMessage(l10n, state.mutationError!))));
+          ..showSnackBar(
+            SnackBar(
+              content: Text(grantsErrorMessage(l10n, state.mutationError!)),
+            ),
+          );
         context.read<OrgGrantsCubit>().acknowledgeMutationError();
       },
       builder: (context, state) {
         return switch (state.status) {
           OrgGrantsStatus.initial || OrgGrantsStatus.loading => const Center(
-              child: Padding(
-                padding: EdgeInsets.all(AppSpacing.xxxl),
-                child: CircularProgressIndicator(color: AppColors.tealAccent),
-              ),
+            child: Padding(
+              padding: EdgeInsets.all(AppSpacing.xxxl),
+              child: CircularProgressIndicator(color: AppColors.tealAccent),
             ),
+          ),
           OrgGrantsStatus.error => _ErrorState(
-              message: grantsErrorMessage(l10n, state.error ?? GrantsErrorKind.unknown),
-              brightness: brightness,
-              onRetry: () => context.read<OrgGrantsCubit>().reload(),
+            message: grantsErrorMessage(
+              l10n,
+              state.error ?? GrantsErrorKind.unknown,
             ),
-          OrgGrantsStatus.loaded => state.grants.isEmpty
-              ? _EmptyState(
-                  title: emptyTitle,
-                  hint: emptyHint,
-                  brightness: brightness,
-                  padding: contentPadding,
-                )
-              : RefreshIndicator(
-                  color: AppColors.tealAccent,
-                  onRefresh: () => context.read<OrgGrantsCubit>().reload(),
-                  child: ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(),
+            brightness: brightness,
+            onRetry: () => context.read<OrgGrantsCubit>().reload(),
+          ),
+          OrgGrantsStatus.loaded =>
+            state.grants.isEmpty
+                ? _EmptyState(
+                    title: emptyTitle,
+                    hint: emptyHint,
+                    brightness: brightness,
                     padding: contentPadding,
-                    itemCount: state.grants.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.cardGap),
-                    itemBuilder: (_, i) => OrgGrantCard(
-                      grant: state.grants[i],
-                      isRevoking: state.revokingGrantId == state.grants[i].id,
-                      onRevoke: () => _revoke(context, state.grants[i]),
-                      onRegrant: () => _regrant(context, state.grants[i]),
+                  )
+                : RefreshIndicator(
+                    color: AppColors.tealAccent,
+                    onRefresh: () => context.read<OrgGrantsCubit>().reload(),
+                    child: ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: contentPadding,
+                      itemCount: state.grants.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(height: AppSpacing.cardGap),
+                      itemBuilder: (_, i) => OrgGrantCard(
+                        grant: state.grants[i],
+                        isRevoking: state.revokingGrantId == state.grants[i].id,
+                        onRevoke: () => _revoke(context, state.grants[i]),
+                        onRegrant: () => _regrant(context, state.grants[i]),
+                      ),
                     ),
                   ),
-                ),
         };
       },
     );
@@ -165,7 +178,11 @@ class _EmptyState extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: padding.copyWith(top: AppSpacing.xxxl),
       children: [
-        Icon(Icons.key_off_outlined, size: 40, color: AppColors.onSurfaceSubtle(brightness)),
+        Icon(
+          Icons.key_off_outlined,
+          size: 40,
+          color: AppColors.onSurfaceSubtle(brightness),
+        ),
         const SizedBox(height: AppSpacing.md),
         Text(
           title,
@@ -180,7 +197,11 @@ class _EmptyState extends StatelessWidget {
         Text(
           hint,
           textAlign: TextAlign.center,
-          style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 12, height: 1.4),
+          style: TextStyle(
+            color: AppColors.onSurfaceMuted(brightness),
+            fontSize: 12,
+            height: 1.4,
+          ),
         ),
       ],
     );
@@ -188,7 +209,11 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.brightness, required this.onRetry});
+  const _ErrorState({
+    required this.message,
+    required this.brightness,
+    required this.onRetry,
+  });
 
   final String message;
   final Brightness brightness;
@@ -203,7 +228,10 @@ class _ErrorState extends StatelessWidget {
         children: [
           Text(
             message,
-            style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 12),
+            style: TextStyle(
+              color: AppColors.onSurfaceMuted(brightness),
+              fontSize: 12,
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           TextButton(onPressed: onRetry, child: Text(l10n.vaultRetry)),

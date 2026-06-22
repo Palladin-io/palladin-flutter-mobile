@@ -55,26 +55,29 @@ class _PreferencesView extends StatelessWidget {
           ),
         ),
       ),
-      body: BlocConsumer<NotificationPreferencesCubit,
-          NotificationPreferencesState>(
-        listenWhen: (p, c) => p.error != c.error && c.error != null,
-        listener: (context, state) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(l10n.notifPrefsSaveError)),
-          );
-          context.read<NotificationPreferencesCubit>().acknowledgeError();
-        },
-        builder: (context, state) => switch (state.status) {
-          NotificationPreferencesStatus.initial ||
-          NotificationPreferencesStatus.loading => const _Skeleton(),
-          NotificationPreferencesStatus.error => _ErrorView(
-              message: notificationErrorMessage(l10n, state.error!),
-              onRetry: () =>
-                  context.read<NotificationPreferencesCubit>().load(),
-            ),
-          NotificationPreferencesStatus.loaded => _Content(state: state),
-        },
-      ),
+      body:
+          BlocConsumer<
+            NotificationPreferencesCubit,
+            NotificationPreferencesState
+          >(
+            listenWhen: (p, c) => p.error != c.error && c.error != null,
+            listener: (context, state) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(l10n.notifPrefsSaveError)));
+              context.read<NotificationPreferencesCubit>().acknowledgeError();
+            },
+            builder: (context, state) => switch (state.status) {
+              NotificationPreferencesStatus.initial ||
+              NotificationPreferencesStatus.loading => const _Skeleton(),
+              NotificationPreferencesStatus.error => _ErrorView(
+                message: notificationErrorMessage(l10n, state.error!),
+                onRetry: () =>
+                    context.read<NotificationPreferencesCubit>().load(),
+              ),
+              NotificationPreferencesStatus.loaded => _Content(state: state),
+            },
+          ),
     );
   }
 }
@@ -98,10 +101,11 @@ class _Content extends StatelessWidget {
       );
     }
     final brightness = Theme.of(context).brightness;
+    // Title→content gap (headerGap) is owned by AppScreen.appBar.
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
-        AppSpacing.fieldGap,
+        0,
         AppSpacing.screenH,
         AppSpacing.screenBottom,
       ),
@@ -118,10 +122,7 @@ class _Content extends StatelessWidget {
         const _ChannelLegend(),
         const SizedBox(height: AppSpacing.cardGap),
         for (final pref in state.items)
-          _PreferenceRow(
-            pref: pref,
-            savingKeys: state.savingKeys,
-          ),
+          _PreferenceRow(pref: pref, savingKeys: state.savingKeys),
       ],
     );
   }
@@ -155,17 +156,29 @@ class _ChannelLegend extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           SizedBox(
-              width: _channelColumnWidth,
-              child: Text(l10n.notifPrefsChannelInbox,
-                  textAlign: TextAlign.center, style: style())),
+            width: _channelColumnWidth,
+            child: Text(
+              l10n.notifPrefsChannelInbox,
+              textAlign: TextAlign.center,
+              style: style(),
+            ),
+          ),
           SizedBox(
-              width: _channelColumnWidth,
-              child: Text(l10n.notifPrefsChannelRealtime,
-                  textAlign: TextAlign.center, style: style())),
+            width: _channelColumnWidth,
+            child: Text(
+              l10n.notifPrefsChannelRealtime,
+              textAlign: TextAlign.center,
+              style: style(),
+            ),
+          ),
           SizedBox(
-              width: _channelColumnWidth,
-              child: Text(l10n.notifPrefsChannelPush,
-                  textAlign: TextAlign.center, style: style())),
+            width: _channelColumnWidth,
+            child: Text(
+              l10n.notifPrefsChannelPush,
+              textAlign: TextAlign.center,
+              style: style(),
+            ),
+          ),
         ],
       ),
     );
@@ -297,9 +310,12 @@ class _ChannelToggle extends StatelessWidget {
                 value: value,
                 onChanged: locked
                     ? null
-                    : (next) => context
-                        .read<NotificationPreferencesCubit>()
-                        .toggle(type: pref.type, channel: channel, value: next),
+                    : (next) =>
+                          context.read<NotificationPreferencesCubit>().toggle(
+                            type: pref.type,
+                            channel: channel,
+                            value: next,
+                          ),
               ),
       ),
     );
@@ -311,10 +327,11 @@ class _Skeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Title→content gap (headerGap) is owned by AppScreen.appBar.
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
-        AppSpacing.lg,
+        0,
         AppSpacing.screenH,
         AppSpacing.screenBottom,
       ),

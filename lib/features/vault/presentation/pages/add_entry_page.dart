@@ -109,28 +109,31 @@ class _AddEntryViewState extends State<_AddEntryView> {
   }
 
   bool get _canSubmit => EntryFormUtils.canSubmit(
-        type: _type,
-        label: _labelController.text,
-        value: _valueController.text,
-        username: _usernameController.text,
-        password: _passwordController.text,
-      );
+    type: _type,
+    label: _labelController.text,
+    value: _valueController.text,
+    username: _usernameController.text,
+    password: _passwordController.text,
+  );
 
   bool _validateUrl() {
     final valid = EntryFormUtils.isValidUrl(_urlController.text);
-    setState(() => _urlError =
-        valid ? null : AppLocalizations.of(context)!.entryUrlInvalid);
+    setState(
+      () => _urlError = valid
+          ? null
+          : AppLocalizations.of(context)!.entryUrlInvalid,
+    );
     return valid;
   }
 
   Map<String, dynamic> _buildPayload() => EntryFormUtils.buildPayload(
-        type: _type,
-        value: _valueController.text,
-        username: _usernameController.text,
-        password: _passwordController.text,
-        url: _urlController.text,
-        notes: _notesController.text,
-      );
+    type: _type,
+    value: _valueController.text,
+    username: _usernameController.text,
+    password: _passwordController.text,
+    url: _urlController.text,
+    notes: _notesController.text,
+  );
 
   /// Called by the browser upload circle — returns the file:// path
   /// without updating [_icon] (the browser handles selection state).
@@ -160,14 +163,13 @@ class _AddEntryViewState extends State<_AddEntryView> {
     final result = await IconColorBrowserSheet.show(
       context,
       icons: EntryVisuals.iconChoices
-          .map((c) => (
-                name: c.name,
-                icon: c.icon,
-                paletteColor: c.paletteColor,
-              ))
+          .map(
+            (c) => (name: c.name, icon: c.icon, paletteColor: c.paletteColor),
+          )
           .toList(),
-      colorOptions:
-          VaultVisuals.colorChoices.map(VaultVisuals.colorFor).toList(),
+      colorOptions: VaultVisuals.colorChoices
+          .map(VaultVisuals.colorFor)
+          .toList(),
       initialIconKey: _icon,
       initialColor: VaultVisuals.colorFor(_colorHex),
       title: l10n.agentIconBrowserTitle,
@@ -177,8 +179,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
     if (!mounted || result == null) return;
     final pickedColor = result.color;
     final matchedHex = VaultVisuals.colorChoices.firstWhere(
-      (hex) =>
-          VaultVisuals.colorFor(hex).toARGB32() == pickedColor.toARGB32(),
+      (hex) => VaultVisuals.colorFor(hex).toARGB32() == pickedColor.toARGB32(),
       orElse: () => EntryVisuals.defaultColorHex,
     );
     setState(() {
@@ -193,9 +194,11 @@ class _AddEntryViewState extends State<_AddEntryView> {
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(AppLocalizations.of(context)!.entryErrorCrypto),
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.entryErrorCrypto),
+          ),
+        );
       return;
     }
 
@@ -207,16 +210,16 @@ class _AddEntryViewState extends State<_AddEntryView> {
     final iconForApi = hasCustomFile ? null : _icon;
     try {
       await context.read<CreateEntryCubit>().createEntry(
-            vaultId: widget.vaultId,
-            label: _labelController.text,
-            description: _descriptionController.text,
-            icon: iconForApi,
-            type: _type,
-            payload: _buildPayload(),
-            urlDomain: urlDomain,
-            privateKey: keyCopy,
-            wrappedVK: widget.wrappedVK,
-          );
+        vaultId: widget.vaultId,
+        label: _labelController.text,
+        description: _descriptionController.text,
+        icon: iconForApi,
+        type: _type,
+        payload: _buildPayload(),
+        urlDomain: urlDomain,
+        privateKey: keyCopy,
+        wrappedVK: widget.wrappedVK,
+      );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
     }
@@ -240,25 +243,32 @@ class _AddEntryViewState extends State<_AddEntryView> {
         if (mounted) {
           final l = AppLocalizations.of(context)!;
           final msg = switch (e.kind) {
-            VaultIconUploadErrorKind.unsupportedFormat => l.vaultIconUploadFormatError,
+            VaultIconUploadErrorKind.unsupportedFormat =>
+              l.vaultIconUploadFormatError,
             VaultIconUploadErrorKind.fileTooLarge => l.vaultIconUploadSizeError,
             _ => l.vaultIconUploadError,
           };
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(
-              content: Text(msg),
-              duration: const Duration(seconds: 6),
-            ));
+            ..showSnackBar(
+              SnackBar(
+                content: Text(msg),
+                duration: const Duration(seconds: 6),
+              ),
+            );
         }
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(
-              content: Text(AppLocalizations.of(context)!.vaultIconUploadError),
-              duration: const Duration(seconds: 6),
-            ));
+            ..showSnackBar(
+              SnackBar(
+                content: Text(
+                  AppLocalizations.of(context)!.vaultIconUploadError,
+                ),
+                duration: const Duration(seconds: 6),
+              ),
+            );
         }
       } finally {
         if (mounted) setState(() => _uploadingIcon = false);
@@ -289,8 +299,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
             elevation: 0,
             scrolledUnderElevation: 0,
             surfaceTintColor: Colors.transparent,
-            iconTheme:
-                IconThemeData(color: AppColors.onSurface(brightness)),
+            iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
             leading: IconButton(
               icon: const Icon(Icons.close, size: 22),
               onPressed: isBusy ? null : () => Navigator.of(context).pop(),
@@ -306,141 +315,143 @@ class _AddEntryViewState extends State<_AddEntryView> {
             ),
           ),
           body: SingleChildScrollView(
+            // Title→content gap (headerGap) is owned by AppScreen.appBar.
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.screenH,
-              AppSpacing.innerGap,
+              0,
               AppSpacing.screenH,
               AppSpacing.screenBottom,
             ),
             child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // 1. Label
-                    OnboardingTextField(
-                      label: l10n.entryLabelLabel,
-                      hintText: l10n.entryLabelHint,
-                      controller: _labelController,
-                      textCapitalization: TextCapitalization.sentences,
-                      textInputAction: TextInputAction.next,
-                      onChanged: (_) => setState(() {}),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 1. Label
+                OnboardingTextField(
+                  label: l10n.entryLabelLabel,
+                  hintText: l10n.entryLabelHint,
+                  controller: _labelController,
+                  textCapitalization: TextCapitalization.sentences,
+                  textInputAction: TextInputAction.next,
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: AppSpacing.fieldGap),
+                // 2. Description
+                OnboardingTextField(
+                  label: l10n.entryDescriptionLabel,
+                  controller: _descriptionController,
+                  textCapitalization: TextCapitalization.sentences,
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: AppSpacing.fieldGap),
+                // 3. URL
+                OnboardingTextField(
+                  label: l10n.entryUrlLabel,
+                  controller: _urlController,
+                  textInputAction: TextInputAction.next,
+                  borderColor: _urlError != null ? AppColors.brandRed : null,
+                  focusBorderColor: _urlError != null
+                      ? AppColors.brandRed
+                      : null,
+                  onChanged: (_) => _validateUrl(),
+                  feedbackChild: Text(
+                    _urlError ?? '',
+                    style: const TextStyle(
+                      color: AppColors.brandRed,
+                      fontSize: 11,
                     ),
-                    const SizedBox(height: AppSpacing.fieldGap),
-                    // 2. Description
-                    OnboardingTextField(
-                      label: l10n.entryDescriptionLabel,
-                      controller: _descriptionController,
-                      textCapitalization: TextCapitalization.sentences,
-                      textInputAction: TextInputAction.next,
+                  ),
+                  feedbackVisible: _urlError != null,
+                  feedbackReserveSpace: false,
+                ),
+                const SizedBox(height: AppSpacing.fieldGap),
+                // 4. Icon picker
+                Text(
+                  l10n.vaultIconLabel,
+                  style: TextStyle(
+                    color: AppColors.onSurfaceSubtle(brightness),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.innerGap),
+                EntryIconPicker(
+                  selected: _icon,
+                  accentColor: accentColor,
+                  onSelected: (name) => setState(() => _icon = name),
+                  moreTile: IconMoreTile(onTap: _openEntryBrowser),
+                ),
+                const SizedBox(height: AppSpacing.fieldGap),
+                // 5. Type dropdown
+                EntryTypeDropdown(
+                  value: _type,
+                  onChanged: (next) {
+                    if (next == null || next == _type) return;
+                    setState(() => _type = next);
+                  },
+                ),
+                const SizedBox(height: AppSpacing.fieldGap),
+                // 7. Type-specific fields
+                if (_type == EntryType.key) ...[
+                  OnboardingTextField(
+                    label: l10n.entryValueLabel,
+                    controller: _valueController,
+                    obscureText: _valueObscured,
+                    textInputAction: TextInputAction.next,
+                    onChanged: (_) => setState(() {}),
+                    suffixIcon: EntryObscureToggle(
+                      obscured: _valueObscured,
+                      onPressed: () =>
+                          setState(() => _valueObscured = !_valueObscured),
                     ),
-                    const SizedBox(height: AppSpacing.fieldGap),
-                    // 3. URL
-                    OnboardingTextField(
-                      label: l10n.entryUrlLabel,
-                      controller: _urlController,
-                      textInputAction: TextInputAction.next,
-                      borderColor: _urlError != null ? AppColors.brandRed : null,
-                      focusBorderColor: _urlError != null ? AppColors.brandRed : null,
-                      onChanged: (_) => _validateUrl(),
-                      feedbackChild: Text(
-                        _urlError ?? '',
-                        style: const TextStyle(
-                          color: AppColors.brandRed,
-                          fontSize: 11,
-                        ),
+                  ),
+                ] else ...[
+                  OnboardingTextField(
+                    label: l10n.entryUsernameLabel,
+                    controller: _usernameController,
+                    textInputAction: TextInputAction.next,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: AppSpacing.fieldGap),
+                  OnboardingTextField(
+                    label: l10n.entryPasswordLabel,
+                    controller: _passwordController,
+                    obscureText: _passwordObscured,
+                    textInputAction: TextInputAction.next,
+                    onChanged: (_) => setState(() {}),
+                    suffixIcon: EntryObscureToggle(
+                      obscured: _passwordObscured,
+                      onPressed: () => setState(
+                        () => _passwordObscured = !_passwordObscured,
                       ),
-                      feedbackVisible: _urlError != null,
-                      feedbackReserveSpace: false,
                     ),
-                    const SizedBox(height: AppSpacing.fieldGap),
-                    // 4. Icon picker
-                    Text(
-                      l10n.vaultIconLabel,
-                      style: TextStyle(
-                        color: AppColors.onSurfaceSubtle(brightness),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.fieldGap),
+                // 6. Notes
+                EntryNotesField(
+                  controller: _notesController,
+                  label: l10n.entryNotesLabel,
+                ),
+                const SizedBox(height: AppSpacing.section),
+                // 7. Encryption notice
+                EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
+                if (state is CreateEntryError) ...[
+                  const SizedBox(height: AppSpacing.fieldGap),
+                  Text(
+                    EntryFormUtils.errorMessage(l10n, state.kind),
+                    style: const TextStyle(
+                      color: AppColors.brandRed,
+                      fontSize: 12,
                     ),
-                    const SizedBox(height: AppSpacing.innerGap),
-                    EntryIconPicker(
-                      selected: _icon,
-                      accentColor: accentColor,
-                      onSelected: (name) => setState(() => _icon = name),
-                      moreTile: IconMoreTile(onTap: _openEntryBrowser),
-                    ),
-                    const SizedBox(height: AppSpacing.fieldGap),
-                    // 5. Type dropdown
-                    EntryTypeDropdown(
-                      value: _type,
-                      onChanged: (next) {
-                        if (next == null || next == _type) return;
-                        setState(() => _type = next);
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.fieldGap),
-                    // 7. Type-specific fields
-                    if (_type == EntryType.key) ...[
-                      OnboardingTextField(
-                        label: l10n.entryValueLabel,
-                        controller: _valueController,
-                        obscureText: _valueObscured,
-                        textInputAction: TextInputAction.next,
-                        onChanged: (_) => setState(() {}),
-                        suffixIcon: EntryObscureToggle(
-                          obscured: _valueObscured,
-                          onPressed: () => setState(
-                            () => _valueObscured = !_valueObscured,
-                          ),
-                        ),
-                      ),
-                    ] else ...[
-                      OnboardingTextField(
-                        label: l10n.entryUsernameLabel,
-                        controller: _usernameController,
-                        textInputAction: TextInputAction.next,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      const SizedBox(height: AppSpacing.fieldGap),
-                      OnboardingTextField(
-                        label: l10n.entryPasswordLabel,
-                        controller: _passwordController,
-                        obscureText: _passwordObscured,
-                        textInputAction: TextInputAction.next,
-                        onChanged: (_) => setState(() {}),
-                        suffixIcon: EntryObscureToggle(
-                          obscured: _passwordObscured,
-                          onPressed: () => setState(
-                            () => _passwordObscured = !_passwordObscured,
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.fieldGap),
-                    // 6. Notes
-                    EntryNotesField(
-                      controller: _notesController,
-                      label: l10n.entryNotesLabel,
-                    ),
-                    const SizedBox(height: AppSpacing.section),
-                    // 7. Encryption notice
-                    EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
-                    if (state is CreateEntryError) ...[
-                      const SizedBox(height: AppSpacing.fieldGap),
-                      Text(
-                        EntryFormUtils.errorMessage(l10n, state.kind),
-                        style: const TextStyle(
-                          color: AppColors.brandRed,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.section),
-                    // 8. Save button
-                    EntrySaveButton(
-                      isLoading: isLoading,
-                      onPressed: canSubmit ? _submit : null,
-                    ),
-                  ],
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.section),
+                // 8. Save button
+                EntrySaveButton(
+                  isLoading: isLoading,
+                  onPressed: canSubmit ? _submit : null,
+                ),
+              ],
             ),
           ),
         );
@@ -448,4 +459,3 @@ class _AddEntryViewState extends State<_AddEntryView> {
     );
   }
 }
-

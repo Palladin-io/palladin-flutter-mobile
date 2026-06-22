@@ -60,15 +60,14 @@ class _SettingsView extends StatelessWidget {
         onRefresh: () => context.read<SettingsCubit>().load(),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
+          // Title→content gap (headerGap) is owned by AppScreen.appBar.
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.screenH,
-            AppSpacing.innerGap,
+            0,
             AppSpacing.screenH,
             AppSpacing.screenBottom,
           ),
-          children: const [
-            OrgSettingsSection(),
-          ],
+          children: const [OrgSettingsSection()],
         ),
       ),
     );
