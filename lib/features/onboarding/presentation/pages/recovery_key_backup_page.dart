@@ -174,7 +174,7 @@ class _MnemonicGrid extends StatelessWidget {
         crossAxisCount: 2,
         crossAxisSpacing: 6,
         mainAxisSpacing: 6,
-        childAspectRatio: 3.2,
+        childAspectRatio: 4.8,
       ),
       itemBuilder: (_, index) {
         return Container(
