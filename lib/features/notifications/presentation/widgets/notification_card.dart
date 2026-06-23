@@ -288,17 +288,17 @@ class _Footer extends StatelessWidget {
       width: double.infinity,
       child: TextButton.icon(
         onPressed: onView,
-        icon: Icon(
+        icon: const Icon(
           Icons.open_in_new,
           size: 14,
-          color: AppColors.tealAccent,
+          color: AppColors.brandRed,
         ),
         label: Text(
           viewLabel ?? '',
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.tealAccent,
+          foregroundColor: AppColors.brandRed,
           padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
