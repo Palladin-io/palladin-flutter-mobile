@@ -109,7 +109,7 @@ List<({String label, String value})> notificationRows(
       // key — reading those left both rows blank.
       return [
         (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
-        (label: l10n.notifRowError, value: row('errorHint')),
+        (label: l10n.notifRowReason, value: row('errorHint')),
         (label: l10n.notifRowNote, value: row('note')),
       ];
     case 'grant_approved':
