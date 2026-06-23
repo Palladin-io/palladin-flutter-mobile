@@ -1868,6 +1868,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get notifRowAttempts => 'Próby';
 
   @override
+  String get notifRowNote => 'Notatka';
+
+  @override
   String get notifRowAccess => 'Dostęp';
 
   @override

@@ -152,6 +152,12 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
       type: result.type,
       iconKey: result.iconKey,
     );
+    // Collapse the To-do card immediately on success so it does not linger
+    // while the (slower) inbox refresh catches up. _runMutation reports
+    // failure via mutationError rather than throwing.
+    if (agents.state.mutationError == null) {
+      notifications.markResolvedLocally(item.id);
+    }
     await notifications.refresh();
   }
 
@@ -166,6 +172,9 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     final confirmed = await DeactivateAgentSheet.show(context, agentName);
     if (!confirmed) return;
     await agents.deactivateAgent(agentId);
+    if (agents.state.mutationError == null) {
+      notifications.markResolvedLocally(item.id);
+    }
     await notifications.markRead(item.id);
     await notifications.refresh();
   }
@@ -225,6 +234,9 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     future.then((handled) {
       if (handled != true) return;
       pending.removeGrant(resolved.grantId);
+      // Collapse the inbox card immediately so the approved/denied request
+      // does not hang in To-do until the server refresh returns.
+      notifications.markResolvedLocally(item.id);
       notifications.refresh();
     });
   }
@@ -289,12 +301,12 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
                   Icons.done_all,
                   size: 16,
                   color: enabled
-                      ? AppColors.tealAccent
+                      ? AppColors.onSurfaceMuted(brightness)
                       : AppColors.onSurfaceSubtle(brightness),
                 ),
                 label: Text(l10n.inboxMarkAllRead),
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColors.tealAccent,
+                  foregroundColor: AppColors.onSurfaceMuted(brightness),
                   disabledForegroundColor: AppColors.onSurfaceSubtle(
                     brightness,
                   ),
@@ -406,8 +418,8 @@ class _Feed extends StatelessWidget {
 
   final InboxSegment segment;
   final String query;
-  final ValueChanged<InboxNotification> onTapItem;
-  final ValueChanged<InboxNotification> onSecondary;
+  final Future<void> Function(InboxNotification) onTapItem;
+  final Future<void> Function(InboxNotification) onSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -474,8 +486,8 @@ class _List extends StatelessWidget {
   final List<InboxNotification> items;
   final bool isLoadingMore;
   final InboxSegment segment;
-  final ValueChanged<InboxNotification> onTapItem;
-  final ValueChanged<InboxNotification> onSecondary;
+  final Future<void> Function(InboxNotification) onTapItem;
+  final Future<void> Function(InboxNotification) onSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -560,14 +572,32 @@ class _NotificationItemTile extends StatefulWidget {
   });
 
   final InboxNotification item;
-  final VoidCallback onTap;
-  final VoidCallback onSecondary;
+  final Future<void> Function() onTap;
+  final Future<void> Function() onSecondary;
 
   @override
   State<_NotificationItemTile> createState() => _NotificationItemTileState();
 }
 
 class _NotificationItemTileState extends State<_NotificationItemTile> {
+  /// True while a primary/secondary action triggered from this card is in
+  /// flight. Guards against a second tap re-running the mutation while the
+  /// list refresh is still catching up — which previously let a slow
+  /// approve be submitted twice (double-activation).
+  bool _busy = false;
+
+  /// Runs [action] under the re-entrancy guard, disabling the card's
+  /// actions until it completes (including the parent's list refresh).
+  Future<void> _run(Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await action();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -588,8 +618,8 @@ class _NotificationItemTileState extends State<_NotificationItemTile> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final item = widget.item;
-    final onTap = widget.onTap;
-    final onSecondary = widget.onSecondary;
+    void onTap() => _run(widget.onTap);
+    void onSecondary() => _run(widget.onSecondary);
 
     // Action-required PENDING grant/agent: the only cards with inline
     // mutating actions (Approve / Deny). Every other card is an immutable log
@@ -605,6 +635,7 @@ class _NotificationItemTileState extends State<_NotificationItemTile> {
         primaryLabel: item.type == 'agent_pending'
             ? l10n.inboxAcceptAction
             : l10n.approvalApprove,
+        isBusy: _busy,
       );
     }
 

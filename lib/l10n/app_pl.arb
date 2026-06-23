@@ -535,6 +535,7 @@
   "notifRowHostIp": "Host · Ip",
   "notifRowError": "Błąd",
   "notifRowAttempts": "Próby",
+  "notifRowNote": "Notatka",
   "notifRowAccess": "Dostęp",
   "notifRowBy": "Przez",
   "notifRowAgentId": "Id agenta",

@@ -1849,6 +1849,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifRowAttempts => 'Attempts';
 
   @override
+  String get notifRowNote => 'Note';
+
+  @override
   String get notifRowAccess => 'Access';
 
   @override

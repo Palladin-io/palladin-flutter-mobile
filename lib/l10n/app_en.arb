@@ -2161,6 +2161,7 @@
   "notifRowHostIp": "Host · Ip",
   "notifRowError": "Error",
   "notifRowAttempts": "Attempts",
+  "notifRowNote": "Note",
   "notifRowAccess": "Access",
   "notifRowBy": "By",
   "notifRowAgentId": "Agent Id",

@@ -104,10 +104,13 @@ List<({String label, String value})> notificationRows(
       // Same identity rows as agent_pending — no "By" row (per CVT-165).
       return _agentRows(l10n, n);
     case 'credential_stale':
+      // Backend sends `errorHint` (human-readable failure reason) and an
+      // optional `note` (agent's free-text). There is no `error`/`attempts`
+      // key — reading those left both rows blank.
       return [
         (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
-        (label: l10n.notifRowError, value: row('error')),
-        (label: l10n.notifRowAttempts, value: row('attempts')),
+        (label: l10n.notifRowError, value: row('errorHint')),
+        (label: l10n.notifRowNote, value: row('note')),
       ];
     case 'grant_approved':
       return [

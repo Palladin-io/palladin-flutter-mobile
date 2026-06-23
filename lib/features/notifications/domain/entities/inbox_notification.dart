@@ -90,9 +90,16 @@ class InboxNotification {
   bool get isRead => readAt != null;
 
   /// An open action belongs in the To-do segment with live action buttons.
+  ///
+  /// Only the two pending-request types carry an in-app action (Approve /
+  /// Deny). Informational alerts like `credential_stale` may arrive as
+  /// `actionRequired` from the backend, but they have no inline action on
+  /// mobile — they are notifications, not To-do items — so they are
+  /// excluded here and surface in All / History with a "View" link only.
   bool get isOpenAction =>
       category == NotificationCategory.actionRequired &&
-      actionState == NotificationActionState.pending;
+      actionState == NotificationActionState.pending &&
+      (type == 'grant_pending' || type == 'agent_pending');
 
   /// A pending-request type (grant/agent) that has since been resolved. The
   /// backend collapses these server-side; the client hides them too as

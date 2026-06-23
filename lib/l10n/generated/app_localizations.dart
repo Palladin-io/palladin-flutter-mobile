@@ -3308,6 +3308,12 @@ abstract class AppLocalizations {
   /// **'Attempts'**
   String get notifRowAttempts;
 
+  /// No description provided for @notifRowNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get notifRowNote;
+
   /// No description provided for @notifRowAccess.
   ///
   /// In en, this message translates to:
