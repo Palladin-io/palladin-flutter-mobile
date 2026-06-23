@@ -701,6 +701,8 @@ class _SegmentToggle extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     return Container(
+      // Matches the search bar height so every under-title control lines up.
+      height: AppSpacing.controlHeight,
       // Segmented-control track inset — a fixed component dimension, not a
       // layout gap, so it stays raw (no semantic token of this size).
       padding: const EdgeInsets.all(3),
@@ -710,6 +712,7 @@ class _SegmentToggle extends StatelessWidget {
         border: Border.all(color: AppColors.cardBorder(brightness)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _SegmentButton(
             label: l10n.inboxSegAll,
@@ -759,8 +762,9 @@ class _SegmentButton extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          // Cell is stretched to the track height — center the label so the
+          // selected pill fills the full height with the text centred.
+          child: Center(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

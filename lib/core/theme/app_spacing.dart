@@ -46,4 +46,10 @@ abstract final class AppSpacing {
 
   /// Bottom padding for a scrollable list — clears the FAB + bottom nav.
   static const double listBottom = 96;
+
+  /// Canonical height of a primary control sitting directly under a view
+  /// title — the search bar (the Vaults reference) and segmented toggles.
+  /// Change this one value to keep every under-title control the same
+  /// height across the app.
+  static const double controlHeight = 44;
 }
