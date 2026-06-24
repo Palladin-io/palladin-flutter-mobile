@@ -155,7 +155,16 @@ Przed napisaniem nowego widgetu sprawdź czy coś podobnego już istnieje:
 
 **All spacing goes through `AppSpacing.*` (`lib/core/theme/app_spacing.dart`) — never a bare number.** This is the spacing analogue of `AppColors`: gaps and paddings (`SizedBox` height/width, `EdgeInsets`, `separatorBuilder` gaps, `Wrap` spacing) must reference a token. Only non-spacing dimensions stay raw: icon/font sizes, `BorderRadius`/`Radius`, border `width`, `strokeWidth`, and fixed component sizes (avatars, drag handles, button heights, spinners).
 
-**Top-level screens** use the shared `AppScreen` wrapper (`lib/core/widgets/app_screen.dart`) — it owns the gradient background, transparent `Scaffold`, `SafeArea`, the header slot, and the `headerGap` between header and content. Use `AppScreen.appBar(...)` for AppBar-over-gradient screens, or `AppScreen(header: ..., body: ...)` for a custom in-body header. Keep the AppBar transparent config (`surfaceTintColor: transparent`, `scrolledUnderElevation: 0`) and any `FabRegistrar` exactly as before.
+**Top-level list tabs (Vaults, Agents, Inbox) MUST use `AppScreen.titled(title:, subtitle:, actions:, body:)`** — never a Material `AppBar`. The title renders via the shared `ListScreenHeader` **inside the body**, so the title→content rhythm is pixel-identical on every tab. A Material `AppBar` adds its own toolbar height + vertical centering, which makes the title→content gap differ from Vaults — that is a bug, not a style choice. `AppScreen.appBar(...)` is reserved for **pushed** screens that need a back button (detail pages); the plain `AppScreen(header:)` is legacy. Keep any `FabRegistrar` (`fab: null` to suppress a leaked FAB) passed via `floatingActionButton:`.
+
+### Under-title control row — fixed size & alignment
+
+The first control under the title (search bar **or** segment toggle) is a **single contract**, enforced so it can't drift:
+
+- **Left/right edge:** horizontal `AppSpacing.screenH` (20) — the same gutter as the search bar. The segment toggle must align flush with the search bar.
+- **Height:** `AppSpacing.controlHeight` (44). `AppSearchField` and the segment toggle are both this tall. Never hardcode a control height — reference `controlHeight`.
+- **Title → control:** `headerGap` (16, owned by `ListScreenHeader`). **Control → content:** `fieldGap` (12).
+- **Overflow / "more" actions** (when a tab strip has extra destinations, e.g. Inbox → Grants/Preferences) go in a trailing button at the **end of the segment row**, sized `controlHeight × controlHeight`, styled like the segment track — not hidden in an AppBar kebab. Pattern: `Row(children: [Expanded(toggle), SizedBox(sm), _OverflowButton])`.
 
 ### Tokens
 
@@ -172,6 +181,7 @@ Przed napisaniem nowego widgetu sprawdź czy coś podobnego już istnieje:
 | `chipGap` | 6 | between chips |
 | `screenBottom` | 32 | last element → bottom (non-scrolling) |
 | `listBottom` | 96 | scrollable list bottom (clears FAB + bottom nav) |
+| `controlHeight` | 44 | height of an under-title control (search bar, segment toggle, overflow button) |
 
 Prefer the semantic token over a raw step when one fits the context.
 

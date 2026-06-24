@@ -270,7 +270,8 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
       title: l10n.inboxTitle,
       // Suppress any FAB leaking from a page we were navigated over.
       floatingActionButton: const FabRegistrar(fab: null),
-      // Mark-all-read (primary) + kebab overflow (Grants list, preferences).
+      // Mark-all-read stays a primary action in the title row; the kebab
+      // overflow (Grants / Preferences) lives at the end of the segment row.
       actions: [
         BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
           buildWhen: (p, c) =>
@@ -303,37 +304,6 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
             );
           },
         ),
-        // Kebab overflow: secondary actions (Grants list, preferences).
-        // Mark-all-read stays a primary AppBar action above.
-        PopupMenuButton<_InboxMenuAction>(
-          tooltip: l10n.inboxMoreActions,
-          icon: Icon(
-            Icons.more_vert,
-            size: 20,
-            color: AppColors.iconDefault(brightness),
-          ),
-          color: AppColors.cardSurface(brightness),
-          onSelected: (action) => switch (action) {
-            _InboxMenuAction.grants => context.push('/inbox/grants'),
-            _InboxMenuAction.preferences => context.push('/inbox/preferences'),
-          },
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: _InboxMenuAction.grants,
-              child: _MenuRow(
-                icon: Icons.vpn_key_outlined,
-                label: l10n.inboxGrantsMenu,
-              ),
-            ),
-            PopupMenuItem(
-              value: _InboxMenuAction.preferences,
-              child: _MenuRow(
-                icon: Icons.tune,
-                label: l10n.inboxPreferencesMenu,
-              ),
-            ),
-          ],
-        ),
       ],
       // Header → segments gap is owned by the titled header.
       body: Column(
@@ -346,16 +316,34 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
               AppSpacing.screenH,
               AppSpacing.fieldGap,
             ),
-            child:
-                BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
-                  buildWhen: (p, c) =>
-                      p.pendingActionCount != c.pendingActionCount,
-                  builder: (context, state) => _SegmentToggle(
-                    segment: _segment,
-                    todoCount: state.pendingActionCount,
-                    onChanged: (s) => setState(() => _segment = s),
-                  ),
+            child: Row(
+              children: [
+                Expanded(
+                  child:
+                      BlocBuilder<
+                        NotificationCenterCubit,
+                        NotificationCenterState
+                      >(
+                        buildWhen: (p, c) =>
+                            p.pendingActionCount != c.pendingActionCount,
+                        builder: (context, state) => _SegmentToggle(
+                          segment: _segment,
+                          todoCount: state.pendingActionCount,
+                          onChanged: (s) => setState(() => _segment = s),
+                        ),
+                      ),
                 ),
+                const SizedBox(width: AppSpacing.sm),
+                _SegmentOverflowButton(
+                  onSelected: (action) => switch (action) {
+                    _InboxMenuAction.grants => context.push('/inbox/grants'),
+                    _InboxMenuAction.preferences => context.push(
+                      '/inbox/preferences',
+                    ),
+                  },
+                ),
+              ],
+            ),
           ),
           // Search applies to all three log segments. The Grants list is a
           // separate page (kebab) with its own UI.
@@ -633,6 +621,58 @@ class _NotificationItemTileState extends State<_NotificationItemTile> {
 }
 
 // ── kebab menu ───────────────────────────────────────────────────────────
+
+/// Overflow ("more") button at the end of the segment row — the pattern for a
+/// tab strip with extra destinations (Grants / Preferences). Matches the
+/// segment track's height ([AppSpacing.controlHeight]) and styling so it lines
+/// up flush with All / To-do / History.
+class _SegmentOverflowButton extends StatelessWidget {
+  const _SegmentOverflowButton({required this.onSelected});
+
+  final ValueChanged<_InboxMenuAction> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    return Container(
+      height: AppSpacing.controlHeight,
+      width: AppSpacing.controlHeight,
+      decoration: BoxDecoration(
+        color: AppColors.cardFill(brightness),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.cardBorder(brightness)),
+      ),
+      child: PopupMenuButton<_InboxMenuAction>(
+        tooltip: l10n.inboxMoreActions,
+        padding: EdgeInsets.zero,
+        icon: Icon(
+          Icons.more_horiz,
+          size: 20,
+          color: AppColors.iconDefault(brightness),
+        ),
+        color: AppColors.cardSurface(brightness),
+        onSelected: onSelected,
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: _InboxMenuAction.grants,
+            child: _MenuRow(
+              icon: Icons.vpn_key_outlined,
+              label: l10n.inboxGrantsMenu,
+            ),
+          ),
+          PopupMenuItem(
+            value: _InboxMenuAction.preferences,
+            child: _MenuRow(
+              icon: Icons.tune,
+              label: l10n.inboxPreferencesMenu,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// Icon + label row for a kebab [PopupMenuItem].
 class _MenuRow extends StatelessWidget {
