@@ -166,6 +166,20 @@ The first control under the title (search bar **or** segment toggle) is a **sing
 - **Title → control:** `headerGap` (16, owned by `ListScreenHeader`). **Control → content:** `fieldGap` (12).
 - **Overflow / "more" actions** (when a tab strip has extra destinations, e.g. Inbox → Grants/Preferences) go in a trailing button at the **end of the segment row**, sized `controlHeight × controlHeight`, styled like the segment track — not hidden in an AppBar kebab. Pattern: `Row(children: [Expanded(toggle), SizedBox(sm), _OverflowButton])`.
 
+### Control scrolls WITH the content — only the title is pinned
+
+On a list screen the search bar **and** the segment toggle row **scroll together with the list** — they are the leading slivers of one `CustomScrollView`, never pinned above a separate `Expanded(scroll)`. **Only the title** (via `AppScreen.titled`) stays pinned. Canonical reference: `vault_list_page.dart` → `CustomScrollView(slivers: [SliverToBoxAdapter(AppSearchField), …])`.
+
+**Why:** a pinned control over a separate scroll area exposes a strip of background between the control and the list during an upward overscroll/bounce. Keeping the control inside the same scrollable makes it simply scroll away with the content, so no gap can appear.
+
+**Pattern for every list screen:**
+- `AppScreen.titled(... body: <scroll view that includes the control as its first sliver>)`.
+- Inbox: the segment row + overflow button **and** the search field are a single leading `SliverToBoxAdapter`; pagination (`ScrollEndNotification` → `loadMore`) wraps the whole `CustomScrollView`.
+- Per-state content (skeleton / error / empty / list) renders as **slivers below the control** — `SliverList.list` for skeleton/error cards, `SliverFillRemaining(hasScrollBody: false)` for centred empty/search-empty states, `SliverList.separated` for the cards.
+- A tab that is not itself an `AppScreen` (e.g. `vault_entries_tab.dart`) follows the same rule inside its host's scroll area: search is the first sliver of the tab's own `CustomScrollView`.
+
+**Never** put a search bar or segment row in a `Column` above an `Expanded(child: <scroll>)` on a list screen — that is the gap bug, not a style choice.
+
 ### Tokens
 
 | Token | Value | Use |
@@ -187,32 +201,34 @@ Prefer the semantic token over a raw step when one fits the context.
 
 ## Loading States — Skeleton Pattern
 
-**Rule:** Skeletons go strictly in the list/content area (`Expanded`). Static chrome (header, page title, search bar) stays visible during loading.
+**Rule:** Skeletons replace **only the list/content area** — the pinned **title** (via `AppScreen.titled`) stays visible during loading. The skeleton renders as a **sliver inside the same `CustomScrollView`** as the (scrolling) search bar / segment row, matching the Vaults pattern. On a list screen the search bar is **not** separate static chrome above the content — it scrolls with the list (see "Control scrolls WITH the content" above), so during loading it sits as the first sliver and the skeleton slivers follow it. It is acceptable for the search bar to scroll off with the rest of the content, exactly as Vaults does.
 
 ```dart
-// ✅ Correct
-Column(
-  children: [
-    _HeaderRow(vaultCount: 0, entryCount: 0),  // always visible
-    Expanded(
-      child: switch (state) {
-        Loading() => _SkeletonList(brightness: brightness),
-        Loaded()  => _LoadedContent(...),
+// ✅ Correct — one CustomScrollView; title pinned by AppScreen.titled,
+//    search + skeleton are slivers that scroll together.
+AppScreen.titled(
+  title: ...,
+  body: CustomScrollView(
+    slivers: [
+      SliverToBoxAdapter(child: AppSearchField(...)),  // scrolls with content
+      ...switch (state) {
+        Loading() => const [_SkeletonSliver()],
+        Loaded()  => _loadedSlivers(...),
       },
-    ),
-  ],
+    ],
+  ),
 )
 
-// ❌ Wrong — replaces the entire view with skeletons
-switch (state) {
-  Loading() => _FullPageLoadingView(),  // hides header too
-  Loaded()  => _LoadedView(),
-}
+// ❌ Wrong — pinned search above a separate Expanded(scroll): overscroll
+//    exposes a background strip between the search bar and the list.
+Column(children: [AppSearchField(...), Expanded(child: switch (state) { ... })])
 ```
 
 **Examples:**
-- `vault_list_page.dart`: `_SkeletonList` (skeleton cards only, header always above it)
-- `vault_entries_tab.dart`: `AppSearchField` always rendered, only `Expanded` switches to `_LoadingView`
+- `vault_list_page.dart`: `_SkeletonList` rendered inside the loaded scroll view; title pinned above it.
+- `agents_page.dart`: `_AgentsSkeletonSliver` after the search `SliverToBoxAdapter`.
+- `vault_entries_tab.dart`: `_LoadingSliver` after the search `SliverToBoxAdapter`.
+- `notification_center_page.dart`: `_SkeletonSliver` after the leading segment-row + search header sliver.
 
 **Skeleton widget pattern:** `StatefulWidget` with `AnimationController`, `repeat(reverse: true)`, `Tween(0.4 → 0.85)` opacity. Use `SingleTickerProviderStateMixin`. Stagger multiple rows with `Future.delayed(Duration(milliseconds: i * 80))`.
 

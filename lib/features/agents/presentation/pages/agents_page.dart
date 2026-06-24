@@ -179,11 +179,12 @@ class _AgentsViewState extends State<_AgentsView> {
 /// Switches between the loading / error / empty / loaded states of the
 /// agents list.
 ///
-/// The search bar is static chrome — it stays mounted above the content
-/// area in every state (including loading), per the skeleton-pattern
-/// rule. Only the area below the search bar swaps to a skeleton, error
-/// card, empty state or the agent list. Each content view is itself
-/// scrollable so [RefreshIndicator] keeps working in all states.
+/// The search bar scrolls **with** the list (canonical Vaults pattern): it is
+/// the first sliver of a single [CustomScrollView], so an overscroll/bounce
+/// never reveals a background strip between a pinned search bar and a separate
+/// scroll area. Only the title stays pinned (via [AppScreen.titled]). The
+/// remaining slivers swap per state — skeleton, error card, empty state, or the
+/// agent cards — and the whole scroll view drives [RefreshIndicator].
 class _Body extends StatelessWidget {
   const _Body({
     required this.state,
@@ -203,103 +204,100 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return Column(
-      children: [
-        // Header→search gap (headerGap) is owned by the titled header;
-        // search→content gap below is fieldGap.
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenH,
-            0,
-            AppSpacing.screenH,
-            AppSpacing.fieldGap,
-          ),
-          child: AppSearchField(
-            controller: searchController,
-            hint: l10n.agentsSearchHint,
-          ),
-        ),
-        Expanded(
-          child: switch (state.status) {
-            AgentsStatus.initial ||
-            AgentsStatus.loading => const _AgentsSkeleton(),
-            AgentsStatus.error => _AgentsError(
-              message: agentsErrorMessage(l10n, state.error!),
-              onRetry: () => context.read<AgentsCubit>().load(),
-            ),
-            AgentsStatus.loaded => _AgentsList(
-              agents: state.agents,
-              filtered: filtered,
-              selectedAgentId: selectedAgentId,
-              onOpenAgent: onOpenAgent,
-            ),
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _AgentsList extends StatelessWidget {
-  const _AgentsList({
-    required this.agents,
-    required this.filtered,
-    required this.selectedAgentId,
-    required this.onOpenAgent,
-  });
-
-  final List<Agent> agents;
-  final List<Agent> filtered;
-  final String? selectedAgentId;
-  final ValueChanged<String> onOpenAgent;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
-        if (agents.isEmpty)
-          SliverFillRemaining(hasScrollBody: false, child: _AgentsEmpty())
-        else if (filtered.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: Text(
-                l10n.agentsSearchEmpty,
-                style: TextStyle(
-                  color: AppColors.onSurfaceSubtle(brightness),
-                  fontSize: 13,
-                ),
-              ),
-            ),
-          )
-        else
-          SliverPadding(
+        // Search scrolls with the content. Header→search gap (headerGap) is
+        // owned by the titled header; search→content gap below is fieldGap.
+        SliverToBoxAdapter(
+          child: Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.screenH,
               0,
               AppSpacing.screenH,
-              AppSpacing.listBottom,
+              AppSpacing.fieldGap,
             ),
-            sliver: SliverList.separated(
-              itemCount: filtered.length,
-              separatorBuilder: (_, _) =>
-                  const SizedBox(height: AppSpacing.cardGap),
-              itemBuilder: (_, index) {
-                final agent = filtered[index];
-                return AgentCard(
-                  agent: agent,
-                  selected: agent.agentId == selectedAgentId,
-                  onTap: () => onOpenAgent(agent.agentId),
-                );
-              },
+            child: AppSearchField(
+              controller: searchController,
+              hint: l10n.agentsSearchHint,
             ),
           ),
+        ),
+        ...switch (state.status) {
+          AgentsStatus.initial ||
+          AgentsStatus.loading => const [_AgentsSkeletonSliver()],
+          AgentsStatus.error => [
+            _AgentsErrorSliver(
+              message: agentsErrorMessage(l10n, state.error!),
+              onRetry: () => context.read<AgentsCubit>().load(),
+            ),
+          ],
+          AgentsStatus.loaded => _agentsSlivers(
+            context,
+            agents: state.agents,
+            filtered: filtered,
+            selectedAgentId: selectedAgentId,
+            onOpenAgent: onOpenAgent,
+          ),
+        },
       ],
     );
+  }
+
+  List<Widget> _agentsSlivers(
+    BuildContext context, {
+    required List<Agent> agents,
+    required List<Agent> filtered,
+    required String? selectedAgentId,
+    required ValueChanged<String> onOpenAgent,
+  }) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+
+    if (agents.isEmpty) {
+      return const [
+        SliverFillRemaining(hasScrollBody: false, child: _AgentsEmpty()),
+      ];
+    }
+    if (filtered.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Text(
+              l10n.agentsSearchEmpty,
+              style: TextStyle(
+                color: AppColors.onSurfaceSubtle(brightness),
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ),
+      ];
+    }
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.screenH,
+          0,
+          AppSpacing.screenH,
+          AppSpacing.listBottom,
+        ),
+        sliver: SliverList.separated(
+          itemCount: filtered.length,
+          separatorBuilder: (_, _) =>
+              const SizedBox(height: AppSpacing.cardGap),
+          itemBuilder: (_, index) {
+            final agent = filtered[index];
+            return AgentCard(
+              agent: agent,
+              selected: agent.agentId == selectedAgentId,
+              onTap: () => onOpenAgent(agent.agentId),
+            );
+          },
+        ),
+      ),
+    ];
   }
 }
 
@@ -516,14 +514,14 @@ class _AgentsEmpty extends StatelessWidget {
   }
 }
 
-/// Animated skeleton placeholder shown while the agents list loads.
-class _AgentsSkeleton extends StatelessWidget {
-  const _AgentsSkeleton();
+/// Animated skeleton placeholder shown while the agents list loads, as a
+/// sliver so it lives in the same scroll view as the (scrolling) search bar.
+class _AgentsSkeletonSliver extends StatelessWidget {
+  const _AgentsSkeletonSliver();
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
+    return SliverPadding(
       // search → first skeleton gap (fieldGap) is owned by the search bar.
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
@@ -531,20 +529,26 @@ class _AgentsSkeleton extends StatelessWidget {
         AppSpacing.screenH,
         AppSpacing.screenBottom,
       ),
-      children: List.generate(
-        4,
-        (i) => Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
-          child: SkeletonBox(height: 66, delay: Duration(milliseconds: i * 80)),
+      sliver: SliverList.list(
+        children: List.generate(
+          4,
+          (i) => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
+            child: SkeletonBox(
+              height: 66,
+              delay: Duration(milliseconds: i * 80),
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-/// Inline error card for a failed agents-list load, with a retry button.
-class _AgentsError extends StatelessWidget {
-  const _AgentsError({required this.message, required this.onRetry});
+/// Inline error card for a failed agents-list load, with a retry button —
+/// rendered as a sliver below the (scrolling) search bar.
+class _AgentsErrorSliver extends StatelessWidget {
+  const _AgentsErrorSliver({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -553,8 +557,7 @@ class _AgentsError extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
+    return SliverPadding(
       // search → error card gap (fieldGap) is owned by the search bar.
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
@@ -562,37 +565,39 @@ class _AgentsError extends StatelessWidget {
         AppSpacing.screenH,
         AppSpacing.screenBottom,
       ),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: AppColors.cardFill(brightness),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.cardBorder(brightness)),
-          ),
-          child: Column(
-            children: [
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.onSurface(brightness),
-                  fontSize: 13,
-                  height: 1.4,
+      sliver: SliverList.list(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.cardFill(brightness),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.cardBorder(brightness)),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.onSurface(brightness),
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextButton(
-                onPressed: onRetry,
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.tealAccent,
+                const SizedBox(height: AppSpacing.sm),
+                TextButton(
+                  onPressed: onRetry,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.tealAccent,
+                  ),
+                  child: Text(l10n.agentsRetry),
                 ),
-                child: Text(l10n.agentsRetry),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -305,68 +305,96 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
           },
         ),
       ],
-      // Header → segments gap is owned by the titled header.
-      body: Column(
-        children: [
-          // segments → search: fieldGap
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.screenH,
-              0,
-              AppSpacing.screenH,
-              AppSpacing.fieldGap,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child:
-                      BlocBuilder<
-                        NotificationCenterCubit,
-                        NotificationCenterState
-                      >(
-                        buildWhen: (p, c) =>
-                            p.pendingActionCount != c.pendingActionCount,
-                        builder: (context, state) => _SegmentToggle(
-                          segment: _segment,
-                          todoCount: state.pendingActionCount,
-                          onChanged: (s) => setState(() => _segment = s),
-                        ),
-                      ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                _SegmentOverflowButton(
-                  onSelected: (action) => switch (action) {
-                    _InboxMenuAction.grants => context.push('/inbox/grants'),
-                    _InboxMenuAction.preferences => context.push(
-                      '/inbox/preferences',
-                    ),
-                  },
-                ),
-              ],
-            ),
-          ),
-          // Search applies to all three log segments. The Grants list is a
-          // separate page (kebab) with its own UI.
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
-            child: AppSearchField(
-              controller: _searchController,
-              hint: l10n.inboxSearchHint,
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          // search → first result / empty-state: fieldGap
-          const SizedBox(height: AppSpacing.fieldGap),
-          Expanded(
-            child: _Feed(
-              segment: _segment,
-              query: _searchController.text,
-              onTapItem: _onTap,
-              onSecondary: _onSecondary,
-            ),
-          ),
-        ],
+      // Header → segments gap is owned by the titled header. Only the title is
+      // pinned; the segment row and search scroll together with the feed
+      // (canonical Vaults pattern) so an overscroll never reveals a background
+      // strip between a pinned control and a separate scroll area.
+      body: _Feed(
+        segment: _segment,
+        query: _searchController.text,
+        onTapItem: _onTap,
+        onSecondary: _onSecondary,
+        header: _InboxControls(
+          segment: _segment,
+          searchController: _searchController,
+          onSegmentChanged: (s) => setState(() => _segment = s),
+          onSearchChanged: () => setState(() {}),
+          onMenuSelected: (action) => switch (action) {
+            _InboxMenuAction.grants => context.push('/inbox/grants'),
+            _InboxMenuAction.preferences => context.push('/inbox/preferences'),
+          },
+        ),
       ),
+    );
+  }
+}
+
+/// The scrolling header that sits above the feed: the segment toggle + overflow
+/// row, then the search field. Both scroll with the feed — see [_Feed].
+class _InboxControls extends StatelessWidget {
+  const _InboxControls({
+    required this.segment,
+    required this.searchController,
+    required this.onSegmentChanged,
+    required this.onSearchChanged,
+    required this.onMenuSelected,
+  });
+
+  final InboxSegment segment;
+  final TextEditingController searchController;
+  final ValueChanged<InboxSegment> onSegmentChanged;
+  final VoidCallback onSearchChanged;
+  final ValueChanged<_InboxMenuAction> onMenuSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // segments → search: fieldGap
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            0,
+            AppSpacing.screenH,
+            AppSpacing.fieldGap,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child:
+                    BlocBuilder<
+                      NotificationCenterCubit,
+                      NotificationCenterState
+                    >(
+                      buildWhen: (p, c) =>
+                          p.pendingActionCount != c.pendingActionCount,
+                      builder: (context, state) => _SegmentToggle(
+                        segment: segment,
+                        todoCount: state.pendingActionCount,
+                        onChanged: onSegmentChanged,
+                      ),
+                    ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              _SegmentOverflowButton(onSelected: onMenuSelected),
+            ],
+          ),
+        ),
+        // Search applies to all three log segments. The Grants list is a
+        // separate page (kebab) with its own UI.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
+          child: AppSearchField(
+            controller: searchController,
+            hint: l10n.inboxSearchHint,
+            onChanged: (_) => onSearchChanged(),
+          ),
+        ),
+        // search → first result / empty-state: fieldGap
+        const SizedBox(height: AppSpacing.fieldGap),
+      ],
     );
   }
 }
@@ -379,12 +407,18 @@ class _Feed extends StatelessWidget {
     required this.query,
     required this.onTapItem,
     required this.onSecondary,
+    required this.header,
   });
 
   final InboxSegment segment;
   final String query;
   final Future<void> Function(InboxNotification) onTapItem;
   final Future<void> Function(InboxNotification) onSecondary;
+
+  /// Scrolling header (segment row + search) rendered as the first sliver so it
+  /// scrolls with the feed instead of being pinned above a separate scroll
+  /// area.
+  final Widget header;
 
   @override
   Widget build(BuildContext context) {
@@ -394,20 +428,41 @@ class _Feed extends StatelessWidget {
       backgroundColor: AppColors.cardSurface(Theme.of(context).brightness),
       onRefresh: () => context.read<NotificationCenterCubit>().refresh(),
       child: BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
-        builder: (context, state) => switch (state.status) {
-          NotificationCenterStatus.initial ||
-          NotificationCenterStatus.loading => const _Skeleton(),
-          NotificationCenterStatus.error => _ErrorView(
-            message: notificationErrorMessage(l10n, state.error!),
-            onRetry: () => context.read<NotificationCenterCubit>().load(),
-          ),
-          NotificationCenterStatus.loaded => _List(
-            items: _filter(state.items),
-            isLoadingMore: state.isLoadingMore,
-            segment: segment,
-            onTapItem: onTapItem,
-            onSecondary: onSecondary,
-          ),
+        builder: (context, state) {
+          final contentSlivers = switch (state.status) {
+            NotificationCenterStatus.initial ||
+            NotificationCenterStatus.loading => const [_SkeletonSliver()],
+            NotificationCenterStatus.error => [
+              _ErrorSliver(
+                message: notificationErrorMessage(l10n, state.error!),
+                onRetry: () => context.read<NotificationCenterCubit>().load(),
+              ),
+            ],
+            NotificationCenterStatus.loaded => _listSlivers(
+              context,
+              items: _filter(state.items),
+              isLoadingMore: state.isLoadingMore,
+            ),
+          };
+          // Pagination: a scroll that nears the end asks the cubit for the next
+          // page. Wrapping the whole scroll view keeps loadMore working with
+          // the header in the same scrollable.
+          return NotificationListener<ScrollEndNotification>(
+            onNotification: (notification) {
+              if (state.status == NotificationCenterStatus.loaded &&
+                  notification.metrics.extentAfter < 160) {
+                context.read<NotificationCenterCubit>().loadMore();
+              }
+              return false;
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(child: header),
+                ...contentSlivers,
+              ],
+            ),
+          );
         },
       ),
     );
@@ -437,25 +492,15 @@ class _Feed extends StatelessWidget {
         })
         .toList(growable: false);
   }
-}
 
-class _List extends StatelessWidget {
-  const _List({
-    required this.items,
-    required this.isLoadingMore,
-    required this.segment,
-    required this.onTapItem,
-    required this.onSecondary,
-  });
-
-  final List<InboxNotification> items;
-  final bool isLoadingMore;
-  final InboxSegment segment;
-  final Future<void> Function(InboxNotification) onTapItem;
-  final Future<void> Function(InboxNotification) onSecondary;
-
-  @override
-  Widget build(BuildContext context) {
+  /// Builds the loaded-state slivers: either the per-segment empty card or the
+  /// paginated list of notification tiles (with a trailing spinner while the
+  /// next page loads). Rendered below the (scrolling) header in [build].
+  List<Widget> _listSlivers(
+    BuildContext context, {
+    required List<InboxNotification> items,
+    required bool isLoadingMore,
+  }) {
     final l10n = AppLocalizations.of(context)!;
     if (items.isEmpty) {
       final (icon, title, hint) = switch (segment) {
@@ -475,56 +520,55 @@ class _List extends StatelessWidget {
           l10n.inboxAllEmptyHint,
         ),
       };
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        // search → empty-state gap (fieldGap) is owned by the parent Column.
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.screenH,
-          0,
-          AppSpacing.screenH,
-          AppSpacing.screenBottom,
+      // search → empty-state gap (fieldGap) is owned by the header above.
+      return [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            0,
+            AppSpacing.screenH,
+            AppSpacing.screenBottom,
+          ),
+          sliver: SliverList.list(
+            children: [_EmptyCard(icon: icon, title: title, hint: hint)],
+          ),
         ),
-        children: [_EmptyCard(icon: icon, title: title, hint: hint)],
-      );
+      ];
     }
     // No section header: each segment renders a single section (To-do or
     // History), and we never label the first rendered section. The segment
-    // toggle already names the active list.
-    return NotificationListener<ScrollEndNotification>(
-      onNotification: (notification) {
-        if (notification.metrics.extentAfter < 160) {
-          context.read<NotificationCenterCubit>().loadMore();
-        }
-        return false;
-      },
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        // search → first result gap (fieldGap) is owned by the parent Column.
+    // toggle already names the active list. search → first result gap
+    // (fieldGap) is owned by the header above.
+    return [
+      SliverPadding(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.screenH,
           0,
           AppSpacing.screenH,
           AppSpacing.listBottom,
         ),
-        itemCount: items.length + (isLoadingMore ? 1 : 0),
-        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.cardGap),
-        itemBuilder: (context, index) {
-          if (index == items.length) {
-            return const Padding(
-              padding: EdgeInsets.all(AppSpacing.fieldGap),
-              child: Center(
-                child: CircularProgressIndicator(color: AppColors.brandRed),
-              ),
+        sliver: SliverList.separated(
+          itemCount: items.length + (isLoadingMore ? 1 : 0),
+          separatorBuilder: (_, _) =>
+              const SizedBox(height: AppSpacing.cardGap),
+          itemBuilder: (context, index) {
+            if (index == items.length) {
+              return const Padding(
+                padding: EdgeInsets.all(AppSpacing.fieldGap),
+                child: Center(
+                  child: CircularProgressIndicator(color: AppColors.brandRed),
+                ),
+              );
+            }
+            return _NotificationItemTile(
+              item: items[index],
+              onTap: () => onTapItem(items[index]),
+              onSecondary: () => onSecondary(items[index]),
             );
-          }
-          return _NotificationItemTile(
-            item: items[index],
-            onTap: () => onTapItem(items[index]),
-            onSecondary: () => onSecondary(items[index]),
-          );
-        },
+          },
+        ),
       ),
-    );
+    ];
   }
 }
 
@@ -880,27 +924,28 @@ class _EmptyCard extends StatelessWidget {
   }
 }
 
-class _Skeleton extends StatelessWidget {
-  const _Skeleton();
+class _SkeletonSliver extends StatelessWidget {
+  const _SkeletonSliver();
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      // search → first skeleton gap (fieldGap) is owned by the parent Column.
+    // search → first skeleton gap (fieldGap) is owned by the header above.
+    return SliverPadding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
         0,
         AppSpacing.screenH,
         AppSpacing.screenBottom,
       ),
-      children: List.generate(
-        4,
-        (i) => Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
-          child: SkeletonBox(
-            height: 112,
-            delay: Duration(milliseconds: i * 80),
+      sliver: SliverList.list(
+        children: List.generate(
+          4,
+          (i) => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
+            child: SkeletonBox(
+              height: 112,
+              delay: Duration(milliseconds: i * 80),
+            ),
           ),
         ),
       ),
@@ -908,8 +953,8 @@ class _Skeleton extends StatelessWidget {
   }
 }
 
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
+class _ErrorSliver extends StatelessWidget {
+  const _ErrorSliver({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -918,46 +963,47 @@ class _ErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      // search → error card gap (fieldGap) is owned by the parent Column.
+    // search → error card gap (fieldGap) is owned by the header above.
+    return SliverPadding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
         0,
         AppSpacing.screenH,
         AppSpacing.screenBottom,
       ),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: AppColors.cardFill(brightness),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.cardBorder(brightness)),
-          ),
-          child: Column(
-            children: [
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.onSurface(brightness),
-                  fontSize: 13,
-                  height: 1.4,
+      sliver: SliverList.list(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.cardFill(brightness),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.cardBorder(brightness)),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.onSurface(brightness),
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextButton(
-                onPressed: onRetry,
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.brandRed,
+                const SizedBox(height: AppSpacing.sm),
+                TextButton(
+                  onPressed: onRetry,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.brandRed,
+                  ),
+                  child: Text(l10n.approvalRetry),
                 ),
-                child: Text(l10n.approvalRetry),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

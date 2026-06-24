@@ -131,6 +131,38 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
       ));
   }
 
+  List<Widget> _loadedSlivers({
+    required List<EntryEntity> entries,
+    required Map<String, Map<String, dynamic>> revealedEntries,
+    required AppLocalizations l10n,
+  }) {
+    if (entries.isEmpty) {
+      return [
+        SliverToBoxAdapter(child: _EmptyEntries(l10n: l10n)),
+      ];
+    }
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.listBottom),
+        sliver: SliverList.separated(
+          itemCount: entries.length,
+          separatorBuilder: (_, _) =>
+              const SizedBox(height: AppSpacing.cardGap),
+          itemBuilder: (context, i) => _EntryCard(
+            entry: entries[i],
+            isExpanded: _expanded.contains(entries[i].id),
+            payload: revealedEntries[entries[i].id],
+            revealedFields: _revealedFields,
+            onToggleReveal: () => _onToggleReveal(entries[i]),
+            onToggleFieldReveal: _toggleFieldReveal,
+            onCopy: (value) => _copyToClipboard(value, l10n),
+            onEdit: () => _onEditEntry(entries[i], revealedEntries[entries[i].id]),
+          ),
+        ),
+      ),
+    ];
+  }
+
   String _errorMessage(EntryErrorKind kind, AppLocalizations l10n) {
     return switch (kind) {
       EntryErrorKind.notFound => l10n.entryErrorNotFound,
@@ -166,94 +198,42 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
           ));
       },
       builder: (context, state) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppSearchField(
-              controller: _searchController,
-              hint: l10n.entrySearchHint,
-              onChanged: (_) => setState(() {}),
+        // Search scrolls with the entries list (canonical Vaults pattern): it
+        // is the first sliver of a single CustomScrollView, so an overscroll
+        // never reveals a background strip between a pinned search bar and a
+        // separate scroll area. Each state contributes the slivers below it.
+        return CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.fieldGap),
+                child: AppSearchField(
+                  controller: _searchController,
+                  hint: l10n.entrySearchHint,
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
             ),
-            const SizedBox(height: AppSpacing.fieldGap),
-            Expanded(
-              child: switch (state) {
-                EntryListInitial() ||
-                EntryListLoading() => const _LoadingView(),
-                EntryListError(:final kind) => _ErrorView(
-                    kind: kind,
-                    onRetry: () =>
-                        context.read<EntryListCubit>().loadEntries(),
-                  ),
-                EntryListLoaded(:final entries, :final revealedEntries) =>
-                  _LoadedBody(
-                    entries: _filter(entries),
-                    revealedEntries: revealedEntries,
-                    expanded: _expanded,
-                    revealedFields: _revealedFields,
-                    onToggleReveal: _onToggleReveal,
-                    onToggleFieldReveal: _toggleFieldReveal,
-                    onCopy: (value) => _copyToClipboard(value, l10n),
-                    onEdit: _onEditEntry,
-                    l10n: l10n,
-                  ),
-              },
-            ),
+            ...switch (state) {
+              EntryListInitial() ||
+              EntryListLoading() => const [_LoadingSliver()],
+              EntryListError(:final kind) => [
+                _ErrorSliver(
+                  kind: kind,
+                  onRetry: () => context.read<EntryListCubit>().loadEntries(),
+                ),
+              ],
+              EntryListLoaded(:final entries, :final revealedEntries) =>
+                _loadedSlivers(
+                  entries: _filter(entries),
+                  revealedEntries: revealedEntries,
+                  l10n: l10n,
+                ),
+            },
           ],
         );
       },
-    );
-  }
-}
-
-class _LoadedBody extends StatelessWidget {
-  const _LoadedBody({
-    required this.entries,
-    required this.revealedEntries,
-    required this.expanded,
-    required this.revealedFields,
-    required this.onToggleReveal,
-    required this.onToggleFieldReveal,
-    required this.onCopy,
-    required this.onEdit,
-    required this.l10n,
-  });
-
-  final List<EntryEntity> entries;
-  final Map<String, Map<String, dynamic>> revealedEntries;
-  final Set<String> expanded;
-  final Set<String> revealedFields;
-  final ValueChanged<EntryEntity> onToggleReveal;
-  final void Function(String entryId, String field) onToggleFieldReveal;
-  final ValueChanged<String> onCopy;
-  final void Function(EntryEntity, Map<String, dynamic>?) onEdit;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: AppSpacing.listBottom),
-      child: entries.isEmpty
-          ? _EmptyEntries(l10n: l10n)
-          : Column(
-              children: [
-                for (var i = 0; i < entries.length; i++) ...[
-                  if (i > 0) const SizedBox(height: AppSpacing.cardGap),
-                  _EntryCard(
-                    entry: entries[i],
-                    isExpanded: expanded.contains(entries[i].id),
-                    payload: revealedEntries[entries[i].id],
-                    revealedFields: revealedFields,
-                    onToggleReveal: () => onToggleReveal(entries[i]),
-                    onToggleFieldReveal: onToggleFieldReveal,
-                    onCopy: onCopy,
-                    onEdit: () => onEdit(
-                      entries[i],
-                      revealedEntries[entries[i].id],
-                    ),
-                  ),
-                ],
-              ],
-            ),
     );
   }
 }
@@ -300,26 +280,19 @@ class _EmptyEntries extends StatelessWidget {
   }
 }
 
-class _LoadingView extends StatelessWidget {
-  const _LoadingView();
+class _LoadingSliver extends StatelessWidget {
+  const _LoadingSliver();
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.fieldGap,
-        AppSpacing.screenH,
-        0,
-      ),
-      child: Column(
-        children: List.generate(
-          5,
-          (i) => Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
-            child: _SkeletonRow(brightness: brightness, delay: i * 80),
-          ),
+    // search → first skeleton row gap (fieldGap) is owned by the search bar.
+    return SliverList.list(
+      children: List.generate(
+        5,
+        (i) => Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
+          child: _SkeletonRow(brightness: brightness, delay: i * 80),
         ),
       ),
     );
@@ -382,8 +355,8 @@ class _SkeletonRowState extends State<_SkeletonRow>
   }
 }
 
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.kind, required this.onRetry});
+class _ErrorSliver extends StatelessWidget {
+  const _ErrorSliver({required this.kind, required this.onRetry});
 
   final EntryErrorKind kind;
   final VoidCallback onRetry;
@@ -400,9 +373,9 @@ class _ErrorView extends StatelessWidget {
       EntryErrorKind.unknown => l10n.entryErrorUnknown,
     };
     final brightness = Theme.of(context).brightness;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
