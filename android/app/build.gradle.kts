@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "io.clawvault.mobile"
+    namespace = "io.palladin.mobile"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -21,7 +21,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "io.clawvault.mobile"
+        applicationId = "io.palladin.mobile"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -34,16 +34,16 @@ android {
         create("local") {
             dimension = "environment"
             applicationIdSuffix = ".local"
-            resValue("string", "app_name", "Claw Vault (Local)")
+            resValue("string", "app_name", "Palladin (Local)")
         }
         create("staging") {
             dimension = "environment"
             applicationIdSuffix = ".staging"
-            resValue("string", "app_name", "Claw Vault (Stage)")
+            resValue("string", "app_name", "Palladin (Stage)")
         }
         create("production") {
             dimension = "environment"
-            resValue("string", "app_name", "Claw Vault")
+            resValue("string", "app_name", "Palladin")
         }
     }
 

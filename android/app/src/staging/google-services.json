@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:810617442937:android:addf969151cb03ea6bbaa8",
         "android_client_info": {
-          "package_name": "io.clawvault.mobile.staging"
+          "package_name": "io.palladin.mobile.staging"
         }
       },
       "oauth_client": [

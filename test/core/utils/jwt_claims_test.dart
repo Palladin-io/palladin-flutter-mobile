@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/core/utils/jwt_claims.dart';
+import 'package:mobile_palladin/core/utils/jwt_claims.dart';
 
 /// Builds a syntactically valid JWT (header.payload.signature) carrying
 /// the given claims. We never validate the signature — the backend does

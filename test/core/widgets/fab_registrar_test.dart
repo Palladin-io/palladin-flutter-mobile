@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/core/widgets/fab_registrar.dart';
-import 'package:mobile_claw_vault/features/shell/presentation/pages/app_shell.dart';
+import 'package:mobile_palladin/core/widgets/fab_registrar.dart';
+import 'package:mobile_palladin/features/shell/presentation/pages/app_shell.dart';
 
 /// Minimal host that exposes the shell's FAB callbacks via [AppShellScope]
 /// and renders [child], so a [FabRegistrar] can register/clear without

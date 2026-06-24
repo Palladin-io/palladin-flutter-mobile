@@ -1,10 +1,10 @@
 {
   "@@locale": "en",
-  "appTitle": "Claw Vault",
+  "appTitle": "Palladin",
   "@appTitle": {
     "description": "The application title shown in the app bar and OS task switcher"
   },
-  "welcomeMessage": "Welcome to Claw Vault",
+  "welcomeMessage": "Welcome to Palladin",
   "@welcomeMessage": {
     "description": "Greeting shown on the home/dashboard placeholder page"
   },
@@ -262,7 +262,7 @@
   "@recoveryPasteButton": {
     "description": "Secondary button that pastes the mnemonic from the clipboard"
   },
-  "recoveryShareSubject": "Claw Vault Recovery Key",
+  "recoveryShareSubject": "Palladin Recovery Key",
   "@recoveryShareSubject": {
     "description": "Subject line used when sharing the recovery key file via the platform share sheet"
   },

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/features/grants/data/models/grant_model.dart';
-import 'package:mobile_claw_vault/features/grants/domain/entities/grant.dart';
-import 'package:mobile_claw_vault/features/grants/presentation/cubit/org_grants_state.dart';
+import 'package:mobile_palladin/features/grants/data/models/grant_model.dart';
+import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
+import 'package:mobile_palladin/features/grants/presentation/cubit/org_grants_state.dart';
 
 void main() {
   group('GrantModel — org-wide (/api/grants) fields', () {

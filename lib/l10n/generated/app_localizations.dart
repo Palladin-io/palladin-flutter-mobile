@@ -101,13 +101,13 @@ abstract class AppLocalizations {
   /// The application title shown in the app bar and OS task switcher
   ///
   /// In en, this message translates to:
-  /// **'Claw Vault'**
+  /// **'Palladin'**
   String get appTitle;
 
   /// Greeting shown on the home/dashboard placeholder page
   ///
   /// In en, this message translates to:
-  /// **'Welcome to Claw Vault'**
+  /// **'Welcome to Palladin'**
   String get welcomeMessage;
 
   /// First line of the stacked tagline on the login screen
@@ -467,7 +467,7 @@ abstract class AppLocalizations {
   /// Subject line used when sharing the recovery key file via the platform share sheet
   ///
   /// In en, this message translates to:
-  /// **'Claw Vault Recovery Key'**
+  /// **'Palladin Recovery Key'**
   String get recoveryShareSubject;
 
   /// Secondary button that imports the mnemonic from a file

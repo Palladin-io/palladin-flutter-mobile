@@ -17,6 +17,6 @@ Future<void> bootstrapPush() async {
 
   // Must be registered before runApp so background isolate messages are
   // handled. Token registration / foreground listeners are wired later
-  // in ClawVaultApp via the auth lifecycle.
+  // in PalladinApp via the auth lifecycle.
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 }

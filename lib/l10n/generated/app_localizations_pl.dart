@@ -9,10 +9,10 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
-  String get appTitle => 'Claw Vault';
+  String get appTitle => 'Palladin';
 
   @override
-  String get welcomeMessage => 'Witaj w Claw Vault';
+  String get welcomeMessage => 'Witaj w Palladin';
 
   @override
   String get taglineZeroKnowledge => 'Zero-Knowledge';
@@ -213,7 +213,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get recoveryPasteButton => 'Wklej ze schowka';
 
   @override
-  String get recoveryShareSubject => 'Klucz odzyskiwania Claw Vault';
+  String get recoveryShareSubject => 'Klucz odzyskiwania Palladin';
 
   @override
   String get recoveryImportButton => 'Importuj z pliku .txt';

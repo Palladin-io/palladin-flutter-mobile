@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Central color palette for Claw Vault.
+/// Central color palette for Palladin.
 ///
 /// All colors used across the app must reference this class.
 /// Never use inline color literals outside of this file.

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/features/notifications/presentation/widgets/notification_format.dart';
+import 'package:mobile_palladin/features/notifications/presentation/widgets/notification_format.dart';
 
 void main() {
   test('filter offers every MVP notification type, no duplicates', () {

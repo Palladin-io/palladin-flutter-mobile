@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/features/grants/domain/entities/grant_method.dart';
+import 'package:mobile_palladin/features/grants/domain/entities/grant_method.dart';
 
 void main() {
   group('parseGrantMethods', () {

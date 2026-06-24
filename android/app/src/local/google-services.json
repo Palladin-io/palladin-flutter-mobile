@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:810617442937:android:addf969151cb03ea6bbaa8",
         "android_client_info": {
-          "package_name": "io.clawvault.mobile.local"
+          "package_name": "io.palladin.mobile.local"
         }
       },
       "oauth_client": [
@@ -17,7 +17,7 @@
           "client_id": "810617442937-sh24csa3jft9ff0rfnns3iehgjb0c7e5.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "io.clawvault.mobile.local",
+            "package_name": "io.palladin.mobile.local",
             "certificate_hash": "6c9a44fb855bb7e0dddaa7fb62c7f0a6c98dca5e"
           }
         },

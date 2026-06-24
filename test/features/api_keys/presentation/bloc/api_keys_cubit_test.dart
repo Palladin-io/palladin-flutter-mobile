@@ -2,10 +2,10 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:mobile_claw_vault/features/api_keys/presentation/bloc/api_keys_cubit.dart';
-import 'package:mobile_claw_vault/features/settings/domain/entities/api_key.dart';
-import 'package:mobile_claw_vault/features/settings/domain/exceptions/settings_exceptions.dart';
-import 'package:mobile_claw_vault/features/settings/domain/repositories/settings_repository.dart';
+import 'package:mobile_palladin/features/api_keys/presentation/bloc/api_keys_cubit.dart';
+import 'package:mobile_palladin/features/settings/domain/entities/api_key.dart';
+import 'package:mobile_palladin/features/settings/domain/exceptions/settings_exceptions.dart';
+import 'package:mobile_palladin/features/settings/domain/repositories/settings_repository.dart';
 
 class _MockSettingsRepository extends Mock implements SettingsRepository {}
 

@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:bip39/bip39.dart' as bip39;
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mobile_claw_vault/features/onboarding/domain/mnemonic.dart';
+import 'package:mobile_palladin/features/onboarding/domain/mnemonic.dart';
 
 void main() {
   group('generateRecoveryMnemonic', () {

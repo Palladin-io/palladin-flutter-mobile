@@ -2,8 +2,8 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:mobile_claw_vault/features/onboarding/domain/repositories/onboarding_repository.dart';
-import 'package:mobile_claw_vault/features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import 'package:mobile_palladin/features/onboarding/domain/repositories/onboarding_repository.dart';
+import 'package:mobile_palladin/features/onboarding/presentation/cubit/onboarding_cubit.dart';
 
 class _MockOnboardingRepository extends Mock implements OnboardingRepository {}
 

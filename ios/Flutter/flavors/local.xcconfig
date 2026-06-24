@@ -1,2 +1,2 @@
-PRODUCT_BUNDLE_IDENTIFIER = io.clawvault.mobile.local
-DISPLAY_NAME = Claw Vault (Local)
+PRODUCT_BUNDLE_IDENTIFIER = io.palladin.mobile.local
+DISPLAY_NAME = Palladin (Local)

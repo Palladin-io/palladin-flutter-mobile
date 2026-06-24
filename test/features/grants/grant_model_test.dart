@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/features/grants/data/models/grant_model.dart';
-import 'package:mobile_claw_vault/features/grants/domain/entities/grant.dart';
+import 'package:mobile_palladin/features/grants/data/models/grant_model.dart';
+import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
 
 void main() {
   group('GrantModel.fromJson → toEntity', () {

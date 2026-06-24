@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mobile_claw_vault/features/settings/data/models/api_key_model.dart';
-import 'package:mobile_claw_vault/features/settings/data/models/org_model.dart';
-import 'package:mobile_claw_vault/features/settings/domain/entities/api_key.dart';
+import 'package:mobile_palladin/features/settings/data/models/api_key_model.dart';
+import 'package:mobile_palladin/features/settings/data/models/org_model.dart';
+import 'package:mobile_palladin/features/settings/domain/entities/api_key.dart';
 
 void main() {
   group('OrgModel', () {

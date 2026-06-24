@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/core/analytics/analytics_headers_service.dart';
+import 'package:mobile_palladin/core/analytics/analytics_headers_service.dart';
 
 void main() {
   group('AnalyticsHeadersService', () {
@@ -11,7 +11,7 @@ void main() {
       expect(headers, contains('x-user-agent'));
       expect(
         headers['x-user-agent'],
-        contains('ClawVault/mobile'),
+        contains('Palladin/mobile'),
       );
       expect(
         headers['x-user-agent'],

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/features/approval/data/models/pending_grant_model.dart';
+import 'package:mobile_palladin/features/approval/data/models/pending_grant_model.dart';
 
 void main() {
   group('PendingGrantModel.fromJson → toEntity', () {

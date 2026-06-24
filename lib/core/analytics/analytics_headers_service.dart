@@ -9,7 +9,7 @@ import 'analytics_service.dart';
 ///
 /// Headers produced:
 /// - `x-session-id` -- PostHog session ID (when available)
-/// - `x-user-agent` -- `ClawVault/mobile ({os} {osVersion})`
+/// - `x-user-agent` -- `Palladin/mobile ({os} {osVersion})`
 /// - `x-app-version` -- semantic version from pubspec
 /// - `x-app-build-number` -- build number from pubspec
 class AnalyticsHeadersService {
@@ -34,7 +34,7 @@ class AnalyticsHeadersService {
     }
 
     headers['x-user-agent'] =
-        'ClawVault/mobile (${Platform.operatingSystem} ${Platform.operatingSystemVersion})';
+        'Palladin/mobile (${Platform.operatingSystem} ${Platform.operatingSystemVersion})';
 
     if (_packageInfo != null) {
       headers['x-app-version'] = _packageInfo!.version;

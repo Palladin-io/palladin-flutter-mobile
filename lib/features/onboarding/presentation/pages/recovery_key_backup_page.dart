@@ -115,8 +115,8 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
     final bytes = Uint8List.fromList(utf8.encode(content));
     await Share.shareXFiles(
       [XFile.fromData(bytes, mimeType: 'text/plain')],
-      fileNameOverrides: const ['clawvault-recovery-key.txt'],
-      subject: 'Claw Vault Recovery Key',
+      fileNameOverrides: const ['palladin-recovery-key.txt'],
+      subject: 'Palladin Recovery Key',
       sharePositionOrigin: origin,
     );
   }

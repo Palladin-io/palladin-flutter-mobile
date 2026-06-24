@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mobile_claw_vault/features/onboarding/domain/password_strength.dart';
+import 'package:mobile_palladin/features/onboarding/domain/password_strength.dart';
 
 void main() {
   group('evaluatePasswordStrength', () {

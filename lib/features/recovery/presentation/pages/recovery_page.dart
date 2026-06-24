@@ -732,7 +732,7 @@ class _SaveNewKeyStep extends StatelessWidget {
 
     await Share.shareXFiles(
       [XFile.fromData(bytes, mimeType: 'text/plain')],
-      fileNameOverrides: const ['clawvault-recovery-key.txt'],
+      fileNameOverrides: const ['palladin-recovery-key.txt'],
       subject: l10n.recoveryShareSubject,
       sharePositionOrigin: origin,
     );

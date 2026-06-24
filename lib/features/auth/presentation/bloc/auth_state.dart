@@ -24,7 +24,7 @@ final class AuthLoading extends AuthState {
 /// event clears those keys from memory.
 ///
 /// [permissions] is the bitwise flag bag from the JWT `permissions`
-/// claim (see `core/ClawVault.Core.Security/Permission.cs` on the
+/// claim (see `core/Palladin.Core.Security/Permission.cs` on the
 /// backend). Mobile only reads it — UI uses it to gate Pro-only
 /// affordances such as creating multiple vaults. Defaults to `0`
 /// (Permission.None) when the claim is absent.

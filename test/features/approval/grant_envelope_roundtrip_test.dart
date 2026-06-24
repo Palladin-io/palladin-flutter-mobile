@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/features/approval/data/services/grant_crypto_service.dart';
+import 'package:mobile_palladin/features/approval/data/services/grant_crypto_service.dart';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 /// End-to-end byte-compatibility test for the grant envelope.

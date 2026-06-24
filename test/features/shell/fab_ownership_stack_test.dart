@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/features/shell/presentation/pages/fab_ownership_stack.dart';
+import 'package:mobile_palladin/features/shell/presentation/pages/fab_ownership_stack.dart';
 
 /// Marker widgets standing in for real FABs, so `current` comparisons are
 /// by identity and read clearly in failure messages.

@@ -1,7 +1,7 @@
 {
   "@@locale": "pl",
-  "appTitle": "Claw Vault",
-  "welcomeMessage": "Witaj w Claw Vault",
+  "appTitle": "Palladin",
+  "welcomeMessage": "Witaj w Palladin",
   "taglineZeroKnowledge": "Zero-Knowledge",
   "taglinePasswordManager": "Menedżer haseł",
   "taglineForAiAgents": "Dla agentów AI",
@@ -61,7 +61,7 @@
   "recoverySubtitle": "Wprowadź swój 24-słowny klucz odzyskiwania. Użyjemy go lokalnie, aby odszyfrować sejf — nic nie trafia na nasze serwery w postaci jawnej.",
   "recoveryEnterKeyLabel": "Wpisz lub wklej 24 słowa klucza, oddzielone spacjami",
   "recoveryPasteButton": "Wklej ze schowka",
-  "recoveryShareSubject": "Klucz odzyskiwania Claw Vault",
+  "recoveryShareSubject": "Klucz odzyskiwania Palladin",
   "recoveryImportButton": "Importuj z pliku .txt",
   "recoveryImportComingSoon": "Import z pliku już wkrótce — skorzystaj na razie ze schowka",
   "recoveryNewPasswordTitle": "Ustaw nowe hasło główne",

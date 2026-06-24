@@ -5,12 +5,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:mobile_claw_vault/features/recovery/data/datasources/recovery_remote_datasource.dart';
-import 'package:mobile_claw_vault/features/recovery/data/models/recover_account_request.dart';
-import 'package:mobile_claw_vault/features/recovery/data/services/recovery_crypto_service.dart';
-import 'package:mobile_claw_vault/features/recovery/domain/recovery_exceptions.dart';
-import 'package:mobile_claw_vault/features/recovery/presentation/cubit/recovery_cubit.dart';
-import 'package:mobile_claw_vault/features/unlock/data/models/account_response.dart';
+import 'package:mobile_palladin/features/recovery/data/datasources/recovery_remote_datasource.dart';
+import 'package:mobile_palladin/features/recovery/data/models/recover_account_request.dart';
+import 'package:mobile_palladin/features/recovery/data/services/recovery_crypto_service.dart';
+import 'package:mobile_palladin/features/recovery/domain/recovery_exceptions.dart';
+import 'package:mobile_palladin/features/recovery/presentation/cubit/recovery_cubit.dart';
+import 'package:mobile_palladin/features/unlock/data/models/account_response.dart';
 
 class _MockDatasource extends Mock implements RecoveryRemoteDatasource {}
 

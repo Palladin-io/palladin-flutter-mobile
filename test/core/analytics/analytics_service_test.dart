@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/config/env_config.dart';
-import 'package:mobile_claw_vault/core/analytics/analytics_service.dart';
+import 'package:mobile_palladin/config/env_config.dart';
+import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 
 void main() {
   group('AnalyticsService', () {

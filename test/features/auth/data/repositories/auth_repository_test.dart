@@ -3,10 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:mobile_claw_vault/core/storage/secure_token_storage.dart';
-import 'package:mobile_claw_vault/features/auth/data/datasources/auth_remote_datasource.dart';
-import 'package:mobile_claw_vault/features/auth/data/models/auth_result_model.dart';
-import 'package:mobile_claw_vault/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
+import 'package:mobile_palladin/features/auth/data/datasources/auth_remote_datasource.dart';
+import 'package:mobile_palladin/features/auth/data/models/auth_result_model.dart';
+import 'package:mobile_palladin/features/auth/data/repositories/auth_repository_impl.dart';
 
 class MockAuthRemoteDatasource extends Mock implements AuthRemoteDatasource {}
 
