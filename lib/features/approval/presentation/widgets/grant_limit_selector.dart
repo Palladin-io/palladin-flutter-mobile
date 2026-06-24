@@ -119,53 +119,66 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
     _emit();
   }
 
-  /// Themes the date/time picker as a clean white surface with a red (brand)
-  /// selected date — instead of the app's cream/yellow surface and primary,
-  /// which looked beige inside the picker. `onBrandRed` is the white constant.
+  /// Themes the date/time picker to match the app's current theme (dark or
+  /// light) — surface, text and the neutral dial fill all follow the brightness
+  /// so the picker is never a stark always-white box. Brand red stays the
+  /// selection accent in both themes.
   Widget _pickerTheme(BuildContext context, Widget? child) {
     final base = Theme.of(context);
-    const white = AppColors.onBrandRed;
-    const dark = AppColors.darkBackground;
+    final b = base.brightness;
+    const onAccent = AppColors.onBrandRed;
+    final surface = AppColors.modalBackground(b);
+    final onSurface = AppColors.onSurface(b);
+    // Dial face must contrast with the (onSurface) numbers: light grey in light
+    // mode, the dark card surface in dark mode.
+    final dialFill = b == Brightness.dark
+        ? AppColors.cardFill(b)
+        : AppColors.pickerDialFill;
     return Theme(
       data: base.copyWith(
         colorScheme: base.colorScheme.copyWith(
           primary: AppColors.brandRed,
-          onPrimary: white,
-          surface: white,
-          onSurface: dark,
+          onPrimary: onAccent,
+          surface: surface,
+          onSurface: onSurface,
         ),
-        datePickerTheme: const DatePickerThemeData(
-          backgroundColor: white,
-          headerBackgroundColor: white,
-          headerForegroundColor: dark,
+        datePickerTheme: DatePickerThemeData(
+          backgroundColor: surface,
+          headerBackgroundColor: surface,
+          headerForegroundColor: onSurface,
         ),
         // Fully theme the time picker — without this the dial face and the
-        // hour/minute fields inherit dark colours (navy-on-navy, unreadable).
+        // hour/minute fields inherit mismatched colours (e.g. navy-on-navy,
+        // unreadable).
         timePickerTheme: TimePickerThemeData(
-          backgroundColor: white,
-          dialBackgroundColor: AppColors.pickerDialFill,
+          backgroundColor: surface,
+          dialBackgroundColor: dialFill,
           dialHandColor: AppColors.brandRed,
           dialTextColor: WidgetStateColor.resolveWith(
-            (s) => s.contains(WidgetState.selected) ? white : dark,
+            (s) => s.contains(WidgetState.selected) ? onAccent : onSurface,
           ),
           hourMinuteColor: WidgetStateColor.resolveWith(
             (s) => s.contains(WidgetState.selected)
                 ? AppColors.brandRed.withValues(alpha: 0.15)
-                : AppColors.pickerDialFill,
+                : dialFill,
           ),
           hourMinuteTextColor: WidgetStateColor.resolveWith(
-            (s) => s.contains(WidgetState.selected) ? AppColors.brandRed : dark,
+            (s) => s.contains(WidgetState.selected)
+                ? AppColors.brandRed
+                : onSurface,
           ),
           dayPeriodColor: WidgetStateColor.resolveWith(
             (s) => s.contains(WidgetState.selected)
                 ? AppColors.brandRed.withValues(alpha: 0.15)
-                : AppColors.pickerDialFill,
+                : dialFill,
           ),
           dayPeriodTextColor: WidgetStateColor.resolveWith(
-            (s) => s.contains(WidgetState.selected) ? AppColors.brandRed : dark,
+            (s) => s.contains(WidgetState.selected)
+                ? AppColors.brandRed
+                : onSurface,
           ),
-          entryModeIconColor: dark,
-          helpTextStyle: const TextStyle(color: dark),
+          entryModeIconColor: onSurface,
+          helpTextStyle: TextStyle(color: onSurface),
         ),
       ),
       child: child!,
