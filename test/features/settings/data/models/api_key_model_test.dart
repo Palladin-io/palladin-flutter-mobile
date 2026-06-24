@@ -84,11 +84,11 @@ void main() {
       final model = NewApiKeyModel.fromJson(const {
         'apiKeyId': 'k9',
         'name': 'New',
-        'plaintext': 'cv_live_abc123',
+        'plaintext': 'pl_live_abc123',
         'createdAt': '2026-05-17T10:00:00Z',
       });
       final entity = model.toEntity();
-      expect(entity.plaintext, 'cv_live_abc123');
+      expect(entity.plaintext, 'pl_live_abc123');
       expect(entity.apiKeyId, 'k9');
     });
   });

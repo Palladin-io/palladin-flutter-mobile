@@ -42,7 +42,7 @@ class ApiKey {
   final String name;
 
   /// Last 4 characters of the plaintext key, stored at generation time.
-  /// Used to display `cv_••••{keySuffix}` in the UI.
+  /// Used to display `pl_••••{keySuffix}` in the UI.
   final String keySuffix;
 
   /// Current lifecycle status — see [ApiKeyStatus].

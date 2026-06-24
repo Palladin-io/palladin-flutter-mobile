@@ -97,12 +97,12 @@ void main() {
       final cubit = buildCubit();
       final created = await cubit.createApiKey('  New  ');
 
-      expect(created.plaintext, 'cv_secret');
+      expect(created.plaintext, 'pl_secret');
       // Name must be trimmed before hitting the API.
       verify(() => repository.createApiKey('New')).called(1);
       verify(() => repository.listApiKeys()).called(1);
       // SECURITY: the plaintext must never be persisted on cubit state.
-      expect(cubit.state.apiKeys.any((k) => k.name == 'cv_secret'), isFalse);
+      expect(cubit.state.apiKeys.any((k) => k.name == 'pl_secret'), isFalse);
       await cubit.close();
     });
 
@@ -298,6 +298,6 @@ void main() {
 NewApiKey _newKeyFixture() => NewApiKey(
       apiKeyId: 'k9',
       name: 'New',
-      plaintext: 'cv_secret',
+      plaintext: 'pl_secret',
       createdAt: DateTime.utc(2026, 5, 17),
     );

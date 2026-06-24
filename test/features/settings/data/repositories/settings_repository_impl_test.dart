@@ -156,12 +156,12 @@ void main() {
         (_) async => const NewApiKeyModel(
           apiKeyId: 'k9',
           name: 'New',
-          plaintext: 'cv_secret_value',
+          plaintext: 'pl_secret_value',
           createdAt: '2026-05-17T10:00:00Z',
         ),
       );
       final created = await repository.createApiKey('New');
-      expect(created.plaintext, 'cv_secret_value');
+      expect(created.plaintext, 'pl_secret_value');
       expect(created.apiKeyId, 'k9');
     });
 
