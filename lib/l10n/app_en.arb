@@ -2166,6 +2166,7 @@
   "notifRowBy": "By",
   "notifRowAgentId": "Agent Id",
   "notifRowPublicKey": "Public key",
+  "notifRowType": "Type",
   "notifAccessUnlimited": "Unlimited",
   "notifPlaceholder": "—",
   "notifFilterTitle": "Filter by type",

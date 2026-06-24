@@ -3338,6 +3338,12 @@ abstract class AppLocalizations {
   /// **'Public key'**
   String get notifRowPublicKey;
 
+  /// No description provided for @notifRowType.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get notifRowType;
+
   /// No description provided for @notifAccessUnlimited.
   ///
   /// In en, this message translates to:

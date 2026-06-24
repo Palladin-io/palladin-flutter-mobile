@@ -540,6 +540,7 @@
   "notifRowBy": "Przez",
   "notifRowAgentId": "Id agenta",
   "notifRowPublicKey": "Klucz publiczny",
+  "notifRowType": "Typ",
   "notifAccessUnlimited": "Bez limitu",
   "notifPlaceholder": "—",
   "notifFilterTitle": "Filtruj po typie",

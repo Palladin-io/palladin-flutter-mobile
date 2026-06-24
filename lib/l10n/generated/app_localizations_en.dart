@@ -1864,6 +1864,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifRowPublicKey => 'Public key';
 
   @override
+  String get notifRowType => 'Type';
+
+  @override
   String get notifAccessUnlimited => 'Unlimited';
 
   @override

@@ -101,8 +101,14 @@ List<({String label, String value})> notificationRows(
     case 'agent_pending':
       return _agentRows(l10n, n);
     case 'agent_approved':
-      // Same identity rows as agent_pending — no "By" row (per CVT-165).
-      return _agentRows(l10n, n);
+      // Approved record (web parity): Agent Id first, no public key, type,
+      // host·ip, approver ("By") last.
+      return [
+        (label: l10n.notifRowAgentId, value: _str(n, 'agentId') ?? dash),
+        (label: l10n.notifRowType, value: row('agentType')),
+        (label: l10n.notifRowHostIp, value: _hostIp(n) ?? dash),
+        (label: l10n.notifRowBy, value: row('actorName')),
+      ];
     case 'credential_stale':
       // Backend sends `errorHint` (human-readable failure reason) and an
       // optional `note` (agent's free-text). There is no `error`/`attempts`
@@ -115,11 +121,18 @@ List<({String label, String value})> notificationRows(
     case 'grant_approved':
       return [
         (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
-        (label: l10n.notifRowAccess, value: _accessSummary(l10n, n)),
+        (label: l10n.notifRowMethods, value: row('methods')),
+        (label: l10n.notifRowReason, value: row('reason')),
+        (label: l10n.notifRowBy, value: row('actorName')),
+      ];
+    case 'grant_denied':
+      return [
+        (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
+        (label: l10n.notifRowMethods, value: row('methods')),
+        (label: l10n.notifRowReason, value: row('denyReason')),
         (label: l10n.notifRowBy, value: row('actorName')),
       ];
     case 'grant_revoked':
-    case 'grant_denied':
       return [
         (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
         (label: l10n.notifRowReason, value: row('reason')),
@@ -134,9 +147,10 @@ List<({String label, String value})> notificationRows(
   }
 }
 
-/// Agent identity rows — always 3: Public key → Agent Id → Host · Ip. Missing
-/// values fall back to the "—" placeholder so the card stays a fixed height.
-/// The public key surfaces under a "Public key" label, never a vague "key".
+/// Agent identity rows (web parity) — Public key → Agent Id → Type →
+/// Host · Ip. Missing values fall back to the "—" placeholder so the card
+/// stays a fixed height. The public key surfaces under a "Public key" label,
+/// never a vague "key".
 List<({String label, String value})> _agentRows(
   AppLocalizations l10n,
   InboxNotification n,
@@ -145,37 +159,9 @@ List<({String label, String value})> _agentRows(
   return [
     (label: l10n.notifRowPublicKey, value: _keyHint(n) ?? dash),
     (label: l10n.notifRowAgentId, value: _str(n, 'agentId') ?? dash),
+    (label: l10n.notifRowType, value: _str(n, 'agentType') ?? dash),
     (label: l10n.notifRowHostIp, value: _hostIp(n) ?? dash),
   ];
-}
-
-/// Access-policy summary for an approved grant, mirroring what the grants list
-/// shows: remaining uses, expiry date, or "Unlimited". Reads `queryLimit` /
-/// `queryCount` / `expiresAt` from the notification metadata (strings).
-String _accessSummary(AppLocalizations l10n, InboxNotification n) {
-  final limit = _int(n, 'queryLimit');
-  if (limit != null) {
-    final used = _int(n, 'queryCount') ?? 0;
-    final left = (limit - used).clamp(0, limit);
-    return l10n.orgGrantUsesLeft(left, limit);
-  }
-  final expires = _str(n, 'expiresAt');
-  if (expires != null) {
-    final dt = DateTime.tryParse(expires);
-    if (dt != null) {
-      final iso = dt.toIso8601String();
-      return l10n.orgGrantExpiresOn(iso.substring(0, 10));
-    }
-  }
-  return l10n.notifAccessUnlimited;
-}
-
-int? _int(InboxNotification n, String key) {
-  final raw = n.metadata[key];
-  if (raw is int) return raw;
-  if (raw is String) return int.tryParse(raw.trim());
-  if (raw is num) return raw.toInt();
-  return null;
 }
 
 /// Combines host + IP into one "host · ip" value (host shortened so a long

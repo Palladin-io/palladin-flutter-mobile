@@ -1883,6 +1883,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get notifRowPublicKey => 'Klucz publiczny';
 
   @override
+  String get notifRowType => 'Typ';
+
+  @override
   String get notifAccessUnlimited => 'Bez limitu';
 
   @override
