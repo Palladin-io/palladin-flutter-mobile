@@ -39,7 +39,7 @@ class EnvConfig {
       posthogKey: '',
       posthogHost: 'https://app.posthog.com',
       // Staging Firebase project used for local development
-      googleServerClientId: '810617442937-uqjo7cinqaemjjd3r3qtr7lhag44ebc5.apps.googleusercontent.com',
+      googleServerClientId: '',
     );
   }
 
@@ -51,7 +51,7 @@ class EnvConfig {
       apiBaseUrl: 'https://api.stage.palladin.io',
       posthogKey: '', // TODO: Add PostHog staging project key
       posthogHost: 'https://app.posthog.com',
-      googleServerClientId: '810617442937-uqjo7cinqaemjjd3r3qtr7lhag44ebc5.apps.googleusercontent.com',
+      googleServerClientId: '',
     );
   }
 

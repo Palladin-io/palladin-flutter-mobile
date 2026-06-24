@@ -3,32 +3,28 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>AIzaSyBuV0FNNgEHLIVu0mRimsEJT686yFhZM_4</string>
+	<string>AIzaSyCiago7RQSTgyFzUdlQ5Z1PTGDPGVNbptg</string>
 	<key>GCM_SENDER_ID</key>
-	<string>810617442937</string>
+	<string>1006466869105</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
 	<string>io.palladin.mobile</string>
 	<key>PROJECT_ID</key>
-	<string>claw-vault</string>
+	<string>palladin</string>
 	<key>STORAGE_BUCKET</key>
-	<string>claw-vault.firebasestorage.app</string>
+	<string>palladin.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
-	<false/>
+	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
-	<false/>
+	<false></false>
 	<key>IS_APPINVITE_ENABLED</key>
-	<true/>
+	<true></true>
 	<key>IS_GCM_ENABLED</key>
-	<true/>
+	<true></true>
 	<key>IS_SIGNIN_ENABLED</key>
-	<true/>
+	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:810617442937:ios:2f9e8141010b47596bbaa8</string>
-	<key>CLIENT_ID</key>
-	<string>810617442937-8308nuhpcilvr4fsc82jfq7o2a3gs3qc.apps.googleusercontent.com</string>
-	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.810617442937-8308nuhpcilvr4fsc82jfq7o2a3gs3qc</string>
+	<string>1:1006466869105:ios:45a631020b77e0d12eb8d0</string>
 </dict>
 </plist>
