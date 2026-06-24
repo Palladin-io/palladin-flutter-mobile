@@ -172,10 +172,12 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     final confirmed = await DeactivateAgentSheet.show(context, agentName);
     if (!confirmed) return;
     await agents.deactivateAgent(agentId);
+    // Only collapse + mark read when the deny actually succeeded — a failed
+    // mutation must leave the card actionable (and unread) so the user retries.
     if (agents.state.mutationError == null) {
       notifications.markResolvedLocally(item.id);
+      await notifications.markRead(item.id);
     }
-    await notifications.markRead(item.id);
     await notifications.refresh();
   }
 
@@ -595,8 +597,11 @@ class _NotificationItemTileState extends State<_NotificationItemTile> {
   /// approve be submitted twice (double-activation).
   bool _busy = false;
 
-  /// Runs [action] under the re-entrancy guard, disabling the card's
-  /// actions until it completes (including the parent's list refresh).
+  /// Runs [action] under the re-entrancy guard, disabling the card's actions
+  /// until it completes. For agent approve/deny this spans the full mutation +
+  /// list refresh; for grant approve/deny the guard releases once the grant
+  /// sheet is shown (the crypto mutation then runs in the sheet's own flow),
+  /// which still blocks a double-tap from opening two sheets.
   Future<void> _run(Future<void> Function() action) async {
     if (_busy) return;
     setState(() => _busy = true);
