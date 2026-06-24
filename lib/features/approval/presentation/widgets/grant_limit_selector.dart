@@ -139,7 +139,34 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
           headerBackgroundColor: white,
           headerForegroundColor: dark,
         ),
-        timePickerTheme: const TimePickerThemeData(backgroundColor: white),
+        // Fully theme the time picker — without this the dial face and the
+        // hour/minute fields inherit dark colours (navy-on-navy, unreadable).
+        timePickerTheme: TimePickerThemeData(
+          backgroundColor: white,
+          dialBackgroundColor: AppColors.pickerDialFill,
+          dialHandColor: AppColors.brandRed,
+          dialTextColor: WidgetStateColor.resolveWith(
+            (s) => s.contains(WidgetState.selected) ? white : dark,
+          ),
+          hourMinuteColor: WidgetStateColor.resolveWith(
+            (s) => s.contains(WidgetState.selected)
+                ? AppColors.brandRed.withValues(alpha: 0.15)
+                : AppColors.pickerDialFill,
+          ),
+          hourMinuteTextColor: WidgetStateColor.resolveWith(
+            (s) => s.contains(WidgetState.selected) ? AppColors.brandRed : dark,
+          ),
+          dayPeriodColor: WidgetStateColor.resolveWith(
+            (s) => s.contains(WidgetState.selected)
+                ? AppColors.brandRed.withValues(alpha: 0.15)
+                : AppColors.pickerDialFill,
+          ),
+          dayPeriodTextColor: WidgetStateColor.resolveWith(
+            (s) => s.contains(WidgetState.selected) ? AppColors.brandRed : dark,
+          ),
+          entryModeIconColor: dark,
+          helpTextStyle: const TextStyle(color: dark),
+        ),
       ),
       child: child!,
     );

@@ -35,6 +35,11 @@ abstract final class AppColors {
   /// share the same value.
   static const Color onBrandRed = Color(0xFFFFFFFF);
 
+  /// Neutral light fill for the date/time picker dial — the picker is forced
+  /// onto a white surface regardless of app theme, so the dial face needs a
+  /// fixed light grey (dark numbers stay readable on it).
+  static const Color pickerDialFill = Color(0xFFEDEDF2);
+
   /// Opaque base colour for the upload-button shimmer label. The brandRed
   /// gradient is painted over it via a `ShaderMask` (`BlendMode.srcIn`),
   /// so only its alpha channel matters — it must be fully opaque white for
