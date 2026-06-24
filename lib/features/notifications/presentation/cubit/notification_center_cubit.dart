@@ -221,10 +221,19 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   void markResolvedLocally(String id) {
     final index = state.items.indexWhere((item) => item.id == id);
     if (index < 0) return;
+    final item = state.items[index];
+    // Already resolved → nothing to do (avoid double-decrementing the badge).
+    if (item.actionState == NotificationActionState.resolved) return;
     final updated = [...state.items];
-    updated[index] = updated[index]
-        .copyWith(actionState: NotificationActionState.resolved);
-    emit(state.copyWith(items: updated));
+    updated[index] =
+        item.copyWith(actionState: NotificationActionState.resolved);
+    // Resolving an open action drops the To-do badge immediately too — the
+    // count comes from pendingActionCount, not from the (now-collapsed) item,
+    // so without this the badge lingered until the slower server refresh.
+    final pending = item.isOpenAction
+        ? (state.pendingActionCount - 1).clamp(0, 1 << 31)
+        : state.pendingActionCount;
+    emit(state.copyWith(items: updated, pendingActionCount: pending));
   }
 
   Future<void> markAllRead() async {
