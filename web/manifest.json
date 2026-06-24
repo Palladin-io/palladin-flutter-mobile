@@ -1,6 +1,6 @@
 {
-    "name": "mobile_palladin",
-    "short_name": "mobile_palladin",
+    "name": "Palladin",
+    "short_name": "Palladin",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
