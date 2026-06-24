@@ -68,28 +68,14 @@ class LoginPage extends StatelessWidget {
         RichText(
           textAlign: TextAlign.center,
           text: TextSpan(
-            children: [
-              TextSpan(
-                text: 'Claw ',
-                style: TextStyle(
-                  fontSize: 52,
-                  fontWeight: FontWeight.w900,
-                  color: textColor,
-                  height: 1.0,
-                  letterSpacing: -1.5,
-                ),
-              ),
-              const TextSpan(
-                text: 'Vault',
-                style: TextStyle(
-                  fontSize: 52,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.brandRed,
-                  height: 1.0,
-                  letterSpacing: -1.5,
-                ),
-              ),
-            ],
+            text: 'Palladin',
+            style: TextStyle(
+              fontSize: 52,
+              fontWeight: FontWeight.w900,
+              color: textColor,
+              height: 1.0,
+              letterSpacing: -1.5,
+            ),
           ),
         ),
         const SizedBox(height: AppSpacing.section),
