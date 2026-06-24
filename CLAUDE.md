@@ -1,10 +1,10 @@
-# Claw Vault — Mobile App
+# Palladin — Mobile App
 
 Flutter mobile app for managing vaults, approving agent grants, and biometric unlock. Zero-knowledge architecture — all encryption/decryption happens on-device.
 
 ## Project Brain
 
-Wiedza biznesowa i architektoniczna projektu: `../docs/obsidian/claw-vault/`
+Wiedza biznesowa i architektoniczna projektu: `../docs/obsidian/palladin/`
 
 Kluczowe noty dla tego repozytorium:
 - `Technical/Mobile.md` — stack, flavory, BLoC, AppColors, i18n, konwencje
@@ -13,11 +13,11 @@ Kluczowe noty dla tego repozytorium:
 - `Product/Modules/Vault/` — Vault module: reguły, API, onboarding flow
 - `Product/Modules/Notification/Business Rules.md` — FCM/APNs, push tokens
 
-Użyj `/brain` żeby nawigować po brain lub: `grep -r "SŁOWO" ../docs/obsidian/claw-vault --include="*.md"`
+Użyj `/brain` żeby nawigować po brain lub: `grep -r "SŁOWO" ../docs/obsidian/palladin --include="*.md"`
 
 **Po sesji która zmienia funkcjonalność, reguły biznesowe lub architekturę: zaktualizuj odpowiednią notę w brain.**
 
-Repository: [Flamingo-Co/claw-vault-flutter-mobile](https://github.com/Flamingo-Co/claw-vault-flutter-mobile)
+Repository: [Flamingo-Co/palladin-flutter-mobile](https://github.com/Flamingo-Co/palladin-flutter-mobile)
 
 ## Build & Run
 
@@ -47,9 +47,9 @@ Three flavors: **local**, **staging**, **production**. Each has its own entry po
 | | Local | Staging | Production |
 |--|-------|---------|------------|
 | Entry point | `lib/main_local.dart` | `lib/main_staging.dart` | `lib/main_production.dart` |
-| Bundle ID | `io.clawvault.mobile.local` | `io.clawvault.mobile.staging` | `io.clawvault.mobile` |
-| App name | Claw Vault (Local) | Claw Vault (Stage) | Claw Vault |
-| API URL | `http://localhost:5000` | `https://api.stage.clawvault.io` | `https://api.clawvault.io` |
+| Bundle ID | `io.palladin.mobile.local` | `io.palladin.mobile.staging` | `io.palladin.mobile` |
+| App name | Palladin (Local) | Palladin (Stage) | Palladin |
+| API URL | `http://localhost:5000` | `https://api.stage.palladin.io` | `https://api.palladin.io` |
 
 Config class: `lib/config/env_config.dart` — `EnvConfig.local()` / `EnvConfig.staging()` / `EnvConfig.production()`.
 

@@ -7,7 +7,7 @@ allowed-tools: Read Write Edit Grep Glob Bash(gh pr *) Bash(gh api *) Bash(gh ap
 effort: high
 ---
 
-# Fix PR — Claw Vault Flutter Mobile
+# Fix PR — Palladin Flutter Mobile
 
 ## Kontekst PR
 
