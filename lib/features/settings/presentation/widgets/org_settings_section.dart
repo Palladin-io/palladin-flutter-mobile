@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -86,7 +87,7 @@ class _OrgSettingsSectionState extends State<OrgSettingsSection> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _SectionHeader(title: l10n.settingsOrganization),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             switch (state.orgStatus) {
               SectionStatus.initial ||
               SectionStatus.loading =>
@@ -113,7 +114,7 @@ class _OrgSettingsSectionState extends State<OrgSettingsSection> {
     final memberCount = state.org?.memberCount ?? 1;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.cardPadding),
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(12),
@@ -133,7 +134,7 @@ class _OrgSettingsSectionState extends State<OrgSettingsSection> {
               if (_canSave(state)) _onSave();
             },
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             l10n.settingsOrgMembers(memberCount),
             style: TextStyle(
@@ -141,7 +142,7 @@ class _OrgSettingsSectionState extends State<OrgSettingsSection> {
               color: AppColors.onSurfaceSubtle(brightness),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.section),
           PrimaryButton(
             label: l10n.settingsSave,
             isLoading: state.isSavingOrg,
@@ -201,7 +202,7 @@ class _OrgError extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.cardPadding),
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(12),
@@ -218,7 +219,7 @@ class _OrgError extends StatelessWidget {
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.innerGap),
           TextButton(
             onPressed: onRetry,
             style: TextButton.styleFrom(

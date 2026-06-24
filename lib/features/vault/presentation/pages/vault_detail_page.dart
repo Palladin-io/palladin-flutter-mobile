@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../cubit/vault_list_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -58,10 +59,8 @@ class VaultDetailPage extends StatelessWidget {
             final wrappedVK = detailState is VaultDetailLoaded
                 ? detailState.vault.wrappedVK
                 : null;
-            return getIt<EntryListCubit>(
-              param1: vaultId,
-              param2: wrappedVK,
-            )..loadEntries();
+            return getIt<EntryListCubit>(param1: vaultId, param2: wrappedVK)
+              ..loadEntries();
           },
         ),
       ],
@@ -113,9 +112,7 @@ class _VaultDetailViewState extends State<_VaultDetailView>
   /// while the sheet is still sliding out, producing a visible height
   /// jump as the body re-lays out.
   // ignore: unused_element
-  Future<T?> _showSheet<T>(
-    Widget Function(BuildContext) builder,
-  ) async {
+  Future<T?> _showSheet<T>(Widget Function(BuildContext) builder) async {
     final shell = AppShellScope.of(context);
     shell.setBottomNavHidden(true);
     try {
@@ -136,7 +133,10 @@ class _VaultDetailViewState extends State<_VaultDetailView>
     if (!mounted) return;
     // Agents tab: proactively grant an agent access to this vault (FULL).
     if (_tabController.index == _VaultTab.agents.index) {
-      final granted = await GrantAccessSheet.show(context, GrantForVault(widget.vaultId));
+      final granted = await GrantAccessSheet.show(
+        context,
+        GrantForVault(widget.vaultId),
+      );
       if (granted == true && mounted) {
         setState(() => _grantsRefresh++);
       }
@@ -176,7 +176,10 @@ class _VaultDetailViewState extends State<_VaultDetailView>
     if (!onEntries && !onAgents) return null;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8, right: 4),
+      padding: const EdgeInsets.only(
+        bottom: AppSpacing.innerGap,
+        right: AppSpacing.xs,
+      ),
       child: AppFab(
         onPressed: _onFabPressed,
         tooltip: onAgents ? l10n.grantAccessTitleVault : l10n.vaultAddEntryFab,
@@ -188,13 +191,13 @@ class _VaultDetailViewState extends State<_VaultDetailView>
     final data = _currentFormData;
     if (data == null) return;
     context.read<VaultDetailCubit>().update(
-          widget.vaultId,
-          name: data.name.trim(),
-          description: data.description.trim(),
-          icon: data.icon,
-          color: data.color,
-          grantMode: data.grantMode,
-        );
+      widget.vaultId,
+      name: data.name.trim(),
+      description: data.description.trim(),
+      icon: data.icon,
+      color: data.color,
+      grantMode: data.grantMode,
+    );
   }
 
   Future<void> _confirmDelete(VaultEntity vault) async {
@@ -262,11 +265,13 @@ class _VaultDetailViewState extends State<_VaultDetailView>
       });
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(l10n.vaultSavedSnackbar),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: Text(l10n.vaultSavedSnackbar),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
     }
   }
 
@@ -309,15 +314,15 @@ class _VaultDetailViewState extends State<_VaultDetailView>
                     VaultDetailDeleted() => const SizedBox.shrink(),
                     VaultDetailError(:final kind) => _ErrorView(kind: kind),
                     VaultDetailLoaded(:final vault) => _LoadedBody(
-                        vault: vault,
-                        tabController: _tabController,
-                        grantsRefresh: _grantsRefresh,
-                        initialFormData: _initialFormData,
-                        onFormChanged: (data) =>
-                            setState(() => _currentFormData = data),
-                        onDelete: () => _confirmDelete(vault),
-                        onSave: _saveSettings,
-                      ),
+                      vault: vault,
+                      tabController: _tabController,
+                      grantsRefresh: _grantsRefresh,
+                      initialFormData: _initialFormData,
+                      onFormChanged: (data) =>
+                          setState(() => _currentFormData = data),
+                      onDelete: () => _confirmDelete(vault),
+                      onSave: _saveSettings,
+                    ),
                   },
                 ),
                 // Register the FAB with the shell so it stays pinned in
@@ -358,7 +363,8 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
   static const double _tabBarHeight = 44;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight + _tabBarHeight);
+  Size get preferredSize =>
+      const Size.fromHeight(kToolbarHeight + _tabBarHeight);
 
   @override
   Widget build(BuildContext context) {
@@ -366,7 +372,9 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
     final brightness = Theme.of(context).brightness;
     final s = state;
     final loaded = s is VaultDetailLoaded ? s.vault : null;
-    final subtitle = loaded != null ? l10n.vaultEntryCount(loaded.entryCount) : '';
+    final subtitle = loaded != null
+        ? l10n.vaultEntryCount(loaded.entryCount)
+        : '';
     final onSurface = AppColors.onSurface(brightness);
     final subtle = AppColors.onSurfaceSubtle(brightness);
 
@@ -402,14 +410,10 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
           ),
           if (subtitle.isNotEmpty) ...[
-            const SizedBox(height: 3),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               subtitle,
-              style: TextStyle(
-                color: subtle,
-                fontSize: 11,
-                height: 1.2,
-              ),
+              style: TextStyle(color: subtle, fontSize: 11, height: 1.2),
             ),
           ],
         ],
@@ -425,7 +429,9 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
             // navigate between tabs.
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+            labelPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.cardPadding,
+            ),
             labelColor: AppColors.brandRed,
             unselectedLabelColor: subtle,
             indicatorColor: AppColors.brandRed,
@@ -480,7 +486,13 @@ class _LoadedBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      // Tab bar → content: fieldGap (canonical segment/tab → next rhythm).
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.fieldGap,
+        AppSpacing.screenH,
+        0,
+      ),
       child: TabBarView(
         controller: tabController,
         children: [
@@ -512,10 +524,7 @@ class _LoadedBody extends StatelessWidget {
 }
 
 class _PlaceholderTabBuilder extends StatelessWidget {
-  const _PlaceholderTabBuilder({
-    required this.messageKey,
-    required this.icon,
-  });
+  const _PlaceholderTabBuilder({required this.messageKey, required this.icon});
 
   final String Function(AppLocalizations) messageKey;
   final IconData icon;
@@ -541,7 +550,8 @@ class _VaultAgentsTab extends StatelessWidget {
       vaultId: vaultId,
       emptyTitle: l10n.vaultAgentsEmptyTitle,
       emptyHint: l10n.vaultAgentsEmptyHint,
-      contentPadding: const EdgeInsets.fromLTRB(0, 4, 0, 96),
+      // Tab bar → content gap (fieldGap) is owned by the TabBarView wrapper.
+      contentPadding: const EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.listBottom),
     );
   }
 }
@@ -570,7 +580,7 @@ class _ErrorView extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
         child: Text(
           switch (kind) {
             VaultErrorKind.notFound => l10n.vaultErrorNotFound,
@@ -592,4 +602,3 @@ class _ErrorView extends StatelessWidget {
     );
   }
 }
-

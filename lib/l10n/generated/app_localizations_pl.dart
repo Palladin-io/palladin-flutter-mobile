@@ -1613,6 +1613,42 @@ class AppLocalizationsPl extends AppLocalizations {
   String get approvalExpiresOnLabel => 'Wygasa dnia';
 
   @override
+  String approvalQuickMinutes(int count) {
+    return '${count}m';
+  }
+
+  @override
+  String approvalQuickHours(int count) {
+    return '${count}h';
+  }
+
+  @override
+  String get approvalQuickCustom => 'Własny';
+
+  @override
+  String approvalExpiresInMinutes(int count) {
+    return 'Wygasa za ${count}m';
+  }
+
+  @override
+  String approvalExpiresInHours(int count) {
+    return 'Wygasa za ${count}h';
+  }
+
+  @override
+  String approvalExpiresInDays(int count) {
+    return 'Wygasa za ${count}d';
+  }
+
+  @override
+  String approvalExpiresInMonths(int count) {
+    return 'Wygasa za ${count}mc';
+  }
+
+  @override
+  String get approvalExpiredAlready => 'Wygasło';
+
+  @override
   String approvalDenyTitle(String name) {
     return 'Odrzucić $name?';
   }
@@ -1719,6 +1755,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get inboxTitle => 'Inbox';
 
   @override
+  String get inboxSegAll => 'Wszystkie';
+
+  @override
   String get inboxTodo => 'Do zrobienia';
 
   @override
@@ -1731,25 +1770,42 @@ class AppLocalizationsPl extends AppLocalizations {
   String get inboxMarkAllRead => 'Oznacz wszystkie';
 
   @override
-  String get inboxReviewAction => 'Przejrzyj';
+  String get inboxMoreActions => 'Więcej';
+
+  @override
+  String get inboxGrantsMenu => 'Granty';
+
+  @override
+  String get inboxPreferencesMenu => 'Ustawienia powiadomień';
 
   @override
   String get inboxAcceptAction => 'Akceptuj';
 
   @override
-  String get inboxUpdateAction => 'Zaktualizuj';
+  String get inboxViewAgent => 'Zobacz agenta';
 
   @override
-  String get inboxRegrantAction => 'Nadaj ponownie';
+  String get inboxViewAccess => 'Zobacz dostęp';
 
   @override
-  String get inboxActiveAccessNote => 'Agent ma aktywny dostęp';
+  String get inboxViewEntry => 'Zobacz wpis';
 
   @override
-  String get inboxDismiss => 'Odrzuć';
+  String get inboxGrantsEmpty => 'Brak grantów';
+
+  @override
+  String get inboxGrantsEmptyHint =>
+      'Dostęp nadany Twoim agentom pojawi się tutaj.';
 
   @override
   String get inboxActionGone => 'Ta akcja nie jest już dostępna.';
+
+  @override
+  String get inboxAllEmpty => 'Twój inbox jest pusty';
+
+  @override
+  String get inboxAllEmptyHint =>
+      'Prośby, zatwierdzenia i inna aktywność agentów pojawią się tutaj.';
 
   @override
   String get inboxTodoEmpty => 'Nic nie wymaga Twojej uwagi';
@@ -1848,6 +1904,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get notifRowAttempts => 'Próby';
 
   @override
+  String get notifRowNote => 'Notatka';
+
+  @override
   String get notifRowAccess => 'Dostęp';
 
   @override
@@ -1860,22 +1919,13 @@ class AppLocalizationsPl extends AppLocalizations {
   String get notifRowPublicKey => 'Klucz publiczny';
 
   @override
+  String get notifRowType => 'Typ';
+
+  @override
   String get notifAccessUnlimited => 'Bez limitu';
 
   @override
   String get notifPlaceholder => '—';
-
-  @override
-  String get notifStatusPending => 'Oczekuje';
-
-  @override
-  String get notifStatusActive => 'Aktywny';
-
-  @override
-  String get notifStatusRevoked => 'Cofnięty';
-
-  @override
-  String get notifStatusDenied => 'Odrzucony';
 
   @override
   String get notifFilterTitle => 'Filtruj po typie';

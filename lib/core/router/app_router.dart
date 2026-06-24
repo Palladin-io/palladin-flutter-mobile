@@ -9,6 +9,7 @@ import '../../features/api_keys/presentation/pages/api_key_detail_page.dart';
 import '../../features/api_keys/presentation/pages/api_keys_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/notifications/presentation/pages/inbox_grants_page.dart';
 import '../../features/notifications/presentation/pages/notification_center_page.dart';
 import '../../features/notifications/presentation/pages/notification_preferences_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_wizard_page.dart';
@@ -172,6 +173,13 @@ GoRouter createRouter(AuthBloc authBloc, {GlobalKey<NavigatorState>? navigatorKe
               GoRoute(
                 path: 'preferences',
                 builder: (_, _) => const NotificationPreferencesPage(),
+              ),
+              // Org-wide grants list (kebab → Grants). Pushed full-screen so
+              // the back arrow returns to the inbox; the only mutable inbox
+              // surface (live Revoke / re-grant).
+              GoRoute(
+                path: 'grants',
+                builder: (_, _) => const InboxGrantsPage(),
               ),
             ],
           ),

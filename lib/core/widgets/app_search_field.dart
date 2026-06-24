@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../features/onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 
 /// Shared search input used across mobile lists (vaults, entries,
 /// agents, audit, …).
@@ -56,7 +57,7 @@ class AppSearchField extends StatelessWidget {
       // every other input on the screen.
       borderColor: AppColors.inputBorder(brightness),
       prefixIcon: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12),
+        padding: EdgeInsets.symmetric(horizontal: AppSpacing.fieldGap),
         child: Icon(
           Icons.search,
           size: 18,
@@ -68,7 +69,7 @@ class AppSearchField extends StatelessWidget {
               onTap: onToggleFilter,
               behavior: HitTestBehavior.opaque,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.fieldGap),
                 child: Icon(
                   Icons.tune,
                   size: 18,

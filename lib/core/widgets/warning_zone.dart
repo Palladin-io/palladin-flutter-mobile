@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 
 /// Amber "Warning Zone" box — styled like the app's Danger Zone (rounded border + uppercase title)
 /// but in the premium-amber tone. Shared so every security caveat (e.g. the `get` method exposing
@@ -17,7 +18,7 @@ class WarningZone extends StatelessWidget {
     final amber = AppColors.premium(brightness);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.cardPadding),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: amber.withValues(alpha: 0.3)),
@@ -35,7 +36,7 @@ class WarningZone extends StatelessWidget {
               letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.innerGap),
           Text(
             message,
             style: TextStyle(color: AppColors.onSurfaceMuted(brightness), fontSize: 11, height: 1.35),

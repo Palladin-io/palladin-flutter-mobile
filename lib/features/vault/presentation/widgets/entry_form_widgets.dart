@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_dropdown_field.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -110,7 +111,10 @@ class EntryEncryptionNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.innerGap,
+      ),
       decoration: BoxDecoration(
         color: AppColors.tealAccent.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
@@ -125,7 +129,7 @@ class EntryEncryptionNotice extends StatelessWidget {
             size: 16,
             color: AppColors.tealAccent,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: AppSpacing.innerGap),
           Expanded(
             child: Text(
               message,

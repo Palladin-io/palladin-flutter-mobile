@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -71,7 +72,12 @@ class _RevokeGrantSheetState extends State<RevokeGrantSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              AppSpacing.sm,
+              AppSpacing.screenH,
+              AppSpacing.xl,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,7 +93,7 @@ class _RevokeGrantSheetState extends State<RevokeGrantSheet> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.headerGap),
                 Text(
                   l10n.grantsRevokeConfirmTitle,
                   style: TextStyle(
@@ -96,7 +102,7 @@ class _RevokeGrantSheetState extends State<RevokeGrantSheet> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: AppSpacing.innerGap),
                 Text(
                   l10n.grantsRevokeConfirmBody(widget.agentName),
                   style: TextStyle(
@@ -105,7 +111,7 @@ class _RevokeGrantSheetState extends State<RevokeGrantSheet> {
                     height: 1.45,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.section),
                 OnboardingTextField(
                   controller: _reasonController,
                   label: l10n.grantsRevokeReasonLabel,

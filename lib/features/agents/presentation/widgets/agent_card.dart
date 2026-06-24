@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/agent.dart';
 import 'agent_avatar.dart';
@@ -60,7 +61,7 @@ class AgentCard extends StatelessWidget {
               child: InkWell(
                 onTap: onTap,
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.cardPadding),
                   child: Row(
                     children: [
                       AgentAvatar(
@@ -69,7 +70,7 @@ class AgentCard extends StatelessWidget {
                         iconKey: agent.iconKey,
                         iconColor: agent.iconColor,
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: AppSpacing.innerGap),
                       Expanded(
                         child: _AgentCardIdentity(
                           agent: agent,
@@ -126,11 +127,11 @@ class _AgentCardIdentity extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.innerGap),
             AgentStatusBadge(status: agent.status),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppSpacing.xs),
         Text(
           typeLabel ?? l10n.agentsTypeUnknown,
           maxLines: 1,
@@ -200,11 +201,14 @@ class _AgentCardFooter extends StatelessWidget {
           ),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.innerGap,
+      ),
       child: Row(
         children: [
           Icon(iconData, size: 12, color: iconColor),
-          const SizedBox(width: 6),
+          const SizedBox(width: AppSpacing.chipGap),
           Expanded(
             child: Text(
               _footerText(l10n, locale),

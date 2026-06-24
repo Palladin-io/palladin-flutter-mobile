@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/mnemonic.dart';
 import '../../domain/repositories/onboarding_repository.dart';
@@ -113,6 +114,9 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
         final allCorrect =
             results.every((r) => r == _WordCheckResult.correct);
 
+        // Button lives in the content flow right under the fields (web parity) —
+        // not pinned to the screen bottom, which left a big empty gap for a
+        // 3-field form. Empty feedback slots collapse so the fields stay tight.
         return OnboardingScaffold(
           currentStep: 2,
           title: l10n.onboardingConfirmTitle,
@@ -120,13 +124,6 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
           onBack: isSubmitting
               ? null
               : () => context.read<OnboardingCubit>().goBack(),
-          footer: PrimaryButton(
-            label: l10n.onboardingConfirmVerify,
-            isLoading: isSubmitting,
-            onPressed: allCorrect && !isSubmitting
-                ? () => context.read<OnboardingCubit>().completeSetup()
-                : null,
-          ),
           children: [
             for (var i = 0; i < _indices.length; i++) ...[
               _ConfirmationInput(
@@ -135,8 +132,16 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
                 result: results[i],
                 l10n: l10n,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.fieldGap),
             ],
+            const SizedBox(height: AppSpacing.xs),
+            PrimaryButton(
+              label: l10n.onboardingConfirmVerify,
+              isLoading: isSubmitting,
+              onPressed: allCorrect && !isSubmitting
+                  ? () => context.read<OnboardingCubit>().completeSetup()
+                  : null,
+            ),
           ],
         );
       },
@@ -201,6 +206,7 @@ class _ConfirmationInput extends StatelessWidget {
         ),
         FieldFeedbackSlot(
           visible: isVisible,
+          reserveSpace: false,
           child: Row(
             children: [
               Icon(
@@ -212,7 +218,7 @@ class _ConfirmationInput extends StatelessWidget {
                     ? AppColors.positiveAccent
                     : AppColors.brandRed,
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: AppSpacing.innerGap),
               Text(
                 isCorrect
                     ? l10n.onboardingConfirmCorrect

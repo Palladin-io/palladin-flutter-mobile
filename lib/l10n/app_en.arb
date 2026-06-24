@@ -2034,6 +2034,44 @@
   "@approvalExpiresOnLabel": {
     "description": "Label for the expiry date picker field"
   },
+  "approvalQuickMinutes": "{count}m",
+  "@approvalQuickMinutes": {
+    "description": "Quick-pick minutes chip label",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "approvalQuickHours": "{count}h",
+  "@approvalQuickHours": {
+    "description": "Quick-pick hours chip label",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "approvalQuickCustom": "Custom",
+  "@approvalQuickCustom": {
+    "description": "Chip that opens the custom date/time picker"
+  },
+  "approvalExpiresInMinutes": "Expires in {count}m",
+  "@approvalExpiresInMinutes": {
+    "description": "Relative expiry (minutes) in the approve summary",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "approvalExpiresInHours": "Expires in {count}h",
+  "@approvalExpiresInHours": {
+    "description": "Relative expiry (hours) in the approve summary",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "approvalExpiresInDays": "Expires in {count}d",
+  "@approvalExpiresInDays": {
+    "description": "Relative expiry (days) in the approve summary",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "approvalExpiresInMonths": "Expires in {count}mo",
+  "@approvalExpiresInMonths": {
+    "description": "Relative expiry (months) in the approve summary",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "approvalExpiredAlready": "Expired",
+  "@approvalExpiredAlready": {
+    "description": "Shown when the chosen expiry is in the past"
+  },
   "approvalDenyTitle": "Deny {name}?",
   "@approvalDenyTitle": {
     "description": "Title of the deny bottom sheet",
@@ -2110,17 +2148,23 @@
   "approvalMethodsDone": "Done",
   "approvalMethodRequested": "requested",
   "inboxTitle": "Inbox",
+  "inboxSegAll": "All",
   "inboxTodo": "To-do",
   "inboxHistory": "History",
   "inboxSearchHint": "Search by agent, entry or vault…",
   "inboxMarkAllRead": "Mark all read",
-  "inboxReviewAction": "Review",
+  "inboxMoreActions": "More",
+  "inboxGrantsMenu": "Grants",
+  "inboxPreferencesMenu": "Notification preferences",
   "inboxAcceptAction": "Accept",
-  "inboxUpdateAction": "Update",
-  "inboxRegrantAction": "Grant again",
-  "inboxActiveAccessNote": "Agent has active access",
-  "inboxDismiss": "Dismiss",
+  "inboxViewAgent": "View Agent",
+  "inboxViewAccess": "View Access",
+  "inboxViewEntry": "View Entry",
+  "inboxGrantsEmpty": "No grants yet",
+  "inboxGrantsEmptyHint": "Access you grant to your agents will appear here.",
   "inboxActionGone": "This action is no longer available.",
+  "inboxAllEmpty": "Your inbox is empty",
+  "inboxAllEmptyHint": "Requests, approvals and other agent activity will appear here.",
   "inboxTodoEmpty": "Nothing needs your attention",
   "inboxTodoEmptyHint": "Access requests and other actions from your agents will show up here.",
   "inboxUpdatesEmpty": "No history yet",
@@ -2155,16 +2199,14 @@
   "notifRowHostIp": "Host · Ip",
   "notifRowError": "Error",
   "notifRowAttempts": "Attempts",
+  "notifRowNote": "Note",
   "notifRowAccess": "Access",
   "notifRowBy": "By",
   "notifRowAgentId": "Agent Id",
   "notifRowPublicKey": "Public key",
+  "notifRowType": "Type",
   "notifAccessUnlimited": "Unlimited",
   "notifPlaceholder": "—",
-  "notifStatusPending": "Pending",
-  "notifStatusActive": "Active",
-  "notifStatusRevoked": "Revoked",
-  "notifStatusDenied": "Denied",
   "notifFilterTitle": "Filter by type",
   "notifFilterClear": "Clear",
   "notifPrefsTitle": "Notification settings",

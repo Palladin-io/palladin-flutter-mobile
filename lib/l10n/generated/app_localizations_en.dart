@@ -1593,6 +1593,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get approvalExpiresOnLabel => 'Expires on';
 
   @override
+  String approvalQuickMinutes(int count) {
+    return '${count}m';
+  }
+
+  @override
+  String approvalQuickHours(int count) {
+    return '${count}h';
+  }
+
+  @override
+  String get approvalQuickCustom => 'Custom';
+
+  @override
+  String approvalExpiresInMinutes(int count) {
+    return 'Expires in ${count}m';
+  }
+
+  @override
+  String approvalExpiresInHours(int count) {
+    return 'Expires in ${count}h';
+  }
+
+  @override
+  String approvalExpiresInDays(int count) {
+    return 'Expires in ${count}d';
+  }
+
+  @override
+  String approvalExpiresInMonths(int count) {
+    return 'Expires in ${count}mo';
+  }
+
+  @override
+  String get approvalExpiredAlready => 'Expired';
+
+  @override
   String approvalDenyTitle(String name) {
     return 'Deny $name?';
   }
@@ -1700,6 +1736,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get inboxTitle => 'Inbox';
 
   @override
+  String get inboxSegAll => 'All';
+
+  @override
   String get inboxTodo => 'To-do';
 
   @override
@@ -1712,25 +1751,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get inboxMarkAllRead => 'Mark all read';
 
   @override
-  String get inboxReviewAction => 'Review';
+  String get inboxMoreActions => 'More';
+
+  @override
+  String get inboxGrantsMenu => 'Grants';
+
+  @override
+  String get inboxPreferencesMenu => 'Notification preferences';
 
   @override
   String get inboxAcceptAction => 'Accept';
 
   @override
-  String get inboxUpdateAction => 'Update';
+  String get inboxViewAgent => 'View Agent';
 
   @override
-  String get inboxRegrantAction => 'Grant again';
+  String get inboxViewAccess => 'View Access';
 
   @override
-  String get inboxActiveAccessNote => 'Agent has active access';
+  String get inboxViewEntry => 'View Entry';
 
   @override
-  String get inboxDismiss => 'Dismiss';
+  String get inboxGrantsEmpty => 'No grants yet';
+
+  @override
+  String get inboxGrantsEmptyHint =>
+      'Access you grant to your agents will appear here.';
 
   @override
   String get inboxActionGone => 'This action is no longer available.';
+
+  @override
+  String get inboxAllEmpty => 'Your inbox is empty';
+
+  @override
+  String get inboxAllEmptyHint =>
+      'Requests, approvals and other agent activity will appear here.';
 
   @override
   String get inboxTodoEmpty => 'Nothing needs your attention';
@@ -1829,6 +1885,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifRowAttempts => 'Attempts';
 
   @override
+  String get notifRowNote => 'Note';
+
+  @override
   String get notifRowAccess => 'Access';
 
   @override
@@ -1841,22 +1900,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notifRowPublicKey => 'Public key';
 
   @override
+  String get notifRowType => 'Type';
+
+  @override
   String get notifAccessUnlimited => 'Unlimited';
 
   @override
   String get notifPlaceholder => '—';
-
-  @override
-  String get notifStatusPending => 'Pending';
-
-  @override
-  String get notifStatusActive => 'Active';
-
-  @override
-  String get notifStatusRevoked => 'Revoked';
-
-  @override
-  String get notifStatusDenied => 'Denied';
 
   @override
   String get notifFilterTitle => 'Filter by type';

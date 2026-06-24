@@ -1,26 +1,27 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/presentation/widgets/agent_avatar.dart';
 import '../../../grants/presentation/widgets/org_grant_card.dart' show GrantDetailRow;
 import '../../domain/entities/inbox_notification.dart';
 import 'notification_format.dart';
 
-/// Grant-style notification card (parity with the web `NotificationCard`):
-/// an avatar/icon header with name + subtitle, the relative time top-right on
-/// the title line with the optional status pill stacked **under** the date, a
-/// divided rows section, and a footer.
+/// A notification card — an **immutable event log entry**, not a live control
+/// panel: an avatar/icon header with name + subtitle, the relative time
+/// top-right on the title line, a divided rows section, and a footer.
 ///
 /// All cards share a single uniform border + background (`AppColors.cardFill`
-/// / `cardBorder`) — no per-type accent border and no unread dot, so the feed
-/// stays visually even. The footer pins a consistent min-height so action and
-/// history cards line up.
+/// / `cardBorder`) — no per-type accent border, no status pill and no unread
+/// dot, so the feed stays visually even.
 ///
 /// The footer adapts to the item:
-/// - To-do (open action): per-type primary + secondary buttons.
-/// - History (resolved): a status pill in the header and a single
-///   contextual action (revoke / re-grant / "active access" note).
+/// - Action-required PENDING (grant_pending / agent_pending): inline
+///   Approve / Deny buttons — the only cards that mutate state.
+/// - Everything else (resolved / informational): a single "View" link that
+///   deep-links to the owning surface. No footer at all when there is no
+///   deep-link target.
 class NotificationCard extends StatelessWidget {
   const NotificationCard({
     super.key,
@@ -31,31 +32,30 @@ class NotificationCard extends StatelessWidget {
     this.primaryLabel,
     this.secondaryLabel,
     this.primaryTone = NotificationPrimaryTone.positive,
-    this.statusPill,
-    this.footerNote,
+    this.onView,
+    this.viewLabel,
     this.isBusy = false,
   });
 
   final InboxNotification item;
   final VoidCallback onTap;
 
-  /// Primary footer button (e.g. Approve / Update / Re-grant). Text-only — no
-  /// icon, to avoid an icon/text mix across the footer actions.
+  /// Primary footer button (Approve). Text-only — no icon, to avoid an
+  /// icon/text mix across the footer actions.
   final VoidCallback? onPrimary;
   final String? primaryLabel;
 
   /// Background tone of the primary action (positive = teal, danger = red).
   final NotificationPrimaryTone primaryTone;
 
-  /// Secondary footer button (e.g. Deny / Skip).
+  /// Secondary footer button (Deny).
   final VoidCallback? onSecondary;
   final String? secondaryLabel;
 
-  /// Header status pill for History items (label, color).
-  final ({String label, Color color})? statusPill;
-
-  /// Centered footer note (e.g. "Agent has active access").
-  final String? footerNote;
+  /// Single non-mutating "View" footer link for resolved/informational cards.
+  /// When set (and no inline actions are), the footer renders just this link.
+  final VoidCallback? onView;
+  final String? viewLabel;
 
   final bool isBusy;
 
@@ -66,7 +66,7 @@ class NotificationCard extends StatelessWidget {
     final glyphTint = notificationGlyphTint(item);
     final rows = notificationRows(l10n, item);
     final hasFooter =
-        onPrimary != null || onSecondary != null || footerNote != null;
+        onPrimary != null || onSecondary != null || onView != null;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -87,12 +87,13 @@ class NotificationCard extends StatelessWidget {
               child: InkWell(
                 onTap: onTap,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                  child: _Header(
-                    item: item,
-                    glyphTint: glyphTint,
-                    statusPill: statusPill,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.cardPadding,
+                  AppSpacing.md,
+                  AppSpacing.cardPadding,
+                  AppSpacing.md,
+                ),
+                  child: _Header(item: item, glyphTint: glyphTint),
                 ),
               ),
             ),
@@ -103,12 +104,17 @@ class NotificationCard extends StatelessWidget {
                 color: AppColors.cardBorder(brightness),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.cardPadding,
+                  AppSpacing.md,
+                  AppSpacing.cardPadding,
+                  AppSpacing.md,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     for (var i = 0; i < rows.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 8),
+                      if (i > 0) const SizedBox(height: AppSpacing.innerGap),
                       GrantDetailRow(
                         label: rows[i].label,
                         value: rows[i].value,
@@ -124,7 +130,8 @@ class NotificationCard extends StatelessWidget {
                 onPrimary: onPrimary,
                 secondaryLabel: secondaryLabel,
                 onSecondary: onSecondary,
-                footerNote: footerNote,
+                onView: onView,
+                viewLabel: viewLabel,
                 primaryTone: primaryTone,
                 isBusy: isBusy,
               ),
@@ -136,15 +143,10 @@ class NotificationCard extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({
-    required this.item,
-    required this.glyphTint,
-    required this.statusPill,
-  });
+  const _Header({required this.item, required this.glyphTint});
 
   final InboxNotification item;
   final Color glyphTint;
-  final ({String label, Color color})? statusPill;
 
   @override
   Widget build(BuildContext context) {
@@ -177,7 +179,7 @@ class _Header extends StatelessWidget {
             ),
             child: Icon(notificationIcon(item), size: 18, color: glyphTint),
           ),
-        const SizedBox(width: 10),
+        const SizedBox(width: AppSpacing.innerGap),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,7 +196,7 @@ class _Header extends StatelessWidget {
                 ),
               ),
               if (subtitle.isNotEmpty) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   subtitle,
                   maxLines: 1,
@@ -208,64 +210,17 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 8),
-        // Date sits top-right on the title line; the status pill (if any)
-        // stacks directly under the date — never inline with the title.
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              notificationRelativeTime(l10n, item),
-              style: TextStyle(
-                color: AppColors.onSurfaceSubtle(brightness),
-                fontSize: 10,
-              ),
-            ),
-            if (statusPill != null) ...[
-              const SizedBox(height: 6),
-              _StatusPill(label: statusPill!.label, color: statusPill!.color),
-            ],
-          ],
+        const SizedBox(width: AppSpacing.innerGap),
+        // Date sits top-right on the title line. No status pill — the card is
+        // an immutable log entry, so it carries no live state indicator.
+        Text(
+          notificationRelativeTime(l10n, item),
+          style: TextStyle(
+            color: AppColors.onSurfaceSubtle(brightness),
+            fontSize: 10,
+          ),
         ),
       ],
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -279,7 +234,8 @@ class _Footer extends StatelessWidget {
     required this.onPrimary,
     required this.secondaryLabel,
     required this.onSecondary,
-    required this.footerNote,
+    required this.onView,
+    required this.viewLabel,
     required this.primaryTone,
     required this.isBusy,
   });
@@ -288,7 +244,8 @@ class _Footer extends StatelessWidget {
   final VoidCallback? onPrimary;
   final String? secondaryLabel;
   final VoidCallback? onSecondary;
-  final String? footerNote;
+  final VoidCallback? onView;
+  final String? viewLabel;
   final NotificationPrimaryTone primaryTone;
   final bool isBusy;
 
@@ -299,45 +256,55 @@ class _Footer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final hasInlineActions = onPrimary != null || onSecondary != null;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardFooterOverlay(brightness),
         border: Border(top: BorderSide(color: AppColors.cardBorder(brightness))),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      // Pin a consistent footer min-height so action + history cards align.
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.cardPadding,
+        vertical: AppSpacing.innerGap,
+      ),
+      // Pin a consistent footer min-height so action + log cards align.
       constraints: const BoxConstraints(minHeight: _buttonHeight + 16),
-      child: footerNote != null
-          ? Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.check_circle_outline,
-                    size: 14,
-                    color: AppColors.positiveAccent,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    footerNote!,
-                    style: const TextStyle(
-                      color: AppColors.positiveAccent,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : Row(
+      child: hasInlineActions
+          ? Row(
               children: [
                 if (onSecondary != null) ...[
                   Expanded(child: _secondaryButton(brightness)),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.innerGap),
                 ],
                 if (onPrimary != null) Expanded(child: _primaryButton()),
               ],
-            ),
+            )
+          : _viewLink(brightness),
+    );
+  }
+
+  Widget _viewLink(Brightness brightness) {
+    return SizedBox(
+      height: _buttonHeight,
+      width: double.infinity,
+      child: TextButton.icon(
+        onPressed: onView,
+        icon: const Icon(
+          Icons.open_in_new,
+          size: 14,
+          color: AppColors.brandRed,
+        ),
+        label: Text(
+          viewLabel ?? '',
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.brandRed,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      ),
     );
   }
 

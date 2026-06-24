@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/generated/app_localizations.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 
 /// Standard Cancel + Confirm footer for modal bottom sheets.
 ///
@@ -54,7 +55,12 @@ class SheetActionButtons extends StatelessWidget {
           top: BorderSide(color: AppColors.cardBorder(brightness)),
         ),
       ),
-      padding: EdgeInsets.fromLTRB(20, 14, 20, 14 + safeBottom),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.cardPadding,
+        AppSpacing.screenH,
+        AppSpacing.cardPadding + safeBottom,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -80,7 +86,7 @@ class SheetActionButtons extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             flex: 2,
             child: SizedBox(

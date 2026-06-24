@@ -6,9 +6,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
-import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/app_search_field.dart';
+import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/presentation/bloc/agents_cubit.dart';
@@ -22,6 +24,15 @@ import '../../domain/entities/inbox_notification.dart';
 import '../cubit/notification_center_cubit.dart';
 import '../widgets/notification_card.dart';
 import '../widgets/notification_format.dart';
+
+/// Log segments in the inbox toggle. Mirrors the web (All / To-do / History).
+/// `all` = `todo` ∪ `history`. Grants is NOT a segment — it lives behind the
+/// AppBar kebab as a separate full-screen page.
+enum InboxSegment { all, todo, history }
+
+/// Secondary inbox actions surfaced under the AppBar kebab. Mark-all-read stays
+/// a primary AppBar action and is intentionally excluded.
+enum _InboxMenuAction { grants, preferences }
 
 /// The Notification Center / Inbox — the durable replacement for Approvals.
 ///
@@ -90,11 +101,10 @@ class _NotificationCenterView extends StatefulWidget {
 
 class _NotificationCenterViewState extends State<_NotificationCenterView> {
   final TextEditingController _searchController = TextEditingController();
-  int _segment = 0; // 0 = to-do, 1 = history
-  bool _filtersOpen = false;
 
-  /// Multi-select type filter (empty = show all). Mirrors the web filter.
-  final Set<String> _typeFilter = <String>{};
+  /// Active log segment. Grants is NOT a segment — it lives behind the AppBar
+  /// kebab as a separate full-screen page.
+  InboxSegment _segment = InboxSegment.all;
 
   @override
   void dispose() {
@@ -109,7 +119,7 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     await notifications.markRead(item.id);
     if (!mounted) return;
     if (item.isOpenAction) {
-      if (_isGrant(item)) {
+      if (item.type == 'grant_pending') {
         await _approveGrant(item);
         return;
       }
@@ -120,8 +130,6 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     }
     _deepLink(item);
   }
-
-  bool _isGrant(InboxNotification item) => item.type.startsWith('grant_');
 
   // ── agent flows ────────────────────────────────────────────────────────
 
@@ -135,6 +143,7 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     final result = await ApproveAgentSheet.show(
       context,
       initialName: item.metadata['agentName'] as String?,
+      initialType: item.metadata['agentType'] as String?,
     );
     if (result == null) return;
     await agents.approveAgent(
@@ -143,6 +152,12 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
       type: result.type,
       iconKey: result.iconKey,
     );
+    // Collapse the To-do card immediately on success so it does not linger
+    // while the (slower) inbox refresh catches up. _runMutation reports
+    // failure via mutationError rather than throwing.
+    if (agents.state.mutationError == null) {
+      notifications.markResolvedLocally(item.id);
+    }
     await notifications.refresh();
   }
 
@@ -157,7 +172,12 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     final confirmed = await DeactivateAgentSheet.show(context, agentName);
     if (!confirmed) return;
     await agents.deactivateAgent(agentId);
-    await notifications.markRead(item.id);
+    // Only collapse + mark read when the deny actually succeeded — a failed
+    // mutation must leave the card actionable (and unread) so the user retries.
+    if (agents.state.mutationError == null) {
+      notifications.markResolvedLocally(item.id);
+      await notifications.markRead(item.id);
+    }
     await notifications.refresh();
   }
 
@@ -216,38 +236,30 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     future.then((handled) {
       if (handled != true) return;
       pending.removeGrant(resolved.grantId);
+      // Collapse the inbox card immediately so the approved/denied request
+      // does not hang in To-do until the server refresh returns.
+      notifications.markResolvedLocally(item.id);
       notifications.refresh();
     });
   }
 
-  /// Navigates a non-grant (or resolved) item to its owning surface.
+  /// Navigates a resolved/informational item to its owning surface via the
+  /// backend-supplied `actionDeepLink` (collapsed to agent/vault detail on
+  /// mobile). No-op when there is no usable target.
   void _deepLink(InboxNotification item) {
-    final agentId = item.agentId;
-    final vaultId = item.vaultId;
-    switch (item.type) {
-      case 'agent_pending':
-      case 'agent_approved':
-      case 'grant_revoked':
-      case 'grant_approved':
-      case 'grant_denied':
-        if (agentId != null) context.go(AppRoutes.agentDetail(agentId));
-      case 'credential_stale':
-        if (vaultId != null) context.go(AppRoutes.vaultDetail(vaultId));
-    }
+    final target = notificationDeepLink(item);
+    if (target != null) context.go(target);
   }
 
-  /// Secondary footer action (Deny / Dismiss) dispatched by type.
+  /// Secondary footer action (Deny) for the two action-required pending types.
   Future<void> _onSecondary(InboxNotification item) async {
-    if (_isGrant(item)) {
+    if (item.type == 'grant_pending') {
       await _denyGrant(item);
       return;
     }
     if (item.type == 'agent_pending') {
       await _denyAgent(item);
-      return;
     }
-    // Other action-required types: dismiss = mark read.
-    await context.read<NotificationCenterCubit>().markRead(item.id);
   }
 
   // ── build ────────────────────────────────────────────────────────────
@@ -256,128 +268,135 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppColors.backgroundGradient(brightness),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          centerTitle: false,
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          scrolledUnderElevation: 0,
-          elevation: 0,
-          titleSpacing: 20,
-          iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
-          title: Text(
-            l10n.inboxTitle,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          actions: [
-            BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
-              buildWhen: (p, c) =>
-                  p.unreadCount != c.unreadCount ||
-                  p.isMarkingAllRead != c.isMarkingAllRead,
-              builder: (context, state) {
-                final enabled =
-                    state.unreadCount > 0 && !state.isMarkingAllRead;
-                return TextButton.icon(
-                  onPressed: enabled
-                      ? () =>
-                          context.read<NotificationCenterCubit>().markAllRead()
-                      : null,
-                  icon: Icon(
-                    Icons.done_all,
-                    size: 16,
-                    color: enabled
-                        ? AppColors.tealAccent
-                        : AppColors.onSurfaceSubtle(brightness),
-                  ),
-                  label: Text(l10n.inboxMarkAllRead),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.tealAccent,
-                    disabledForegroundColor:
-                        AppColors.onSurfaceSubtle(brightness),
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                );
-              },
-            ),
-            IconButton(
-              tooltip: l10n.notifPrefsTitle,
-              visualDensity: VisualDensity.compact,
+    return AppScreen.titled(
+      title: l10n.inboxTitle,
+      // Suppress any FAB leaking from a page we were navigated over.
+      floatingActionButton: const FabRegistrar(fab: null),
+      // Mark-all-read stays a primary action in the title row; the kebab
+      // overflow (Grants / Preferences) lives at the end of the segment row.
+      actions: [
+        BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
+          buildWhen: (p, c) =>
+              p.unreadCount != c.unreadCount ||
+              p.isMarkingAllRead != c.isMarkingAllRead,
+          builder: (context, state) {
+            final enabled = state.unreadCount > 0 && !state.isMarkingAllRead;
+            return TextButton.icon(
+              onPressed: enabled
+                  ? () => context.read<NotificationCenterCubit>().markAllRead()
+                  : null,
               icon: Icon(
-                Icons.tune,
-                size: 20,
-                color: AppColors.iconDefault(brightness),
+                Icons.done_all,
+                size: 16,
+                color: enabled
+                    ? AppColors.onSurfaceMuted(brightness)
+                    : AppColors.onSurfaceSubtle(brightness),
               ),
-              onPressed: () => context.push('/inbox/preferences'),
-            ),
-            const SizedBox(width: 8),
-          ],
+              label: Text(l10n.inboxMarkAllRead),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.onSurfaceMuted(brightness),
+                disabledForegroundColor: AppColors.onSurfaceSubtle(brightness),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                visualDensity: VisualDensity.compact,
+              ),
+            );
+          },
         ),
-        body: SafeArea(
-          top: false,
-          child: Column(
+      ],
+      // Header → segments gap is owned by the titled header. Only the title is
+      // pinned; the segment row and search scroll together with the feed
+      // (canonical Vaults pattern) so an overscroll never reveals a background
+      // strip between a pinned control and a separate scroll area.
+      body: _Feed(
+        segment: _segment,
+        query: _searchController.text,
+        onTapItem: _onTap,
+        onSecondary: _onSecondary,
+        header: _InboxControls(
+          segment: _segment,
+          searchController: _searchController,
+          onSegmentChanged: (s) => setState(() => _segment = s),
+          onSearchChanged: () => setState(() {}),
+          onMenuSelected: (action) => switch (action) {
+            _InboxMenuAction.grants => context.push('/inbox/grants'),
+            _InboxMenuAction.preferences => context.push('/inbox/preferences'),
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// The scrolling header that sits above the feed: the segment toggle + overflow
+/// row, then the search field. Both scroll with the feed — see [_Feed].
+class _InboxControls extends StatelessWidget {
+  const _InboxControls({
+    required this.segment,
+    required this.searchController,
+    required this.onSegmentChanged,
+    required this.onSearchChanged,
+    required this.onMenuSelected,
+  });
+
+  final InboxSegment segment;
+  final TextEditingController searchController;
+  final ValueChanged<InboxSegment> onSegmentChanged;
+  final VoidCallback onSearchChanged;
+  final ValueChanged<_InboxMenuAction> onMenuSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // segments → search: fieldGap
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            0,
+            AppSpacing.screenH,
+            AppSpacing.fieldGap,
+          ),
+          child: Row(
             children: [
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                child: BlocBuilder<NotificationCenterCubit,
-                    NotificationCenterState>(
-                  buildWhen: (p, c) =>
-                      p.pendingActionCount != c.pendingActionCount,
-                  builder: (context, state) => _SegmentToggle(
-                    segment: _segment,
-                    todoCount: state.pendingActionCount,
-                    onChanged: (i) => setState(() => _segment = i),
-                  ),
-                ),
+              Expanded(
+                child:
+                    BlocBuilder<
+                      NotificationCenterCubit,
+                      NotificationCenterState
+                    >(
+                      buildWhen: (p, c) =>
+                          p.pendingActionCount != c.pendingActionCount,
+                      builder: (context, state) => _SegmentToggle(
+                        segment: segment,
+                        todoCount: state.pendingActionCount,
+                        onChanged: onSegmentChanged,
+                      ),
+                    ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: AppSearchField(
-                  controller: _searchController,
-                  hint: l10n.inboxSearchHint,
-                  onChanged: (_) => setState(() {}),
-                  filterActive: _filtersOpen || _typeFilter.isNotEmpty,
-                  onToggleFilter: () =>
-                      setState(() => _filtersOpen = !_filtersOpen),
-                ),
-              ),
-              if (_filtersOpen)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                  child: _TypeFilterChips(
-                    selected: _typeFilter,
-                    onToggle: (type) => setState(() {
-                      if (!_typeFilter.add(type)) _typeFilter.remove(type);
-                    }),
-                    onClear: () => setState(_typeFilter.clear),
-                  ),
-                ),
-              const SizedBox(height: 12),
-              Expanded(child: _Feed(
-                segment: _segment,
-                query: _searchController.text,
-                typeFilter: _typeFilter,
-                onTapItem: _onTap,
-                onSecondary: _onSecondary,
-              )),
+              const SizedBox(width: AppSpacing.sm),
+              _SegmentOverflowButton(onSelected: onMenuSelected),
             ],
           ),
         ),
-      ),
+        // Search applies to all three log segments. The Grants list is a
+        // separate page (kebab) with its own UI.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
+          child: AppSearchField(
+            controller: searchController,
+            hint: l10n.inboxSearchHint,
+            onChanged: (_) => onSearchChanged(),
+          ),
+        ),
+        // search → first result / empty-state: fieldGap
+        const SizedBox(height: AppSpacing.fieldGap),
+      ],
     );
   }
 }
@@ -388,16 +407,20 @@ class _Feed extends StatelessWidget {
   const _Feed({
     required this.segment,
     required this.query,
-    required this.typeFilter,
     required this.onTapItem,
     required this.onSecondary,
+    required this.header,
   });
 
-  final int segment;
+  final InboxSegment segment;
   final String query;
-  final Set<String> typeFilter;
-  final ValueChanged<InboxNotification> onTapItem;
-  final ValueChanged<InboxNotification> onSecondary;
+  final Future<void> Function(InboxNotification) onTapItem;
+  final Future<void> Function(InboxNotification) onSecondary;
+
+  /// Scrolling header (segment row + search) rendered as the first sliver so it
+  /// scrolls with the feed instead of being pinned above a separate scroll
+  /// area.
+  final Widget header;
 
   @override
   Widget build(BuildContext context) {
@@ -407,20 +430,41 @@ class _Feed extends StatelessWidget {
       backgroundColor: AppColors.cardSurface(Theme.of(context).brightness),
       onRefresh: () => context.read<NotificationCenterCubit>().refresh(),
       child: BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
-        builder: (context, state) => switch (state.status) {
-          NotificationCenterStatus.initial ||
-          NotificationCenterStatus.loading => const _Skeleton(),
-          NotificationCenterStatus.error => _ErrorView(
-              message: notificationErrorMessage(l10n, state.error!),
-              onRetry: () => context.read<NotificationCenterCubit>().load(),
-            ),
-          NotificationCenterStatus.loaded => _List(
+        builder: (context, state) {
+          final contentSlivers = switch (state.status) {
+            NotificationCenterStatus.initial ||
+            NotificationCenterStatus.loading => const [_SkeletonSliver()],
+            NotificationCenterStatus.error => [
+              _ErrorSliver(
+                message: notificationErrorMessage(l10n, state.error!),
+                onRetry: () => context.read<NotificationCenterCubit>().load(),
+              ),
+            ],
+            NotificationCenterStatus.loaded => _listSlivers(
+              context,
               items: _filter(state.items),
               isLoadingMore: state.isLoadingMore,
-              segment: segment,
-              onTapItem: onTapItem,
-              onSecondary: onSecondary,
             ),
+          };
+          // Pagination: a scroll that nears the end asks the cubit for the next
+          // page. Wrapping the whole scroll view keeps loadMore working with
+          // the header in the same scrollable.
+          return NotificationListener<ScrollEndNotification>(
+            onNotification: (notification) {
+              if (state.status == NotificationCenterStatus.loaded &&
+                  notification.metrics.extentAfter < 160) {
+                context.read<NotificationCenterCubit>().loadMore();
+              }
+              return false;
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(child: header),
+                ...contentSlivers,
+              ],
+            ),
+          );
         },
       ),
     );
@@ -433,12 +477,13 @@ class _Feed extends StatelessWidget {
           // Collapse resolved pending action items — the backend zips them up
           // once approved/denied, so never show a resolved To-do card.
           if (item.isCollapsedPending) return false;
-          if (typeFilter.isNotEmpty && !typeFilter.contains(item.type)) {
-            return false;
-          }
-          final segmentMatches = segment == 0
-              ? item.isOpenAction
-              : !item.isOpenAction;
+          // All = To-do ∪ History (every non-collapsed item); To-do = open
+          // actions only; History = everything resolved/informational.
+          final segmentMatches = switch (segment) {
+            InboxSegment.all => true,
+            InboxSegment.todo => item.isOpenAction,
+            InboxSegment.history => !item.isOpenAction,
+          };
           if (!segmentMatches) return false;
           if (q.isEmpty) return true;
           final haystack = [
@@ -449,159 +494,83 @@ class _Feed extends StatelessWidget {
         })
         .toList(growable: false);
   }
-}
 
-class _List extends StatelessWidget {
-  const _List({
-    required this.items,
-    required this.isLoadingMore,
-    required this.segment,
-    required this.onTapItem,
-    required this.onSecondary,
-  });
-
-  final List<InboxNotification> items;
-  final bool isLoadingMore;
-  final int segment;
-  final ValueChanged<InboxNotification> onTapItem;
-  final ValueChanged<InboxNotification> onSecondary;
-
-  @override
-  Widget build(BuildContext context) {
+  /// Builds the loaded-state slivers: either the per-segment empty card or the
+  /// paginated list of notification tiles (with a trailing spinner while the
+  /// next page loads). Rendered below the (scrolling) header in [build].
+  List<Widget> _listSlivers(
+    BuildContext context, {
+    required List<InboxNotification> items,
+    required bool isLoadingMore,
+  }) {
     final l10n = AppLocalizations.of(context)!;
     if (items.isEmpty) {
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
-        children: [
-          _EmptyCard(
-            icon: segment == 0 ? Icons.task_alt : Icons.history,
-            title: segment == 0 ? l10n.inboxTodoEmpty : l10n.inboxUpdatesEmpty,
-            hint: segment == 0
-                ? l10n.inboxTodoEmptyHint
-                : l10n.inboxUpdatesEmptyHint,
+      final (icon, title, hint) = switch (segment) {
+        InboxSegment.todo => (
+          Icons.task_alt,
+          l10n.inboxTodoEmpty,
+          l10n.inboxTodoEmptyHint,
+        ),
+        InboxSegment.history => (
+          Icons.history,
+          l10n.inboxUpdatesEmpty,
+          l10n.inboxUpdatesEmptyHint,
+        ),
+        InboxSegment.all => (
+          Icons.inbox_outlined,
+          l10n.inboxAllEmpty,
+          l10n.inboxAllEmptyHint,
+        ),
+      };
+      // search → empty-state gap (fieldGap) is owned by the header above.
+      return [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            0,
+            AppSpacing.screenH,
+            AppSpacing.screenBottom,
           ),
-        ],
-      );
+          sliver: SliverList.list(
+            children: [_EmptyCard(icon: icon, title: title, hint: hint)],
+          ),
+        ),
+      ];
     }
     // No section header: each segment renders a single section (To-do or
     // History), and we never label the first rendered section. The segment
-    // toggle already names the active list.
-    return NotificationListener<ScrollEndNotification>(
-      onNotification: (notification) {
-        if (notification.metrics.extentAfter < 160) {
-          context.read<NotificationCenterCubit>().loadMore();
-        }
-        return false;
-      },
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 96),
-        itemCount: items.length + (isLoadingMore ? 1 : 0),
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
-        itemBuilder: (context, index) {
-          if (index == items.length) {
-            return const Padding(
-              padding: EdgeInsets.all(12),
-              child: Center(
-                child: CircularProgressIndicator(color: AppColors.brandRed),
-              ),
+    // toggle already names the active list. search → first result gap
+    // (fieldGap) is owned by the header above.
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.screenH,
+          0,
+          AppSpacing.screenH,
+          AppSpacing.listBottom,
+        ),
+        sliver: SliverList.separated(
+          itemCount: items.length + (isLoadingMore ? 1 : 0),
+          separatorBuilder: (_, _) =>
+              const SizedBox(height: AppSpacing.cardGap),
+          itemBuilder: (context, index) {
+            if (index == items.length) {
+              return const Padding(
+                padding: EdgeInsets.all(AppSpacing.fieldGap),
+                child: Center(
+                  child: CircularProgressIndicator(color: AppColors.brandRed),
+                ),
+              );
+            }
+            return _NotificationItemTile(
+              item: items[index],
+              onTap: () => onTapItem(items[index]),
+              onSecondary: () => onSecondary(items[index]),
             );
-          }
-          return _NotificationItemTile(
-            item: items[index],
-            onTap: () => onTapItem(items[index]),
-            onSecondary: () => onSecondary(items[index]),
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// Multi-select type filter chips (parity with web) — revealed by the search
-/// bar's `tune` toggle. Empty selection = show all. Each chip toggles one
-/// notification type; a "Clear" chip resets the selection.
-class _TypeFilterChips extends StatelessWidget {
-  const _TypeFilterChips({
-    required this.selected,
-    required this.onToggle,
-    required this.onClear,
-  });
-
-  final Set<String> selected;
-  final ValueChanged<String> onToggle;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final type in notificationFilterTypes)
-          _FilterChip(
-            label: notificationTypeName(l10n, type),
-            selected: selected.contains(type),
-            onTap: () => onToggle(type),
-          ),
-        if (selected.isNotEmpty)
-          _FilterChip(
-            label: l10n.notifFilterClear,
-            selected: false,
-            onTap: onClear,
-            tint: AppColors.onSurfaceMuted(brightness),
-          ),
-      ],
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.tint,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final Color? tint;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final accent = tint ?? AppColors.brandRed;
-    final fg = selected ? AppColors.onBrandRed : AppColors.onSurfaceMuted(brightness);
-    return Material(
-      color: selected ? AppColors.brandRed : Colors.transparent,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: selected ? AppColors.brandRed : AppColors.cardBorder(brightness),
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? fg : accent,
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            ),
-          ),
+          },
         ),
       ),
-    );
+    ];
   }
 }
 
@@ -614,14 +583,35 @@ class _NotificationItemTile extends StatefulWidget {
   });
 
   final InboxNotification item;
-  final VoidCallback onTap;
-  final VoidCallback onSecondary;
+  final Future<void> Function() onTap;
+  final Future<void> Function() onSecondary;
 
   @override
   State<_NotificationItemTile> createState() => _NotificationItemTileState();
 }
 
 class _NotificationItemTileState extends State<_NotificationItemTile> {
+  /// True while a primary/secondary action triggered from this card is in
+  /// flight. Guards against a second tap re-running the mutation while the
+  /// list refresh is still catching up — which previously let a slow
+  /// approve be submitted twice (double-activation).
+  bool _busy = false;
+
+  /// Runs [action] under the re-entrancy guard, disabling the card's actions
+  /// until it completes. For agent approve/deny this spans the full mutation +
+  /// list refresh; for grant approve/deny the guard releases once the grant
+  /// sheet is shown (the crypto mutation then runs in the sheet's own flow),
+  /// which still blocks a double-tap from opening two sheets.
+  Future<void> _run(Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await action();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -641,80 +631,121 @@ class _NotificationItemTileState extends State<_NotificationItemTile> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
     final item = widget.item;
-    final onTap = widget.onTap;
-    final onSecondary = widget.onSecondary;
+    void onTap() => _run(widget.onTap);
+    void onSecondary() => _run(widget.onSecondary);
 
-    // Every card carries a status pill under the date — "Pending" for open
-    // action-required items, terminal statuses (Active/Denied/Revoked) for the
-    // rest.
-    final pill = notificationStatusPill(l10n, item, brightness);
-
-    // To-do: live action buttons per type.
-    if (item.isOpenAction) {
-      return switch (item.type) {
-        'grant_pending' => NotificationCard(
-            item: item,
-            onTap: onTap,
-            statusPill: pill,
-            onSecondary: onSecondary,
-            secondaryLabel: l10n.approvalDeny,
-            onPrimary: onTap,
-            primaryLabel: l10n.approvalApprove,
-          ),
-        'agent_pending' => NotificationCard(
-            item: item,
-            onTap: onTap,
-            statusPill: pill,
-            onSecondary: onSecondary,
-            secondaryLabel: l10n.approvalDeny,
-            onPrimary: onTap,
-            primaryLabel: l10n.inboxAcceptAction,
-          ),
-        'credential_stale' => NotificationCard(
-            item: item,
-            onTap: onTap,
-            statusPill: pill,
-            onSecondary: onSecondary,
-            secondaryLabel: l10n.inboxDismiss,
-            onPrimary: onTap,
-            primaryLabel: l10n.inboxUpdateAction,
-          ),
-        _ => NotificationCard(
-            item: item,
-            onTap: onTap,
-            statusPill: pill,
-            onSecondary: onSecondary,
-            secondaryLabel: l10n.inboxDismiss,
-          ),
-      };
+    // Action-required PENDING grant/agent: the only cards with inline
+    // mutating actions (Approve / Deny). Every other card is an immutable log
+    // entry with at most a non-mutating "View" deep-link.
+    if (item.isOpenAction &&
+        (item.type == 'grant_pending' || item.type == 'agent_pending')) {
+      return NotificationCard(
+        item: item,
+        onTap: onTap,
+        onSecondary: onSecondary,
+        secondaryLabel: l10n.approvalDeny,
+        onPrimary: onTap,
+        primaryLabel: item.type == 'agent_pending'
+            ? l10n.inboxAcceptAction
+            : l10n.approvalApprove,
+        isBusy: _busy,
+      );
     }
 
-    // History: status pill + single contextual action / note.
-    return switch (item.type) {
-      'grant_approved' => NotificationCard(
-          item: item,
-          onTap: onTap,
-          statusPill: pill,
-          footerNote: l10n.inboxActiveAccessNote,
+    // Everything else (resolved, informational, or unknown future types): a
+    // single contextual "View" link (View Agent / View Access / View Entry) to
+    // the owning surface — rendered only when a deep-link target exists,
+    // otherwise the card has no footer.
+    final route = notificationDeepLink(item);
+    final target = notificationViewTarget(item);
+    final hasView = route != null && target != null;
+    return NotificationCard(
+      item: item,
+      onTap: onTap,
+      onView: hasView ? onTap : null,
+      viewLabel: hasView ? notificationViewLabel(l10n, target) : null,
+    );
+  }
+}
+
+// ── kebab menu ───────────────────────────────────────────────────────────
+
+/// Overflow ("more") button at the end of the segment row — the pattern for a
+/// tab strip with extra destinations (Grants / Preferences). Matches the
+/// segment track's height ([AppSpacing.controlHeight]) and styling so it lines
+/// up flush with All / To-do / History.
+class _SegmentOverflowButton extends StatelessWidget {
+  const _SegmentOverflowButton({required this.onSelected});
+
+  final ValueChanged<_InboxMenuAction> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    return Container(
+      height: AppSpacing.controlHeight,
+      width: AppSpacing.controlHeight,
+      decoration: BoxDecoration(
+        color: AppColors.cardFill(brightness),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.cardBorder(brightness)),
+      ),
+      child: PopupMenuButton<_InboxMenuAction>(
+        tooltip: l10n.inboxMoreActions,
+        padding: EdgeInsets.zero,
+        icon: Icon(
+          Icons.more_horiz,
+          size: 20,
+          color: AppColors.iconDefault(brightness),
         ),
-      'grant_revoked' || 'grant_denied' => NotificationCard(
-          item: item,
-          onTap: onTap,
-          statusPill: pill,
-          onPrimary: onTap,
-          primaryLabel: l10n.inboxRegrantAction,
+        color: AppColors.cardSurface(brightness),
+        onSelected: onSelected,
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: _InboxMenuAction.grants,
+            child: _MenuRow(
+              icon: Icons.vpn_key_outlined,
+              label: l10n.inboxGrantsMenu,
+            ),
+          ),
+          PopupMenuItem(
+            value: _InboxMenuAction.preferences,
+            child: _MenuRow(
+              icon: Icons.tune,
+              label: l10n.inboxPreferencesMenu,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Icon + label row for a kebab [PopupMenuItem].
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: AppColors.iconDefault(brightness)),
+        const SizedBox(width: AppSpacing.fieldGap),
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.onSurface(brightness),
+            fontSize: 14,
+          ),
         ),
-      'agent_approved' => NotificationCard(
-          item: item,
-          onTap: onTap,
-          statusPill: pill,
-          onPrimary: onTap,
-          primaryLabel: l10n.inboxReviewAction,
-        ),
-      _ => NotificationCard(item: item, onTap: onTap, statusPill: pill),
-    };
+      ],
+    );
   }
 }
 
@@ -727,15 +758,19 @@ class _SegmentToggle extends StatelessWidget {
     required this.onChanged,
   });
 
-  final int segment;
+  final InboxSegment segment;
   final int todoCount;
-  final ValueChanged<int> onChanged;
+  final ValueChanged<InboxSegment> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     return Container(
+      // Matches the search bar height so every under-title control lines up.
+      height: AppSpacing.controlHeight,
+      // Segmented-control track inset — a fixed component dimension, not a
+      // layout gap, so it stays raw (no semantic token of this size).
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
@@ -743,17 +778,23 @@ class _SegmentToggle extends StatelessWidget {
         border: Border.all(color: AppColors.cardBorder(brightness)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _SegmentButton(
+            label: l10n.inboxSegAll,
+            selected: segment == InboxSegment.all,
+            onTap: () => onChanged(InboxSegment.all),
+          ),
           _SegmentButton(
             label: l10n.inboxTodo,
             badge: todoCount > 0 ? todoCount : null,
-            selected: segment == 0,
-            onTap: () => onChanged(0),
+            selected: segment == InboxSegment.todo,
+            onTap: () => onChanged(InboxSegment.todo),
           ),
           _SegmentButton(
             label: l10n.inboxHistory,
-            selected: segment == 1,
-            onTap: () => onChanged(1),
+            selected: segment == InboxSegment.history,
+            onTap: () => onChanged(InboxSegment.history),
           ),
         ],
       ),
@@ -787,8 +828,9 @@ class _SegmentButton extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+          // Cell is stretched to the track height — center the label so the
+          // selected pill fills the full height with the text centred.
+          child: Center(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -801,7 +843,7 @@ class _SegmentButton extends StatelessWidget {
                   ),
                 ),
                 if (badge != null) ...[
-                  const SizedBox(width: 6),
+                  const SizedBox(width: AppSpacing.chipGap),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
@@ -849,7 +891,10 @@ class _EmptyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xxl,
+        vertical: 28,
+      ),
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(12),
@@ -858,7 +903,7 @@ class _EmptyCard extends StatelessWidget {
       child: Column(
         children: [
           Icon(icon, size: 32, color: AppColors.onSurfaceSubtle(brightness)),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.fieldGap),
           Text(
             title,
             textAlign: TextAlign.center,
@@ -868,7 +913,7 @@ class _EmptyCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             hint,
             textAlign: TextAlign.center,
@@ -884,27 +929,37 @@ class _EmptyCard extends StatelessWidget {
   }
 }
 
-class _Skeleton extends StatelessWidget {
-  const _Skeleton();
+class _SkeletonSliver extends StatelessWidget {
+  const _SkeletonSliver();
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
-      children: List.generate(
-        4,
-        (i) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: SkeletonBox(height: 112, delay: Duration(milliseconds: i * 80)),
+    // search → first skeleton gap (fieldGap) is owned by the header above.
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        0,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
+      sliver: SliverList.list(
+        children: List.generate(
+          4,
+          (i) => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
+            child: SkeletonBox(
+              height: 112,
+              delay: Duration(milliseconds: i * 80),
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
+class _ErrorSliver extends StatelessWidget {
+  const _ErrorSliver({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -913,40 +968,47 @@ class _ErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.cardFill(brightness),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.cardBorder(brightness)),
-          ),
-          child: Column(
-            children: [
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.onSurface(brightness),
-                  fontSize: 13,
-                  height: 1.4,
+    // search → error card gap (fieldGap) is owned by the header above.
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        0,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
+      sliver: SliverList.list(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.cardFill(brightness),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.cardBorder(brightness)),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.onSurface(brightness),
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: onRetry,
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.tealAccent,
+                const SizedBox(height: AppSpacing.sm),
+                TextButton(
+                  onPressed: onRetry,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.brandRed,
+                  ),
+                  child: Text(l10n.approvalRetry),
                 ),
-                child: Text(l10n.approvalRetry),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

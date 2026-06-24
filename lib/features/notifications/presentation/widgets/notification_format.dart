@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../grants/presentation/widgets/grant_format.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -100,22 +101,40 @@ List<({String label, String value})> notificationRows(
     case 'agent_pending':
       return _agentRows(l10n, n);
     case 'agent_approved':
-      // Same identity rows as agent_pending — no "By" row (per CVT-165).
-      return _agentRows(l10n, n);
+      // Approved record (web parity): Agent Id first, no public key, type,
+      // host·ip, approver ("By") last.
+      return [
+        (label: l10n.notifRowAgentId, value: _str(n, 'agentId') ?? dash),
+        (label: l10n.notifRowType, value: row('agentType')),
+        (label: l10n.notifRowHostIp, value: _hostIp(n) ?? dash),
+        (label: l10n.notifRowBy, value: row('actorName')),
+      ];
     case 'credential_stale':
+      // Backend sends `errorHint` (human-readable failure reason), optional
+      // `note` (agent's free-text) and `host` (where it failed). The agent is
+      // already in the subtitle ("reported by …"), so Host · Ip is the useful
+      // fourth field rather than a duplicate Agent row.
       return [
         (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
-        (label: l10n.notifRowError, value: row('error')),
-        (label: l10n.notifRowAttempts, value: row('attempts')),
+        (label: l10n.notifRowReason, value: row('errorHint')),
+        (label: l10n.notifRowNote, value: row('note')),
+        (label: l10n.notifRowHostIp, value: _hostIp(n) ?? dash),
       ];
     case 'grant_approved':
       return [
         (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
-        (label: l10n.notifRowAccess, value: _accessSummary(l10n, n)),
+        (label: l10n.notifRowMethods, value: row('methods')),
+        (label: l10n.notifRowReason, value: row('reason')),
+        (label: l10n.notifRowBy, value: row('actorName')),
+      ];
+    case 'grant_denied':
+      return [
+        (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
+        (label: l10n.notifRowMethods, value: row('methods')),
+        (label: l10n.notifRowReason, value: row('denyReason')),
         (label: l10n.notifRowBy, value: row('actorName')),
       ];
     case 'grant_revoked':
-    case 'grant_denied':
       return [
         (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
         (label: l10n.notifRowReason, value: row('reason')),
@@ -130,9 +149,10 @@ List<({String label, String value})> notificationRows(
   }
 }
 
-/// Agent identity rows — always 3: Public key → Agent Id → Host · Ip. Missing
-/// values fall back to the "—" placeholder so the card stays a fixed height.
-/// The public key surfaces under a "Public key" label, never a vague "key".
+/// Agent identity rows (web parity) — Public key → Agent Id → Type →
+/// Host · Ip. Missing values fall back to the "—" placeholder so the card
+/// stays a fixed height. The public key surfaces under a "Public key" label,
+/// never a vague "key".
 List<({String label, String value})> _agentRows(
   AppLocalizations l10n,
   InboxNotification n,
@@ -141,37 +161,9 @@ List<({String label, String value})> _agentRows(
   return [
     (label: l10n.notifRowPublicKey, value: _keyHint(n) ?? dash),
     (label: l10n.notifRowAgentId, value: _str(n, 'agentId') ?? dash),
+    (label: l10n.notifRowType, value: _str(n, 'agentType') ?? dash),
     (label: l10n.notifRowHostIp, value: _hostIp(n) ?? dash),
   ];
-}
-
-/// Access-policy summary for an approved grant, mirroring what the grants list
-/// shows: remaining uses, expiry date, or "Unlimited". Reads `queryLimit` /
-/// `queryCount` / `expiresAt` from the notification metadata (strings).
-String _accessSummary(AppLocalizations l10n, InboxNotification n) {
-  final limit = _int(n, 'queryLimit');
-  if (limit != null) {
-    final used = _int(n, 'queryCount') ?? 0;
-    final left = (limit - used).clamp(0, limit);
-    return l10n.orgGrantUsesLeft(left, limit);
-  }
-  final expires = _str(n, 'expiresAt');
-  if (expires != null) {
-    final dt = DateTime.tryParse(expires);
-    if (dt != null) {
-      final iso = dt.toIso8601String();
-      return l10n.orgGrantExpiresOn(iso.substring(0, 10));
-    }
-  }
-  return l10n.notifAccessUnlimited;
-}
-
-int? _int(InboxNotification n, String key) {
-  final raw = n.metadata[key];
-  if (raw is int) return raw;
-  if (raw is String) return int.tryParse(raw.trim());
-  if (raw is num) return raw.toInt();
-  return null;
 }
 
 /// Combines host + IP into one "host · ip" value (host shortened so a long
@@ -270,32 +262,87 @@ String notificationAgentId(InboxNotification n) => _str(n, 'agentId') ?? '';
 String? notificationAgentIconColor(InboxNotification n) =>
     _str(n, 'agentIconColor');
 
-/// Status pill (label + color) shown under the date on **every** card.
-/// Open action-required items (agent_pending / grant_pending / credential_stale)
-/// read "Pending"; terminal items read Active / Denied / Revoked.
-/// [brightness] picks the on-palette amber (darker in light mode) for
-/// pending / denied.
-({String label, Color color}) notificationStatusPill(
-  AppLocalizations l10n,
-  InboxNotification n,
-  Brightness brightness,
-) {
-  if (n.isOpenAction) {
-    return (label: l10n.notifStatusPending, color: AppColors.premium(brightness));
+/// Resolves the in-app navigation target for a notification's `actionDeepLink`
+/// metadata (sent by the backend, e.g. `/agents/{id}`,
+/// `/vaults/{vaultId}/grants/{grantId}`, `/vaults/{vaultId}/entries/{entryId}`).
+///
+/// Mobile only has agent- and vault-detail screens, so grant/entry deep-links
+/// collapse to their owning vault. Returns null when there is no usable target
+/// — the card then renders without a footer.
+String? notificationDeepLink(InboxNotification n) {
+  final raw = _str(n, 'actionDeepLink');
+  if (raw != null) {
+    final segments =
+        raw.split('/').where((part) => part.isNotEmpty).toList(growable: false);
+    if (segments.length >= 2) {
+      switch (segments[0]) {
+        case 'agents':
+          return AppRoutes.agentDetail(segments[1]);
+        case 'vaults':
+          // Any vault sub-resource (grant/entry) collapses to vault detail.
+          return AppRoutes.vaultDetail(segments[1]);
+      }
+    }
+  }
+  // Fallback to ids in metadata when the backend sent no deep-link.
+  final agentId = _str(n, 'agentId');
+  if (agentId != null) return AppRoutes.agentDetail(agentId);
+  final vaultId = _str(n, 'vaultId');
+  if (vaultId != null) return AppRoutes.vaultDetail(vaultId);
+  return null;
+}
+
+/// The kind of surface a notification's "View" link points at — drives the
+/// contextual footer label (View Agent / View Access / View Entry).
+enum NotificationViewTarget { agent, access, entry }
+
+/// Classifies a notification's deep-link target so the "View" footer can carry
+/// a contextual label instead of a generic "View". Derives the target from the
+/// `actionDeepLink` prefix first (authoritative), then falls back to the
+/// notification [type]. Returns null when the type/link is unknown — the caller
+/// then shows no footer.
+NotificationViewTarget? notificationViewTarget(InboxNotification n) {
+  final raw = _str(n, 'actionDeepLink');
+  if (raw != null) {
+    final segments =
+        raw.split('/').where((part) => part.isNotEmpty).toList(growable: false);
+    if (segments.isNotEmpty) {
+      switch (segments[0]) {
+        case 'agents':
+          return NotificationViewTarget.agent;
+        case 'vaults':
+          // /vaults/{id}/entries/... → entry, /vaults/{id}/grants/... → access,
+          // bare /vaults/{id} → access (grant context).
+          if (segments.length >= 3 && segments[2] == 'entries') {
+            return NotificationViewTarget.entry;
+          }
+          return NotificationViewTarget.access;
+      }
+    }
   }
   switch (n.type) {
-    case 'grant_approved':
+    case 'agent_pending':
     case 'agent_approved':
-      return (label: l10n.notifStatusActive, color: AppColors.positiveAccent);
-    case 'grant_revoked':
-      return (label: l10n.notifStatusRevoked, color: AppColors.brandRed);
+      return NotificationViewTarget.agent;
+    case 'grant_pending':
+    case 'grant_approved':
     case 'grant_denied':
-      return (label: l10n.notifStatusDenied, color: AppColors.premium(brightness));
+    case 'grant_revoked':
+      return NotificationViewTarget.access;
+    case 'credential_stale':
+      return NotificationViewTarget.entry;
     default:
-      // Resolved/informational with no specific terminal status — show
-      // "Active" as a neutral positive marker so the layout stays consistent.
-      return (label: l10n.notifStatusActive, color: AppColors.positiveAccent);
+      return null;
   }
+}
+
+/// Localized contextual "View" label for a notification's footer link.
+String notificationViewLabel(AppLocalizations l10n, NotificationViewTarget t) {
+  return switch (t) {
+    NotificationViewTarget.agent => l10n.inboxViewAgent,
+    NotificationViewTarget.access => l10n.inboxViewAccess,
+    NotificationViewTarget.entry => l10n.inboxViewEntry,
+  };
 }
 
 /// Localized error copy for the inbox.

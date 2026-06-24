@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
@@ -137,7 +138,12 @@ class _RecoveryViewState extends State<_RecoveryView> {
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenH,
+                AppSpacing.headerGap,
+                AppSpacing.screenH,
+                AppSpacing.xxl,
+              ),
               child: _buildStep(context),
             ),
           ),
@@ -333,7 +339,7 @@ class _EnterKeyStep extends StatelessWidget {
               title: l10n.recoveryTitle,
               subtitle: l10n.recoverySubtitle,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.headerGap),
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -345,7 +351,7 @@ class _EnterKeyStep extends StatelessWidget {
                       hasError: hasError,
                     ),
                     if (hasError) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.innerGap),
                       Text(
                         _errorMessage(context, state.error),
                         style: const TextStyle(
@@ -358,19 +364,19 @@ class _EnterKeyStep extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.section),
             _SecondaryButton(
               icon: Icons.content_paste_outlined,
               label: l10n.recoveryPasteButton,
               onPressed: isLoading ? null : onPaste,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.innerGap),
             _SecondaryButton(
               icon: Icons.file_upload_outlined,
               label: l10n.recoveryImportButton,
               onPressed: isLoading ? null : onImport,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.section),
             PrimaryButton(
               label: l10n.onboardingContinue,
               isLoading: isLoading,
@@ -441,7 +447,7 @@ class _MnemonicTextArea extends StatelessWidget {
         filled: true,
         fillColor: AppColors.cardFill(brightness),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,
@@ -507,7 +513,7 @@ class _NewPasswordStep extends StatelessWidget {
               title: l10n.recoveryNewPasswordTitle,
               subtitle: l10n.recoveryNewPasswordSubtitle,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.headerGap),
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -528,7 +534,7 @@ class _NewPasswordStep extends StatelessWidget {
                         onPressed: onTogglePassword,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.fieldGap),
                     OnboardingTextField(
                       label: l10n.recoveryConfirmPasswordLabel,
                       controller: confirmController,
@@ -560,7 +566,7 @@ class _NewPasswordStep extends StatelessWidget {
                       ),
                     ),
                     if (hasServerError) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.fieldGap),
                       Text(
                         _errorMessage(context, state.error),
                         style: const TextStyle(
@@ -573,7 +579,7 @@ class _NewPasswordStep extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.section),
             PrimaryButton(
               label: l10n.recoveryRecoverButton,
               isLoading: isLoading,
@@ -636,28 +642,28 @@ class _SaveNewKeyStep extends StatelessWidget {
           title: l10n.recoverySaveKeyTitle,
           subtitle: l10n.onboardingRecoverySubtitle,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.headerGap),
         Expanded(
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _WarningBanner(message: l10n.onboardingRecoveryWarning),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.section),
                 _MnemonicGrid(words: mnemonic),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.section),
                 _SecondaryButton(
                   icon: Icons.content_copy,
                   label: l10n.recoveryCopyButton,
                   onPressed: () => _copyToClipboard(context, l10n),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.innerGap),
                 _SecondaryButton(
                   icon: Icons.file_download_outlined,
                   label: l10n.onboardingRecoveryExport,
                   onPressed: () => _exportToFile(context),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.section),
                 Row(
                   children: [
                     Checkbox(
@@ -682,7 +688,7 @@ class _SaveNewKeyStep extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.section),
         PrimaryButton(
           label: l10n.recoveryFinishButton,
           onPressed: saved ? onFinish : null,
@@ -763,8 +769,11 @@ class _Header extends StatelessWidget {
                     onTap: onBack,
                     behavior: HitTestBehavior.opaque,
                     child: Padding(
-                      padding:
-                          const EdgeInsets.only(right: 12, top: 4, bottom: 4),
+                      padding: const EdgeInsets.only(
+                        right: AppSpacing.md,
+                        top: AppSpacing.xs,
+                        bottom: AppSpacing.xs,
+                      ),
                       child: Icon(
                         Icons.arrow_back_ios_new,
                         color: AppColors.onSurfaceMuted(brightness),
@@ -775,7 +784,7 @@ class _Header extends StatelessWidget {
                 )
               : null,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.fieldGap),
         Text(
           title,
           style: TextStyle(
@@ -785,7 +794,7 @@ class _Header extends StatelessWidget {
             height: 1.2,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppSpacing.xs),
         Text(
           subtitle,
           style: TextStyle(
@@ -849,7 +858,10 @@ class _WarningBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.cardPadding,
+        vertical: AppSpacing.md,
+      ),
       decoration: BoxDecoration(
         color: AppColors.warningBackground,
         borderRadius: BorderRadius.circular(10),
@@ -860,7 +872,7 @@ class _WarningBanner extends StatelessWidget {
         children: [
           const Icon(Icons.warning_amber_rounded,
               color: AppColors.brandRed, size: 18),
-          const SizedBox(width: 10),
+          const SizedBox(width: AppSpacing.innerGap),
           Expanded(
             child: Text(
               message,
@@ -891,13 +903,13 @@ class _MnemonicGrid extends StatelessWidget {
       itemCount: words.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 6,
-        mainAxisSpacing: 6,
-        childAspectRatio: 3.2,
+        crossAxisSpacing: AppSpacing.innerGap,
+        mainAxisSpacing: AppSpacing.innerGap,
+        childAspectRatio: 4.8,
       ),
       itemBuilder: (_, index) {
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.innerGap),
           decoration: BoxDecoration(
             color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(8),

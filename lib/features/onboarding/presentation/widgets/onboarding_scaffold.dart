@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import 'onboarding_progress_dots.dart';
 
 /// Common scaffold shared by all three onboarding screens.
@@ -39,7 +40,12 @@ class OnboardingScaffold extends StatelessWidget {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              AppSpacing.headerGap,
+              AppSpacing.screenH,
+              AppSpacing.xxl,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -64,7 +70,7 @@ class OnboardingScaffold extends StatelessWidget {
                     const SizedBox(width: 28),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.headerGap),
                 Text(
                   title,
                   style: TextStyle(
@@ -74,7 +80,7 @@ class OnboardingScaffold extends StatelessWidget {
                     height: 1.2,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   subtitle,
                   style: TextStyle(
@@ -83,7 +89,7 @@ class OnboardingScaffold extends StatelessWidget {
                     height: 1.4,
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.xl),
                 Expanded(
                   child: SingleChildScrollView(
                     child: Column(
@@ -93,7 +99,7 @@ class OnboardingScaffold extends StatelessWidget {
                   ),
                 ),
                 if (footer != null) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.fieldGap),
                   footer!,
                 ],
               ],

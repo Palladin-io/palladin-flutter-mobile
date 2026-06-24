@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -52,7 +53,7 @@ class GrantMethodsSelector extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       child: Container(
         height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: AppColors.cardBorder(brightness)),
@@ -133,7 +134,12 @@ class _MethodsPickerSheetState extends State<_MethodsPickerSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              AppSpacing.sm,
+              AppSpacing.screenH,
+              AppSpacing.xl,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -148,7 +154,7 @@ class _MethodsPickerSheetState extends State<_MethodsPickerSheet> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.headerGap),
                 Text(
                   l10n.approvalMethodsLegend,
                   style: TextStyle(
@@ -157,7 +163,7 @@ class _MethodsPickerSheetState extends State<_MethodsPickerSheet> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 for (final m in GrantMethod.values)
                   _MethodRow(
                     label: _label(l10n, m),
@@ -176,7 +182,7 @@ class _MethodsPickerSheetState extends State<_MethodsPickerSheet> {
                   alignment: Alignment.topCenter,
                   child: _selected.contains(GrantMethod.get)
                       ? Padding(
-                          padding: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.only(top: AppSpacing.innerGap),
                           child: WarningZone(
                             title: l10n.approvalMethodWarningZone,
                             message: l10n.approvalMethodGetWarning,
@@ -227,7 +233,7 @@ class _MethodRow extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.innerGap),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -238,7 +244,7 @@ class _MethodRow extends StatelessWidget {
                   ? AppColors.positiveAccent
                   : AppColors.onSurfaceSubtle(brightness),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: AppSpacing.innerGap),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,7 +260,7 @@ class _MethodRow extends StatelessWidget {
                         ),
                       ),
                       if (requested) ...[
-                        const SizedBox(width: 6),
+                        const SizedBox(width: AppSpacing.chipGap),
                         Text(
                           requestedLabel,
                           style: TextStyle(
@@ -266,7 +272,7 @@ class _MethodRow extends StatelessWidget {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: AppSpacing.xxs),
                   Text(
                     description,
                     style: TextStyle(

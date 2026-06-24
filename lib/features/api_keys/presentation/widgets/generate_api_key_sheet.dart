@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
@@ -121,13 +122,18 @@ class _GenerateApiKeySheetState extends State<GenerateApiKeySheet> {
             bottom: MediaQuery.viewPaddingOf(context).bottom,
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              AppSpacing.fieldGap,
+              AppSpacing.screenH,
+              AppSpacing.screenH,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _SheetHandle(),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.xxl),
                 if (_isRevealPhase)
                   _RevealPhase(
                     newKey: _newKey!,
@@ -185,7 +191,7 @@ class _NamePhase extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         OnboardingTextField(
           controller: controller,
           label: l10n.apiKeysNameLabel,
@@ -205,7 +211,7 @@ class _NamePhase extends StatelessWidget {
           feedbackVisible: errorText != null,
           feedbackReserveSpace: false,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         PrimaryButton(
           label: isSubmitting
               ? l10n.apiKeysGenerating
@@ -241,11 +247,11 @@ class _RevealPhase extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         // One-time secret warning — brand-red tinted banner so the
         // "save it now" instruction is impossible to miss.
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(AppSpacing.cardPadding),
           decoration: BoxDecoration(
             color: AppColors.brandRed.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
@@ -260,7 +266,7 @@ class _RevealPhase extends StatelessWidget {
                 color: AppColors.brandRed,
                 size: 18,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.innerGap),
               Expanded(
                 child: Text(
                   l10n.apiKeysSecretWarning,
@@ -275,10 +281,10 @@ class _RevealPhase extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         // The plaintext secret in a monospace, selectable highlighted box.
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(AppSpacing.cardPadding),
           decoration: BoxDecoration(
             color: AppColors.inputFill(brightness),
             borderRadius: BorderRadius.circular(10),
@@ -294,7 +300,7 @@ class _RevealPhase extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         OutlinedButton.icon(
           onPressed: onCopy,
           style: OutlinedButton.styleFrom(
@@ -311,7 +317,7 @@ class _RevealPhase extends StatelessWidget {
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.innerGap),
         PrimaryButton(
           label: l10n.apiKeysDone,
           onPressed: () => Navigator.of(context).pop(),

@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/icon_picker_grid.dart' show IconMoreTile;
 import '../../../../l10n/generated/app_localizations.dart';
@@ -70,8 +71,7 @@ class EntryDetailPage extends StatelessWidget {
     Map<String, dynamic>? cachedPayload,
     String? wrappedVK,
   }) {
-    return Navigator.of(context, rootNavigator: true)
-        .push<EntryDetailResult>(
+    return Navigator.of(context, rootNavigator: true).push<EntryDetailResult>(
       MaterialPageRoute(
         builder: (_) => EntryDetailPage(
           entry: entry,
@@ -207,27 +207,30 @@ class _EntryDetailViewState extends State<_EntryDetailView>
 
   bool _validateUrl() {
     final valid = EntryFormUtils.isValidUrl(_urlController.text);
-    setState(() => _urlError =
-        valid ? null : AppLocalizations.of(context)!.entryUrlInvalid);
+    setState(
+      () => _urlError = valid
+          ? null
+          : AppLocalizations.of(context)!.entryUrlInvalid,
+    );
     return valid;
   }
 
   bool get _canSubmit => EntryFormUtils.canSubmit(
-        type: _type,
-        label: _labelController.text,
-        value: _valueController.text,
-        username: _usernameController.text,
-        password: _passwordController.text,
-      );
+    type: _type,
+    label: _labelController.text,
+    value: _valueController.text,
+    username: _usernameController.text,
+    password: _passwordController.text,
+  );
 
   Map<String, dynamic> _buildPayload() => EntryFormUtils.buildPayload(
-        type: _type,
-        value: _valueController.text,
-        username: _usernameController.text,
-        password: _passwordController.text,
-        url: _urlController.text,
-        notes: _notesController.text,
-      );
+    type: _type,
+    value: _valueController.text,
+    username: _usernameController.text,
+    password: _passwordController.text,
+    url: _urlController.text,
+    notes: _notesController.text,
+  );
 
   /// Called by the browser upload circle — returns the file:// path
   /// without updating [_icon] (the browser handles selection state).
@@ -257,14 +260,13 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     final result = await IconColorBrowserSheet.show(
       context,
       icons: EntryVisuals.iconChoices
-          .map((c) => (
-                name: c.name,
-                icon: c.icon,
-                paletteColor: c.paletteColor,
-              ))
+          .map(
+            (c) => (name: c.name, icon: c.icon, paletteColor: c.paletteColor),
+          )
           .toList(),
-      colorOptions:
-          VaultVisuals.colorChoices.map(VaultVisuals.colorFor).toList(),
+      colorOptions: VaultVisuals.colorChoices
+          .map(VaultVisuals.colorFor)
+          .toList(),
       initialIconKey: _icon,
       initialColor: VaultVisuals.colorFor(_colorHex),
       title: l10n.agentIconBrowserTitle,
@@ -274,8 +276,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     if (!mounted || result == null) return;
     final pickedColor = result.color;
     final matchedHex = VaultVisuals.colorChoices.firstWhere(
-      (hex) =>
-          VaultVisuals.colorFor(hex).toARGB32() == pickedColor.toARGB32(),
+      (hex) => VaultVisuals.colorFor(hex).toARGB32() == pickedColor.toARGB32(),
       orElse: () => EntryVisuals.defaultColorHex,
     );
     setState(() {
@@ -298,20 +299,20 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     final iconForApi = hasCustomFile ? null : _icon;
     try {
       await context.read<EditEntryCubit>().updateEntry(
-            vaultId: widget.entry.vaultId,
-            entryId: widget.entry.id,
-            label: _labelController.text,
-            description: _descriptionController.text,
-            icon: iconForApi,
-            type: _type,
-            payload: _buildPayload(),
-            urlDomain: urlDomain,
-            privateKey: keyCopy,
-            wrappedVK: widget.wrappedVK,
-            // Preserve the original createdAt — repository would otherwise
-            // default to now() and wipe the real creation timestamp.
-            createdAt: widget.entry.createdAt,
-          );
+        vaultId: widget.entry.vaultId,
+        entryId: widget.entry.id,
+        label: _labelController.text,
+        description: _descriptionController.text,
+        icon: iconForApi,
+        type: _type,
+        payload: _buildPayload(),
+        urlDomain: urlDomain,
+        privateKey: keyCopy,
+        wrappedVK: widget.wrappedVK,
+        // Preserve the original createdAt — repository would otherwise
+        // default to now() and wipe the real creation timestamp.
+        createdAt: widget.entry.createdAt,
+      );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
     }
@@ -341,7 +342,8 @@ class _EntryDetailViewState extends State<_EntryDetailView>
         if (mounted) {
           final l = AppLocalizations.of(context)!;
           final msg = switch (e.kind) {
-            VaultIconUploadErrorKind.unsupportedFormat => l.vaultIconUploadFormatError,
+            VaultIconUploadErrorKind.unsupportedFormat =>
+              l.vaultIconUploadFormatError,
             VaultIconUploadErrorKind.fileTooLarge => l.vaultIconUploadSizeError,
             _ => l.vaultIconUploadError,
           };
@@ -351,7 +353,9 @@ class _EntryDetailViewState extends State<_EntryDetailView>
         // Same rationale as above — keep the original icon in the
         // returned entity so the parent list does not drop the artwork.
         entry = entry.copyWith(icon: widget.entry.icon);
-        if (mounted) _showSnackBar(AppLocalizations.of(context)!.vaultIconUploadError);
+        if (mounted) {
+          _showSnackBar(AppLocalizations.of(context)!.vaultIconUploadError);
+        }
       } finally {
         if (mounted) setState(() => _uploadingIcon = false);
       }
@@ -400,9 +404,9 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     if (confirmed != true || !mounted) return;
     // ignore: use_build_context_synchronously
     await context.read<EditEntryCubit>().deleteEntry(
-          vaultId: widget.entry.vaultId,
-          entryId: widget.entry.id,
-        );
+      vaultId: widget.entry.vaultId,
+      entryId: widget.entry.id,
+    );
     if (!mounted) return;
     final state = context.read<EditEntryCubit>().state;
     if (state is EditEntryDeleted) {
@@ -426,8 +430,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     // `addPostFrameCallback`-inside-`BlocBuilder` anti-pattern that
     // schedules a fresh callback on every rebuild.
     return BlocConsumer<EditEntryCubit, EditEntryState>(
-      listenWhen: (prev, next) =>
-          next is EditEntryReady && !_populated,
+      listenWhen: (prev, next) => next is EditEntryReady && !_populated,
       listener: (context, state) {
         if (state is EditEntryReady && !_populated) {
           setState(() => _populateFrom(state.entry, state.payload));
@@ -435,12 +438,16 @@ class _EntryDetailViewState extends State<_EntryDetailView>
       },
       builder: (context, state) {
         return Container(
-          decoration:
-              BoxDecoration(gradient: AppColors.backgroundGradient(brightness)),
+          decoration: BoxDecoration(
+            gradient: AppColors.backgroundGradient(brightness),
+          ),
           child: Scaffold(
             backgroundColor: Colors.transparent,
             floatingActionButton: _tabController.index == _agentsTabIndex
-                ? AppFab(onPressed: _onAddAgent, tooltip: l10n.grantAccessTitleAgent)
+                ? AppFab(
+                    onPressed: _onAddAgent,
+                    tooltip: l10n.grantAccessTitleAgent,
+                  )
                 : null,
             appBar: _EntryDetailAppBar(
               label: widget.entry.label,
@@ -460,6 +467,13 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                     entryId: widget.entry.id,
                     emptyTitle: l10n.entryAgentsEmptyTitle,
                     emptyHint: l10n.entryAgentsEmptyHint,
+                    // Tab bar → content: fieldGap, matching the Details tab.
+                    contentPadding: const EdgeInsets.fromLTRB(
+                      AppSpacing.screenH,
+                      AppSpacing.fieldGap,
+                      AppSpacing.screenH,
+                      AppSpacing.listBottom,
+                    ),
                   ),
                   VaultPlaceholderTab(
                     icon: Icons.history,
@@ -494,7 +508,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                 color: AppColors.tealAccent,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.md),
             Text(
               l10n.entryRevealingForEdit,
               style: const TextStyle(
@@ -511,7 +525,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     if (!_populated && state is EditEntryError) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
           child: Text(
             EntryFormUtils.errorMessage(l10n, state.kind),
             textAlign: TextAlign.center,
@@ -534,7 +548,13 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     final canSubmit = !isBusy && _canSubmit;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      // Tab bar → content: fieldGap (canonical segment/tab → next rhythm).
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.fieldGap,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -546,14 +566,14 @@ class _EntryDetailViewState extends State<_EntryDetailView>
             textInputAction: TextInputAction.next,
             onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.fieldGap),
           OnboardingTextField(
             label: l10n.entryDescriptionLabel,
             controller: _descriptionController,
             textCapitalization: TextCapitalization.sentences,
             textInputAction: TextInputAction.next,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.fieldGap),
           OnboardingTextField(
             label: l10n.entryUrlLabel,
             controller: _urlController,
@@ -568,7 +588,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
             feedbackVisible: _urlError != null,
             feedbackReserveSpace: false,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.fieldGap),
           Text(
             l10n.vaultIconLabel,
             style: TextStyle(
@@ -577,14 +597,14 @@ class _EntryDetailViewState extends State<_EntryDetailView>
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.innerGap),
           EntryIconPicker(
             selected: _icon,
             accentColor: accentColor,
             onSelected: (name) => setState(() => _icon = name),
             moreTile: IconMoreTile(onTap: _openEntryBrowser),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.fieldGap),
           EntryTypeDropdown(
             value: _type,
             onChanged: (next) {
@@ -592,7 +612,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
               setState(() => _type = next);
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.fieldGap),
           if (_type == EntryType.key) ...[
             OnboardingTextField(
               label: l10n.entryValueLabel,
@@ -613,7 +633,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
               textInputAction: TextInputAction.next,
               onChanged: (_) => setState(() {}),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.fieldGap),
             OnboardingTextField(
               label: l10n.entryPasswordLabel,
               controller: _passwordController,
@@ -627,30 +647,32 @@ class _EntryDetailViewState extends State<_EntryDetailView>
               ),
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.fieldGap),
           EntryNotesField(
             controller: _notesController,
             label: l10n.entryNotesLabel,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.section),
           EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
           if (state is EditEntryError) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.fieldGap),
             Text(
               EntryFormUtils.errorMessage(l10n, state.kind),
               style: const TextStyle(color: AppColors.brandRed, fontSize: 12),
             ),
           ],
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.section),
           EntrySaveButton(
             isLoading: isLoading,
             onPressed: canSubmit ? _submit : null,
           ),
           // ── Danger Zone ────────────────────────────────────────────
-          const SizedBox(height: 32),
+          const SizedBox(height: AppSpacing.xxxl),
           _DangerZone(
             label: l10n.entryDangerZone,
-            deleteLabel: isLoading ? l10n.entryDeleting : l10n.entryDeleteAction,
+            deleteLabel: isLoading
+                ? l10n.entryDeleting
+                : l10n.entryDeleteAction,
             onDelete: isBusy ? null : _confirmDelete,
             brightness: brightness,
           ),
@@ -658,7 +680,6 @@ class _EntryDetailViewState extends State<_EntryDetailView>
       ),
     );
   }
-
 }
 
 // ── AppBar ─────────────────────────────────────────────────────────
@@ -720,7 +741,9 @@ class _EntryDetailAppBar extends StatelessWidget
             controller: tabController,
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+            labelPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.cardPadding,
+            ),
             labelColor: AppColors.brandRed,
             unselectedLabelColor: subtle,
             indicatorColor: AppColors.brandRed,
@@ -765,13 +788,11 @@ class _DangerZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.cardPadding),
       decoration: BoxDecoration(
         color: AppColors.brandRed.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.brandRed.withValues(alpha: 0.25),
-        ),
+        border: Border.all(color: AppColors.brandRed.withValues(alpha: 0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -785,14 +806,16 @@ class _DangerZone extends StatelessWidget {
               letterSpacing: 0.4,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           SizedBox(
             height: 44,
             child: OutlinedButton(
               onPressed: onDelete,
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.brandRed,
-                disabledForegroundColor: AppColors.brandRed.withValues(alpha: 0.4),
+                disabledForegroundColor: AppColors.brandRed.withValues(
+                  alpha: 0.4,
+                ),
                 side: BorderSide(
                   color: onDelete != null
                       ? AppColors.brandRed.withValues(alpha: 0.5)

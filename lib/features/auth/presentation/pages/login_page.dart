@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/oauth_button.dart';
@@ -31,7 +32,7 @@ class LoginPage extends StatelessWidget {
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
               child: Column(
                 children: [
                   const Spacer(flex: 3),
@@ -40,7 +41,7 @@ class LoginPage extends StatelessWidget {
                   _buildOAuthButtons(context),
                   const Spacer(flex: 1),
                   _buildFooter(context, textColor),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.xxl),
                 ],
               ),
             ),
@@ -63,7 +64,7 @@ class LoginPage extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Image.asset('assets/images/logo.png', height: 100),
-        const SizedBox(height: 20),
+        const SizedBox(height: AppSpacing.xl),
         RichText(
           textAlign: TextAlign.center,
           text: TextSpan(
@@ -91,7 +92,7 @@ class LoginPage extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.section),
         Text(l10n.taglineZeroKnowledge, textAlign: TextAlign.center, style: subtitleStyle),
         Text(l10n.taglinePasswordManager, textAlign: TextAlign.center, style: subtitleStyle),
         Text(l10n.taglineForAiAgents, textAlign: TextAlign.center, style: subtitleStyle),
@@ -126,7 +127,7 @@ class LoginPage extends StatelessWidget {
                 context.read<AuthBloc>().add(const AuthLoginWithGoogle());
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.fieldGap),
             OAuthButton(
               label: l10n.continueWithApple,
               icon: const Icon(Icons.apple, color: Colors.white, size: 24),
@@ -135,7 +136,7 @@ class LoginPage extends StatelessWidget {
               enabled: false,
               onDisabledTap: () => _showComingSoon(context, 'Apple'),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.fieldGap),
             OAuthButton(
               label: l10n.continueWithX,
               icon: _xIcon(),
@@ -153,7 +154,7 @@ class LoginPage extends StatelessWidget {
   Widget _buildFooter(BuildContext context, Color textColor) {
     final l10n = AppLocalizations.of(context)!;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Text(
         l10n.legalFooter,
         textAlign: TextAlign.center,

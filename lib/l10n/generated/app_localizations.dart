@@ -2852,6 +2852,54 @@ abstract class AppLocalizations {
   /// **'Expires on'**
   String get approvalExpiresOnLabel;
 
+  /// Quick-pick minutes chip label
+  ///
+  /// In en, this message translates to:
+  /// **'{count}m'**
+  String approvalQuickMinutes(int count);
+
+  /// Quick-pick hours chip label
+  ///
+  /// In en, this message translates to:
+  /// **'{count}h'**
+  String approvalQuickHours(int count);
+
+  /// Chip that opens the custom date/time picker
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get approvalQuickCustom;
+
+  /// Relative expiry (minutes) in the approve summary
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in {count}m'**
+  String approvalExpiresInMinutes(int count);
+
+  /// Relative expiry (hours) in the approve summary
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in {count}h'**
+  String approvalExpiresInHours(int count);
+
+  /// Relative expiry (days) in the approve summary
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in {count}d'**
+  String approvalExpiresInDays(int count);
+
+  /// Relative expiry (months) in the approve summary
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in {count}mo'**
+  String approvalExpiresInMonths(int count);
+
+  /// Shown when the chosen expiry is in the past
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get approvalExpiredAlready;
+
   /// Title of the deny bottom sheet
   ///
   /// In en, this message translates to:
@@ -3044,6 +3092,12 @@ abstract class AppLocalizations {
   /// **'Inbox'**
   String get inboxTitle;
 
+  /// No description provided for @inboxSegAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get inboxSegAll;
+
   /// No description provided for @inboxTodo.
   ///
   /// In en, this message translates to:
@@ -3068,11 +3122,23 @@ abstract class AppLocalizations {
   /// **'Mark all read'**
   String get inboxMarkAllRead;
 
-  /// No description provided for @inboxReviewAction.
+  /// No description provided for @inboxMoreActions.
   ///
   /// In en, this message translates to:
-  /// **'Review'**
-  String get inboxReviewAction;
+  /// **'More'**
+  String get inboxMoreActions;
+
+  /// No description provided for @inboxGrantsMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Grants'**
+  String get inboxGrantsMenu;
+
+  /// No description provided for @inboxPreferencesMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification preferences'**
+  String get inboxPreferencesMenu;
 
   /// No description provided for @inboxAcceptAction.
   ///
@@ -3080,35 +3146,53 @@ abstract class AppLocalizations {
   /// **'Accept'**
   String get inboxAcceptAction;
 
-  /// No description provided for @inboxUpdateAction.
+  /// No description provided for @inboxViewAgent.
   ///
   /// In en, this message translates to:
-  /// **'Update'**
-  String get inboxUpdateAction;
+  /// **'View Agent'**
+  String get inboxViewAgent;
 
-  /// No description provided for @inboxRegrantAction.
+  /// No description provided for @inboxViewAccess.
   ///
   /// In en, this message translates to:
-  /// **'Grant again'**
-  String get inboxRegrantAction;
+  /// **'View Access'**
+  String get inboxViewAccess;
 
-  /// No description provided for @inboxActiveAccessNote.
+  /// No description provided for @inboxViewEntry.
   ///
   /// In en, this message translates to:
-  /// **'Agent has active access'**
-  String get inboxActiveAccessNote;
+  /// **'View Entry'**
+  String get inboxViewEntry;
 
-  /// No description provided for @inboxDismiss.
+  /// No description provided for @inboxGrantsEmpty.
   ///
   /// In en, this message translates to:
-  /// **'Dismiss'**
-  String get inboxDismiss;
+  /// **'No grants yet'**
+  String get inboxGrantsEmpty;
+
+  /// No description provided for @inboxGrantsEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Access you grant to your agents will appear here.'**
+  String get inboxGrantsEmptyHint;
 
   /// No description provided for @inboxActionGone.
   ///
   /// In en, this message translates to:
   /// **'This action is no longer available.'**
   String get inboxActionGone;
+
+  /// No description provided for @inboxAllEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Your inbox is empty'**
+  String get inboxAllEmpty;
+
+  /// No description provided for @inboxAllEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Requests, approvals and other agent activity will appear here.'**
+  String get inboxAllEmptyHint;
 
   /// No description provided for @inboxTodoEmpty.
   ///
@@ -3272,6 +3356,12 @@ abstract class AppLocalizations {
   /// **'Attempts'**
   String get notifRowAttempts;
 
+  /// No description provided for @notifRowNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get notifRowNote;
+
   /// No description provided for @notifRowAccess.
   ///
   /// In en, this message translates to:
@@ -3296,6 +3386,12 @@ abstract class AppLocalizations {
   /// **'Public key'**
   String get notifRowPublicKey;
 
+  /// No description provided for @notifRowType.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get notifRowType;
+
   /// No description provided for @notifAccessUnlimited.
   ///
   /// In en, this message translates to:
@@ -3307,30 +3403,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'—'**
   String get notifPlaceholder;
-
-  /// No description provided for @notifStatusPending.
-  ///
-  /// In en, this message translates to:
-  /// **'Pending'**
-  String get notifStatusPending;
-
-  /// No description provided for @notifStatusActive.
-  ///
-  /// In en, this message translates to:
-  /// **'Active'**
-  String get notifStatusActive;
-
-  /// No description provided for @notifStatusRevoked.
-  ///
-  /// In en, this message translates to:
-  /// **'Revoked'**
-  String get notifStatusRevoked;
-
-  /// No description provided for @notifStatusDenied.
-  ///
-  /// In en, this message translates to:
-  /// **'Denied'**
-  String get notifStatusDenied;
 
   /// No description provided for @notifFilterTitle.
   ///

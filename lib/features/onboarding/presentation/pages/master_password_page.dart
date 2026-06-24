@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/password_strength.dart';
 import '../cubit/onboarding_cubit.dart';
@@ -95,12 +96,12 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
           ),
         ),
         SizedBox(
-          height: 12,
+          height: AppSpacing.fieldGap,
           child: AnimatedOpacity(
             opacity: password.isNotEmpty ? 1.0 : 0.0,
             duration: const Duration(milliseconds: 180),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
               child: PasswordStrengthBar(strength: strength),
             ),
           ),
@@ -127,7 +128,7 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
           suffixIcon: _visibilityButton(_confirmVisible, () =>
               setState(() => _confirmVisible = !_confirmVisible)),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.fieldGap),
         _RequirementsCard(l10n: l10n, password: password),
       ],
     );
@@ -138,11 +139,12 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
   }
 
   Widget _visibilityButton(bool visible, VoidCallback onToggle) {
+    final brightness = Theme.of(context).brightness;
     return IconButton(
       icon: Icon(
         visible ? Icons.visibility_off : Icons.visibility,
         size: 20,
-        color: AppColors.iconMuted,
+        color: AppColors.iconDefault(brightness),
       ),
       onPressed: onToggle,
     );
@@ -178,6 +180,7 @@ class _RequirementsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
     final hasLength = password.length >= 12;
     final hasCase = RegExp(r'[a-z]').hasMatch(password) &&
         RegExp(r'[A-Z]').hasMatch(password);
@@ -185,35 +188,36 @@ class _RequirementsCard extends StatelessWidget {
     final hasSymbol = RegExp(r'[^a-zA-Z0-9]').hasMatch(password);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.cardPadding),
       decoration: BoxDecoration(
-        color: AppColors.darkSurface,
+        color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.cardBorder(brightness)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             l10n.onboardingPasswordRequirementsTitle,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: AppColors.onSurface(brightness),
             ),
           ),
-          const SizedBox(height: 8),
-          _requirement(l10n.onboardingPasswordReqLength, hasLength),
-          _requirement(l10n.onboardingPasswordReqCase, hasCase),
-          _requirement(l10n.onboardingPasswordReqNumber, hasNumber),
-          _requirement(l10n.onboardingPasswordReqSymbol, hasSymbol),
+          const SizedBox(height: AppSpacing.innerGap),
+          _requirement(l10n.onboardingPasswordReqLength, hasLength, brightness),
+          _requirement(l10n.onboardingPasswordReqCase, hasCase, brightness),
+          _requirement(l10n.onboardingPasswordReqNumber, hasNumber, brightness),
+          _requirement(l10n.onboardingPasswordReqSymbol, hasSymbol, brightness),
         ],
       ),
     );
   }
 
-  Widget _requirement(String label, bool met) {
+  Widget _requirement(String label, bool met, Brightness brightness) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
       child: Row(
         children: [
           Icon(
@@ -221,14 +225,16 @@ class _RequirementsCard extends StatelessWidget {
             size: 14,
             color: met
                 ? AppColors.positiveAccent
-                : Colors.white.withValues(alpha: 0.3),
+                : AppColors.onSurfaceSubtle(brightness),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.innerGap),
           Text(
             label,
             style: TextStyle(
               fontSize: 12,
-              color: met ? Colors.white : Colors.white.withValues(alpha: 0.55),
+              color: met
+                  ? AppColors.onSurface(brightness)
+                  : AppColors.onSurfaceMuted(brightness),
             ),
           ),
         ],

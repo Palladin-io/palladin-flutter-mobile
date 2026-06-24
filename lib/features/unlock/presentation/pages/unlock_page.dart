@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -87,7 +88,7 @@ class _UnlockViewState extends State<_UnlockView> {
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
               child: Column(
                 children: [
                   const Spacer(flex: 3),
@@ -97,7 +98,7 @@ class _UnlockViewState extends State<_UnlockView> {
                   const Spacer(flex: 2),
                   _buildForgotPassword(context),
                   _buildLogout(context),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.xxl),
                 ],
               ),
             ),
@@ -114,7 +115,7 @@ class _UnlockViewState extends State<_UnlockView> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Image.asset('assets/images/logo.png', height: 80),
-        const SizedBox(height: 20),
+        const SizedBox(height: AppSpacing.xl),
         RichText(
           textAlign: TextAlign.center,
           text: TextSpan(
@@ -142,7 +143,7 @@ class _UnlockViewState extends State<_UnlockView> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.section),
         Text(
           l10n.unlockTitle,
           textAlign: TextAlign.center,
@@ -194,14 +195,14 @@ class _UnlockViewState extends State<_UnlockView> {
                     setState(() => _passwordVisible = !_passwordVisible),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.section),
             PrimaryButton(
               label: l10n.unlockButton,
               isLoading: isLoading,
               onPressed: canSubmit ? _submit : null,
             ),
             if (_biometricAvailable) ...[
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.xl),
               _buildBiometricRow(context, isLoading),
             ],
           ],
@@ -224,7 +225,7 @@ class _UnlockViewState extends State<_UnlockView> {
             size: 40,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppSpacing.xs),
         Text(
           l10n.unlockBiometricHint,
           style: const TextStyle(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 
 /// Generic "coming soon" placeholder used for tabs not yet implemented
@@ -21,6 +23,9 @@ class PlaceholderPage extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Colors.transparent,
+      // Claim the shell FAB with `null` so no FAB from the page we were
+      // pushed/navigated over leaks onto this placeholder.
+      floatingActionButton: const FabRegistrar(fab: null),
       appBar: AppBar(
         title: Text(
           title,
@@ -37,7 +42,7 @@ class PlaceholderPage extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 48, color: AppColors.onSurfaceSubtle(brightness)),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               Text(
                 l10n.placeholderComingSoon,
                 style: TextStyle(

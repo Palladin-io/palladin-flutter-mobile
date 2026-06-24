@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../features/onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 
 /// Shared type-to-search field — a labelled [OnboardingTextField] that suggests
 /// from a (potentially large) option list, with a themed dropdown of matches.
@@ -70,7 +71,7 @@ class AppAutocompleteField<T extends Object> extends StatelessWidget {
           onChanged: onTextChanged,
           onSubmitted: (_) => onFieldSubmitted(),
           suffixIcon: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.fieldGap),
             child: Icon(
               Icons.expand_more,
               size: 18,
@@ -109,7 +110,7 @@ class _OptionsList<T extends Object> extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          margin: const EdgeInsets.only(top: 4),
+          margin: const EdgeInsets.only(top: AppSpacing.xs),
           constraints: const BoxConstraints(maxHeight: 240),
           decoration: BoxDecoration(
             color: AppColors.modalBackground(brightness),
@@ -126,8 +127,8 @@ class _OptionsList<T extends Object> extends StatelessWidget {
                 onTap: () => onSelected(o),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
+                    horizontal: AppSpacing.fieldGap,
+                    vertical: AppSpacing.fieldGap,
                   ),
                   child: Text(
                     displayString(o),

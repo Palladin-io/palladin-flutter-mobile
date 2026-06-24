@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
@@ -117,122 +119,59 @@ class _AgentsViewState extends State<_AgentsView> {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppColors.backgroundGradient(brightness),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          centerTitle: false,
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          scrolledUnderElevation: 0,
-          elevation: 0,
-          titleSpacing: 20,
-          iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
-          title: BlocBuilder<AgentsCubit, AgentsState>(
-            builder: (context, state) {
-              final brightness = Theme.of(context).brightness;
-              final total = state.agents.length;
-              final showSummary =
-                  state.status == AgentsStatus.loaded && total > 0;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+    return BlocBuilder<AgentsCubit, AgentsState>(
+      builder: (context, state) {
+        final total = state.agents.length;
+        final showSummary = state.status == AgentsStatus.loaded && total > 0;
+        return AppScreen.titled(
+          title: l10n.agentsScreenTitle,
+          subtitle: showSummary
+              ? l10n.agentsListSummary(total, state.activeCount)
+              : null,
+          // Agents enroll from the CLI — no in-app add affordance; claim the
+          // shell FAB with null so a covered page's FAB doesn't leak.
+          floatingActionButton: const FabRegistrar(fab: null),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final isSplit = constraints.maxWidth >= _kSplitBreakpoint;
+              // The split view shows an inline detail pane; the narrow
+              // layout pushes a full page, so any stale selection is
+              // dropped when we shrink below the breakpoint.
+              if (!isSplit && _selectedAgentId != null) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() => _selectedAgentId = null);
+                  }
+                });
+              }
+              final list = RefreshIndicator(
+                color: AppColors.brandRed,
+                backgroundColor: AppColors.cardSurface(brightness),
+                onRefresh: () => context.read<AgentsCubit>().load(),
+                child: _Body(
+                  state: state,
+                  selectedAgentId: isSplit ? _selectedAgentId : null,
+                  onOpenAgent: (id) => _openAgent(id, isSplit),
+                  searchController: _searchController,
+                  filtered: _filter(state.agents),
+                ),
+              );
+              if (!isSplit) return list;
+              return Row(
                 children: [
-                  Text(
-                    l10n.agentsScreenTitle,
-                    style: TextStyle(
-                      color: AppColors.onSurface(brightness),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
-                    ),
+                  SizedBox(width: 340, child: list),
+                  VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: AppColors.navBorder(brightness),
                   ),
-                  if (showSummary) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      l10n.agentsListSummary(total, state.activeCount),
-                      style: TextStyle(
-                        color: AppColors.onSurfaceSubtle(brightness),
-                        fontSize: 11,
-                        height: 1.2,
-                      ),
-                    ),
-                  ],
+                  Expanded(child: _SplitDetailPane(agentId: _selectedAgentId)),
                 ],
               );
             },
           ),
-        ),
-        body: SafeArea(
-          top: false,
-          child: Stack(
-            children: [
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final isSplit =
-                      constraints.maxWidth >= _kSplitBreakpoint;
-                  // The split view shows an inline detail pane; the
-                  // narrow layout pushes a full page, so any stale
-                  // selection is dropped when we shrink below the
-                  // breakpoint.
-                  if (!isSplit && _selectedAgentId != null) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
-                        setState(() => _selectedAgentId = null);
-                      }
-                    });
-                  }
-                  return BlocBuilder<AgentsCubit, AgentsState>(
-                    builder: (context, state) {
-                      final list = RefreshIndicator(
-                        color: AppColors.brandRed,
-                        backgroundColor:
-                            AppColors.cardSurface(brightness),
-                        onRefresh: () =>
-                            context.read<AgentsCubit>().load(),
-                        child: _Body(
-                          state: state,
-                          selectedAgentId:
-                              isSplit ? _selectedAgentId : null,
-                          onOpenAgent: (id) => _openAgent(id, isSplit),
-                          searchController: _searchController,
-                          filtered: _filter(state.agents),
-                        ),
-                      );
-                      if (!isSplit) return list;
-                      return Row(
-                        children: [
-                          SizedBox(width: 340, child: list),
-                          VerticalDivider(
-                            width: 1,
-                            thickness: 1,
-                            color: AppColors.navBorder(brightness),
-                          ),
-                          Expanded(
-                            child: _SplitDetailPane(
-                              agentId: _selectedAgentId,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-              ),
-              // Suppress any shell FAB — agents enroll from the CLI, so
-              // there is no in-app "add" affordance.
-              const Positioned(
-                width: 0,
-                height: 0,
-                child: FabRegistrar(fab: null),
-              ),
-            ],
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -240,11 +179,12 @@ class _AgentsViewState extends State<_AgentsView> {
 /// Switches between the loading / error / empty / loaded states of the
 /// agents list.
 ///
-/// The search bar is static chrome — it stays mounted above the content
-/// area in every state (including loading), per the skeleton-pattern
-/// rule. Only the area below the search bar swaps to a skeleton, error
-/// card, empty state or the agent list. Each content view is itself
-/// scrollable so [RefreshIndicator] keeps working in all states.
+/// The search bar scrolls **with** the list (canonical Vaults pattern): it is
+/// the first sliver of a single [CustomScrollView], so an overscroll/bounce
+/// never reveals a background strip between a pinned search bar and a separate
+/// scroll area. Only the title stays pinned (via [AppScreen.titled]). The
+/// remaining slivers swap per state — skeleton, error card, empty state, or the
+/// agent cards — and the whole scroll view drives [RefreshIndicator].
 class _Body extends StatelessWidget {
   const _Body({
     required this.state,
@@ -264,94 +204,100 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-          child: AppSearchField(
-            controller: searchController,
-            hint: l10n.agentsSearchHint,
-          ),
-        ),
-        Expanded(
-          child: switch (state.status) {
-            AgentsStatus.initial ||
-            AgentsStatus.loading =>
-              const _AgentsSkeleton(),
-            AgentsStatus.error => _AgentsError(
-                message: agentsErrorMessage(l10n, state.error!),
-                onRetry: () => context.read<AgentsCubit>().load(),
-              ),
-            AgentsStatus.loaded => _AgentsList(
-                agents: state.agents,
-                filtered: filtered,
-                selectedAgentId: selectedAgentId,
-                onOpenAgent: onOpenAgent,
-              ),
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _AgentsList extends StatelessWidget {
-  const _AgentsList({
-    required this.agents,
-    required this.filtered,
-    required this.selectedAgentId,
-    required this.onOpenAgent,
-  });
-
-  final List<Agent> agents;
-  final List<Agent> filtered;
-  final String? selectedAgentId;
-  final ValueChanged<String> onOpenAgent;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
-        if (agents.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: _AgentsEmpty(),
-          )
-        else if (filtered.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: Text(
-                l10n.agentsSearchEmpty,
-                style: TextStyle(
-                  color: AppColors.onSurfaceSubtle(brightness),
-                  fontSize: 13,
-                ),
-              ),
+        // Search scrolls with the content. Header→search gap (headerGap) is
+        // owned by the titled header; search→content gap below is fieldGap.
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              0,
+              AppSpacing.screenH,
+              AppSpacing.fieldGap,
             ),
-          )
-        else
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 96),
-            sliver: SliverList.separated(
-              itemCount: filtered.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (_, index) {
-                final agent = filtered[index];
-                return AgentCard(
-                  agent: agent,
-                  selected: agent.agentId == selectedAgentId,
-                  onTap: () => onOpenAgent(agent.agentId),
-                );
-              },
+            child: AppSearchField(
+              controller: searchController,
+              hint: l10n.agentsSearchHint,
             ),
           ),
+        ),
+        ...switch (state.status) {
+          AgentsStatus.initial ||
+          AgentsStatus.loading => const [_AgentsSkeletonSliver()],
+          AgentsStatus.error => [
+            _AgentsErrorSliver(
+              message: agentsErrorMessage(l10n, state.error!),
+              onRetry: () => context.read<AgentsCubit>().load(),
+            ),
+          ],
+          AgentsStatus.loaded => _agentsSlivers(
+            context,
+            agents: state.agents,
+            filtered: filtered,
+            selectedAgentId: selectedAgentId,
+            onOpenAgent: onOpenAgent,
+          ),
+        },
       ],
     );
+  }
+
+  List<Widget> _agentsSlivers(
+    BuildContext context, {
+    required List<Agent> agents,
+    required List<Agent> filtered,
+    required String? selectedAgentId,
+    required ValueChanged<String> onOpenAgent,
+  }) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+
+    if (agents.isEmpty) {
+      return const [
+        SliverFillRemaining(hasScrollBody: false, child: _AgentsEmpty()),
+      ];
+    }
+    if (filtered.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Text(
+              l10n.agentsSearchEmpty,
+              style: TextStyle(
+                color: AppColors.onSurfaceSubtle(brightness),
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ),
+      ];
+    }
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.screenH,
+          0,
+          AppSpacing.screenH,
+          AppSpacing.listBottom,
+        ),
+        sliver: SliverList.separated(
+          itemCount: filtered.length,
+          separatorBuilder: (_, _) =>
+              const SizedBox(height: AppSpacing.cardGap),
+          itemBuilder: (_, index) {
+            final agent = filtered[index];
+            return AgentCard(
+              agent: agent,
+              selected: agent.agentId == selectedAgentId,
+              onTap: () => onOpenAgent(agent.agentId),
+            );
+          },
+        ),
+      ),
+    ];
   }
 }
 
@@ -364,14 +310,18 @@ class _SplitDetailPane extends StatelessWidget {
   final String? agentId;
 
   Future<void> _onApprove(BuildContext context, Agent agent) async {
-    final result = await ApproveAgentSheet.show(context);
+    final result = await ApproveAgentSheet.show(
+      context,
+      initialName: agent.name,
+      initialType: agent.type,
+    );
     if (result == null || !context.mounted) return;
     await context.read<AgentsCubit>().approveAgent(
-          agent.agentId,
-          name: result.name,
-          type: result.type,
-          iconKey: result.iconKey,
-        );
+      agent.agentId,
+      name: result.name,
+      type: result.type,
+      iconKey: result.iconKey,
+    );
   }
 
   Future<void> _onDeactivate(BuildContext context, Agent agent) async {
@@ -392,7 +342,7 @@ class _SplitDetailPane extends StatelessWidget {
     if (agentId == null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxxl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -401,7 +351,7 @@ class _SplitDetailPane extends StatelessWidget {
                 size: 32,
                 color: AppColors.onSurfaceSubtle(brightness),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.fieldGap),
               Text(
                 l10n.agentsSplitPrompt,
                 textAlign: TextAlign.center,
@@ -426,9 +376,7 @@ class _SplitDetailPane extends StatelessWidget {
           ..hideCurrentSnackBar()
           ..showSnackBar(
             SnackBar(
-              content: Text(
-                agentsErrorMessage(l10n, state.mutationError!),
-              ),
+              content: Text(agentsErrorMessage(l10n, state.mutationError!)),
             ),
           );
         context.read<AgentsCubit>().acknowledgeMutationError();
@@ -450,9 +398,15 @@ class _SplitDetailPane extends StatelessWidget {
           children: [
             // Pane title — agent name only. The edit affordance now
             // lives inline inside the Details tab, matching the web
-            // panel's split-view detail.
+            // panel's split-view detail. Top gap (headerGap) is owned by
+            // AppScreen.appBar above the split row.
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenH,
+                0,
+                AppSpacing.screenH,
+                0,
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -476,9 +430,8 @@ class _SplitDetailPane extends StatelessWidget {
                 isMutating: state.mutatingAgentId == agent.agentId,
                 onApprove: () => _onApprove(context, agent),
                 onDeactivate: () => _onDeactivate(context, agent),
-                onReactivate: () => context
-                    .read<AgentsCubit>()
-                    .reactivateAgent(agent.agentId),
+                onReactivate: () =>
+                    context.read<AgentsCubit>().reactivateAgent(agent.agentId),
               ),
             ),
           ],
@@ -502,7 +455,13 @@ class _AgentsEmpty extends StatelessWidget {
     // pull-to-refresh. A nested ListView here gets unbounded height and
     // throws a viewport layout exception.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      // search → empty-state gap (fieldGap) is owned by the search bar above.
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        0,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
       // Column (mainAxisSize.max) absorbs the height that
       // SliverFillRemaining(hasScrollBody: false) stretches us to, keeping the
       // card at its natural size and pinned to the top, full width.
@@ -510,7 +469,10 @@ class _AgentsEmpty extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xxl,
+              vertical: 28,
+            ),
             decoration: BoxDecoration(
               color: AppColors.cardFill(brightness),
               borderRadius: BorderRadius.circular(12),
@@ -524,7 +486,7 @@ class _AgentsEmpty extends StatelessWidget {
                   size: 32,
                   color: AppColors.onSurfaceSubtle(brightness),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.fieldGap),
                 Text(
                   l10n.agentsEmpty,
                   style: TextStyle(
@@ -533,7 +495,7 @@ class _AgentsEmpty extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   l10n.agentsEmptyHint,
                   textAlign: TextAlign.center,
@@ -552,22 +514,30 @@ class _AgentsEmpty extends StatelessWidget {
   }
 }
 
-/// Animated skeleton placeholder shown while the agents list loads.
-class _AgentsSkeleton extends StatelessWidget {
-  const _AgentsSkeleton();
+/// Animated skeleton placeholder shown while the agents list loads, as a
+/// sliver so it lives in the same scroll view as the (scrolling) search bar.
+class _AgentsSkeletonSliver extends StatelessWidget {
+  const _AgentsSkeletonSliver();
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-      children: List.generate(
-        4,
-        (i) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: SkeletonBox(
-            height: 66,
-            delay: Duration(milliseconds: i * 80),
+    return SliverPadding(
+      // search → first skeleton gap (fieldGap) is owned by the search bar.
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        0,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
+      sliver: SliverList.list(
+        children: List.generate(
+          4,
+          (i) => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
+            child: SkeletonBox(
+              height: 66,
+              delay: Duration(milliseconds: i * 80),
+            ),
           ),
         ),
       ),
@@ -575,9 +545,10 @@ class _AgentsSkeleton extends StatelessWidget {
   }
 }
 
-/// Inline error card for a failed agents-list load, with a retry button.
-class _AgentsError extends StatelessWidget {
-  const _AgentsError({required this.message, required this.onRetry});
+/// Inline error card for a failed agents-list load, with a retry button —
+/// rendered as a sliver below the (scrolling) search bar.
+class _AgentsErrorSliver extends StatelessWidget {
+  const _AgentsErrorSliver({required this.message, required this.onRetry});
 
   final String message;
   final VoidCallback onRetry;
@@ -586,40 +557,47 @@ class _AgentsError extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.cardFill(brightness),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.cardBorder(brightness)),
-          ),
-          child: Column(
-            children: [
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.onSurface(brightness),
-                  fontSize: 13,
-                  height: 1.4,
+    return SliverPadding(
+      // search → error card gap (fieldGap) is owned by the search bar.
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        0,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
+      sliver: SliverList.list(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.cardFill(brightness),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.cardBorder(brightness)),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.onSurface(brightness),
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: onRetry,
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.tealAccent,
+                const SizedBox(height: AppSpacing.sm),
+                TextButton(
+                  onPressed: onRetry,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.tealAccent,
+                  ),
+                  child: Text(l10n.agentsRetry),
                 ),
-                child: Text(l10n.agentsRetry),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

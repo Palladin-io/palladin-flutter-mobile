@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 
 /// A row of three circular dots showing the current onboarding step.
 ///
@@ -36,7 +37,7 @@ class OnboardingProgressDots extends StatelessWidget {
         }
 
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
           child: Container(
             width: 8,
             height: 8,

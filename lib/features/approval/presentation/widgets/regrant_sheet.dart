@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -110,7 +111,12 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenH,
+                  AppSpacing.sm,
+                  AppSpacing.screenH,
+                  AppSpacing.xl,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,7 +131,7 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.headerGap),
                     Text(
                       l10n.approvalRegrantTitle,
                       style: TextStyle(
@@ -134,9 +140,9 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppSpacing.innerGap),
                     _Subtitle(grant: widget.grant),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: AppSpacing.lg),
                     Text(
                       l10n.approvalAccessType,
                       style: TextStyle(
@@ -145,7 +151,7 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.innerGap),
                     GrantLimitSelector(
                       value: _limit,
                       enabled: !state.isSubmitting,

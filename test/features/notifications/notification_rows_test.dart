@@ -35,10 +35,22 @@ void main() {
     'future_unknown_type',
   ];
 
-  test('every type renders exactly 3 detail rows', () {
+  test('every type renders its web-parity rows (1–4, never empty)', () {
+    const expectedCount = {
+      'grant_pending': 3,
+      'agent_pending': 4,
+      'agent_approved': 4,
+      'credential_stale': 4,
+      'grant_approved': 4,
+      'grant_revoked': 3,
+      'grant_denied': 4,
+      'future_unknown_type': 3,
+    };
     for (final type in allTypes) {
       final rows = notificationRows(l10n, make(type));
-      expect(rows.length, 3, reason: '$type should have 3 rows');
+      expect(rows, isNotEmpty, reason: '$type should never be empty');
+      expect(rows.length, lessThanOrEqualTo(4), reason: '$type exceeds 4 rows');
+      expect(rows.length, expectedCount[type], reason: '$type row count');
     }
   });
 
@@ -53,43 +65,67 @@ void main() {
     ]);
   });
 
-  test('agent_approved drops the "By" row (identity rows only)', () {
+  test('agent_approved shows Agent Id, Type, Host · Ip, By (web parity)', () {
     final rows = notificationRows(
       l10n,
       make(
         'agent_approved',
-        metadata: const {'agentId': 'a-1', 'actorName': 'Patryk'},
+        metadata: const {
+          'agentId': 'a-1',
+          'agentType': 'ci',
+          'actorName': 'Patryk',
+        },
         category: NotificationCategory.update,
         actionState: NotificationActionState.resolved,
       ),
     );
     expect(rows.map((r) => r.label), [
-      l10n.notifRowPublicKey,
       l10n.notifRowAgentId,
+      l10n.notifRowType,
       l10n.notifRowHostIp,
+      l10n.notifRowBy,
     ]);
-    expect(rows.any((r) => r.label == l10n.notifRowBy), isFalse);
   });
 
-  test('grant_approved Access row: uses left, expiry, or unlimited', () {
-    final usesRow = notificationRows(
+  test('grant_approved shows Entry, Methods, Reason, By (web parity)', () {
+    final rows = notificationRows(
       l10n,
       make(
         'grant_approved',
-        metadata: const {'queryLimit': '20', 'queryCount': '2'},
+        metadata: const {
+          'methods': 'Get, Exec',
+          'reason': 'deploy',
+          'actorName': 'Patryk',
+        },
       ),
-    ).firstWhere((r) => r.label == l10n.notifRowAccess);
-    expect(usesRow.value, l10n.orgGrantUsesLeft(18, 20));
+    );
+    expect(rows.map((r) => r.label), [
+      l10n.notifRowEntry,
+      l10n.notifRowMethods,
+      l10n.notifRowReason,
+      l10n.notifRowBy,
+    ]);
+  });
 
-    final expiryRow = notificationRows(
+  test('grant_denied shows Entry, Methods, Reason(denyReason), By', () {
+    final rows = notificationRows(
       l10n,
-      make('grant_approved', metadata: const {'expiresAt': '2026-07-01T00:00:00Z'}),
-    ).firstWhere((r) => r.label == l10n.notifRowAccess);
-    expect(expiryRow.value, l10n.orgGrantExpiresOn('2026-07-01'));
-
-    final unlimitedRow = notificationRows(l10n, make('grant_approved'))
-        .firstWhere((r) => r.label == l10n.notifRowAccess);
-    expect(unlimitedRow.value, l10n.notifAccessUnlimited);
+      make(
+        'grant_denied',
+        metadata: const {
+          'methods': 'Get',
+          'denyReason': 'not allowed',
+          'actorName': 'Patryk',
+        },
+      ),
+    );
+    expect(rows.map((r) => r.label), [
+      l10n.notifRowEntry,
+      l10n.notifRowMethods,
+      l10n.notifRowReason,
+      l10n.notifRowBy,
+    ]);
+    expect(rows[2].value, 'not allowed');
   });
 
   group('agent avatar header', () {

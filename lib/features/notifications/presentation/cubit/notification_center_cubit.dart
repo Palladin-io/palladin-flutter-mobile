@@ -213,6 +213,29 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     }
   }
 
+  /// Optimistically marks a pending action item resolved so its card
+  /// disappears from To-do immediately after the user approves/denies it,
+  /// instead of lingering until the (slower) server [refresh] returns the
+  /// collapsed state. A resolved pending item is filtered out client-side
+  /// via [InboxNotification.isCollapsedPending]; [refresh] then reconciles.
+  void markResolvedLocally(String id) {
+    final index = state.items.indexWhere((item) => item.id == id);
+    if (index < 0) return;
+    final item = state.items[index];
+    // Already resolved → nothing to do (avoid double-decrementing the badge).
+    if (item.actionState == NotificationActionState.resolved) return;
+    final updated = [...state.items];
+    updated[index] =
+        item.copyWith(actionState: NotificationActionState.resolved);
+    // Resolving an open action drops the To-do badge immediately too — the
+    // count comes from pendingActionCount, not from the (now-collapsed) item,
+    // so without this the badge lingered until the slower server refresh.
+    final pending = item.isOpenAction
+        ? (state.pendingActionCount - 1).clamp(0, 1 << 31)
+        : state.pendingActionCount;
+    emit(state.copyWith(items: updated, pendingActionCount: pending));
+  }
+
   Future<void> markAllRead() async {
     if (state.unreadCount == 0 || state.isMarkingAllRead) return;
     final previous = state;

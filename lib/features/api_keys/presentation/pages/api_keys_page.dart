@@ -5,14 +5,15 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_fab.dart';
+import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../settings/domain/entities/api_key.dart';
 import '../../../settings/presentation/widgets/settings_error_text.dart';
-import '../../../shell/presentation/pages/app_shell.dart';
 import '../bloc/api_keys_cubit.dart';
 import '../widgets/api_key_card.dart';
 import '../widgets/generate_api_key_sheet.dart';
@@ -58,9 +59,9 @@ class _ApiKeysViewState extends State<_ApiKeysView> {
     final cubit = context.read<ApiKeysCubit>();
     await context.push('/api-keys/$keyId');
     if (context.mounted) {
-      // Restore the generate FAB after returning from the detail page
-      // (the detail page clears the shell FAB to avoid showing it there).
-      AppShellScope.of(context).setFab(_cachedFab);
+      // No need to restore the FAB: the detail page's FabRegistrar owns
+      // its own stack entry and removes it on dispose, so this list's
+      // entry (still on the stack underneath) resurfaces automatically.
       await cubit.load();
     }
   }
@@ -70,15 +71,19 @@ class _ApiKeysViewState extends State<_ApiKeysView> {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     final authState = context.watch<AuthBloc>().state;
-    final permissions =
-        authState is AuthAuthenticated ? authState.permissions : 0;
+    final permissions = authState is AuthAuthenticated
+        ? authState.permissions
+        : 0;
     final canWrite = (permissions & Permissions.writeApiKey) != 0;
 
     // Cache the FAB so FabRegistrar.didUpdateWidget doesn't re-register
     // on every rebuild.
     final fab = canWrite
         ? (_cachedFab ??= Padding(
-            padding: const EdgeInsets.only(bottom: 8, right: 4),
+            padding: const EdgeInsets.only(
+              bottom: AppSpacing.innerGap,
+              right: AppSpacing.xs,
+            ),
             child: AppFab(
               onPressed: () => _onGenerate(context),
               tooltip: l10n.apiKeysGenerate,
@@ -87,78 +92,70 @@ class _ApiKeysViewState extends State<_ApiKeysView> {
         : null;
     if (!canWrite) _cachedFab = null;
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppColors.backgroundGradient(brightness),
-      ),
-      child: Scaffold(
+    // Title→content gap (headerGap) is owned by AppScreen.appBar.
+    return AppScreen.appBar(
+      appBar: AppBar(
+        centerTitle: false,
         backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          centerTitle: false,
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          scrolledUnderElevation: 0,
-          elevation: 0,
-          titleSpacing: 0,
-          iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
-          title: BlocBuilder<ApiKeysCubit, ApiKeysState>(
-            builder: (context, state) {
-              final brightness = Theme.of(context).brightness;
-              final total = state.apiKeys.length;
-              final active = state.apiKeys.where((k) => k.isActive).length;
-              final showSummary =
-                  state.status == ApiKeysStatus.loaded && total > 0;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        titleSpacing: 0,
+        iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
+        title: BlocBuilder<ApiKeysCubit, ApiKeysState>(
+          builder: (context, state) {
+            final brightness = Theme.of(context).brightness;
+            final total = state.apiKeys.length;
+            final active = state.apiKeys.where((k) => k.isActive).length;
+            final showSummary =
+                state.status == ApiKeysStatus.loaded && total > 0;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l10n.apiKeysScreenTitle,
+                  style: TextStyle(
+                    color: AppColors.onSurface(brightness),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (showSummary)
                   Text(
-                    l10n.apiKeysScreenTitle,
+                    l10n.apiKeysListSummary(total, active),
                     style: TextStyle(
-                      color: AppColors.onSurface(brightness),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      color: AppColors.onSurfaceSubtle(brightness),
+                      fontSize: 11,
                     ),
                   ),
-                  if (showSummary)
-                    Text(
-                      l10n.apiKeysListSummary(total, active),
-                      style: TextStyle(
-                        color: AppColors.onSurfaceSubtle(brightness),
-                        fontSize: 11,
-                      ),
-                    ),
-                ],
+              ],
+            );
+          },
+        ),
+      ),
+      body: Stack(
+        children: [
+          BlocBuilder<ApiKeysCubit, ApiKeysState>(
+            builder: (context, state) {
+              return RefreshIndicator(
+                color: AppColors.brandRed,
+                backgroundColor: AppColors.cardSurface(brightness),
+                onRefresh: () => context.read<ApiKeysCubit>().load(),
+                child: _Body(
+                  state: state,
+                  onOpenKey: (keyId) => _onOpenKey(context, keyId),
+                ),
               );
             },
           ),
-        ),
-        body: SafeArea(
-          top: false,
-          child: Stack(
-            children: [
-              BlocBuilder<ApiKeysCubit, ApiKeysState>(
-                builder: (context, state) {
-                  return RefreshIndicator(
-                    color: AppColors.brandRed,
-                    backgroundColor: AppColors.cardSurface(brightness),
-                    onRefresh: () => context.read<ApiKeysCubit>().load(),
-                    child: _Body(
-                      state: state,
-                      onOpenKey: (keyId) => _onOpenKey(context, keyId),
-                    ),
-                  );
-                },
-              ),
-              if (canWrite)
-                Positioned(
-                  width: 0,
-                  height: 0,
-                  child: FabRegistrar(fab: fab),
-                ),
-            ],
-          ),
-        ),
+          // Always mount the registrar — even without write access — so
+          // this page deterministically claims the shell FAB. When the
+          // user can't generate keys we register `null`, which suppresses
+          // any FAB leaking from the page we were pushed over (e.g. a
+          // vault detail's "add entry").
+          Positioned(width: 0, height: 0, child: FabRegistrar(fab: fab)),
+        ],
       ),
     );
   }
@@ -180,12 +177,13 @@ class _Body extends StatelessWidget {
     return switch (state.status) {
       ApiKeysStatus.initial || ApiKeysStatus.loading => const _KeysSkeleton(),
       ApiKeysStatus.error => _KeysError(
-          message: settingsErrorMessage(l10n, state.error!),
-          onRetry: () => context.read<ApiKeysCubit>().load(),
-        ),
-      ApiKeysStatus.loaded => state.apiKeys.isEmpty
-          ? const _KeysEmpty()
-          : _KeysList(keys: state.apiKeys, onOpenKey: onOpenKey),
+        message: settingsErrorMessage(l10n, state.error!),
+        onRetry: () => context.read<ApiKeysCubit>().load(),
+      ),
+      ApiKeysStatus.loaded =>
+        state.apiKeys.isEmpty
+            ? const _KeysEmpty()
+            : _KeysList(keys: state.apiKeys, onOpenKey: onOpenKey),
     };
   }
 }
@@ -200,16 +198,19 @@ class _KeysList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+      // Title→list gap (headerGap) is owned by AppScreen.appBar.
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        0,
+        AppSpacing.screenH,
+        AppSpacing.listBottom,
+      ),
       itemCount: keys.length,
       itemBuilder: (context, index) {
         final key = keys[index];
         return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: ApiKeyCard(
-            apiKey: key,
-            onTap: () => onOpenKey(key.apiKeyId),
-          ),
+          padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
+          child: ApiKeyCard(apiKey: key, onTap: () => onOpenKey(key.apiKeyId)),
         );
       },
     );
@@ -226,10 +227,19 @@ class _KeysEmpty extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      // Title→empty-state gap (headerGap) is owned by AppScreen.appBar.
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        0,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xxl,
+            vertical: AppSpacing.xxl,
+          ),
           decoration: BoxDecoration(
             color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(12),
@@ -242,7 +252,7 @@ class _KeysEmpty extends StatelessWidget {
                 size: 32,
                 color: AppColors.onSurfaceSubtle(brightness),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               Text(
                 l10n.apiKeysEmpty,
                 style: TextStyle(
@@ -251,7 +261,7 @@ class _KeysEmpty extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 l10n.apiKeysEmptyHint,
                 textAlign: TextAlign.center,
@@ -280,15 +290,18 @@ class _KeysSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      // Title→skeleton gap (headerGap) is owned by AppScreen.appBar.
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        0,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
       children: List.generate(
         3,
         (i) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: SkeletonBox(
-            height: 78,
-            delay: Duration(milliseconds: i * 80),
-          ),
+          padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
+          child: SkeletonBox(height: 78, delay: Duration(milliseconds: i * 80)),
         ),
       ),
     );
@@ -308,10 +321,16 @@ class _KeysError extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      // Title→error card gap (headerGap) is owned by AppScreen.appBar.
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        0,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.cardPadding),
           decoration: BoxDecoration(
             color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(12),
@@ -328,7 +347,7 @@ class _KeysError extends StatelessWidget {
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.innerGap),
               TextButton(
                 onPressed: onRetry,
                 style: TextButton.styleFrom(

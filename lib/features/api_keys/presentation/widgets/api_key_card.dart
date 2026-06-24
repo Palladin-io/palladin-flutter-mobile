@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../settings/domain/entities/api_key.dart';
 import 'api_key_format.dart';
 import 'api_key_status_badge.dart';
@@ -26,7 +27,7 @@ class ApiKeyCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: const EdgeInsets.all(AppSpacing.cardPadding),
           decoration: BoxDecoration(
             color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(12),
@@ -49,7 +50,7 @@ class ApiKeyCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: AppSpacing.xxs),
                     Text(
                       maskedApiKey(apiKey.keySuffix),
                       style: TextStyle(
@@ -61,13 +62,13 @@ class ApiKeyCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.innerGap),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ApiKeyStatusBadge(status: apiKey.status),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     formatApiKeyDate(apiKey.createdAt),
                     style: TextStyle(

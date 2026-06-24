@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/approve_action_button.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/icon_picker_grid.dart'
@@ -15,11 +16,7 @@ import 'agent_format.dart';
 /// All fields are optional — a `null` field tells the API to keep its
 /// server-side default. The selected icon color is currently a UI-only
 /// affordance (mirrors the web preset highlight) and is not persisted.
-typedef ApproveAgentResult = ({
-  String? name,
-  String? type,
-  String? iconKey,
-});
+typedef ApproveAgentResult = ({String? name, String? type, String? iconKey});
 
 /// Approve-agent form shown as a bottom sheet before a pending agent is
 /// granted access.
@@ -33,24 +30,31 @@ typedef ApproveAgentResult = ({
 /// Resolves to an [ApproveAgentResult] when the admin confirms, or
 /// `null` when they cancel / dismiss without confirming.
 class ApproveAgentSheet extends StatefulWidget {
-  const ApproveAgentSheet({super.key, this.initialName});
+  const ApproveAgentSheet({super.key, this.initialName, this.initialType});
 
   /// Pre-fills the name input — pass the agent's existing display name
   /// so re-opening the sheet does not lose the prior input.
   final String? initialName;
+
+  /// Pre-fills the type input — pass the type the agent reported during
+  /// enrollment (`X-Agent-Type`) so the operator confirms it rather than
+  /// re-typing it from scratch.
+  final String? initialType;
 
   /// Opens the sheet and returns the admin's choices, or `null` on
   /// cancel / dismiss.
   static Future<ApproveAgentResult?> show(
     BuildContext context, {
     String? initialName,
+    String? initialType,
   }) {
     return showModalBottomSheet<ApproveAgentResult>(
       context: context,
       isScrollControlled: true,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => ApproveAgentSheet(initialName: initialName),
+      builder: (_) =>
+          ApproveAgentSheet(initialName: initialName, initialType: initialType),
     );
   }
 
@@ -78,9 +82,14 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
   @override
   void initState() {
     super.initState();
-    _nameController =
-        TextEditingController(text: widget.initialName?.trim() ?? '');
-    _typeController = TextEditingController();
+    _nameController = TextEditingController(
+      text: widget.initialName?.trim() ?? '',
+    );
+    final type = widget.initialType?.trim() ?? '';
+    _typeController = TextEditingController(text: type);
+    // Seed the wire value directly — setting the controller text before the
+    // autocomplete mounts does not fire its onChanged listener.
+    _selectedTypeValue = type.isEmpty ? null : type;
   }
 
   @override
@@ -121,18 +130,24 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
       ),
       child: Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom +
+          bottom:
+              MediaQuery.viewInsetsOf(context).bottom +
               MediaQuery.viewPaddingOf(context).bottom,
         ),
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              AppSpacing.fieldGap,
+              AppSpacing.screenH,
+              AppSpacing.xl,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const _SheetHandle(),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 Text(
                   l10n.agentApproveTitle,
                   style: TextStyle(
@@ -141,7 +156,7 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: AppSpacing.chipGap),
                 Text(
                   l10n.agentApproveSetupHint,
                   style: TextStyle(
@@ -150,7 +165,7 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
                     height: 1.4,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 OnboardingTextField(
                   controller: _nameController,
                   label: l10n.agentNameLabel,
@@ -158,30 +173,26 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 _FieldLabel(label: l10n.agentTypeLabel),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 _AgentTypeAutocomplete(
                   controller: _typeController,
                   onChanged: (value, _) {
                     setState(() => _selectedTypeValue = value);
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 _FieldLabel(label: l10n.agentIconLabel),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 _IconGrid(
                   selected: _selectedIcon,
                   selectedColor: _selectedColor,
-                  onSelected: (value) =>
-                      setState(() => _selectedIcon = value),
+                  onSelected: (value) => setState(() => _selectedIcon = value),
                   onMoreTapped: _openIconBrowser,
                 ),
-                const SizedBox(height: 20),
-                _ApproveFooter(
-                  onCancel: _cancel,
-                  onConfirm: _confirm,
-                ),
+                const SizedBox(height: AppSpacing.xl),
+                _ApproveFooter(onCancel: _cancel, onConfirm: _confirm),
               ],
             ),
           ),
@@ -195,11 +206,13 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
     final result = await IconColorBrowserSheet.show(
       context,
       icons: agentIconAll
-          .map((name) => (
-                name: name,
-                icon: agentIconData(name),
-                paletteColor: agentIconColor(name),
-              ))
+          .map(
+            (name) => (
+              name: name,
+              icon: agentIconData(name),
+              paletteColor: agentIconColor(name),
+            ),
+          )
           .toList(),
       colorOptions: agentColorOptions,
       initialIconKey: _selectedIcon,
@@ -283,8 +296,7 @@ class _AgentTypeAutocomplete extends StatefulWidget {
   final void Function(String wireValue, String label) onChanged;
 
   @override
-  State<_AgentTypeAutocomplete> createState() =>
-      _AgentTypeAutocompleteState();
+  State<_AgentTypeAutocomplete> createState() => _AgentTypeAutocompleteState();
 }
 
 class _AgentTypeAutocompleteState extends State<_AgentTypeAutocomplete> {
@@ -347,9 +359,7 @@ class _AgentTypeAutocompleteState extends State<_AgentTypeAutocomplete> {
     _hideOverlay();
   }
 
-  List<({String value, String label})> _filteredOptions(
-    AppLocalizations l10n,
-  ) {
+  List<({String value, String label})> _filteredOptions(AppLocalizations l10n) {
     final query = widget.controller.text.trim().toLowerCase();
     final options = agentTypeOptions(l10n);
     if (query.isEmpty) return options;
@@ -371,7 +381,7 @@ class _AgentTypeAutocompleteState extends State<_AgentTypeAutocomplete> {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: AppColors.inputBorder(brightness)),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.fieldGap),
         child: Row(
           children: [
             Expanded(
@@ -393,7 +403,9 @@ class _AgentTypeAutocompleteState extends State<_AgentTypeAutocomplete> {
                     color: AppColors.inputHint(brightness),
                     fontSize: 14,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.cardPadding,
+                  ),
                 ),
                 textInputAction: TextInputAction.next,
               ),
@@ -444,7 +456,7 @@ class _AgentTypeAutocompleteState extends State<_AgentTypeAutocomplete> {
               ],
             ),
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
               shrinkWrap: true,
               itemCount: filtered.length,
               itemBuilder: (_, index) {
@@ -456,8 +468,8 @@ class _AgentTypeAutocompleteState extends State<_AgentTypeAutocomplete> {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
+                      horizontal: AppSpacing.cardPadding,
+                      vertical: AppSpacing.cardGap,
                     ),
                     child: Text(
                       option.label,
@@ -505,7 +517,8 @@ class _IconGrid extends StatelessWidget {
     // file:// paths (custom images picked via the browser) are never
     // injected into the preset grid — the icon grid just shows "none selected"
     // while the custom image is stored internally.
-    final isCustomUrl = selected != null &&
+    final isCustomUrl =
+        selected != null &&
         (selected!.startsWith('file://') ||
             selected!.startsWith('https://') ||
             selected!.startsWith('http://'));
@@ -534,7 +547,6 @@ class _IconGrid extends StatelessWidget {
     );
   }
 }
-
 
 // ────────────────────────────────────────────────────────────────────────
 // Footer + sheet handle
@@ -578,7 +590,7 @@ class _ApproveFooter extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: AppSpacing.cardGap),
         Expanded(
           flex: 2,
           child: ApproveActionButton(

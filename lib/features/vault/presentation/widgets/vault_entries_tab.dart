@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -34,7 +35,6 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _expanded = <String>{};
   final Set<String> _revealedFields = <String>{}; // composite "$entryId:$field"
-  bool _filtersOpen = false;
 
   @override
   void dispose() {
@@ -131,6 +131,38 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
       ));
   }
 
+  List<Widget> _loadedSlivers({
+    required List<EntryEntity> entries,
+    required Map<String, Map<String, dynamic>> revealedEntries,
+    required AppLocalizations l10n,
+  }) {
+    if (entries.isEmpty) {
+      return [
+        SliverToBoxAdapter(child: _EmptyEntries(l10n: l10n)),
+      ];
+    }
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.listBottom),
+        sliver: SliverList.separated(
+          itemCount: entries.length,
+          separatorBuilder: (_, _) =>
+              const SizedBox(height: AppSpacing.cardGap),
+          itemBuilder: (context, i) => _EntryCard(
+            entry: entries[i],
+            isExpanded: _expanded.contains(entries[i].id),
+            payload: revealedEntries[entries[i].id],
+            revealedFields: _revealedFields,
+            onToggleReveal: () => _onToggleReveal(entries[i]),
+            onToggleFieldReveal: _toggleFieldReveal,
+            onCopy: (value) => _copyToClipboard(value, l10n),
+            onEdit: () => _onEditEntry(entries[i], revealedEntries[entries[i].id]),
+          ),
+        ),
+      ),
+    ];
+  }
+
   String _errorMessage(EntryErrorKind kind, AppLocalizations l10n) {
     return switch (kind) {
       EntryErrorKind.notFound => l10n.entryErrorNotFound,
@@ -166,172 +198,42 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
           ));
       },
       builder: (context, state) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppSearchField(
-              controller: _searchController,
-              hint: l10n.entrySearchHint,
-              filterActive: _filtersOpen,
-              onToggleFilter: () =>
-                  setState(() => _filtersOpen = !_filtersOpen),
-              onChanged: (_) => setState(() {}),
+        // Search scrolls with the entries list (canonical Vaults pattern): it
+        // is the first sliver of a single CustomScrollView, so an overscroll
+        // never reveals a background strip between a pinned search bar and a
+        // separate scroll area. Each state contributes the slivers below it.
+        return CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.fieldGap),
+                child: AppSearchField(
+                  controller: _searchController,
+                  hint: l10n.entrySearchHint,
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
             ),
-            if (_filtersOpen) ...[
-              const SizedBox(height: 8),
-              const _FilterChipsRow(),
-            ],
-            const SizedBox(height: 12),
-            Expanded(
-              child: switch (state) {
-                EntryListInitial() ||
-                EntryListLoading() => const _LoadingView(),
-                EntryListError(:final kind) => _ErrorView(
-                    kind: kind,
-                    onRetry: () =>
-                        context.read<EntryListCubit>().loadEntries(),
-                  ),
-                EntryListLoaded(:final entries, :final revealedEntries) =>
-                  _LoadedBody(
-                    entries: _filter(entries),
-                    revealedEntries: revealedEntries,
-                    expanded: _expanded,
-                    revealedFields: _revealedFields,
-                    onToggleReveal: _onToggleReveal,
-                    onToggleFieldReveal: _toggleFieldReveal,
-                    onCopy: (value) => _copyToClipboard(value, l10n),
-                    onEdit: _onEditEntry,
-                    l10n: l10n,
-                  ),
-              },
-            ),
+            ...switch (state) {
+              EntryListInitial() ||
+              EntryListLoading() => const [_LoadingSliver()],
+              EntryListError(:final kind) => [
+                _ErrorSliver(
+                  kind: kind,
+                  onRetry: () => context.read<EntryListCubit>().loadEntries(),
+                ),
+              ],
+              EntryListLoaded(:final entries, :final revealedEntries) =>
+                _loadedSlivers(
+                  entries: _filter(entries),
+                  revealedEntries: revealedEntries,
+                  l10n: l10n,
+                ),
+            },
           ],
         );
       },
-    );
-  }
-}
-
-class _LoadedBody extends StatelessWidget {
-  const _LoadedBody({
-    required this.entries,
-    required this.revealedEntries,
-    required this.expanded,
-    required this.revealedFields,
-    required this.onToggleReveal,
-    required this.onToggleFieldReveal,
-    required this.onCopy,
-    required this.onEdit,
-    required this.l10n,
-  });
-
-  final List<EntryEntity> entries;
-  final Map<String, Map<String, dynamic>> revealedEntries;
-  final Set<String> expanded;
-  final Set<String> revealedFields;
-  final ValueChanged<EntryEntity> onToggleReveal;
-  final void Function(String entryId, String field) onToggleFieldReveal;
-  final ValueChanged<String> onCopy;
-  final void Function(EntryEntity, Map<String, dynamic>?) onEdit;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 96),
-      child: entries.isEmpty
-          ? _EmptyEntries(l10n: l10n)
-          : Column(
-              children: [
-                for (var i = 0; i < entries.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 12),
-                  _EntryCard(
-                    entry: entries[i],
-                    isExpanded: expanded.contains(entries[i].id),
-                    payload: revealedEntries[entries[i].id],
-                    revealedFields: revealedFields,
-                    onToggleReveal: () => onToggleReveal(entries[i]),
-                    onToggleFieldReveal: onToggleFieldReveal,
-                    onCopy: onCopy,
-                    onEdit: () => onEdit(
-                      entries[i],
-                      revealedEntries[entries[i].id],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-    );
-  }
-}
-
-class _FilterChipsRow extends StatelessWidget {
-  const _FilterChipsRow();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        _FilterChip(
-          label: l10n.entryTypeKey,
-          dotColor: AppColors.positiveAccent,
-          borderColor: AppColors.positiveAccent.withValues(alpha: 0.35),
-        ),
-        _FilterChip(
-          label: l10n.entryTypeCredential,
-          dotColor: AppColors.vaultBlue,
-          borderColor: AppColors.vaultSlate.withValues(alpha: 0.15),
-        ),
-      ],
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.dotColor,
-    required this.borderColor,
-  });
-
-  final String label;
-  final Color dotColor;
-  final Color borderColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface(brightness),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: dotColor,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -345,12 +247,15 @@ class _EmptyEntries extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 24),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.xxxl,
+        horizontal: AppSpacing.screenH,
+      ),
       child: Column(
         children: [
           Icon(Icons.inbox_outlined,
               size: 36, color: AppColors.onSurfaceSubtle(brightness)),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           Text(
             l10n.entryEmpty,
             textAlign: TextAlign.center,
@@ -360,7 +265,7 @@ class _EmptyEntries extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.chipGap),
           Text(
             l10n.entryEmptyAdd,
             textAlign: TextAlign.center,
@@ -375,21 +280,19 @@ class _EmptyEntries extends StatelessWidget {
   }
 }
 
-class _LoadingView extends StatelessWidget {
-  const _LoadingView();
+class _LoadingSliver extends StatelessWidget {
+  const _LoadingSliver();
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Column(
-        children: List.generate(
-          5,
-          (i) => Padding(
-            padding: const EdgeInsets.only(bottom: 1),
-            child: _SkeletonRow(brightness: brightness, delay: i * 80),
-          ),
+    // search → first skeleton row gap (fieldGap) is owned by the search bar.
+    return SliverList.list(
+      children: List.generate(
+        5,
+        (i) => Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
+          child: _SkeletonRow(brightness: brightness, delay: i * 80),
         ),
       ),
     );
@@ -452,8 +355,8 @@ class _SkeletonRowState extends State<_SkeletonRow>
   }
 }
 
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.kind, required this.onRetry});
+class _ErrorSliver extends StatelessWidget {
+  const _ErrorSliver({required this.kind, required this.onRetry});
 
   final EntryErrorKind kind;
   final VoidCallback onRetry;
@@ -470,9 +373,9 @@ class _ErrorView extends StatelessWidget {
       EntryErrorKind.unknown => l10n.entryErrorUnknown,
     };
     final brightness = Theme.of(context).brightness;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -485,7 +388,7 @@ class _ErrorView extends StatelessWidget {
                 height: 1.4,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.fieldGap),
             TextButton(
               onPressed: onRetry,
               child: Text(
@@ -543,18 +446,25 @@ class _EntryCard extends StatelessWidget {
               width: 1,
             ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.cardPadding,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Header row — icon + name/meta + action buttons.
               Padding(
-                padding: const EdgeInsets.fromLTRB(0, 12, 0, 10),
+                padding: const EdgeInsets.fromLTRB(
+                  0,
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.cardGap,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     _EntryIconWidget(entry: entry),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: AppSpacing.cardGap),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -570,7 +480,7 @@ class _EntryCard extends StatelessWidget {
                             ),
                           ),
                           if (meta.isNotEmpty) ...[
-                            const SizedBox(height: 2),
+                            const SizedBox(height: AppSpacing.xxs),
                             Text(
                               meta,
                               maxLines: 1,
@@ -584,7 +494,7 @@ class _EntryCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: AppSpacing.chipGap),
                     _SmallIconButton(
                       icon: isExpanded
                           ? Icons.visibility_off
@@ -592,7 +502,7 @@ class _EntryCard extends StatelessWidget {
                       tooltip: l10n.vaultRevealEntry,
                       onPressed: onToggleReveal,
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: AppSpacing.chipGap),
                     _SmallIconButton(
                       icon: Icons.arrow_forward,
                       tooltip: l10n.vaultViewEntry,
@@ -611,11 +521,14 @@ class _EntryCard extends StatelessWidget {
                   opacity: isExpanded ? 1.0 : 0.0,
                   child: isExpanded
                       ? Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.only(
+                            bottom: AppSpacing.md,
+                          ),
                           child: payload == null
                               ? const Padding(
-                                  padding:
-                                      EdgeInsets.symmetric(vertical: 8),
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: AppSpacing.innerGap,
+                                  ),
                                   child: Center(
                                     child: SizedBox(
                                       width: 14,
@@ -751,11 +664,11 @@ class _RevealRow extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     final displayed = isMasked && !revealed ? '••••••••••••' : value;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         children: [
           Icon(icon, size: 12, color: AppColors.onSurfaceSubtle(brightness)),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.innerGap),
           Expanded(
             child: Text(
               displayed,
@@ -776,7 +689,8 @@ class _RevealRow extends StatelessWidget {
               tooltip: l10n.vaultRevealValue,
               onPressed: onToggleReveal!,
             ),
-          if (onToggleReveal != null) const SizedBox(width: 4),
+          if (onToggleReveal != null)
+            const SizedBox(width: AppSpacing.xs),
           _SmallIconButton(
             icon: Icons.content_copy,
             size: 12,
@@ -784,7 +698,7 @@ class _RevealRow extends StatelessWidget {
             onPressed: onCopy,
           ),
           if (extraTrailing != null) ...[
-            const SizedBox(width: 4),
+            const SizedBox(width: AppSpacing.xs),
             extraTrailing!,
           ],
         ],
@@ -878,7 +792,7 @@ class _SmallIconButton extends StatelessWidget {
         onTap: onPressed,
         radius: 16,
         child: Padding(
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(AppSpacing.xs),
           child: Icon(
             icon,
             size: size,

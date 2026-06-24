@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/icon_picker_grid.dart' show IconMoreTile;
 import '../../../../l10n/generated/app_localizations.dart';
@@ -180,16 +181,16 @@ class _VaultFormState extends State<VaultForm> {
           textCapitalization: TextCapitalization.sentences,
           textInputAction: TextInputAction.next,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.fieldGap),
         OnboardingTextField(
           label: l10n.vaultDescriptionLabel,
           controller: _descriptionController,
           textCapitalization: TextCapitalization.sentences,
           textInputAction: TextInputAction.done,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.fieldGap),
         _SectionLabel(text: l10n.vaultIconLabel),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.innerGap),
         VaultIconPicker(
           selected: _selectedIcon,
           accentColor: accent,

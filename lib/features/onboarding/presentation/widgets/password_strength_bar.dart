@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../domain/password_strength.dart';
 
 /// 4-segment strength meter shown below the master-password input.
@@ -22,7 +23,7 @@ class PasswordStrengthBar extends StatelessWidget {
           final filled = index < strength.score;
           return Expanded(
             child: Padding(
-              padding: EdgeInsets.only(right: index == 3 ? 0 : 4),
+              padding: EdgeInsets.only(right: index == 3 ? 0 : AppSpacing.xs),
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: filled
