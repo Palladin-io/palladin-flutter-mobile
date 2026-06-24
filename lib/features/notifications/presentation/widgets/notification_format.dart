@@ -110,13 +110,15 @@ List<({String label, String value})> notificationRows(
         (label: l10n.notifRowBy, value: row('actorName')),
       ];
     case 'credential_stale':
-      // Backend sends `errorHint` (human-readable failure reason) and an
-      // optional `note` (agent's free-text). There is no `error`/`attempts`
-      // key — reading those left both rows blank.
+      // Backend sends `errorHint` (human-readable failure reason), optional
+      // `note` (agent's free-text) and `host` (where it failed). The agent is
+      // already in the subtitle ("reported by …"), so Host · Ip is the useful
+      // fourth field rather than a duplicate Agent row.
       return [
         (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
         (label: l10n.notifRowReason, value: row('errorHint')),
         (label: l10n.notifRowNote, value: row('note')),
+        (label: l10n.notifRowHostIp, value: _hostIp(n) ?? dash),
       ];
     case 'grant_approved':
       return [

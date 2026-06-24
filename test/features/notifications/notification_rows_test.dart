@@ -40,7 +40,7 @@ void main() {
       'grant_pending': 3,
       'agent_pending': 4,
       'agent_approved': 4,
-      'credential_stale': 3,
+      'credential_stale': 4,
       'grant_approved': 4,
       'grant_revoked': 3,
       'grant_denied': 4,

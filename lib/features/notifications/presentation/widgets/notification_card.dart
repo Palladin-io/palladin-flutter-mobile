@@ -8,21 +8,6 @@ import '../../../grants/presentation/widgets/org_grant_card.dart' show GrantDeta
 import '../../domain/entities/inbox_notification.dart';
 import 'notification_format.dart';
 
-/// Fixed detail-row count every non-empty card renders — shorter types are
-/// padded with blank rows so all cards share one height (4 = the richest
-/// type: agent / grant approved/denied).
-const _kDetailRows = 4;
-
-List<({String label, String value})> _padRows(
-  List<({String label, String value})> rows,
-) {
-  if (rows.isEmpty || rows.length >= _kDetailRows) return rows;
-  return [
-    ...rows,
-    for (var i = rows.length; i < _kDetailRows; i++) (label: '', value: ''),
-  ];
-}
-
 /// A notification card — an **immutable event log entry**, not a live control
 /// panel: an avatar/icon header with name + subtitle, the relative time
 /// top-right on the title line, a divided rows section, and a footer.
@@ -79,10 +64,7 @@ class NotificationCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     final glyphTint = notificationGlyphTint(item);
-    // Pad every card's detail block to a fixed row count so all cards are the
-    // same height — uneven counts (3 vs 4) made the feed look ragged. Blank
-    // rows reserve a line's height without showing data.
-    final rows = _padRows(notificationRows(l10n, item));
+    final rows = notificationRows(l10n, item);
     final hasFooter =
         onPrimary != null || onSecondary != null || onView != null;
 
