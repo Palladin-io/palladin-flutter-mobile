@@ -56,7 +56,7 @@ class RegrantCubit extends Cubit<RegrantState> {
   Future<void> submit({
     required Uint8List privateKey,
     required GrantLimit limit,
-    List<GrantMethod> methods = kDefaultGrantMethods,
+    required List<GrantMethod> methods,
   }) async {
     emit(state.copyWith(status: RegrantStatus.submitting, clearError: true));
     try {
