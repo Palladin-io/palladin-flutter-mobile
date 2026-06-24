@@ -10,6 +10,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/fab_registrar.dart';
+import '../../../../core/widgets/list_screen_header.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../shell/presentation/pages/app_shell.dart';
@@ -338,42 +339,10 @@ class _HeaderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-
-    // Grants/approvals are centralised in the Approvals nav tab — no header
-    // shortcut here. Title→search uses headerGap (16) for the canonical
-    // page-title → next-component rhythm.
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.headerGap,
-        AppSpacing.screenH,
-        AppSpacing.headerGap,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            l10n.vaultListTitle,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            l10n.vaultListSummary(vaultCount, entryCount),
-            style: TextStyle(
-              color: AppColors.onSurfaceSubtle(brightness),
-              fontSize: 11,
-              height: 1.2,
-            ),
-          ),
-        ],
-      ),
+    // Shared header — the canonical reference every other list tab matches.
+    return ListScreenHeader(
+      title: l10n.vaultListTitle,
+      subtitle: l10n.vaultListSummary(vaultCount, entryCount),
     );
   }
 }

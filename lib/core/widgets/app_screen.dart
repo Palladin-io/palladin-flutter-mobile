@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
+import 'list_screen_header.dart';
 
 /// Shared skeleton for every top-level screen.
 ///
@@ -32,7 +33,26 @@ class AppScreen extends StatelessWidget {
     this.floatingActionButton,
     this.endDrawer,
     this.gapAfterHeader = true,
-  }) : appBar = null;
+  })  : appBar = null,
+        title = null,
+        subtitle = null,
+        actions = null;
+
+  /// Titled variant — the canonical top-level list screen (Vaults, Agents,
+  /// Inbox). Renders a [ListScreenHeader] in the body (NOT a Material
+  /// [AppBar]) so the title→content rhythm is pixel-identical across every
+  /// tab. The header owns its bottom gap, so no extra [headerGap] is added.
+  const AppScreen.titled({
+    super.key,
+    required String this.title,
+    this.subtitle,
+    this.actions,
+    required this.body,
+    this.floatingActionButton,
+    this.endDrawer,
+  })  : appBar = null,
+        header = null,
+        gapAfterHeader = false;
 
   /// AppBar variant — [appBar] is the header; [body] fills the remaining area.
   const AppScreen.appBar({
@@ -42,13 +62,25 @@ class AppScreen extends StatelessWidget {
     this.floatingActionButton,
     this.endDrawer,
     this.gapAfterHeader = true,
-  }) : header = null;
+  })  : header = null,
+        title = null,
+        subtitle = null,
+        actions = null;
 
   /// Content area. Owns its own horizontal padding (see [screenPadding]).
   final Widget body;
 
   /// Custom header widget rendered above [body] (non-AppBar variant).
   final Widget? header;
+
+  /// Title for the [AppScreen.titled] variant — drives a [ListScreenHeader].
+  final String? title;
+
+  /// Optional subtitle under the [title] (titled variant).
+  final String? subtitle;
+
+  /// Optional trailing actions in the title row (titled variant).
+  final List<Widget>? actions;
 
   /// Transparent AppBar over the gradient (AppBar variant).
   final PreferredSizeWidget? appBar;
@@ -75,6 +107,11 @@ class AppScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    // The titled variant renders a ListScreenHeader (which owns its own
+    // bottom gap), so it never adds an extra headerGap.
+    final resolvedHeader = title != null
+        ? ListScreenHeader(title: title!, subtitle: subtitle, actions: actions)
+        : header;
     return Container(
       decoration: BoxDecoration(
         gradient: AppColors.backgroundGradient(brightness),
@@ -98,8 +135,8 @@ class AppScreen extends StatelessWidget {
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    ?header,
-                    if (header != null && gapAfterHeader)
+                    ?resolvedHeader,
+                    if (resolvedHeader != null && gapAfterHeader)
                       const SizedBox(height: AppSpacing.headerGap),
                     Expanded(child: body),
                   ],

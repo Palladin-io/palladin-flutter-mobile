@@ -119,54 +119,19 @@ class _AgentsViewState extends State<_AgentsView> {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
 
-    return AppScreen.appBar(
-      appBar: AppBar(
-        centerTitle: false,
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        scrolledUnderElevation: 0,
-        elevation: 0,
-        titleSpacing: AppSpacing.screenH,
-        iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
-        title: BlocBuilder<AgentsCubit, AgentsState>(
-          builder: (context, state) {
-            final brightness = Theme.of(context).brightness;
-            final total = state.agents.length;
-            final showSummary =
-                state.status == AgentsStatus.loaded && total > 0;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  l10n.agentsScreenTitle,
-                  style: TextStyle(
-                    color: AppColors.onSurface(brightness),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
-                  ),
-                ),
-                if (showSummary) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    l10n.agentsListSummary(total, state.activeCount),
-                    style: TextStyle(
-                      color: AppColors.onSurfaceSubtle(brightness),
-                      fontSize: 11,
-                      height: 1.2,
-                    ),
-                  ),
-                ],
-              ],
-            );
-          },
-        ),
-      ),
-      // Title→search gap (headerGap) is owned by AppScreen.appBar.
-      body: Stack(
-        children: [
-          LayoutBuilder(
+    return BlocBuilder<AgentsCubit, AgentsState>(
+      builder: (context, state) {
+        final total = state.agents.length;
+        final showSummary = state.status == AgentsStatus.loaded && total > 0;
+        return AppScreen.titled(
+          title: l10n.agentsScreenTitle,
+          subtitle: showSummary
+              ? l10n.agentsListSummary(total, state.activeCount)
+              : null,
+          // Agents enroll from the CLI — no in-app add affordance; claim the
+          // shell FAB with null so a covered page's FAB doesn't leak.
+          floatingActionButton: const FabRegistrar(fab: null),
+          body: LayoutBuilder(
             builder: (context, constraints) {
               final isSplit = constraints.maxWidth >= _kSplitBreakpoint;
               // The split view shows an inline detail pane; the narrow
@@ -179,43 +144,34 @@ class _AgentsViewState extends State<_AgentsView> {
                   }
                 });
               }
-              return BlocBuilder<AgentsCubit, AgentsState>(
-                builder: (context, state) {
-                  final list = RefreshIndicator(
-                    color: AppColors.brandRed,
-                    backgroundColor: AppColors.cardSurface(brightness),
-                    onRefresh: () => context.read<AgentsCubit>().load(),
-                    child: _Body(
-                      state: state,
-                      selectedAgentId: isSplit ? _selectedAgentId : null,
-                      onOpenAgent: (id) => _openAgent(id, isSplit),
-                      searchController: _searchController,
-                      filtered: _filter(state.agents),
-                    ),
-                  );
-                  if (!isSplit) return list;
-                  return Row(
-                    children: [
-                      SizedBox(width: 340, child: list),
-                      VerticalDivider(
-                        width: 1,
-                        thickness: 1,
-                        color: AppColors.navBorder(brightness),
-                      ),
-                      Expanded(
-                        child: _SplitDetailPane(agentId: _selectedAgentId),
-                      ),
-                    ],
-                  );
-                },
+              final list = RefreshIndicator(
+                color: AppColors.brandRed,
+                backgroundColor: AppColors.cardSurface(brightness),
+                onRefresh: () => context.read<AgentsCubit>().load(),
+                child: _Body(
+                  state: state,
+                  selectedAgentId: isSplit ? _selectedAgentId : null,
+                  onOpenAgent: (id) => _openAgent(id, isSplit),
+                  searchController: _searchController,
+                  filtered: _filter(state.agents),
+                ),
+              );
+              if (!isSplit) return list;
+              return Row(
+                children: [
+                  SizedBox(width: 340, child: list),
+                  VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: AppColors.navBorder(brightness),
+                  ),
+                  Expanded(child: _SplitDetailPane(agentId: _selectedAgentId)),
+                ],
               );
             },
           ),
-          // Suppress any shell FAB — agents enroll from the CLI, so there
-          // is no in-app "add" affordance.
-          const Positioned(width: 0, height: 0, child: FabRegistrar(fab: null)),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -249,7 +205,7 @@ class _Body extends StatelessWidget {
 
     return Column(
       children: [
-        // Title→search gap (headerGap) is owned by AppScreen.appBar;
+        // Header→search gap (headerGap) is owned by the titled header;
         // search→content gap below is fieldGap.
         Padding(
           padding: const EdgeInsets.fromLTRB(

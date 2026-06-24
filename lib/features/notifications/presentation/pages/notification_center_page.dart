@@ -266,99 +266,76 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    return AppScreen.appBar(
+    return AppScreen.titled(
+      title: l10n.inboxTitle,
       // Suppress any FAB leaking from a page we were navigated over.
       floatingActionButton: const FabRegistrar(fab: null),
-      appBar: AppBar(
-        centerTitle: false,
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        scrolledUnderElevation: 0,
-        elevation: 0,
-        titleSpacing: AppSpacing.screenH,
-        iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
-        title: Text(
-          l10n.inboxTitle,
-          style: TextStyle(
-            color: AppColors.onSurface(brightness),
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
+      // Mark-all-read (primary) + kebab overflow (Grants list, preferences).
+      actions: [
+        BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
+          buildWhen: (p, c) =>
+              p.unreadCount != c.unreadCount ||
+              p.isMarkingAllRead != c.isMarkingAllRead,
+          builder: (context, state) {
+            final enabled = state.unreadCount > 0 && !state.isMarkingAllRead;
+            return TextButton.icon(
+              onPressed: enabled
+                  ? () => context.read<NotificationCenterCubit>().markAllRead()
+                  : null,
+              icon: Icon(
+                Icons.done_all,
+                size: 16,
+                color: enabled
+                    ? AppColors.onSurfaceMuted(brightness)
+                    : AppColors.onSurfaceSubtle(brightness),
+              ),
+              label: Text(l10n.inboxMarkAllRead),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.onSurfaceMuted(brightness),
+                disabledForegroundColor: AppColors.onSurfaceSubtle(brightness),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                visualDensity: VisualDensity.compact,
+              ),
+            );
+          },
         ),
-        actions: [
-          BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
-            buildWhen: (p, c) =>
-                p.unreadCount != c.unreadCount ||
-                p.isMarkingAllRead != c.isMarkingAllRead,
-            builder: (context, state) {
-              final enabled = state.unreadCount > 0 && !state.isMarkingAllRead;
-              return TextButton.icon(
-                onPressed: enabled
-                    ? () =>
-                          context.read<NotificationCenterCubit>().markAllRead()
-                    : null,
-                icon: Icon(
-                  Icons.done_all,
-                  size: 16,
-                  color: enabled
-                      ? AppColors.onSurfaceMuted(brightness)
-                      : AppColors.onSurfaceSubtle(brightness),
-                ),
-                label: Text(l10n.inboxMarkAllRead),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.onSurfaceMuted(brightness),
-                  disabledForegroundColor: AppColors.onSurfaceSubtle(
-                    brightness,
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                ),
-              );
-            },
+        // Kebab overflow: secondary actions (Grants list, preferences).
+        // Mark-all-read stays a primary AppBar action above.
+        PopupMenuButton<_InboxMenuAction>(
+          tooltip: l10n.inboxMoreActions,
+          icon: Icon(
+            Icons.more_vert,
+            size: 20,
+            color: AppColors.iconDefault(brightness),
           ),
-          // Kebab overflow: secondary actions (Grants list, preferences).
-          // Mark-all-read stays a primary AppBar action above.
-          PopupMenuButton<_InboxMenuAction>(
-            tooltip: l10n.inboxMoreActions,
-            icon: Icon(
-              Icons.more_vert,
-              size: 20,
-              color: AppColors.iconDefault(brightness),
+          color: AppColors.cardSurface(brightness),
+          onSelected: (action) => switch (action) {
+            _InboxMenuAction.grants => context.push('/inbox/grants'),
+            _InboxMenuAction.preferences => context.push('/inbox/preferences'),
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: _InboxMenuAction.grants,
+              child: _MenuRow(
+                icon: Icons.vpn_key_outlined,
+                label: l10n.inboxGrantsMenu,
+              ),
             ),
-            color: AppColors.cardSurface(brightness),
-            onSelected: (action) => switch (action) {
-              _InboxMenuAction.grants => context.push('/inbox/grants'),
-              _InboxMenuAction.preferences => context.push(
-                '/inbox/preferences',
+            PopupMenuItem(
+              value: _InboxMenuAction.preferences,
+              child: _MenuRow(
+                icon: Icons.tune,
+                label: l10n.inboxPreferencesMenu,
               ),
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: _InboxMenuAction.grants,
-                child: _MenuRow(
-                  icon: Icons.vpn_key_outlined,
-                  label: l10n.inboxGrantsMenu,
-                ),
-              ),
-              PopupMenuItem(
-                value: _InboxMenuAction.preferences,
-                child: _MenuRow(
-                  icon: Icons.tune,
-                  label: l10n.inboxPreferencesMenu,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: AppSpacing.innerGap),
-        ],
-      ),
-      // Title→segments gap (headerGap) is owned by AppScreen.appBar.
+            ),
+          ],
+        ),
+      ],
+      // Header → segments gap is owned by the titled header.
       body: Column(
         children: [
           // segments → search: fieldGap
