@@ -1593,6 +1593,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get approvalExpiresOnLabel => 'Expires on';
 
   @override
+  String approvalQuickMinutes(int count) {
+    return '${count}m';
+  }
+
+  @override
+  String approvalQuickHours(int count) {
+    return '${count}h';
+  }
+
+  @override
+  String get approvalQuickCustom => 'Custom';
+
+  @override
   String approvalDenyTitle(String name) {
     return 'Deny $name?';
   }

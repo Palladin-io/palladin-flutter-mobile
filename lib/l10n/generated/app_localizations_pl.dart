@@ -1613,6 +1613,19 @@ class AppLocalizationsPl extends AppLocalizations {
   String get approvalExpiresOnLabel => 'Wygasa dnia';
 
   @override
+  String approvalQuickMinutes(int count) {
+    return '${count}m';
+  }
+
+  @override
+  String approvalQuickHours(int count) {
+    return '${count}h';
+  }
+
+  @override
+  String get approvalQuickCustom => 'Własny';
+
+  @override
   String approvalDenyTitle(String name) {
     return 'Odrzucić $name?';
   }

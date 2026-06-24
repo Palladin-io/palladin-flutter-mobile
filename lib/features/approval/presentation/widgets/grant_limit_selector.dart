@@ -32,9 +32,18 @@ class GrantLimitSelector extends StatefulWidget {
 
 enum _Mode { expiry, uses, lifetime }
 
+/// Quick-pick durations offered for a time-limited grant — mirrors the web
+/// approve dialog (minutes then hours), laid out 4-per-row.
+const List<int> _quickMinutes = [5, 15, 30];
+const List<int> _quickHours = [1, 2, 6, 12, 24];
+
 class _GrantLimitSelectorState extends State<GrantLimitSelector> {
   late _Mode _mode;
   late DateTime _expiresOn;
+
+  /// Currently selected quick-pick duration in minutes, or `null` when the
+  /// expiry was set via the custom date/time picker.
+  int? _quickMinutesSelected;
   final TextEditingController _usesController = TextEditingController(
     text: '1',
   );
@@ -52,6 +61,8 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
     _expiresOn = value is GrantExpiry
         ? value.expiresAt
         : DateTime.now().add(const Duration(days: 1));
+    // The sheet's default expiry is 24h → pre-highlight that quick chip.
+    _quickMinutesSelected = 24 * 60;
   }
 
   @override
@@ -95,6 +106,16 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
   void _setMode(_Mode mode) {
     if (_mode == mode) return;
     setState(() => _mode = mode);
+    _emit();
+  }
+
+  /// Quick-pick: set the expiry to `now + minutes` and highlight that chip.
+  void _setQuick(int minutes) {
+    setState(() {
+      _quickMinutesSelected = minutes;
+      _expiresOn = DateTime.now().add(Duration(minutes: minutes));
+    });
+    _syncDateText();
     _emit();
   }
 
@@ -149,9 +170,58 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
       time?.hour ?? _expiresOn.hour,
       time?.minute ?? _expiresOn.minute,
     );
-    setState(() => _expiresOn = picked);
+    // A custom pick clears any quick-chip highlight.
+    setState(() {
+      _expiresOn = picked;
+      _quickMinutesSelected = null;
+    });
     _syncDateText();
     _emit();
+  }
+
+  /// Time-mode body — quick-pick duration chips (4 per row) + a full-width
+  /// Custom chip that opens the date/time picker + the chosen-expiry summary.
+  /// Mirrors the web approve dialog's quick intervals.
+  Widget _buildExpiryFields(AppLocalizations l10n, Brightness brightness) {
+    final quick = <({int minutes, String label})>[
+      for (final m in _quickMinutes) (minutes: m, label: l10n.approvalQuickMinutes(m)),
+      for (final h in _quickHours) (minutes: h * 60, label: l10n.approvalQuickHours(h)),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < quick.length; i += 4) ...[
+          if (i > 0) const SizedBox(height: AppSpacing.chipGap),
+          Row(
+            children: [
+              for (var j = i; j < i + 4; j++) ...[
+                if (j > i) const SizedBox(width: AppSpacing.chipGap),
+                Expanded(
+                  child: j < quick.length
+                      ? _QuickChip(
+                          label: quick[j].label,
+                          selected: _quickMinutesSelected == quick[j].minutes,
+                          onTap: widget.enabled
+                              ? () => _setQuick(quick[j].minutes)
+                              : null,
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ],
+          ),
+        ],
+        const SizedBox(height: AppSpacing.chipGap),
+        _QuickChip(
+          label: l10n.approvalQuickCustom,
+          icon: Icons.event_outlined,
+          selected: _quickMinutesSelected == null,
+          onTap: widget.enabled ? _pickDateTime : null,
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        _ExpirySummary(text: _dateController.text),
+      ],
+    );
   }
 
   @override
@@ -202,22 +272,7 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
           curve: Curves.easeOut,
           alignment: Alignment.topCenter,
           child: switch (_mode) {
-            _Mode.expiry => OnboardingTextField(
-              controller: _dateController,
-              label: l10n.approvalExpiresOnLabel,
-              readOnly: true,
-              enabled: widget.enabled,
-              feedbackReserveSpace: false,
-              onTap: widget.enabled ? _pickDateTime : null,
-              suffixIcon: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                child: Icon(
-                  Icons.calendar_today_outlined,
-                  size: 18,
-                  color: AppColors.onSurfaceSubtle(brightness),
-                ),
-              ),
-            ),
+            _Mode.expiry => _buildExpiryFields(l10n, brightness),
             _Mode.uses => OnboardingTextField(
               controller: _usesController,
               label: l10n.approvalLimitUsesLabel,
@@ -234,6 +289,110 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
           },
         ),
       ],
+    );
+  }
+}
+
+/// Quick-pick duration chip (and the Custom chip) for the Time policy. Selected
+/// chips get the brand-red tinted fill; an optional leading [icon] marks the
+/// Custom chip.
+class _QuickChip extends StatelessWidget {
+  const _QuickChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.icon,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final fg = selected
+        ? AppColors.brandRed
+        : AppColors.onSurfaceMuted(brightness);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.innerGap),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.brandRed.withValues(alpha: 0.15)
+                : AppColors.cardFill(brightness),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected
+                  ? AppColors.brandRed
+                  : AppColors.cardBorder(brightness),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 14, color: fg),
+                const SizedBox(width: AppSpacing.xs),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  color: fg,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Chosen-expiry summary box — a schedule glyph + the absolute expiry timestamp
+/// so the owner sees exactly when access ends after picking a quick duration.
+class _ExpirySummary extends StatelessWidget {
+  const _ExpirySummary({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.innerGap,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.inputFill(brightness),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.inputBorder(brightness)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.schedule, size: 14, color: AppColors.tealAccent),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: AppColors.onSurface(brightness),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -2034,6 +2034,20 @@
   "@approvalExpiresOnLabel": {
     "description": "Label for the expiry date picker field"
   },
+  "approvalQuickMinutes": "{count}m",
+  "@approvalQuickMinutes": {
+    "description": "Quick-pick minutes chip label",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "approvalQuickHours": "{count}h",
+  "@approvalQuickHours": {
+    "description": "Quick-pick hours chip label",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "approvalQuickCustom": "Custom",
+  "@approvalQuickCustom": {
+    "description": "Chip that opens the custom date/time picker"
+  },
   "approvalDenyTitle": "Deny {name}?",
   "@approvalDenyTitle": {
     "description": "Title of the deny bottom sheet",

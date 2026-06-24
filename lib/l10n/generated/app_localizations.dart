@@ -2852,6 +2852,24 @@ abstract class AppLocalizations {
   /// **'Expires on'**
   String get approvalExpiresOnLabel;
 
+  /// Quick-pick minutes chip label
+  ///
+  /// In en, this message translates to:
+  /// **'{count}m'**
+  String approvalQuickMinutes(int count);
+
+  /// Quick-pick hours chip label
+  ///
+  /// In en, this message translates to:
+  /// **'{count}h'**
+  String approvalQuickHours(int count);
+
+  /// Chip that opens the custom date/time picker
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get approvalQuickCustom;
+
   /// Title of the deny bottom sheet
   ///
   /// In en, this message translates to:
