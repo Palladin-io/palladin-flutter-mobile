@@ -44,7 +44,11 @@ class AppBottomNav extends StatelessWidget {
     final bottomInset = MediaQuery.of(context).viewPadding.bottom;
 
     return SizedBox(
-      height: _overhang + _barHeight + bottomInset,
+      // Reserve ONLY the bar height — the Scaffold lays the body flush on top
+      // of the bar (no gap). The Home logo pokes [_overhang] px ABOVE the bar
+      // by overflowing upward (Stack clipBehavior: none) instead of inflating
+      // the reserved height.
+      height: _barHeight + bottomInset,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -66,12 +70,12 @@ class AppBottomNav extends StatelessWidget {
               ),
             ),
           ),
-          // Items — span the full height (incl. overhang) so the Home logo can
-          // extend above the bar, while every label stays bottom-aligned.
+          // Items — overflow [_overhang] px above the bar so the Home logo
+          // pokes upward, while every label stays bottom-aligned on the bar.
           Positioned(
             left: 0,
             right: 0,
-            top: 0,
+            top: -_overhang,
             bottom: bottomInset,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
