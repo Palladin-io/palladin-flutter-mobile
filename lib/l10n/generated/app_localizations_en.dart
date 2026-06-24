@@ -1606,6 +1606,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get approvalQuickCustom => 'Custom';
 
   @override
+  String approvalExpiresInMinutes(int count) {
+    return 'Expires in ${count}m';
+  }
+
+  @override
+  String approvalExpiresInHours(int count) {
+    return 'Expires in ${count}h';
+  }
+
+  @override
+  String approvalExpiresInDays(int count) {
+    return 'Expires in ${count}d';
+  }
+
+  @override
+  String approvalExpiresInMonths(int count) {
+    return 'Expires in ${count}mo';
+  }
+
+  @override
+  String get approvalExpiredAlready => 'Expired';
+
+  @override
   String approvalDenyTitle(String name) {
     return 'Deny $name?';
   }

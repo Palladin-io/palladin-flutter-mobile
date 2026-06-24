@@ -2048,6 +2048,30 @@
   "@approvalQuickCustom": {
     "description": "Chip that opens the custom date/time picker"
   },
+  "approvalExpiresInMinutes": "Expires in {count}m",
+  "@approvalExpiresInMinutes": {
+    "description": "Relative expiry (minutes) in the approve summary",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "approvalExpiresInHours": "Expires in {count}h",
+  "@approvalExpiresInHours": {
+    "description": "Relative expiry (hours) in the approve summary",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "approvalExpiresInDays": "Expires in {count}d",
+  "@approvalExpiresInDays": {
+    "description": "Relative expiry (days) in the approve summary",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "approvalExpiresInMonths": "Expires in {count}mo",
+  "@approvalExpiresInMonths": {
+    "description": "Relative expiry (months) in the approve summary",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "approvalExpiredAlready": "Expired",
+  "@approvalExpiredAlready": {
+    "description": "Shown when the chosen expiry is in the past"
+  },
   "approvalDenyTitle": "Deny {name}?",
   "@approvalDenyTitle": {
     "description": "Title of the deny bottom sheet",

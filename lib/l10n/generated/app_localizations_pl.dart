@@ -1626,6 +1626,29 @@ class AppLocalizationsPl extends AppLocalizations {
   String get approvalQuickCustom => 'Własny';
 
   @override
+  String approvalExpiresInMinutes(int count) {
+    return 'Wygasa za ${count}m';
+  }
+
+  @override
+  String approvalExpiresInHours(int count) {
+    return 'Wygasa za ${count}h';
+  }
+
+  @override
+  String approvalExpiresInDays(int count) {
+    return 'Wygasa za ${count}d';
+  }
+
+  @override
+  String approvalExpiresInMonths(int count) {
+    return 'Wygasa za ${count}mc';
+  }
+
+  @override
+  String get approvalExpiredAlready => 'Wygasło';
+
+  @override
   String approvalDenyTitle(String name) {
     return 'Odrzucić $name?';
   }

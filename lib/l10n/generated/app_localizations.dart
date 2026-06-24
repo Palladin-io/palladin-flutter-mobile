@@ -2870,6 +2870,36 @@ abstract class AppLocalizations {
   /// **'Custom'**
   String get approvalQuickCustom;
 
+  /// Relative expiry (minutes) in the approve summary
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in {count}m'**
+  String approvalExpiresInMinutes(int count);
+
+  /// Relative expiry (hours) in the approve summary
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in {count}h'**
+  String approvalExpiresInHours(int count);
+
+  /// Relative expiry (days) in the approve summary
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in {count}d'**
+  String approvalExpiresInDays(int count);
+
+  /// Relative expiry (months) in the approve summary
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in {count}mo'**
+  String approvalExpiresInMonths(int count);
+
+  /// Shown when the chosen expiry is in the past
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get approvalExpiredAlready;
+
   /// Title of the deny bottom sheet
   ///
   /// In en, this message translates to:

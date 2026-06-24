@@ -191,11 +191,11 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < quick.length; i += 4) ...[
-          if (i > 0) const SizedBox(height: AppSpacing.chipGap),
+          if (i > 0) const SizedBox(height: AppSpacing.innerGap),
           Row(
             children: [
               for (var j = i; j < i + 4; j++) ...[
-                if (j > i) const SizedBox(width: AppSpacing.chipGap),
+                if (j > i) const SizedBox(width: AppSpacing.innerGap),
                 Expanded(
                   child: j < quick.length
                       ? _QuickChip(
@@ -211,7 +211,7 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
             ],
           ),
         ],
-        const SizedBox(height: AppSpacing.chipGap),
+        const SizedBox(height: AppSpacing.innerGap),
         _QuickChip(
           label: l10n.approvalQuickCustom,
           icon: Icons.event_outlined,
@@ -219,9 +219,25 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
           onTap: widget.enabled ? _pickDateTime : null,
         ),
         const SizedBox(height: AppSpacing.fieldGap),
-        _ExpirySummary(text: _dateController.text),
+        _ExpirySummary(
+          relative: _expiresInLabel(l10n, _expiresOn),
+          absolute: _dateController.text,
+        ),
       ],
     );
+  }
+
+  /// Relative "Expires in Xm/h/d/mo" for the summary — mirrors the web
+  /// `formatExpiresInLong` (rounds, so now+24h reads "24h", not "23h").
+  String _expiresInLabel(AppLocalizations l10n, DateTime expiresOn) {
+    final minutes = (expiresOn.difference(DateTime.now()).inSeconds / 60).round();
+    if (minutes <= 0) return l10n.approvalExpiredAlready;
+    if (minutes < 60) return l10n.approvalExpiresInMinutes(minutes);
+    final hours = (minutes / 60).round();
+    if (hours < 24) return l10n.approvalExpiresInHours(hours);
+    final days = (hours / 24).round();
+    if (days < 30) return l10n.approvalExpiresInDays(days);
+    return l10n.approvalExpiresInMonths((days / 30).round());
   }
 
   @override
@@ -357,12 +373,14 @@ class _QuickChip extends StatelessWidget {
   }
 }
 
-/// Chosen-expiry summary box — a schedule glyph + the absolute expiry timestamp
-/// so the owner sees exactly when access ends after picking a quick duration.
+/// Chosen-expiry summary box — relative distance ("Expires in 24h", teal) on
+/// the left, the absolute timestamp muted on the right, so the owner sees both
+/// how long and exactly when access ends. Mirrors the web approve summary.
 class _ExpirySummary extends StatelessWidget {
-  const _ExpirySummary({required this.text});
+  const _ExpirySummary({required this.relative, required this.absolute});
 
-  final String text;
+  final String relative;
+  final String absolute;
 
   @override
   Widget build(BuildContext context) {
@@ -383,12 +401,20 @@ class _ExpirySummary extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Text(
-              text,
+              relative,
               style: TextStyle(
                 color: AppColors.onSurface(brightness),
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
               ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.innerGap),
+          Text(
+            absolute,
+            style: TextStyle(
+              color: AppColors.onSurfaceSubtle(brightness),
+              fontSize: 11,
             ),
           ),
         ],
