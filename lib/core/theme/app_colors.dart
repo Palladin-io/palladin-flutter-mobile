@@ -103,7 +103,7 @@ abstract final class AppColors {
   static const Color positiveAccent = Color(0xFF2EC4B6);
 
   /// Warning banner background used on the recovery-key backup screen.
-  static const Color warningBackground = Color(0x33FF4F4F);
+  static const Color warningBackground = Color(0x33EB4747);
 
   /// Muted icon color — white at 60% opacity (visibility toggles, decorative icons on dark background).
   static const Color iconMuted = Color(0x99FFFFFF);
