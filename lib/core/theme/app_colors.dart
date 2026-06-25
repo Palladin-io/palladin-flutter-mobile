@@ -143,7 +143,7 @@ abstract final class AppColors {
   /// Translucent navy used as the bottom-nav background — matches the
   /// prototype's `rgba(10, 26, 62, 0.8)` so the nav reads as a frosted
   /// rail above the gradient backdrop.
-  static const Color bottomNavBackground = Color(0xCC2B2F36);
+  static const Color bottomNavBackground = Color(0xCC212429);
 
   /// Hairline border on top of the bottom nav — bumped from the
   /// prototype's `rgba(232, 234, 237, 0.06)` (~6%) to ~10% so the 1-px
@@ -165,12 +165,12 @@ abstract final class AppColors {
   // Color stops kept here; use [darkBackgroundGradient] for the assembled
   // LinearGradient.
   static const Color onboardingGradientStart = Color(0xFF15171B);
-  static const Color onboardingGradientMidTop = Color(0xFF2B2F36);
+  static const Color onboardingGradientMidTop = Color(0xFF212429);
   static const Color onboardingGradientMidBottom = Color(0xFF1A1D22);
   static const Color onboardingGradientEnd = Color(0xFF15171B);
 
   /// Assembled dark background — matches the web panel's authenticated
-  /// background exactly: `linear-gradient(160deg, #15171B 0%, #2B2F36 30%,
+  /// background exactly: `linear-gradient(160deg, #15171B 0%, #212429 30%,
   /// #1A1D22 60%, #15171B 100%)` (see web `_authenticated.tsx` GRADIENTS).
   static const LinearGradient darkBackgroundGradient = LinearGradient(
     begin: Alignment(-0.34, -0.94),
