@@ -8,7 +8,7 @@ abstract final class AppColors {
   // === Backgrounds ===
 
   /// Dark theme scaffold background — deep navy.
-  static const Color darkBackground = Color(0xFF0C0E12);
+  static const Color darkBackground = Color(0xFF15171B);
 
   /// Dark theme surface — elevated navy.
   static const Color darkSurface = Color(0xFF20242C);
@@ -143,7 +143,7 @@ abstract final class AppColors {
   /// Translucent navy used as the bottom-nav background — matches the
   /// prototype's `rgba(10, 26, 62, 0.8)` so the nav reads as a frosted
   /// rail above the gradient backdrop.
-  static const Color bottomNavBackground = Color(0xCC13161C);
+  static const Color bottomNavBackground = Color(0xCC2B2F36);
 
   /// Hairline border on top of the bottom nav — bumped from the
   /// prototype's `rgba(232, 234, 237, 0.06)` (~6%) to ~10% so the 1-px
@@ -164,14 +164,14 @@ abstract final class AppColors {
   // 160deg gradient used as the background on every screen in dark mode.
   // Color stops kept here; use [darkBackgroundGradient] for the assembled
   // LinearGradient.
-  static const Color onboardingGradientStart = Color(0xFF0C0E12);
-  static const Color onboardingGradientMidTop = Color(0xFF13161C);
-  static const Color onboardingGradientMidBottom = Color(0xFF0F1218);
-  static const Color onboardingGradientEnd = Color(0xFF0C0E12);
+  static const Color onboardingGradientStart = Color(0xFF15171B);
+  static const Color onboardingGradientMidTop = Color(0xFF2B2F36);
+  static const Color onboardingGradientMidBottom = Color(0xFF1A1D22);
+  static const Color onboardingGradientEnd = Color(0xFF15171B);
 
   /// Assembled dark background — matches the web panel's authenticated
-  /// background exactly: `linear-gradient(160deg, #0C0E12 0%, #13161C 30%,
-  /// #0F1218 60%, #0C0E12 100%)` (see web `_authenticated.tsx` GRADIENTS).
+  /// background exactly: `linear-gradient(160deg, #15171B 0%, #2B2F36 30%,
+  /// #1A1D22 60%, #15171B 100%)` (see web `_authenticated.tsx` GRADIENTS).
   static const LinearGradient darkBackgroundGradient = LinearGradient(
     begin: Alignment(-0.34, -0.94),
     end: Alignment(0.34, 0.94),
@@ -218,7 +218,7 @@ abstract final class AppColors {
   // Defined as static methods (not consts) because they depend on
   // the runtime brightness value.
 
-  /// Primary text — cream in dark (`#E8EAED`), deep navy in light (`#0C0E12`).
+  /// Primary text — cream in dark (`#E8EAED`), deep navy in light (`#15171B`).
   static Color onSurface(Brightness b) =>
       b == Brightness.dark ? textPrimary : darkBackground;
 
@@ -243,7 +243,7 @@ abstract final class AppColors {
   static Color inputBorder(Brightness b) =>
       b == Brightness.dark
           ? const Color(0x14E8EAED)
-          : const Color(0x140C0E12);
+          : const Color(0x1415171B);
 
   /// Input text color — cream in dark, deep navy in light.
   static Color inputText(Brightness b) =>
@@ -266,14 +266,14 @@ abstract final class AppColors {
   static Color cardBorder(Brightness b) =>
       b == Brightness.dark
           ? const Color(0x0FE8EAED)
-          : const Color(0x0F0C0E12);
+          : const Color(0x0F15171B);
 
   /// Neutral OFF-state track for the compact [AppToggle] — a muted grey that
   /// reads clearly as "off" (not disabled) in both themes.
   static Color toggleTrackOff(Brightness b) =>
       b == Brightness.dark
           ? const Color(0x33E8EAED)
-          : const Color(0x330C0E12);
+          : const Color(0x3315171B);
 
   /// Footer overlay on a glass card — nearly transparent navy tint in
   /// light mode (`rgba(12, 14, 18,0.015)`) and a nearly transparent cream
@@ -283,7 +283,7 @@ abstract final class AppColors {
   static Color cardFooterOverlay(Brightness b) =>
       b == Brightness.dark
           ? const Color(0x05E8EAED)
-          : const Color(0x040C0E12);
+          : const Color(0x0415171B);
 
   /// Bottom nav background — translucent navy (`rgba(10,26,62,0.80)`) in
   /// dark, translucent cream (`rgba(245, 247, 250,0.75)`) in light.
@@ -297,7 +297,7 @@ abstract final class AppColors {
   static Color navBorder(Brightness b) =>
       b == Brightness.dark
           ? const Color(0x0FE8EAED)
-          : const Color(0x0F0C0E12);
+          : const Color(0x0F15171B);
 
   /// Modal / drawer background — solid, non-transparent. `#181B22` in
   /// dark, `#F5F7FA` in light. Use this for bottom sheets and the
