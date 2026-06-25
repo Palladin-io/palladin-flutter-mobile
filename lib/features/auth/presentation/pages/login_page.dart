@@ -227,10 +227,10 @@ class _RotatingWelcome extends StatefulWidget {
 
 class _RotatingWelcomeState extends State<_RotatingWelcome> {
   static const List<String> _messages = [
-    'Secrets your agents use — never see.',
     'Zero-knowledge by design.',
-    'Your vault. Your keys. Your rules.',
-    'Built for autonomous agents.',
+    'Built for AI agents.',
+    'Your keys, your rules.',
+    'Always encrypted.',
   ];
 
   int _index = 0;
