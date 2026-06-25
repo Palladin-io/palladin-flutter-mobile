@@ -78,7 +78,7 @@ class Agent {
   /// when no icon has been assigned.
   final String? iconKey;
 
-  /// Hex color string (e.g. `"#2EC4B6"`) for the icon tint, chosen by the
+  /// Hex color string (e.g. `"#16A34A"`) for the icon tint, chosen by the
   /// operator. When `null`, [agentIconColor] is used as the default.
   final String? iconColor;
 

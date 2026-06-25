@@ -62,7 +62,7 @@ class SettingsDrawer extends StatelessWidget {
         (permissions & _kPremiumPlanBit) != 0;
 
     return Drawer(
-      // Solid surface (`#0D1B3E` in dark, `#FFFCF7` in light) so the
+      // Solid surface (`#181B22` in dark, `#F5F7FA` in light) so the
       // drawer reads as an opaque settings panel above the gradient
       // backdrop instead of bleeding through the nav's translucency.
       backgroundColor: AppColors.modalBackground(brightness),
@@ -464,9 +464,9 @@ class _LanguageRow extends StatelessWidget {
             value: current,
             isDense: true,
             underline: const SizedBox.shrink(),
-            // modalBackground gives near-white in light (#FFFCF7) and
-            // solid navy in dark (#0D1B3E) — better than the beige
-            // cardSurface (#EEEAD4) which read as "wrong white".
+            // modalBackground gives near-white in light (#F5F7FA) and
+            // solid navy in dark (#181B22) — better than the beige
+            // cardSurface (#DCDEE2) which read as "wrong white".
             dropdownColor: AppColors.modalBackground(brightness),
             style: TextStyle(
               color: AppColors.onSurface(brightness),
