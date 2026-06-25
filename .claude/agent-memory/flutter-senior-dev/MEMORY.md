@@ -1,2 +1,5 @@
 - [project_flutter_sdk.md](project_flutter_sdk.md) - Flutter SDK path, project naming, flavor setup, and CI workflow
 - [project_l10n_setup.md](project_l10n_setup.md) - l10n config: ARB files, gen-l10n with output-dir, error type pattern
+- [patterns_shell_fab_ownership.md](patterns_shell_fab_ownership.md) - Shell FAB ownership stack: FabRegistrar identity, every shell page must register (fab:null if none)
+- [patterns_spacing_system.md](patterns_spacing_system.md) - AppSpacing tokens (never bare numbers) + AppScreen wrapper for top-level screens
+- [patterns_list_screen_scroll.md](patterns_list_screen_scroll.md) - List screens: search/segment row scroll WITH the list (only title pinned); fixes overscroll gap bug
