@@ -13,6 +13,12 @@
 			</array>
 		</dict>
 	</array>
+	<!-- google_sign_in (iOS): GIDSignIn reads the client IDs from here. Without
+	     GIDClientID, GIDSignIn raises on sign-in (no clientID in configuration). -->
+	<key>GIDClientID</key>
+	<string>1006466869105-m9lc3djv76vmh7pnhh7opdbbtq9pbhce.apps.googleusercontent.com</string>
+	<key>GIDServerClientID</key>
+	<string>1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Palladin uses your photo library to let you set a custom vault icon.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
