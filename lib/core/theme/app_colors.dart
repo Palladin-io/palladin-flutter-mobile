@@ -8,15 +8,15 @@ abstract final class AppColors {
   // === Backgrounds ===
 
   /// Dark theme scaffold background — deep navy.
-  static const Color darkBackground = Color(0xFF000B2E);
+  static const Color darkBackground = Color(0xFF181A1D);
 
   /// Dark theme surface — elevated navy.
-  static const Color darkSurface = Color(0xFF1A2A4A);
+  static const Color darkSurface = Color(0xFF2D3138);
 
   /// Mobile prototype "surface" card background — slightly bluer navy
   /// used by vault detail and list cards (matches `--surface` in the
   /// Astro prototype).
-  static const Color mobileSurface = Color(0xFF0D1B3E);
+  static const Color mobileSurface = Color(0xFF23262C);
 
   /// Light theme scaffold background — warm cream.
   static const Color lightBackground = Color(0xFFFDF9E4);
@@ -143,7 +143,7 @@ abstract final class AppColors {
   /// Translucent navy used as the bottom-nav background — matches the
   /// prototype's `rgba(10, 26, 62, 0.8)` so the nav reads as a frosted
   /// rail above the gradient backdrop.
-  static const Color bottomNavBackground = Color(0xCC0A1A3E);
+  static const Color bottomNavBackground = Color(0xCC212429);
 
   /// Hairline border on top of the bottom nav — bumped from the
   /// prototype's `rgba(253, 249, 228, 0.06)` (~6%) to ~10% so the 1-px
@@ -164,14 +164,14 @@ abstract final class AppColors {
   // 160deg gradient used as the background on every screen in dark mode.
   // Color stops kept here; use [darkBackgroundGradient] for the assembled
   // LinearGradient.
-  static const Color onboardingGradientStart = Color(0xFF000B2E);
-  static const Color onboardingGradientMidTop = Color(0xFF0A1A3E);
-  static const Color onboardingGradientMidBottom = Color(0xFF0E1230);
-  static const Color onboardingGradientEnd = Color(0xFF000B2E);
+  static const Color onboardingGradientStart = Color(0xFF181A1D);
+  static const Color onboardingGradientMidTop = Color(0xFF212429);
+  static const Color onboardingGradientMidBottom = Color(0xFF1D1F23);
+  static const Color onboardingGradientEnd = Color(0xFF181A1D);
 
   /// Assembled dark background — matches the web panel's authenticated
-  /// background exactly: `linear-gradient(160deg, #000B2E 0%, #0A1A3E 30%,
-  /// #0E1230 60%, #000B2E 100%)` (see web `_authenticated.tsx` GRADIENTS).
+  /// background exactly: `linear-gradient(160deg, #181A1D 0%, #212429 30%,
+  /// #1D1F23 60%, #181A1D 100%)` (see web `_authenticated.tsx` GRADIENTS).
   static const LinearGradient darkBackgroundGradient = LinearGradient(
     begin: Alignment(-0.34, -0.94),
     end: Alignment(0.34, 0.94),
@@ -218,7 +218,7 @@ abstract final class AppColors {
   // Defined as static methods (not consts) because they depend on
   // the runtime brightness value.
 
-  /// Primary text — cream in dark (`#FDF9E4`), deep navy in light (`#000B2E`).
+  /// Primary text — cream in dark (`#FDF9E4`), deep navy in light (`#181A1D`).
   static Color onSurface(Brightness b) =>
       b == Brightness.dark ? textPrimary : darkBackground;
 
@@ -239,11 +239,11 @@ abstract final class AppColors {
           : const Color(0xB3FFFCF7);
 
   /// Input border — `rgba(253,249,228,0.08)` in dark,
-  /// `rgba(0,11,46,0.08)` in light.
+  /// `rgba(24, 26, 29,0.08)` in light.
   static Color inputBorder(Brightness b) =>
       b == Brightness.dark
           ? const Color(0x14FDF9E4)
-          : const Color(0x14000B2E);
+          : const Color(0x14181A1D);
 
   /// Input text color — cream in dark, deep navy in light.
   static Color inputText(Brightness b) =>
@@ -262,28 +262,28 @@ abstract final class AppColors {
           : const Color(0xA6FFFCF7);
 
   /// Glass card border — `rgba(253,249,228,0.06)` in dark,
-  /// `rgba(0,11,46,0.06)` in light.
+  /// `rgba(24, 26, 29,0.06)` in light.
   static Color cardBorder(Brightness b) =>
       b == Brightness.dark
           ? const Color(0x0FFDF9E4)
-          : const Color(0x0F000B2E);
+          : const Color(0x0F181A1D);
 
   /// Neutral OFF-state track for the compact [AppToggle] — a muted grey that
   /// reads clearly as "off" (not disabled) in both themes.
   static Color toggleTrackOff(Brightness b) =>
       b == Brightness.dark
           ? const Color(0x33FDF9E4)
-          : const Color(0x33000B2E);
+          : const Color(0x33181A1D);
 
   /// Footer overlay on a glass card — nearly transparent navy tint in
-  /// light mode (`rgba(0,11,46,0.015)`) and a nearly transparent cream
+  /// light mode (`rgba(24, 26, 29,0.015)`) and a nearly transparent cream
   /// tint in dark mode (`rgba(253,249,228,0.02)`). Used to subtly set the
   /// card footer apart from the main card body without introducing a
   /// distinct surface colour.
   static Color cardFooterOverlay(Brightness b) =>
       b == Brightness.dark
           ? const Color(0x05FDF9E4)
-          : const Color(0x04000B2E);
+          : const Color(0x04181A1D);
 
   /// Bottom nav background — translucent navy (`rgba(10,26,62,0.80)`) in
   /// dark, translucent cream (`rgba(255,252,247,0.75)`) in light.
@@ -293,13 +293,13 @@ abstract final class AppColors {
           : const Color(0xBFFFFCF7);
 
   /// Bottom nav top border — `rgba(253,249,228,0.06)` in dark,
-  /// `rgba(0,11,46,0.06)` in light.
+  /// `rgba(24, 26, 29,0.06)` in light.
   static Color navBorder(Brightness b) =>
       b == Brightness.dark
           ? const Color(0x0FFDF9E4)
-          : const Color(0x0F000B2E);
+          : const Color(0x0F181A1D);
 
-  /// Modal / drawer background — solid, non-transparent. `#0D1B3E` in
+  /// Modal / drawer background — solid, non-transparent. `#23262C` in
   /// dark, `#FFFCF7` in light. Use this for bottom sheets and the
   /// settings drawer so they read as opaque surfaces above the gradient.
   static Color modalBackground(Brightness b) =>
