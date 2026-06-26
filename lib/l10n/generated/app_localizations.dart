@@ -1895,7 +1895,7 @@ abstract class AppLocalizations {
   /// Hint in the approve zone
   ///
   /// In en, this message translates to:
-  /// **'Grant this agent access to the organization'**
+  /// **'Lets this agent browse vault and entry listings only — secret contents stay locked until you approve a request or grant access in advance.'**
   String get agentsApproveHint;
 
   /// Button label to approve a pending agent
@@ -1967,7 +1967,7 @@ abstract class AppLocalizations {
   /// Body of the approve confirmation sheet
   ///
   /// In en, this message translates to:
-  /// **'Allow \"{name}\" to access organization vaults?'**
+  /// **'Allow \"{name}\" to browse vault and entry listings? It still can\'t read any secret without your approval or a pre-granted access.'**
   String agentsApproveConfirmBody(String name);
 
   /// Title of the deactivate confirmation sheet

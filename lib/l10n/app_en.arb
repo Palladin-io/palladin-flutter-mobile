@@ -1332,7 +1332,7 @@
   "@agentsApproveZone": {
     "description": "Section header for the approve zone on a pending agent"
   },
-  "agentsApproveHint": "Grant this agent access to the organization",
+  "agentsApproveHint": "Lets this agent browse vault and entry listings only — secret contents stay locked until you approve a request or grant access in advance.",
   "@agentsApproveHint": {
     "description": "Hint in the approve zone"
   },
@@ -1380,7 +1380,7 @@
   "@agentsApproveConfirmTitle": {
     "description": "Title of the approve confirmation sheet"
   },
-  "agentsApproveConfirmBody": "Allow \"{name}\" to access organization vaults?",
+  "agentsApproveConfirmBody": "Allow \"{name}\" to browse vault and entry listings? It still can't read any secret without your approval or a pre-granted access.",
   "@agentsApproveConfirmBody": {
     "description": "Body of the approve confirmation sheet",
     "placeholders": {

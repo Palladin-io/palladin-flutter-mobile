@@ -1099,7 +1099,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get agentsApproveHint =>
-      'Przyznaj temu agentowi dostęp do organizacji';
+      'Pozwala agentowi jedynie przeglądać listę sejfów i wpisów — zawartość sekretów pozostaje zablokowana, dopóki nie zatwierdzisz prośby lub nie nadasz dostępu z góry.';
 
   @override
   String get agentsApprove => 'Zatwierdź agenta';
@@ -1137,7 +1137,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String agentsApproveConfirmBody(String name) {
-    return 'Zezwolić agentowi „$name” na dostęp do sejfów organizacji?';
+    return 'Zezwolić agentowi „$name” na przeglądanie listy sejfów i wpisów? Bez Twojego zatwierdzenia lub wcześniej nadanego dostępu nie odczyta żadnego sekretu.';
   }
 
   @override

@@ -1079,7 +1079,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentsApproveZone => 'APPROVE AGENT';
 
   @override
-  String get agentsApproveHint => 'Grant this agent access to the organization';
+  String get agentsApproveHint =>
+      'Lets this agent browse vault and entry listings only — secret contents stay locked until you approve a request or grant access in advance.';
 
   @override
   String get agentsApprove => 'Approve Agent';
@@ -1117,7 +1118,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String agentsApproveConfirmBody(String name) {
-    return 'Allow \"$name\" to access organization vaults?';
+    return 'Allow \"$name\" to browse vault and entry listings? It still can\'t read any secret without your approval or a pre-granted access.';
   }
 
   @override
