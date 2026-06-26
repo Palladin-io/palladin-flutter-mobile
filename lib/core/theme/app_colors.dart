@@ -99,8 +99,8 @@ abstract final class AppColors {
   static const Color strengthFair = Color(0xFFF4B942);
 
   /// Positive accent used for "correct" checkmarks during recovery
-  /// word confirmation. Matches the prototype's `#16A34A`.
-  static const Color positiveAccent = Color(0xFF16A34A);
+  /// word confirmation. Matches the prototype's `#10B981`.
+  static const Color positiveAccent = Color(0xFF10B981);
 
   /// Warning banner background used on the recovery-key backup screen.
   static const Color warningBackground = Color(0x33EB4747);

@@ -44,7 +44,7 @@ class AgentModel {
   /// Material icon name chosen for the agent, or `null` when unset.
   final String? iconKey;
 
-  /// Hex color string (e.g. `"#16A34A"`) for the icon tint, or `null`.
+  /// Hex color string (e.g. `"#10B981"`) for the icon tint, or `null`.
   final String? iconColor;
 
   /// First 8 characters of the public key. Defaults to `''` for older

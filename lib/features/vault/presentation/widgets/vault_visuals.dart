@@ -58,7 +58,7 @@ abstract final class VaultVisuals {
     '#FF4F4F', // brand red
     '#FFAB87', // peach
     '#60A5FA', // sky
-    '#16A34A', // teal
+    '#10B981', // teal
     '#A78BFA', // violet
     '#8A95A6', // slate
   ];
@@ -119,7 +119,7 @@ abstract final class VaultVisuals {
 /// panel's `ENTRY_ICON_OPTIONS` and `ENTRY_ICON_COLORS`.
 abstract final class EntryVisuals {
   static const String defaultIconName = 'vpn_key';
-  static const String defaultColorHex = '#16A34A';
+  static const String defaultColorHex = '#10B981';
 
   static const List<VaultIconChoice> iconChoices = <VaultIconChoice>[
     VaultIconChoice(name: 'vpn_key',      icon: Icons.vpn_key,        paletteColor: AppColors.positiveAccent),
