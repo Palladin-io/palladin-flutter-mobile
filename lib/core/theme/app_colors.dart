@@ -7,16 +7,16 @@ import 'package:flutter/material.dart';
 abstract final class AppColors {
   // === Backgrounds ===
 
-  /// Dark theme scaffold background — deep navy.
+  /// Dark theme scaffold background — deep graphite.
   static const Color darkBackground = Color(0xFF15171B);
 
-  /// Dark theme surface — elevated navy.
+  /// Dark theme surface — elevated graphite.
   static const Color darkSurface = Color(0xFF20242C);
 
-  /// Mobile prototype "surface" card background — slightly bluer navy
+  /// Mobile prototype "surface" card background — graphite,
   /// used by vault detail and list cards (matches `--surface` in the
   /// Astro prototype).
-  static const Color mobileSurface = Color(0xFF181B22);
+  static const Color mobileSurface = Color(0xFF23262C);
 
   /// Light theme scaffold background — warm cream.
   static const Color lightBackground = Color(0xFFE8EAED);
@@ -140,14 +140,14 @@ abstract final class AppColors {
 
   // === Bottom navigation ===
 
-  /// Translucent navy used as the bottom-nav background — matches the
-  /// prototype's `rgba(10, 26, 62, 0.8)` so the nav reads as a frosted
+  /// Translucent graphite used as the bottom-nav background —
+  /// `#212429` at 80 % opacity so the nav reads as a frosted
   /// rail above the gradient backdrop.
   static const Color bottomNavBackground = Color(0xCC212429);
 
   /// Hairline border on top of the bottom nav — bumped from the
   /// prototype's `rgba(232, 234, 237, 0.06)` (~6%) to ~10% so the 1-px
-  /// stroke actually reads against the translucent navy backdrop.
+  /// stroke actually reads against the translucent graphite backdrop.
   static const Color bottomNavBorder = Color(0x1AE8EAED);
 
   // === Premium / billing ===
@@ -285,7 +285,7 @@ abstract final class AppColors {
           ? const Color(0x05E8EAED)
           : const Color(0x0415171B);
 
-  /// Bottom nav background — translucent navy (`rgba(10,26,62,0.80)`) in
+  /// Bottom nav background — translucent graphite (`rgba(33,36,41,0.80)`) in
   /// dark, translucent cream (`rgba(245, 247, 250,0.75)`) in light.
   static Color navBackground(Brightness b) =>
       b == Brightness.dark
@@ -299,7 +299,7 @@ abstract final class AppColors {
           ? const Color(0x0FE8EAED)
           : const Color(0x0F15171B);
 
-  /// Modal / drawer background — solid, non-transparent. `#181B22` in
+  /// Modal / drawer background — solid, non-transparent. `#23262C` in
   /// dark, `#F5F7FA` in light. Use this for bottom sheets and the
   /// settings drawer so they read as opaque surfaces above the gradient.
   static Color modalBackground(Brightness b) =>
