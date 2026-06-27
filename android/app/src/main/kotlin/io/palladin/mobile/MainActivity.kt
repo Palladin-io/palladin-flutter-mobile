@@ -1,4 +1,4 @@
-package com.example.mobile_claw_vault
+package io.palladin.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

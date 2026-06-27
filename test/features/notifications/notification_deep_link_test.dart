@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/features/notifications/domain/entities/inbox_notification.dart';
-import 'package:mobile_claw_vault/features/notifications/presentation/widgets/notification_format.dart';
-import 'package:mobile_claw_vault/l10n/generated/app_localizations.dart';
+import 'package:mobile_palladin/features/notifications/domain/entities/inbox_notification.dart';
+import 'package:mobile_palladin/features/notifications/presentation/widgets/notification_format.dart';
+import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 
 void main() {
   final l10n = lookupAppLocalizations(const Locale('en'));

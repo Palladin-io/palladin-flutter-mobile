@@ -1,24 +1,28 @@
 {
   "@@locale": "en",
-  "appTitle": "Claw Vault",
+  "appTitle": "Palladin",
   "@appTitle": {
     "description": "The application title shown in the app bar and OS task switcher"
   },
-  "welcomeMessage": "Welcome to Claw Vault",
+  "welcomeMessage": "Welcome to Palladin",
   "@welcomeMessage": {
     "description": "Greeting shown on the home/dashboard placeholder page"
   },
-  "taglineZeroKnowledge": "Zero-Knowledge",
-  "@taglineZeroKnowledge": {
-    "description": "First line of the stacked tagline on the login screen"
+  "loginRotatingZeroKnowledge": "Zero-knowledge by design.",
+  "@loginRotatingZeroKnowledge": {
+    "description": "Rotating welcome line on the login screen — zero-knowledge"
   },
-  "taglinePasswordManager": "Password Manager",
-  "@taglinePasswordManager": {
-    "description": "Second line of the stacked tagline on the login screen"
+  "loginRotatingForAgents": "Built for AI agents.",
+  "@loginRotatingForAgents": {
+    "description": "Rotating welcome line on the login screen — built for agents"
   },
-  "taglineForAiAgents": "For AI Agents",
-  "@taglineForAiAgents": {
-    "description": "Third line of the stacked tagline on the login screen"
+  "loginRotatingYourKeys": "Your keys, your rules.",
+  "@loginRotatingYourKeys": {
+    "description": "Rotating welcome line on the login screen — your keys"
+  },
+  "loginRotatingEncrypted": "Always encrypted.",
+  "@loginRotatingEncrypted": {
+    "description": "Rotating welcome line on the login screen — always encrypted"
   },
   "continueWithGoogle": "Continue with Google",
   "@continueWithGoogle": {
@@ -262,7 +266,7 @@
   "@recoveryPasteButton": {
     "description": "Secondary button that pastes the mnemonic from the clipboard"
   },
-  "recoveryShareSubject": "Claw Vault Recovery Key",
+  "recoveryShareSubject": "Palladin Recovery Key",
   "@recoveryShareSubject": {
     "description": "Subject line used when sharing the recovery key file via the platform share sheet"
   },
@@ -1332,7 +1336,7 @@
   "@agentsApproveZone": {
     "description": "Section header for the approve zone on a pending agent"
   },
-  "agentsApproveHint": "Grant this agent access to the organization",
+  "agentsApproveHint": "Lets this agent browse vault and entry listings only — secret contents stay locked until you approve a request or grant access in advance.",
   "@agentsApproveHint": {
     "description": "Hint in the approve zone"
   },
@@ -1380,7 +1384,7 @@
   "@agentsApproveConfirmTitle": {
     "description": "Title of the approve confirmation sheet"
   },
-  "agentsApproveConfirmBody": "Allow \"{name}\" to access organization vaults?",
+  "agentsApproveConfirmBody": "Allow \"{name}\" to browse vault and entry listings? It still can't read any secret without your approval or a pre-granted access.",
   "@agentsApproveConfirmBody": {
     "description": "Body of the approve confirmation sheet",
     "placeholders": {

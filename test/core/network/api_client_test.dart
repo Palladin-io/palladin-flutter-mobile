@@ -1,8 +1,8 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/config/env_config.dart';
-import 'package:mobile_claw_vault/core/network/api_client.dart';
-import 'package:mobile_claw_vault/core/storage/secure_token_storage.dart';
+import 'package:mobile_palladin/config/env_config.dart';
+import 'package:mobile_palladin/core/network/api_client.dart';
+import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
 
 void main() {
   group('createDio', () {

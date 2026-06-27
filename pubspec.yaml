@@ -1,5 +1,5 @@
-name: mobile_claw_vault
-description: "Claw Vault — Zero-knowledge password manager for AI agents."
+name: mobile_palladin
+description: "Palladin — Zero-knowledge password manager for AI agents."
 publish_to: 'none'
 
 version: 1.0.0+1

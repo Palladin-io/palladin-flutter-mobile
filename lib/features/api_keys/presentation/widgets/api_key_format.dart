@@ -16,12 +16,12 @@ String formatApiKeyDate(DateTime date) {
 }
 
 /// Builds the masked, display-only representation of an API key —
-/// the `cv_` prefix, four bullet characters, then the last-4 [suffix].
+/// the `pl_` prefix, four bullet characters, then the last-4 [suffix].
 ///
-/// Single source of truth for the `cv_` prefix and mask characters so
+/// Single source of truth for the `pl_` prefix and mask characters so
 /// the list card and the detail screen never drift apart. An empty
 /// suffix falls back to bullets.
 String maskedApiKey(String suffix) {
   final tail = suffix.isEmpty ? '••••' : suffix;
-  return 'cv_••••$tail';
+  return 'pl_••••$tail';
 }

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/features/notifications/domain/entities/push_message.dart';
+import 'package:mobile_palladin/features/notifications/domain/entities/push_message.dart';
 
 void main() {
   group('PushNotificationType.fromRaw', () {

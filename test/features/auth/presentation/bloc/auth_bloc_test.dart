@@ -4,10 +4,10 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:mobile_claw_vault/features/auth/data/models/auth_result_model.dart';
-import 'package:mobile_claw_vault/features/auth/data/repositories/auth_repository_impl.dart';
-import 'package:mobile_claw_vault/features/auth/domain/repositories/auth_repository.dart';
-import 'package:mobile_claw_vault/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mobile_palladin/features/auth/data/models/auth_result_model.dart';
+import 'package:mobile_palladin/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:mobile_palladin/features/auth/domain/repositories/auth_repository.dart';
+import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 
 class MockAuthRepository extends Mock implements AuthRepository {}
 

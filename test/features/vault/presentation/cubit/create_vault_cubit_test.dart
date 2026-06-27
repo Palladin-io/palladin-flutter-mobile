@@ -4,11 +4,11 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:mobile_claw_vault/features/vault/data/services/vault_crypto_service.dart';
-import 'package:mobile_claw_vault/features/vault/domain/entities/vault_entity.dart';
-import 'package:mobile_claw_vault/features/vault/domain/exceptions/vault_exceptions.dart';
-import 'package:mobile_claw_vault/features/vault/domain/repositories/vault_repository.dart';
-import 'package:mobile_claw_vault/features/vault/presentation/cubit/create_vault_cubit.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/exceptions/vault_exceptions.dart';
+import 'package:mobile_palladin/features/vault/domain/repositories/vault_repository.dart';
+import 'package:mobile_palladin/features/vault/presentation/cubit/create_vault_cubit.dart';
 
 class _MockRepository extends Mock implements VaultRepository {}
 

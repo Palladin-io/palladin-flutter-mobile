@@ -34,36 +34,36 @@ class EnvConfig {
     final host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
     return EnvConfig._(
       flavor: AppFlavor.local,
-      appName: 'Claw Vault (Local)',
+      appName: 'Palladin (Local)',
       apiBaseUrl: 'http://$host:5000',
       posthogKey: '',
       posthogHost: 'https://app.posthog.com',
       // Staging Firebase project used for local development
-      googleServerClientId: '810617442937-uqjo7cinqaemjjd3r3qtr7lhag44ebc5.apps.googleusercontent.com',
+      googleServerClientId: '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
     );
   }
 
-  /// Staging environment targeting `api.stage.clawvault.io`.
+  /// Staging environment targeting `api.stage.palladin.io`.
   factory EnvConfig.staging() {
     return const EnvConfig._(
       flavor: AppFlavor.staging,
-      appName: 'Claw Vault (Stage)',
-      apiBaseUrl: 'https://api.stage.clawvault.io',
+      appName: 'Palladin (Stage)',
+      apiBaseUrl: 'https://api.stage.palladin.io',
       posthogKey: '', // TODO: Add PostHog staging project key
       posthogHost: 'https://app.posthog.com',
-      googleServerClientId: '810617442937-uqjo7cinqaemjjd3r3qtr7lhag44ebc5.apps.googleusercontent.com',
+      googleServerClientId: '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
     );
   }
 
-  /// Production environment targeting `api.clawvault.io`.
+  /// Production environment targeting `api.palladin.io`.
   factory EnvConfig.production() {
     return const EnvConfig._(
       flavor: AppFlavor.production,
-      appName: 'Claw Vault',
-      apiBaseUrl: 'https://api.clawvault.io',
+      appName: 'Palladin',
+      apiBaseUrl: 'https://api.palladin.io',
       posthogKey: '', // TODO: Add PostHog production project key
       posthogHost: 'https://app.posthog.com',
-      googleServerClientId: '', // TODO: set production web client ID
+      googleServerClientId: '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
     );
   }
 

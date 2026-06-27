@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mobile_claw_vault/features/vault/data/models/create_vault_request.dart';
-import 'package:mobile_claw_vault/features/vault/data/models/vault_model.dart';
-import 'package:mobile_claw_vault/features/vault/domain/entities/vault_entity.dart';
+import 'package:mobile_palladin/features/vault/data/models/create_vault_request.dart';
+import 'package:mobile_palladin/features/vault/data/models/vault_model.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 
 void main() {
   group('VaultModel.fromJson / toEntity', () {

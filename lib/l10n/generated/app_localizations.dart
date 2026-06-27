@@ -101,32 +101,38 @@ abstract class AppLocalizations {
   /// The application title shown in the app bar and OS task switcher
   ///
   /// In en, this message translates to:
-  /// **'Claw Vault'**
+  /// **'Palladin'**
   String get appTitle;
 
   /// Greeting shown on the home/dashboard placeholder page
   ///
   /// In en, this message translates to:
-  /// **'Welcome to Claw Vault'**
+  /// **'Welcome to Palladin'**
   String get welcomeMessage;
 
-  /// First line of the stacked tagline on the login screen
+  /// Rotating welcome line on the login screen — zero-knowledge
   ///
   /// In en, this message translates to:
-  /// **'Zero-Knowledge'**
-  String get taglineZeroKnowledge;
+  /// **'Zero-knowledge by design.'**
+  String get loginRotatingZeroKnowledge;
 
-  /// Second line of the stacked tagline on the login screen
+  /// Rotating welcome line on the login screen — built for agents
   ///
   /// In en, this message translates to:
-  /// **'Password Manager'**
-  String get taglinePasswordManager;
+  /// **'Built for AI agents.'**
+  String get loginRotatingForAgents;
 
-  /// Third line of the stacked tagline on the login screen
+  /// Rotating welcome line on the login screen — your keys
   ///
   /// In en, this message translates to:
-  /// **'For AI Agents'**
-  String get taglineForAiAgents;
+  /// **'Your keys, your rules.'**
+  String get loginRotatingYourKeys;
+
+  /// Rotating welcome line on the login screen — always encrypted
+  ///
+  /// In en, this message translates to:
+  /// **'Always encrypted.'**
+  String get loginRotatingEncrypted;
 
   /// Label for the Google OAuth sign-in button
   ///
@@ -467,7 +473,7 @@ abstract class AppLocalizations {
   /// Subject line used when sharing the recovery key file via the platform share sheet
   ///
   /// In en, this message translates to:
-  /// **'Claw Vault Recovery Key'**
+  /// **'Palladin Recovery Key'**
   String get recoveryShareSubject;
 
   /// Secondary button that imports the mnemonic from a file
@@ -1895,7 +1901,7 @@ abstract class AppLocalizations {
   /// Hint in the approve zone
   ///
   /// In en, this message translates to:
-  /// **'Grant this agent access to the organization'**
+  /// **'Lets this agent browse vault and entry listings only — secret contents stay locked until you approve a request or grant access in advance.'**
   String get agentsApproveHint;
 
   /// Button label to approve a pending agent
@@ -1967,7 +1973,7 @@ abstract class AppLocalizations {
   /// Body of the approve confirmation sheet
   ///
   /// In en, this message translates to:
-  /// **'Allow \"{name}\" to access organization vaults?'**
+  /// **'Allow \"{name}\" to browse vault and entry listings? It still can\'t read any secret without your approval or a pre-granted access.'**
   String agentsApproveConfirmBody(String name);
 
   /// Title of the deactivate confirmation sheet

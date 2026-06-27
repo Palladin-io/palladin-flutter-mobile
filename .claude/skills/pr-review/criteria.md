@@ -1,4 +1,4 @@
-# PR Review Criteria — Claw Vault Flutter Mobile
+# PR Review Criteria — Palladin Flutter Mobile
 
 Detailed checklist for each review category. Load this file in full before starting the review.
 

@@ -1,6 +1,6 @@
 ---
 name: Flutter SDK path and project structure
-description: Flutter SDK location, project naming, and flavor setup for the Claw Vault mobile app
+description: Flutter SDK location, project naming, and flavor setup for the Palladin mobile app
 type: project
 ---
 
@@ -10,9 +10,9 @@ type: project
 - Flutter is NOT on the default shell PATH
 
 ## Project Identity
-- Package name (pubspec): `mobile_claw_vault`
-- Android namespace: `io.clawvault.mobile`
-- iOS bundle ID base: `io.clawvault.mobile`
+- Package name (pubspec): `mobile_palladin`
+- Android namespace: `io.palladin.mobile`
+- iOS bundle ID base: `io.palladin.mobile`
 - Staging suffix: `.staging`
 
 ## Flavors (added 2026-03-11)

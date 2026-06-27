@@ -17,7 +17,7 @@ abstract final class VaultVisuals {
 
   /// Default vault accent color, in `#RRGGBB` form. Picked to match
   /// the prototype's first swatch (brand red).
-  static const String defaultColorHex = '#FF4F4F';
+  static const String defaultColorHex = '#EB4747';
 
   /// Picker choices for the icon row — keep in sync with the web /
   /// Astro prototype.
@@ -55,10 +55,10 @@ abstract final class VaultVisuals {
   /// Picker choices for the color row — keep in sync with the web /
   /// Astro prototype.
   static const List<String> colorChoices = <String>[
-    '#FF4F4F', // brand red
+    '#EB4747', // brand red
     '#FFAB87', // peach
     '#60A5FA', // sky
-    '#2EC4B6', // teal
+    '#10B981', // emerald
     '#A78BFA', // violet
     '#8A95A6', // slate
   ];
@@ -119,7 +119,7 @@ abstract final class VaultVisuals {
 /// panel's `ENTRY_ICON_OPTIONS` and `ENTRY_ICON_COLORS`.
 abstract final class EntryVisuals {
   static const String defaultIconName = 'vpn_key';
-  static const String defaultColorHex = '#2EC4B6';
+  static const String defaultColorHex = '#10B981';
 
   static const List<VaultIconChoice> iconChoices = <VaultIconChoice>[
     VaultIconChoice(name: 'vpn_key',      icon: Icons.vpn_key,        paletteColor: AppColors.positiveAccent),

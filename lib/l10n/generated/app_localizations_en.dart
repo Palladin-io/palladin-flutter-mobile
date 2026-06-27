@@ -9,19 +9,22 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Claw Vault';
+  String get appTitle => 'Palladin';
 
   @override
-  String get welcomeMessage => 'Welcome to Claw Vault';
+  String get welcomeMessage => 'Welcome to Palladin';
 
   @override
-  String get taglineZeroKnowledge => 'Zero-Knowledge';
+  String get loginRotatingZeroKnowledge => 'Zero-knowledge by design.';
 
   @override
-  String get taglinePasswordManager => 'Password Manager';
+  String get loginRotatingForAgents => 'Built for AI agents.';
 
   @override
-  String get taglineForAiAgents => 'For AI Agents';
+  String get loginRotatingYourKeys => 'Your keys, your rules.';
+
+  @override
+  String get loginRotatingEncrypted => 'Always encrypted.';
 
   @override
   String get continueWithGoogle => 'Continue with Google';
@@ -212,7 +215,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recoveryPasteButton => 'Paste from Clipboard';
 
   @override
-  String get recoveryShareSubject => 'Claw Vault Recovery Key';
+  String get recoveryShareSubject => 'Palladin Recovery Key';
 
   @override
   String get recoveryImportButton => 'Import from .txt File';
@@ -1079,7 +1082,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get agentsApproveZone => 'APPROVE AGENT';
 
   @override
-  String get agentsApproveHint => 'Grant this agent access to the organization';
+  String get agentsApproveHint =>
+      'Lets this agent browse vault and entry listings only — secret contents stay locked until you approve a request or grant access in advance.';
 
   @override
   String get agentsApprove => 'Approve Agent';
@@ -1117,7 +1121,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String agentsApproveConfirmBody(String name) {
-    return 'Allow \"$name\" to access organization vaults?';
+    return 'Allow \"$name\" to browse vault and entry listings? It still can\'t read any secret without your approval or a pre-granted access.';
   }
 
   @override

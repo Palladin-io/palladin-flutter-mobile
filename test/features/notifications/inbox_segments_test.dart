@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/l10n/generated/app_localizations.dart';
+import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 
 /// The Notification Center segment toggle renders All / To-do / History in that
 /// order (mirroring the web). Grants is no longer a segment — it moved behind

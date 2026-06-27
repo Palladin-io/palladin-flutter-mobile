@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/features/notifications/data/models/inbox_notification_model.dart';
-import 'package:mobile_claw_vault/features/notifications/domain/entities/inbox_notification.dart';
+import 'package:mobile_palladin/features/notifications/data/models/inbox_notification_model.dart';
+import 'package:mobile_palladin/features/notifications/domain/entities/inbox_notification.dart';
 
 void main() {
   test('parses an open action-required notification (backend camelCase)', () {

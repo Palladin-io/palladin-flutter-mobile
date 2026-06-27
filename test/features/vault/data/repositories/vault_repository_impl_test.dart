@@ -4,11 +4,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:mobile_claw_vault/features/vault/data/datasources/vault_remote_datasource.dart';
-import 'package:mobile_claw_vault/features/vault/data/models/create_vault_request.dart';
-import 'package:mobile_claw_vault/features/vault/data/repositories/vault_repository_impl.dart';
-import 'package:mobile_claw_vault/features/vault/domain/entities/vault_entity.dart';
-import 'package:mobile_claw_vault/features/vault/domain/exceptions/vault_exceptions.dart';
+import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
+import 'package:mobile_palladin/features/vault/data/models/create_vault_request.dart';
+import 'package:mobile_palladin/features/vault/data/repositories/vault_repository_impl.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/exceptions/vault_exceptions.dart';
 
 class _MockDatasource extends Mock implements VaultRemoteDatasource {}
 

@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/features/notifications/domain/entities/inbox_notification.dart';
-import 'package:mobile_claw_vault/features/notifications/domain/entities/notification_preference.dart';
-import 'package:mobile_claw_vault/features/notifications/domain/repositories/notification_center_repository.dart';
-import 'package:mobile_claw_vault/features/notifications/presentation/cubit/notification_preferences_cubit.dart';
+import 'package:mobile_palladin/features/notifications/domain/entities/inbox_notification.dart';
+import 'package:mobile_palladin/features/notifications/domain/entities/notification_preference.dart';
+import 'package:mobile_palladin/features/notifications/domain/repositories/notification_center_repository.dart';
+import 'package:mobile_palladin/features/notifications/presentation/cubit/notification_preferences_cubit.dart';
 
 void main() {
   late _FakeRepository repository;

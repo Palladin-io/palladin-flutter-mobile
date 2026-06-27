@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_claw_vault/features/approval/domain/repositories/approval_repository.dart';
+import 'package:mobile_palladin/features/approval/domain/repositories/approval_repository.dart';
 
 /// The approve body must carry **exactly one** of `expiresAt` / `queryLimit`
 /// (the backend enforces XOR). `GrantLimit.toWire()` is the single place

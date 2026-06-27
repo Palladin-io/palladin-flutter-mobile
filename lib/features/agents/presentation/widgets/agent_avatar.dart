@@ -31,7 +31,7 @@ class AgentAvatar extends StatelessWidget {
   /// the icon is rendered instead of initials.
   final String? iconKey;
 
-  /// Hex color string (e.g. `"#2EC4B6"`) for the icon tint. Overrides
+  /// Hex color string (e.g. `"#10B981"`) for the icon tint. Overrides
   /// [agentIconColor]'s deterministic per-icon color when set.
   final String? iconColor;
 

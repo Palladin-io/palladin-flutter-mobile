@@ -9,12 +9,18 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.810617442937-8308nuhpcilvr4fsc82jfq7o2a3gs3qc</string>
+				<string>com.googleusercontent.apps.1006466869105-m9lc3djv76vmh7pnhh7opdbbtq9pbhce</string>
 			</array>
 		</dict>
 	</array>
+	<!-- google_sign_in (iOS): GIDSignIn reads the client IDs from here. Without
+	     GIDClientID, GIDSignIn raises on sign-in (no clientID in configuration). -->
+	<key>GIDClientID</key>
+	<string>1006466869105-m9lc3djv76vmh7pnhh7opdbbtq9pbhce.apps.googleusercontent.com</string>
+	<key>GIDServerClientID</key>
+	<string>1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Claw Vault uses your photo library to let you set a custom vault icon.</string>
+	<string>Palladin uses your photo library to let you set a custom vault icon.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<!-- firebase_messaging: allow APNs background/data pushes to wake the app -->
@@ -37,7 +43,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>mobile_claw_vault</string>
+	<string>mobile_palladin</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

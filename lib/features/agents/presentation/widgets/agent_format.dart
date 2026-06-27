@@ -144,7 +144,7 @@ const List<Color> agentColorOptions = [
 ];
 
 /// Default selected color in the icon picker — matches the web panel's
-/// `DEFAULT_AGENT_COLOR` (teal / `#2EC4B6`).
+/// `DEFAULT_AGENT_COLOR` (teal / `#10B981`).
 const Color defaultAgentColor = AppColors.positiveAccent;
 
 /// Per-glyph accent colour used as the unselected tint on the icon

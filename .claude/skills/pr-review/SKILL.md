@@ -1,13 +1,13 @@
 ---
 name: pr-review
-description: Reviews a pull request in the Claw Vault Flutter mobile app for BLoC pattern compliance, visual consistency, i18n, security, and mobile best practices. Posts findings as a structured GitHub PR comment.
+description: Reviews a pull request in the Palladin Flutter mobile app for BLoC pattern compliance, visual consistency, i18n, security, and mobile best practices. Posts findings as a structured GitHub PR comment.
 argument-hint: <pr-number>
 disable-model-invocation: true
 allowed-tools: Read Grep Glob Bash(gh pr view *) Bash(gh pr diff *) Bash(gh api *) Bash(gh api graphql *) Bash(git log *)
 effort: high
 ---
 
-# PR Review — Claw Vault Flutter Mobile
+# PR Review — Palladin Flutter Mobile
 
 ## Pull Request Context
 

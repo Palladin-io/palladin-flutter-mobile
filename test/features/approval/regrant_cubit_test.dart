@@ -2,9 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:mobile_claw_vault/features/approval/domain/repositories/approval_repository.dart';
-import 'package:mobile_claw_vault/features/approval/presentation/cubit/regrant_cubit.dart';
-import 'package:mobile_claw_vault/features/grants/domain/entities/grant_method.dart';
+import 'package:mobile_palladin/features/approval/domain/repositories/approval_repository.dart';
+import 'package:mobile_palladin/features/approval/presentation/cubit/regrant_cubit.dart';
+import 'package:mobile_palladin/features/grants/domain/entities/grant_method.dart';
 
 class _MockApprovalRepository extends Mock implements ApprovalRepository {}
 

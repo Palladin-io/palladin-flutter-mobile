@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mobile_claw_vault/features/vault/domain/entities/entry_entity.dart';
-import 'package:mobile_claw_vault/features/vault/presentation/widgets/entry_form_utils.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
+import 'package:mobile_palladin/features/vault/presentation/widgets/entry_form_utils.dart';
 
 void main() {
   group('EntryFormUtils.isValidUrl', () {

@@ -1,33 +1,33 @@
 import 'package:flutter/material.dart';
 
-/// Central color palette for Claw Vault.
+/// Central color palette for Palladin.
 ///
 /// All colors used across the app must reference this class.
 /// Never use inline color literals outside of this file.
 abstract final class AppColors {
   // === Backgrounds ===
 
-  /// Dark theme scaffold background — deep navy.
-  static const Color darkBackground = Color(0xFF000B2E);
+  /// Dark theme scaffold background — deep graphite.
+  static const Color darkBackground = Color(0xFF15171B);
 
-  /// Dark theme surface — elevated navy.
-  static const Color darkSurface = Color(0xFF1A2A4A);
+  /// Dark theme surface — elevated graphite.
+  static const Color darkSurface = Color(0xFF20242C);
 
-  /// Mobile prototype "surface" card background — slightly bluer navy
+  /// Mobile prototype "surface" card background — graphite,
   /// used by vault detail and list cards (matches `--surface` in the
   /// Astro prototype).
-  static const Color mobileSurface = Color(0xFF0D1B3E);
+  static const Color mobileSurface = Color(0xFF23262C);
 
   /// Light theme scaffold background — warm cream.
-  static const Color lightBackground = Color(0xFFFDF9E4);
+  static const Color lightBackground = Color(0xFFE8EAED);
 
   /// Light theme surface — slightly darker cream.
-  static const Color lightSurface = Color(0xFFEEEAD4);
+  static const Color lightSurface = Color(0xFFDCDEE2);
 
   // === Brand ===
 
   /// Brand red — "Vault" wordmark and error states.
-  static const Color brandRed = Color(0xFFFF4F4F);
+  static const Color brandRed = Color(0xFFEB4747);
 
   /// Foreground (text/icon) color used on top of [brandRed] surfaces —
   /// e.g. the destructive "Delete" CTA, the empty-state "New vault"
@@ -50,7 +50,7 @@ abstract final class AppColors {
   /// prototype's `box-shadow: 0 3px 10px rgba(255,79,79,0.35)`. Kept
   /// as a const (instead of `brandRed.withValues(...)`) so it can be
   /// used inside `const` `BoxShadow` lists.
-  static const Color fabShadow = Color(0x59FF4F4F);
+  static const Color fabShadow = Color(0x59EB4747);
 
   /// FAB hairline border — `onBrandRed` at 20% alpha. Subtle white
   /// outline on the brand-red FAB that lifts it off the gradient
@@ -64,7 +64,7 @@ abstract final class AppColors {
   // === Text (dark mode) ===
 
   /// Primary text color in dark mode — warm cream (same hue as light background).
-  static const Color textPrimary = Color(0xFFFDF9E4);
+  static const Color textPrimary = Color(0xFFE8EAED);
 
   /// Secondary text color in dark mode — cool blue-gray.
   static const Color textSecondary = Color(0xFFB8C5D4);
@@ -76,7 +76,7 @@ abstract final class AppColors {
 
   /// Mobile-prototype secondary text — warm sand (Astro `--t2`). Used
   /// for input labels and supporting copy on the vault screens.
-  static const Color textSecondaryMobile = Color(0xFFC4BAA1);
+  static const Color textSecondaryMobile = Color(0xFFB4B8C0);
 
   /// Mobile-prototype tertiary text — slate (Astro `--t3`). Used for
   /// meta lines, icon-buttons, and inactive controls on vault screens.
@@ -99,11 +99,11 @@ abstract final class AppColors {
   static const Color strengthFair = Color(0xFFF4B942);
 
   /// Positive accent used for "correct" checkmarks during recovery
-  /// word confirmation. Matches the prototype's `#2EC4B6`.
-  static const Color positiveAccent = Color(0xFF2EC4B6);
+  /// word confirmation. Matches the prototype's `#10B981`.
+  static const Color positiveAccent = Color(0xFF10B981);
 
   /// Warning banner background used on the recovery-key backup screen.
-  static const Color warningBackground = Color(0x33FF4F4F);
+  static const Color warningBackground = Color(0x33EB4747);
 
   /// Muted icon color — white at 60% opacity (visibility toggles, decorative icons on dark background).
   static const Color iconMuted = Color(0x99FFFFFF);
@@ -140,15 +140,15 @@ abstract final class AppColors {
 
   // === Bottom navigation ===
 
-  /// Translucent navy used as the bottom-nav background — matches the
-  /// prototype's `rgba(10, 26, 62, 0.8)` so the nav reads as a frosted
+  /// Translucent graphite used as the bottom-nav background —
+  /// `#212429` at 80 % opacity so the nav reads as a frosted
   /// rail above the gradient backdrop.
-  static const Color bottomNavBackground = Color(0xCC0A1A3E);
+  static const Color bottomNavBackground = Color(0xCC212429);
 
   /// Hairline border on top of the bottom nav — bumped from the
-  /// prototype's `rgba(253, 249, 228, 0.06)` (~6%) to ~10% so the 1-px
-  /// stroke actually reads against the translucent navy backdrop.
-  static const Color bottomNavBorder = Color(0x1AFDF9E4);
+  /// prototype's `rgba(232, 234, 237, 0.06)` (~6%) to ~10% so the 1-px
+  /// stroke actually reads against the translucent graphite backdrop.
+  static const Color bottomNavBorder = Color(0x1AE8EAED);
 
   // === Premium / billing ===
 
@@ -164,14 +164,14 @@ abstract final class AppColors {
   // 160deg gradient used as the background on every screen in dark mode.
   // Color stops kept here; use [darkBackgroundGradient] for the assembled
   // LinearGradient.
-  static const Color onboardingGradientStart = Color(0xFF000B2E);
-  static const Color onboardingGradientMidTop = Color(0xFF0A1A3E);
-  static const Color onboardingGradientMidBottom = Color(0xFF0E1230);
-  static const Color onboardingGradientEnd = Color(0xFF000B2E);
+  static const Color onboardingGradientStart = Color(0xFF15171B);
+  static const Color onboardingGradientMidTop = Color(0xFF212429);
+  static const Color onboardingGradientMidBottom = Color(0xFF1A1D22);
+  static const Color onboardingGradientEnd = Color(0xFF15171B);
 
   /// Assembled dark background — matches the web panel's authenticated
-  /// background exactly: `linear-gradient(160deg, #000B2E 0%, #0A1A3E 30%,
-  /// #0E1230 60%, #000B2E 100%)` (see web `_authenticated.tsx` GRADIENTS).
+  /// background exactly: `linear-gradient(160deg, #15171B 0%, #212429 30%,
+  /// #1A1D22 60%, #15171B 100%)` (see web `_authenticated.tsx` GRADIENTS).
   static const LinearGradient darkBackgroundGradient = LinearGradient(
     begin: Alignment(-0.34, -0.94),
     end: Alignment(0.34, 0.94),
@@ -192,16 +192,16 @@ abstract final class AppColors {
   // cream/peach blend. Use [lightBackgroundGradient] directly or via
   // [backgroundGradient] for the brightness-aware helper.
   /// Assembled light-background gradient — matches the web panel exactly:
-  /// `linear-gradient(160deg, #FDF9E4 0%, #FFF0E0 35%, #FDF9E4 65%, #FFF5E8
+  /// `linear-gradient(160deg, #E8EAED 0%, #EDEFF2 35%, #E8EAED 65%, #F0F2F5
   /// 100%)` (see web `_authenticated.tsx` GRADIENTS).
   static const LinearGradient lightBackgroundGradient = LinearGradient(
     begin: Alignment(-0.34, -0.94),
     end: Alignment(0.34, 0.94),
     colors: [
-      Color(0xFFFDF9E4),
-      Color(0xFFFFF0E0),
-      Color(0xFFFDF9E4),
-      Color(0xFFFFF5E8),
+      Color(0xFFE8EAED),
+      Color(0xFFEDEFF2),
+      Color(0xFFE8EAED),
+      Color(0xFFF0F2F5),
     ],
     // Mid stops pushed lower than the web (0.35/0.65) for the taller screen.
     stops: [0.0, 0.5, 0.8, 1.0],
@@ -218,7 +218,7 @@ abstract final class AppColors {
   // Defined as static methods (not consts) because they depend on
   // the runtime brightness value.
 
-  /// Primary text — cream in dark (`#FDF9E4`), deep navy in light (`#000B2E`).
+  /// Primary text — cream in dark (`#E8EAED`), deep navy in light (`#15171B`).
   static Color onSurface(Brightness b) =>
       b == Brightness.dark ? textPrimary : darkBackground;
 
@@ -230,20 +230,20 @@ abstract final class AppColors {
   static Color onSurfaceSubtle(Brightness b) =>
       b == Brightness.dark ? textTertiary : textTertiaryMobile;
 
-  /// Input fill — `rgba(253,249,228,0.04)` in dark,
-  /// `rgba(255,252,247,0.70)` in light. Matches the prototype's frosted
+  /// Input fill — `rgba(232, 234, 237,0.04)` in dark,
+  /// `rgba(245, 247, 250,0.70)` in light. Matches the prototype's frosted
   /// input recipe.
   static Color inputFill(Brightness b) =>
       b == Brightness.dark
-          ? const Color(0x0AFDF9E4)
-          : const Color(0xB3FFFCF7);
+          ? const Color(0x0AE8EAED)
+          : const Color(0xB3F5F7FA);
 
-  /// Input border — `rgba(253,249,228,0.08)` in dark,
-  /// `rgba(0,11,46,0.08)` in light.
+  /// Input border — `rgba(232, 234, 237,0.08)` in dark,
+  /// `rgba(12, 14, 18,0.08)` in light.
   static Color inputBorder(Brightness b) =>
       b == Brightness.dark
-          ? const Color(0x14FDF9E4)
-          : const Color(0x14000B2E);
+          ? const Color(0x14E8EAED)
+          : const Color(0x1415171B);
 
   /// Input text color — cream in dark, deep navy in light.
   static Color inputText(Brightness b) =>
@@ -254,56 +254,56 @@ abstract final class AppColors {
   static Color inputHint(Brightness b) =>
       b == Brightness.dark ? textTertiary : textTertiaryMobile;
 
-  /// Glass card fill — `rgba(253,249,228,0.04)` in dark,
-  /// `rgba(255,252,247,0.65)` in light.
+  /// Glass card fill — `rgba(232, 234, 237,0.04)` in dark,
+  /// `rgba(245, 247, 250,0.65)` in light.
   static Color cardFill(Brightness b) =>
       b == Brightness.dark
-          ? const Color(0x0AFDF9E4)
-          : const Color(0xA6FFFCF7);
+          ? const Color(0x0AE8EAED)
+          : const Color(0xA6F5F7FA);
 
-  /// Glass card border — `rgba(253,249,228,0.06)` in dark,
-  /// `rgba(0,11,46,0.06)` in light.
+  /// Glass card border — `rgba(232, 234, 237,0.06)` in dark,
+  /// `rgba(12, 14, 18,0.06)` in light.
   static Color cardBorder(Brightness b) =>
       b == Brightness.dark
-          ? const Color(0x0FFDF9E4)
-          : const Color(0x0F000B2E);
+          ? const Color(0x0FE8EAED)
+          : const Color(0x0F15171B);
 
   /// Neutral OFF-state track for the compact [AppToggle] — a muted grey that
   /// reads clearly as "off" (not disabled) in both themes.
   static Color toggleTrackOff(Brightness b) =>
       b == Brightness.dark
-          ? const Color(0x33FDF9E4)
-          : const Color(0x33000B2E);
+          ? const Color(0x33E8EAED)
+          : const Color(0x3315171B);
 
   /// Footer overlay on a glass card — nearly transparent navy tint in
-  /// light mode (`rgba(0,11,46,0.015)`) and a nearly transparent cream
-  /// tint in dark mode (`rgba(253,249,228,0.02)`). Used to subtly set the
+  /// light mode (`rgba(12, 14, 18,0.015)`) and a nearly transparent cream
+  /// tint in dark mode (`rgba(232, 234, 237,0.02)`). Used to subtly set the
   /// card footer apart from the main card body without introducing a
   /// distinct surface colour.
   static Color cardFooterOverlay(Brightness b) =>
       b == Brightness.dark
-          ? const Color(0x05FDF9E4)
-          : const Color(0x04000B2E);
+          ? const Color(0x05E8EAED)
+          : const Color(0x0415171B);
 
-  /// Bottom nav background — translucent navy (`rgba(10,26,62,0.80)`) in
-  /// dark, translucent cream (`rgba(255,252,247,0.75)`) in light.
+  /// Bottom nav background — translucent graphite (`rgba(33,36,41,0.80)`) in
+  /// dark, translucent cream (`rgba(245, 247, 250,0.75)`) in light.
   static Color navBackground(Brightness b) =>
       b == Brightness.dark
           ? bottomNavBackground
-          : const Color(0xBFFFFCF7);
+          : const Color(0xBFF5F7FA);
 
-  /// Bottom nav top border — `rgba(253,249,228,0.06)` in dark,
-  /// `rgba(0,11,46,0.06)` in light.
+  /// Bottom nav top border — `rgba(232, 234, 237,0.06)` in dark,
+  /// `rgba(12, 14, 18,0.06)` in light.
   static Color navBorder(Brightness b) =>
       b == Brightness.dark
-          ? const Color(0x0FFDF9E4)
-          : const Color(0x0F000B2E);
+          ? const Color(0x0FE8EAED)
+          : const Color(0x0F15171B);
 
-  /// Modal / drawer background — solid, non-transparent. `#0D1B3E` in
-  /// dark, `#FFFCF7` in light. Use this for bottom sheets and the
+  /// Modal / drawer background — solid, non-transparent. `#23262C` in
+  /// dark, `#F5F7FA` in light. Use this for bottom sheets and the
   /// settings drawer so they read as opaque surfaces above the gradient.
   static Color modalBackground(Brightness b) =>
-      b == Brightness.dark ? mobileSurface : const Color(0xFFFFFCF7);
+      b == Brightness.dark ? mobileSurface : const Color(0xFFF5F7FA);
 
   /// Card / elevated surface — kept for back-compat with code paths that
   /// expect a fully opaque tile (refresh indicators, dropdown menus).

@@ -131,7 +131,7 @@ class ApiKeyDetailsTab extends StatelessWidget {
         if (!apiKey.isActive && canWrite) ...[
           const SizedBox(height: AppSpacing.section),
           // Activate section — green-accented card, mirrors the danger zone
-          // structure but uses positiveAccent (#2EC4B6) instead of brandRed.
+          // structure but uses positiveAccent (#10B981) instead of brandRed.
           // positiveAccent is the "approve/restore" semantic colour shared
           // with the web panel — visible on both dark and light backgrounds.
           Container(

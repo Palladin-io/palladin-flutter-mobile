@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -52,50 +54,28 @@ class LoginPage extends StatelessWidget {
   }
 
   Widget _buildHero(BuildContext context, Color textColor) {
-    final l10n = AppLocalizations.of(context)!;
-    final subtitleStyle = TextStyle(
-      fontSize: 18,
-      fontWeight: FontWeight.w500,
-      color: textColor.withValues(alpha: 0.55),
-      height: 1.35,
-    );
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Image.asset('assets/images/logo.png', height: 100),
-        const SizedBox(height: AppSpacing.xl),
+        Image.asset('assets/images/logo.png', height: 88),
+        const SizedBox(height: AppSpacing.sm),
         RichText(
           textAlign: TextAlign.center,
           text: TextSpan(
+            style: const TextStyle(
+              fontSize: 52,
+              fontWeight: FontWeight.w900,
+              height: 1.0,
+              letterSpacing: -1.5,
+            ),
             children: [
-              TextSpan(
-                text: 'Claw ',
-                style: TextStyle(
-                  fontSize: 52,
-                  fontWeight: FontWeight.w900,
-                  color: textColor,
-                  height: 1.0,
-                  letterSpacing: -1.5,
-                ),
-              ),
-              const TextSpan(
-                text: 'Vault',
-                style: TextStyle(
-                  fontSize: 52,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.brandRed,
-                  height: 1.0,
-                  letterSpacing: -1.5,
-                ),
-              ),
+              TextSpan(text: 'Palladin', style: TextStyle(color: textColor)),
+              const TextSpan(text: '.io', style: TextStyle(color: AppColors.brandRed)),
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.section),
-        Text(l10n.taglineZeroKnowledge, textAlign: TextAlign.center, style: subtitleStyle),
-        Text(l10n.taglinePasswordManager, textAlign: TextAlign.center, style: subtitleStyle),
-        Text(l10n.taglineForAiAgents, textAlign: TextAlign.center, style: subtitleStyle),
+        const SizedBox(height: AppSpacing.xs),
+        _RotatingWelcome(color: textColor),
       ],
     );
   }
@@ -228,6 +208,71 @@ class LoginPage extends StatelessWidget {
           fontSize: 20,
           fontWeight: FontWeight.w700,
           color: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
+/// Rotating welcome line shown under the wordmark on the login screen.
+/// Cycles short greetings with a soft fade.
+class _RotatingWelcome extends StatefulWidget {
+  const _RotatingWelcome({required this.color});
+
+  final Color color;
+
+  @override
+  State<_RotatingWelcome> createState() => _RotatingWelcomeState();
+}
+
+class _RotatingWelcomeState extends State<_RotatingWelcome> {
+  int _index = 0;
+  bool _visible = true;
+  Timer? _timer;
+
+  List<String> _messages(AppLocalizations l10n) => [
+    l10n.loginRotatingZeroKnowledge,
+    l10n.loginRotatingForAgents,
+    l10n.loginRotatingYourKeys,
+    l10n.loginRotatingEncrypted,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 3800), (_) {
+      if (!mounted) return;
+      setState(() => _visible = false);
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (!mounted) return;
+        setState(() {
+          _index = _index + 1;
+          _visible = true;
+        });
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final messages = _messages(AppLocalizations.of(context)!);
+    return AnimatedOpacity(
+      opacity: _visible ? 1 : 0,
+      duration: const Duration(milliseconds: 300),
+      child: Text(
+        messages[_index % messages.length],
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: widget.color.withValues(alpha: 0.55),
+          height: 1.35,
         ),
       ),
     );

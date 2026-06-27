@@ -2,7 +2,7 @@ import 'package:posthog_flutter/posthog_flutter.dart';
 
 import '../../config/env_config.dart';
 
-/// Wraps the PostHog SDK with Claw Vault conventions.
+/// Wraps the PostHog SDK with Palladin conventions.
 ///
 /// All captured events are automatically prefixed with `mb:` to follow
 /// the project-wide analytics naming format `{component}:{module}:{event}`.

@@ -2,10 +2,10 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:mobile_claw_vault/features/agents/domain/entities/agent.dart';
-import 'package:mobile_claw_vault/features/agents/domain/exceptions/agents_exceptions.dart';
-import 'package:mobile_claw_vault/features/agents/domain/repositories/agents_repository.dart';
-import 'package:mobile_claw_vault/features/agents/presentation/bloc/agents_cubit.dart';
+import 'package:mobile_palladin/features/agents/domain/entities/agent.dart';
+import 'package:mobile_palladin/features/agents/domain/exceptions/agents_exceptions.dart';
+import 'package:mobile_palladin/features/agents/domain/repositories/agents_repository.dart';
+import 'package:mobile_palladin/features/agents/presentation/bloc/agents_cubit.dart';
 
 class _MockAgentsRepository extends Mock implements AgentsRepository {}
 

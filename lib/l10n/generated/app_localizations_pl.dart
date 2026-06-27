@@ -9,19 +9,22 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
-  String get appTitle => 'Claw Vault';
+  String get appTitle => 'Palladin';
 
   @override
-  String get welcomeMessage => 'Witaj w Claw Vault';
+  String get welcomeMessage => 'Witaj w Palladin';
 
   @override
-  String get taglineZeroKnowledge => 'Zero-Knowledge';
+  String get loginRotatingZeroKnowledge => 'Zero-knowledge w każdym calu.';
 
   @override
-  String get taglinePasswordManager => 'Menedżer haseł';
+  String get loginRotatingForAgents => 'Stworzony dla agentów AI.';
 
   @override
-  String get taglineForAiAgents => 'Dla agentów AI';
+  String get loginRotatingYourKeys => 'Twoje klucze, Twoje zasady.';
+
+  @override
+  String get loginRotatingEncrypted => 'Zawsze zaszyfrowane.';
 
   @override
   String get continueWithGoogle => 'Kontynuuj z Google';
@@ -213,7 +216,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get recoveryPasteButton => 'Wklej ze schowka';
 
   @override
-  String get recoveryShareSubject => 'Klucz odzyskiwania Claw Vault';
+  String get recoveryShareSubject => 'Klucz odzyskiwania Palladin';
 
   @override
   String get recoveryImportButton => 'Importuj z pliku .txt';
@@ -1099,7 +1102,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get agentsApproveHint =>
-      'Przyznaj temu agentowi dostęp do organizacji';
+      'Pozwala agentowi jedynie przeglądać listę sejfów i wpisów — zawartość sekretów pozostaje zablokowana, dopóki nie zatwierdzisz prośby lub nie nadasz dostępu z góry.';
 
   @override
   String get agentsApprove => 'Zatwierdź agenta';
@@ -1137,7 +1140,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String agentsApproveConfirmBody(String name) {
-    return 'Zezwolić agentowi „$name” na dostęp do sejfów organizacji?';
+    return 'Zezwolić agentowi „$name” na przeglądanie listy sejfów i wpisów? Bez Twojego zatwierdzenia lub wcześniej nadanego dostępu nie odczyta żadnego sekretu.';
   }
 
   @override

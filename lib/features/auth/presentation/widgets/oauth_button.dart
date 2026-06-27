@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_spacing.dart';
 
-/// A full-width OAuth sign-in button matching the Claw Vault design
+/// A full-width OAuth sign-in button matching the Palladin design
 /// prototype.
 ///
 /// [icon] is displayed to the left of the [label]. When [enabled] is

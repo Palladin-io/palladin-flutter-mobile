@@ -11,7 +11,7 @@ import '../../domain/exceptions/approval_exceptions.dart';
 /// the vault owner approves an agent's request.
 ///
 /// Implements exactly the GRANULAR approval scheme from
-/// `docs/obsidian/claw-vault/Technical/Security Model.md`:
+/// `docs/obsidian/palladin/Technical/Security Model.md`:
 ///
 /// 1. `VK = crypto_box_seal_open(user_private_key, wrapped_VK)`
 /// 2. `plaintext = crypto_secretbox_open(VK, entry.blob, entry.nonce)`

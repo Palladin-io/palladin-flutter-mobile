@@ -1,36 +1,64 @@
 {
   "project_info": {
-    "project_number": "810617442937",
-    "project_id": "claw-vault",
-    "storage_bucket": "claw-vault.firebasestorage.app"
+    "project_number": "1006466869105",
+    "project_id": "palladin",
+    "storage_bucket": "palladin.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:810617442937:android:addf969151cb03ea6bbaa8",
+        "mobilesdk_app_id": "1:1006466869105:android:fc9c8cdff82ea1422eb8d0",
         "android_client_info": {
-          "package_name": "io.clawvault.mobile.staging"
+          "package_name": "io.palladin.mobile"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "810617442937-uqjo7cinqaemjjd3r3qtr7lhag44ebc5.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyALQ-hy9x-4QeABkVbVaLJRYmX5zVboh7w"
+          "current_key": "AIzaSyDIIT2msjikUnI-6nkgXA8NQwzwZFyOpMI"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "810617442937-uqjo7cinqaemjjd3r3qtr7lhag44ebc5.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1006466869105:android:d78fce556c7b0cfe2eb8d0",
+        "android_client_info": {
+          "package_name": "io.palladin.mobile.local"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDIIT2msjikUnI-6nkgXA8NQwzwZFyOpMI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1006466869105:android:571a5da21ec5611b2eb8d0",
+        "android_client_info": {
+          "package_name": "io.palladin.mobile.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDIIT2msjikUnI-6nkgXA8NQwzwZFyOpMI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
         }
       }
     }

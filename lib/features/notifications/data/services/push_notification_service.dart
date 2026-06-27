@@ -17,8 +17,8 @@ import '../datasources/push_token_remote_datasource.dart';
 /// AndroidManifest.xml so background notifications land in the same
 /// channel.
 const _androidChannel = AndroidNotificationChannel(
-  'clawvault_default',
-  'Claw Vault',
+  'palladin_default',
+  'Palladin',
   description: 'Grant approvals and agent activity',
   importance: Importance.high,
 );

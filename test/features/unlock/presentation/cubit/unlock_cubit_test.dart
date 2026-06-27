@@ -7,11 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:mobile_claw_vault/features/unlock/data/datasources/account_remote_datasource.dart';
-import 'package:mobile_claw_vault/features/unlock/data/models/account_response.dart';
-import 'package:mobile_claw_vault/features/unlock/data/services/unlock_crypto_service.dart';
-import 'package:mobile_claw_vault/features/unlock/domain/unlock_exceptions.dart';
-import 'package:mobile_claw_vault/features/unlock/presentation/cubit/unlock_cubit.dart';
+import 'package:mobile_palladin/features/unlock/data/datasources/account_remote_datasource.dart';
+import 'package:mobile_palladin/features/unlock/data/models/account_response.dart';
+import 'package:mobile_palladin/features/unlock/data/services/unlock_crypto_service.dart';
+import 'package:mobile_palladin/features/unlock/domain/unlock_exceptions.dart';
+import 'package:mobile_palladin/features/unlock/presentation/cubit/unlock_cubit.dart';
 
 class _MockAccountDatasource extends Mock implements AccountRemoteDatasource {}
 

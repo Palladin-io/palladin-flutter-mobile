@@ -29,7 +29,7 @@ void main() async {
   final themeMode = await prefs.themeMode;
   final locale = await prefs.locale;
 
-  runApp(ClawVaultApp(
+  runApp(PalladinApp(
     config: config,
     userPreferences: prefs,
     initialThemeMode: themeMode,

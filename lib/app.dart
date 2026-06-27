@@ -20,8 +20,8 @@ import 'features/notifications/domain/entities/push_message.dart';
 import 'features/notifications/presentation/cubit/notification_center_cubit.dart';
 import 'features/notifications/presentation/cubit/push_navigation_cubit.dart';
 
-class ClawVaultApp extends StatefulWidget {
-  const ClawVaultApp({
+class PalladinApp extends StatefulWidget {
+  const PalladinApp({
     super.key,
     required this.config,
     required this.userPreferences,
@@ -35,10 +35,10 @@ class ClawVaultApp extends StatefulWidget {
   final Locale initialLocale;
 
   @override
-  State<ClawVaultApp> createState() => _ClawVaultAppState();
+  State<PalladinApp> createState() => _PalladinAppState();
 }
 
-class _ClawVaultAppState extends State<ClawVaultApp>
+class _PalladinAppState extends State<PalladinApp>
     with WidgetsBindingObserver {
   // Stable across rebuilds so the push deep-link can navigate via
   // GoRouter regardless of which subtree currently has focus.
