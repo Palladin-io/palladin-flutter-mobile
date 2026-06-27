@@ -8,17 +8,21 @@
   "@welcomeMessage": {
     "description": "Greeting shown on the home/dashboard placeholder page"
   },
-  "taglineZeroKnowledge": "Zero-Knowledge",
-  "@taglineZeroKnowledge": {
-    "description": "First line of the stacked tagline on the login screen"
+  "loginRotatingZeroKnowledge": "Zero-knowledge by design.",
+  "@loginRotatingZeroKnowledge": {
+    "description": "Rotating welcome line on the login screen — zero-knowledge"
   },
-  "taglinePasswordManager": "Password Manager",
-  "@taglinePasswordManager": {
-    "description": "Second line of the stacked tagline on the login screen"
+  "loginRotatingForAgents": "Built for AI agents.",
+  "@loginRotatingForAgents": {
+    "description": "Rotating welcome line on the login screen — built for agents"
   },
-  "taglineForAiAgents": "For AI Agents",
-  "@taglineForAiAgents": {
-    "description": "Third line of the stacked tagline on the login screen"
+  "loginRotatingYourKeys": "Your keys, your rules.",
+  "@loginRotatingYourKeys": {
+    "description": "Rotating welcome line on the login screen — your keys"
+  },
+  "loginRotatingEncrypted": "Always encrypted.",
+  "@loginRotatingEncrypted": {
+    "description": "Rotating welcome line on the login screen — always encrypted"
   },
   "continueWithGoogle": "Continue with Google",
   "@continueWithGoogle": {

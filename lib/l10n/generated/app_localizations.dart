@@ -110,23 +110,29 @@ abstract class AppLocalizations {
   /// **'Welcome to Palladin'**
   String get welcomeMessage;
 
-  /// First line of the stacked tagline on the login screen
+  /// Rotating welcome line on the login screen — zero-knowledge
   ///
   /// In en, this message translates to:
-  /// **'Zero-Knowledge'**
-  String get taglineZeroKnowledge;
+  /// **'Zero-knowledge by design.'**
+  String get loginRotatingZeroKnowledge;
 
-  /// Second line of the stacked tagline on the login screen
+  /// Rotating welcome line on the login screen — built for agents
   ///
   /// In en, this message translates to:
-  /// **'Password Manager'**
-  String get taglinePasswordManager;
+  /// **'Built for AI agents.'**
+  String get loginRotatingForAgents;
 
-  /// Third line of the stacked tagline on the login screen
+  /// Rotating welcome line on the login screen — your keys
   ///
   /// In en, this message translates to:
-  /// **'For AI Agents'**
-  String get taglineForAiAgents;
+  /// **'Your keys, your rules.'**
+  String get loginRotatingYourKeys;
+
+  /// Rotating welcome line on the login screen — always encrypted
+  ///
+  /// In en, this message translates to:
+  /// **'Always encrypted.'**
+  String get loginRotatingEncrypted;
 
   /// Label for the Google OAuth sign-in button
   ///

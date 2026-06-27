@@ -15,13 +15,16 @@ class AppLocalizationsPl extends AppLocalizations {
   String get welcomeMessage => 'Witaj w Palladin';
 
   @override
-  String get taglineZeroKnowledge => 'Zero-Knowledge';
+  String get loginRotatingZeroKnowledge => 'Zero-knowledge w każdym calu.';
 
   @override
-  String get taglinePasswordManager => 'Menedżer haseł';
+  String get loginRotatingForAgents => 'Stworzony dla agentów AI.';
 
   @override
-  String get taglineForAiAgents => 'Dla agentów AI';
+  String get loginRotatingYourKeys => 'Twoje klucze, Twoje zasady.';
+
+  @override
+  String get loginRotatingEncrypted => 'Zawsze zaszyfrowane.';
 
   @override
   String get continueWithGoogle => 'Kontynuuj z Google';

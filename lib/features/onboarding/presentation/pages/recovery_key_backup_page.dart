@@ -94,6 +94,7 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
   }
 
   Future<void> _exportToFile(List<String> words) async {
+    final l10n = AppLocalizations.of(context)!;
     final box = _exportButtonKey.currentContext?.findRenderObject() as RenderBox?;
     final origin = box != null
         ? box.localToGlobal(Offset.zero) & box.size
@@ -116,7 +117,7 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
     await Share.shareXFiles(
       [XFile.fromData(bytes, mimeType: 'text/plain')],
       fileNameOverrides: const ['palladin-recovery-key.txt'],
-      subject: 'Palladin Recovery Key',
+      subject: l10n.recoveryShareSubject,
       sharePositionOrigin: origin,
     );
   }

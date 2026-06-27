@@ -116,17 +116,15 @@ class _UnlockViewState extends State<_UnlockView> {
       children: [
         Image.asset('assets/images/logo.png', height: 80),
         const SizedBox(height: AppSpacing.xl),
-        RichText(
+        Text(
+          'Palladin',
           textAlign: TextAlign.center,
-          text: TextSpan(
-            text: 'Palladin',
-            style: TextStyle(
-              fontSize: 40,
-              fontWeight: FontWeight.w900,
-              color: AppColors.onSurface(brightness),
-              height: 1.0,
-              letterSpacing: -1.2,
-            ),
+          style: TextStyle(
+            fontSize: 40,
+            fontWeight: FontWeight.w900,
+            color: AppColors.onSurface(brightness),
+            height: 1.0,
+            letterSpacing: -1.2,
           ),
         ),
         const SizedBox(height: AppSpacing.section),

@@ -226,16 +226,16 @@ class _RotatingWelcome extends StatefulWidget {
 }
 
 class _RotatingWelcomeState extends State<_RotatingWelcome> {
-  static const List<String> _messages = [
-    'Zero-knowledge by design.',
-    'Built for AI agents.',
-    'Your keys, your rules.',
-    'Always encrypted.',
-  ];
-
   int _index = 0;
   bool _visible = true;
   Timer? _timer;
+
+  List<String> _messages(AppLocalizations l10n) => [
+    l10n.loginRotatingZeroKnowledge,
+    l10n.loginRotatingForAgents,
+    l10n.loginRotatingYourKeys,
+    l10n.loginRotatingEncrypted,
+  ];
 
   @override
   void initState() {
@@ -246,7 +246,7 @@ class _RotatingWelcomeState extends State<_RotatingWelcome> {
       Future.delayed(const Duration(milliseconds: 350), () {
         if (!mounted) return;
         setState(() {
-          _index = (_index + 1) % _messages.length;
+          _index = (_index + 1) % 4;
           _visible = true;
         });
       });
@@ -261,11 +261,12 @@ class _RotatingWelcomeState extends State<_RotatingWelcome> {
 
   @override
   Widget build(BuildContext context) {
+    final messages = _messages(AppLocalizations.of(context)!);
     return AnimatedOpacity(
       opacity: _visible ? 1 : 0,
       duration: const Duration(milliseconds: 300),
       child: Text(
-        _messages[_index],
+        messages[_index],
         textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 14,
