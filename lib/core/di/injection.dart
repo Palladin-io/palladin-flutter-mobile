@@ -25,6 +25,10 @@ import '../../features/approval/presentation/cubit/grant_access_cubit.dart';
 import '../../features/approval/presentation/cubit/grant_approval_cubit.dart';
 import '../../features/approval/presentation/cubit/pending_grants_cubit.dart';
 import '../../features/approval/presentation/cubit/regrant_cubit.dart';
+import '../../features/audit/data/datasources/audit_remote_datasource.dart';
+import '../../features/audit/data/repositories/audit_repository_impl.dart';
+import '../../features/audit/domain/repositories/audit_repository.dart';
+import '../../features/audit/presentation/cubit/entry_logs_cubit.dart';
 import '../../features/grants/data/datasources/grants_remote_datasource.dart';
 import '../../features/grants/data/repositories/grants_repository_impl.dart';
 import '../../features/grants/domain/repositories/grants_repository.dart';
@@ -343,6 +347,26 @@ void configureDependencies(EnvConfig config) {
   // search state never leaks across visits.
   getIt.registerFactory<OrgGrantsCubit>(
     () => OrgGrantsCubit(repository: getIt<GrantsRepository>()),
+  );
+
+  // Audit (CVT-133) — data layer.
+  getIt.registerLazySingleton<AuditRemoteDatasource>(
+    () => AuditRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<AuditRepository>(
+    () => AuditRepositoryImpl(getIt<AuditRemoteDatasource>()),
+  );
+
+  // EntryLogsCubit: factory per entry-detail Logs tab mount, scoped to a
+  // vault + entry (param1 = vaultId, param2 = entryId). Resolves agent
+  // names from the agents repository to label otherwise id-only rows.
+  getIt.registerFactoryParam<EntryLogsCubit, String, String>(
+    (vaultId, entryId) => EntryLogsCubit(
+      auditRepository: getIt<AuditRepository>(),
+      agentsRepository: getIt<AgentsRepository>(),
+      vaultId: vaultId,
+      entryId: entryId,
+    ),
   );
 
   // Approval flow (CVT-58) — data layer.

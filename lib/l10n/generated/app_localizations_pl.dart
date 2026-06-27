@@ -1979,4 +1979,146 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get notifPrefsTypeCredentialStale => 'Nieaktualne hasło';
+
+  @override
+  String get auditSearchHint => 'Szukaj w dzienniku…';
+
+  @override
+  String get auditLoadMore => 'Wczytaj więcej';
+
+  @override
+  String get auditLoadMoreError => 'Nie udało się wczytać kolejnych wpisów.';
+
+  @override
+  String get auditEmptyTitle => 'Brak aktywności';
+
+  @override
+  String get auditEmptyHint =>
+      'Tu pojawią się zdarzenia dostępu i nadań dla tego wpisu.';
+
+  @override
+  String get auditEmptyFilteredTitle => 'Brak pasujących zdarzeń';
+
+  @override
+  String get auditEmptyFilteredHint => 'Zmień filtry lub frazę wyszukiwania.';
+
+  @override
+  String get auditFilterTitle => 'Filtruj dziennik';
+
+  @override
+  String get auditFilterEventTypes => 'Typy zdarzeń';
+
+  @override
+  String get auditFilterAgent => 'Agent';
+
+  @override
+  String get auditFilterAllAgents => 'Wszyscy agenci';
+
+  @override
+  String get auditFilterDateRange => 'Zakres dat';
+
+  @override
+  String get auditFilterFrom => 'Od';
+
+  @override
+  String get auditFilterTo => 'Do';
+
+  @override
+  String get auditFilterReset => 'Wyczyść';
+
+  @override
+  String get auditFilterApply => 'Zastosuj';
+
+  @override
+  String get auditDetailEntry => 'Wpis';
+
+  @override
+  String get auditDetailReason => 'Powód';
+
+  @override
+  String get auditDetailNone => 'Brak dodatkowych szczegółów.';
+
+  @override
+  String get auditActorOwner => 'Właściciel';
+
+  @override
+  String get auditActorSystem => 'System';
+
+  @override
+  String get auditActorAgent => 'Agent';
+
+  @override
+  String get auditErrorForbidden =>
+      'Nie masz uprawnień do przeglądania dziennika.';
+
+  @override
+  String get auditErrorNotFound => 'Dziennik jest niedostępny dla tego sejfu.';
+
+  @override
+  String get auditErrorNetwork =>
+      'Błąd sieci. Sprawdź połączenie i spróbuj ponownie.';
+
+  @override
+  String get auditErrorGeneric =>
+      'Nie udało się wczytać dziennika. Spróbuj ponownie.';
+
+  @override
+  String get auditEventGrantCreated => 'Przyznano dostęp';
+
+  @override
+  String get auditEventGrantRequested => 'Poproszono o dostęp';
+
+  @override
+  String get auditEventGrantApproved => 'Zatwierdzono dostęp';
+
+  @override
+  String get auditEventGrantDenied => 'Odrzucono dostęp';
+
+  @override
+  String get auditEventGrantRevoked => 'Cofnięto dostęp';
+
+  @override
+  String get auditEventGrantConsumed => 'Wykorzystano nadanie';
+
+  @override
+  String get auditEventGrantExpired => 'Nadanie wygasło';
+
+  @override
+  String get auditEventCredentialAccessed => 'Odczytano dane';
+
+  @override
+  String get auditEventCredentialAccessDenied => 'Odmówiono dostępu';
+
+  @override
+  String get auditEventAgentEnrolled => 'Zarejestrowano agenta';
+
+  @override
+  String get auditEventAgentBlocked => 'Zablokowano agenta';
+
+  @override
+  String get auditEventAgentReactivated => 'Ponownie aktywowano agenta';
+
+  @override
+  String get auditEventAgentDeleted => 'Usunięto agenta';
+
+  @override
+  String get auditEventVaultCreated => 'Utworzono sejf';
+
+  @override
+  String get auditEventVaultUpdated => 'Zaktualizowano sejf';
+
+  @override
+  String get auditEventVaultDeleted => 'Usunięto sejf';
+
+  @override
+  String get auditEventEntryCreated => 'Utworzono wpis';
+
+  @override
+  String get auditEventEntryUpdated => 'Zaktualizowano wpis';
+
+  @override
+  String get auditEventEntryDeleted => 'Usunięto wpis';
+
+  @override
+  String get auditEventUnknown => 'Aktywność';
 }

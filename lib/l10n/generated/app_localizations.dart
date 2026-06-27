@@ -3505,6 +3505,282 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Credential stale'**
   String get notifPrefsTypeCredentialStale;
+
+  /// No description provided for @auditSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search audit log…'**
+  String get auditSearchHint;
+
+  /// No description provided for @auditLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load more'**
+  String get auditLoadMore;
+
+  /// No description provided for @auditLoadMoreError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load more logs.'**
+  String get auditLoadMoreError;
+
+  /// No description provided for @auditEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No activity yet'**
+  String get auditEmptyTitle;
+
+  /// No description provided for @auditEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Access and grant events for this entry will appear here.'**
+  String get auditEmptyHint;
+
+  /// No description provided for @auditEmptyFilteredTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching events'**
+  String get auditEmptyFilteredTitle;
+
+  /// No description provided for @auditEmptyFilteredHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try adjusting your filters or search.'**
+  String get auditEmptyFilteredHint;
+
+  /// No description provided for @auditFilterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter logs'**
+  String get auditFilterTitle;
+
+  /// No description provided for @auditFilterEventTypes.
+  ///
+  /// In en, this message translates to:
+  /// **'Event types'**
+  String get auditFilterEventTypes;
+
+  /// No description provided for @auditFilterAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent'**
+  String get auditFilterAgent;
+
+  /// No description provided for @auditFilterAllAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'All agents'**
+  String get auditFilterAllAgents;
+
+  /// No description provided for @auditFilterDateRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Date range'**
+  String get auditFilterDateRange;
+
+  /// No description provided for @auditFilterFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'From'**
+  String get auditFilterFrom;
+
+  /// No description provided for @auditFilterTo.
+  ///
+  /// In en, this message translates to:
+  /// **'To'**
+  String get auditFilterTo;
+
+  /// No description provided for @auditFilterReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get auditFilterReset;
+
+  /// No description provided for @auditFilterApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get auditFilterApply;
+
+  /// No description provided for @auditDetailEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry'**
+  String get auditDetailEntry;
+
+  /// No description provided for @auditDetailReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason'**
+  String get auditDetailReason;
+
+  /// No description provided for @auditDetailNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No additional details.'**
+  String get auditDetailNone;
+
+  /// No description provided for @auditActorOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner'**
+  String get auditActorOwner;
+
+  /// No description provided for @auditActorSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get auditActorSystem;
+
+  /// No description provided for @auditActorAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent'**
+  String get auditActorAgent;
+
+  /// No description provided for @auditErrorForbidden.
+  ///
+  /// In en, this message translates to:
+  /// **'You don\'t have permission to view audit logs.'**
+  String get auditErrorForbidden;
+
+  /// No description provided for @auditErrorNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Audit logs are unavailable for this vault.'**
+  String get auditErrorNotFound;
+
+  /// No description provided for @auditErrorNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Network error. Check your connection and try again.'**
+  String get auditErrorNetwork;
+
+  /// No description provided for @auditErrorGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the audit log. Please try again.'**
+  String get auditErrorGeneric;
+
+  /// No description provided for @auditEventGrantCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Access granted'**
+  String get auditEventGrantCreated;
+
+  /// No description provided for @auditEventGrantRequested.
+  ///
+  /// In en, this message translates to:
+  /// **'Access requested'**
+  String get auditEventGrantRequested;
+
+  /// No description provided for @auditEventGrantApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Access approved'**
+  String get auditEventGrantApproved;
+
+  /// No description provided for @auditEventGrantDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Access denied'**
+  String get auditEventGrantDenied;
+
+  /// No description provided for @auditEventGrantRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'Access revoked'**
+  String get auditEventGrantRevoked;
+
+  /// No description provided for @auditEventGrantConsumed.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant consumed'**
+  String get auditEventGrantConsumed;
+
+  /// No description provided for @auditEventGrantExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant expired'**
+  String get auditEventGrantExpired;
+
+  /// No description provided for @auditEventCredentialAccessed.
+  ///
+  /// In en, this message translates to:
+  /// **'Credential accessed'**
+  String get auditEventCredentialAccessed;
+
+  /// No description provided for @auditEventCredentialAccessDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Access denied'**
+  String get auditEventCredentialAccessDenied;
+
+  /// No description provided for @auditEventAgentEnrolled.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent enrolled'**
+  String get auditEventAgentEnrolled;
+
+  /// No description provided for @auditEventAgentBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent blocked'**
+  String get auditEventAgentBlocked;
+
+  /// No description provided for @auditEventAgentReactivated.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent reactivated'**
+  String get auditEventAgentReactivated;
+
+  /// No description provided for @auditEventAgentDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent deleted'**
+  String get auditEventAgentDeleted;
+
+  /// No description provided for @auditEventVaultCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault created'**
+  String get auditEventVaultCreated;
+
+  /// No description provided for @auditEventVaultUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault updated'**
+  String get auditEventVaultUpdated;
+
+  /// No description provided for @auditEventVaultDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault deleted'**
+  String get auditEventVaultDeleted;
+
+  /// No description provided for @auditEventEntryCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry created'**
+  String get auditEventEntryCreated;
+
+  /// No description provided for @auditEventEntryUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry updated'**
+  String get auditEventEntryUpdated;
+
+  /// No description provided for @auditEventEntryDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry deleted'**
+  String get auditEventEntryDeleted;
+
+  /// No description provided for @auditEventUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get auditEventUnknown;
 }
 
 class _AppLocalizationsDelegate
