@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../l10n/generated/app_localizations.dart';
@@ -69,13 +70,16 @@ Color auditEventColor(AuditEventType eventType) {
   };
 }
 
-/// Compact local timestamp for an audit row, e.g. `2026-06-27 10:05`.
-String auditTimestamp(DateTime dt) {
-  final local = dt.toLocal();
-  String two(int v) => v.toString().padLeft(2, '0');
-  final date =
-      '${local.year.toString().padLeft(4, '0')}-${two(local.month)}-${two(local.day)}';
-  return '$date ${two(local.hour)}:${two(local.minute)}';
+/// Locale-aware date+time for an audit row — e.g. `27.06.2026 10:05` (pl)
+/// or `6/27/2026 10:05` (en). Date symbols for the app locales are loaded
+/// by `GlobalMaterialLocalizations`, so [localeName] is safe to pass.
+String auditTimestamp(DateTime dt, String localeName) {
+  return DateFormat.yMd(localeName).add_Hm().format(dt.toLocal());
+}
+
+/// Locale-aware date only — used by the filter date-range fields.
+String auditDate(DateTime dt, String localeName) {
+  return DateFormat.yMd(localeName).format(dt.toLocal());
 }
 
 /// Resolves the display name of the actor behind an audit [entry]:

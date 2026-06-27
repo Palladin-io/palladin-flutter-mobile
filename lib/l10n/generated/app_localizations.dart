@@ -3518,6 +3518,12 @@ abstract class AppLocalizations {
   /// **'Load more'**
   String get auditLoadMore;
 
+  /// No description provided for @auditLoadMoreError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load more logs.'**
+  String get auditLoadMoreError;
+
   /// No description provided for @auditEmptyTitle.
   ///
   /// In en, this message translates to:

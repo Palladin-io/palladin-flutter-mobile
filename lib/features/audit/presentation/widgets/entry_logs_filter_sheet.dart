@@ -79,11 +79,23 @@ class _EntryLogsFilterSheetState extends State<EntryLogsFilterSheet> {
 
   Future<void> _pickDate({required bool isFrom}) async {
     final now = DateTime.now();
+    // Clamp the picker to the other bound so an inverted range (from > to)
+    // can't be selected: "from" can't go past "to", "to" can't precede
+    // "from".
+    final firstDate = isFrom
+        ? DateTime(now.year - 5)
+        : (_from ?? DateTime(now.year - 5));
+    final lastDate = isFrom
+        ? (_to ?? DateTime(now.year + 1))
+        : DateTime(now.year + 1);
+    final initial = (isFrom ? _from : _to) ?? now;
     final picked = await showDatePicker(
       context: context,
-      initialDate: (isFrom ? _from : _to) ?? now,
-      firstDate: DateTime(now.year - 5),
-      lastDate: DateTime(now.year + 1),
+      initialDate: initial.isBefore(firstDate)
+          ? firstDate
+          : (initial.isAfter(lastDate) ? lastDate : initial),
+      firstDate: firstDate,
+      lastDate: lastDate,
     );
     if (picked == null) return;
     setState(() {
@@ -411,7 +423,7 @@ class _DateField extends StatelessWidget {
   Widget build(BuildContext context) {
     final display = value == null
         ? label
-        : auditTimestamp(value!).split(' ').first;
+        : auditDate(value!, Localizations.localeOf(context).toString());
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,

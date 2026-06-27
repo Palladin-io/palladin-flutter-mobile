@@ -84,16 +84,29 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
   /// Fetches the next vault page and appends any matching entry logs.
   Future<void> loadMore() async {
     if (state.loadingMore || state.nextCursor == null) return;
-    emit(state.copyWith(loadingMore: true));
+    emit(state.copyWith(loadingMore: true, loadMoreError: false));
     try {
       final page = await auditRepository.listVaultLogs(
         vaultId,
         cursor: state.nextCursor,
         pageSize: _pageSize,
       );
-      final more = page.entries.where((e) => e.entryId == entryId);
+      final more = page.entries
+          .where((e) => e.entryId == entryId)
+          .toList(growable: false);
+
+      // Refresh the name cache only when this page introduces an agent we
+      // haven't resolved yet — otherwise a first-on-this-page agent would
+      // render as a truncated id until a full reload.
+      final hasUnknownAgent = more.any((e) =>
+          e.agentId != null && !state.agentNames.containsKey(e.agentId));
+      final agentNames = hasUnknownAgent
+          ? {...state.agentNames, ...await _resolveAgentNames()}
+          : state.agentNames;
+
       emit(state.copyWith(
         entries: [...state.entries, ...more],
+        agentNames: agentNames,
         nextCursor: page.nextCursor,
         clearNextCursor: page.nextCursor == null,
         loadingMore: false,
@@ -101,7 +114,7 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
     } catch (e, s) {
       AppLogger.e('Audit', 'Entry log loadMore failed',
           error: e, stackTrace: s);
-      emit(state.copyWith(loadingMore: false));
+      emit(state.copyWith(loadingMore: false, loadMoreError: true));
     }
   }
 

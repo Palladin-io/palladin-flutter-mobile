@@ -1987,6 +1987,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get auditLoadMore => 'Wczytaj więcej';
 
   @override
+  String get auditLoadMoreError => 'Nie udało się wczytać kolejnych wpisów.';
+
+  @override
   String get auditEmptyTitle => 'Brak aktywności';
 
   @override

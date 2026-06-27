@@ -198,6 +198,7 @@ class _EntryLogsViewState extends State<_EntryLogsView> {
               sliver: SliverToBoxAdapter(
                 child: _LoadMoreButton(
                   loading: state.loadingMore,
+                  hasError: state.loadMoreError,
                   onPressed: () => context.read<EntryLogsCubit>().loadMore(),
                   brightness: brightness,
                 ),
@@ -215,45 +216,66 @@ class _EntryLogsViewState extends State<_EntryLogsView> {
 class _LoadMoreButton extends StatelessWidget {
   const _LoadMoreButton({
     required this.loading,
+    required this.hasError,
     required this.onPressed,
     required this.brightness,
   });
 
   final bool loading;
+  final bool hasError;
   final VoidCallback onPressed;
   final Brightness brightness;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return SizedBox(
-      height: 44,
-      child: OutlinedButton(
-        onPressed: loading ? null : onPressed,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.onSurfaceMuted(brightness),
-          side: BorderSide(color: AppColors.cardBorder(brightness)),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (hasError) ...[
+          Text(
+            l10n.auditLoadMoreError,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.brandRed, fontSize: 11),
+          ),
+          const SizedBox(height: AppSpacing.innerGap),
+        ],
+        SizedBox(
+          height: AppSpacing.controlHeight,
+          child: OutlinedButton(
+            onPressed: loading ? null : onPressed,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: hasError
+                  ? AppColors.brandRed
+                  : AppColors.onSurfaceMuted(brightness),
+              side: BorderSide(
+                color: hasError
+                    ? AppColors.brandRed.withValues(alpha: 0.5)
+                    : AppColors.cardBorder(brightness),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: loading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.tealAccent,
+                    ),
+                  )
+                : Text(
+                    hasError ? l10n.vaultRetry : l10n.auditLoadMore,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
           ),
         ),
-        child: loading
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.tealAccent,
-                ),
-              )
-            : Text(
-                l10n.auditLoadMore,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-      ),
+      ],
     );
   }
 }

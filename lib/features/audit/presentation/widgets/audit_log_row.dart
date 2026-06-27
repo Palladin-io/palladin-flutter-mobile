@@ -96,7 +96,10 @@ class _AuditLogRowState extends State<AuditLogRow> {
                     ),
                     const SizedBox(width: AppSpacing.innerGap),
                     Text(
-                      auditTimestamp(entry.createdAt),
+                      auditTimestamp(
+                        entry.createdAt,
+                        Localizations.localeOf(context).toString(),
+                      ),
                       style: TextStyle(
                         color: AppColors.onSurfaceSubtle(brightness),
                         fontSize: 10,

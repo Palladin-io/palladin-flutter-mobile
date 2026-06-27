@@ -1969,6 +1969,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditLoadMore => 'Load more';
 
   @override
+  String get auditLoadMoreError => 'Couldn\'t load more logs.';
+
+  @override
   String get auditEmptyTitle => 'No activity yet';
 
   @override

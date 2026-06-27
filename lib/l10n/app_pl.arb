@@ -570,6 +570,7 @@
   "notifPrefsTypeCredentialStale": "Nieaktualne hasło",
   "auditSearchHint": "Szukaj w dzienniku…",
   "auditLoadMore": "Wczytaj więcej",
+  "auditLoadMoreError": "Nie udało się wczytać kolejnych wpisów.",
   "auditEmptyTitle": "Brak aktywności",
   "auditEmptyHint": "Tu pojawią się zdarzenia dostępu i nadań dla tego wpisu.",
   "auditEmptyFilteredTitle": "Brak pasujących zdarzeń",

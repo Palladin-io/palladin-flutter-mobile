@@ -2229,6 +2229,7 @@
   "notifPrefsTypeCredentialStale": "Credential stale",
   "auditSearchHint": "Search audit log…",
   "auditLoadMore": "Load more",
+  "auditLoadMoreError": "Couldn't load more logs.",
   "auditEmptyTitle": "No activity yet",
   "auditEmptyHint": "Access and grant events for this entry will appear here.",
   "auditEmptyFilteredTitle": "No matching events",

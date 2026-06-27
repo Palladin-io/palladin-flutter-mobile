@@ -27,6 +27,7 @@ class EntryLogsState {
     this.error,
     this.nextCursor,
     this.loadingMore = false,
+    this.loadMoreError = false,
     this.eventTypeFilter = const {},
     this.agentFilter,
     this.fromDate,
@@ -51,6 +52,11 @@ class EntryLogsState {
 
   /// `true` while a "Load more" page request is in flight.
   final bool loadingMore;
+
+  /// `true` when the last "Load more" page request failed — surfaces a
+  /// one-shot inline error + retry next to the button. Cleared when a new
+  /// "Load more" starts.
+  final bool loadMoreError;
 
   /// Selected event types; empty = show all.
   final Set<AuditEventType> eventTypeFilter;
@@ -119,6 +125,7 @@ class EntryLogsState {
     String? nextCursor,
     bool clearNextCursor = false,
     bool? loadingMore,
+    bool? loadMoreError,
     Set<AuditEventType>? eventTypeFilter,
     String? agentFilter,
     bool clearAgentFilter = false,
@@ -135,6 +142,7 @@ class EntryLogsState {
       error: clearError ? null : (error ?? this.error),
       nextCursor: clearNextCursor ? null : (nextCursor ?? this.nextCursor),
       loadingMore: loadingMore ?? this.loadingMore,
+      loadMoreError: loadMoreError ?? this.loadMoreError,
       eventTypeFilter: eventTypeFilter ?? this.eventTypeFilter,
       agentFilter: clearAgentFilter ? null : (agentFilter ?? this.agentFilter),
       fromDate: clearFromDate ? null : (fromDate ?? this.fromDate),
