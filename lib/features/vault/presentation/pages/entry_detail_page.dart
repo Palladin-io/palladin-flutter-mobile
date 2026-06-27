@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -19,13 +20,13 @@ import '../../data/services/vault_icon_upload_service.dart'
     show VaultIconUploadErrorKind, VaultIconUploadException;
 import '../../../../core/widgets/app_fab.dart';
 import '../../../approval/presentation/widgets/grant_access_sheet.dart';
+import '../../../audit/presentation/widgets/entry_logs_tab.dart';
 import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../cubit/edit_entry_cubit.dart';
 import '../widgets/entry_form_utils.dart';
 import '../widgets/entry_form_widgets.dart';
 import '../widgets/entry_icon_picker.dart';
-import '../widgets/vault_placeholder_tab.dart';
 import '../widgets/vault_visuals.dart';
 
 /// Result of [EntryDetailPage.push].
@@ -156,12 +157,32 @@ class _EntryDetailViewState extends State<_EntryDetailView>
 
   static const int _agentsTabIndex = 1;
 
+  // Last tab index reported to analytics — dedupes the multiple listener
+  // callbacks a single switch fires during the indicator animation.
+  int _lastTrackedTab = 0;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this)
       // Rebuild so the FAB shows only on the Agents tab.
-      ..addListener(() => setState(() {}));
+      ..addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    setState(() {});
+    final index = _tabController.index;
+    if (_tabController.indexIsChanging || index == _lastTrackedTab) return;
+    _lastTrackedTab = index;
+    const tabNames = ['details', 'agents', 'logs'];
+    AnalyticsService.instance.capture(
+      'entry',
+      'detail-tab-switched',
+      properties: {
+        'entry_type': widget.entry.type.name,
+        'tab': tabNames[index],
+      },
+    );
   }
 
   Future<void> _onAddAgent() async {
@@ -475,9 +496,16 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                       AppSpacing.listBottom,
                     ),
                   ),
-                  VaultPlaceholderTab(
-                    icon: Icons.history,
-                    message: l10n.vaultLogsEmpty,
+                  EntryLogsTab(
+                    vaultId: widget.entry.vaultId,
+                    entryId: widget.entry.id,
+                    // Tab bar → content: fieldGap, matching the other tabs.
+                    contentPadding: const EdgeInsets.fromLTRB(
+                      AppSpacing.screenH,
+                      AppSpacing.fieldGap,
+                      AppSpacing.screenH,
+                      AppSpacing.listBottom,
+                    ),
                   ),
                 ],
               ),

@@ -1961,4 +1961,143 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notifPrefsTypeCredentialStale => 'Credential stale';
+
+  @override
+  String get auditSearchHint => 'Search audit log…';
+
+  @override
+  String get auditLoadMore => 'Load more';
+
+  @override
+  String get auditEmptyTitle => 'No activity yet';
+
+  @override
+  String get auditEmptyHint =>
+      'Access and grant events for this entry will appear here.';
+
+  @override
+  String get auditEmptyFilteredTitle => 'No matching events';
+
+  @override
+  String get auditEmptyFilteredHint => 'Try adjusting your filters or search.';
+
+  @override
+  String get auditFilterTitle => 'Filter logs';
+
+  @override
+  String get auditFilterEventTypes => 'Event types';
+
+  @override
+  String get auditFilterAgent => 'Agent';
+
+  @override
+  String get auditFilterAllAgents => 'All agents';
+
+  @override
+  String get auditFilterDateRange => 'Date range';
+
+  @override
+  String get auditFilterFrom => 'From';
+
+  @override
+  String get auditFilterTo => 'To';
+
+  @override
+  String get auditFilterReset => 'Reset';
+
+  @override
+  String get auditFilterApply => 'Apply';
+
+  @override
+  String get auditDetailEntry => 'Entry';
+
+  @override
+  String get auditDetailReason => 'Reason';
+
+  @override
+  String get auditDetailNone => 'No additional details.';
+
+  @override
+  String get auditActorOwner => 'Owner';
+
+  @override
+  String get auditActorSystem => 'System';
+
+  @override
+  String get auditActorAgent => 'Agent';
+
+  @override
+  String get auditErrorForbidden =>
+      'You don\'t have permission to view audit logs.';
+
+  @override
+  String get auditErrorNotFound => 'Audit logs are unavailable for this vault.';
+
+  @override
+  String get auditErrorNetwork =>
+      'Network error. Check your connection and try again.';
+
+  @override
+  String get auditErrorGeneric =>
+      'Couldn\'t load the audit log. Please try again.';
+
+  @override
+  String get auditEventGrantCreated => 'Access granted';
+
+  @override
+  String get auditEventGrantRequested => 'Access requested';
+
+  @override
+  String get auditEventGrantApproved => 'Access approved';
+
+  @override
+  String get auditEventGrantDenied => 'Access denied';
+
+  @override
+  String get auditEventGrantRevoked => 'Access revoked';
+
+  @override
+  String get auditEventGrantConsumed => 'Grant consumed';
+
+  @override
+  String get auditEventGrantExpired => 'Grant expired';
+
+  @override
+  String get auditEventCredentialAccessed => 'Credential accessed';
+
+  @override
+  String get auditEventCredentialAccessDenied => 'Access denied';
+
+  @override
+  String get auditEventAgentEnrolled => 'Agent enrolled';
+
+  @override
+  String get auditEventAgentBlocked => 'Agent blocked';
+
+  @override
+  String get auditEventAgentReactivated => 'Agent reactivated';
+
+  @override
+  String get auditEventAgentDeleted => 'Agent deleted';
+
+  @override
+  String get auditEventVaultCreated => 'Vault created';
+
+  @override
+  String get auditEventVaultUpdated => 'Vault updated';
+
+  @override
+  String get auditEventVaultDeleted => 'Vault deleted';
+
+  @override
+  String get auditEventEntryCreated => 'Entry created';
+
+  @override
+  String get auditEventEntryUpdated => 'Entry updated';
+
+  @override
+  String get auditEventEntryDeleted => 'Entry deleted';
+
+  @override
+  String get auditEventUnknown => 'Activity';
 }
