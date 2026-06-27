@@ -13,11 +13,7 @@ import '../audit_log_format.dart';
 /// non-sensitive metadata (grant id, method, ip, device…). All values are
 /// metadata only — never secrets.
 class AuditLogRow extends StatefulWidget {
-  const AuditLogRow({
-    super.key,
-    required this.entry,
-    required this.agentNames,
-  });
+  const AuditLogRow({super.key, required this.entry, required this.agentNames});
 
   final AuditLogEntry entry;
   final Map<String, String> agentNames;
@@ -35,6 +31,10 @@ class _AuditLogRowState extends State<AuditLogRow> {
     final brightness = Theme.of(context).brightness;
     final entry = widget.entry;
     final color = auditEventColor(entry.eventType);
+    // Generic events compose a full "who did what to which object" sentence
+    // (bold names); grant.* / credential.* / unknown keep the legacy
+    // label + actor line.
+    final sentence = auditEventSentence(l10n, entry, widget.agentNames);
     final actor = auditActorName(l10n, entry, widget.agentNames);
 
     return Container(
@@ -66,33 +66,39 @@ class _AuditLogRowState extends State<AuditLogRow> {
                     ),
                     const SizedBox(width: AppSpacing.innerGap),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            auditEventLabel(
-                              l10n,
-                              entry.eventType,
-                              entry.rawEventType,
+                      child: sentence != null
+                          ? Text.rich(
+                              _sentenceText(sentence, brightness),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  auditEventLabel(
+                                    l10n,
+                                    entry.eventType,
+                                    entry.rawEventType,
+                                  ),
+                                  style: TextStyle(
+                                    color: AppColors.onSurface(brightness),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.xxs),
+                                Text(
+                                  actor,
+                                  style: TextStyle(
+                                    color: AppColors.onSurfaceMuted(brightness),
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ),
-                            style: TextStyle(
-                              color: AppColors.onSurface(brightness),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.xxs),
-                          Text(
-                            actor,
-                            style: TextStyle(
-                              color: AppColors.onSurfaceMuted(brightness),
-                              fontSize: 11,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
                     ),
                     const SizedBox(width: AppSpacing.innerGap),
                     Text(
@@ -119,6 +125,28 @@ class _AuditLogRowState extends State<AuditLogRow> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Builds the composed sentence as a [TextSpan], emphasising the marked
+  /// name runs (actor / object) in bold — matching the web panel.
+  TextSpan _sentenceText(List<AuditSentenceSpan> spans, Brightness brightness) {
+    return TextSpan(
+      style: TextStyle(
+        color: AppColors.onSurface(brightness),
+        fontSize: 13,
+        height: 1.3,
+        fontWeight: FontWeight.w400,
+      ),
+      children: [
+        for (final span in spans)
+          TextSpan(
+            text: span.text,
+            style: span.bold
+                ? const TextStyle(fontWeight: FontWeight.w700)
+                : null,
+          ),
+      ],
     );
   }
 }

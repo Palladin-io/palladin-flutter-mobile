@@ -61,23 +61,31 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
       } while (!exhausted && collected.isEmpty && pages < _maxInitialPages);
 
       AppLogger.i('Audit', 'Loaded ${collected.length} entry audit logs');
-      emit(state.copyWith(
-        status: EntryLogsStatus.loaded,
-        entries: collected,
-        agentNames: agentNames,
-        nextCursor: cursor,
-        clearNextCursor: exhausted,
-      ));
+      emit(
+        state.copyWith(
+          status: EntryLogsStatus.loaded,
+          entries: collected,
+          agentNames: agentNames,
+          nextCursor: cursor,
+          clearNextCursor: exhausted,
+        ),
+      );
     } on AuditException catch (e) {
       AppLogger.w('Audit', 'Entry log load failed: ${e.kind.name}');
       emit(state.copyWith(status: EntryLogsStatus.error, error: e.kind));
     } catch (e, s) {
-      AppLogger.e('Audit', 'Entry log load failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        status: EntryLogsStatus.error,
-        error: AuditErrorKind.unknown,
-      ));
+      AppLogger.e(
+        'Audit',
+        'Entry log load failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          status: EntryLogsStatus.error,
+          error: AuditErrorKind.unknown,
+        ),
+      );
     }
   }
 
@@ -98,22 +106,29 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
       // Refresh the name cache only when this page introduces an agent we
       // haven't resolved yet — otherwise a first-on-this-page agent would
       // render as a truncated id until a full reload.
-      final hasUnknownAgent = more.any((e) =>
-          e.agentId != null && !state.agentNames.containsKey(e.agentId));
+      final hasUnknownAgent = more.any(
+        (e) => e.agentId != null && !state.agentNames.containsKey(e.agentId),
+      );
       final agentNames = hasUnknownAgent
           ? {...state.agentNames, ...await _resolveAgentNames()}
           : state.agentNames;
 
-      emit(state.copyWith(
-        entries: [...state.entries, ...more],
-        agentNames: agentNames,
-        nextCursor: page.nextCursor,
-        clearNextCursor: page.nextCursor == null,
-        loadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          entries: [...state.entries, ...more],
+          agentNames: agentNames,
+          nextCursor: page.nextCursor,
+          clearNextCursor: page.nextCursor == null,
+          loadingMore: false,
+        ),
+      );
     } catch (e, s) {
-      AppLogger.e('Audit', 'Entry log loadMore failed',
-          error: e, stackTrace: s);
+      AppLogger.e(
+        'Audit',
+        'Entry log loadMore failed',
+        error: e,
+        stackTrace: s,
+      );
       emit(state.copyWith(loadingMore: false, loadMoreError: true));
     }
   }
@@ -129,15 +144,17 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
     DateTime? from,
     DateTime? to,
   }) {
-    emit(state.copyWith(
-      eventTypeFilter: eventTypes,
-      agentFilter: agentId,
-      clearAgentFilter: agentId == null,
-      fromDate: from,
-      clearFromDate: from == null,
-      toDate: to,
-      clearToDate: to == null,
-    ));
+    emit(
+      state.copyWith(
+        eventTypeFilter: eventTypes,
+        agentFilter: agentId,
+        clearAgentFilter: agentId == null,
+        fromDate: from,
+        clearFromDate: from == null,
+        toDate: to,
+        clearToDate: to == null,
+      ),
+    );
   }
 
   void search(String query) => emit(state.copyWith(query: query));

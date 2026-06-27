@@ -20,6 +20,12 @@ class AuditRepositoryImpl implements AuditRepository {
   @override
   Future<AuditLogPage> listVaultLogs(
     String vaultId, {
+    List<String> actions = const [],
+    String? agentId,
+    String? userId,
+    String? entryId,
+    DateTime? from,
+    DateTime? to,
     String? cursor,
     int pageSize = 50,
   }) async {
@@ -27,17 +33,59 @@ class AuditRepositoryImpl implements AuditRepository {
       AppLogger.d('Audit', 'GET /api/vaults/$vaultId/audit-logs');
       final page = await _dataSource.listVaultLogs(
         vaultId,
+        actions: actions,
+        agentId: agentId,
+        userId: userId,
+        entryId: entryId,
+        from: from,
+        to: to,
         cursor: cursor,
         pageSize: pageSize,
       );
-      return AuditLogPage(
-        entries: page.items.map((m) => m.toEntity()).toList(growable: false),
-        nextCursor: page.nextCursor,
-      );
+      return _mapPage(page);
     } on DioException catch (e, s) {
       AppLogger.e('Audit', 'listVaultLogs failed', error: e, stackTrace: s);
       throw AuditException(_classifyError(e));
     }
+  }
+
+  @override
+  Future<AuditLogPage> listOrgLogs({
+    List<String> actions = const [],
+    String? vaultId,
+    String? agentId,
+    String? userId,
+    String? entryId,
+    DateTime? from,
+    DateTime? to,
+    String? cursor,
+    int pageSize = 50,
+  }) async {
+    try {
+      AppLogger.d('Audit', 'GET /api/audit-logs');
+      final page = await _dataSource.listOrgLogs(
+        actions: actions,
+        vaultId: vaultId,
+        agentId: agentId,
+        userId: userId,
+        entryId: entryId,
+        from: from,
+        to: to,
+        cursor: cursor,
+        pageSize: pageSize,
+      );
+      return _mapPage(page);
+    } on DioException catch (e, s) {
+      AppLogger.e('Audit', 'listOrgLogs failed', error: e, stackTrace: s);
+      throw AuditException(_classifyError(e));
+    }
+  }
+
+  AuditLogPage _mapPage(AuditLogModelPage page) {
+    return AuditLogPage(
+      entries: page.items.map((m) => m.toEntity()).toList(growable: false),
+      nextCursor: page.nextCursor,
+    );
   }
 
   /// Maps a [DioException] to a typed [AuditErrorKind].

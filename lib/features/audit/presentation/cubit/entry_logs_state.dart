@@ -1,15 +1,10 @@
 import '../../domain/entities/audit_log_entry.dart';
 import '../../domain/exceptions/audit_exceptions.dart';
+import '../audit_filters.dart';
+
+export '../audit_filters.dart' show AgentOption;
 
 enum EntryLogsStatus { initial, loading, loaded, error }
-
-/// An agent option for the Logs filter dropdown — id plus resolved name.
-class AgentOption {
-  const AgentOption({required this.id, required this.name});
-
-  final String id;
-  final String name;
-}
 
 /// State for the entry-detail Logs tab.
 ///
@@ -97,20 +92,25 @@ class EntryLogsState {
   /// The entries after applying every client-side filter.
   List<AuditLogEntry> get filtered {
     final q = query.trim().toLowerCase();
-    return entries.where((e) {
-      if (eventTypeFilter.isNotEmpty &&
-          !eventTypeFilter.contains(e.eventType)) {
-        return false;
-      }
-      if (agentFilter != null && e.agentId != agentFilter) return false;
-      if (fromDate != null && e.createdAt.isBefore(fromDate!)) return false;
-      if (toDate != null && e.createdAt.isAfter(toDate!)) return false;
-      if (q.isEmpty) return true;
-      final agentName = e.agentId != null ? agentNames[e.agentId] : null;
-      return [agentName, e.entryLabel, e.agentReason, e.rawEventType]
-          .whereType<String>()
-          .any((v) => v.toLowerCase().contains(q));
-    }).toList(growable: false);
+    return entries
+        .where((e) {
+          if (eventTypeFilter.isNotEmpty &&
+              !eventTypeFilter.contains(e.eventType)) {
+            return false;
+          }
+          if (agentFilter != null && e.agentId != agentFilter) return false;
+          if (fromDate != null && e.createdAt.isBefore(fromDate!)) return false;
+          if (toDate != null && e.createdAt.isAfter(toDate!)) return false;
+          if (q.isEmpty) return true;
+          final agentName = e.agentId != null ? agentNames[e.agentId] : null;
+          return [
+            agentName,
+            e.entryLabel,
+            e.agentReason,
+            e.rawEventType,
+          ].whereType<String>().any((v) => v.toLowerCase().contains(q));
+        })
+        .toList(growable: false);
   }
 
   static String _shortId(String id) =>

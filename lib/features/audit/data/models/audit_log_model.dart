@@ -12,6 +12,8 @@ class AuditLogModel {
     required this.createdAt,
     this.userId,
     this.agentId,
+    this.agentName,
+    this.actorName,
     this.vaultId,
     this.entryId,
     this.entryLabel,
@@ -25,6 +27,8 @@ class AuditLogModel {
   final String createdAt;
   final String? userId;
   final String? agentId;
+  final String? agentName;
+  final String? actorName;
   final String? vaultId;
   final String? entryId;
   final String? entryLabel;
@@ -40,6 +44,8 @@ class AuditLogModel {
       createdAt: json['createdAt'] as String,
       userId: json['userId'] as String?,
       agentId: json['agentId'] as String?,
+      agentName: json['agentName'] as String?,
+      actorName: json['actorName'] as String?,
       vaultId: json['vaultId'] as String?,
       entryId: json['entryId'] as String?,
       entryLabel: json['entryLabel'] as String?,
@@ -60,6 +66,8 @@ class AuditLogModel {
       createdAt: DateTime.parse(createdAt).toLocal(),
       userId: userId,
       agentId: agentId,
+      agentName: agentName,
+      actorName: actorName,
       vaultId: vaultId,
       entryId: entryId,
       entryLabel: entryLabel,

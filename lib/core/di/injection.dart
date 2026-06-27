@@ -28,6 +28,7 @@ import '../../features/approval/presentation/cubit/regrant_cubit.dart';
 import '../../features/audit/data/datasources/audit_remote_datasource.dart';
 import '../../features/audit/data/repositories/audit_repository_impl.dart';
 import '../../features/audit/domain/repositories/audit_repository.dart';
+import '../../features/audit/presentation/cubit/audit_log_cubit.dart';
 import '../../features/audit/presentation/cubit/entry_logs_cubit.dart';
 import '../../features/grants/data/datasources/grants_remote_datasource.dart';
 import '../../features/grants/data/repositories/grants_repository_impl.dart';
@@ -136,9 +137,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<AccountRemoteDatasource>(
     () => AccountRemoteDatasource(getIt<Dio>()),
   );
-  getIt.registerLazySingleton<UnlockCryptoService>(
-    () => UnlockCryptoService(),
-  );
+  getIt.registerLazySingleton<UnlockCryptoService>(() => UnlockCryptoService());
 
   // Unlock — presentation layer (factory: fresh cubit on each mount
   // so failed-password state doesn't leak between unlock sessions)
@@ -172,9 +171,7 @@ void configureDependencies(EnvConfig config) {
   );
 
   // Vault — data layer
-  getIt.registerLazySingleton<VaultCryptoService>(
-    () => VaultCryptoService(),
-  );
+  getIt.registerLazySingleton<VaultCryptoService>(() => VaultCryptoService());
   getIt.registerLazySingleton<VaultRemoteDatasource>(
     () => VaultRemoteDatasource(getIt<Dio>()),
   );
@@ -199,9 +196,7 @@ void configureDependencies(EnvConfig config) {
   );
 
   // Entry — data layer
-  getIt.registerLazySingleton<EntryCryptoService>(
-    () => EntryCryptoService(),
-  );
+  getIt.registerLazySingleton<EntryCryptoService>(() => EntryCryptoService());
   getIt.registerLazySingleton<EntryRemoteDatasource>(
     () => EntryRemoteDatasource(getIt<Dio>()),
   );
@@ -369,15 +364,26 @@ void configureDependencies(EnvConfig config) {
     ),
   );
 
+  // AuditLogCubit: factory per Logs surface mount. `param1` is the vault id
+  // for the vault-detail Logs tab (CVT-121); pass `null` for the org-wide
+  // Logs screen (CVT-66). Scope is inferred from whether a vault id is given.
+  getIt.registerFactoryParam<AuditLogCubit, String?, dynamic>(
+    (vaultId, _) => AuditLogCubit(
+      auditRepository: getIt<AuditRepository>(),
+      agentsRepository: getIt<AgentsRepository>(),
+      vaultRepository: getIt<VaultRepository>(),
+      scope: vaultId == null ? AuditLogScope.org : AuditLogScope.vault,
+      vaultId: vaultId,
+    ),
+  );
+
   // Approval flow (CVT-58) — data layer.
   getIt.registerLazySingleton<ApprovalRemoteDatasource>(
     () => ApprovalRemoteDatasource(getIt<Dio>()),
   );
   // GrantCryptoService produces the zero-knowledge approval envelope
   // on-device. Stateless — safe as a lazy singleton.
-  getIt.registerLazySingleton<GrantCryptoService>(
-    () => GrantCryptoService(),
-  );
+  getIt.registerLazySingleton<GrantCryptoService>(() => GrantCryptoService());
   getIt.registerLazySingleton<ApprovalRepository>(
     () => ApprovalRepositoryImpl(
       approvalDatasource: getIt<ApprovalRemoteDatasource>(),
@@ -407,10 +413,8 @@ void configureDependencies(EnvConfig config) {
   // RegrantCubit: factory per "Grant again" sheet; param1 = the re-grant args
   // derived from the terminal grant.
   getIt.registerFactoryParam<RegrantCubit, RegrantArgs, void>(
-    (args, _) => RegrantCubit(
-      repository: getIt<ApprovalRepository>(),
-      args: args,
-    ),
+    (args, _) =>
+        RegrantCubit(repository: getIt<ApprovalRepository>(), args: args),
   );
 
   // GrantAccessCubit: factory per "Add agent / Add grant" sheet (CVT-120/132). Subject is chosen

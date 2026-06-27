@@ -18,6 +18,7 @@ import '../cubit/vault_detail_cubit.dart';
 import '../widgets/vault_entries_tab.dart';
 import '../widgets/vault_form.dart';
 import '../../../approval/presentation/widgets/grant_access_sheet.dart';
+import '../../../audit/presentation/widgets/vault_audit_log_tab.dart';
 import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../widgets/vault_placeholder_tab.dart';
 import '../widgets/vault_settings_tab.dart';
@@ -499,9 +500,16 @@ class _LoadedBody extends StatelessWidget {
           // Entries are sourced from `EntryListCubit` provided above.
           const VaultEntriesTab(),
           _VaultAgentsTab(key: ValueKey(grantsRefresh), vaultId: vault.id),
-          _PlaceholderTabBuilder(
-            messageKey: (l10n) => l10n.vaultLogsEmpty,
-            icon: Icons.history,
+          // Logs tab (CVT-121) — vault-scoped audit feed. Horizontal padding
+          // and the tab-bar → content gap are owned by the TabBarView wrapper.
+          VaultAuditLogTab(
+            vaultId: vault.id,
+            contentPadding: const EdgeInsets.fromLTRB(
+              0,
+              0,
+              0,
+              AppSpacing.listBottom,
+            ),
           ),
           _PlaceholderTabBuilder(
             messageKey: (l10n) => l10n.vaultMembersEmpty,

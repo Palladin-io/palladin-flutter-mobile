@@ -7,6 +7,7 @@ import '../../features/agents/presentation/pages/agent_detail_page.dart';
 import '../../features/agents/presentation/pages/agents_page.dart';
 import '../../features/api_keys/presentation/pages/api_key_detail_page.dart';
 import '../../features/api_keys/presentation/pages/api_keys_page.dart';
+import '../../features/audit/presentation/pages/global_audit_log_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/notifications/presentation/pages/inbox_grants_page.dart';
@@ -44,7 +45,10 @@ abstract final class AppRoutes {
 ///    is allowed for locked sessions — that's the whole point of it)
 /// 4. Fully set-up and unlocked user on `/login`, `/onboarding`,
 ///    `/unlock`, or `/recovery` → `/`
-GoRouter createRouter(AuthBloc authBloc, {GlobalKey<NavigatorState>? navigatorKey}) {
+GoRouter createRouter(
+  AuthBloc authBloc, {
+  GlobalKey<NavigatorState>? navigatorKey,
+}) {
   return GoRouter(
     navigatorKey: navigatorKey,
     initialLocation: '/login',
@@ -86,22 +90,13 @@ GoRouter createRouter(AuthBloc authBloc, {GlobalKey<NavigatorState>? navigatorKe
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/login',
-        builder: (_, _) => const LoginPage(),
-      ),
+      GoRoute(path: '/login', builder: (_, _) => const LoginPage()),
       GoRoute(
         path: '/onboarding',
         builder: (_, _) => const OnboardingWizardPage(),
       ),
-      GoRoute(
-        path: '/unlock',
-        builder: (_, _) => const UnlockPage(),
-      ),
-      GoRoute(
-        path: '/recovery',
-        builder: (_, _) => const RecoveryPage(),
-      ),
+      GoRoute(path: '/unlock', builder: (_, _) => const UnlockPage()),
+      GoRoute(path: '/recovery', builder: (_, _) => const RecoveryPage()),
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
@@ -125,9 +120,8 @@ GoRouter createRouter(AuthBloc authBloc, {GlobalKey<NavigatorState>? navigatorKe
               // nav slides in/out on every push.
               GoRoute(
                 path: ':vaultId',
-                builder: (_, state) => VaultDetailPage(
-                  vaultId: state.pathParameters['vaultId']!,
-                ),
+                builder: (_, state) =>
+                    VaultDetailPage(vaultId: state.pathParameters['vaultId']!),
               ),
             ],
           ),
@@ -141,24 +135,19 @@ GoRouter createRouter(AuthBloc authBloc, {GlobalKey<NavigatorState>? navigatorKe
             routes: [
               GoRoute(
                 path: ':agentId',
-                builder: (_, state) => AgentDetailPage(
-                  agentId: state.pathParameters['agentId']!,
-                ),
+                builder: (_, state) =>
+                    AgentDetailPage(agentId: state.pathParameters['agentId']!),
               ),
             ],
           ),
+          // Org-wide audit Logs screen (CVT-66) — reached from the settings
+          // drawer's "Audit" item.
           GoRoute(
             path: '/audit',
-            builder: (context, _) => PlaceholderPage(
-              icon: Icons.history,
-              title: AppLocalizations.of(context)!.placeholderAuditTitle,
-            ),
+            builder: (_, _) => const GlobalAuditLogPage(),
           ),
           // Keep older push/deep links working after Approvals became Inbox.
-          GoRoute(
-            path: '/approvals',
-            redirect: (_, _) => '/inbox',
-          ),
+          GoRoute(path: '/approvals', redirect: (_, _) => '/inbox'),
           // Business Inbox — durable notifications for every authenticated
           // user. Grant actions reuse the existing zero-knowledge sheets.
           // `?focus=<id>` (from a tapped push) marks that item read on open.
@@ -186,10 +175,7 @@ GoRouter createRouter(AuthBloc authBloc, {GlobalKey<NavigatorState>? navigatorKe
           // Settings — organization details. Lives inside the shell so
           // the persistent bottom nav stays mounted while the user is
           // on the screen.
-          GoRoute(
-            path: '/settings',
-            builder: (_, _) => const SettingsPage(),
-          ),
+          GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
           // API keys — standalone list + detail screens. Nested so the
           // detail page keeps the shell (and its bottom nav) mounted
           // across navigation, matching `/vaults/:vaultId`.
@@ -215,9 +201,8 @@ GoRouter createRouter(AuthBloc authBloc, {GlobalKey<NavigatorState>? navigatorKe
                   }
                   return null;
                 },
-                builder: (_, state) => ApiKeyDetailPage(
-                  keyId: state.pathParameters['keyId']!,
-                ),
+                builder: (_, state) =>
+                    ApiKeyDetailPage(keyId: state.pathParameters['keyId']!),
               ),
             ],
           ),

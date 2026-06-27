@@ -2272,5 +2272,121 @@
   "auditEventEntryCreated": "Entry created",
   "auditEventEntryUpdated": "Entry updated",
   "auditEventEntryDeleted": "Entry deleted",
-  "auditEventUnknown": "Activity"
+  "auditEventApiKeyCreated": "API key created",
+  "auditEventApiKeyActivated": "API key activated",
+  "auditEventApiKeyRevoked": "API key revoked",
+  "auditEventApiKeyDeleted": "API key deleted",
+  "auditEventOrgCreated": "Organization created",
+  "auditEventOrgUpdated": "Organization updated",
+  "auditEventUserSignedUp": "User signed up",
+  "auditEventAccountSetupCompleted": "Account setup completed",
+  "auditEventAccountRecoveryCompleted": "Account recovery completed",
+  "auditEventUnknown": "Activity",
+  "auditScreenTitle": "Audit Log",
+  "@auditScreenTitle": {
+    "description": "Title of the org-wide audit Logs screen"
+  },
+  "auditFilterVault": "Vault",
+  "auditFilterAllVaults": "All vaults",
+  "auditFilterUser": "Performed by",
+  "auditFilterAllUsers": "Anyone",
+  "auditUserUnknown": "Unknown user",
+  "auditGroupCredentialAccess": "Accessed",
+  "auditGroupGrants": "Grants",
+  "auditGroupVaultEntry": "Vault & entries",
+  "auditGroupAgentLifecycle": "Agents",
+  "auditGroupApiKeys": "API keys",
+  "auditGroupOrgAccount": "Org & account",
+  "auditLegendTitle": "Event legend",
+  "auditLegendSubtitle": "What the colours on each log entry mean.",
+  "auditSentenceCreated": "{actor} created {object}",
+  "@auditSentenceCreated": {
+    "placeholders": {
+      "actor": { "type": "String" },
+      "object": { "type": "String" }
+    }
+  },
+  "auditSentenceUpdated": "{actor} updated {object}",
+  "@auditSentenceUpdated": {
+    "placeholders": {
+      "actor": { "type": "String" },
+      "object": { "type": "String" }
+    }
+  },
+  "auditSentenceDeleted": "{actor} deleted {object}",
+  "@auditSentenceDeleted": {
+    "placeholders": {
+      "actor": { "type": "String" },
+      "object": { "type": "String" }
+    }
+  },
+  "auditSentenceActivated": "{actor} activated {object}",
+  "@auditSentenceActivated": {
+    "placeholders": {
+      "actor": { "type": "String" },
+      "object": { "type": "String" }
+    }
+  },
+  "auditSentenceRevoked": "{actor} revoked {object}",
+  "@auditSentenceRevoked": {
+    "placeholders": {
+      "actor": { "type": "String" },
+      "object": { "type": "String" }
+    }
+  },
+  "auditSentenceBlocked": "{actor} blocked {object}",
+  "@auditSentenceBlocked": {
+    "placeholders": {
+      "actor": { "type": "String" },
+      "object": { "type": "String" }
+    }
+  },
+  "auditSentenceReactivated": "{actor} reactivated {object}",
+  "@auditSentenceReactivated": {
+    "placeholders": {
+      "actor": { "type": "String" },
+      "object": { "type": "String" }
+    }
+  },
+  "auditSentenceUserSignedUp": "{actor} signed up",
+  "@auditSentenceUserSignedUp": {
+    "placeholders": { "actor": { "type": "String" } }
+  },
+  "auditSentenceAccountSetupCompleted": "{actor} completed account setup",
+  "@auditSentenceAccountSetupCompleted": {
+    "placeholders": { "actor": { "type": "String" } }
+  },
+  "auditSentenceAccountRecoveryCompleted": "{actor} completed account recovery",
+  "@auditSentenceAccountRecoveryCompleted": {
+    "placeholders": { "actor": { "type": "String" } }
+  },
+  "auditSentenceAgentEnrolled": "{agent} enrolled in the system",
+  "@auditSentenceAgentEnrolled": {
+    "placeholders": { "agent": { "type": "String" } }
+  },
+  "auditObjectVaultNamed": "vault {name}",
+  "@auditObjectVaultNamed": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "auditObjectEntryNamed": "entry {name}",
+  "@auditObjectEntryNamed": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "auditObjectOrgNamed": "organization {name}",
+  "@auditObjectOrgNamed": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "auditObjectApiKeyNamed": "API key {name}",
+  "@auditObjectApiKeyNamed": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "auditObjectAgentNamed": "agent {name}",
+  "@auditObjectAgentNamed": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "auditObjectVault": "a vault",
+  "auditObjectEntry": "an entry",
+  "auditObjectOrg": "the organization",
+  "auditObjectApiKey": "an API key",
+  "auditObjectAgent": "an agent"
 }
