@@ -246,7 +246,7 @@ class _RotatingWelcomeState extends State<_RotatingWelcome> {
       Future.delayed(const Duration(milliseconds: 350), () {
         if (!mounted) return;
         setState(() {
-          _index = (_index + 1) % 4;
+          _index = _index + 1;
           _visible = true;
         });
       });
@@ -266,7 +266,7 @@ class _RotatingWelcomeState extends State<_RotatingWelcome> {
       opacity: _visible ? 1 : 0,
       duration: const Duration(milliseconds: 300),
       child: Text(
-        messages[_index],
+        messages[_index % messages.length],
         textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 14,
