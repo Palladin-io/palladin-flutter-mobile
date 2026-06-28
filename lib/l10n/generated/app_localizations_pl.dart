@@ -2169,6 +2169,11 @@ class AppLocalizationsPl extends AppLocalizations {
   String get auditUserUnknown => 'Nieznany użytkownik';
 
   @override
+  String auditUserUnknownShort(String id) {
+    return 'Nieznany użytkownik ($id)';
+  }
+
+  @override
   String get auditGroupCredentialAccess => 'Odczyty';
 
   @override

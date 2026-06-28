@@ -132,7 +132,8 @@ class AuditLogState {
   /// when no org member directory is available; the name comes from the
   /// server-denormalized `actorName`. When no name is known the option's
   /// [UserOption.name] is left `null` so the presentation layer renders a
-  /// localized "Unknown user" label (never a raw id).
+  /// localized "Unknown user ({shortId})" label — each unknown actor is a
+  /// distinct, filterable option, never a bare id.
   List<UserOption> get userOptions {
     final names = <String, String?>{};
     for (final e in entries) {

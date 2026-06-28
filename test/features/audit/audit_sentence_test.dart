@@ -157,6 +157,26 @@ void main() {
       expect(bold(spans), ['Unknown user', 'Prod']);
     });
 
+    test(
+      'a name containing the bold sentinel does not break span alignment',
+      () {
+        // Defensive: hostile backend input with a NUL control char inside a name
+        // must not mis-align the bold-run split.
+        final nul = String.fromCharCode(0);
+        final spans = auditEventSentence(
+          en,
+          _entry(
+            AuditEventType.vaultCreated,
+            actorName: 'Pa${nul}tryk',
+            metadata: {'name': 'Pro${nul}d'},
+          ),
+          const {},
+        )!;
+        expect(plain(spans), 'Patryk created vault Prod');
+        expect(bold(spans), ['Patryk', 'Prod']);
+      },
+    );
+
     test('actor falls back to the cached agent name when no actorName', () {
       final spans = auditEventSentence(
         en,

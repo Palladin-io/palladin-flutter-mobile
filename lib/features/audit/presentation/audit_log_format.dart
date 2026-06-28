@@ -192,11 +192,18 @@ class AuditSentenceSpan {
   final bool bold;
 }
 
-// Private sentinel marking the bold (name) runs inside an ICU-substituted
-// string so they can be recovered after interpolation. Never occurs in real
-// audit data (audit rows carry metadata only, no control chars).
+// Private sentinel wrapping the bold (name) runs inside an ICU-substituted
+// string so they can be recovered (via split) after interpolation. This keeps
+// the full sentence as one translatable ICU template per event (clear word
+// order per locale) instead of fragmenting it into prefix/verb/suffix keys.
+//
+// Robustness: `_splitSentence` could only mis-align if an interpolated value
+// itself contained the sentinel, so [_mark] strips it from the value first.
+// The sentinel is a NUL control char that never legitimately appears in a
+// name/label — the strip is purely defensive against hostile backend input.
 const String _boldMark = '\u0000';
-String _mark(String value) => '$_boldMark$value$_boldMark';
+String _mark(String value) =>
+    '$_boldMark${value.replaceAll(_boldMark, '')}$_boldMark';
 
 /// Composes a full "who did what to which object" sentence for an audit
 /// [entry], with actor / object / agent names marked for bold rendering.

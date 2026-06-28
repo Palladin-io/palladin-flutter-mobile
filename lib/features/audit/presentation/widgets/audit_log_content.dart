@@ -186,6 +186,7 @@ class _AuditLogContentState extends State<AuditLogContent> {
             child: _PaginationFooter(
               state: state,
               brightness: brightness,
+              horizontalPadding: hPad,
               bottomPadding: widget.contentPadding.bottom,
               onRetry: () => context.read<AuditLogCubit>().loadMore(),
             ),
@@ -199,12 +200,18 @@ class _PaginationFooter extends StatelessWidget {
   const _PaginationFooter({
     required this.state,
     required this.brightness,
+    required this.horizontalPadding,
     required this.bottomPadding,
     required this.onRetry,
   });
 
   final AuditLogState state;
   final Brightness brightness;
+
+  /// Horizontal gutter — must match the list/search sliver `hPad` so the footer
+  /// aligns with the rows. The host owns the gutter via `contentPadding` (e.g.
+  /// VaultDetailPage passes 0 because the TabBarView already insets 20px).
+  final double horizontalPadding;
   final double bottomPadding;
   final VoidCallback onRetry;
 
@@ -216,9 +223,9 @@ class _PaginationFooter extends StatelessWidget {
     }
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
+        horizontalPadding,
         AppSpacing.section,
-        AppSpacing.screenH,
+        horizontalPadding,
         bottomPadding,
       ),
       child: state.loadMoreError

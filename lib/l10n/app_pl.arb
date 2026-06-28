@@ -632,6 +632,7 @@
   "auditFilterUser": "Wykonane przez",
   "auditFilterAllUsers": "Dowolny",
   "auditUserUnknown": "Nieznany użytkownik",
+  "auditUserUnknownShort": "Nieznany użytkownik ({id})",
   "auditGroupCredentialAccess": "Odczyty",
   "auditGroupGrants": "Nadania",
   "auditGroupVaultEntry": "Sejfy i wpisy",

@@ -8,6 +8,10 @@ import '../../domain/entities/audit_log_entry.dart';
 import '../audit_filters.dart';
 import '../audit_log_format.dart';
 
+/// Shortened id (first 8 chars) for disambiguating unnamed options — mirrors
+/// the `_shortId` fallback used by `AuditLogState.vaultOptions`.
+String _shortId(String id) => id.length <= 8 ? id : '${id.substring(0, 8)}…';
+
 /// The single filter sheet for the vault- and org-scoped Logs surfaces:
 /// event-type group selection, an agent dropdown, an optional vault dropdown
 /// (org scope) and a date range. Returns an [AuditLogFilter] on apply, an
@@ -213,7 +217,14 @@ class _AuditLogFilterSheetState extends State<AuditLogFilterSheet> {
                     _OptionChips(
                       options: [
                         for (final u in widget.users)
-                          (id: u.id, label: u.name ?? l10n.auditUserUnknown),
+                          (
+                            id: u.id,
+                            // Disambiguate unnamed actors with a short id so
+                            // multiple unknown users aren't N identical chips.
+                            label:
+                                u.name ??
+                                l10n.auditUserUnknownShort(_shortId(u.id)),
+                          ),
                       ],
                       selected: _userIds,
                       onToggle: (id) => _toggleId(_userIds, id),
@@ -416,14 +427,79 @@ class _OptionChips extends StatelessWidget {
       runSpacing: AppSpacing.chipGap,
       children: [
         for (final o in options)
-          _GroupChip(
+          _NeutralChip(
             label: o.label,
-            color: AppColors.vaultBlue,
             selected: selected.contains(o.id),
             onTap: () => onToggle(o.id),
             brightness: brightness,
           ),
       ],
+    );
+  }
+}
+
+/// A neutral (non-colour-coded) multi-select chip. Used for the agent / user /
+/// vault facets so colour stays reserved for the event-group chips: selection
+/// is signalled by a stronger outline + fill + bold label, not a hue.
+class _NeutralChip extends StatelessWidget {
+  const _NeutralChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.brightness,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Brightness brightness;
+
+  @override
+  Widget build(BuildContext context) {
+    final onSurface = AppColors.onSurface(brightness);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: selected
+              ? onSurface.withValues(alpha: 0.10)
+              : AppColors.cardSurface(brightness),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected
+                ? onSurface.withValues(alpha: 0.5)
+                : AppColors.cardBorder(brightness),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              selected ? Icons.check : Icons.add,
+              size: 14,
+              color: selected
+                  ? onSurface
+                  : AppColors.onSurfaceSubtle(brightness),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected
+                    ? onSurface
+                    : AppColors.onSurfaceMuted(brightness),
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

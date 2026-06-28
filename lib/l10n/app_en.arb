@@ -2291,6 +2291,10 @@
   "auditFilterUser": "Performed by",
   "auditFilterAllUsers": "Anyone",
   "auditUserUnknown": "Unknown user",
+  "auditUserUnknownShort": "Unknown user ({id})",
+  "@auditUserUnknownShort": {
+    "placeholders": { "id": { "type": "String" } }
+  },
   "auditGroupCredentialAccess": "Accessed",
   "auditGroupGrants": "Grants",
   "auditGroupVaultEntry": "Vault & entries",

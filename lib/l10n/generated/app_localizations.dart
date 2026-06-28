@@ -3872,6 +3872,12 @@ abstract class AppLocalizations {
   /// **'Unknown user'**
   String get auditUserUnknown;
 
+  /// No description provided for @auditUserUnknownShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown user ({id})'**
+  String auditUserUnknownShort(String id);
+
   /// No description provided for @auditGroupCredentialAccess.
   ///
   /// In en, this message translates to:
