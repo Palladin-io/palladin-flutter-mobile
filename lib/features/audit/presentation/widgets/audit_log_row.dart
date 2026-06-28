@@ -8,16 +8,12 @@ import '../audit_log_format.dart';
 
 /// A single expandable audit log row.
 ///
-/// Collapsed: colored event dot, event label, actor name and timestamp.
-/// Tapping expands to reveal the entry label, the agent's reason and any
-/// non-sensitive metadata (grant id, method, ip, device…). All values are
-/// metadata only — never secrets.
+/// Collapsed: a color-coded left accent bar, the event sentence/label, and a
+/// footer with the timestamp + expand chevron. Tapping expands to reveal the
+/// entry label, the agent's reason and any non-sensitive metadata (grant id,
+/// method, ip, device…). All values are metadata only — never secrets.
 class AuditLogRow extends StatefulWidget {
-  const AuditLogRow({
-    super.key,
-    required this.entry,
-    required this.agentNames,
-  });
+  const AuditLogRow({super.key, required this.entry, required this.agentNames});
 
   final AuditLogEntry entry;
   final Map<String, String> agentNames;
@@ -35,6 +31,10 @@ class _AuditLogRowState extends State<AuditLogRow> {
     final brightness = Theme.of(context).brightness;
     final entry = widget.entry;
     final color = auditEventColor(entry.eventType);
+    // Generic events compose a full "who did what to which object" sentence
+    // (bold names); grant.* / credential.* / unknown keep the legacy
+    // label + actor line.
+    final sentence = auditEventSentence(l10n, entry, widget.agentNames);
     final actor = auditActorName(l10n, entry, widget.agentNames);
 
     return Container(
@@ -43,82 +43,106 @@ class _AuditLogRowState extends State<AuditLogRow> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.cardBorder(brightness)),
       ),
+      // Clip so the left accent bar's corners follow the card's radius.
+      clipBehavior: Clip.antiAlias,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
           onTap: () => setState(() => _expanded = !_expanded),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.cardPadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          child: Stack(
+            children: [
+              // Color-coded left accent bar (severity), spanning the full row
+              // height — replaces the previous status dot.
+              PositionedDirectional(
+                start: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(width: 4, color: color),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.cardPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      margin: const EdgeInsets.only(top: 4),
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
+                    if (sentence != null)
+                      Text.rich(
+                        _sentenceText(sentence, brightness),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    else ...[
+                      Text(
+                        auditEventLabel(
+                          l10n,
+                          entry.eventType,
+                          entry.rawEventType,
+                        ),
+                        style: TextStyle(
+                          color: AppColors.onSurface(brightness),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.innerGap),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            auditEventLabel(
-                              l10n,
-                              entry.eventType,
-                              entry.rawEventType,
-                            ),
-                            style: TextStyle(
-                              color: AppColors.onSurface(brightness),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        actor,
+                        style: TextStyle(
+                          color: AppColors.onSurfaceMuted(brightness),
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    // Footer under the content — just the timestamp, right-
+                    // aligned and subtle. The whole row is tap-to-expand, so no
+                    // chevron indicator is needed.
+                    const SizedBox(height: AppSpacing.xs),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          auditTimestamp(
+                            entry.createdAt,
+                            Localizations.localeOf(context).toString(),
                           ),
-                          const SizedBox(height: AppSpacing.xxs),
-                          Text(
-                            actor,
-                            style: TextStyle(
-                              color: AppColors.onSurfaceMuted(brightness),
-                              fontSize: 11,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.onSurfaceSubtle(brightness),
+                            fontSize: 10,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: AppSpacing.innerGap),
-                    Text(
-                      auditTimestamp(
-                        entry.createdAt,
-                        Localizations.localeOf(context).toString(),
-                      ),
-                      style: TextStyle(
-                        color: AppColors.onSurfaceSubtle(brightness),
-                        fontSize: 10,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    Icon(
-                      _expanded ? Icons.expand_less : Icons.expand_more,
-                      size: 16,
-                      color: AppColors.onSurfaceSubtle(brightness),
-                    ),
+                    if (_expanded) _ExpandedDetail(entry: entry),
                   ],
                 ),
-                if (_expanded) _ExpandedDetail(entry: entry),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  /// Builds the composed sentence as a [TextSpan], emphasising the marked
+  /// name runs (actor / object) in bold — matching the web panel.
+  TextSpan _sentenceText(List<AuditSentenceSpan> spans, Brightness brightness) {
+    return TextSpan(
+      style: TextStyle(
+        color: AppColors.onSurface(brightness),
+        fontSize: 13,
+        height: 1.3,
+        fontWeight: FontWeight.w400,
+      ),
+      children: [
+        for (final span in spans)
+          TextSpan(
+            text: span.text,
+            style: span.bold
+                ? const TextStyle(fontWeight: FontWeight.w700)
+                : null,
+          ),
+      ],
     );
   }
 }

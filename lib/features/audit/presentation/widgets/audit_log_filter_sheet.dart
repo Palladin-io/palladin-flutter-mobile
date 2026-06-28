@@ -2,86 +2,93 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/multi_select_dropdown.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/audit_log_entry.dart';
+import '../audit_filters.dart';
 import '../audit_log_format.dart';
-import '../cubit/entry_logs_state.dart';
 
-/// The selection returned by [EntryLogsFilterSheet] when the user applies
-/// (or resets) the filters.
-class EntryLogsFilter {
-  const EntryLogsFilter({
-    required this.eventTypes,
-    this.agentId,
-    this.fromDate,
-    this.toDate,
-  });
+/// Shortened id (first 8 chars) for disambiguating unnamed options — mirrors
+/// the `_shortId` fallback used by `AuditLogState.vaultOptions`.
+String _shortId(String id) => id.length <= 8 ? id : '${id.substring(0, 8)}…';
 
-  final Set<AuditEventType> eventTypes;
-  final String? agentId;
-  final DateTime? fromDate;
-  final DateTime? toDate;
-}
-
-/// Filter sheet for the entry Logs tab — the 8 entry-relevant event-type
-/// checkboxes, an agent dropdown and a date range. Returns an
-/// [EntryLogsFilter] on apply, an empty one on reset, or `null` on
-/// dismiss.
-class EntryLogsFilterSheet extends StatefulWidget {
-  const EntryLogsFilterSheet({
+/// The single filter sheet for the vault- and org-scoped Logs surfaces:
+/// event-type group selection, an agent dropdown, an optional vault dropdown
+/// (org scope) and a date range. Returns an [AuditLogFilter] on apply, an
+/// empty one on reset, or `null` on dismiss.
+class AuditLogFilterSheet extends StatefulWidget {
+  const AuditLogFilterSheet({
     super.key,
     required this.initial,
+    required this.groups,
     required this.agents,
+    required this.users,
+    this.vaults,
   });
 
-  final EntryLogsFilter initial;
+  final AuditLogFilter initial;
+
+  /// Event-type groups offered for selection (vault-relevant vs org-wide).
+  final List<AuditEventGroup> groups;
+
   final List<AgentOption> agents;
 
-  static Future<EntryLogsFilter?> show(
+  /// Human actors (users) present in the feed — for the "performed by" filter.
+  final List<UserOption> users;
+
+  /// Vault options for the org-scoped screen; `null` hides the vault dropdown
+  /// (vault-scoped tab).
+  final List<VaultOption>? vaults;
+
+  static Future<AuditLogFilter?> show(
     BuildContext context, {
-    required EntryLogsFilter initial,
+    required AuditLogFilter initial,
+    required List<AuditEventGroup> groups,
     required List<AgentOption> agents,
+    required List<UserOption> users,
+    List<VaultOption>? vaults,
   }) {
-    return showModalBottomSheet<EntryLogsFilter>(
+    return showModalBottomSheet<AuditLogFilter>(
       context: context,
       isScrollControlled: true,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => EntryLogsFilterSheet(initial: initial, agents: agents),
+      builder: (_) => AuditLogFilterSheet(
+        initial: initial,
+        groups: groups,
+        agents: agents,
+        users: users,
+        vaults: vaults,
+      ),
     );
   }
 
   @override
-  State<EntryLogsFilterSheet> createState() => _EntryLogsFilterSheetState();
+  State<AuditLogFilterSheet> createState() => _AuditLogFilterSheetState();
 }
 
-class _EntryLogsFilterSheetState extends State<EntryLogsFilterSheet> {
-  late Set<AuditEventType> _eventTypes;
-  late String? _agentId;
+class _AuditLogFilterSheetState extends State<AuditLogFilterSheet> {
+  late Set<AuditEventGroup> _groups;
+  late Set<String> _agentIds;
+  late Set<String> _userIds;
+  late Set<String> _vaultIds;
   late DateTime? _from;
   late DateTime? _to;
 
   @override
   void initState() {
     super.initState();
-    _eventTypes = Set.of(widget.initial.eventTypes);
-    _agentId = widget.initial.agentId;
+    _groups = Set.of(widget.initial.groups);
+    _agentIds = Set.of(widget.initial.agentIds);
+    _userIds = Set.of(widget.initial.userIds);
+    _vaultIds = Set.of(widget.initial.vaultIds);
     _from = widget.initial.fromDate;
     _to = widget.initial.toDate;
   }
 
-  void _toggle(AuditEventType type) {
-    setState(() {
-      if (!_eventTypes.remove(type)) _eventTypes.add(type);
-    });
-  }
-
   Future<void> _pickDate({required bool isFrom}) async {
     final now = DateTime.now();
-    // Clamp the picker to the other bound so an inverted range (from > to)
-    // can't be selected: "from" can't go past "to", "to" can't precede
-    // "from".
     final firstDate = isFrom
         ? DateTime(now.year - 5)
         : (_from ?? DateTime(now.year - 5));
@@ -102,7 +109,6 @@ class _EntryLogsFilterSheetState extends State<EntryLogsFilterSheet> {
       if (isFrom) {
         _from = DateTime(picked.year, picked.month, picked.day);
       } else {
-        // Include the whole selected day for the upper bound.
         _to = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
       }
     });
@@ -110,23 +116,24 @@ class _EntryLogsFilterSheetState extends State<EntryLogsFilterSheet> {
 
   void _apply() {
     Navigator.of(context).pop(
-      EntryLogsFilter(
-        eventTypes: _eventTypes,
-        agentId: _agentId,
+      AuditLogFilter(
+        groups: _groups,
+        agentIds: _agentIds,
+        userIds: _userIds,
+        vaultIds: _vaultIds,
         fromDate: _from,
         toDate: _to,
       ),
     );
   }
 
-  void _reset() {
-    Navigator.of(context).pop(const EntryLogsFilter(eventTypes: {}));
-  }
+  void _reset() => Navigator.of(context).pop(const AuditLogFilter());
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+    final vaults = widget.vaults;
 
     return Container(
       decoration: BoxDecoration(
@@ -171,23 +178,65 @@ class _EntryLogsFilterSheetState extends State<EntryLogsFilterSheet> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.section),
-                  _SectionLabel(text: l10n.auditFilterEventTypes),
-                  const SizedBox(height: AppSpacing.innerGap),
-                  _EventTypeGrid(
-                    selected: _eventTypes,
-                    onToggle: _toggle,
-                    brightness: brightness,
+                  MultiSelectDropdown(
+                    label: l10n.auditFilterEventTypes,
+                    placeholder: l10n.auditFilterAllEventTypes,
+                    options: [
+                      for (final g in widget.groups)
+                        (value: g.name, label: auditGroupLabel(l10n, g)),
+                    ],
+                    selected: _groups.map((g) => g.name).toSet(),
+                    onChanged: (values) => setState(() {
+                      _groups = widget.groups
+                          .where((g) => values.contains(g.name))
+                          .toSet();
+                    }),
                   ),
-                  const SizedBox(height: AppSpacing.section),
-                  _SectionLabel(text: l10n.auditFilterAgent),
-                  const SizedBox(height: AppSpacing.innerGap),
-                  _AgentDropdown(
-                    agents: widget.agents,
-                    value: _agentId,
-                    allLabel: l10n.auditFilterAllAgents,
-                    onChanged: (id) => setState(() => _agentId = id),
-                    brightness: brightness,
-                  ),
+                  if (vaults != null && vaults.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.section),
+                    MultiSelectDropdown(
+                      label: l10n.auditFilterVault,
+                      placeholder: l10n.auditFilterAllVaults,
+                      options: [
+                        for (final v in vaults) (value: v.id, label: v.name),
+                      ],
+                      selected: _vaultIds,
+                      onChanged: (values) => setState(() => _vaultIds = values),
+                    ),
+                  ],
+                  if (widget.users.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.section),
+                    MultiSelectDropdown(
+                      label: l10n.auditFilterUser,
+                      placeholder: l10n.auditFilterAllUsers,
+                      options: [
+                        for (final u in widget.users)
+                          (
+                            value: u.id,
+                            // Disambiguate unnamed actors with a short id so
+                            // multiple unknown users aren't identical entries.
+                            label:
+                                u.name ??
+                                l10n.auditUserUnknownShort(_shortId(u.id)),
+                          ),
+                      ],
+                      selected: _userIds,
+                      onChanged: (values) => setState(() => _userIds = values),
+                    ),
+                  ],
+                  if (widget.agents.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.section),
+                    MultiSelectDropdown(
+                      label: l10n.auditFilterAgent,
+                      placeholder: l10n.auditFilterAllAgents,
+                      options: [
+                        for (final a in widget.agents)
+                          (value: a.id, label: a.name),
+                      ],
+                      selected: _agentIds,
+                      onChanged: (values) => setState(() => _agentIds = values),
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.section),
                   _SectionLabel(text: l10n.auditFilterDateRange),
                   const SizedBox(height: AppSpacing.innerGap),
@@ -249,157 +298,6 @@ class _SectionLabel extends StatelessWidget {
         fontSize: 12,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.3,
-      ),
-    );
-  }
-}
-
-class _EventTypeGrid extends StatelessWidget {
-  const _EventTypeGrid({
-    required this.selected,
-    required this.onToggle,
-    required this.brightness,
-  });
-
-  final Set<AuditEventType> selected;
-  final ValueChanged<AuditEventType> onToggle;
-  final Brightness brightness;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Wrap(
-      runSpacing: AppSpacing.chipGap,
-      children: [
-        for (final type in AuditEventType.entryRelevant)
-          FractionallySizedBox(
-            widthFactor: 0.5,
-            child: Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.chipGap),
-              child: _EventTypeChip(
-                label: auditEventLabel(l10n, type, type.wire),
-                color: auditEventColor(type),
-                selected: selected.contains(type),
-                onTap: () => onToggle(type),
-                brightness: brightness,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _EventTypeChip extends StatelessWidget {
-  const _EventTypeChip({
-    required this.label,
-    required this.color,
-    required this.selected,
-    required this.onTap,
-    required this.brightness,
-  });
-
-  final String label;
-  final Color color;
-  final bool selected;
-  final VoidCallback onTap;
-  final Brightness brightness;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
-        ),
-        decoration: BoxDecoration(
-          color: selected
-              ? color.withValues(alpha: 0.14)
-              : AppColors.cardSurface(brightness),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? color : AppColors.cardBorder(brightness),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              selected ? Icons.check_box : Icons.check_box_outline_blank,
-              size: 16,
-              color: selected ? color : AppColors.onSurfaceSubtle(brightness),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: AppColors.onSurface(brightness),
-                  fontSize: 10,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AgentDropdown extends StatelessWidget {
-  const _AgentDropdown({
-    required this.agents,
-    required this.value,
-    required this.allLabel,
-    required this.onChanged,
-    required this.brightness,
-  });
-
-  final List<AgentOption> agents;
-  final String? value;
-  final String allLabel;
-  final ValueChanged<String?> onChanged;
-  final Brightness brightness;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.cardPadding),
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface(brightness),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.inputBorder(brightness)),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String?>(
-          isExpanded: true,
-          value: value,
-          dropdownColor: AppColors.modalBackground(brightness),
-          icon: Icon(
-            Icons.arrow_drop_down,
-            color: AppColors.onSurfaceSubtle(brightness),
-          ),
-          style: TextStyle(
-            color: AppColors.onSurface(brightness),
-            fontSize: 12,
-          ),
-          items: [
-            DropdownMenuItem<String?>(value: null, child: Text(allLabel)),
-            for (final a in agents)
-              DropdownMenuItem<String?>(value: a.id, child: Text(a.name)),
-          ],
-          onChanged: onChanged,
-        ),
       ),
     );
   }

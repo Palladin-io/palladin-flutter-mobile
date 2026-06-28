@@ -85,17 +85,42 @@ void main() {
       expect(stack.depth, 1);
     });
 
-    test('re-registering a lower owner moves it back to the top', () {
+    test(
+      'a covered owner re-registering updates in place and cannot steal the top',
+      () {
+        final stack = FabOwnershipStack();
+        final vaultDetail = Object();
+        final apiKeys = Object();
+
+        stack.set(_vaultFab, vaultDetail);
+        stack.set(_apiKeysFab, apiKeys);
+        expect(stack.current, same(_apiKeysFab));
+
+        // BUG REGRESSION: while covered by API Keys, the vault detail rebuilds
+        // with a new (inline) FAB and re-registers. It must NOT jump back to
+        // the top — API Keys keeps showing its own FAB, and the shell is not
+        // told to rebuild (set returns false: the visible FAB is unchanged).
+        expect(stack.set(_entryFab, vaultDetail), isFalse);
+        expect(stack.current, same(_apiKeysFab));
+        expect(stack.depth, 2);
+
+        // When API Keys pops, the vault detail resurfaces — with its updated fab.
+        stack.clear(apiKeys);
+        expect(stack.current, same(_entryFab));
+      },
+    );
+
+    test('updating the top owner in place changes the current FAB', () {
       final stack = FabOwnershipStack();
-      final a = Object();
-      final b = Object();
+      final covered = Object();
+      final top = Object();
 
-      stack.set(_vaultFab, a);
-      stack.set(_apiKeysFab, b);
-      expect(stack.current, same(_apiKeysFab));
+      stack.set(_vaultFab, covered);
+      stack.set(_apiKeysFab, top);
 
-      // a re-asserts (e.g. its tab rebuilt with a new fab) → it wins again.
-      stack.set(_entryFab, a);
+      // The visible (top) page legitimately swaps its FAB (e.g. a detail tab
+      // switch) → current updates and the shell must rebuild.
+      expect(stack.set(_entryFab, top), isTrue);
       expect(stack.current, same(_entryFab));
       expect(stack.depth, 2);
     });

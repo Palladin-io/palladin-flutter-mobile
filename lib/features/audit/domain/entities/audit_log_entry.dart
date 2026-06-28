@@ -27,36 +27,67 @@ enum AuditActorType {
   }
 }
 
+/// Coarse grouping of audit events, used for the quick-filter chips and the
+/// legend modal (color/icon families). Mirrors the security domains the
+/// backend taxonomy splits into: credential access, grant lifecycle,
+/// vault/entry CRUD, agent lifecycle, API keys, and org/account events.
+enum AuditEventGroup {
+  credentialAccess,
+  grants,
+  vaultEntry,
+  agentLifecycle,
+  apiKeys,
+  orgAccount,
+}
+
 /// The catalogue of audit event types emitted by the backend. The wire
 /// value is the dotted string the API returns (e.g. `credential.accessed`).
 /// Unknown / future event types parse to [unknown] so a new backend event
 /// never crashes the list — it simply renders with a neutral style.
 enum AuditEventType {
-  grantCreated('grant.created'),
-  grantRequested('grant.requested'),
-  grantApproved('grant.approved'),
-  grantDenied('grant.denied'),
-  grantRevoked('grant.revoked'),
-  grantConsumed('grant.consumed'),
-  grantExpired('grant.expired'),
-  credentialAccessed('credential.accessed'),
-  credentialAccessDenied('credential.access-denied'),
-  agentEnrolled('agent.enrolled'),
-  agentBlocked('agent.blocked'),
-  agentReactivated('agent.reactivated'),
-  agentDeleted('agent.deleted'),
-  vaultCreated('vault.created'),
-  vaultUpdated('vault.updated'),
-  vaultDeleted('vault.deleted'),
-  entryCreated('entry.created'),
-  entryUpdated('entry.updated'),
-  entryDeleted('entry.deleted'),
-  unknown('');
+  grantRequested('grant.requested', AuditEventGroup.grants),
+  grantCreated('grant.created', AuditEventGroup.grants),
+  grantApproved('grant.approved', AuditEventGroup.grants),
+  grantDenied('grant.denied', AuditEventGroup.grants),
+  grantRevoked('grant.revoked', AuditEventGroup.grants),
+  grantConsumed('grant.consumed', AuditEventGroup.grants),
+  grantExpired('grant.expired', AuditEventGroup.grants),
+  credentialAccessed('credential.accessed', AuditEventGroup.credentialAccess),
+  credentialAccessDenied(
+    'credential.access-denied',
+    AuditEventGroup.credentialAccess,
+  ),
+  vaultCreated('vault.created', AuditEventGroup.vaultEntry),
+  vaultUpdated('vault.updated', AuditEventGroup.vaultEntry),
+  vaultDeleted('vault.deleted', AuditEventGroup.vaultEntry),
+  entryCreated('entry.created', AuditEventGroup.vaultEntry),
+  entryUpdated('entry.updated', AuditEventGroup.vaultEntry),
+  entryDeleted('entry.deleted', AuditEventGroup.vaultEntry),
+  agentEnrolled('agent.enrolled', AuditEventGroup.agentLifecycle),
+  agentBlocked('agent.blocked', AuditEventGroup.agentLifecycle),
+  agentReactivated('agent.reactivated', AuditEventGroup.agentLifecycle),
+  agentDeleted('agent.deleted', AuditEventGroup.agentLifecycle),
+  apikeyCreated('apikey.created', AuditEventGroup.apiKeys),
+  apikeyActivated('apikey.activated', AuditEventGroup.apiKeys),
+  apikeyRevoked('apikey.revoked', AuditEventGroup.apiKeys),
+  apikeyDeleted('apikey.deleted', AuditEventGroup.apiKeys),
+  orgCreated('org.created', AuditEventGroup.orgAccount),
+  orgUpdated('org.updated', AuditEventGroup.orgAccount),
+  userSignedUp('user.signed-up', AuditEventGroup.orgAccount),
+  accountSetupCompleted('account.setup-completed', AuditEventGroup.orgAccount),
+  accountRecoveryCompleted(
+    'account.recovery-completed',
+    AuditEventGroup.orgAccount,
+  ),
+  unknown('', AuditEventGroup.orgAccount);
 
-  const AuditEventType(this.wire);
+  const AuditEventType(this.wire, this.group);
 
   /// The backend wire string for this event type.
   final String wire;
+
+  /// The coarse [AuditEventGroup] this event belongs to.
+  final AuditEventGroup group;
 
   /// Parses a backend event-type string into a typed value, falling back
   /// to [unknown] for anything unrecognized.
@@ -67,6 +98,14 @@ enum AuditEventType {
     }
     return AuditEventType.unknown;
   }
+
+  /// Every real (non-[unknown]) event type, in declaration order.
+  static List<AuditEventType> get known =>
+      values.where((t) => t != AuditEventType.unknown).toList(growable: false);
+
+  /// The event types that belong to [group] (excludes [unknown]).
+  static List<AuditEventType> inGroup(AuditEventGroup group) =>
+      known.where((t) => t.group == group).toList(growable: false);
 
   /// The subset of event types that can be scoped to a single entry — the
   /// filter chips shown on the entry-detail Logs tab. Order matches the
@@ -81,6 +120,19 @@ enum AuditEventType {
     AuditEventType.grantApproved,
     AuditEventType.grantRevoked,
   ];
+
+  /// Groups available as quick-filter chips on the vault-scoped Logs tab —
+  /// the security domains that can occur within a single vault.
+  static const List<AuditEventGroup> vaultGroups = [
+    AuditEventGroup.credentialAccess,
+    AuditEventGroup.grants,
+    AuditEventGroup.vaultEntry,
+    AuditEventGroup.agentLifecycle,
+  ];
+
+  /// Groups available as quick-filter chips on the org-wide Logs screen —
+  /// the full taxonomy.
+  static const List<AuditEventGroup> orgGroups = AuditEventGroup.values;
 }
 
 /// A single audit log entry as returned by the backend list endpoints.
@@ -93,6 +145,8 @@ class AuditLogEntry {
     required this.createdAt,
     this.userId,
     this.agentId,
+    this.agentName,
+    this.actorName,
     this.vaultId,
     this.entryId,
     this.entryLabel,
@@ -119,6 +173,14 @@ class AuditLogEntry {
 
   /// Acting / target agent id (when an agent is involved).
   final String? agentId;
+
+  /// Human-readable agent name, denormalized server-side at write time.
+  /// Preferred over a client-side id→name lookup when present.
+  final String? agentName;
+
+  /// Human-readable actor name, denormalized server-side (the acting user
+  /// or agent). Preferred over a client-side lookup when present.
+  final String? actorName;
 
   final String? vaultId;
 

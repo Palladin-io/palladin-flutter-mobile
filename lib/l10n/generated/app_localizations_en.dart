@@ -1991,10 +1991,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditFilterEventTypes => 'Event types';
 
   @override
+  String get auditFilterAllEventTypes => 'All event types';
+
+  @override
   String get auditFilterAgent => 'Agent';
 
   @override
   String get auditFilterAllAgents => 'All agents';
+
+  @override
+  String multiSelectNSelected(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get multiSelectSearchHint => 'Search…';
+
+  @override
+  String get multiSelectNoResults => 'No results';
 
   @override
   String get auditFilterDateRange => 'Date range';
@@ -2102,5 +2116,174 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditEventEntryDeleted => 'Entry deleted';
 
   @override
+  String get auditEventApiKeyCreated => 'API key created';
+
+  @override
+  String get auditEventApiKeyActivated => 'API key activated';
+
+  @override
+  String get auditEventApiKeyRevoked => 'API key revoked';
+
+  @override
+  String get auditEventApiKeyDeleted => 'API key deleted';
+
+  @override
+  String get auditEventOrgCreated => 'Organization created';
+
+  @override
+  String get auditEventOrgUpdated => 'Organization updated';
+
+  @override
+  String get auditEventUserSignedUp => 'User signed up';
+
+  @override
+  String get auditEventAccountSetupCompleted => 'Account setup completed';
+
+  @override
+  String get auditEventAccountRecoveryCompleted => 'Account recovery completed';
+
+  @override
   String get auditEventUnknown => 'Activity';
+
+  @override
+  String get auditScreenTitle => 'Audit Log';
+
+  @override
+  String get auditFilterVault => 'Vault';
+
+  @override
+  String get auditFilterAllVaults => 'All vaults';
+
+  @override
+  String get auditFilterUser => 'Performed by';
+
+  @override
+  String get auditFilterAllUsers => 'Anyone';
+
+  @override
+  String get auditUserUnknown => 'Unknown user';
+
+  @override
+  String auditUserUnknownShort(String id) {
+    return 'Unknown user ($id)';
+  }
+
+  @override
+  String get auditGroupCredentialAccess => 'Accessed';
+
+  @override
+  String get auditGroupGrants => 'Grants';
+
+  @override
+  String get auditGroupVaultEntry => 'Vault & entries';
+
+  @override
+  String get auditGroupAgentLifecycle => 'Agents';
+
+  @override
+  String get auditGroupApiKeys => 'API keys';
+
+  @override
+  String get auditGroupOrgAccount => 'Org & account';
+
+  @override
+  String get auditLegendTitle => 'Event legend';
+
+  @override
+  String get auditLegendSubtitle => 'What the colours on each log entry mean.';
+
+  @override
+  String auditSentenceCreated(String actor, String object) {
+    return '$actor created $object';
+  }
+
+  @override
+  String auditSentenceUpdated(String actor, String object) {
+    return '$actor updated $object';
+  }
+
+  @override
+  String auditSentenceDeleted(String actor, String object) {
+    return '$actor deleted $object';
+  }
+
+  @override
+  String auditSentenceActivated(String actor, String object) {
+    return '$actor activated $object';
+  }
+
+  @override
+  String auditSentenceRevoked(String actor, String object) {
+    return '$actor revoked $object';
+  }
+
+  @override
+  String auditSentenceBlocked(String actor, String object) {
+    return '$actor blocked $object';
+  }
+
+  @override
+  String auditSentenceReactivated(String actor, String object) {
+    return '$actor reactivated $object';
+  }
+
+  @override
+  String auditSentenceUserSignedUp(String actor) {
+    return '$actor signed up';
+  }
+
+  @override
+  String auditSentenceAccountSetupCompleted(String actor) {
+    return '$actor completed account setup';
+  }
+
+  @override
+  String auditSentenceAccountRecoveryCompleted(String actor) {
+    return '$actor completed account recovery';
+  }
+
+  @override
+  String auditSentenceAgentEnrolled(String agent) {
+    return '$agent enrolled in the system';
+  }
+
+  @override
+  String auditObjectVaultNamed(String name) {
+    return 'vault $name';
+  }
+
+  @override
+  String auditObjectEntryNamed(String name) {
+    return 'entry $name';
+  }
+
+  @override
+  String auditObjectOrgNamed(String name) {
+    return 'organization $name';
+  }
+
+  @override
+  String auditObjectApiKeyNamed(String name) {
+    return 'API key $name';
+  }
+
+  @override
+  String auditObjectAgentNamed(String name) {
+    return 'agent $name';
+  }
+
+  @override
+  String get auditObjectVault => 'a vault';
+
+  @override
+  String get auditObjectEntry => 'an entry';
+
+  @override
+  String get auditObjectOrg => 'the organization';
+
+  @override
+  String get auditObjectApiKey => 'an API key';
+
+  @override
+  String get auditObjectAgent => 'an agent';
 }

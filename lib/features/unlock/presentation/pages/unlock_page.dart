@@ -6,6 +6,7 @@ import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/brand_hero.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -88,7 +89,9 @@ class _UnlockViewState extends State<_UnlockView> {
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenH,
+              ),
               child: Column(
                 children: [
                   const Spacer(flex: 3),
@@ -114,19 +117,9 @@ class _UnlockViewState extends State<_UnlockView> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Image.asset('assets/images/logo.png', height: 80),
-        const SizedBox(height: AppSpacing.xl),
-        Text(
-          'Palladin',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 40,
-            fontWeight: FontWeight.w900,
-            color: AppColors.onSurface(brightness),
-            height: 1.0,
-            letterSpacing: -1.2,
-          ),
-        ),
+        // Shared brand lockup — identical logo + "Palladin.io" wordmark as the
+        // login screen (see BrandHero). Only the subtitle below differs.
+        BrandHero(textColor: BrandHero.textColorFor(brightness)),
         const SizedBox(height: AppSpacing.section),
         Text(
           l10n.unlockTitle,
@@ -164,10 +157,7 @@ class _UnlockViewState extends State<_UnlockView> {
               feedbackReserveSpace: false,
               feedbackChild: Text(
                 hasError ? _resolveErrorMessage(context, state.error) : '',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.brandRed,
-                ),
+                style: const TextStyle(fontSize: 12, color: AppColors.brandRed),
               ),
               suffixIcon: IconButton(
                 icon: Icon(
@@ -212,10 +202,7 @@ class _UnlockViewState extends State<_UnlockView> {
         const SizedBox(height: AppSpacing.xs),
         Text(
           l10n.unlockBiometricHint,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppColors.textTertiary,
-          ),
+          style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
         ),
       ],
     );
@@ -227,10 +214,7 @@ class _UnlockViewState extends State<_UnlockView> {
       onPressed: () => context.go('/recovery'),
       child: Text(
         l10n.unlockForgotPassword,
-        style: const TextStyle(
-          fontSize: 13,
-          color: AppColors.textTertiary,
-        ),
+        style: const TextStyle(fontSize: 13, color: AppColors.textTertiary),
       ),
     );
   }
@@ -245,10 +229,7 @@ class _UnlockViewState extends State<_UnlockView> {
           context.read<AuthBloc>().add(const AuthLogoutRequested()),
       child: Text(
         l10n.settingsLogout,
-        style: const TextStyle(
-          fontSize: 13,
-          color: AppColors.textTertiary,
-        ),
+        style: const TextStyle(fontSize: 13, color: AppColors.textTertiary),
       ),
     );
   }
@@ -262,8 +243,8 @@ class _UnlockViewState extends State<_UnlockView> {
     FocusScope.of(context).unfocus();
     final l10n = AppLocalizations.of(context)!;
     await context.read<UnlockCubit>().unlockWithBiometrics(
-          localizedReason: l10n.unlockBiometricPrompt,
-        );
+      localizedReason: l10n.unlockBiometricPrompt,
+    );
   }
 
   void _handleStateChange(BuildContext context, UnlockState state) {
@@ -274,10 +255,9 @@ class _UnlockViewState extends State<_UnlockView> {
       // Analytics must fire before AuthBloc.add — the router disposes this
       // page as soon as the bloc transitions to unlocked state.
       AnalyticsService.instance.capture('unlock', 'vault-unlocked');
-      context.read<AuthBloc>().add(VaultUnlocked(
-            masterKey: state.masterKey,
-            privateKey: state.privateKey,
-          ));
+      context.read<AuthBloc>().add(
+        VaultUnlocked(masterKey: state.masterKey, privateKey: state.privateKey),
+      );
     } else if (state is UnlockFailed) {
       AnalyticsService.instance.capture(
         'unlock',
@@ -310,8 +290,7 @@ class _UnlockViewState extends State<_UnlockView> {
       return switch (error.kind) {
         UnlockServerErrorKind.serverNotResponding =>
           l10n.errorServerNotResponding,
-        UnlockServerErrorKind.cannotConnect =>
-          l10n.errorCannotConnectToServer,
+        UnlockServerErrorKind.cannotConnect => l10n.errorCannotConnectToServer,
         UnlockServerErrorKind.connectionFailed => l10n.errorConnectionFailed,
         UnlockServerErrorKind.invalidResponse =>
           l10n.errorInvalidServerResponse,

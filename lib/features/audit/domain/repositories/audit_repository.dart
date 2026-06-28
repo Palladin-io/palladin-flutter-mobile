@@ -18,10 +18,29 @@ class AuditLogPage {
 /// surface as `AuditException` with a typed `AuditErrorKind`.
 abstract interface class AuditRepository {
   /// Returns one page of audit logs scoped to a single [vaultId],
-  /// newest-first. The backend has no native entry-level filter, so
-  /// entry scoping is applied by the caller (see `EntryLogsCubit`).
+  /// newest-first. Optional filters narrow the feed server-side.
   Future<AuditLogPage> listVaultLogs(
     String vaultId, {
+    List<String> actions,
+    String? agentId,
+    String? userId,
+    String? entryId,
+    DateTime? from,
+    DateTime? to,
+    String? cursor,
+    int pageSize,
+  });
+
+  /// Returns one page of org-wide audit logs (every vault the caller can
+  /// see), newest-first. Optional filters narrow the feed server-side.
+  Future<AuditLogPage> listOrgLogs({
+    List<String> actions,
+    String? vaultId,
+    String? agentId,
+    String? userId,
+    String? entryId,
+    DateTime? from,
+    DateTime? to,
     String? cursor,
     int pageSize,
   });

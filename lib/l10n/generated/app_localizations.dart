@@ -3560,6 +3560,12 @@ abstract class AppLocalizations {
   /// **'Event types'**
   String get auditFilterEventTypes;
 
+  /// No description provided for @auditFilterAllEventTypes.
+  ///
+  /// In en, this message translates to:
+  /// **'All event types'**
+  String get auditFilterAllEventTypes;
+
   /// No description provided for @auditFilterAgent.
   ///
   /// In en, this message translates to:
@@ -3571,6 +3577,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'All agents'**
   String get auditFilterAllAgents;
+
+  /// No description provided for @multiSelectNSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String multiSelectNSelected(int count);
+
+  /// No description provided for @multiSelectSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search…'**
+  String get multiSelectSearchHint;
+
+  /// No description provided for @multiSelectNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No results'**
+  String get multiSelectNoResults;
 
   /// No description provided for @auditFilterDateRange.
   ///
@@ -3776,11 +3800,281 @@ abstract class AppLocalizations {
   /// **'Entry deleted'**
   String get auditEventEntryDeleted;
 
+  /// No description provided for @auditEventApiKeyCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'API key created'**
+  String get auditEventApiKeyCreated;
+
+  /// No description provided for @auditEventApiKeyActivated.
+  ///
+  /// In en, this message translates to:
+  /// **'API key activated'**
+  String get auditEventApiKeyActivated;
+
+  /// No description provided for @auditEventApiKeyRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'API key revoked'**
+  String get auditEventApiKeyRevoked;
+
+  /// No description provided for @auditEventApiKeyDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'API key deleted'**
+  String get auditEventApiKeyDeleted;
+
+  /// No description provided for @auditEventOrgCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Organization created'**
+  String get auditEventOrgCreated;
+
+  /// No description provided for @auditEventOrgUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Organization updated'**
+  String get auditEventOrgUpdated;
+
+  /// No description provided for @auditEventUserSignedUp.
+  ///
+  /// In en, this message translates to:
+  /// **'User signed up'**
+  String get auditEventUserSignedUp;
+
+  /// No description provided for @auditEventAccountSetupCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Account setup completed'**
+  String get auditEventAccountSetupCompleted;
+
+  /// No description provided for @auditEventAccountRecoveryCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Account recovery completed'**
+  String get auditEventAccountRecoveryCompleted;
+
   /// No description provided for @auditEventUnknown.
   ///
   /// In en, this message translates to:
   /// **'Activity'**
   String get auditEventUnknown;
+
+  /// Title of the org-wide audit Logs screen
+  ///
+  /// In en, this message translates to:
+  /// **'Audit Log'**
+  String get auditScreenTitle;
+
+  /// No description provided for @auditFilterVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get auditFilterVault;
+
+  /// No description provided for @auditFilterAllVaults.
+  ///
+  /// In en, this message translates to:
+  /// **'All vaults'**
+  String get auditFilterAllVaults;
+
+  /// No description provided for @auditFilterUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Performed by'**
+  String get auditFilterUser;
+
+  /// No description provided for @auditFilterAllUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Anyone'**
+  String get auditFilterAllUsers;
+
+  /// No description provided for @auditUserUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown user'**
+  String get auditUserUnknown;
+
+  /// No description provided for @auditUserUnknownShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown user ({id})'**
+  String auditUserUnknownShort(String id);
+
+  /// No description provided for @auditGroupCredentialAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Accessed'**
+  String get auditGroupCredentialAccess;
+
+  /// No description provided for @auditGroupGrants.
+  ///
+  /// In en, this message translates to:
+  /// **'Grants'**
+  String get auditGroupGrants;
+
+  /// No description provided for @auditGroupVaultEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault & entries'**
+  String get auditGroupVaultEntry;
+
+  /// No description provided for @auditGroupAgentLifecycle.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents'**
+  String get auditGroupAgentLifecycle;
+
+  /// No description provided for @auditGroupApiKeys.
+  ///
+  /// In en, this message translates to:
+  /// **'API keys'**
+  String get auditGroupApiKeys;
+
+  /// No description provided for @auditGroupOrgAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Org & account'**
+  String get auditGroupOrgAccount;
+
+  /// No description provided for @auditLegendTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Event legend'**
+  String get auditLegendTitle;
+
+  /// No description provided for @auditLegendSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What the colours on each log entry mean.'**
+  String get auditLegendSubtitle;
+
+  /// No description provided for @auditSentenceCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} created {object}'**
+  String auditSentenceCreated(String actor, String object);
+
+  /// No description provided for @auditSentenceUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} updated {object}'**
+  String auditSentenceUpdated(String actor, String object);
+
+  /// No description provided for @auditSentenceDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} deleted {object}'**
+  String auditSentenceDeleted(String actor, String object);
+
+  /// No description provided for @auditSentenceActivated.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} activated {object}'**
+  String auditSentenceActivated(String actor, String object);
+
+  /// No description provided for @auditSentenceRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} revoked {object}'**
+  String auditSentenceRevoked(String actor, String object);
+
+  /// No description provided for @auditSentenceBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} blocked {object}'**
+  String auditSentenceBlocked(String actor, String object);
+
+  /// No description provided for @auditSentenceReactivated.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} reactivated {object}'**
+  String auditSentenceReactivated(String actor, String object);
+
+  /// No description provided for @auditSentenceUserSignedUp.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} signed up'**
+  String auditSentenceUserSignedUp(String actor);
+
+  /// No description provided for @auditSentenceAccountSetupCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} completed account setup'**
+  String auditSentenceAccountSetupCompleted(String actor);
+
+  /// No description provided for @auditSentenceAccountRecoveryCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} completed account recovery'**
+  String auditSentenceAccountRecoveryCompleted(String actor);
+
+  /// No description provided for @auditSentenceAgentEnrolled.
+  ///
+  /// In en, this message translates to:
+  /// **'{agent} enrolled in the system'**
+  String auditSentenceAgentEnrolled(String agent);
+
+  /// No description provided for @auditObjectVaultNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'vault {name}'**
+  String auditObjectVaultNamed(String name);
+
+  /// No description provided for @auditObjectEntryNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'entry {name}'**
+  String auditObjectEntryNamed(String name);
+
+  /// No description provided for @auditObjectOrgNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'organization {name}'**
+  String auditObjectOrgNamed(String name);
+
+  /// No description provided for @auditObjectApiKeyNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'API key {name}'**
+  String auditObjectApiKeyNamed(String name);
+
+  /// No description provided for @auditObjectAgentNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'agent {name}'**
+  String auditObjectAgentNamed(String name);
+
+  /// No description provided for @auditObjectVault.
+  ///
+  /// In en, this message translates to:
+  /// **'a vault'**
+  String get auditObjectVault;
+
+  /// No description provided for @auditObjectEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'an entry'**
+  String get auditObjectEntry;
+
+  /// No description provided for @auditObjectOrg.
+  ///
+  /// In en, this message translates to:
+  /// **'the organization'**
+  String get auditObjectOrg;
+
+  /// No description provided for @auditObjectApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'an API key'**
+  String get auditObjectApiKey;
+
+  /// No description provided for @auditObjectAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'an agent'**
+  String get auditObjectAgent;
 }
 
 class _AppLocalizationsDelegate

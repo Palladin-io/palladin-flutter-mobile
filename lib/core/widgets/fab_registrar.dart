@@ -14,10 +14,13 @@ import '../../features/shell/presentation/pages/app_shell.dart';
 /// the page body and it claims FAB ownership for as long as it's mounted.
 ///
 /// **Ownership.** Each registrar instance owns one entry on the shell's
-/// FAB stack (keyed by its [State] identity). While mounted it pushes
-/// [fab] to the top, so the *most-recently-shown* page wins — exactly
-/// what we want when a detail page is pushed over a list. On dispose it
-/// removes its entry, so the previously-covered page's FAB reappears
+/// FAB stack (keyed by its [State] identity). A newly-mounted registrar
+/// claims the top, so the *most-recently-mounted* page wins — exactly what
+/// we want when a detail page is pushed over a list. A registrar that
+/// re-registers while already on the stack (its page rebuilt with a new
+/// FAB) updates its entry **in place** and never jumps back to the top, so
+/// a covered page can't steal the FAB from the page covering it. On dispose
+/// it removes its entry, so the previously-covered page's FAB reappears
 /// automatically without that page re-asserting anything. This makes FAB
 /// ownership deterministic and stops a covered page's FAB from leaking
 /// onto a page that declares a different (or no) FAB.

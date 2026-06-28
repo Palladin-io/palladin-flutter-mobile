@@ -38,10 +38,8 @@ class EntryLogsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<EntryLogsCubit>(
-      create: (_) => getIt<EntryLogsCubit>(
-        param1: vaultId,
-        param2: entryId,
-      )..load(),
+      create: (_) =>
+          getIt<EntryLogsCubit>(param1: vaultId, param2: entryId)..load(),
       child: _EntryLogsView(contentPadding: contentPadding),
     );
   }
@@ -108,8 +106,7 @@ class _EntryLogsViewState extends State<_EntryLogsView> {
                   controller: _searchController,
                   hint: l10n.auditSearchHint,
                   filterActive: state.hasActiveFilters,
-                  onChanged: (q) =>
-                      context.read<EntryLogsCubit>().search(q),
+                  onChanged: (q) => context.read<EntryLogsCubit>().search(q),
                   onToggleFilter: () => _openFilters(context, state),
                 ),
               ),
@@ -181,10 +178,8 @@ class _EntryLogsViewState extends State<_EntryLogsView> {
               itemCount: items.length,
               separatorBuilder: (_, _) =>
                   const SizedBox(height: AppSpacing.cardGap),
-              itemBuilder: (_, i) => AuditLogRow(
-                entry: items[i],
-                agentNames: state.agentNames,
-              ),
+              itemBuilder: (_, i) =>
+                  AuditLogRow(entry: items[i], agentNames: state.agentNames),
             ),
           ),
           if (state.nextCursor != null)
