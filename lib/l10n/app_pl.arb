@@ -581,6 +581,8 @@
   "auditFilterAgent": "Agent",
   "auditFilterAllAgents": "Wszyscy agenci",
   "multiSelectNSelected": "Wybrano: {count}",
+  "multiSelectSearchHint": "Szukaj…",
+  "multiSelectNoResults": "Brak wyników",
   "auditFilterDateRange": "Zakres dat",
   "auditFilterFrom": "Od",
   "auditFilterTo": "Do",

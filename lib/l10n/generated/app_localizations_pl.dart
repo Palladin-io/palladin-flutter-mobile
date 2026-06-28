@@ -2023,6 +2023,12 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
+  String get multiSelectSearchHint => 'Szukaj…';
+
+  @override
+  String get multiSelectNoResults => 'Brak wyników';
+
+  @override
   String get auditFilterDateRange => 'Zakres dat';
 
   @override

@@ -7,14 +7,15 @@ import '../theme/app_spacing.dart';
 /// A single selectable option — a stable [value] plus its display [label].
 typedef MultiSelectOption = ({String value, String label});
 
-/// A compact, mobile-friendly multi-select control.
+/// A compact, mobile-friendly multi-select **autocomplete** control.
 ///
 /// Renders a labelled trigger field showing the current selection summary
 /// (placeholder when empty, the single option's label when one is selected,
-/// or "{n} selected" for many). Tapping it expands an **inline** checklist
-/// within the surrounding scroll view — no nested bottom-sheet, which avoids
-/// the pitfalls of stacked modals. Fully controlled: it never mutates
-/// [selected]; every toggle emits the next [Set] via [onChanged].
+/// or "{n} selected" for many). Tapping it expands an **inline** panel — a
+/// typeahead search field over a live-filtered checklist — within the
+/// surrounding scroll view (no nested bottom-sheet, which avoids stacked-modal
+/// pitfalls). Fully controlled: it never mutates [selected]; every toggle
+/// emits the next [Set] via [onChanged].
 class MultiSelectDropdown extends StatefulWidget {
   const MultiSelectDropdown({
     super.key,
@@ -45,6 +46,25 @@ class MultiSelectDropdown extends StatefulWidget {
 
 class _MultiSelectDropdownState extends State<MultiSelectDropdown> {
   bool _open = false;
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _toggleOpen() {
+    setState(() {
+      _open = !_open;
+      // Reset the typeahead query when collapsing so reopening starts clean.
+      if (!_open) {
+        _query = '';
+        _searchController.clear();
+      }
+    });
+  }
 
   String _summary(AppLocalizations l10n) {
     final selected = widget.selected;
@@ -63,18 +83,27 @@ class _MultiSelectDropdownState extends State<MultiSelectDropdown> {
     widget.onChanged(next);
   }
 
+  List<MultiSelectOption> get _filtered {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return widget.options;
+    return widget.options
+        .where((o) => o.label.toLowerCase().contains(q))
+        .toList(growable: false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     final hasSelection = widget.selected.isNotEmpty;
+    final filtered = _filtered;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => setState(() => _open = !_open),
+          onTap: _toggleOpen,
           child: Container(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.cardPadding,
@@ -132,14 +161,70 @@ class _MultiSelectDropdownState extends State<MultiSelectDropdown> {
               border: Border.all(color: AppColors.inputBorder(brightness)),
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final option in widget.options)
-                  _OptionTile(
-                    label: option.label,
-                    selected: widget.selected.contains(option.value),
-                    onTap: () => _toggle(option.value),
-                    brightness: brightness,
+                // Typeahead search field — filters the checklist live.
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.cardPadding,
+                    vertical: AppSpacing.sm,
                   ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.search,
+                        size: 16,
+                        color: AppColors.onSurfaceSubtle(brightness),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          autofocus: true,
+                          onChanged: (q) => setState(() => _query = q),
+                          cursorColor: AppColors.brandRed,
+                          style: TextStyle(
+                            color: AppColors.onSurface(brightness),
+                            fontSize: 12,
+                          ),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                            hintText: l10n.multiSelectSearchHint,
+                            hintStyle: TextStyle(
+                              color: AppColors.onSurfaceSubtle(brightness),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: AppColors.inputBorder(brightness)),
+                if (filtered.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.cardPadding,
+                      vertical: AppSpacing.md,
+                    ),
+                    child: Text(
+                      l10n.multiSelectNoResults,
+                      style: TextStyle(
+                        color: AppColors.onSurfaceSubtle(brightness),
+                        fontSize: 12,
+                      ),
+                    ),
+                  )
+                else
+                  for (final option in filtered)
+                    _OptionTile(
+                      label: option.label,
+                      selected: widget.selected.contains(option.value),
+                      onTap: () => _toggle(option.value),
+                      brightness: brightness,
+                    ),
               ],
             ),
           ),

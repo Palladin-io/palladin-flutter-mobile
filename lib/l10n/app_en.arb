@@ -2243,6 +2243,8 @@
   "@multiSelectNSelected": {
     "placeholders": { "count": { "type": "int" } }
   },
+  "multiSelectSearchHint": "Search…",
+  "multiSelectNoResults": "No results",
   "auditFilterDateRange": "Date range",
   "auditFilterFrom": "From",
   "auditFilterTo": "To",

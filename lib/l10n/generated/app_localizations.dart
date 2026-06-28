@@ -3584,6 +3584,18 @@ abstract class AppLocalizations {
   /// **'{count} selected'**
   String multiSelectNSelected(int count);
 
+  /// No description provided for @multiSelectSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search…'**
+  String get multiSelectSearchHint;
+
+  /// No description provided for @multiSelectNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No results'**
+  String get multiSelectNoResults;
+
   /// No description provided for @auditFilterDateRange.
   ///
   /// In en, this message translates to:

@@ -94,18 +94,13 @@ class _AuditLogRowState extends State<AuditLogRow> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    // Footer under the content — expand chevron left of the
-                    // timestamp, right-aligned and subtle.
+                    // Footer under the content — just the timestamp, right-
+                    // aligned and subtle. The whole row is tap-to-expand, so no
+                    // chevron indicator is needed.
                     const SizedBox(height: AppSpacing.xs),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Icon(
-                          _expanded ? Icons.expand_less : Icons.expand_more,
-                          size: 16,
-                          color: AppColors.onSurfaceSubtle(brightness),
-                        ),
-                        const SizedBox(width: AppSpacing.xs),
                         Text(
                           auditTimestamp(
                             entry.createdAt,

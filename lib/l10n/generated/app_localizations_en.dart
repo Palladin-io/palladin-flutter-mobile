@@ -2005,6 +2005,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get multiSelectSearchHint => 'Search…';
+
+  @override
+  String get multiSelectNoResults => 'No results';
+
+  @override
   String get auditFilterDateRange => 'Date range';
 
   @override

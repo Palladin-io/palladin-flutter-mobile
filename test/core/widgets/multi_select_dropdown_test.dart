@@ -43,15 +43,43 @@ void main() {
       expect(find.text('Bravo'), findsNothing);
     });
 
-    testWidgets('tapping the trigger reveals the option checklist', (
+    testWidgets('tapping the trigger reveals the search field + checklist', (
       tester,
     ) async {
       await _pump(tester, selected: const {});
       await tester.tap(find.text('Agent'));
       await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget); // typeahead field
       expect(find.text('Alpha'), findsOneWidget);
       expect(find.text('Bravo'), findsOneWidget);
       expect(find.text('Charlie'), findsOneWidget);
+    });
+
+    testWidgets('typing in the search field filters the options live', (
+      tester,
+    ) async {
+      await _pump(tester, selected: const {});
+      await tester.tap(find.text('Agent'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'br');
+      await tester.pumpAndSettle();
+      expect(find.text('Bravo'), findsOneWidget);
+      expect(find.text('Alpha'), findsNothing);
+      expect(find.text('Charlie'), findsNothing);
+    });
+
+    testWidgets('a non-matching query shows the no-results message', (
+      tester,
+    ) async {
+      await _pump(tester, selected: const {});
+      await tester.tap(find.text('Agent'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'zzz');
+      await tester.pumpAndSettle();
+      expect(find.text('No results'), findsOneWidget);
+      expect(find.text('Alpha'), findsNothing);
     });
 
     testWidgets('toggling an option emits the next selection set', (
