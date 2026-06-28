@@ -1991,10 +1991,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditFilterEventTypes => 'Event types';
 
   @override
+  String get auditFilterAllEventTypes => 'All event types';
+
+  @override
   String get auditFilterAgent => 'Agent';
 
   @override
   String get auditFilterAllAgents => 'All agents';
+
+  @override
+  String multiSelectNSelected(int count) {
+    return '$count selected';
+  }
 
   @override
   String get auditFilterDateRange => 'Date range';

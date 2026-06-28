@@ -2009,10 +2009,18 @@ class AppLocalizationsPl extends AppLocalizations {
   String get auditFilterEventTypes => 'Typy zdarzeń';
 
   @override
+  String get auditFilterAllEventTypes => 'Wszystkie typy';
+
+  @override
   String get auditFilterAgent => 'Agent';
 
   @override
   String get auditFilterAllAgents => 'Wszyscy agenci';
+
+  @override
+  String multiSelectNSelected(int count) {
+    return 'Wybrano: $count';
+  }
 
   @override
   String get auditFilterDateRange => 'Zakres dat';

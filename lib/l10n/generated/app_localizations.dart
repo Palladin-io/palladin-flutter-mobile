@@ -3560,6 +3560,12 @@ abstract class AppLocalizations {
   /// **'Event types'**
   String get auditFilterEventTypes;
 
+  /// No description provided for @auditFilterAllEventTypes.
+  ///
+  /// In en, this message translates to:
+  /// **'All event types'**
+  String get auditFilterAllEventTypes;
+
   /// No description provided for @auditFilterAgent.
   ///
   /// In en, this message translates to:
@@ -3571,6 +3577,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'All agents'**
   String get auditFilterAllAgents;
+
+  /// No description provided for @multiSelectNSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String multiSelectNSelected(int count);
 
   /// No description provided for @auditFilterDateRange.
   ///

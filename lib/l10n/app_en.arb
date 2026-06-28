@@ -2236,8 +2236,13 @@
   "auditEmptyFilteredHint": "Try adjusting your filters or search.",
   "auditFilterTitle": "Filter logs",
   "auditFilterEventTypes": "Event types",
+  "auditFilterAllEventTypes": "All event types",
   "auditFilterAgent": "Agent",
   "auditFilterAllAgents": "All agents",
+  "multiSelectNSelected": "{count} selected",
+  "@multiSelectNSelected": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "auditFilterDateRange": "Date range",
   "auditFilterFrom": "From",
   "auditFilterTo": "To",

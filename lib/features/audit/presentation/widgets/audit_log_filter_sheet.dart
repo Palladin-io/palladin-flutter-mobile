@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/multi_select_dropdown.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/audit_log_entry.dart';
@@ -84,18 +85,6 @@ class _AuditLogFilterSheetState extends State<AuditLogFilterSheet> {
     _vaultIds = Set.of(widget.initial.vaultIds);
     _from = widget.initial.fromDate;
     _to = widget.initial.toDate;
-  }
-
-  void _toggleGroup(AuditEventGroup group) {
-    setState(() {
-      if (!_groups.remove(group)) _groups.add(group);
-    });
-  }
-
-  void _toggleId(Set<String> set, String id) {
-    setState(() {
-      if (!set.remove(id)) set.add(id);
-    });
   }
 
   Future<void> _pickDate({required bool isFrom}) async {
@@ -189,60 +178,63 @@ class _AuditLogFilterSheetState extends State<AuditLogFilterSheet> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.section),
-                  _SectionLabel(text: l10n.auditFilterEventTypes),
-                  const SizedBox(height: AppSpacing.innerGap),
-                  _GroupSelector(
-                    groups: widget.groups,
-                    selected: _groups,
-                    onToggle: _toggleGroup,
-                    brightness: brightness,
+                  MultiSelectDropdown(
+                    label: l10n.auditFilterEventTypes,
+                    placeholder: l10n.auditFilterAllEventTypes,
+                    options: [
+                      for (final g in widget.groups)
+                        (value: g.name, label: auditGroupLabel(l10n, g)),
+                    ],
+                    selected: _groups.map((g) => g.name).toSet(),
+                    onChanged: (values) => setState(() {
+                      _groups = widget.groups
+                          .where((g) => values.contains(g.name))
+                          .toSet();
+                    }),
                   ),
                   if (vaults != null && vaults.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.section),
-                    _SectionLabel(text: l10n.auditFilterVault),
-                    const SizedBox(height: AppSpacing.innerGap),
-                    _OptionChips(
+                    MultiSelectDropdown(
+                      label: l10n.auditFilterVault,
+                      placeholder: l10n.auditFilterAllVaults,
                       options: [
-                        for (final v in vaults) (id: v.id, label: v.name),
+                        for (final v in vaults) (value: v.id, label: v.name),
                       ],
                       selected: _vaultIds,
-                      onToggle: (id) => _toggleId(_vaultIds, id),
-                      brightness: brightness,
+                      onChanged: (values) => setState(() => _vaultIds = values),
                     ),
                   ],
                   if (widget.users.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.section),
-                    _SectionLabel(text: l10n.auditFilterUser),
-                    const SizedBox(height: AppSpacing.innerGap),
-                    _OptionChips(
+                    MultiSelectDropdown(
+                      label: l10n.auditFilterUser,
+                      placeholder: l10n.auditFilterAllUsers,
                       options: [
                         for (final u in widget.users)
                           (
-                            id: u.id,
+                            value: u.id,
                             // Disambiguate unnamed actors with a short id so
-                            // multiple unknown users aren't N identical chips.
+                            // multiple unknown users aren't identical entries.
                             label:
                                 u.name ??
                                 l10n.auditUserUnknownShort(_shortId(u.id)),
                           ),
                       ],
                       selected: _userIds,
-                      onToggle: (id) => _toggleId(_userIds, id),
-                      brightness: brightness,
+                      onChanged: (values) => setState(() => _userIds = values),
                     ),
                   ],
                   if (widget.agents.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.section),
-                    _SectionLabel(text: l10n.auditFilterAgent),
-                    const SizedBox(height: AppSpacing.innerGap),
-                    _OptionChips(
+                    MultiSelectDropdown(
+                      label: l10n.auditFilterAgent,
+                      placeholder: l10n.auditFilterAllAgents,
                       options: [
                         for (final a in widget.agents)
-                          (id: a.id, label: a.name),
+                          (value: a.id, label: a.name),
                       ],
                       selected: _agentIds,
-                      onToggle: (id) => _toggleId(_agentIds, id),
-                      brightness: brightness,
+                      onChanged: (values) => setState(() => _agentIds = values),
                     ),
                   ],
                   const SizedBox(height: AppSpacing.section),
@@ -306,199 +298,6 @@ class _SectionLabel extends StatelessWidget {
         fontSize: 12,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.3,
-      ),
-    );
-  }
-}
-
-/// Multi-select chips for the event-type [groups]. An empty selection means
-/// "all event types".
-class _GroupSelector extends StatelessWidget {
-  const _GroupSelector({
-    required this.groups,
-    required this.selected,
-    required this.onToggle,
-    required this.brightness,
-  });
-
-  final List<AuditEventGroup> groups;
-  final Set<AuditEventGroup> selected;
-  final ValueChanged<AuditEventGroup> onToggle;
-  final Brightness brightness;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Wrap(
-      spacing: AppSpacing.chipGap,
-      runSpacing: AppSpacing.chipGap,
-      children: [
-        for (final group in groups)
-          _GroupChip(
-            label: auditGroupLabel(l10n, group),
-            color: auditGroupColor(group),
-            selected: selected.contains(group),
-            onTap: () => onToggle(group),
-            brightness: brightness,
-          ),
-      ],
-    );
-  }
-}
-
-class _GroupChip extends StatelessWidget {
-  const _GroupChip({
-    required this.label,
-    required this.color,
-    required this.selected,
-    required this.onTap,
-    required this.brightness,
-  });
-
-  final String label;
-  final Color color;
-  final bool selected;
-  final VoidCallback onTap;
-  final Brightness brightness;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.xs,
-        ),
-        decoration: BoxDecoration(
-          color: selected
-              ? color.withValues(alpha: 0.16)
-              : AppColors.cardSurface(brightness),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected ? color : AppColors.cardBorder(brightness),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              selected ? Icons.check : Icons.add,
-              size: 14,
-              color: selected ? color : AppColors.onSurfaceSubtle(brightness),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected ? color : AppColors.onSurface(brightness),
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Multi-select toggle chips for an id+label option list (agents / users /
-/// vaults). An empty [selected] set means "all". Mirrors the group selector;
-/// a neutral accent keeps it distinct from the colour-coded event groups.
-class _OptionChips extends StatelessWidget {
-  const _OptionChips({
-    required this.options,
-    required this.selected,
-    required this.onToggle,
-    required this.brightness,
-  });
-
-  final List<({String id, String label})> options;
-  final Set<String> selected;
-  final ValueChanged<String> onToggle;
-  final Brightness brightness;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.chipGap,
-      runSpacing: AppSpacing.chipGap,
-      children: [
-        for (final o in options)
-          _NeutralChip(
-            label: o.label,
-            selected: selected.contains(o.id),
-            onTap: () => onToggle(o.id),
-            brightness: brightness,
-          ),
-      ],
-    );
-  }
-}
-
-/// A neutral (non-colour-coded) multi-select chip. Used for the agent / user /
-/// vault facets so colour stays reserved for the event-group chips: selection
-/// is signalled by a stronger outline + fill + bold label, not a hue.
-class _NeutralChip extends StatelessWidget {
-  const _NeutralChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    required this.brightness,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final Brightness brightness;
-
-  @override
-  Widget build(BuildContext context) {
-    final onSurface = AppColors.onSurface(brightness);
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.xs,
-        ),
-        decoration: BoxDecoration(
-          color: selected
-              ? onSurface.withValues(alpha: 0.10)
-              : AppColors.cardSurface(brightness),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected
-                ? onSurface.withValues(alpha: 0.5)
-                : AppColors.cardBorder(brightness),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              selected ? Icons.check : Icons.add,
-              size: 14,
-              color: selected
-                  ? onSurface
-                  : AppColors.onSurfaceSubtle(brightness),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected
-                    ? onSurface
-                    : AppColors.onSurfaceMuted(brightness),
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
