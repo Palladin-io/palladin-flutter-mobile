@@ -28,19 +28,31 @@ class FabOwnershipStack {
   @visibleForTesting
   int get depth => _entries.length;
 
-  /// Registers (or updates) the FAB owned by [owner], moving it to the top
-  /// so it becomes [current]. Re-registering an existing owner updates its
-  /// `fab` in place. Pass `null` for [fab] to claim the top with no FAB
-  /// (suppressing any lower page's FAB).
+  /// Registers the FAB owned by [owner]. A **newly-seen** owner is pushed to
+  /// the top and becomes [current]. An **existing** owner has its `fab`
+  /// updated **in place** — it does NOT jump back to the top.
+  ///
+  /// This makes ownership "most-recently-**mounted** wins" rather than
+  /// "most-recently-**updated** wins": a page that is currently covered (e.g.
+  /// a vault detail sitting under a pushed API-keys / Audit screen) may
+  /// rebuild and re-register its FAB, but it must not steal the FAB from the
+  /// page covering it. When the covering page pops, its registrar [clear]s and
+  /// the covered page's entry resurfaces automatically — so a covered page
+  /// never needs (and is never allowed) to re-assert itself to the top.
+  ///
+  /// Pass `null` for [fab] to claim (or keep) a slot with no FAB.
   ///
   /// Returns `true` when [current] may have changed and the shell should
-  /// rebuild; `false` when the call was a no-op (the same owner was
-  /// already on top with an identical fab).
+  /// rebuild; `false` when the visible FAB is unaffected (a no-op, or an
+  /// update to a non-top owner).
   bool set(Widget? fab, Object owner) {
     final index = _indexOf(owner);
-    final alreadyOnTop = index != -1 && index == _entries.length - 1;
-    if (alreadyOnTop && identical(_entries[index].fab, fab)) return false;
-    if (index != -1) _entries.removeAt(index);
+    if (index != -1) {
+      if (identical(_entries[index].fab, fab)) return false;
+      _entries[index] = _FabEntry(owner, fab);
+      // The visible FAB only changes when the updated owner is on top.
+      return index == _entries.length - 1;
+    }
     _entries.add(_FabEntry(owner, fab));
     return true;
   }
