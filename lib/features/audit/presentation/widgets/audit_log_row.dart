@@ -94,12 +94,18 @@ class _AuditLogRowState extends State<AuditLogRow> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    // Footer under the content — timestamp + expand chevron,
-                    // centered and subtle.
+                    // Footer under the content — expand chevron left of the
+                    // timestamp, right-aligned and subtle.
                     const SizedBox(height: AppSpacing.xs),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
+                        Icon(
+                          _expanded ? Icons.expand_less : Icons.expand_more,
+                          size: 16,
+                          color: AppColors.onSurfaceSubtle(brightness),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
                         Text(
                           auditTimestamp(
                             entry.createdAt,
@@ -109,12 +115,6 @@ class _AuditLogRowState extends State<AuditLogRow> {
                             color: AppColors.onSurfaceSubtle(brightness),
                             fontSize: 10,
                           ),
-                        ),
-                        const SizedBox(width: AppSpacing.xs),
-                        Icon(
-                          _expanded ? Icons.expand_less : Icons.expand_more,
-                          size: 16,
-                          color: AppColors.onSurfaceSubtle(brightness),
                         ),
                       ],
                     ),
