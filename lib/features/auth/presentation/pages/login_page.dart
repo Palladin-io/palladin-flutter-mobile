@@ -6,6 +6,7 @@ import '../../../../l10n/generated/app_localizations.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/brand_hero.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/oauth_button.dart';
@@ -21,8 +22,7 @@ class LoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    final isDark = brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : AppColors.darkBackground;
+    final textColor = BrandHero.textColorFor(brightness);
 
     return BlocListener<AuthBloc, AuthState>(
       listener: _handleStateChange,
@@ -34,7 +34,9 @@ class LoginPage extends StatelessWidget {
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenH,
+              ),
               child: Column(
                 children: [
                   const Spacer(flex: 3),
@@ -57,23 +59,7 @@ class LoginPage extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Image.asset('assets/images/logo.png', height: 88),
-        const SizedBox(height: AppSpacing.sm),
-        RichText(
-          textAlign: TextAlign.center,
-          text: TextSpan(
-            style: const TextStyle(
-              fontSize: 52,
-              fontWeight: FontWeight.w900,
-              height: 1.0,
-              letterSpacing: -1.5,
-            ),
-            children: [
-              TextSpan(text: 'Palladin', style: TextStyle(color: textColor)),
-              const TextSpan(text: '.io', style: TextStyle(color: AppColors.brandRed)),
-            ],
-          ),
-        ),
+        BrandHero(textColor: textColor),
         const SizedBox(height: AppSpacing.xs),
         _RotatingWelcome(color: textColor),
       ],
@@ -138,10 +124,7 @@ class LoginPage extends StatelessWidget {
       child: Text(
         l10n.legalFooter,
         textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 12,
-          color: textColor.withValues(alpha: 0.4),
-        ),
+        style: TextStyle(fontSize: 12, color: textColor.withValues(alpha: 0.4)),
       ),
     );
   }
@@ -165,7 +148,8 @@ class LoginPage extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     if (error is AuthServerException) {
       return switch (error.kind) {
-        AuthServerErrorKind.serverNotResponding => l10n.errorServerNotResponding,
+        AuthServerErrorKind.serverNotResponding =>
+          l10n.errorServerNotResponding,
         AuthServerErrorKind.cannotConnect => l10n.errorCannotConnectToServer,
         AuthServerErrorKind.connectionFailed => l10n.errorConnectionFailed,
         AuthServerErrorKind.invalidResponse => l10n.errorInvalidServerResponse,
