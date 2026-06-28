@@ -38,22 +38,20 @@ class PalladinApp extends StatefulWidget {
   State<PalladinApp> createState() => _PalladinAppState();
 }
 
-class _PalladinAppState extends State<PalladinApp>
-    with WidgetsBindingObserver {
+class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   // Stable across rebuilds so the push deep-link can navigate via
   // GoRouter regardless of which subtree currently has focus.
-  final GlobalKey<NavigatorState> _navigatorKey =
-      GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
-  late final AuthBloc _authBloc =
-      getIt<AuthBloc>()..add(const AuthCheckRequested());
-  late final GoRouter _router =
-      createRouter(_authBloc, navigatorKey: _navigatorKey);
+  late final AuthBloc _authBloc = getIt<AuthBloc>()
+    ..add(const AuthCheckRequested());
+  late final GoRouter _router = createRouter(
+    _authBloc,
+    navigatorKey: _navigatorKey,
+  );
 
-  final PushNavigationCubit _pushNavigationCubit =
-      getIt<PushNavigationCubit>();
-  final PushNotificationService _pushService =
-      getIt<PushNotificationService>();
+  final PushNavigationCubit _pushNavigationCubit = getIt<PushNavigationCubit>();
+  final PushNotificationService _pushService = getIt<PushNotificationService>();
 
   // In-app real-time channel (foreground). Works on the simulator too, unlike
   // FCM. Connected while authenticated; FCM/APNs covers the background.
@@ -241,6 +239,7 @@ class _PalladinAppState extends State<PalladinApp>
         foregroundColor: AppColors.darkBackground,
         elevation: 0,
       ),
+      datePickerTheme: _datePickerTheme(Brightness.light),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
       ),
@@ -266,8 +265,53 @@ class _PalladinAppState extends State<PalladinApp>
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: AppColors.brandRed,
       ),
+      datePickerTheme: _datePickerTheme(Brightness.dark),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// Shared calendar-popup theme for [showDatePicker] (audit From/To filters,
+  /// and any future date picker) so the dialog follows the app's light/dark
+  /// surface with the brand-red accent — never Material's bare defaults.
+  /// Colors come exclusively from [AppColors].
+  DatePickerThemeData _datePickerTheme(Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
+    final surface = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final onSurface = isDark ? AppColors.onBrandRed : AppColors.darkBackground;
+    final subtle = AppColors.textTertiary;
+
+    Color? selectedBg(Set<WidgetState> states) =>
+        states.contains(WidgetState.selected) ? AppColors.brandRed : null;
+    Color selectedFg(Set<WidgetState> states, Color unselected) =>
+        states.contains(WidgetState.selected)
+        ? AppColors.onBrandRed
+        : unselected;
+
+    return DatePickerThemeData(
+      backgroundColor: surface,
+      // Match the tint to the surface so M3 elevation tint can't shift it.
+      surfaceTintColor: surface,
+      headerBackgroundColor: AppColors.brandRed,
+      headerForegroundColor: AppColors.onBrandRed,
+      weekdayStyle: TextStyle(color: subtle),
+      dayForegroundColor: WidgetStateProperty.resolveWith(
+        (states) => selectedFg(states, onSurface),
+      ),
+      dayBackgroundColor: WidgetStateProperty.resolveWith(selectedBg),
+      todayForegroundColor: WidgetStateProperty.resolveWith(
+        (states) => selectedFg(states, AppColors.brandRed),
+      ),
+      todayBackgroundColor: WidgetStateProperty.resolveWith(selectedBg),
+      todayBorder: const BorderSide(color: AppColors.brandRed),
+      yearForegroundColor: WidgetStateProperty.resolveWith(
+        (states) => selectedFg(states, onSurface),
+      ),
+      yearBackgroundColor: WidgetStateProperty.resolveWith(selectedBg),
+      cancelButtonStyle: TextButton.styleFrom(foregroundColor: subtle),
+      confirmButtonStyle: TextButton.styleFrom(
+        foregroundColor: AppColors.brandRed,
       ),
     );
   }
