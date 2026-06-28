@@ -178,8 +178,15 @@ class _AuditLogContentState extends State<AuditLogContent> {
               itemCount: items.length,
               separatorBuilder: (_, _) =>
                   const SizedBox(height: AppSpacing.cardGap),
-              itemBuilder: (_, i) =>
-                  AuditLogRow(entry: items[i], agentNames: state.agentNames),
+              itemBuilder: (_, i) => AuditLogRow(
+                entry: items[i],
+                agentNames: state.agentNames,
+                vaultNames: state.vaultNames,
+                // Org-wide screen surfaces which vault each event happened in;
+                // the per-vault tab leaves it implicit. `showVaultFilter`
+                // already marks the org scope.
+                showVaultChip: widget.showVaultFilter,
+              ),
             ),
           ),
           SliverToBoxAdapter(

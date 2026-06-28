@@ -8,15 +8,29 @@ import '../audit_log_format.dart';
 
 /// A single expandable audit log row.
 ///
-/// Collapsed: colored event dot, event label, actor name and timestamp.
-/// Tapping expands to reveal the entry label, the agent's reason and any
-/// non-sensitive metadata (grant id, method, ip, device…). All values are
-/// metadata only — never secrets.
+/// Collapsed: colored event dot, event sentence/label, optional vault chip,
+/// and timestamp. Tapping expands to reveal the entry label, the agent's
+/// reason and any non-sensitive metadata (grant id, method, ip, device…).
+/// All values are metadata only — never secrets.
 class AuditLogRow extends StatefulWidget {
-  const AuditLogRow({super.key, required this.entry, required this.agentNames});
+  const AuditLogRow({
+    super.key,
+    required this.entry,
+    required this.agentNames,
+    this.vaultNames = const {},
+    this.showVaultChip = false,
+  });
 
   final AuditLogEntry entry;
   final Map<String, String> agentNames;
+
+  /// Resolved vault id → name, used to label the vault chip. Reuses the
+  /// cubit's vault-name resolution (org scope) — no extra lookup.
+  final Map<String, String> vaultNames;
+
+  /// Whether to show the vault chip. Only the org-wide Logs screen sets this;
+  /// the per-vault tab leaves it off (the vault is implicit there).
+  final bool showVaultChip;
 
   @override
   State<AuditLogRow> createState() => _AuditLogRowState();
@@ -36,6 +50,13 @@ class _AuditLogRowState extends State<AuditLogRow> {
     // label + actor line.
     final sentence = auditEventSentence(l10n, entry, widget.agentNames);
     final actor = auditActorName(l10n, entry, widget.agentNames);
+    // Vault chip (org scope only): show which vault the event happened in when
+    // the vault id resolves to a known name. Unknown name → no chip.
+    final vaultId = entry.vaultId;
+    final vaultName = widget.showVaultChip && vaultId != null
+        ? widget.vaultNames[vaultId]?.trim()
+        : null;
+    final showVaultChip = vaultName != null && vaultName.isNotEmpty;
 
     return Container(
       decoration: BoxDecoration(
@@ -66,39 +87,49 @@ class _AuditLogRowState extends State<AuditLogRow> {
                     ),
                     const SizedBox(width: AppSpacing.innerGap),
                     Expanded(
-                      child: sentence != null
-                          ? Text.rich(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (sentence != null)
+                            Text.rich(
                               _sentenceText(sentence, brightness),
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                             )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  auditEventLabel(
-                                    l10n,
-                                    entry.eventType,
-                                    entry.rawEventType,
-                                  ),
-                                  style: TextStyle(
-                                    color: AppColors.onSurface(brightness),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: AppSpacing.xxs),
-                                Text(
-                                  actor,
-                                  style: TextStyle(
-                                    color: AppColors.onSurfaceMuted(brightness),
-                                    fontSize: 11,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
+                          else ...[
+                            Text(
+                              auditEventLabel(
+                                l10n,
+                                entry.eventType,
+                                entry.rawEventType,
+                              ),
+                              style: TextStyle(
+                                color: AppColors.onSurface(brightness),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
+                            const SizedBox(height: AppSpacing.xxs),
+                            Text(
+                              actor,
+                              style: TextStyle(
+                                color: AppColors.onSurfaceMuted(brightness),
+                                fontSize: 11,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                          if (showVaultChip) ...[
+                            const SizedBox(height: AppSpacing.innerGap),
+                            _VaultChip(
+                              name: vaultName,
+                              brightness: brightness,
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                     const SizedBox(width: AppSpacing.innerGap),
                     Text(
@@ -147,6 +178,53 @@ class _AuditLogRowState extends State<AuditLogRow> {
                 : null,
           ),
       ],
+    );
+  }
+}
+
+/// Compact, read-only pill showing the vault an org-wide audit event happened
+/// in. Shield icon + vault name; same surface/border tokens as the row card.
+class _VaultChip extends StatelessWidget {
+  const _VaultChip({required this.name, required this.brightness});
+
+  final String name;
+  final Brightness brightness;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface(brightness),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder(brightness)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.shield_outlined,
+            size: 12,
+            color: AppColors.onSurfaceSubtle(brightness),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Flexible(
+            child: Text(
+              name,
+              style: TextStyle(
+                color: AppColors.onSurfaceMuted(brightness),
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
