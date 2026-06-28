@@ -64,95 +64,102 @@ class _AuditLogRowState extends State<AuditLogRow> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.cardBorder(brightness)),
       ),
+      // Clip so the left accent bar's corners follow the card's radius.
+      clipBehavior: Clip.antiAlias,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
           onTap: () => setState(() => _expanded = !_expanded),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.cardPadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          child: Stack(
+            children: [
+              // Color-coded left accent bar (severity), spanning the full row
+              // height — replaces the previous status dot.
+              PositionedDirectional(
+                start: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(width: 4, color: color),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.cardPadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      margin: const EdgeInsets.only(top: 4),
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (sentence != null)
+                                Text.rich(
+                                  _sentenceText(sentence, brightness),
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                )
+                              else ...[
+                                Text(
+                                  auditEventLabel(
+                                    l10n,
+                                    entry.eventType,
+                                    entry.rawEventType,
+                                  ),
+                                  style: TextStyle(
+                                    color: AppColors.onSurface(brightness),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.xxs),
+                                Text(
+                                  actor,
+                                  style: TextStyle(
+                                    color: AppColors.onSurfaceMuted(brightness),
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                              if (showVaultChip) ...[
+                                const SizedBox(height: AppSpacing.innerGap),
+                                _VaultChip(
+                                  name: vaultName,
+                                  brightness: brightness,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.innerGap),
+                        Text(
+                          auditTimestamp(
+                            entry.createdAt,
+                            Localizations.localeOf(context).toString(),
+                          ),
+                          style: TextStyle(
+                            color: AppColors.onSurfaceSubtle(brightness),
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: AppSpacing.innerGap),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (sentence != null)
-                            Text.rich(
-                              _sentenceText(sentence, brightness),
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                            )
-                          else ...[
-                            Text(
-                              auditEventLabel(
-                                l10n,
-                                entry.eventType,
-                                entry.rawEventType,
-                              ),
-                              style: TextStyle(
-                                color: AppColors.onSurface(brightness),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.xxs),
-                            Text(
-                              actor,
-                              style: TextStyle(
-                                color: AppColors.onSurfaceMuted(brightness),
-                                fontSize: 11,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                          if (showVaultChip) ...[
-                            const SizedBox(height: AppSpacing.innerGap),
-                            _VaultChip(
-                              name: vaultName,
-                              brightness: brightness,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.innerGap),
-                    Text(
-                      auditTimestamp(
-                        entry.createdAt,
-                        Localizations.localeOf(context).toString(),
-                      ),
-                      style: TextStyle(
+                    // Expand indicator under the content — subtle, centered.
+                    const SizedBox(height: AppSpacing.xs),
+                    Center(
+                      child: Icon(
+                        _expanded ? Icons.expand_less : Icons.expand_more,
+                        size: 18,
                         color: AppColors.onSurfaceSubtle(brightness),
-                        fontSize: 10,
                       ),
                     ),
-                    const SizedBox(width: AppSpacing.xs),
-                    Icon(
-                      _expanded ? Icons.expand_less : Icons.expand_more,
-                      size: 16,
-                      color: AppColors.onSurfaceSubtle(brightness),
-                    ),
+                    if (_expanded) _ExpandedDetail(entry: entry),
                   ],
                 ),
-                if (_expanded) _ExpandedDetail(entry: entry),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
