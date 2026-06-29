@@ -352,3 +352,11 @@ mb:{module}:{event}
 ```
 
 Mobile tracks **UI-only** events — page views, biometric usage, push taps. Business logic events are tracked by backend.
+
+## Maintaining this file
+
+This file is **always loaded** into context, so keep it lean. Only guidance useful in **every** iteration belongs here — the shared widget catalog, tokens (`AppColors`/`AppSpacing`), screen/skeleton/error conventions, the reuse rules.
+
+- **Deep or concern-specific guidance** (per-feature structure, cubits, cross-feature deps, architecture smells) lives in `docs/architecture/` — the per-feature docs under `docs/architecture/features/`. Add a **one-line pointer** from this file rather than inlining the detail.
+- **Extend this file autonomously** as conventions emerge: a new shared widget, a renamed/changed token, or a new screen contract → add it to the catalog or the relevant section in the same PR that introduces it.
+- **PR reviewers must check whether a code change requires updating `CLAUDE.md` or a `docs/architecture/` doc** (new shared widget, changed token/convention, new feature). Doc drift is a review finding.
