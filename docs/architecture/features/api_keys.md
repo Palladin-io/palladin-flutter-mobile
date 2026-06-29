@@ -15,4 +15,4 @@ API key list, detail, generate, revoke, delete.
 - `_KeysEmpty` duplicates the empty-card pattern → extract `ListEmptyCard`.
 - Three sheets define a private `_SheetHandle` → extract `SheetDragHandle`.
 
-See [../widget-catalog.md](../widget-catalog.md).
+See the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md).

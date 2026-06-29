@@ -10,4 +10,4 @@ Agent lifecycle: approve pending agents, deactivate, reactivate, edit.
 
 **Cross-feature deps:** consumed by `grants`, `notifications` (which reuse `AgentAvatar` + the approve/deactivate sheets).
 
-**⚠ Architecture smells:** `agent_detail_body.dart:855` defines `_DetailRow`, duplicated in `api_keys` → extract `LabelValueRow`. `_AgentsEmpty` duplicates the empty-card pattern → extract `ListEmptyCard`. AppBar title duplicates `AppBarTitle`. See [../widget-catalog.md](../widget-catalog.md).
+**⚠ Architecture smells:** `agent_detail_body.dart:855` defines `_DetailRow`, duplicated in `api_keys` → extract `LabelValueRow`. `_AgentsEmpty` duplicates the empty-card pattern → extract `ListEmptyCard`. AppBar title duplicates `AppBarTitle`. See the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md).

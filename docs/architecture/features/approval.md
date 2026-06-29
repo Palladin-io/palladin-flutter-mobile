@@ -9,4 +9,4 @@ Zero-knowledge grant approval/denial — the crypto-sensitive heart of access co
 
 **Cross-feature deps:** `auth` (private key), `grants` (domain entities). Its sheets are invoked from `vault`, `agents`, and `notifications`.
 
-**⚠ Architecture smell:** every sheet inlines the 36×4 drag handle → extract `SheetDragHandle` (see [../widget-catalog.md](../widget-catalog.md)). Use `SheetActionButtons` for the footer.
+**⚠ Architecture smell:** every sheet inlines the 36×4 drag handle → extract `SheetDragHandle` (see the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md)). Use `SheetActionButtons` for the footer.

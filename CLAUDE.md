@@ -4,33 +4,32 @@ Flutter mobile app for managing vaults, approving agent grants, and biometric un
 
 ## Project Brain
 
-Wiedza biznesowa i architektoniczna projektu: `../docs/obsidian/palladin/`
+Business and architecture knowledge for the project: `../docs/obsidian/palladin/`
 
-Kluczowe noty dla tego repozytorium:
-- `Technical/Mobile.md` — stack, flavory, BLoC, AppColors, i18n, konwencje
-- `Technical/Analytics Conventions.md` — PostHog, format zdarzeń `mb:{module}:{event}`
-- `Technical/Security Model.md` — zero-knowledge, szyfrowanie on-device
-- `Product/Modules/Vault/` — Vault module: reguły, API, onboarding flow
+Key notes for this repository:
+- `Technical/Mobile.md` — stack, flavors, BLoC, AppColors, i18n, conventions
+- `Technical/Analytics Conventions.md` — PostHog, event format `mb:{module}:{event}`
+- `Technical/Security Model.md` — zero-knowledge, on-device encryption
+- `Product/Modules/Vault/` — Vault module: rules, API, onboarding flow
 - `Product/Modules/Notification/Business Rules.md` — FCM/APNs, push tokens
 
-Użyj `/brain` żeby nawigować po brain lub: `grep -r "SŁOWO" ../docs/obsidian/palladin --include="*.md"`
+Use `/brain` to navigate the brain, or: `grep -r "WORD" ../docs/obsidian/palladin --include="*.md"`
 
-**Po sesji która zmienia funkcjonalność, reguły biznesowe lub architekturę: zaktualizuj odpowiednią notę w brain.**
+**After a session that changes functionality, business rules, or architecture: update the relevant note in the brain.**
 
 Repository: [Flamingo-Co/palladin-flutter-mobile](https://github.com/Flamingo-Co/palladin-flutter-mobile)
 
 ## Architecture Reference Docs
 
-`docs/architecture/` is the source of truth for shared widgets and per-feature structure.
+The **shared widget catalog lives in this file** (see "## Shared Widget Catalog" below — always loaded, so reuse is always at hand). `docs/architecture/` holds the per-feature structure docs.
 
-**Reuse-first rule:** before building any widget, check [`docs/architecture/widget-catalog.md`](docs/architecture/widget-catalog.md). If a shared widget exists, use it. If a pattern appears **2+ times**, extract it to `lib/core/widgets/` — duplicating an input/button/card/sheet style inline is a bug. Never inline `Color(0x..)` (use `AppColors.*`) or bare spacing numbers (use `AppSpacing.*`).
+**Reuse-first rule:** before building any widget, check the **Shared Widget Catalog** section below. If a shared widget exists, use it. If a pattern appears **2+ times**, extract it to `lib/core/widgets/` — duplicating an input/button/card/sheet style inline is a bug. Never inline `Color(0x..)` (use `AppColors.*`) or bare spacing numbers (use `AppSpacing.*`).
 
 **Before implementing in a feature, read its architecture doc first** — it lists the cubit/bloc, existing pages and widgets, the data/domain/presentation layering, and cross-feature deps.
 
 | Feature | Doc |
 |---------|-----|
 | Index + reuse philosophy | `docs/architecture/README.md` |
-| Shared widget catalog | `docs/architecture/widget-catalog.md` |
 | auth | `docs/architecture/features/auth.md` |
 | unlock | `docs/architecture/features/unlock.md` |
 | onboarding | `docs/architecture/features/onboarding.md` |
@@ -142,53 +141,71 @@ lib/
 
 **Key naming:** `feature_action` or `feature_section_label` (snake_case, no dots — ARB keys are camelCase in Dart output).
 
-## Shared Components — nie duplikuj kodu
+## Shared Widget Catalog
 
-Przed napisaniem nowego widgetu sprawdź czy coś podobnego już istnieje:
+**Do not duplicate code.** Before writing any widget, check this catalog. If a shared widget exists, use it. If the same pattern appears twice, extract it to `lib/core/widgets/` and use it everywhere — duplicating the style of an input, button, or card is a bug.
 
-| Komponent | Lokalizacja | Zastosowanie |
-|-----------|-------------|--------------|
-| `OnboardingTextField` | `lib/features/onboarding/presentation/widgets/onboarding_text_field.dart` | Pola formularzy z labelem, borderem i animated feedback slotem (auth, onboarding, vault settings) |
-| `AppSearchField` | `lib/core/widgets/app_search_field.dart` | Pola wyszukiwania z opcjonalną ikoną filtrów (`tune`) |
-| `AppBottomNav` | `lib/features/shell/presentation/widgets/app_bottom_nav.dart` | Bottom navigation bar — używaj we wszystkich stronach które mają nav |
-| `FieldFeedbackSlot` | razem z `OnboardingTextField` | Animowany slot na komunikaty walidacji poniżej inputa |
+### Core widgets — `lib/core/widgets/`
 
-**Zasada:** nie kopiuj kodu widgetów inline — jeśli ten sam pattern pojawia się dwa razy, wyciągnij go do `lib/core/widgets/` i użyj wszędzie. Duplikacja stylu inputów, przycisków lub kart jest błędem.
+| Widget | File | Purpose / key params |
+|--------|------|----------------------|
+| `AppScreen` | `lib/core/widgets/app_screen.dart` | Gradient background + transparent Scaffold. `.titled(title, subtitle, actions, body)` for list tabs; `.appBar(appBar, body)` for pushed detail screens; default `(header, body)` is legacy. Also `floatingActionButton`, `endDrawer` |
+| `ListScreenHeader` | `lib/core/widgets/list_screen_header.dart` | In-body title row used by `AppScreen.titled` (owns the `headerGap` below the title). Params: `title`, `subtitle`, `actions` |
+| `AppSearchField` | `lib/core/widgets/app_search_field.dart` | Search input (wraps `OnboardingTextField`) with optional filter toggle (`tune` icon). Params: `controller`, `hint`, `onChanged`, `filterActive`, `onToggleFilter` |
+| `SkeletonBox` | `lib/core/widgets/skeleton_box.dart` | The only skeleton primitive — never reimplement the opacity loop. Params: `height`, `borderRadius` (default 12), `delay` (stagger) |
+| `SheetActionButtons` | `lib/core/widgets/sheet_action_buttons.dart` | Cancel (1×) + Confirm (2×) footer band for modal sheets. Params: `onCancel`, `onConfirm`, `confirmLabel`, `confirmColor`, `cancelLabel`, `busy` |
+| `WarningZone` | `lib/core/widgets/warning_zone.dart` | Amber-bordered security warning box. Params: `title` (uppercase), `message` |
+| `ApproveActionButton` | `lib/core/widgets/approve_action_button.dart` | Full-width green-tinted approve CTA. Params: `label`, `onPressed`, `icon`, `isLoading`, `height` (default 44) |
+| `AppToggle` | `lib/core/widgets/app_toggle.dart` | Compact 32×18 pill toggle (brandRed when ON). Params: `value`, `onChanged` (null = locked/dimmed) |
+| `AppFab` | `lib/core/widgets/app_fab.dart` | Brand-red 44×44 FAB with shadow, zero elevation. Params: `onPressed`, `tooltip` |
+| `FabRegistrar` | `lib/core/widgets/fab_registrar.dart` | 0×0 widget that claims the shell FAB slot for the current page. Param: `fab` (null = suppress a covered page's leaked FAB) |
+| `AppDropdownField` | `lib/core/widgets/app_dropdown_field.dart` | 44px bordered dropdown matching input height, generic `<T>`. Params: `label`, `value`, `items`, `onChanged`, `hint`, `enabled`, `filled` |
+| `AppAutocompleteField` | `lib/core/widgets/app_autocomplete_field.dart` | Type-to-search autocomplete backed by `OnboardingTextField`, generic `<T extends Object>`. Params: `label`, `initialText`, `options`, `displayString`, `onSelected`, `onTextChanged` |
+| `BrandHero` | `lib/core/widgets/brand_hero.dart` | Logo + "Palladin.io" wordmark (`.io` always brandRed). Param: `textColor`; static `BrandHero.textColorFor(brightness)` |
+| `IconColorBrowserSheet` | `lib/core/widgets/icon_color_browser_sheet.dart` | Full icon + color picker bottom sheet. Params: `icons`, `colorOptions`, `initialIconKey`, `initialColor`, `title`, `confirmLabel`, `leadingTile`, `onPickCustom` |
+| `IconPickerGrid` | `lib/core/widgets/icon_picker_grid.dart` | Grid of selectable icon tiles (used inside `IconColorBrowserSheet` and vault/entry icon pickers) |
+| `MultiSelectDropdown` | `lib/core/widgets/multi_select_dropdown.dart` | Multi-select with chips, generic `<T>` (used in audit filter sheets) |
+| `UploadIconButton` | `lib/core/widgets/upload_icon_button.dart` | Upload button with brandRed gradient shimmer label. Param: `onPressed`, upload state |
 
-### Full widget catalog
+### Cross-feature widgets (live in a feature, reused by 2+ features)
 
-The table above lists only a few. The full inventory lives in [`docs/architecture/widget-catalog.md`](docs/architecture/widget-catalog.md). Most-used shared widgets:
+These belong conceptually to `core` but currently sit in a feature folder. Reuse them as-is — do not duplicate.
 
-| Widget | Location | Use |
-|--------|----------|-----|
-| `AppScreen` | `lib/core/widgets/app_screen.dart` | Gradient + transparent Scaffold. `.titled(...)` for list tabs, `.appBar(...)` for pushed screens |
-| `ListScreenHeader` | `lib/core/widgets/list_screen_header.dart` | In-body title row used by `AppScreen.titled` |
-| `SkeletonBox` | `lib/core/widgets/skeleton_box.dart` | The only skeleton primitive — never reimplement the opacity loop |
-| `SheetActionButtons` | `lib/core/widgets/sheet_action_buttons.dart` | Cancel + Confirm footer band for modal sheets |
-| `WarningZone` | `lib/core/widgets/warning_zone.dart` | Amber security-warning box |
-| `ApproveActionButton` | `lib/core/widgets/approve_action_button.dart` | Full-width green approve CTA |
-| `AppToggle` | `lib/core/widgets/app_toggle.dart` | Compact 32×18 pill toggle |
-| `AppFab` | `lib/core/widgets/app_fab.dart` | Brand-red 44×44 FAB |
-| `FabRegistrar` | `lib/core/widgets/fab_registrar.dart` | Claims the shell FAB slot for the current page (`fab: null` suppresses) |
-| `AppDropdownField` | `lib/core/widgets/app_dropdown_field.dart` | 44px bordered dropdown `<T>` |
-| `AppAutocompleteField` | `lib/core/widgets/app_autocomplete_field.dart` | Type-to-search autocomplete `<T>` |
-| `BrandHero` | `lib/core/widgets/brand_hero.dart` | Logo + "Palladin.io" wordmark |
-| `IconColorBrowserSheet` | `lib/core/widgets/icon_color_browser_sheet.dart` | Icon + color picker bottom sheet |
-| `MultiSelectDropdown` | `lib/core/widgets/multi_select_dropdown.dart` | Multi-select with chips `<T>` |
-| `PrimaryButton` | `lib/features/onboarding/presentation/widgets/primary_button.dart` | Brand-red full-width CTA with loading state (used app-wide — pending move to `core/widgets/`) |
-| `AgentAvatar` | `lib/features/agents/presentation/widgets/agent_avatar.dart` | Agent icon circle (reused by grants + notifications) |
-| `AgentStatusBadge` / `ApiKeyStatusBadge` | `lib/features/agents/.../agent_status_badge.dart`, `lib/features/api_keys/.../api_key_status_badge.dart` | Status pills (identical shape — extract `StatusPill`) |
+| Widget | File | Purpose / reused by |
+|--------|------|---------------------|
+| `OnboardingTextField` + `FieldFeedbackSlot` | `lib/features/onboarding/presentation/widgets/onboarding_text_field.dart` | Primary 44px text input with label, border, and animated feedback slot below the input. Used by every feature with a form field (auth, onboarding, vault settings, recovery) |
+| `PrimaryButton` | `lib/features/onboarding/presentation/widgets/primary_button.dart` | Brand-red full-width 44px CTA with loading state. Used in 14 files across 6 features — **should move to `lib/core/widgets/`** |
+| `AppBottomNav` | `lib/features/shell/presentation/widgets/app_bottom_nav.dart` | 5-slot bottom navigation bar with badge counts (used by `AppShell`) |
+| `AgentAvatar` | `lib/features/agents/presentation/widgets/agent_avatar.dart` | Agent icon circle (tinted initials fallback or custom icon/color). Reused by grants (`OrgGrantCard`) + notifications (`NotificationCard`) |
+| `AgentStatusBadge` | `lib/features/agents/presentation/widgets/agent_status_badge.dart` | Rounded status pill (pending/active/deactivated). Used by `AgentCard`, `AgentDetailBody` |
+| `ApiKeyStatusBadge` | `lib/features/api_keys/presentation/widgets/api_key_status_badge.dart` | Status pill (active/revoked) — same shape as `AgentStatusBadge` |
+| `AgentCard` | `lib/features/agents/presentation/widgets/agent_card.dart` | Tappable agent row (identity + footer zones) |
+| `GrantDetailRow` | `lib/features/grants/presentation/widgets/org_grant_card.dart` (exported) | Fixed 76px label column + value text row. Used by `OrgGrantCard`, `NotificationCard` |
 
-### Widgets to reuse, not re-implement
+### Widgets to extract (missing shared widgets)
 
-Known duplications — **use or extract the shared widget; do not add another copy.** Full counts + target files in [`docs/architecture/widget-catalog.md`](docs/architecture/widget-catalog.md).
+These patterns are duplicated and have **no** shared widget yet. Extract to `lib/core/widgets/` when next touching the affected code, then replace all instances. **Do not add another copy.**
 
-- **Sheet drag handle (×15)** — 6 private `_SheetHandle` classes + 9 inline 36×4 pills → extract `SheetDragHandle` to `lib/core/widgets/`.
-- **AppBar title (×6)** — `Column(name 16/w700 + subtitle 11/subtle)` duplicated across detail/settings pages → extract `AppBarTitle`.
-- **Status pills (×2)** — `AgentStatusBadge` ≡ `ApiKeyStatusBadge` → extract `StatusPill({label, color})`.
-- **Label/value rows (×2)** — `_DetailRow` in api_keys + agents → extract `LabelValueRow`.
-- **Empty cards (×3)** — `_AgentsEmpty`, `_KeysEmpty`, `_EmptyCard` → extract `ListEmptyCard`.
-- **Skeletons reimplemented (×2)** — `_SkeletonCard` (vault_list), `_SkeletonRow` (vault_entries_tab) hand-roll `AnimationController` → use `SkeletonBox`.
+- **Sheet drag handle (×17 files)** — 7 private `_SheetHandle` classes (incl. one inside the core `icon_color_browser_sheet.dart`) + 10 inline 36×4 pills → extract `SheetDragHandle` to `lib/core/widgets/`. Inline copies in approval (`approve_grant_sheet`, `deny_grant_sheet`, `grant_access_sheet`, `grant_methods_selector`, `regrant_sheet`), audit (`audit_legend_sheet`, `audit_log_filter_sheet`, `entry_logs_filter_sheet`), grants (`revoke_grant_sheet`), and `vault_list_page`.
+- **AppBar title (×6)** — `Column(start, [Text(title,16/w700), Text(subtitle,11/subtle)])` duplicated in `vault_detail_page`, `entry_detail_page`, `api_keys_page`, `api_key_detail_page`, `agent_detail_page`, `settings_page` → extract `AppBarTitle({title, subtitle})`.
+- **Status pills (×2)** — `AgentStatusBadge` ≡ `ApiKeyStatusBadge` → extract `StatusPill({label, color})` (bg = `color.withValues(alpha:0.12)`, border = `alpha:0.5`, text 10/w700).
+- **Label/value rows (×2)** — `_DetailRow` in `api_key_details_tab.dart` + `agent_detail_body.dart` → extract `LabelValueRow`.
+- **Empty cards (×3)** — `_AgentsEmpty` (agents_page), `_KeysEmpty` (api_keys_page), `_EmptyCard` (notification_center_page) → extract `ListEmptyCard({icon, title, hint})`.
+- **Move `PrimaryButton`** out of `features/onboarding/` into `lib/core/widgets/` — used in 14 files / 6 features; update all import paths.
+
+### Skeleton reimplementations to replace
+
+`SkeletonBox` is the canonical primitive, but two screens still ship their own `StatefulWidget` + `AnimationController` + `Tween(0.4, 0.85)`: `vault_list_page.dart` (`_SkeletonCard`) and `vault_entries_tab.dart` (`_SkeletonRow`). Replace both with `SkeletonBox(height: X, delay: Duration(milliseconds: i * 80))`.
+
+### Reuse rules
+
+1. **Colors** — only `AppColors.*` (`lib/core/theme/app_colors.dart`). Never `Color(0x..)`, `Colors.white`, or a hex literal anywhere outside that file.
+2. **Spacing** — only `AppSpacing.*` (`lib/core/theme/app_spacing.dart`). No bare numbers in `SizedBox`, `EdgeInsets`, separator gaps, or `Wrap` spacing. Non-spacing dimensions (icon/font sizes, radii, border width, fixed component sizes like the 36×4 drag handle) stay raw.
+3. **Screens** — top-level list tabs use `AppScreen.titled(...)`; pushed detail screens use `AppScreen.appBar(...)`. Never hand-roll `Container(gradient) + Scaffold(transparent)`.
+4. **Skeletons** — use `SkeletonBox`; never reimplement an `AnimationController` opacity loop.
+5. **Sheets** — footer actions via `SheetActionButtons`; drag handle via the shared `SheetDragHandle` (extract on first touch — do not add an 18th copy).
+6. **Inputs** — `OnboardingTextField` for text, `AppSearchField` for search, `AppDropdownField` for dropdowns, `AppAutocompleteField` for autocomplete. Never re-style an input inline.
+7. **Buttons** — `PrimaryButton` for the primary CTA, `ApproveActionButton` for approve actions, `AppFab` for floating actions. Never build a bare `ElevatedButton` with inline brand styling.
 
 ## Theming & Colors
 
@@ -198,13 +215,16 @@ Known duplications — **use or extract the shared widget; do not add another co
 
 | Constant | Value | Usage |
 |----------|-------|-------|
-| `AppColors.darkBackground` | `#000B2E` | Dark scaffold background |
-| `AppColors.darkSurface` | `#1A2A4A` | Dark elevated surfaces |
-| `AppColors.lightBackground` | `#FDF9E4` | Light scaffold background |
-| `AppColors.lightSurface` | `#EEEAD4` | Light elevated surfaces |
-| `AppColors.brandRed` | `#FF4F4F` | "Vault" wordmark, errors, primary buttons |
+| `AppColors.darkBackground` | `#15171B` | Dark scaffold background — deep graphite |
+| `AppColors.darkSurface` | `#20242C` | Dark elevated surfaces |
+| `AppColors.mobileSurface` | `#23262C` | Graphite card background (vault list/detail) |
+| `AppColors.lightBackground` | `#E8EAED` | Light scaffold background — warm cream |
+| `AppColors.lightSurface` | `#DCDEE2` | Light elevated surfaces |
+| `AppColors.brandRed` | `#EB4747` | "Vault" wordmark, errors, primary buttons |
 | `AppColors.tealAccent` | `#48ECDF` | Primary interactive, loaders |
 | `AppColors.onBrandRed` | `#FFFFFF` | Text/icons on brandRed backgrounds (`onPrimary`, `foregroundColor`) |
+
+Brightness-aware semantic colors are static methods (`AppColors.onSurface(brightness)`, `cardFill(brightness)`, `modalBackground(brightness)`, etc.), not consts. The full background is `AppColors.backgroundGradient(brightness)`.
 
 **Common violations to avoid:**
 - `Colors.white` — use `AppColors.onBrandRed`

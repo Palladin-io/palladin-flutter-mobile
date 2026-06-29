@@ -7,17 +7,18 @@ Per-feature and shared-widget reference for the Palladin Flutter app. These docs
 **Before building any widget, check the catalog.** If a matching shared widget exists, use it. If a pattern appears **2+ times** anywhere in the codebase, extract it to `lib/core/widgets/` and use it everywhere — duplicating an input/button/card/sheet style inline is a bug, not a style choice.
 
 Order of operations for any new UI:
-1. Read [`widget-catalog.md`](widget-catalog.md) — does a shared widget already cover this?
+1. Read the **Shared Widget Catalog** section in [`../../CLAUDE.md`](../../CLAUDE.md) — does a shared widget already cover this?
 2. Read the feature doc under [`features/`](features/) for the feature you're touching.
 3. Only after both: build. If you're about to copy a `Container`/`Column`/sheet block you've seen elsewhere, stop and extract instead.
 
-**Never inline** `Color(0x..)` (use `AppColors.*`) or bare spacing numbers (use `AppSpacing.*`). Never reinvent a skeleton, a sheet drag handle, or a status pill — see the catalog's "Widgets to extract" section.
+**Never inline** `Color(0x..)` (use `AppColors.*`) or bare spacing numbers (use `AppSpacing.*`). Never reinvent a skeleton, a sheet drag handle, or a status pill — see the catalog's "Widgets to extract" subsection.
 
 ## Docs index
 
+The **shared widget catalog lives in [`../../CLAUDE.md`](../../CLAUDE.md)** (section "Shared Widget Catalog") so it is always loaded — it covers every `lib/core/widgets/` widget, the cross-feature widgets, the widgets still to extract, and the reuse rules. The per-feature docs are here:
+
 | Doc | Covers |
 |-----|--------|
-| [widget-catalog.md](widget-catalog.md) | Every shared `lib/core/widgets/` widget + cross-feature widgets, widgets that still need extracting, and reuse rules |
 | [features/auth.md](features/auth.md) | OAuth login |
 | [features/unlock.md](features/unlock.md) | Master-password + biometric unlock |
 | [features/onboarding.md](features/onboarding.md) | Account-setup wizard (master password, mnemonic) |

@@ -7,4 +7,4 @@ Master-password unlock with a biometric shortcut.
 - **Layering:** full data / domain / presentation split. `UnlockCryptoService` (in `data/services/`) derives the vault key from the master password via libsodium — uses the `try/finally` zero-out pattern for key bytes.
 - **Flow:** on success posts `AuthVaultUnlocked` to `AuthBloc`.
 
-**Cross-feature deps:** `auth` (posts unlock event). Reuses onboarding widgets — see the `PrimaryButton` relocation note in [../widget-catalog.md](../widget-catalog.md).
+**Cross-feature deps:** `auth` (posts unlock event). Reuses onboarding widgets — see the `PrimaryButton` relocation note in the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md).
