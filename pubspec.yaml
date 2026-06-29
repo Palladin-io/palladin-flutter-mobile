@@ -32,6 +32,10 @@ dependencies:
   # Secure storage
   flutter_secure_storage: ^9.2.4
 
+  # Lightweight key-value store for non-sensitive UI flags
+  # (e.g. onboarding-checklist dismissal). Never used for secrets.
+  shared_preferences: ^2.3.3
+
   # Biometric authentication (Face ID / fingerprint)
   local_auth: ^2.3.0
 

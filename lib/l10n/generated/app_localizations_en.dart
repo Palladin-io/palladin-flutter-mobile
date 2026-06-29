@@ -2286,4 +2286,98 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get auditObjectAgent => 'an agent';
+
+  @override
+  String get dashboardGoodMorning => 'Good morning';
+
+  @override
+  String get dashboardSearchHint => 'Agents, vaults, entries…';
+
+  @override
+  String get dashboardOnboardingTitle => 'Set up Palladin';
+
+  @override
+  String get dashboardOnboardingSubtitle =>
+      'Complete these steps to start managing access securely';
+
+  @override
+  String dashboardOnboardingProgress(int completed) {
+    return '$completed of 4 completed';
+  }
+
+  @override
+  String get dashboardOnboardingSkipSetup => 'Skip setup';
+
+  @override
+  String get dashboardOnboardingStep1Title => 'Enable notifications';
+
+  @override
+  String get dashboardOnboardingStep1Description =>
+      'Respond in seconds — agents wait for your approval. Faster responses mean smoother AI workflows.';
+
+  @override
+  String get dashboardOnboardingStep1Enable => 'Enable';
+
+  @override
+  String get dashboardOnboardingStep1Skip => 'Skip';
+
+  @override
+  String get dashboardOnboardingStep2Title => 'Add your first vault';
+
+  @override
+  String get dashboardOnboardingStep2Description =>
+      'Add an entry manually or import existing data';
+
+  @override
+  String get dashboardOnboardingStep2Cta => 'Add Vault';
+
+  @override
+  String get dashboardOnboardingStep3Title => 'Add an API Key';
+
+  @override
+  String get dashboardOnboardingStep3Description =>
+      'Connect Palladin to external services';
+
+  @override
+  String get dashboardOnboardingStep3Cta => 'Add API Key';
+
+  @override
+  String get dashboardOnboardingStep4Title => 'Register an Agent';
+
+  @override
+  String get dashboardOnboardingStep4Description =>
+      'Add your first AI agent that can request access';
+
+  @override
+  String get dashboardOnboardingStep4Cta => 'Register Agent';
+
+  @override
+  String dashboardOnboardingStep(int n) {
+    return 'Step $n';
+  }
+
+  @override
+  String get dashboardUnknownAgentWarning => 'Unregistered agent';
+
+  @override
+  String get dashboardUnknownAgentDescription =>
+      'This agent is not yet in the system. You can register it and approve access at the same time.';
+
+  @override
+  String get dashboardUnknownAgentRegisterAndApprove => 'Register & Approve';
+
+  @override
+  String get dashboardUnknownAgentReject => 'Reject';
+
+  @override
+  String get dashboardPendingApprovals => 'Pending Approvals';
+
+  @override
+  String get dashboardRecentActivity => 'Recent Activity';
+
+  @override
+  String get dashboardNoActivity => 'No activity yet';
+
+  @override
+  String get dashboardSeeAll => 'See all';
 }

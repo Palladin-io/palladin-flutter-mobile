@@ -4075,6 +4075,174 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'an agent'**
   String get auditObjectAgent;
+
+  /// Greeting on the dashboard
+  ///
+  /// In en, this message translates to:
+  /// **'Good morning'**
+  String get dashboardGoodMorning;
+
+  /// Search placeholder on dashboard
+  ///
+  /// In en, this message translates to:
+  /// **'Agents, vaults, entries…'**
+  String get dashboardSearchHint;
+
+  /// Title of the onboarding progress card
+  ///
+  /// In en, this message translates to:
+  /// **'Set up Palladin'**
+  String get dashboardOnboardingTitle;
+
+  /// Subtitle of the onboarding progress card
+  ///
+  /// In en, this message translates to:
+  /// **'Complete these steps to start managing access securely'**
+  String get dashboardOnboardingSubtitle;
+
+  /// Progress counter in the onboarding card
+  ///
+  /// In en, this message translates to:
+  /// **'{completed} of 4 completed'**
+  String dashboardOnboardingProgress(int completed);
+
+  /// Link to dismiss the onboarding checklist
+  ///
+  /// In en, this message translates to:
+  /// **'Skip setup'**
+  String get dashboardOnboardingSkipSetup;
+
+  /// Step 1 title
+  ///
+  /// In en, this message translates to:
+  /// **'Enable notifications'**
+  String get dashboardOnboardingStep1Title;
+
+  /// Step 1 description
+  ///
+  /// In en, this message translates to:
+  /// **'Respond in seconds — agents wait for your approval. Faster responses mean smoother AI workflows.'**
+  String get dashboardOnboardingStep1Description;
+
+  /// Enable notifications button
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get dashboardOnboardingStep1Enable;
+
+  /// Skip notifications step button
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get dashboardOnboardingStep1Skip;
+
+  /// Step 2 title
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first vault'**
+  String get dashboardOnboardingStep2Title;
+
+  /// Step 2 description
+  ///
+  /// In en, this message translates to:
+  /// **'Add an entry manually or import existing data'**
+  String get dashboardOnboardingStep2Description;
+
+  /// Step 2 CTA button
+  ///
+  /// In en, this message translates to:
+  /// **'Add Vault'**
+  String get dashboardOnboardingStep2Cta;
+
+  /// Step 3 title
+  ///
+  /// In en, this message translates to:
+  /// **'Add an API Key'**
+  String get dashboardOnboardingStep3Title;
+
+  /// Step 3 description
+  ///
+  /// In en, this message translates to:
+  /// **'Connect Palladin to external services'**
+  String get dashboardOnboardingStep3Description;
+
+  /// Step 3 CTA button
+  ///
+  /// In en, this message translates to:
+  /// **'Add API Key'**
+  String get dashboardOnboardingStep3Cta;
+
+  /// Step 4 title
+  ///
+  /// In en, this message translates to:
+  /// **'Register an Agent'**
+  String get dashboardOnboardingStep4Title;
+
+  /// Step 4 description
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first AI agent that can request access'**
+  String get dashboardOnboardingStep4Description;
+
+  /// Step 4 CTA button
+  ///
+  /// In en, this message translates to:
+  /// **'Register Agent'**
+  String get dashboardOnboardingStep4Cta;
+
+  /// Step number badge
+  ///
+  /// In en, this message translates to:
+  /// **'Step {n}'**
+  String dashboardOnboardingStep(int n);
+
+  /// Warning label on the unknown agent card
+  ///
+  /// In en, this message translates to:
+  /// **'Unregistered agent'**
+  String get dashboardUnknownAgentWarning;
+
+  /// Unknown agent card description
+  ///
+  /// In en, this message translates to:
+  /// **'This agent is not yet in the system. You can register it and approve access at the same time.'**
+  String get dashboardUnknownAgentDescription;
+
+  /// Register & Approve button label
+  ///
+  /// In en, this message translates to:
+  /// **'Register & Approve'**
+  String get dashboardUnknownAgentRegisterAndApprove;
+
+  /// Reject button label on unknown agent card
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get dashboardUnknownAgentReject;
+
+  /// Pending approvals section header
+  ///
+  /// In en, this message translates to:
+  /// **'Pending Approvals'**
+  String get dashboardPendingApprovals;
+
+  /// Recent activity section header
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Activity'**
+  String get dashboardRecentActivity;
+
+  /// Empty state message for activity section
+  ///
+  /// In en, this message translates to:
+  /// **'No activity yet'**
+  String get dashboardNoActivity;
+
+  /// See all link in section headers
+  ///
+  /// In en, this message translates to:
+  /// **'See all'**
+  String get dashboardSeeAll;
 }
 
 class _AppLocalizationsDelegate

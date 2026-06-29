@@ -2306,4 +2306,99 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get auditObjectAgent => 'agenta';
+
+  @override
+  String get dashboardGoodMorning => 'Dzień dobry';
+
+  @override
+  String get dashboardSearchHint => 'Agenci, sejfy, wpisy…';
+
+  @override
+  String get dashboardOnboardingTitle => 'Skonfiguruj Palladin';
+
+  @override
+  String get dashboardOnboardingSubtitle =>
+      'Wykonaj te kroki, aby bezpiecznie zarządzać dostępem';
+
+  @override
+  String dashboardOnboardingProgress(int completed) {
+    return 'Ukończono $completed z 4';
+  }
+
+  @override
+  String get dashboardOnboardingSkipSetup => 'Pomiń konfigurację';
+
+  @override
+  String get dashboardOnboardingStep1Title => 'Włącz powiadomienia';
+
+  @override
+  String get dashboardOnboardingStep1Description =>
+      'Reaguj w sekundy — agenci czekają na Twoją zgodę. Szybsze odpowiedzi to płynniejsze przepływy pracy AI.';
+
+  @override
+  String get dashboardOnboardingStep1Enable => 'Włącz';
+
+  @override
+  String get dashboardOnboardingStep1Skip => 'Pomiń';
+
+  @override
+  String get dashboardOnboardingStep2Title => 'Dodaj pierwszy sejf';
+
+  @override
+  String get dashboardOnboardingStep2Description =>
+      'Dodaj wpis ręcznie lub zaimportuj istniejące dane';
+
+  @override
+  String get dashboardOnboardingStep2Cta => 'Dodaj sejf';
+
+  @override
+  String get dashboardOnboardingStep3Title => 'Dodaj klucz API';
+
+  @override
+  String get dashboardOnboardingStep3Description =>
+      'Połącz Palladin z zewnętrznymi usługami';
+
+  @override
+  String get dashboardOnboardingStep3Cta => 'Dodaj klucz API';
+
+  @override
+  String get dashboardOnboardingStep4Title => 'Zarejestruj agenta';
+
+  @override
+  String get dashboardOnboardingStep4Description =>
+      'Dodaj pierwszego agenta AI, który może prosić o dostęp';
+
+  @override
+  String get dashboardOnboardingStep4Cta => 'Zarejestruj agenta';
+
+  @override
+  String dashboardOnboardingStep(int n) {
+    return 'Krok $n';
+  }
+
+  @override
+  String get dashboardUnknownAgentWarning => 'Niezarejestrowany agent';
+
+  @override
+  String get dashboardUnknownAgentDescription =>
+      'Tego agenta nie ma jeszcze w systemie. Możesz go zarejestrować i jednocześnie zatwierdzić dostęp.';
+
+  @override
+  String get dashboardUnknownAgentRegisterAndApprove =>
+      'Zarejestruj i zatwierdź';
+
+  @override
+  String get dashboardUnknownAgentReject => 'Odrzuć';
+
+  @override
+  String get dashboardPendingApprovals => 'Oczekujące zgody';
+
+  @override
+  String get dashboardRecentActivity => 'Ostatnia aktywność';
+
+  @override
+  String get dashboardNoActivity => 'Brak aktywności';
+
+  @override
+  String get dashboardSeeAll => 'Zobacz wszystko';
 }

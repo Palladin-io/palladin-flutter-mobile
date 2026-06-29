@@ -665,5 +665,39 @@
   "auditObjectEntry": "wpis",
   "auditObjectOrg": "organizację",
   "auditObjectApiKey": "klucz API",
-  "auditObjectAgent": "agenta"
+  "auditObjectAgent": "agenta",
+  "dashboardGoodMorning": "Dzień dobry",
+  "dashboardSearchHint": "Agenci, sejfy, wpisy…",
+  "dashboardOnboardingTitle": "Skonfiguruj Palladin",
+  "dashboardOnboardingSubtitle": "Wykonaj te kroki, aby bezpiecznie zarządzać dostępem",
+  "dashboardOnboardingProgress": "Ukończono {completed} z 4",
+  "@dashboardOnboardingProgress": {
+    "placeholders": { "completed": { "type": "int" } }
+  },
+  "dashboardOnboardingSkipSetup": "Pomiń konfigurację",
+  "dashboardOnboardingStep1Title": "Włącz powiadomienia",
+  "dashboardOnboardingStep1Description": "Reaguj w sekundy — agenci czekają na Twoją zgodę. Szybsze odpowiedzi to płynniejsze przepływy pracy AI.",
+  "dashboardOnboardingStep1Enable": "Włącz",
+  "dashboardOnboardingStep1Skip": "Pomiń",
+  "dashboardOnboardingStep2Title": "Dodaj pierwszy sejf",
+  "dashboardOnboardingStep2Description": "Dodaj wpis ręcznie lub zaimportuj istniejące dane",
+  "dashboardOnboardingStep2Cta": "Dodaj sejf",
+  "dashboardOnboardingStep3Title": "Dodaj klucz API",
+  "dashboardOnboardingStep3Description": "Połącz Palladin z zewnętrznymi usługami",
+  "dashboardOnboardingStep3Cta": "Dodaj klucz API",
+  "dashboardOnboardingStep4Title": "Zarejestruj agenta",
+  "dashboardOnboardingStep4Description": "Dodaj pierwszego agenta AI, który może prosić o dostęp",
+  "dashboardOnboardingStep4Cta": "Zarejestruj agenta",
+  "dashboardOnboardingStep": "Krok {n}",
+  "@dashboardOnboardingStep": {
+    "placeholders": { "n": { "type": "int" } }
+  },
+  "dashboardUnknownAgentWarning": "Niezarejestrowany agent",
+  "dashboardUnknownAgentDescription": "Tego agenta nie ma jeszcze w systemie. Możesz go zarejestrować i jednocześnie zatwierdzić dostęp.",
+  "dashboardUnknownAgentRegisterAndApprove": "Zarejestruj i zatwierdź",
+  "dashboardUnknownAgentReject": "Odrzuć",
+  "dashboardPendingApprovals": "Oczekujące zgody",
+  "dashboardRecentActivity": "Ostatnia aktywność",
+  "dashboardNoActivity": "Brak aktywności",
+  "dashboardSeeAll": "Zobacz wszystko"
 }

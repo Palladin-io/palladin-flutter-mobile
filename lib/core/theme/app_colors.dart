@@ -61,6 +61,20 @@ abstract final class AppColors {
   /// Teal accent — primary interactive color and loading indicators.
   static const Color tealAccent = Color(0xFF48ECDF);
 
+  /// "Approve" green (`#2EC4B6`) — the solid teal-green used on the
+  /// prototype's confirm CTAs (e.g. the dashboard "Register & Approve"
+  /// button) and the agent-registration step accent. Distinct from the
+  /// brighter [tealAccent]; matches the web prototype's approve token.
+  static const Color approveGreen = Color(0xFF2EC4B6);
+
+  /// Agent accent — violet (`#8B5CF6`). Tints the API-key onboarding step
+  /// glyph; mirrors the web prototype's agent/key purple.
+  static const Color agentPurple = Color(0xFF8B5CF6);
+
+  /// Onboarding "active step" amber (`#F59E0B`) — border + glyph color of
+  /// the currently-active checklist step (e.g. Enable notifications).
+  static const Color onboardingStepAmber = Color(0xFFF59E0B);
+
   // === Text (dark mode) ===
 
   /// Primary text color in dark mode — warm cream (same hue as light background).

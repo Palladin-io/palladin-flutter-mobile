@@ -30,6 +30,10 @@ import '../../features/audit/data/repositories/audit_repository_impl.dart';
 import '../../features/audit/domain/repositories/audit_repository.dart';
 import '../../features/audit/presentation/cubit/audit_log_cubit.dart';
 import '../../features/audit/presentation/cubit/entry_logs_cubit.dart';
+import '../../features/dashboard/data/datasources/dashboard_remote_datasource.dart';
+import '../../features/dashboard/data/repositories/dashboard_repository_impl.dart';
+import '../../features/dashboard/domain/repositories/dashboard_repository.dart';
+import '../../features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import '../../features/grants/data/datasources/grants_remote_datasource.dart';
 import '../../features/grants/data/repositories/grants_repository_impl.dart';
 import '../../features/grants/domain/repositories/grants_repository.dart';
@@ -421,5 +425,24 @@ void configureDependencies(EnvConfig config) {
   // in-sheet, so no construction args.
   getIt.registerFactory<GrantAccessCubit>(
     () => GrantAccessCubit(repository: getIt<ApprovalRepository>()),
+  );
+
+  // Dashboard (CVT-114) — data layer.
+  getIt.registerLazySingleton<DashboardRemoteDatasource>(
+    () => DashboardRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<DashboardRepository>(
+    () => DashboardRepositoryImpl(getIt<DashboardRemoteDatasource>()),
+  );
+
+  // Dashboard — presentation. Singleton so the home tab keeps its
+  // resolved state across shell tab switches; the page calls load() on
+  // each mount to refresh.
+  getIt.registerLazySingleton<DashboardCubit>(
+    () => DashboardCubit(
+      repository: getIt<DashboardRepository>(),
+      pendingGrantsCubit: getIt<PendingGrantsCubit>(),
+      analytics: getIt<AnalyticsService>(),
+    ),
   );
 }

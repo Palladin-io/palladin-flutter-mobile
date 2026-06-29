@@ -10,6 +10,7 @@ import '../../features/api_keys/presentation/pages/api_keys_page.dart';
 import '../../features/audit/presentation/pages/global_audit_log_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/notifications/presentation/pages/inbox_grants_page.dart';
 import '../../features/notifications/presentation/pages/notification_center_page.dart';
 import '../../features/notifications/presentation/pages/notification_preferences_page.dart';
@@ -17,11 +18,9 @@ import '../../features/onboarding/presentation/pages/onboarding_wizard_page.dart
 import '../../features/recovery/presentation/pages/recovery_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/shell/presentation/pages/app_shell.dart';
-import '../../features/shell/presentation/pages/placeholder_page.dart';
 import '../../features/unlock/presentation/pages/unlock_page.dart';
 import '../../features/vault/presentation/pages/vault_detail_page.dart';
 import '../../features/vault/presentation/pages/vault_list_page.dart';
-import '../../l10n/generated/app_localizations.dart';
 import '../permissions.dart';
 
 /// Centralized route paths and builders, so widgets navigate via
@@ -100,15 +99,12 @@ GoRouter createRouter(
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
-          // Home — landing tab. Currently a placeholder until CVT-32+
-          // ships the real dashboard. Lives at `/` so the existing
-          // post-unlock redirect lands here without further branching.
+          // Home — landing tab (CVT-114). Dashboard with onboarding
+          // checklist, unknown-agent prompt, or normal empty state. Lives
+          // at `/` so the post-unlock redirect lands here directly.
           GoRoute(
             path: '/',
-            builder: (context, _) => PlaceholderPage(
-              icon: Icons.home_outlined,
-              title: AppLocalizations.of(context)!.navHome,
-            ),
+            builder: (_, _) => const DashboardPage(),
           ),
           GoRoute(
             path: '/vaults',
