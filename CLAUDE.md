@@ -4,7 +4,7 @@ Flutter mobile app for managing vaults, approving agent grants, and biometric un
 
 ## Project Brain
 
-Business and architecture knowledge for the project: `../docs/obsidian/palladin/`
+Business and architecture knowledge for the project: `../brain/`
 
 Key notes for this repository:
 - `Technical/Mobile.md` — stack, flavors, BLoC, AppColors, i18n, conventions
@@ -13,7 +13,7 @@ Key notes for this repository:
 - `Product/Modules/Vault/` — Vault module: rules, API, onboarding flow
 - `Product/Modules/Notification/Business Rules.md` — FCM/APNs, push tokens
 
-Use `/brain` to navigate the brain, or: `grep -r "WORD" ../docs/obsidian/palladin --include="*.md"`
+Use `/brain` to navigate the brain, or: `grep -r "WORD" ../brain --include="*.md"`
 
 **After a session that changes functionality, business rules, or architecture: update the relevant note in the brain.**
 
