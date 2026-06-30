@@ -424,7 +424,7 @@ class _MnemonicTextArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    final focusColor = hasError ? AppColors.brandRed : AppColors.tealAccent;
+    final focusColor = AppColors.brandRed;
     final enabledBorderColor =
         hasError ? AppColors.brandRed : AppColors.inputBorder(brightness);
 
@@ -670,7 +670,7 @@ class _SaveNewKeyStep extends StatelessWidget {
                       value: saved,
                       onChanged: onSavedChanged,
                       checkColor: AppColors.darkBackground,
-                      activeColor: AppColors.tealAccent,
+                      activeColor: AppColors.brandRed,
                     ),
                     Expanded(
                       child: Text(

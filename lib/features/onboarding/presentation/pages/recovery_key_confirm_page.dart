@@ -188,7 +188,7 @@ class _ConfirmationInput extends StatelessWidget {
     };
 
     final focusBorderColor = result == _WordCheckResult.empty
-        ? AppColors.tealAccent
+        ? AppColors.brandRed
         : borderColor;
 
     final isVisible = result != _WordCheckResult.empty;

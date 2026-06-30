@@ -117,7 +117,7 @@ class _ContextGrantsView extends StatelessWidget {
           OrgGrantsStatus.initial || OrgGrantsStatus.loading => const Center(
             child: Padding(
               padding: EdgeInsets.all(AppSpacing.xxxl),
-              child: CircularProgressIndicator(color: AppColors.tealAccent),
+              child: CircularProgressIndicator(color: AppColors.brandRed),
             ),
           ),
           OrgGrantsStatus.error => _ErrorState(
@@ -137,7 +137,7 @@ class _ContextGrantsView extends StatelessWidget {
                     padding: contentPadding,
                   )
                 : RefreshIndicator(
-                    color: AppColors.tealAccent,
+                    color: AppColors.brandRed,
                     onRefresh: () => context.read<OrgGrantsCubit>().reload(),
                     child: ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(),

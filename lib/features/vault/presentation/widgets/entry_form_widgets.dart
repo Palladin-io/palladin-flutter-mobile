@@ -116,10 +116,10 @@ class EntryEncryptionNotice extends StatelessWidget {
         vertical: AppSpacing.innerGap,
       ),
       decoration: BoxDecoration(
-        color: AppColors.tealAccent.withValues(alpha: 0.08),
+        color: AppColors.brandRed.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: AppColors.tealAccent.withValues(alpha: 0.35),
+          color: AppColors.brandRed.withValues(alpha: 0.35),
         ),
       ),
       child: Row(
@@ -127,14 +127,14 @@ class EntryEncryptionNotice extends StatelessWidget {
           const Icon(
             Icons.lock_outline,
             size: 16,
-            color: AppColors.tealAccent,
+            color: AppColors.brandRed,
           ),
           const SizedBox(width: AppSpacing.innerGap),
           Expanded(
             child: Text(
               message,
               style: const TextStyle(
-                color: AppColors.tealAccent,
+                color: AppColors.brandRed,
                 fontSize: 12,
                 height: 1.4,
               ),

@@ -58,7 +58,6 @@ abstract final class AppColors {
   /// inline-const-friendly.
   static const Color fabBorder = Color(0x33FFFFFF);
 
-  /// Teal accent — primary interactive color and loading indicators.
   static const Color tealAccent = Color(0xFF48ECDF);
 
   /// "Approve" green (`#2EC4B6`) — the solid teal-green used on the

@@ -533,7 +533,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
               height: 24,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: AppColors.tealAccent,
+                color: AppColors.brandRed,
               ),
             ),
             const SizedBox(height: AppSpacing.md),

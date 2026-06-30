@@ -195,7 +195,7 @@ class _UnlockViewState extends State<_UnlockView> {
           tooltip: l10n.unlockBiometricHint,
           icon: const Icon(
             Icons.fingerprint,
-            color: AppColors.tealAccent,
+            color: AppColors.brandRed,
             size: 40,
           ),
         ),

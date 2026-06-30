@@ -221,7 +221,7 @@ These patterns are duplicated and have **no** shared widget yet. Extract to `lib
 | `AppColors.lightBackground` | `#E8EAED` | Light scaffold background — warm cream |
 | `AppColors.lightSurface` | `#DCDEE2` | Light elevated surfaces |
 | `AppColors.brandRed` | `#EB4747` | "Vault" wordmark, errors, primary buttons |
-| `AppColors.tealAccent` | `#48ECDF` | Primary interactive, loaders |
+| `AppColors.tealAccent` | `#48ECDF` | Password-strength "strong/veryStrong" indicator only — not a primary/interactive color |
 | `AppColors.onBrandRed` | `#FFFFFF` | Text/icons on brandRed backgrounds (`onPrimary`, `foregroundColor`) |
 
 Brightness-aware semantic colors are static methods (`AppColors.onSurface(brightness)`, `cardFill(brightness)`, `modalBackground(brightness)`, etc.), not consts. The full background is `AppColors.backgroundGradient(brightness)`.

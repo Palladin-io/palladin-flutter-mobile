@@ -134,7 +134,7 @@ class _EntryLogsViewState extends State<_EntryLogsView> {
             child: Center(
               child: Padding(
                 padding: EdgeInsets.all(AppSpacing.xxxl),
-                child: CircularProgressIndicator(color: AppColors.tealAccent),
+                child: CircularProgressIndicator(color: AppColors.brandRed),
               ),
             ),
           ),
@@ -258,7 +258,7 @@ class _LoadMoreButton extends StatelessWidget {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: AppColors.tealAccent,
+                      color: AppColors.brandRed,
                     ),
                   )
                 : Text(

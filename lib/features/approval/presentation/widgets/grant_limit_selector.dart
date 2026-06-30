@@ -437,7 +437,7 @@ class _ExpirySummary extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.schedule, size: 14, color: AppColors.tealAccent),
+          const Icon(Icons.schedule, size: 14, color: AppColors.brandRed),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: Text(

@@ -249,7 +249,7 @@ class _PaginationFooter extends StatelessWidget {
                 height: 22,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppColors.tealAccent,
+                  color: AppColors.brandRed,
                 ),
               ),
             ),

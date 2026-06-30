@@ -397,7 +397,7 @@ class _Picker extends StatelessWidget {
               width: 18,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: AppColors.tealAccent,
+                color: AppColors.brandRed,
               ),
             ),
           )

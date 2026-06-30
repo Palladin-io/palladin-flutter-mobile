@@ -589,7 +589,7 @@ class _AgentsErrorSliver extends StatelessWidget {
                 TextButton(
                   onPressed: onRetry,
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.tealAccent,
+                    foregroundColor: AppColors.brandRed,
                   ),
                   child: Text(l10n.agentsRetry),
                 ),
