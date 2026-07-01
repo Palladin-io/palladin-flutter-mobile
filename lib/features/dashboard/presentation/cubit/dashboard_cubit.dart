@@ -36,14 +36,17 @@ class DashboardCubit extends Cubit<DashboardState> {
   Future<void> load() async {
     emit(const DashboardLoading());
     try {
-      final prefs = await SharedPreferences.getInstance();
+      // Prefs holds only best-effort UI flags — a plugin/platform-channel
+      // hiccup must never blank the whole home, so read defensively and fall
+      // back to "not skipped".
+      final prefs = await _tryPrefs();
 
       // Keep the cross-vault pending list current so unknown-agent
       // detection reflects the latest requests (quiet — no skeleton flip).
       await pendingGrantsCubit.refresh();
       final unknownGrant = _firstUnknownAgentGrant();
 
-      final skipped = prefs.getBool(_kOnboardingSkipped) ?? false;
+      final skipped = prefs?.getBool(_kOnboardingSkipped) ?? false;
       if (skipped) {
         emit(
           unknownGrant != null
@@ -63,7 +66,7 @@ class DashboardCubit extends Cubit<DashboardState> {
 
       if (!status.isOnboarded) {
         final notificationDone =
-            prefs.getBool(_kNotificationSkipped) ?? false;
+            prefs?.getBool(_kNotificationSkipped) ?? false;
         emit(
           DashboardOnboarding(
             status: status,
@@ -78,6 +81,18 @@ class DashboardCubit extends Cubit<DashboardState> {
     } catch (e, s) {
       AppLogger.e('Dashboard', 'load failed', error: e, stackTrace: s);
       emit(DashboardError(e));
+    }
+  }
+
+  /// Best-effort SharedPreferences — the home's skip flags are UI-only, so a
+  /// plugin/platform-channel failure returns null (treated as "not skipped")
+  /// instead of blanking the whole dashboard behind a generic error.
+  Future<SharedPreferences?> _tryPrefs() async {
+    try {
+      return await SharedPreferences.getInstance();
+    } catch (e, s) {
+      AppLogger.e('Dashboard', 'SharedPreferences unavailable', error: e, stackTrace: s);
+      return null;
     }
   }
 

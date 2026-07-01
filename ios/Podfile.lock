@@ -114,6 +114,9 @@ PODS:
   - PromisesObjC (2.4.0)
   - share_plus (0.0.1):
     - Flutter
+  - shared_preferences_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
   - "sodium_libs (3.4.6+4)":
     - Flutter
     - FlutterMacOS
@@ -131,6 +134,7 @@ DEPENDENCIES:
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - posthog_flutter (from `.symlinks/plugins/posthog_flutter/darwin`)
   - share_plus (from `.symlinks/plugins/share_plus/ios`)
+  - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - sodium_libs (from `.symlinks/plugins/sodium_libs/darwin`)
 
 SPEC REPOS:
@@ -176,6 +180,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/posthog_flutter/darwin"
   share_plus:
     :path: ".symlinks/plugins/share_plus/ios"
+  shared_preferences_foundation:
+    :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
   sodium_libs:
     :path: ".symlinks/plugins/sodium_libs/darwin"
 
@@ -207,6 +213,7 @@ SPEC CHECKSUMS:
   posthog_flutter: 789630788986be1f728624d10f4b4e753f83c39f
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
+  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   sodium_libs: 650f802d77b08c737ca4fed4ed68e822fa560c5a
 
 PODFILE CHECKSUM: ff8bbc5a1500fc62f916e2dee440d32067e94d30
