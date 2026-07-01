@@ -2467,5 +2467,15 @@
   "dashboardRecentlyModified": "Recently added / modified",
   "@dashboardRecentlyModified": { "description": "Section header for recently added or updated entries on the dashboard" },
   "dashboardSeeAll": "See all",
-  "@dashboardSeeAll": { "description": "See all link in section headers" }
+  "@dashboardSeeAll": { "description": "See all link in section headers" },
+  "searchResultsEmpty": "No results for this search",
+  "@searchResultsEmpty": { "description": "Empty state shown in search results" },
+  "searchResultsError": "Search failed. Please try again.",
+  "@searchResultsError": { "description": "Error state for search results" },
+  "searchTypeBadgeAgent": "Agent",
+  "@searchTypeBadgeAgent": { "description": "Type badge label for agent search results" },
+  "searchTypeBadgeVault": "Vault",
+  "@searchTypeBadgeVault": { "description": "Type badge label for vault search results" },
+  "searchTypeBadgeEntry": "Entry",
+  "@searchTypeBadgeEntry": { "description": "Type badge label for entry search results" }
 }

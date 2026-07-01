@@ -2411,4 +2411,20 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get dashboardSeeAll => 'Zobacz wszystko';
+
+  @override
+  String get searchResultsEmpty => 'Brak wyników dla tego wyszukiwania';
+
+  @override
+  String get searchResultsError =>
+      'Wyszukiwanie nie powiodło się. Spróbuj ponownie.';
+
+  @override
+  String get searchTypeBadgeAgent => 'Agent';
+
+  @override
+  String get searchTypeBadgeVault => 'Vault';
+
+  @override
+  String get searchTypeBadgeEntry => 'Wpis';
 }

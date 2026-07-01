@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/app_search_field.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -16,7 +17,10 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
 import '../../../vault/presentation/pages/entry_detail_page.dart';
 import '../../../vault/presentation/widgets/vault_visuals.dart';
+import '../../domain/entities/search_result_entity.dart';
 import '../cubit/dashboard_cubit.dart';
+import '../cubit/search_cubit.dart';
+import '../cubit/search_state.dart';
 import '../widgets/onboarding_checklist.dart';
 import '../widgets/unknown_agent_card.dart';
 
@@ -60,11 +64,34 @@ class _DashboardView extends StatefulWidget {
 
 class _DashboardViewState extends State<_DashboardView> {
   final TextEditingController _searchController = TextEditingController();
+  late final SearchCubit _searchCubit = getIt<SearchCubit>();
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchCubit.close();
     super.dispose();
+  }
+
+  /// Fires analytics, navigates to the tapped result, then clears the
+  /// search field so the dashboard content is visible on return.
+  void _onSearchResultTap(BuildContext context, SearchResultEntity result) {
+    _searchCubit.selectResult(result);
+    switch (result.type) {
+      case SearchResultType.agent:
+        context.go(AppRoutes.agentDetail(result.id));
+      case SearchResultType.vault:
+        context.go(AppRoutes.vaultDetail(result.id));
+      case SearchResultType.entry:
+        // TODO(CVT-185): Backend does not return vaultId for entry search
+        // results. Once CVT-183 backend adds vaultId to /api/search entry
+        // results, build an EntryEntity here and call EntryDetailPage.push().
+        // For now, navigate to the vault list — the user can open the entry
+        // from there.
+        context.go('/vaults');
+    }
+    _searchController.clear();
+    _searchCubit.reset();
   }
 
   void _onVaultCta() {
@@ -169,31 +196,61 @@ class _DashboardViewState extends State<_DashboardView> {
     return AppScreen(
       header: _GreetingHeader(name: name),
       floatingActionButton: const FabRegistrar(fab: null),
-      body: BlocBuilder<DashboardCubit, DashboardState>(
-        builder: (context, state) {
-          return CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.screenH,
-                    0,
-                    AppSpacing.screenH,
-                    AppSpacing.fieldGap,
-                  ),
-                  child: AppSearchField(
-                    controller: _searchController,
-                    hint: l10n.dashboardSearchHint,
+      body: BlocProvider<SearchCubit>.value(
+        value: _searchCubit,
+        child: BlocBuilder<SearchCubit, SearchState>(
+          builder: (context, searchState) {
+            return CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.screenH,
+                      0,
+                      AppSpacing.screenH,
+                      AppSpacing.fieldGap,
+                    ),
+                    child: AppSearchField(
+                      controller: _searchController,
+                      hint: l10n.dashboardSearchHint,
+                      onChanged: (v) => _searchCubit.query(v),
+                    ),
                   ),
                 ),
-              ),
-              ..._contentSlivers(context, state),
-            ],
-          );
-        },
+                ..._searchSlivers(context, searchState),
+              ],
+            );
+          },
+        ),
       ),
     );
+  }
+
+  /// Chooses the slivers below the search bar based on [searchState].
+  ///
+  /// While idle, the normal dashboard content (driven by [DashboardCubit])
+  /// is shown; an active query replaces it with loading / results / empty /
+  /// error states. The search bar itself stays visible either way.
+  List<Widget> _searchSlivers(BuildContext context, SearchState searchState) {
+    return switch (searchState) {
+      SearchIdle() => [
+        BlocBuilder<DashboardCubit, DashboardState>(
+          builder: (context, state) => SliverMainAxisGroup(
+            slivers: _contentSlivers(context, state),
+          ),
+        ),
+      ],
+      SearchLoading() => const [_SearchSkeletonSliver()],
+      SearchResults(:final results) => [
+        _SearchResultsSliver(
+          results: results,
+          onTap: (result) => _onSearchResultTap(context, result),
+        ),
+      ],
+      SearchEmpty() => const [_SearchEmptySliver()],
+      SearchError() => const [_SearchErrorSliver()],
+    };
   }
 
   List<Widget> _contentSlivers(BuildContext context, DashboardState state) {
@@ -614,6 +671,283 @@ class _ErrorView extends StatelessWidget {
                 foregroundColor: AppColors.brandRed,
               ),
               child: Text(l10n.vaultRetry),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Sliver list of global-search results, each a tappable [_SearchResultRow].
+class _SearchResultsSliver extends StatelessWidget {
+  const _SearchResultsSliver({required this.results, required this.onTap});
+
+  final List<SearchResultEntity> results;
+  final ValueChanged<SearchResultEntity> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        0,
+        AppSpacing.screenH,
+        AppSpacing.listBottom,
+      ),
+      sliver: SliverToBoxAdapter(
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.cardFill(brightness),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              for (int i = 0; i < results.length; i++) ...[
+                if (i > 0)
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: AppSpacing.screenH + AppSpacing.innerGap + 32,
+                    color:
+                        AppColors.onSurface(brightness).withValues(alpha: 0.06),
+                  ),
+                _SearchResultRow(
+                  result: results[i],
+                  onTap: () => onTap(results[i]),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One global-search result row: a type badge, a tinted icon circle, the
+/// object name, and a type/vault subtitle. Tapping navigates to the object.
+class _SearchResultRow extends StatelessWidget {
+  const _SearchResultRow({required this.result, required this.onTap});
+
+  final SearchResultEntity result;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    final color = _typeColor(result.type);
+    final label = _typeLabel(l10n, result.type);
+    final subtitle = result.type == SearchResultType.entry
+        ? (result.vaultName ?? label)
+        : label;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.cardPadding,
+          vertical: AppSpacing.innerGap + AppSpacing.xs,
+        ),
+        child: Row(
+          children: [
+            _TypeBadge(label: label, color: color),
+            const SizedBox(width: AppSpacing.innerGap),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(_typeIcon(result), size: 16, color: color),
+            ),
+            const SizedBox(width: AppSpacing.innerGap),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    result.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.onSurface(brightness),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.onSurfaceSubtle(brightness),
+                      fontSize: 11,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Color _typeColor(SearchResultType type) => switch (type) {
+        SearchResultType.agent => AppColors.vaultBlue,
+        SearchResultType.vault => AppColors.brandRed,
+        SearchResultType.entry => AppColors.positiveAccent,
+      };
+
+  static String _typeLabel(AppLocalizations l10n, SearchResultType type) =>
+      switch (type) {
+        SearchResultType.agent => l10n.searchTypeBadgeAgent,
+        SearchResultType.vault => l10n.searchTypeBadgeVault,
+        SearchResultType.entry => l10n.searchTypeBadgeEntry,
+      };
+
+  static IconData _typeIcon(SearchResultEntity result) => switch (result.type) {
+        SearchResultType.agent => Icons.smart_toy,
+        SearchResultType.vault => VaultVisuals.iconFor(result.icon),
+        SearchResultType.entry => EntryVisuals.iconFor(result.icon),
+      };
+}
+
+/// Small type pill (e.g. "Agent") tinted with the type color.
+class _TypeBadge extends StatelessWidget {
+  const _TypeBadge({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.chipGap,
+        vertical: AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+/// Skeleton shown while a search query is in flight.
+class _SearchSkeletonSliver extends StatelessWidget {
+  const _SearchSkeletonSliver();
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        0,
+        AppSpacing.screenH,
+        AppSpacing.listBottom,
+      ),
+      sliver: SliverList.separated(
+        itemCount: 4,
+        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.cardGap),
+        itemBuilder: (_, index) => SkeletonBox(
+          height: 56,
+          delay: Duration(milliseconds: index * 80),
+        ),
+      ),
+    );
+  }
+}
+
+/// Empty state shown when a search returns no results.
+class _SearchEmptySliver extends StatelessWidget {
+  const _SearchEmptySliver();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: AppSpacing.xxxl),
+            Icon(
+              Icons.search_off,
+              size: 28,
+              color:
+                  AppColors.onSurfaceSubtle(brightness).withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: AppSpacing.chipGap),
+            Text(
+              l10n.searchResultsEmpty,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.onSurfaceSubtle(brightness),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Error state shown when a search request fails.
+class _SearchErrorSliver extends StatelessWidget {
+  const _SearchErrorSliver();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: AppSpacing.xxxl),
+            const Icon(
+              Icons.error_outline,
+              size: 28,
+              color: AppColors.brandRed,
+            ),
+            const SizedBox(height: AppSpacing.chipGap),
+            Text(
+              l10n.searchResultsError,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.onSurfaceSubtle(brightness),
+                fontSize: 12,
+              ),
             ),
           ],
         ),

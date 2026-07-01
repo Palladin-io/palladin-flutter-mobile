@@ -1,0 +1,189 @@
+import 'package:dio/dio.dart';
+import 'package:fake_async/fake_async.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:mobile_palladin/core/analytics/analytics_service.dart';
+import 'package:mobile_palladin/features/dashboard/domain/entities/search_result_entity.dart';
+import 'package:mobile_palladin/features/dashboard/domain/repositories/dashboard_repository.dart';
+import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_cubit.dart';
+import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_state.dart';
+
+// ──────────────────────────────────────────────
+// Mocks & fixtures
+// ──────────────────────────────────────────────
+
+class MockDashboardRepository extends Mock implements DashboardRepository {}
+
+class MockAnalyticsService extends Mock implements AnalyticsService {}
+
+const _oneResult = SearchResultEntity(
+  type: SearchResultType.vault,
+  id: 'v1',
+  name: 'Production',
+);
+
+DioException _dioError() => DioException(
+      requestOptions: RequestOptions(path: '/api/search'),
+      type: DioExceptionType.connectionError,
+      error: 'boom',
+    );
+
+void main() {
+  // Analytics + logger touch platform channels; ensure the binding is up.
+  setUpAll(() {
+    WidgetsFlutterBinding.ensureInitialized();
+  });
+
+  late MockDashboardRepository repository;
+  late MockAnalyticsService analytics;
+
+  setUp(() {
+    repository = MockDashboardRepository();
+    analytics = MockAnalyticsService();
+    when(() => analytics.capture(any(), any(), properties: any(named: 'properties')))
+        .thenAnswer((_) async {});
+  });
+
+  SearchCubit buildCubit() =>
+      SearchCubit(repository: repository, analytics: analytics);
+
+  // ── short queries short-circuit ─────────────
+
+  test('query("") stays idle and never hits the backend', () {
+    final cubit = buildCubit();
+    cubit.query('');
+    expect(cubit.state, isA<SearchIdle>());
+    verifyNever(
+      () => repository.globalSearch(any(), limit: any(named: 'limit')),
+    );
+    cubit.close();
+  });
+
+  test('query("a") (1 char) stays idle and never hits the backend', () {
+    final cubit = buildCubit();
+    cubit.query('a');
+    expect(cubit.state, isA<SearchIdle>());
+    verifyNever(
+      () => repository.globalSearch(any(), limit: any(named: 'limit')),
+    );
+    cubit.close();
+  });
+
+  // ── debounced query resolution ──────────────
+
+  test('query("ab") with results emits [Loading, Results]', () {
+    fakeAsync((async) {
+      when(() => repository.globalSearch('ab', limit: 10))
+          .thenAnswer((_) async => const [_oneResult]);
+
+      final cubit = buildCubit();
+      final states = <SearchState>[];
+      final sub = cubit.stream.listen(states.add);
+
+      cubit.query('ab');
+      async.elapse(const Duration(milliseconds: 250));
+      async.flushMicrotasks();
+
+      expect(states, [isA<SearchLoading>(), isA<SearchResults>()]);
+      expect((states.last as SearchResults).results, hasLength(1));
+
+      sub.cancel();
+      cubit.close();
+    });
+  });
+
+  test('query("ab") with empty results emits [Loading, Empty]', () {
+    fakeAsync((async) {
+      when(() => repository.globalSearch('ab', limit: 10))
+          .thenAnswer((_) async => const <SearchResultEntity>[]);
+
+      final cubit = buildCubit();
+      final states = <SearchState>[];
+      final sub = cubit.stream.listen(states.add);
+
+      cubit.query('ab');
+      async.elapse(const Duration(milliseconds: 250));
+      async.flushMicrotasks();
+
+      expect(states, [isA<SearchLoading>(), isA<SearchEmpty>()]);
+
+      sub.cancel();
+      cubit.close();
+    });
+  });
+
+  test('query("ab") with a DioException emits [Loading, Error]', () {
+    fakeAsync((async) {
+      when(() => repository.globalSearch('ab', limit: 10))
+          .thenThrow(_dioError());
+
+      final cubit = buildCubit();
+      final states = <SearchState>[];
+      final sub = cubit.stream.listen(states.add);
+
+      cubit.query('ab');
+      async.elapse(const Duration(milliseconds: 250));
+      async.flushMicrotasks();
+
+      expect(states, [isA<SearchLoading>(), isA<SearchError>()]);
+
+      sub.cancel();
+      cubit.close();
+    });
+  });
+
+  // ── debounce coalescing ─────────────────────
+
+  test('rapid-fire queries trigger a single backend call (debounce)', () {
+    fakeAsync((async) {
+      when(() => repository.globalSearch(any(), limit: any(named: 'limit')))
+          .thenAnswer((_) async => const [_oneResult]);
+
+      final cubit = buildCubit();
+
+      cubit.query('ab');
+      async.elapse(const Duration(milliseconds: 50));
+      cubit.query('abc');
+      async.elapse(const Duration(milliseconds: 50));
+      cubit.query('abcd');
+      async.elapse(const Duration(milliseconds: 50));
+      cubit.query('abcde');
+      async.elapse(const Duration(milliseconds: 250));
+      async.flushMicrotasks();
+
+      verify(() => repository.globalSearch('abcde', limit: 10)).called(1);
+      verifyNever(() => repository.globalSearch('ab', limit: 10));
+      verifyNever(() => repository.globalSearch('abc', limit: 10));
+      verifyNever(() => repository.globalSearch('abcd', limit: 10));
+
+      cubit.close();
+    });
+  });
+
+  // ── reset() ─────────────────────────────────
+
+  test('reset() cancels the pending query and returns to idle', () {
+    fakeAsync((async) {
+      when(() => repository.globalSearch(any(), limit: any(named: 'limit')))
+          .thenAnswer((_) async => const [_oneResult]);
+
+      final cubit = buildCubit();
+      final states = <SearchState>[];
+      final sub = cubit.stream.listen(states.add);
+
+      cubit.query('ab');
+      async.elapse(const Duration(milliseconds: 250));
+      async.flushMicrotasks();
+      // At this point we have Loading + Results.
+      cubit.reset();
+      async.flushMicrotasks();
+
+      expect(cubit.state, isA<SearchIdle>());
+      expect(states.last, isA<SearchIdle>());
+
+      sub.cancel();
+      cubit.close();
+    });
+  });
+}

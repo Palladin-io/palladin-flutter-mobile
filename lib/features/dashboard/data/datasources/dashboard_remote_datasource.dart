@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../models/onboarding_status_model.dart';
 import '../models/recent_entry_model.dart';
+import '../models/search_result_model.dart';
 
 /// Remote data source for the dashboard.
 ///
@@ -58,6 +59,36 @@ class DashboardRemoteDatasource {
     final raw = (data['items'] as List<dynamic>? ?? const <dynamic>[]);
     return raw
         .map((e) => RecentEntryModel.fromJson(e as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  /// `GET /api/search?q={q}&limit={limit}` — global autocomplete across
+  /// agents, vaults, and entries.
+  ///
+  /// Returns metadata only (type, id, name, optional vaultName + icon); no
+  /// encrypted payload is ever returned. The caller is responsible for the
+  /// 2-char minimum — the backend also returns an empty list for a query
+  /// shorter than 2 characters, so this method never special-cases it.
+  Future<List<SearchResultModel>> globalSearch(String q, int limit) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/search',
+      queryParameters: <String, dynamic>{
+        'q': q,
+        'limit': limit,
+      },
+    );
+    final data = response.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Empty search response body',
+      );
+    }
+    final raw = (data['results'] as List<dynamic>? ?? const <dynamic>[]);
+    return raw
+        .map((e) => SearchResultModel.fromJson(e as Map<String, dynamic>))
         .toList(growable: false);
   }
 }

@@ -34,6 +34,7 @@ import '../../features/dashboard/data/datasources/dashboard_remote_datasource.da
 import '../../features/dashboard/data/repositories/dashboard_repository_impl.dart';
 import '../../features/dashboard/domain/repositories/dashboard_repository.dart';
 import '../../features/dashboard/presentation/cubit/dashboard_cubit.dart';
+import '../../features/dashboard/presentation/cubit/search_cubit.dart';
 import '../../features/grants/data/datasources/grants_remote_datasource.dart';
 import '../../features/grants/data/repositories/grants_repository_impl.dart';
 import '../../features/grants/domain/repositories/grants_repository.dart';
@@ -456,6 +457,16 @@ void configureDependencies(EnvConfig config) {
       pendingGrantsCubit: getIt<PendingGrantsCubit>(),
       analytics: getIt<AnalyticsService>(),
       notificationPermissionService: getIt<NotificationPermissionService>(),
+    ),
+  );
+
+  // SearchCubit: factory so each dashboard mount gets a fresh instance
+  // (no stale results leak across visits). Reuses the shared
+  // DashboardRepository for the /api/search endpoint.
+  getIt.registerFactory<SearchCubit>(
+    () => SearchCubit(
+      repository: getIt<DashboardRepository>(),
+      analytics: getIt<AnalyticsService>(),
     ),
   );
 }

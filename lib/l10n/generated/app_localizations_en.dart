@@ -2390,4 +2390,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dashboardSeeAll => 'See all';
+
+  @override
+  String get searchResultsEmpty => 'No results for this search';
+
+  @override
+  String get searchResultsError => 'Search failed. Please try again.';
+
+  @override
+  String get searchTypeBadgeAgent => 'Agent';
+
+  @override
+  String get searchTypeBadgeVault => 'Vault';
+
+  @override
+  String get searchTypeBadgeEntry => 'Entry';
 }

@@ -4261,6 +4261,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'See all'**
   String get dashboardSeeAll;
+
+  /// Empty state shown in search results
+  ///
+  /// In en, this message translates to:
+  /// **'No results for this search'**
+  String get searchResultsEmpty;
+
+  /// Error state for search results
+  ///
+  /// In en, this message translates to:
+  /// **'Search failed. Please try again.'**
+  String get searchResultsError;
+
+  /// Type badge label for agent search results
+  ///
+  /// In en, this message translates to:
+  /// **'Agent'**
+  String get searchTypeBadgeAgent;
+
+  /// Type badge label for vault search results
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get searchTypeBadgeVault;
+
+  /// Type badge label for entry search results
+  ///
+  /// In en, this message translates to:
+  /// **'Entry'**
+  String get searchTypeBadgeEntry;
 }
 
 class _AppLocalizationsDelegate
