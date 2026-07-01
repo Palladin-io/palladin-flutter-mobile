@@ -2423,6 +2423,8 @@
   "@dashboardOnboardingStep1Enable": { "description": "Enable notifications button" },
   "dashboardOnboardingStep1Skip": "Skip",
   "@dashboardOnboardingStep1Skip": { "description": "Skip notifications step button" },
+  "dashboardOnboardingStep1OpenSettings": "Open Settings",
+  "@dashboardOnboardingStep1OpenSettings": { "description": "Button shown instead of Enable when the OS notification permission was denied — opens system app settings" },
   "dashboardOnboardingStep2Title": "Add your first vault",
   "@dashboardOnboardingStep2Title": { "description": "Step 2 title" },
   "dashboardOnboardingStep2Description": "Add an entry manually or import existing data",

@@ -25,12 +25,18 @@ final class DashboardOnboarding extends DashboardState {
   const DashboardOnboarding({
     required this.status,
     required this.notificationStepDone,
+    this.notificationPermissionDenied = false,
   });
 
   final OnboardingStatus status;
 
   /// `true` once the user has enabled or skipped the notifications step.
   final bool notificationStepDone;
+
+  /// `true` when the OS permission was explicitly denied and the native
+  /// prompt will no longer appear. The checklist swaps the button label to
+  /// "Open Settings" so the user can grant it from the OS Settings app.
+  final bool notificationPermissionDenied;
 
   /// Completed steps out of 4 (notifications is step 1, client-side).
   int get completedCount =>

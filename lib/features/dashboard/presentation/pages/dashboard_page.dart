@@ -199,30 +199,36 @@ class _DashboardViewState extends State<_DashboardView> {
   List<Widget> _contentSlivers(BuildContext context, DashboardState state) {
     return switch (state) {
       DashboardInitial() || DashboardLoading() => const [_SkeletonSliver()],
-      DashboardOnboarding(:final status, :final notificationStepDone) => [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenH,
-            0,
-            AppSpacing.screenH,
-            AppSpacing.listBottom,
-          ),
-          sliver: SliverToBoxAdapter(
-            child: OnboardingChecklist(
-              status: status,
-              notificationStepDone: notificationStepDone,
-              onSkipSetup: () => context.read<DashboardCubit>().skipSetup(),
-              onEnableNotifications: () =>
-                  context.read<DashboardCubit>().enableNotifications(),
-              onSkipNotification: () =>
-                  context.read<DashboardCubit>().skipNotificationStep(),
-              onVaultCta: _onVaultCta,
-              onApiKeyCta: _onApiKeyCta,
-              onAgentCta: _onAgentCta,
+      DashboardOnboarding(
+        :final status,
+        :final notificationStepDone,
+        :final notificationPermissionDenied,
+      ) =>
+        [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              0,
+              AppSpacing.screenH,
+              AppSpacing.listBottom,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: OnboardingChecklist(
+                status: status,
+                notificationStepDone: notificationStepDone,
+                notificationPermissionDenied: notificationPermissionDenied,
+                onSkipSetup: () => context.read<DashboardCubit>().skipSetup(),
+                onEnableNotifications: () =>
+                    context.read<DashboardCubit>().enableNotifications(),
+                onSkipNotification: () =>
+                    context.read<DashboardCubit>().skipNotificationStep(),
+                onVaultCta: _onVaultCta,
+                onApiKeyCta: _onApiKeyCta,
+                onAgentCta: _onAgentCta,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
       DashboardUnknownAgent(:final grant, :final recentEntries) => [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(

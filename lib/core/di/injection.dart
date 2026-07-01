@@ -41,6 +41,7 @@ import '../../features/grants/presentation/cubit/org_grants_cubit.dart';
 import '../../features/notifications/data/datasources/notification_center_remote_datasource.dart';
 import '../../features/notifications/data/datasources/push_token_remote_datasource.dart';
 import '../../features/notifications/data/repositories/notification_center_repository_impl.dart';
+import '../../features/notifications/data/services/notification_permission_service.dart';
 import '../../features/notifications/data/services/notification_signalr_service.dart';
 import '../../features/notifications/data/services/push_notification_service.dart';
 import '../../features/notifications/domain/repositories/notification_center_repository.dart';
@@ -310,6 +311,12 @@ void configureDependencies(EnvConfig config) {
     ),
   );
 
+  // Stateless permission helper used by DashboardCubit for the onboarding
+  // checklist step. Singleton — no state, no streams.
+  getIt.registerLazySingleton<NotificationPermissionService>(
+    () => NotificationPermissionService(),
+  );
+
   // AnalyticsService is a process-wide singleton (initialized in bootstrap)
   // — register it in the locator so callers depend on the interface rather
   // than the static `instance`, which makes them unit-testable.
@@ -443,6 +450,7 @@ void configureDependencies(EnvConfig config) {
       repository: getIt<DashboardRepository>(),
       pendingGrantsCubit: getIt<PendingGrantsCubit>(),
       analytics: getIt<AnalyticsService>(),
+      notificationPermissionService: getIt<NotificationPermissionService>(),
     ),
   );
 }

@@ -2322,6 +2322,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardOnboardingStep1Skip => 'Skip';
 
   @override
+  String get dashboardOnboardingStep1OpenSettings => 'Open Settings';
+
+  @override
   String get dashboardOnboardingStep2Title => 'Add your first vault';
 
   @override

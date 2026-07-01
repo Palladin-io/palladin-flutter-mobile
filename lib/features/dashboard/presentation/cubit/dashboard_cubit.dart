@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
+import '../../../notifications/data/services/notification_permission_service.dart';
 import '../../domain/repositories/dashboard_repository.dart';
 import 'dashboard_state.dart';
 
@@ -22,11 +23,13 @@ class DashboardCubit extends Cubit<DashboardState> {
     required this.repository,
     required this.pendingGrantsCubit,
     required this.analytics,
+    required this.notificationPermissionService,
   }) : super(const DashboardInitial());
 
   final DashboardRepository repository;
   final PendingGrantsCubit pendingGrantsCubit;
   final AnalyticsService analytics;
+  final NotificationPermissionService notificationPermissionService;
 
   /// Persisted flag: the user dismissed the onboarding checklist entirely.
   static const String _kOnboardingSkipped = 'onboarding_skipped';
@@ -76,12 +79,25 @@ class DashboardCubit extends Cubit<DashboardState> {
       }
 
       if (!status.isSetupComplete) {
+        final prefsDone = prefs?.getBool(_kNotificationSkipped) ?? false;
+
+        // Check live OS permission — the user may have granted it from outside
+        // the app (e.g., via Settings). If already authorized the step is done
+        // regardless of what the pref says. Errors in checkStatus() degrade
+        // gracefully (returns notDetermined) so load() never throws.
+        final permStatus =
+            await notificationPermissionService.checkStatus();
         final notificationDone =
-            prefs?.getBool(_kNotificationSkipped) ?? false;
+            prefsDone || permStatus == NotificationPermissionStatus.authorized;
+        final permissionDenied =
+            !notificationDone &&
+            permStatus == NotificationPermissionStatus.denied;
+
         emit(
           DashboardOnboarding(
             status: status,
             notificationStepDone: notificationDone,
+            notificationPermissionDenied: permissionDenied,
           ),
         );
         unawaited(analytics.capture('identity', 'onboarding-viewed'));
@@ -136,19 +152,38 @@ class DashboardCubit extends Cubit<DashboardState> {
     _markNotificationStepDone();
   }
 
-  /// Requests OS notification permission, then marks the step done.
+  /// Requests the OS notification permission.
   ///
-  /// `permission_handler` is not yet a project dependency, so the actual
-  /// OS prompt is stubbed for now — the step is still marked complete so
-  /// the checklist advances. Wire the real request in once the package is
-  /// added (TODO).
+  /// - If granted: persists the step as done, fires analytics, advances the
+  ///   checklist.
+  /// - If denied (iOS cannot re-prompt after the first denial): opens the
+  ///   system app-settings page so the user can enable notifications manually.
+  ///   The step is NOT marked done — the next [load] call picks up the change
+  ///   if the user returns with notifications enabled.
+  /// - If dismissed / notDetermined: no-op (user can tap again later).
   Future<void> enableNotifications() async {
-    unawaited(analytics.capture('identity', 'onboarding-notifications-enabled'));
-    // TODO(notifications): request the OS permission via permission_handler
-    // (Permission.notification.request()) once the package is added.
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kNotificationSkipped, true);
-    _markNotificationStepDone();
+    final status = await notificationPermissionService.requestPermission();
+
+    if (status == NotificationPermissionStatus.authorized) {
+      unawaited(
+        analytics.capture('identity', 'onboarding-notifications-enabled'),
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kNotificationSkipped, true);
+      _markNotificationStepDone();
+    } else if (status == NotificationPermissionStatus.denied) {
+      // iOS: the native prompt will not appear again. Send the user to
+      // system settings and update the state so the button label swaps.
+      unawaited(
+        analytics.capture(
+          'identity',
+          'onboarding-notifications-settings-opened',
+        ),
+      );
+      await notificationPermissionService.openSettings();
+      _markNotificationDenied();
+    }
+    // notDetermined: dialog was dismissed without a decision — do nothing.
   }
 
   /// Dismisses the onboarding checklist for good.
@@ -184,6 +219,22 @@ class DashboardCubit extends Cubit<DashboardState> {
         DashboardOnboarding(
           status: current.status,
           notificationStepDone: true,
+        ),
+      );
+    }
+  }
+
+  /// Re-emits the current onboarding state with [notificationPermissionDenied]
+  /// set to `true` so the checklist can swap the button label to "Open
+  /// Settings". Does not mark the step as done.
+  void _markNotificationDenied() {
+    final current = state;
+    if (current is DashboardOnboarding) {
+      emit(
+        DashboardOnboarding(
+          status: current.status,
+          notificationStepDone: false,
+          notificationPermissionDenied: true,
         ),
       );
     }

@@ -679,6 +679,7 @@
   "dashboardOnboardingStep1Description": "Reaguj w sekundy — agenci czekają na Twoją zgodę. Szybsze odpowiedzi to płynniejsze przepływy pracy AI.",
   "dashboardOnboardingStep1Enable": "Włącz",
   "dashboardOnboardingStep1Skip": "Pomiń",
+  "dashboardOnboardingStep1OpenSettings": "Otwórz Ustawienia",
   "dashboardOnboardingStep2Title": "Dodaj pierwszy sejf",
   "dashboardOnboardingStep2Description": "Dodaj wpis ręcznie lub zaimportuj istniejące dane",
   "dashboardOnboardingStep2Cta": "Dodaj sejf",

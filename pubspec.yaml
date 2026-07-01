@@ -74,6 +74,10 @@ dependencies:
   device_info_plus: ^11.2.0
   signalr_netcore: ^1.4.4
 
+  # Opens system app-settings page (used to direct users to Notification
+  # settings when the OS permission has been denied and cannot be re-prompted).
+  app_settings: ^5.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

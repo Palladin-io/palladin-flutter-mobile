@@ -18,6 +18,7 @@ class OnboardingChecklist extends StatelessWidget {
     super.key,
     required this.status,
     required this.notificationStepDone,
+    required this.notificationPermissionDenied,
     required this.onSkipSetup,
     required this.onEnableNotifications,
     required this.onSkipNotification,
@@ -28,6 +29,11 @@ class OnboardingChecklist extends StatelessWidget {
 
   final OnboardingStatus status;
   final bool notificationStepDone;
+
+  /// `true` when the OS permission was denied and the native prompt won't
+  /// appear again. Changes the step-1 button from "Enable" to "Open Settings".
+  final bool notificationPermissionDenied;
+
   final VoidCallback onSkipSetup;
   final VoidCallback onEnableNotifications;
   final VoidCallback onSkipNotification;
@@ -105,6 +111,8 @@ class OnboardingChecklist extends StatelessWidget {
                 done: dones[i],
                 activeIndex: activeIndex,
               ),
+              notificationPermissionDenied:
+                  i == 0 ? notificationPermissionDenied : false,
               onEnableNotifications: onEnableNotifications,
               onSkipNotification: onSkipNotification,
             ),
@@ -236,6 +244,7 @@ class _StepCard extends StatelessWidget {
     required this.done,
     required this.isActive,
     required this.opacity,
+    required this.notificationPermissionDenied,
     required this.onEnableNotifications,
     required this.onSkipNotification,
   });
@@ -244,6 +253,11 @@ class _StepCard extends StatelessWidget {
   final bool done;
   final bool isActive;
   final double opacity;
+
+  /// Only relevant for step 1 (notifications). When `true`, the "Enable"
+  /// button is replaced by "Open Settings".
+  final bool notificationPermissionDenied;
+
   final VoidCallback onEnableNotifications;
   final VoidCallback onSkipNotification;
 
@@ -310,6 +324,7 @@ class _StepCard extends StatelessWidget {
                     _NotificationActions(
                       onEnable: onEnableNotifications,
                       onSkip: onSkipNotification,
+                      isDenied: notificationPermissionDenied,
                     ),
                   ] else if (isActive &&
                       step.ctaLabel != null &&
@@ -380,10 +395,18 @@ class _StepBadge extends StatelessWidget {
 }
 
 class _NotificationActions extends StatelessWidget {
-  const _NotificationActions({required this.onEnable, required this.onSkip});
+  const _NotificationActions({
+    required this.onEnable,
+    required this.onSkip,
+    required this.isDenied,
+  });
 
   final VoidCallback onEnable;
   final VoidCallback onSkip;
+
+  /// When `true`, the primary button shows "Open Settings" instead of "Enable"
+  /// because the OS will no longer show the native permission prompt.
+  final bool isDenied;
 
   @override
   Widget build(BuildContext context) {
@@ -409,7 +432,9 @@ class _NotificationActions extends StatelessWidget {
             ),
           ),
           child: Text(
-            l10n.dashboardOnboardingStep1Enable,
+            isDenied
+                ? l10n.dashboardOnboardingStep1OpenSettings
+                : l10n.dashboardOnboardingStep1Enable,
             style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
           ),
         ),
@@ -419,7 +444,8 @@ class _NotificationActions extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.onSurfaceSubtle(brightness),
             side: BorderSide(
-              color: AppColors.onSurfaceSubtle(brightness).withValues(alpha: 0.25),
+              color: AppColors.onSurfaceSubtle(brightness)
+                  .withValues(alpha: 0.25),
             ),
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.fieldGap,

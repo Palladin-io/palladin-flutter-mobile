@@ -4136,6 +4136,12 @@ abstract class AppLocalizations {
   /// **'Skip'**
   String get dashboardOnboardingStep1Skip;
 
+  /// Button shown instead of Enable when the OS notification permission was denied — opens system app settings
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get dashboardOnboardingStep1OpenSettings;
+
   /// Step 2 title
   ///
   /// In en, this message translates to:

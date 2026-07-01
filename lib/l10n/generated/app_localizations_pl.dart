@@ -2342,6 +2342,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get dashboardOnboardingStep1Skip => 'Pomiń';
 
   @override
+  String get dashboardOnboardingStep1OpenSettings => 'Otwórz Ustawienia';
+
+  @override
   String get dashboardOnboardingStep2Title => 'Dodaj pierwszy sejf';
 
   @override
