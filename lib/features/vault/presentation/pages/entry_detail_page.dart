@@ -306,6 +306,16 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     });
   }
 
+  /// The entry's real creation timestamp, read from the revealed entity so
+  /// it survives an edit. Falls back to the bootstrap [widget.entry] only if
+  /// reveal has not completed (the save action is gated on a populated form,
+  /// so this fallback is defensive).
+  DateTime _originalCreatedAt(EditEntryState state) => switch (state) {
+        EditEntryReady(:final entry) => entry.createdAt,
+        EditEntrySuccess(:final entry) => entry.createdAt,
+        _ => widget.entry.createdAt,
+      };
+
   Future<void> _submit() async {
     if (!_validateUrl()) return;
     final auth = context.read<AuthBloc>().state;
@@ -318,8 +328,9 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     final urlDomain = EntryFormUtils.extractDomain(_urlController.text);
     final hasCustomFile = _icon.startsWith('file://');
     final iconForApi = hasCustomFile ? null : _icon;
+    final cubit = context.read<EditEntryCubit>();
     try {
-      await context.read<EditEntryCubit>().updateEntry(
+      await cubit.updateEntry(
         vaultId: widget.entry.vaultId,
         entryId: widget.entry.id,
         label: _labelController.text,
@@ -331,8 +342,11 @@ class _EntryDetailViewState extends State<_EntryDetailView>
         privateKey: keyCopy,
         wrappedVK: widget.wrappedVK,
         // Preserve the original createdAt — repository would otherwise
-        // default to now() and wipe the real creation timestamp.
-        createdAt: widget.entry.createdAt,
+        // default to now() and wipe the real creation timestamp. Source it
+        // from the revealed entity (populated by reveal), never the bootstrap
+        // [widget.entry], whose timestamps are placeholders when the page is
+        // opened from global search.
+        createdAt: _originalCreatedAt(cubit.state),
       );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);

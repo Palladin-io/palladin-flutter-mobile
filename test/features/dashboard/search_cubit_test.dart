@@ -23,6 +23,14 @@ const _oneResult = SearchResultEntity(
   name: 'Production',
 );
 
+const _entryResult = SearchResultEntity(
+  type: SearchResultType.entry,
+  id: 'e1',
+  name: 'Stripe API Key',
+  vaultId: 'v1',
+  vaultName: 'Production',
+);
+
 DioException _dioError() => DioException(
       requestOptions: RequestOptions(path: '/api/search'),
       type: DioExceptionType.connectionError,
@@ -185,5 +193,23 @@ void main() {
       sub.cancel();
       cubit.close();
     });
+  });
+
+  // ── selectResult analytics ──────────────────
+
+  test('selectResult fires analytics with the entry type + id only (ZK)', () {
+    final cubit = buildCubit();
+
+    cubit.selectResult(_entryResult);
+
+    verify(
+      () => analytics.capture(
+        'dashboard',
+        'search-result-selected',
+        properties: {'type': 'entry', 'id': 'e1'},
+      ),
+    ).called(1);
+
+    cubit.close();
   });
 }

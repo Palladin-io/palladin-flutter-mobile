@@ -83,15 +83,42 @@ class _DashboardViewState extends State<_DashboardView> {
       case SearchResultType.vault:
         context.go(AppRoutes.vaultDetail(result.id));
       case SearchResultType.entry:
-        // TODO(CVT-185): Backend does not return vaultId for entry search
-        // results. Once CVT-183 backend adds vaultId to /api/search entry
-        // results, build an EntryEntity here and call EntryDetailPage.push().
-        // For now, navigate to the vault list — the user can open the entry
-        // from there.
-        context.go('/vaults');
+        _openEntryDetail(context, result);
     }
     _searchController.clear();
     _searchCubit.reset();
+  }
+
+  /// Deep-links into the entry detail screen for an `entry` search hit.
+  ///
+  /// The search projection carries only [SearchResultEntity.id],
+  /// [SearchResultEntity.vaultId], [SearchResultEntity.name] and an optional
+  /// icon — enough to bootstrap [EntryDetailPage], which then fetches and
+  /// decrypts the full entry (real type + timestamps) on open. The bootstrap
+  /// [EntryEntity]'s `type`/`createdAt`/`updatedAt` are placeholders replaced
+  /// by the revealed entity, so they are never persisted.
+  ///
+  /// `vaultId` is entry-only and defensively nullable; if the backend omits
+  /// it we fall back to the vault list so the tap is never a dead end.
+  void _openEntryDetail(BuildContext context, SearchResultEntity result) {
+    final vaultId = result.vaultId;
+    if (vaultId == null) {
+      context.go('/vaults');
+      return;
+    }
+    final now = DateTime.now();
+    EntryDetailPage.push(
+      context,
+      entry: EntryEntity(
+        id: result.id,
+        vaultId: vaultId,
+        label: result.name,
+        icon: result.icon,
+        type: EntryType.credential,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
   }
 
   void _onVaultCta() {
