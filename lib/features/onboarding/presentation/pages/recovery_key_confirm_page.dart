@@ -139,7 +139,9 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
               label: l10n.onboardingConfirmVerify,
               isLoading: isSubmitting,
               onPressed: allCorrect && !isSubmitting
-                  ? () => context.read<OnboardingCubit>().completeSetup()
+                  ? () => context.read<OnboardingCubit>().completeSetup(
+                        defaultVaultName: l10n.defaultVaultName,
+                      )
                   : null,
             ),
           ],

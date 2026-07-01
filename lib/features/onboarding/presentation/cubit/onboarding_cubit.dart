@@ -40,12 +40,16 @@ class OnboardingCubit extends Cubit<OnboardingState> {
     ));
   }
 
-  /// Runs the crypto pipeline and submits the setup request.
+  /// Runs the crypto pipeline, submits the setup request, and
+  /// auto-creates the default vault.
+  ///
+  /// [defaultVaultName] is the localized vault name passed from the UI
+  /// (e.g. `AppLocalizations.of(context)!.defaultVaultName`).
   ///
   /// On success: transitions to [OnboardingStep.completed].
   /// On failure: transitions back to [OnboardingStep.recoveryKeyConfirm]
   /// with an error attached so the UI can surface it.
-  Future<void> completeSetup() async {
+  Future<void> completeSetup({required String defaultVaultName}) async {
     if (state.masterPassword.isEmpty || state.mnemonic.isEmpty) {
       AppLogger.w('Onboarding', 'Cannot complete setup — missing password/mnemonic');
       return;
@@ -60,6 +64,7 @@ class OnboardingCubit extends Cubit<OnboardingState> {
       await repository.completeSetup(
         masterPassword: state.masterPassword,
         recoveryMnemonic: state.mnemonic,
+        defaultVaultName: defaultVaultName,
       );
       // Guard against a race where the user tapped back while the
       // setup request was in-flight — if we're no longer in the

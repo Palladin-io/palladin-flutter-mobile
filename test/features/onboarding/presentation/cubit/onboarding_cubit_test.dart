@@ -66,6 +66,7 @@ void main() {
         when(() => mockRepo.completeSetup(
               masterPassword: any(named: 'masterPassword'),
               recoveryMnemonic: any(named: 'recoveryMnemonic'),
+              defaultVaultName: any(named: 'defaultVaultName'),
             )).thenAnswer((_) async {});
         return OnboardingCubit(repository: mockRepo);
       },
@@ -74,7 +75,7 @@ void main() {
         masterPassword: 'Correct Horse Battery 9!',
         mnemonic: mnemonic,
       ),
-      act: (cubit) => cubit.completeSetup(),
+      act: (cubit) => cubit.completeSetup(defaultVaultName: 'Personal'),
       expect: () => [
         predicate<OnboardingState>((s) => s.step == OnboardingStep.submitting),
         predicate<OnboardingState>((s) => s.step == OnboardingStep.completed),
@@ -87,6 +88,7 @@ void main() {
         when(() => mockRepo.completeSetup(
               masterPassword: any(named: 'masterPassword'),
               recoveryMnemonic: any(named: 'recoveryMnemonic'),
+              defaultVaultName: any(named: 'defaultVaultName'),
             )).thenThrow(OnboardingAlreadyCompletedException());
         return OnboardingCubit(repository: mockRepo);
       },
@@ -95,7 +97,7 @@ void main() {
         masterPassword: 'pw',
         mnemonic: mnemonic,
       ),
-      act: (cubit) => cubit.completeSetup(),
+      act: (cubit) => cubit.completeSetup(defaultVaultName: 'Personal'),
       expect: () => [
         predicate<OnboardingState>((s) => s.step == OnboardingStep.submitting),
         predicate<OnboardingState>(
@@ -110,6 +112,7 @@ void main() {
         when(() => mockRepo.completeSetup(
               masterPassword: any(named: 'masterPassword'),
               recoveryMnemonic: any(named: 'recoveryMnemonic'),
+              defaultVaultName: any(named: 'defaultVaultName'),
             )).thenThrow(const OnboardingServerException(
           OnboardingServerErrorKind.cannotConnect,
         ));
@@ -120,7 +123,7 @@ void main() {
         masterPassword: 'pw',
         mnemonic: mnemonic,
       ),
-      act: (cubit) => cubit.completeSetup(),
+      act: (cubit) => cubit.completeSetup(defaultVaultName: 'Personal'),
       expect: () => [
         predicate<OnboardingState>((s) => s.step == OnboardingStep.submitting),
         predicate<OnboardingState>(
@@ -134,11 +137,12 @@ void main() {
     blocTest<OnboardingCubit, OnboardingState>(
       'completeSetup is a no-op when state is missing password/mnemonic',
       build: () => OnboardingCubit(repository: mockRepo),
-      act: (cubit) => cubit.completeSetup(),
+      act: (cubit) => cubit.completeSetup(defaultVaultName: 'Personal'),
       expect: () => const <OnboardingState>[],
       verify: (_) => verifyNever(() => mockRepo.completeSetup(
             masterPassword: any(named: 'masterPassword'),
             recoveryMnemonic: any(named: 'recoveryMnemonic'),
+            defaultVaultName: any(named: 'defaultVaultName'),
           )),
     );
 

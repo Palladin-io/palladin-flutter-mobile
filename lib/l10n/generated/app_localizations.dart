@@ -4088,6 +4088,12 @@ abstract class AppLocalizations {
   /// **'Agents, vaults, entries…'**
   String get dashboardSearchHint;
 
+  /// Localized name for the default vault auto-created during onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Personal'**
+  String get defaultVaultName;
+
   /// Title of the onboarding progress card
   ///
   /// In en, this message translates to:
@@ -4142,22 +4148,22 @@ abstract class AppLocalizations {
   /// **'Open Settings'**
   String get dashboardOnboardingStep1OpenSettings;
 
-  /// Step 2 title
+  /// Step 2 title — prompts user to add a password entry or import
   ///
   /// In en, this message translates to:
-  /// **'Add your first vault'**
+  /// **'Add your first entry or import passwords'**
   String get dashboardOnboardingStep2Title;
 
   /// Step 2 description
   ///
   /// In en, this message translates to:
-  /// **'Add an entry manually or import existing data'**
+  /// **'Your Personal vault is ready — add a password entry manually or import your existing credentials.'**
   String get dashboardOnboardingStep2Description;
 
-  /// Step 2 CTA button
+  /// Step 2 CTA button — navigates to vault list so user can add first entry
   ///
   /// In en, this message translates to:
-  /// **'Add Vault'**
+  /// **'Go to Vaults'**
   String get dashboardOnboardingStep2Cta;
 
   /// Step 3 title

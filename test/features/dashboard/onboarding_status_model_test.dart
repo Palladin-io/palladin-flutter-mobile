@@ -8,14 +8,14 @@ void main() {
       final entity = OnboardingStatusModel.fromJson(<String, dynamic>{
         'isOnboarded': false,
         'onboardingSteps': <String, dynamic>{
-          'vaultCreated': true,
+          'entryCreated': true,
           'apiKeyCreated': false,
           'agentEnrolled': true,
         },
       }).toEntity();
 
       expect(entity.isOnboarded, isFalse);
-      expect(entity.vaultCreated, isTrue);
+      expect(entity.entryCreated, isTrue);
       expect(entity.apiKeyCreated, isFalse);
       expect(entity.agentEnrolled, isTrue);
     });
@@ -36,7 +36,7 @@ void main() {
         'recoverySalt': null,
         'encryptedPrivateKeyByRecovery': null,
         'onboardingSteps': <String, dynamic>{
-          'vaultCreated': false,
+          'entryCreated': false,
           'apiKeyCreated': false,
           'agentEnrolled': false,
         },
@@ -52,7 +52,7 @@ void main() {
       ).toEntity();
 
       expect(entity.isOnboarded, isFalse);
-      expect(entity.vaultCreated, isFalse);
+      expect(entity.entryCreated, isFalse);
       expect(entity.apiKeyCreated, isFalse);
       expect(entity.agentEnrolled, isFalse);
       expect(entity.serverCompletedCount, 0);
@@ -62,7 +62,7 @@ void main() {
       final entity = OnboardingStatusModel.fromJson(<String, dynamic>{
         'isOnboarded': false,
         'onboardingSteps': <String, dynamic>{
-          'vaultCreated': true,
+          'entryCreated': true,
           'apiKeyCreated': true,
           'agentEnrolled': false,
         },

@@ -10,15 +10,23 @@ abstract class OnboardingRepository {
   Future<List<String>> generateRecoveryMnemonic();
 
   /// Derives the key material, encrypts the private key with both the
-  /// master key and the recovery key, and submits the bundle to
-  /// `POST /api/account/setup`.
+  /// master key and the recovery key, submits the bundle to
+  /// `POST /api/account/setup`, and then auto-creates the default vault
+  /// via `POST /api/account/default-vault`.
+  ///
+  /// [defaultVaultName] is the localized vault name (e.g. "Personal" /
+  /// "Osobisty") supplied by the presentation layer so the data layer
+  /// has no dependency on BuildContext.
   ///
   /// Throws [OnboardingServerException] on network/protocol errors,
   /// [OnboardingAlreadyCompletedException] if the account is already
-  /// set up (HTTP 409).
+  /// set up (HTTP 409). The default-vault call is fire-and-forget: a
+  /// 409 (already exists) or any transient error is swallowed so it
+  /// never blocks the user from completing onboarding.
   Future<void> completeSetup({
     required String masterPassword,
     required List<String> recoveryMnemonic,
+    required String defaultVaultName,
   });
 }
 

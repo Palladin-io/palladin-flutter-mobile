@@ -2314,6 +2314,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get dashboardSearchHint => 'Agenci, sejfy, wpisy…';
 
   @override
+  String get defaultVaultName => 'Osobisty';
+
+  @override
   String get dashboardOnboardingTitle => 'Skonfiguruj Palladin';
 
   @override
@@ -2345,14 +2348,15 @@ class AppLocalizationsPl extends AppLocalizations {
   String get dashboardOnboardingStep1OpenSettings => 'Otwórz Ustawienia';
 
   @override
-  String get dashboardOnboardingStep2Title => 'Dodaj pierwszy sejf';
+  String get dashboardOnboardingStep2Title =>
+      'Dodaj pierwszy wpis lub zaimportuj hasła';
 
   @override
   String get dashboardOnboardingStep2Description =>
-      'Dodaj wpis ręcznie lub zaimportuj istniejące dane';
+      'Twój sejf Osobisty jest gotowy — dodaj hasło ręcznie lub zaimportuj istniejące dane.';
 
   @override
-  String get dashboardOnboardingStep2Cta => 'Dodaj sejf';
+  String get dashboardOnboardingStep2Cta => 'Przejdź do sejfów';
 
   @override
   String get dashboardOnboardingStep3Title => 'Dodaj klucz API';

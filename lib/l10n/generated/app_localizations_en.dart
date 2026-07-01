@@ -2294,6 +2294,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardSearchHint => 'Agents, vaults, entries…';
 
   @override
+  String get defaultVaultName => 'Personal';
+
+  @override
   String get dashboardOnboardingTitle => 'Set up Palladin';
 
   @override
@@ -2325,14 +2328,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardOnboardingStep1OpenSettings => 'Open Settings';
 
   @override
-  String get dashboardOnboardingStep2Title => 'Add your first vault';
+  String get dashboardOnboardingStep2Title =>
+      'Add your first entry or import passwords';
 
   @override
   String get dashboardOnboardingStep2Description =>
-      'Add an entry manually or import existing data';
+      'Your Personal vault is ready — add a password entry manually or import your existing credentials.';
 
   @override
-  String get dashboardOnboardingStep2Cta => 'Add Vault';
+  String get dashboardOnboardingStep2Cta => 'Go to Vaults';
 
   @override
   String get dashboardOnboardingStep3Title => 'Add an API Key';

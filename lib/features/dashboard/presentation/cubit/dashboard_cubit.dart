@@ -195,7 +195,7 @@ class DashboardCubit extends Cubit<DashboardState> {
   }
 
   void onVaultCtaTapped() =>
-      unawaited(analytics.capture('identity', 'onboarding-vault-clicked'));
+      unawaited(analytics.capture('identity', 'onboarding-entry-clicked'));
 
   void onApiKeyCtaTapped() =>
       unawaited(analytics.capture('identity', 'onboarding-api-key-clicked'));

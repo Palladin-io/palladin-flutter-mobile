@@ -29,7 +29,7 @@ class MockAnalyticsService extends Mock implements AnalyticsService {}
 /// A minimal onboarding status where setup is NOT yet complete.
 const _incompleteStatus = OnboardingStatus(
   isOnboarded: true,
-  vaultCreated: false,
+  entryCreated: false,
   apiKeyCreated: false,
   agentEnrolled: false,
 );

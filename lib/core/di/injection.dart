@@ -128,6 +128,11 @@ void configureDependencies(EnvConfig config) {
     () => OnboardingRepositoryImpl(
       remoteDatasource: getIt<OnboardingRemoteDatasource>(),
       cryptoService: getIt<OnboardingCryptoService>(),
+      // VaultCryptoService is needed to generate a wrapped VK for the
+      // default vault during onboarding, before the private key is cached
+      // in auth state. Registered after the vault section below; get_it
+      // resolves lazily so ordering in this file does not matter.
+      vaultCryptoService: getIt<VaultCryptoService>(),
       tokenStorage: getIt<SecureTokenStorage>(),
     ),
   );

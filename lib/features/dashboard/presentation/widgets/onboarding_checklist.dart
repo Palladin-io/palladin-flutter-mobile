@@ -47,7 +47,7 @@ class OnboardingChecklist extends StatelessWidget {
 
     final dones = <bool>[
       notificationStepDone,
-      status.vaultCreated,
+      status.entryCreated,
       status.apiKeyCreated,
       status.agentEnrolled,
     ];
@@ -65,7 +65,7 @@ class OnboardingChecklist extends StatelessWidget {
       ),
       _StepData(
         number: 2,
-        icon: Icons.shield,
+        icon: Icons.lock_open,
         accent: AppColors.vaultBlue,
         title: l10n.dashboardOnboardingStep2Title,
         description: l10n.dashboardOnboardingStep2Description,
