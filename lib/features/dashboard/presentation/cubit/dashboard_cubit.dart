@@ -64,7 +64,7 @@ class DashboardCubit extends Cubit<DashboardState> {
         return;
       }
 
-      if (!status.isOnboarded) {
+      if (!status.isSetupComplete) {
         final notificationDone =
             prefs?.getBool(_kNotificationSkipped) ?? false;
         emit(

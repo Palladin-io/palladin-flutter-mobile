@@ -1,4 +1,4 @@
-/// Onboarding step completion flags from `GET /api/account/onboarding`.
+/// Onboarding step completion flags from `GET /api/account`.
 ///
 /// The server tracks three setup milestones (vault, API key, agent). The
 /// notifications step is purely client-side (an OS permission prompt) and
@@ -23,4 +23,10 @@ class OnboardingStatus {
       (vaultCreated ? 1 : 0) +
       (apiKeyCreated ? 1 : 0) +
       (agentEnrolled ? 1 : 0);
+
+  /// `true` once all three server-tracked setup steps are done. This — NOT
+  /// [isOnboarded] (which only means account *key* setup is complete, and is
+  /// already true for anyone past unlock) — decides whether the onboarding
+  /// checklist still has work to show.
+  bool get isSetupComplete => vaultCreated && apiKeyCreated && agentEnrolled;
 }
