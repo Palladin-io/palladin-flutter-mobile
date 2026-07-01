@@ -2400,5 +2400,8 @@ class AppLocalizationsPl extends AppLocalizations {
   String get dashboardNoActivity => 'Brak aktywności';
 
   @override
+  String get dashboardRecentlyModified => 'Ostatnio dodane / zmodyfikowane';
+
+  @override
   String get dashboardSeeAll => 'Zobacz wszystko';
 }

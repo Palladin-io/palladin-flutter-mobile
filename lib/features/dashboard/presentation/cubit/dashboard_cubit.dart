@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -41,6 +42,8 @@ class DashboardCubit extends Cubit<DashboardState> {
       // back to "not skipped".
       final prefs = await _tryPrefs();
 
+      final recentEntries = await _loadRecentEntriesOrEmpty();
+
       // Keep the cross-vault pending list current so unknown-agent
       // detection reflects the latest requests (quiet — no skeleton flip).
       await pendingGrantsCubit.refresh();
@@ -50,8 +53,11 @@ class DashboardCubit extends Cubit<DashboardState> {
       if (skipped) {
         emit(
           unknownGrant != null
-              ? DashboardUnknownAgent(grant: unknownGrant)
-              : const DashboardLoaded(),
+              ? DashboardUnknownAgent(
+                  grant: unknownGrant,
+                  recentEntries: recentEntries,
+                )
+              : DashboardLoaded(recentEntries: recentEntries),
         );
         return;
       }
@@ -60,7 +66,12 @@ class DashboardCubit extends Cubit<DashboardState> {
 
       // An unregistered agent request takes precedence over the checklist.
       if (unknownGrant != null) {
-        emit(DashboardUnknownAgent(grant: unknownGrant));
+        emit(
+          DashboardUnknownAgent(
+            grant: unknownGrant,
+            recentEntries: recentEntries,
+          ),
+        );
         return;
       }
 
@@ -77,10 +88,32 @@ class DashboardCubit extends Cubit<DashboardState> {
         return;
       }
 
-      emit(const DashboardLoaded());
+      emit(DashboardLoaded(recentEntries: recentEntries));
     } catch (e, s) {
       AppLogger.e('Dashboard', 'load failed', error: e, stackTrace: s);
       emit(DashboardError(e));
+    }
+  }
+
+  /// Fetches recent entries, returning `[]` on any error (including 403).
+  ///
+  /// Failures are logged and suppressed so that a permission gap or a
+  /// network hiccup never blanks the whole Home screen.
+  Future<List<RecentEntryEntity>> _loadRecentEntriesOrEmpty() async {
+    try {
+      return await repository.getRecentEntries(5);
+    } on DioException catch (e, s) {
+      AppLogger.e(
+        'Dashboard',
+        'recent entries unavailable (${e.response?.statusCode})',
+        error: e,
+        stackTrace: s,
+      );
+      return const [];
+    } catch (e, s) {
+      AppLogger.e('Dashboard', 'recent entries load failed',
+          error: e, stackTrace: s);
+      return const [];
     }
   }
 

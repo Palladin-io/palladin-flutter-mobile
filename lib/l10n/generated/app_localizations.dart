@@ -4238,6 +4238,12 @@ abstract class AppLocalizations {
   /// **'No activity yet'**
   String get dashboardNoActivity;
 
+  /// Section header for recently added or updated entries on the dashboard
+  ///
+  /// In en, this message translates to:
+  /// **'Recently added / modified'**
+  String get dashboardRecentlyModified;
+
   /// See all link in section headers
   ///
   /// In en, this message translates to:

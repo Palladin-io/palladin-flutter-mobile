@@ -13,6 +13,9 @@ import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/presentation/widgets/approve_agent_sheet.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../vault/domain/entities/entry_entity.dart';
+import '../../../vault/presentation/pages/entry_detail_page.dart';
+import '../../../vault/presentation/widgets/vault_visuals.dart';
 import '../cubit/dashboard_cubit.dart';
 import '../widgets/onboarding_checklist.dart';
 import '../widgets/unknown_agent_card.dart';
@@ -99,6 +102,64 @@ class _DashboardViewState extends State<_DashboardView> {
     // TODO(approvals): wire reject endpoint + remove from pending list.
   }
 
+  void _onRecentEntryTap(RecentEntryEntity recent) {
+    final entry = EntryEntity(
+      id: recent.id,
+      vaultId: recent.vaultId,
+      label: recent.label,
+      icon: recent.icon,
+      type: EntryTypeExtension.fromWire(recent.typeWire),
+      createdAt: recent.createdAt,
+      updatedAt: recent.updatedAt,
+    );
+    EntryDetailPage.push(context, entry: entry);
+  }
+
+  /// Builds the "Recently added / modified" section if [entries] is
+  /// non-empty. Returns an empty list (no widgets) when [entries] is empty
+  /// so the section is invisible rather than showing an empty card.
+  List<Widget> _buildRecentEntriesSection(
+    BuildContext context,
+    List<RecentEntryEntity> entries,
+  ) {
+    if (entries.isEmpty) return const [];
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+
+    return [
+      _SectionHeader(
+        title: l10n.dashboardRecentlyModified,
+        onSeeAll: () => context.go('/vaults'),
+      ),
+      const SizedBox(height: AppSpacing.cardGap),
+      Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardFill(brightness),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            for (int i = 0; i < entries.length; i++) ...[
+              if (i > 0)
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  indent: AppSpacing.screenH + AppSpacing.innerGap + 32,
+                  color:
+                      AppColors.onSurface(brightness).withValues(alpha: 0.06),
+                ),
+              _RecentEntryRow(
+                entry: entries[i],
+                onTap: () => _onRecentEntryTap(entries[i]),
+              ),
+            ],
+          ],
+        ),
+      ),
+      const SizedBox(height: AppSpacing.section),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -162,7 +223,7 @@ class _DashboardViewState extends State<_DashboardView> {
           ),
         ),
       ],
-      DashboardUnknownAgent(:final grant) => [
+      DashboardUnknownAgent(:final grant, :final recentEntries) => [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.screenH,
@@ -183,6 +244,7 @@ class _DashboardViewState extends State<_DashboardView> {
                 onReject: () => _onReject(grant),
               ),
               const SizedBox(height: AppSpacing.section),
+              ..._buildRecentEntriesSection(context, recentEntries),
               _SectionHeader(
                 title: AppLocalizations.of(context)!.dashboardRecentActivity,
               ),
@@ -192,7 +254,7 @@ class _DashboardViewState extends State<_DashboardView> {
           ),
         ),
       ],
-      DashboardLoaded() => [
+      DashboardLoaded(:final recentEntries) => [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.screenH,
@@ -202,6 +264,7 @@ class _DashboardViewState extends State<_DashboardView> {
           ),
           sliver: SliverList.list(
             children: [
+              ..._buildRecentEntriesSection(context, recentEntries),
               _SectionHeader(
                 title: AppLocalizations.of(context)!.dashboardRecentActivity,
               ),
@@ -296,10 +359,11 @@ class _GreetingHeader extends StatelessWidget {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.badge});
+  const _SectionHeader({required this.title, this.badge, this.onSeeAll});
 
   final String title;
   final String? badge;
+  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -342,15 +406,116 @@ class _SectionHeader extends StatelessWidget {
             ],
           ],
         ),
-        Text(
-          l10n.dashboardSeeAll,
-          style: TextStyle(
-            color: AppColors.onSurfaceSubtle(brightness),
-            fontSize: 11,
+        GestureDetector(
+          onTap: onSeeAll,
+          child: Text(
+            l10n.dashboardSeeAll,
+            style: TextStyle(
+              color: onSeeAll != null
+                  ? AppColors.brandRed
+                  : AppColors.onSurfaceSubtle(brightness),
+              fontSize: 11,
+            ),
           ),
         ),
       ],
     );
+  }
+}
+
+/// One row in the "Recently added / modified" section.
+///
+/// Shows the entry icon (Material icon from [EntryVisuals]) in a
+/// tinted circle, the entry label + vault name, and a relative timestamp.
+/// Tapping navigates to [EntryDetailPage] via [onTap].
+class _RecentEntryRow extends StatelessWidget {
+  const _RecentEntryRow({required this.entry, required this.onTap});
+
+  final RecentEntryEntity entry;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final brightness = Theme.of(context).brightness;
+    final iconData = EntryVisuals.iconFor(entry.icon);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.cardPadding,
+          vertical: AppSpacing.innerGap + AppSpacing.xs,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.positiveAccent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(iconData, size: 16, color: AppColors.positiveAccent),
+            ),
+            const SizedBox(width: AppSpacing.innerGap),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    entry.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.onSurface(brightness),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    entry.vaultName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.onSurfaceSubtle(brightness),
+                      fontSize: 11,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.innerGap),
+            Text(
+              _formatRelative(l10n, entry.updatedAt),
+              style: TextStyle(
+                color: AppColors.onSurfaceSubtle(brightness),
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Localised relative timestamp. Reuses the same ARB keys as
+  /// `vault_card.dart` (`vaultUpdatedNow`, `vaultUpdatedMinutesAgo`,
+  /// `vaultUpdatedHoursAgo`, `vaultUpdatedDaysAgo`) since they are generic
+  /// enough for this context.
+  String _formatRelative(AppLocalizations l10n, DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return l10n.vaultUpdatedNow;
+    if (diff.inMinutes < 60) return l10n.vaultUpdatedMinutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return l10n.vaultUpdatedHoursAgo(diff.inHours);
+    if (diff.inDays < 30) return l10n.vaultUpdatedDaysAgo(diff.inDays);
+    final local = dt.toLocal();
+    return '${local.year.toString().padLeft(4, '0')}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
   }
 }
 

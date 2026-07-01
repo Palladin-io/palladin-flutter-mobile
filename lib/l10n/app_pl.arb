@@ -699,5 +699,6 @@
   "dashboardPendingApprovals": "Oczekujące zgody",
   "dashboardRecentActivity": "Ostatnia aktywność",
   "dashboardNoActivity": "Brak aktywności",
+  "dashboardRecentlyModified": "Ostatnio dodane / zmodyfikowane",
   "dashboardSeeAll": "Zobacz wszystko"
 }

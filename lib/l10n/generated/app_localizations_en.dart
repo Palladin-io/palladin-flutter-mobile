@@ -2379,5 +2379,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardNoActivity => 'No activity yet';
 
   @override
+  String get dashboardRecentlyModified => 'Recently added / modified';
+
+  @override
   String get dashboardSeeAll => 'See all';
 }

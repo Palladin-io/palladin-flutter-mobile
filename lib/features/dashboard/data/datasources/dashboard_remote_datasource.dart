@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../models/onboarding_status_model.dart';
+import '../models/recent_entry_model.dart';
 
 /// Remote data source for the dashboard.
 ///
@@ -30,5 +31,33 @@ class DashboardRemoteDatasource {
       );
     }
     return OnboardingStatusModel.fromJson(data);
+  }
+
+  /// `GET /api/entries?sort=recent&limit={limit}` — org-wide recent entries.
+  ///
+  /// Returns only metadata (id, label, vaultId, vaultName, type, icon,
+  /// updatedAt, createdAt). No encrypted payload is ever returned here —
+  /// zero-knowledge is preserved.
+  Future<List<RecentEntryModel>> getRecentEntries(int limit) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/entries',
+      queryParameters: <String, dynamic>{
+        'sort': 'recent',
+        'limit': limit,
+      },
+    );
+    final data = response.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Empty response body',
+      );
+    }
+    final raw = (data['items'] as List<dynamic>? ?? const <dynamic>[]);
+    return raw
+        .map((e) => RecentEntryModel.fromJson(e as Map<String, dynamic>))
+        .toList(growable: false);
   }
 }
