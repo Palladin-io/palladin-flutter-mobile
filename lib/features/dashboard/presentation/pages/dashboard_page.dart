@@ -423,11 +423,23 @@ class _DashboardViewState extends State<_DashboardView> {
                   builder: (context, searchState) =>
                       BlocBuilder<DashboardCubit, DashboardState>(
                     builder: (context, dashboardState) => AnimatedSize(
-                      duration: const Duration(milliseconds: 180),
-                      curve: Curves.easeOut,
+                      duration: const Duration(milliseconds: 140),
+                      curve: Curves.easeOutCubic,
                       alignment: Alignment.topCenter,
                       child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 180),
+                        duration: const Duration(milliseconds: 140),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        // Top-align the outgoing/incoming children so the
+                        // cross-fade doesn't vertically re-center mid-flight
+                        // (the "jump" that reads as lag).
+                        layoutBuilder: (currentChild, previousChildren) => Stack(
+                          alignment: Alignment.topCenter,
+                          children: [
+                            ...previousChildren,
+                            ?currentChild,
+                          ],
+                        ),
                         child: KeyedSubtree(
                           key: ValueKey(_dropdownContentKey(searchState)),
                           child: _dropdownContent(
@@ -988,7 +1000,7 @@ class _SearchDropdownCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.modalBackground(brightness),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder(brightness)),
+        border: Border.all(color: AppColors.inputBorder(brightness)),
         boxShadow: [
           BoxShadow(
             color: AppColors.dropdownShadow(brightness),

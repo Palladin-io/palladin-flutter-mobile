@@ -39,7 +39,7 @@ class _AuditLogRowState extends State<AuditLogRow> {
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.cardSurface(brightness),
+        color: AppColors.cardFill(brightness),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.cardBorder(brightness)),
       ),
