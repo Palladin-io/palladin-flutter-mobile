@@ -45,6 +45,7 @@ class EntryDetailsTab extends StatefulWidget {
     required this.onUpdated,
     required this.onDeleted,
     this.wrappedVK,
+    this.editController,
   });
 
   final EntryEntity entry;
@@ -58,6 +59,10 @@ class EntryDetailsTab extends StatefulWidget {
   final ValueChanged<String> onDeleted;
 
   final String? wrappedVK;
+
+  /// Bridges edit mode to the host AppBar so a Cancel action can sit beside the
+  /// entry name (very top) instead of inside the tab body.
+  final EntryEditController? editController;
 
   @override
   State<EntryDetailsTab> createState() => _EntryDetailsTabState();
@@ -94,6 +99,12 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
   /// read-only view never re-decrypts.
   Map<String, dynamic>? _payload;
   EntryEntity? _revealedEntry;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.editController?.bindCancel(_cancelEdit);
+  }
 
   @override
   void dispose() {
@@ -147,6 +158,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
       _passwordObscured = true;
       _editMode = true;
     });
+    widget.editController?.publishEditing(true);
   }
 
   void _cancelEdit() {
@@ -155,6 +167,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
       _secretRevealed = false;
       _urlError = null;
     });
+    widget.editController?.publishEditing(false);
   }
 
   // ── Copy / clipboard ───────────────────────────────────────────────
@@ -328,6 +341,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
       _secretRevealed = false;
       _editMode = false;
     });
+    widget.editController?.publishEditing(false);
     widget.onUpdated(entry);
   }
 
@@ -609,28 +623,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Cancel sits inline with the first field's "Label" header, right-aligned.
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l10n.entryLabelLabel,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.onSurfaceMuted(brightness),
-                  ),
-                ),
-              ),
-              _EditToggleButton(
-                label: l10n.vaultCancel,
-                icon: Icons.close,
-                onPressed: isBusy ? null : _cancelEdit,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.innerGap),
           OnboardingTextField(
+            label: l10n.entryLabelLabel,
             hintText: l10n.entryLabelHint,
             controller: _labelController,
             textCapitalization: TextCapitalization.sentences,
@@ -883,34 +877,24 @@ class _RevealError extends StatelessWidget {
 
 // ── Danger zone ──────────────────────────────────────────────────────
 
-/// Small text button used for the in-tab Cancel (edit mode) action.
-class _EditToggleButton extends StatelessWidget {
-  const _EditToggleButton({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-  });
+/// Bridges the Details tab's edit mode to the host AppBar: the tab publishes
+/// whether it is editing and binds its cancel action, so the AppBar can show a
+/// Cancel button beside the entry name (at the very top) only while editing.
+class EntryEditController extends ChangeNotifier {
+  bool _editing = false;
+  bool get editing => _editing;
 
-  final String label;
-  final IconData icon;
-  final VoidCallback? onPressed;
+  VoidCallback? _onCancel;
 
-  @override
-  Widget build(BuildContext context) {
-    return TextButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 16),
-      label: Text(label),
-      style: TextButton.styleFrom(
-        foregroundColor: AppColors.brandRed,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.xs,
-        ),
-        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-      ),
-    );
+  void publishEditing(bool value) {
+    if (_editing == value) return;
+    _editing = value;
+    notifyListeners();
   }
+
+  void bindCancel(VoidCallback onCancel) => _onCancel = onCancel;
+
+  void requestCancel() => _onCancel?.call();
 }
 
 class _DangerZone extends StatelessWidget {

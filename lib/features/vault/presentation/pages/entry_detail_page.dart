@@ -120,6 +120,10 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
+  /// Lets the Details tab drive a Cancel action in the AppBar (beside the name)
+  /// while it is in edit mode.
+  final EntryEditController _editController = EntryEditController();
+
   /// The current entity — updated after an edit so the app-bar title stays
   /// in sync with saved changes.
   late EntryEntity _entry = widget.entry;
@@ -164,6 +168,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
   @override
   void dispose() {
     _tabController.dispose();
+    _editController.dispose();
     super.dispose();
   }
 
@@ -224,6 +229,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
             label: _entry.label,
             tabController: _tabController,
             onBack: _handleBack,
+            editController: _editController,
             l10n: l10n,
             brightness: brightness,
           ),
@@ -235,6 +241,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                 EntryDetailsTab(
                   entry: widget.entry,
                   wrappedVK: widget.wrappedVK,
+                  editController: _editController,
                   onUpdated: _onUpdated,
                   onDeleted: _onDeleted,
                 ),
@@ -277,6 +284,7 @@ class _EntryDetailAppBar extends StatelessWidget
     required this.label,
     required this.tabController,
     required this.onBack,
+    required this.editController,
     required this.l10n,
     required this.brightness,
   });
@@ -284,6 +292,7 @@ class _EntryDetailAppBar extends StatelessWidget
   final String label;
   final TabController tabController;
   final VoidCallback onBack;
+  final EntryEditController editController;
   final AppLocalizations l10n;
   final Brightness brightness;
 
@@ -320,6 +329,30 @@ class _EntryDetailAppBar extends StatelessWidget
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
+      // Cancel sits beside the name at the very top — visible only while the
+      // Details tab is in edit mode.
+      actions: [
+        ListenableBuilder(
+          listenable: editController,
+          builder: (context, _) => editController.editing
+              ? Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.sm),
+                  child: TextButton.icon(
+                    onPressed: editController.requestCancel,
+                    icon: const Icon(Icons.close, size: 16),
+                    label: Text(l10n.vaultCancel),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.brandRed,
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(_tabBarHeight),
         child: SizedBox(
