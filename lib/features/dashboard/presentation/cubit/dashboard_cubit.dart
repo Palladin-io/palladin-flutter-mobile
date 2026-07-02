@@ -263,7 +263,7 @@ class DashboardCubit extends Cubit<DashboardState> {
       // system settings and update the state so the button label swaps.
       unawaited(
         analytics.capture(
-          'identity',
+          'dashboard',
           'onboarding-notifications-settings-opened',
         ),
       );
