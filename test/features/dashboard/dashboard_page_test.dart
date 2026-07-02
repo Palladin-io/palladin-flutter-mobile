@@ -342,19 +342,24 @@ void main() {
     });
 
     testWidgets(
-        "tapping an entry hit's eye action reveals the decrypted secret "
-        'inline in the row', (tester) async {
+        "tapping an entry hit's eye action expands a panel with the "
+        'decrypted secret (row unchanged); a second tap collapses it',
+        (tester) async {
       await pumpWithEntryHit(tester);
 
-      // Before reveal: the secret is masked (subtitle shows the vault name).
+      // Before reveal: no panel, the secret is not shown anywhere.
       expect(find.text('s3cr3t'), findsNothing);
-      expect(find.text('Personal'), findsOneWidget);
 
       await tester.tap(find.byIcon(Icons.visibility));
       await tester.pump(); // spinner
-      await tester.pump(); // revealEntry resolves → secret shown
+      await tester.pump(); // revealEntry resolves → panel populated
+      await tester.pumpAndSettle(); // expand animation
 
+      // The secret is now shown in the expanded panel, and the row itself is
+      // unchanged — the name + vault-name subtitle are both still present.
       expect(find.text('s3cr3t'), findsOneWidget);
+      expect(find.text('Stripe'), findsOneWidget);
+      expect(find.text('Personal'), findsOneWidget);
       expect(find.byIcon(Icons.visibility_off), findsOneWidget);
       verify(() => entryRepository.revealEntry(
             vaultId: 'v1',
@@ -362,6 +367,12 @@ void main() {
             privateKey: any(named: 'privateKey'),
             wrappedVK: any(named: 'wrappedVK'),
           )).called(1);
+
+      // A second tap collapses the panel — the secret disappears.
+      await tester.tap(find.byIcon(Icons.visibility_off));
+      await tester.pumpAndSettle();
+      expect(find.text('s3cr3t'), findsNothing);
+      expect(find.text('Personal'), findsOneWidget);
     });
   });
 }

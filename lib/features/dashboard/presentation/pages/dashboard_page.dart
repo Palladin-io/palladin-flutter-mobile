@@ -21,6 +21,7 @@ import '../../../vault/domain/entities/entry_entity.dart';
 import '../../../vault/domain/exceptions/entry_exceptions.dart';
 import '../../../vault/domain/repositories/entry_repository.dart';
 import '../../../vault/presentation/pages/entry_detail_page.dart';
+import '../../../vault/presentation/widgets/entry_field_row.dart';
 import '../../../vault/presentation/widgets/vault_visuals.dart';
 import '../../domain/entities/search_result_entity.dart';
 import '../cubit/dashboard_cubit.dart';
@@ -1230,14 +1231,15 @@ class _DropdownLoading extends StatelessWidget {
 }
 
 /// One global-search result row: a type badge, a tinted icon circle, the
-/// object name, and a type/vault subtitle. Tapping navigates to the object.
+/// object name, and a type/vault subtitle. Tapping the row navigates.
 ///
 /// Entry hits also render trailing reveal + copy quick actions
-/// ([onRevealSecret]) that decrypt the entry on demand: reveal shows the
-/// secret inline in the subtitle (masked → shown, toggling back on a second
-/// tap), copy writes it to the clipboard — neither navigates. The secret is
-/// decrypted once and cached for the row, so reveal and copy never double-
-/// fetch. A small inline spinner replaces the tapped glyph while in flight.
+/// ([onRevealSecret]) that decrypt the entry on demand. Reveal EXPANDS a
+/// panel below the row (leaving the row itself unchanged) that shows the
+/// decrypted secret — mirroring the vault entries-tab reveal panel; a second
+/// tap collapses it. Copy writes the secret to the clipboard. Neither
+/// navigates. The secret is decrypted once and cached for the row, so reveal
+/// and copy never double-fetch; a small inline spinner shows while decrypting.
 class _SearchResultRow extends StatefulWidget {
   const _SearchResultRow({
     required this.result,
@@ -1258,9 +1260,9 @@ class _SearchResultRow extends StatefulWidget {
 
 class _SearchResultRowState extends State<_SearchResultRow> {
   /// Decrypted secret, cached for the row's lifetime so reveal + copy share a
-  /// single fetch. Held in memory only; only shown when [_revealed] is true.
+  /// single fetch. Held in memory only; only shown while [_expanded].
   String? _secret;
-  bool _revealed = false;
+  bool _expanded = false;
   bool _copyBusy = false;
   bool _revealBusy = false;
 
@@ -1275,38 +1277,51 @@ class _SearchResultRowState extends State<_SearchResultRow> {
     return secret;
   }
 
+  Future<void> _copyValue(String value) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(l10n.entryCopied),
+        duration: const Duration(seconds: 1),
+      ));
+  }
+
   Future<void> _onCopy() async {
     if (_busy || widget.onRevealSecret == null) return;
     setState(() => _copyBusy = true);
     try {
       final secret = await _ensureSecret();
       if (secret == null || !mounted) return;
-      await Clipboard.setData(ClipboardData(text: secret));
-      if (!mounted) return;
-      final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(l10n.entryCopied),
-          duration: const Duration(seconds: 1),
-        ));
+      await _copyValue(secret);
     } finally {
       if (mounted) setState(() => _copyBusy = false);
     }
   }
 
   Future<void> _onToggleReveal() async {
-    if (_busy || widget.onRevealSecret == null) return;
-    // Hiding is instant — the plaintext stays cached for a later re-reveal.
-    if (_revealed) {
-      setState(() => _revealed = false);
+    if (widget.onRevealSecret == null) return;
+    // Collapsing is instant — the plaintext stays cached for a later re-open.
+    if (_expanded) {
+      setState(() => _expanded = false);
       return;
     }
-    setState(() => _revealBusy = true);
+    if (_secret != null) {
+      setState(() => _expanded = true);
+      return;
+    }
+    if (_busy) return;
+    setState(() {
+      _expanded = true;
+      _revealBusy = true;
+    });
     try {
       final secret = await _ensureSecret();
-      if (secret == null || !mounted) return;
-      setState(() => _revealed = true);
+      if (!mounted) return;
+      // Decrypt failed (error snackbar already surfaced) — collapse again.
+      if (secret == null) setState(() => _expanded = false);
     } finally {
       if (mounted) setState(() => _revealBusy = false);
     }
@@ -1320,98 +1335,106 @@ class _SearchResultRowState extends State<_SearchResultRow> {
     final color = _typeColor(result.type);
     final label = _typeLabel(l10n, result.type);
     final hasActions = widget.onRevealSecret != null;
-    final showSecret = _revealed && _secret != null;
     final subtitle = result.type == SearchResultType.entry
         ? (result.vaultName ?? label)
         : label;
 
-    return InkWell(
-      onTap: widget.onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.cardPadding,
-          vertical: AppSpacing.innerGap + AppSpacing.xs,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                _typeIcon(result),
-                size: 16,
-                color: color,
-              ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.cardPadding,
+              vertical: AppSpacing.innerGap + AppSpacing.xs,
             ),
-            const SizedBox(width: AppSpacing.innerGap),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    result.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppColors.onSurface(brightness),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      height: 1.2,
-                    ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(height: AppSpacing.xxs),
-                  // When revealed, the subtitle carries the decrypted secret
-                  // inline (monospace), mirroring the entries-tab reveal.
-                  Text(
-                    showSecret ? _secret! : subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: showSecret
-                        ? TextStyle(
-                            color: AppColors.onSurface(brightness),
-                            fontSize: 11,
-                            height: 1.2,
-                            fontFamily: 'monospace',
-                            letterSpacing: 0.5,
-                          )
-                        : TextStyle(
-                            color: AppColors.onSurfaceSubtle(brightness),
-                            fontSize: 11,
-                            height: 1.2,
-                          ),
+                  child: Icon(
+                    _typeIcon(result),
+                    size: 16,
+                    color: color,
                   ),
+                ),
+                const SizedBox(width: AppSpacing.innerGap),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        result.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.onSurface(brightness),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.onSurfaceSubtle(brightness),
+                          fontSize: 11,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.innerGap),
+                if (hasActions) ...[
+                  _RowActionButton(
+                    icon: _expanded ? Icons.visibility_off : Icons.visibility,
+                    busy: _revealBusy,
+                    tooltip: l10n.vaultRevealValue,
+                    onPressed: _onToggleReveal,
+                    brightness: brightness,
+                  ),
+                  const SizedBox(width: AppSpacing.chipGap),
+                  _RowActionButton(
+                    icon: Icons.content_copy,
+                    busy: _copyBusy,
+                    tooltip: l10n.vaultCopyValue,
+                    onPressed: _onCopy,
+                    brightness: brightness,
+                  ),
+                  const SizedBox(width: AppSpacing.chipGap),
                 ],
-              ),
+                _TypeBadge(label: label, color: color),
+              ],
             ),
-            const SizedBox(width: AppSpacing.innerGap),
-            if (hasActions) ...[
-              _RowActionButton(
-                icon: _revealed ? Icons.visibility_off : Icons.visibility,
-                busy: _revealBusy,
-                tooltip: l10n.vaultRevealValue,
-                onPressed: _onToggleReveal,
-                brightness: brightness,
-              ),
-              const SizedBox(width: AppSpacing.chipGap),
-              _RowActionButton(
-                icon: Icons.content_copy,
-                busy: _copyBusy,
-                tooltip: l10n.vaultCopyValue,
-                onPressed: _onCopy,
-                brightness: brightness,
-              ),
-              const SizedBox(width: AppSpacing.chipGap),
-            ],
-            _TypeBadge(label: label, color: color),
-          ],
+          ),
         ),
-      ),
+        // Reveal panel — expands below the row like the entries tab.
+        if (hasActions)
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            alignment: Alignment.topCenter,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 220),
+              opacity: _expanded ? 1.0 : 0.0,
+              child: _expanded
+                  ? _RevealPanel(secret: _secret, onCopy: _copyValue)
+                  : const SizedBox.shrink(),
+            ),
+          ),
+      ],
     );
   }
 
@@ -1433,6 +1456,55 @@ class _SearchResultRowState extends State<_SearchResultRow> {
         SearchResultType.vault => VaultVisuals.iconFor(result.icon),
         SearchResultType.entry => EntryVisuals.iconFor(result.icon),
       };
+}
+
+/// The expanded reveal panel shown below an entry search row — mirrors the
+/// vault entries-tab reveal panel: an indented [EntryFieldRow] with the
+/// decrypted secret (monospace) and a copy action. Shows the same small
+/// spinner while the decrypt is still in flight ([secret] null).
+class _RevealPanel extends StatelessWidget {
+  const _RevealPanel({required this.secret, required this.onCopy});
+
+  final String? secret;
+  final Future<void> Function(String) onCopy;
+
+  @override
+  Widget build(BuildContext context) {
+    // Indent so the panel aligns under the row's title, past the 32px icon.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.cardPadding + 32 + AppSpacing.innerGap,
+        0,
+        AppSpacing.cardPadding,
+        AppSpacing.innerGap,
+      ),
+      child: secret == null
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.innerGap),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    color: AppColors.brandRed,
+                  ),
+                ),
+              ),
+            )
+          : EntryFieldRow(
+              icon: Icons.lock,
+              value: secret!,
+              isMasked: false,
+              revealed: true,
+              onToggleReveal: null,
+              valueFontSize: 10,
+              actionIconSize: 12,
+              onCopy: () => onCopy(secret!),
+            ),
+    );
+  }
 }
 
 /// Trailing quick-action for an entry search hit (reveal / copy) — the glyph
