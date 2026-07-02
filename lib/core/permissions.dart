@@ -9,6 +9,9 @@ abstract final class Permissions {
   /// Manage grants — list, view, approve, deny and revoke agent grants.
   static const int grantManage = 32;
 
+  /// View audit logs — read the org/vault/entry audit-log surfaces.
+  static const int auditView = 128;
+
   /// Billing plan flag — may own more than one vault (bit 256). Granted by the
   /// backend; mirrors web `PERMISSION_MULTIPLE_VAULTS`.
   static const int multipleVaults = 256;

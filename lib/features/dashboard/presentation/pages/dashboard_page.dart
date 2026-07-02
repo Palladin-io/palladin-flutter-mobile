@@ -63,10 +63,19 @@ class _DashboardView extends StatefulWidget {
 }
 
 class _DashboardViewState extends State<_DashboardView> {
+  /// Minimum characters before the field switches from the "Recent" list to
+  /// live typed results (mirrors [SearchCubit] `_minQueryLength`).
+  static const int _minQueryChars = 2;
+
   final TextEditingController _searchController = TextEditingController();
   late final FocusNode _searchFocusNode = FocusNode()
     ..addListener(_onSearchFocusChanged);
   late final SearchCubit _searchCubit = getIt<SearchCubit>();
+
+  /// Anchors the floating autocomplete dropdown to the search field so it
+  /// follows the field's position (web-panel parity).
+  final LayerLink _searchLink = LayerLink();
+  final OverlayPortalController _dropdownController = OverlayPortalController();
 
   @override
   void dispose() {
@@ -77,9 +86,35 @@ class _DashboardViewState extends State<_DashboardView> {
     super.dispose();
   }
 
-  /// Rebuilds so the focus-driven "Recent" suggestions appear/disappear as
-  /// the empty search field gains or loses focus.
-  void _onSearchFocusChanged() => setState(() {});
+  /// Focus gained/lost — open the dropdown (Recent list / results) on focus,
+  /// close it on blur.
+  void _onSearchFocusChanged() => _updateOverlayVisibility();
+
+  /// Shows the dropdown when the field is focused AND there is something to
+  /// show: a typed query (loading / results / empty / error) or, on an empty
+  /// field, at least one recent entry. Hides it otherwise. Safe to call from
+  /// focus/query/state listeners (never during a build).
+  void _updateOverlayVisibility() {
+    if (!mounted) return;
+    final shouldShow = _shouldShowDropdown();
+    if (shouldShow && !_dropdownController.isShowing) {
+      _dropdownController.show();
+    } else if (!shouldShow && _dropdownController.isShowing) {
+      _dropdownController.hide();
+    }
+  }
+
+  bool _shouldShowDropdown() {
+    if (!_searchFocusNode.hasFocus) return false;
+    if (_searchController.text.trim().length >= _minQueryChars) return true;
+    // Empty / sub-threshold query: only surface the Recent list when the
+    // dashboard already has recent entries loaded (no empty floating card).
+    return _recentEntriesFor(context.read<DashboardCubit>().state).isNotEmpty;
+  }
+
+  /// Closes the dropdown by dropping field focus (the focus listener hides
+  /// the overlay). Used by the outside-tap barrier.
+  void _closeDropdown() => _searchFocusNode.unfocus();
 
   /// Fires analytics, navigates to the tapped result, then clears the
   /// search field so the dashboard content is visible on return.
@@ -251,77 +286,159 @@ class _DashboardViewState extends State<_DashboardView> {
     final l10n = AppLocalizations.of(context)!;
     final auth = context.watch<AuthBloc>().state;
     final name = _displayName(auth);
+    final permissions = auth is AuthAuthenticated ? auth.permissions : 0;
+    final hasAuditView = (permissions & Permissions.auditView) != 0;
 
     return AppScreen(
       header: _GreetingHeader(name: name),
       floatingActionButton: const FabRegistrar(fab: null),
       body: BlocProvider<SearchCubit>.value(
         value: _searchCubit,
-        child: BlocBuilder<SearchCubit, SearchState>(
-          builder: (context, searchState) {
-            return CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.screenH,
-                      0,
-                      AppSpacing.screenH,
-                      AppSpacing.fieldGap,
-                    ),
-                    child: AppSearchField(
-                      controller: _searchController,
-                      focusNode: _searchFocusNode,
-                      hint: l10n.dashboardSearchHint,
-                      onChanged: (v) => _searchCubit.query(v),
+        // Recents may arrive after mount; re-evaluate the dropdown so a
+        // focused empty field can open once the recent list is ready.
+        child: BlocListener<DashboardCubit, DashboardState>(
+          listener: (_, _) => _updateOverlayVisibility(),
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenH,
+                    0,
+                    AppSpacing.screenH,
+                    AppSpacing.fieldGap,
+                  ),
+                  // The search field is the dropdown's anchor (target) and
+                  // hosts the OverlayPortal that floats over the content.
+                  child: CompositedTransformTarget(
+                    link: _searchLink,
+                    child: OverlayPortal(
+                      controller: _dropdownController,
+                      overlayChildBuilder: _buildDropdownOverlay,
+                      child: AppSearchField(
+                        controller: _searchController,
+                        focusNode: _searchFocusNode,
+                        hint: l10n.dashboardSearchHint,
+                        onChanged: (v) {
+                          _searchCubit.query(v);
+                          _updateOverlayVisibility();
+                        },
+                      ),
                     ),
                   ),
                 ),
-                ..._searchSlivers(context, searchState),
-              ],
-            );
-          },
+              ),
+              // Dashboard content always renders underneath — the search
+              // dropdown floats above it, never swapping it out.
+              BlocBuilder<DashboardCubit, DashboardState>(
+                builder: (context, state) => SliverMainAxisGroup(
+                  slivers: _contentSlivers(context, state, hasAuditView),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  /// Chooses the slivers below the search bar based on [searchState].
-  ///
-  /// While idle, the normal dashboard content (driven by [DashboardCubit])
-  /// is shown; an active query replaces it with loading / results / empty /
-  /// error states. The search bar itself stays visible either way.
-  List<Widget> _searchSlivers(BuildContext context, SearchState searchState) {
-    return switch (searchState) {
-      SearchIdle() => [
-        BlocBuilder<DashboardCubit, DashboardState>(
-          builder: (context, state) => SliverMainAxisGroup(
-            // Focusing the empty field surfaces recent entries as tappable
-            // suggestions (parity with the web "Recent" list); losing focus
-            // returns to the normal dashboard content.
-            slivers: _searchFocusNode.hasFocus
-                ? _recentSuggestionSlivers(
-                    context,
-                    _recentEntriesFor(state),
-                  )
-                : _contentSlivers(context, state),
+  /// Builds the floating autocomplete overlay: a full-screen tap barrier
+  /// (outside-tap dismiss) and a [CompositedTransformFollower] card anchored
+  /// directly below the search field. Content is driven reactively by the
+  /// [SearchCubit] (typed results) and [DashboardCubit] (Recent list).
+  Widget _buildDropdownOverlay(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final width = media.size.width - AppSpacing.screenH * 2;
+    final maxHeight = media.size.height * 0.5;
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _closeDropdown,
+          ),
+        ),
+        CompositedTransformFollower(
+          link: _searchLink,
+          showWhenUnlinked: false,
+          targetAnchor: Alignment.bottomLeft,
+          followerAnchor: Alignment.topLeft,
+          offset: const Offset(0, AppSpacing.xs),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: width,
+              child: _SearchDropdownCard(
+                maxHeight: maxHeight,
+                child: BlocBuilder<SearchCubit, SearchState>(
+                  builder: (context, searchState) =>
+                      BlocBuilder<DashboardCubit, DashboardState>(
+                    builder: (context, dashboardState) => _dropdownContent(
+                      context,
+                      searchState,
+                      _recentEntriesFor(dashboardState),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ],
-      SearchLoading() => const [_SearchSkeletonSliver()],
-      SearchResults(:final results) => [
-        _SearchResultsSliver(
-          results: results,
-          onTap: (result) => _onSearchResultTap(context, result),
-        ),
-      ],
-      SearchEmpty() => const [_SearchEmptySliver()],
-      SearchError() => const [_SearchErrorSliver()],
+    );
+  }
+
+  /// Chooses the dropdown body: the Recent list on an empty/sub-threshold
+  /// field, otherwise the live [SearchCubit] result states.
+  Widget _dropdownContent(
+    BuildContext context,
+    SearchState searchState,
+    List<RecentEntryEntity> recentEntries,
+  ) {
+    final l10n = AppLocalizations.of(context)!;
+    final isSearching =
+        _searchController.text.trim().length >= _minQueryChars;
+
+    if (!isSearching) {
+      final results = recentEntries
+          .take(5)
+          .map(_recentToSearchResult)
+          .toList(growable: false);
+      if (results.isEmpty) return const SizedBox.shrink();
+      return _SearchResultList(
+        header: l10n.dashboardSearchRecent,
+        results: results,
+        onTap: (result) => _onSearchResultTap(context, result),
+      );
+    }
+
+    return switch (searchState) {
+      SearchResults(:final results) => _SearchResultList(
+        results: results,
+        onTap: (result) => _onSearchResultTap(context, result),
+      ),
+      SearchEmpty() => _DropdownMessage(
+        icon: Icons.search_off,
+        text: l10n.searchResultsEmpty,
+      ),
+      SearchError() => _DropdownMessage(
+        icon: Icons.error_outline,
+        iconColor: AppColors.brandRed,
+        text: l10n.searchResultsError,
+      ),
+      // Between crossing the 2-char threshold and the debounce firing the
+      // state is still SearchIdle — treat it as loading, same as SearchLoading.
+      SearchLoading() || SearchIdle() => const _DropdownLoading(),
     };
   }
 
-  List<Widget> _contentSlivers(BuildContext context, DashboardState state) {
+  List<Widget> _contentSlivers(
+    BuildContext context,
+    DashboardState state,
+    bool hasAuditView,
+  ) {
     return switch (state) {
       DashboardInitial() || DashboardLoading() => const [_SkeletonSliver()],
       DashboardOnboarding(
@@ -375,7 +492,10 @@ class _DashboardViewState extends State<_DashboardView> {
                 onReject: () => _onReject(grant),
               ),
               const SizedBox(height: AppSpacing.section),
-              ..._buildRecentEntriesSection(context, recentEntries),
+              // Only shown to users WITHOUT audit-log access — those with it
+              // get the richer audit/recent-activity surface instead.
+              if (!hasAuditView)
+                ..._buildRecentEntriesSection(context, recentEntries),
               _SectionHeader(
                 title: AppLocalizations.of(context)!.dashboardRecentActivity,
               ),
@@ -395,7 +515,10 @@ class _DashboardViewState extends State<_DashboardView> {
           ),
           sliver: SliverList.list(
             children: [
-              ..._buildRecentEntriesSection(context, recentEntries),
+              // Only shown to users WITHOUT audit-log access — those with it
+              // get the richer audit/recent-activity surface instead.
+              if (!hasAuditView)
+                ..._buildRecentEntriesSection(context, recentEntries),
               _SectionHeader(
                 title: AppLocalizations.of(context)!.dashboardRecentActivity,
               ),
@@ -414,38 +537,6 @@ class _DashboardViewState extends State<_DashboardView> {
         ),
       ],
     };
-  }
-
-  /// Slivers shown when the empty search field is focused: a small "Recent"
-  /// header over up to five recent entries, each a tappable [_SearchResultRow]
-  /// mapped from a [RecentEntryEntity]. When there are no recent entries,
-  /// nothing extra is rendered (no heavy empty state).
-  List<Widget> _recentSuggestionSlivers(
-    BuildContext context,
-    List<RecentEntryEntity> recentEntries,
-  ) {
-    if (recentEntries.isEmpty) return const [];
-    final l10n = AppLocalizations.of(context)!;
-    final results =
-        recentEntries.take(5).map(_recentToSearchResult).toList(growable: false);
-
-    return [
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.screenH,
-          0,
-          AppSpacing.screenH,
-          AppSpacing.cardGap,
-        ),
-        sliver: SliverToBoxAdapter(
-          child: _RecentSuggestionsHeader(label: l10n.dashboardSearchRecent),
-        ),
-      ),
-      _SearchResultsSliver(
-        results: results,
-        onTap: (result) => _onSearchResultTap(context, result),
-      ),
-    ];
   }
 
   String _displayName(AuthState state) {
@@ -801,49 +892,165 @@ class _RecentSuggestionsHeader extends StatelessWidget {
   }
 }
 
-/// Sliver list of global-search results, each a tappable [_SearchResultRow].
-class _SearchResultsSliver extends StatelessWidget {
-  const _SearchResultsSliver({required this.results, required this.onTap});
+/// Opaque, rounded, shadowed surface for the floating autocomplete dropdown.
+///
+/// Uses the solid [AppColors.modalBackground] token (never a translucent
+/// card) so it fully covers the dashboard content underneath, with a subtle
+/// border + drop shadow and an internal scroll bounded by [maxHeight]. Wraps
+/// [child] in a transparent [Material] so the result rows' ink ripples render
+/// even though the surface lives in the root [Overlay].
+class _SearchDropdownCard extends StatelessWidget {
+  const _SearchDropdownCard({required this.maxHeight, required this.child});
 
-  final List<SearchResultEntity> results;
-  final ValueChanged<SearchResultEntity> onTap;
+  final double maxHeight;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
 
-    return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        0,
-        AppSpacing.screenH,
-        AppSpacing.listBottom,
+    return Container(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      decoration: BoxDecoration(
+        color: AppColors.modalBackground(brightness),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder(brightness)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.dropdownShadow(brightness),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-      sliver: SliverToBoxAdapter(
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.cardFill(brightness),
-            borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        type: MaterialType.transparency,
+        child: child,
+      ),
+    );
+  }
+}
+
+/// The dropdown's result list: an optional muted header (the "Recent" label)
+/// over tappable [_SearchResultRow]s, hairline-separated, scrollable when the
+/// rows exceed the card's bounded height.
+class _SearchResultList extends StatelessWidget {
+  const _SearchResultList({
+    required this.results,
+    required this.onTap,
+    this.header,
+  });
+
+  final List<SearchResultEntity> results;
+  final ValueChanged<SearchResultEntity> onTap;
+  final String? header;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (header != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.cardPadding,
+                AppSpacing.cardPadding,
+                AppSpacing.cardPadding,
+                AppSpacing.innerGap,
+              ),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: _RecentSuggestionsHeader(label: header!),
+              ),
+            ),
+          for (int i = 0; i < results.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                thickness: 1,
+                indent: AppSpacing.cardPadding + AppSpacing.innerGap + 32,
+                color: AppColors.onSurface(brightness).withValues(alpha: 0.06),
+              ),
+            _SearchResultRow(
+              result: results[i],
+              onTap: () => onTap(results[i]),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Single-line dropdown message row (e.g. "No results" / an error hint) with a
+/// leading glyph — used for the empty and error states.
+class _DropdownMessage extends StatelessWidget {
+  const _DropdownMessage({
+    required this.icon,
+    required this.text,
+    this.iconColor,
+  });
+
+  final IconData icon;
+  final String text;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.cardPadding,
+        vertical: AppSpacing.innerGap + AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: iconColor ??
+                AppColors.onSurfaceSubtle(brightness).withValues(alpha: 0.6),
           ),
-          child: Column(
-            children: [
-              for (int i = 0; i < results.length; i++) ...[
-                if (i > 0)
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    indent: AppSpacing.screenH + AppSpacing.innerGap + 32,
-                    color:
-                        AppColors.onSurface(brightness).withValues(alpha: 0.06),
-                  ),
-                _SearchResultRow(
-                  result: results[i],
-                  onTap: () => onTap(results[i]),
-                ),
-              ],
-            ],
+          const SizedBox(width: AppSpacing.innerGap),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: AppColors.onSurfaceSubtle(brightness),
+                fontSize: 12,
+              ),
+            ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Loading placeholder for the dropdown: a couple of skeleton rows shown while
+/// a query is in flight (or during the pre-debounce window).
+class _DropdownLoading extends StatelessWidget {
+  const _DropdownLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.cardPadding,
+        vertical: AppSpacing.innerGap,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SkeletonBox(height: 40),
+          SizedBox(height: AppSpacing.cardGap),
+          SkeletonBox(height: 40),
+        ],
       ),
     );
   }
@@ -975,104 +1182,3 @@ class _TypeBadge extends StatelessWidget {
   }
 }
 
-/// Skeleton shown while a search query is in flight.
-class _SearchSkeletonSliver extends StatelessWidget {
-  const _SearchSkeletonSliver();
-
-  @override
-  Widget build(BuildContext context) {
-    return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        0,
-        AppSpacing.screenH,
-        AppSpacing.listBottom,
-      ),
-      sliver: SliverList.separated(
-        itemCount: 4,
-        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.cardGap),
-        itemBuilder: (_, index) => SkeletonBox(
-          height: 56,
-          delay: Duration(milliseconds: index * 80),
-        ),
-      ),
-    );
-  }
-}
-
-/// Empty state shown when a search returns no results.
-class _SearchEmptySliver extends StatelessWidget {
-  const _SearchEmptySliver();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-
-    return SliverFillRemaining(
-      hasScrollBody: false,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: AppSpacing.xxxl),
-            Icon(
-              Icons.search_off,
-              size: 28,
-              color:
-                  AppColors.onSurfaceSubtle(brightness).withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: AppSpacing.chipGap),
-            Text(
-              l10n.searchResultsEmpty,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.onSurfaceSubtle(brightness),
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Error state shown when a search request fails.
-class _SearchErrorSliver extends StatelessWidget {
-  const _SearchErrorSliver();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-
-    return SliverFillRemaining(
-      hasScrollBody: false,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: AppSpacing.xxxl),
-            const Icon(
-              Icons.error_outline,
-              size: 28,
-              color: AppColors.brandRed,
-            ),
-            const SizedBox(height: AppSpacing.chipGap),
-            Text(
-              l10n.searchResultsError,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.onSurfaceSubtle(brightness),
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
