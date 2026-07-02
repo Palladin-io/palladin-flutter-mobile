@@ -167,7 +167,7 @@ void main() {
       ],
       verify: (_) {
         verify(() => analytics.capture(
-              'identity',
+              'dashboard',
               'onboarding-notifications-enabled',
             )).called(1);
         verifyNever(() => permissionService.openSettings());
@@ -198,11 +198,11 @@ void main() {
       verify: (_) {
         verify(() => permissionService.openSettings()).called(1);
         verify(() => analytics.capture(
-              'identity',
+              'dashboard',
               'onboarding-notifications-settings-opened',
             )).called(1);
         verifyNever(() => analytics.capture(
-              'identity',
+              'dashboard',
               'onboarding-notifications-enabled',
             ));
       },
@@ -226,7 +226,7 @@ void main() {
         verifyNever(() => permissionService.openSettings());
         verifyNever(
           () => analytics.capture(
-            'identity',
+            'dashboard',
             'onboarding-notifications-enabled',
           ),
         );
