@@ -1470,10 +1470,10 @@ class _RevealPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Indent so the panel aligns under the row's title, past the 32px icon.
+    // Full-width, left-aligned under the row (not indented past the icon).
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppSpacing.cardPadding + 32 + AppSpacing.innerGap,
+        AppSpacing.cardPadding,
         0,
         AppSpacing.cardPadding,
         AppSpacing.innerGap,

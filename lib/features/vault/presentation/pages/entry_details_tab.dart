@@ -726,7 +726,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
             isLoading: isLoading,
             onPressed: canSubmit ? _submit : null,
           ),
-          const SizedBox(height: AppSpacing.xxxl),
+          const SizedBox(height: AppSpacing.section),
           _DangerZone(
             label: l10n.entryDangerZone,
             deleteLabel:
