@@ -1,33 +1,21 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/icon_color_browser_sheet.dart';
-import '../../../../core/widgets/icon_picker_grid.dart' show IconMoreTile;
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
-import '../../data/datasources/entry_remote_datasource.dart';
-import '../../data/services/entry_icon_upload_service.dart';
-import '../../data/services/vault_icon_upload_service.dart'
-    show VaultIconUploadErrorKind, VaultIconUploadException;
 import '../../../../core/widgets/app_fab.dart';
 import '../../../approval/presentation/widgets/grant_access_sheet.dart';
 import '../../../audit/presentation/widgets/entry_logs_tab.dart';
 import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../cubit/edit_entry_cubit.dart';
-import '../widgets/entry_form_utils.dart';
-import '../widgets/entry_form_widgets.dart';
-import '../widgets/entry_icon_picker.dart';
-import '../widgets/vault_visuals.dart';
+import 'entry_details_tab.dart';
 
 /// Result of [EntryDetailPage.push].
 sealed class EntryDetailResult {}
@@ -48,12 +36,13 @@ class EntryDetailDeleted extends EntryDetailResult {
 
 /// Full-screen entry detail screen.
 ///
-/// Tab 0 — Details: edit form + danger zone (delete).
-/// Tab 1 — Agents: placeholder.
-/// Tab 2 — Logs: placeholder.
+/// Tab 0 — Details: a read-only quick-access view (copy / reveal secrets)
+///                  that switches into the edit form on demand.
+/// Tab 1 — Agents.
+/// Tab 2 — Logs.
 ///
-/// If [cachedPayload] is provided the form pre-populates immediately.
-/// Otherwise the cubit decrypts the entry on open.
+/// If [cachedPayload] is provided the reveal is skipped and the read-only
+/// view renders immediately. Otherwise the cubit decrypts the entry on open.
 class EntryDetailPage extends StatelessWidget {
   const EntryDetailPage({
     super.key,
@@ -102,11 +91,9 @@ class EntryDetailPage extends StatelessWidget {
                 )
                 .whenComplete(() => keyCopy.fillRange(0, keyCopy.length, 0));
           } else {
-            // The vault is locked or the private key was wiped — without
-            // a private key we cannot decrypt anything to populate the
-            // form. Emit a cryptoFailure so the details tab renders the
-            // error view instead of an infinite "Loading entry data…"
-            // spinner.
+            // The vault is locked or the private key was wiped — without a
+            // private key we cannot decrypt anything, so surface a
+            // cryptoFailure instead of hanging on the reveal spinner.
             cubit.markRevealUnavailable();
           }
         }
@@ -133,24 +120,13 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
-  // Form controllers
-  final _labelController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _valueController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _urlController = TextEditingController();
-  final _notesController = TextEditingController();
+  /// The current entity — updated after an edit so the app-bar title stays
+  /// in sync with saved changes.
+  late EntryEntity _entry = widget.entry;
 
-  EntryType _type = EntryType.credential;
-  String _icon = EntryVisuals.defaultIconName;
-  String _colorHex = EntryVisuals.defaultColorHex;
-  String? _urlError;
-  bool _pickingIcon = false;
-  bool _uploadingIcon = false;
-  bool _valueObscured = true;
-  bool _passwordObscured = true;
-  bool _populated = false;
+  /// The latest saved entity, returned as an [EntryDetailUpdated] result when
+  /// the user leaves the screen (edits happen in place, not on a pop).
+  EntryEntity? _latestUpdate;
 
   // Bumped after a grant is created on the Agents tab so the (self-providing) grants list remounts.
   int _grantsRefresh = 0;
@@ -185,6 +161,12 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     );
   }
 
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
   Future<void> _onAddAgent() async {
     final granted = await GrantAccessSheet.show(
       context,
@@ -195,264 +177,22 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     }
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _labelController.dispose();
-    _descriptionController.dispose();
-    _valueController.dispose();
-    _usernameController.dispose();
-    _passwordController.dispose();
-    _urlController.dispose();
-    _notesController.dispose();
-    super.dispose();
-  }
-
-  void _populateFrom(EntryEntity entry, Map<String, dynamic> payload) {
-    if (_populated) return;
-    _populated = true;
-    _labelController.text = entry.label;
-    _descriptionController.text = entry.description ?? '';
-    _type = entry.type;
-    _icon = entry.icon ?? EntryVisuals.defaultIconName;
-    if (entry.type == EntryType.key) {
-      _valueController.text = (payload['value'] as String?) ?? '';
-      _urlController.text = (payload['url'] as String?) ?? '';
-    } else {
-      _usernameController.text = (payload['username'] as String?) ?? '';
-      _passwordController.text = (payload['password'] as String?) ?? '';
-      _urlController.text = (payload['url'] as String?) ?? '';
-    }
-    _notesController.text = (payload['notes'] as String?) ?? '';
-  }
-
-  bool _validateUrl() {
-    final valid = EntryFormUtils.isValidUrl(_urlController.text);
-    setState(
-      () => _urlError = valid
-          ? null
-          : AppLocalizations.of(context)!.entryUrlInvalid,
-    );
-    return valid;
-  }
-
-  bool get _canSubmit => EntryFormUtils.canSubmit(
-    type: _type,
-    label: _labelController.text,
-    value: _valueController.text,
-    username: _usernameController.text,
-    password: _passwordController.text,
-  );
-
-  Map<String, dynamic> _buildPayload() => EntryFormUtils.buildPayload(
-    type: _type,
-    value: _valueController.text,
-    username: _usernameController.text,
-    password: _passwordController.text,
-    url: _urlController.text,
-    notes: _notesController.text,
-  );
-
-  /// Called by the browser upload circle — returns the file:// path
-  /// without updating [_icon] (the browser handles selection state).
-  Future<String?> _pickIconFile() async {
-    if (_pickingIcon || _uploadingIcon) return null;
-    setState(() => _pickingIcon = true);
-    try {
-      final file = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 85,
-      );
-      if (file == null || !mounted) return null;
-      return 'file://${file.path}';
-    } finally {
-      if (mounted) setState(() => _pickingIcon = false);
-    }
-  }
-
-  /// Opens the full icon + color browser sheet. Mirrors the agents
-  /// approve sheet flow — the user picks a glyph and a swatch in one
-  /// modal instead of having a separate color picker row below the icon
-  /// grid.
-  Future<void> _openEntryBrowser() async {
-    final l10n = AppLocalizations.of(context)!;
-    final result = await IconColorBrowserSheet.show(
-      context,
-      icons: EntryVisuals.iconChoices
-          .map(
-            (c) => (name: c.name, icon: c.icon, paletteColor: c.paletteColor),
-          )
-          .toList(),
-      colorOptions: VaultVisuals.colorChoices
-          .map(VaultVisuals.colorFor)
-          .toList(),
-      initialIconKey: _icon,
-      initialColor: VaultVisuals.colorFor(_colorHex),
-      title: l10n.agentIconBrowserTitle,
-      confirmLabel: l10n.agentIconChoose,
-      onPickCustom: _pickIconFile,
-    );
-    if (!mounted || result == null) return;
-    final pickedColor = result.color;
-    final matchedHex = VaultVisuals.colorChoices.firstWhere(
-      (hex) => VaultVisuals.colorFor(hex).toARGB32() == pickedColor.toARGB32(),
-      orElse: () => EntryVisuals.defaultColorHex,
-    );
+  void _onUpdated(EntryEntity updated) {
     setState(() {
-      if (result.iconKey != null) _icon = result.iconKey!;
-      _colorHex = matchedHex;
+      _entry = updated;
+      _latestUpdate = updated;
     });
   }
 
-  /// The entry's real creation timestamp, read from the revealed entity so
-  /// it survives an edit. Falls back to the bootstrap [widget.entry] only if
-  /// reveal has not completed (the save action is gated on a populated form,
-  /// so this fallback is defensive).
-  DateTime _originalCreatedAt(EditEntryState state) => switch (state) {
-        EditEntryReady(:final entry) => entry.createdAt,
-        EditEntrySuccess(:final entry) => entry.createdAt,
-        _ => widget.entry.createdAt,
-      };
-
-  Future<void> _submit() async {
-    if (!_validateUrl()) return;
-    final auth = context.read<AuthBloc>().state;
-    if (auth is! AuthAuthenticated || auth.privateKey == null) {
-      _showSnackBar(AppLocalizations.of(context)!.entryErrorCrypto);
-      return;
-    }
-
-    final keyCopy = Uint8List.fromList(auth.privateKey!);
-    final urlDomain = EntryFormUtils.extractDomain(_urlController.text);
-    final hasCustomFile = _icon.startsWith('file://');
-    final iconForApi = hasCustomFile ? null : _icon;
-    final cubit = context.read<EditEntryCubit>();
-    try {
-      await cubit.updateEntry(
-        vaultId: widget.entry.vaultId,
-        entryId: widget.entry.id,
-        label: _labelController.text,
-        description: _descriptionController.text,
-        icon: iconForApi,
-        type: _type,
-        payload: _buildPayload(),
-        urlDomain: urlDomain,
-        privateKey: keyCopy,
-        wrappedVK: widget.wrappedVK,
-        // Preserve the original createdAt — repository would otherwise
-        // default to now() and wipe the real creation timestamp. Source it
-        // from the revealed entity (populated by reveal), never the bootstrap
-        // [widget.entry], whose timestamps are placeholders when the page is
-        // opened from global search.
-        createdAt: _originalCreatedAt(cubit.state),
-      );
-    } finally {
-      keyCopy.fillRange(0, keyCopy.length, 0);
-    }
-
-    if (!mounted) return;
-    final cubitState = context.read<EditEntryCubit>().state;
-    if (cubitState is! EditEntrySuccess) return;
-
-    var entry = cubitState.entry;
-    if (hasCustomFile) {
-      setState(() => _uploadingIcon = true);
-      try {
-        final service = EntryIconUploadService(getIt<EntryRemoteDatasource>());
-        final url = await service.uploadIcon(
-          widget.entry.vaultId,
-          entry.id,
-          File(_icon.substring(7)),
-        );
-        entry = entry.copyWith(icon: url);
-      } on VaultIconUploadException catch (e) {
-        // S3 upload failed — the metadata PUT already went through with
-        // `icon: null` (which the backend ignores under patch semantics),
-        // so the server-side icon is unchanged. Restore the previous
-        // icon locally so the list row keeps its old artwork until the
-        // next refetch instead of flashing to a default.
-        entry = entry.copyWith(icon: widget.entry.icon);
-        if (mounted) {
-          final l = AppLocalizations.of(context)!;
-          final msg = switch (e.kind) {
-            VaultIconUploadErrorKind.unsupportedFormat =>
-              l.vaultIconUploadFormatError,
-            VaultIconUploadErrorKind.fileTooLarge => l.vaultIconUploadSizeError,
-            _ => l.vaultIconUploadError,
-          };
-          _showSnackBar(msg);
-        }
-      } catch (_) {
-        // Same rationale as above — keep the original icon in the
-        // returned entity so the parent list does not drop the artwork.
-        entry = entry.copyWith(icon: widget.entry.icon);
-        if (mounted) {
-          _showSnackBar(AppLocalizations.of(context)!.vaultIconUploadError);
-        }
-      } finally {
-        if (mounted) setState(() => _uploadingIcon = false);
-      }
-    }
-
-    if (mounted) Navigator.of(context).pop(EntryDetailUpdated(entry));
+  void _onDeleted(String entryId) {
+    Navigator.of(context).pop(EntryDetailDeleted(entryId));
   }
 
-  Future<void> _confirmDelete() async {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.modalBackground(brightness),
-        title: Text(
-          l10n.entryDeleteTitle,
-          style: TextStyle(color: AppColors.onSurface(brightness)),
-        ),
-        content: Text(
-          l10n.entryDeleteConfirm,
-          style: TextStyle(
-            color: AppColors.onSurfaceMuted(brightness),
-            fontSize: 13,
-            height: 1.4,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(
-              l10n.vaultCancel,
-              style: TextStyle(color: AppColors.onSurfaceMuted(brightness)),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(
-              l10n.entryDeleteAction,
-              style: const TextStyle(color: AppColors.brandRed),
-            ),
-          ),
-        ],
-      ),
+  /// Pops with the pending update (if any) so the parent list refreshes.
+  void _handleBack() {
+    Navigator.of(context).pop(
+      _latestUpdate != null ? EntryDetailUpdated(_latestUpdate!) : null,
     );
-    if (confirmed != true || !mounted) return;
-    // ignore: use_build_context_synchronously
-    await context.read<EditEntryCubit>().deleteEntry(
-      vaultId: widget.entry.vaultId,
-      entryId: widget.entry.id,
-    );
-    if (!mounted) return;
-    final state = context.read<EditEntryCubit>().state;
-    if (state is EditEntryDeleted) {
-      Navigator.of(context).pop(EntryDetailDeleted(widget.entry.id));
-    }
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -460,265 +200,70 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
 
-    // Populate form from the cubit's payload via a BlocListener — keeps
-    // UI rendering and side effects cleanly separated, avoiding the
-    // `addPostFrameCallback`-inside-`BlocBuilder` anti-pattern that
-    // schedules a fresh callback on every rebuild.
-    return BlocConsumer<EditEntryCubit, EditEntryState>(
-      listenWhen: (prev, next) => next is EditEntryReady && !_populated,
-      listener: (context, state) {
-        if (state is EditEntryReady && !_populated) {
-          setState(() => _populateFrom(state.entry, state.payload));
-        }
+    return PopScope<EntryDetailResult>(
+      // Let the normal pop through when nothing changed (preserves the iOS
+      // swipe-back gesture); intercept only to attach the update result.
+      canPop: _latestUpdate == null,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.of(context).pop(EntryDetailUpdated(_latestUpdate!));
       },
-      builder: (context, state) {
-        return Container(
-          decoration: BoxDecoration(
-            gradient: AppColors.backgroundGradient(brightness),
-          ),
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            floatingActionButton: _tabController.index == _agentsTabIndex
-                ? AppFab(
-                    onPressed: _onAddAgent,
-                    tooltip: l10n.grantAccessTitleAgent,
-                  )
-                : null,
-            appBar: _EntryDetailAppBar(
-              label: widget.entry.label,
-              tabController: _tabController,
-              onBack: () => Navigator.of(context).pop(),
-              l10n: l10n,
-              brightness: brightness,
-            ),
-            body: SafeArea(
-              top: false,
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildDetailsTab(l10n, brightness, state),
-                  ContextGrantsTab(
-                    key: ValueKey(_grantsRefresh),
-                    entryId: widget.entry.id,
-                    emptyTitle: l10n.entryAgentsEmptyTitle,
-                    emptyHint: l10n.entryAgentsEmptyHint,
-                    // Tab bar → content: fieldGap, matching the Details tab.
-                    contentPadding: const EdgeInsets.fromLTRB(
-                      AppSpacing.screenH,
-                      AppSpacing.fieldGap,
-                      AppSpacing.screenH,
-                      AppSpacing.listBottom,
-                    ),
-                  ),
-                  EntryLogsTab(
-                    vaultId: widget.entry.vaultId,
-                    entryId: widget.entry.id,
-                    // Tab bar → content: fieldGap, matching the other tabs.
-                    contentPadding: const EdgeInsets.fromLTRB(
-                      AppSpacing.screenH,
-                      AppSpacing.fieldGap,
-                      AppSpacing.screenH,
-                      AppSpacing.listBottom,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDetailsTab(
-    AppLocalizations l10n,
-    Brightness brightness,
-    EditEntryState state,
-  ) {
-    // Show loading spinner while decrypting the payload.
-    if (!_populated &&
-        (state is EditEntryInitial || state is EditEntryRevealing)) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.brandRed,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              l10n.entryRevealingForEdit,
-              style: const TextStyle(
-                color: AppColors.textTertiaryMobile,
-                fontSize: 13,
-              ),
-            ),
-          ],
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: AppColors.backgroundGradient(brightness),
         ),
-      );
-    }
-
-    // Reveal error — only show if we never managed to populate.
-    if (!_populated && state is EditEntryError) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
-          child: Text(
-            EntryFormUtils.errorMessage(l10n, state.kind),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppColors.brandRed,
-              fontSize: 14,
-              height: 1.4,
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Color is UI-only — see add_entry_page.dart for rationale. The icon
-    // browser sheet (opened via the "..." tile in the icon row) updates
-    // `_colorHex`, and the picker accents follow it.
-    final accentColor = VaultVisuals.colorFor(_colorHex);
-    final isLoading = state is EditEntryLoading || _uploadingIcon;
-    final isBusy = isLoading || _pickingIcon;
-    final canSubmit = !isBusy && _canSubmit;
-
-    return SingleChildScrollView(
-      // Tab bar → content: fieldGap (canonical segment/tab → next rhythm).
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.fieldGap,
-        AppSpacing.screenH,
-        AppSpacing.screenBottom,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          OnboardingTextField(
-            label: l10n.entryLabelLabel,
-            hintText: l10n.entryLabelHint,
-            controller: _labelController,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.next,
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          OnboardingTextField(
-            label: l10n.entryDescriptionLabel,
-            controller: _descriptionController,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.next,
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          OnboardingTextField(
-            label: l10n.entryUrlLabel,
-            controller: _urlController,
-            textInputAction: TextInputAction.next,
-            borderColor: _urlError != null ? AppColors.brandRed : null,
-            focusBorderColor: _urlError != null ? AppColors.brandRed : null,
-            onChanged: (_) => _validateUrl(),
-            feedbackChild: Text(
-              _urlError ?? '',
-              style: const TextStyle(color: AppColors.brandRed, fontSize: 11),
-            ),
-            feedbackVisible: _urlError != null,
-            feedbackReserveSpace: false,
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          Text(
-            l10n.vaultIconLabel,
-            style: TextStyle(
-              color: AppColors.onSurfaceSubtle(brightness),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.innerGap),
-          EntryIconPicker(
-            selected: _icon,
-            accentColor: accentColor,
-            onSelected: (name) => setState(() => _icon = name),
-            moreTile: IconMoreTile(onTap: _openEntryBrowser),
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          EntryTypeDropdown(
-            value: _type,
-            onChanged: (next) {
-              if (next == null || next == _type) return;
-              setState(() => _type = next);
-            },
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          if (_type == EntryType.key) ...[
-            OnboardingTextField(
-              label: l10n.entryValueLabel,
-              controller: _valueController,
-              obscureText: _valueObscured,
-              textInputAction: TextInputAction.next,
-              onChanged: (_) => setState(() {}),
-              suffixIcon: EntryObscureToggle(
-                obscured: _valueObscured,
-                onPressed: () =>
-                    setState(() => _valueObscured = !_valueObscured),
-              ),
-            ),
-          ] else ...[
-            OnboardingTextField(
-              label: l10n.entryUsernameLabel,
-              controller: _usernameController,
-              textInputAction: TextInputAction.next,
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: AppSpacing.fieldGap),
-            OnboardingTextField(
-              label: l10n.entryPasswordLabel,
-              controller: _passwordController,
-              obscureText: _passwordObscured,
-              textInputAction: TextInputAction.next,
-              onChanged: (_) => setState(() {}),
-              suffixIcon: EntryObscureToggle(
-                obscured: _passwordObscured,
-                onPressed: () =>
-                    setState(() => _passwordObscured = !_passwordObscured),
-              ),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.fieldGap),
-          EntryNotesField(
-            controller: _notesController,
-            label: l10n.entryNotesLabel,
-          ),
-          const SizedBox(height: AppSpacing.section),
-          EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
-          if (state is EditEntryError) ...[
-            const SizedBox(height: AppSpacing.fieldGap),
-            Text(
-              EntryFormUtils.errorMessage(l10n, state.kind),
-              style: const TextStyle(color: AppColors.brandRed, fontSize: 12),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.section),
-          EntrySaveButton(
-            isLoading: isLoading,
-            onPressed: canSubmit ? _submit : null,
-          ),
-          // ── Danger Zone ────────────────────────────────────────────
-          const SizedBox(height: AppSpacing.xxxl),
-          _DangerZone(
-            label: l10n.entryDangerZone,
-            deleteLabel: isLoading
-                ? l10n.entryDeleting
-                : l10n.entryDeleteAction,
-            onDelete: isBusy ? null : _confirmDelete,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          floatingActionButton: _tabController.index == _agentsTabIndex
+              ? AppFab(
+                  onPressed: _onAddAgent,
+                  tooltip: l10n.grantAccessTitleAgent,
+                )
+              : null,
+          appBar: _EntryDetailAppBar(
+            label: _entry.label,
+            tabController: _tabController,
+            onBack: _handleBack,
+            l10n: l10n,
             brightness: brightness,
           ),
-        ],
+          body: SafeArea(
+            top: false,
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                EntryDetailsTab(
+                  entry: widget.entry,
+                  wrappedVK: widget.wrappedVK,
+                  onUpdated: _onUpdated,
+                  onDeleted: _onDeleted,
+                ),
+                ContextGrantsTab(
+                  key: ValueKey(_grantsRefresh),
+                  entryId: widget.entry.id,
+                  emptyTitle: l10n.entryAgentsEmptyTitle,
+                  emptyHint: l10n.entryAgentsEmptyHint,
+                  contentPadding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenH,
+                    AppSpacing.fieldGap,
+                    AppSpacing.screenH,
+                    AppSpacing.listBottom,
+                  ),
+                ),
+                EntryLogsTab(
+                  vaultId: widget.entry.vaultId,
+                  entryId: widget.entry.id,
+                  contentPadding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenH,
+                    AppSpacing.fieldGap,
+                    AppSpacing.screenH,
+                    AppSpacing.listBottom,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -811,76 +356,3 @@ class _EntryDetailAppBar extends StatelessWidget
     );
   }
 }
-
-// ── Danger zone ────────────────────────────────────────────────────
-
-class _DangerZone extends StatelessWidget {
-  const _DangerZone({
-    required this.label,
-    required this.deleteLabel,
-    required this.onDelete,
-    required this.brightness,
-  });
-
-  final String label;
-  final String deleteLabel;
-  final VoidCallback? onDelete;
-  final Brightness brightness;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
-      decoration: BoxDecoration(
-        color: AppColors.brandRed.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.brandRed.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.brandRed,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.4,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          SizedBox(
-            height: 44,
-            child: OutlinedButton(
-              onPressed: onDelete,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.brandRed,
-                disabledForegroundColor: AppColors.brandRed.withValues(
-                  alpha: 0.4,
-                ),
-                side: BorderSide(
-                  color: onDelete != null
-                      ? AppColors.brandRed.withValues(alpha: 0.5)
-                      : AppColors.brandRed.withValues(alpha: 0.2),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: Text(
-                deleteLabel,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Form sub-widgets live in `widgets/entry_form_widgets.dart` and are
-// shared with `add_entry_page.dart`.

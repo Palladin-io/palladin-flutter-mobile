@@ -1448,6 +1448,18 @@ abstract class AppLocalizations {
   /// **'Something went wrong. Please try again.'**
   String get entryErrorUnknown;
 
+  /// Button that switches the read-only entry detail into edit mode
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get entryEditAction;
+
+  /// Snackbar confirmation shown after copying an entry field or secret
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard'**
+  String get entryCopied;
+
   /// Title of the dedicated settings screen (organization details)
   ///
   /// In en, this message translates to:

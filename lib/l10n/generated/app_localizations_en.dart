@@ -838,6 +838,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryErrorUnknown => 'Something went wrong. Please try again.';
 
   @override
+  String get entryEditAction => 'Edit';
+
+  @override
+  String get entryCopied => 'Copied to clipboard';
+
+  @override
   String get settingsScreenTitle => 'Settings';
 
   @override

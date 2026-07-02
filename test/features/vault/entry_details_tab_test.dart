@@ -1,0 +1,109 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
+import 'package:mobile_palladin/features/vault/presentation/cubit/edit_entry_cubit.dart';
+import 'package:mobile_palladin/features/vault/presentation/pages/entry_details_tab.dart';
+import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
+
+class _MockEntryRepository extends Mock implements EntryRepository {}
+
+EntryEntity _keyEntry() => EntryEntity(
+      id: 'e1',
+      vaultId: 'v1',
+      label: 'Deploy key',
+      type: EntryType.key,
+      createdAt: DateTime.utc(2026, 6, 1),
+      updatedAt: DateTime.utc(2026, 6, 2),
+    );
+
+void main() {
+  const secret = 'sk_live_supersecret';
+  const masked = '••••••••••••';
+
+  Future<void> pumpTab(
+    WidgetTester tester, {
+    required EntryEntity entry,
+    required Map<String, dynamic> payload,
+  }) async {
+    final cubit = EditEntryCubit(repository: _MockEntryRepository())
+      ..setReady(entry, payload);
+    addTearDown(cubit.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: BlocProvider<EditEntryCubit>.value(
+            value: cubit,
+            child: EntryDetailsTab(
+              entry: entry,
+              onUpdated: (_) {},
+              onDeleted: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+  }
+
+  testWidgets(
+      'read-only view masks the secret, the eye toggle reveals it, and '
+      'copy writes the plaintext to the clipboard', (tester) async {
+    final clipboardCalls = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') clipboardCalls.add(call);
+        return null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+
+    await pumpTab(tester, entry: _keyEntry(), payload: {'value': secret});
+
+    // Secret starts masked — the plaintext is never rendered up-front.
+    expect(find.text(masked), findsOneWidget);
+    expect(find.text(secret), findsNothing);
+
+    // Tapping the eye toggle reveals the plaintext.
+    await tester.tap(find.byIcon(Icons.visibility));
+    await tester.pump();
+    expect(find.text(secret), findsOneWidget);
+    expect(find.text(masked), findsNothing);
+
+    // Tapping copy writes the plaintext to the clipboard.
+    await tester.tap(find.byIcon(Icons.content_copy));
+    await tester.pump();
+    expect(clipboardCalls, hasLength(1));
+    expect(
+      (clipboardCalls.single.arguments as Map)['text'],
+      secret,
+    );
+  });
+
+  testWidgets('tapping Edit switches the read-only view into the edit form',
+      (tester) async {
+    await pumpTab(tester, entry: _keyEntry(), payload: {'value': secret});
+
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    // Read-only mode: no editable form / danger zone yet.
+    expect(find.text(l10n.entryDangerZone), findsNothing);
+    expect(find.byType(TextField), findsNothing);
+
+    await tester.tap(find.text(l10n.entryEditAction));
+    await tester.pumpAndSettle();
+
+    // Edit mode: the form (with its danger zone) is now shown.
+    expect(find.text(l10n.entryDangerZone), findsOneWidget);
+    expect(find.byType(TextField), findsWidgets);
+  });
+}

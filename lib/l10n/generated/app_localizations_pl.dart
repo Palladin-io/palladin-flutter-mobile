@@ -853,6 +853,12 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
 
   @override
+  String get entryEditAction => 'Edytuj';
+
+  @override
+  String get entryCopied => 'Skopiowano do schowka';
+
+  @override
   String get settingsScreenTitle => 'Ustawienia';
 
   @override

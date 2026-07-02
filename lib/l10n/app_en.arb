@@ -1005,6 +1005,14 @@
   "@entryErrorUnknown": {
     "description": "Generic fallback error for entry operations"
   },
+  "entryEditAction": "Edit",
+  "@entryEditAction": {
+    "description": "Button that switches the read-only entry detail into edit mode"
+  },
+  "entryCopied": "Copied to clipboard",
+  "@entryCopied": {
+    "description": "Snackbar confirmation shown after copying an entry field or secret"
+  },
   "settingsScreenTitle": "Settings",
   "@settingsScreenTitle": {
     "description": "Title of the dedicated settings screen (organization details)"
