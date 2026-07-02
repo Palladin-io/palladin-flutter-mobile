@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../domain/entities/onboarding_status.dart';
 
 /// The four-step "Set up Palladin" checklist shown to new users on the
@@ -330,7 +329,15 @@ class _StepCard extends StatelessWidget {
                       step.ctaLabel != null &&
                       step.onCta != null) ...[
                     const SizedBox(height: AppSpacing.fieldGap),
-                    PrimaryButton(label: step.ctaLabel!, onPressed: step.onCta),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _CompactButton(
+                        label: step.ctaLabel!,
+                        onPressed: step.onCta!,
+                        background: AppColors.brandRed,
+                        foreground: AppColors.onBrandRed,
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -415,28 +422,13 @@ class _NotificationActions extends StatelessWidget {
 
     return Row(
       children: [
-        ElevatedButton(
+        _CompactButton(
+          label: isDenied
+              ? l10n.dashboardOnboardingStep1OpenSettings
+              : l10n.dashboardOnboardingStep1Enable,
           onPressed: onEnable,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.onboardingStepAmber,
-            foregroundColor: AppColors.darkBackground,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.cardPadding,
-              vertical: AppSpacing.chipGap,
-            ),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: Text(
-            isDenied
-                ? l10n.dashboardOnboardingStep1OpenSettings
-                : l10n.dashboardOnboardingStep1Enable,
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
-          ),
+          background: AppColors.onboardingStepAmber,
+          foreground: AppColors.darkBackground,
         ),
         const SizedBox(width: AppSpacing.chipGap),
         OutlinedButton(
@@ -463,6 +455,54 @@ class _NotificationActions extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Compact, auto-width filled button used for the active-step CTAs and the
+/// notification "Enable"/"Open Settings" action. Kept intentionally small
+/// (shrink-wrapped tap target, 10px w700 label) so it reads as an inline
+/// action inside a card rather than a full-width block — matching the web
+/// panel's `size="sm"` onboarding button.
+class _CompactButton extends StatelessWidget {
+  const _CompactButton({
+    required this.label,
+    required this.onPressed,
+    required this.background,
+    required this.foreground,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: background,
+        foregroundColor: foreground,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.cardPadding,
+          vertical: AppSpacing.chipGap,
+        ),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: foreground,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
