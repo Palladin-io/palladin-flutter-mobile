@@ -230,6 +230,10 @@
   "@unlockWrongPassword": {
     "description": "Error shown when password-based decryption fails"
   },
+  "unlockSessionExpired": "Your session expired. Please sign in again.",
+  "@unlockSessionExpired": {
+    "description": "Error shown when the session/refresh token has expired and the account material can't be fetched — the user is routed back to sign-in"
+  },
   "unlockBiometricHint": "Unlock with biometrics",
   "@unlockBiometricHint": {
     "description": "Tooltip and caption for the biometric unlock button"

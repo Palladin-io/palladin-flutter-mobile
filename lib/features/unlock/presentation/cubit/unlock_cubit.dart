@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
@@ -74,6 +75,14 @@ class UnlockCubit extends Cubit<UnlockState> {
     } on WrongMasterPasswordException catch (e) {
       AppLogger.w('Unlock', 'Wrong master password');
       emit(UnlockFailed(e));
+    } on DioException catch (e, s) {
+      if (e.response?.statusCode == 401) {
+        AppLogger.w('Unlock', 'Session expired — routing to sign-in');
+        emit(const UnlockFailed(SessionExpiredException()));
+        return;
+      }
+      AppLogger.e('Unlock', 'Unlock failed', error: e, stackTrace: s);
+      emit(UnlockFailed(e));
     } catch (e, s) {
       AppLogger.e('Unlock', 'Unlock failed', error: e, stackTrace: s);
       emit(UnlockFailed(e));
@@ -141,6 +150,15 @@ class UnlockCubit extends Cubit<UnlockState> {
         privateKey: result.privateKey,
         viaBiometrics: true,
       ));
+    } on DioException catch (e, s) {
+      if (e.response?.statusCode == 401) {
+        AppLogger.w('Unlock', 'Session expired — routing to sign-in');
+        emit(const UnlockFailed(SessionExpiredException()));
+        return;
+      }
+      AppLogger.e('Unlock', 'Biometric unlock failed',
+          error: e, stackTrace: s);
+      emit(UnlockFailed(e));
     } catch (e, s) {
       AppLogger.e('Unlock', 'Biometric unlock failed',
           error: e, stackTrace: s);

@@ -53,6 +53,7 @@
   "unlockForgotPassword": "Zapomniałeś hasła?",
   "unlockForgotPasswordComingSoon": "Odzyskiwanie hasła już wkrótce",
   "unlockWrongPassword": "Nieprawidłowe hasło główne. Spróbuj ponownie.",
+  "unlockSessionExpired": "Sesja wygasła. Zaloguj się ponownie.",
   "unlockBiometricHint": "Odblokuj biometrycznie",
   "unlockBiometricPrompt": "Uwierzytelnij się, aby odblokować sejf",
   "unlockBiometricUnavailable": "Odblokowanie biometryczne nie jest jeszcze skonfigurowane. Wpisz hasło główne.",

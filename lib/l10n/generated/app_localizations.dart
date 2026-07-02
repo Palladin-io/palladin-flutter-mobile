@@ -416,6 +416,12 @@ abstract class AppLocalizations {
   /// **'Incorrect master password. Please try again.'**
   String get unlockWrongPassword;
 
+  /// Error shown when the session/refresh token has expired and the account material can't be fetched — the user is routed back to sign-in
+  ///
+  /// In en, this message translates to:
+  /// **'Your session expired. Please sign in again.'**
+  String get unlockSessionExpired;
+
   /// Tooltip and caption for the biometric unlock button
   ///
   /// In en, this message translates to:

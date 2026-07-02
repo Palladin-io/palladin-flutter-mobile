@@ -185,6 +185,9 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nieprawidłowe hasło główne. Spróbuj ponownie.';
 
   @override
+  String get unlockSessionExpired => 'Sesja wygasła. Zaloguj się ponownie.';
+
+  @override
   String get unlockBiometricHint => 'Odblokuj biometrycznie';
 
   @override

@@ -184,6 +184,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Incorrect master password. Please try again.';
 
   @override
+  String get unlockSessionExpired =>
+      'Your session expired. Please sign in again.';
+
+  @override
   String get unlockBiometricHint => 'Unlock with biometrics';
 
   @override
