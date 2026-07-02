@@ -1601,7 +1601,7 @@ abstract class AppLocalizations {
   /// Title of the one-time secret reveal step in the generate sheet
   ///
   /// In en, this message translates to:
-  /// **'API key created'**
+  /// **'API Key Created'**
   String get apiKeysSecretTitle;
 
   /// Warning shown above the one-time plaintext API key secret
@@ -1621,6 +1621,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'API key copied to clipboard.'**
   String get apiKeysKeyCopied;
+
+  /// Generic snackbar confirmation shown after copying a command, message, or link
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard.'**
+  String get apiKeysCopied;
+
+  /// Header of the collapsible section that shows how to connect an agent with the new key
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your agent'**
+  String get apiKeysConnectTitle;
+
+  /// Label for the editable agent-name field in the connect section
+  ///
+  /// In en, this message translates to:
+  /// **'Agent name'**
+  String get apiKeysAgentNameLabel;
+
+  /// Hint above the CLI install command in the connect section
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t have the CLI? Install it:'**
+  String get apiKeysConnectInstall;
+
+  /// Label for the documentation link in the connect section
+  ///
+  /// In en, this message translates to:
+  /// **'Documentation →'**
+  String get apiKeysConnectDocs;
+
+  /// Header of the collapsible section with a ready-to-send message for the agent
+  ///
+  /// In en, this message translates to:
+  /// **'Message for your agent'**
+  String get apiKeysAgentMessageTitle;
+
+  /// Copyable message a user can send to their agent after connecting it
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, I\'ve connected you to Palladin for secure access to my credentials. Learn how to create and use your Palladin skill here: {docs} — or browse ready-made skills in the marketplace: {market}.'**
+  String apiKeysAgentMessageBody(String name, String docs, String market);
 
   /// Label for the button that dismisses the secret reveal step
   ///

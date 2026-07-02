@@ -953,6 +953,29 @@ class AppLocalizationsPl extends AppLocalizations {
   String get apiKeysKeyCopied => 'Skopiowano klucz API do schowka.';
 
   @override
+  String get apiKeysCopied => 'Skopiowano do schowka.';
+
+  @override
+  String get apiKeysConnectTitle => 'Podłącz agenta';
+
+  @override
+  String get apiKeysAgentNameLabel => 'Nazwa agenta';
+
+  @override
+  String get apiKeysConnectInstall => 'Nie masz CLI? Zainstaluj:';
+
+  @override
+  String get apiKeysConnectDocs => 'Dokumentacja →';
+
+  @override
+  String get apiKeysAgentMessageTitle => 'Wiadomość dla agenta';
+
+  @override
+  String apiKeysAgentMessageBody(String name, String docs, String market) {
+    return '$name, podłączyłem Cię do Palladin dla bezpiecznego dostępu do moich danych. Dowiedz się, jak utworzyć i używać swojego skilla Palladin: $docs — albo przejrzyj gotowe skille w markecie: $market.';
+  }
+
+  @override
   String get apiKeysDone => 'Gotowe';
 
   @override

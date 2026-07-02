@@ -922,7 +922,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get apiKeysNameHint => 'e.g. Production agent';
 
   @override
-  String get apiKeysSecretTitle => 'API key created';
+  String get apiKeysSecretTitle => 'API Key Created';
 
   @override
   String get apiKeysSecretWarning =>
@@ -933,6 +933,29 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get apiKeysKeyCopied => 'API key copied to clipboard.';
+
+  @override
+  String get apiKeysCopied => 'Copied to clipboard.';
+
+  @override
+  String get apiKeysConnectTitle => 'Connect your agent';
+
+  @override
+  String get apiKeysAgentNameLabel => 'Agent name';
+
+  @override
+  String get apiKeysConnectInstall => 'Don\'t have the CLI? Install it:';
+
+  @override
+  String get apiKeysConnectDocs => 'Documentation →';
+
+  @override
+  String get apiKeysAgentMessageTitle => 'Message for your agent';
+
+  @override
+  String apiKeysAgentMessageBody(String name, String docs, String market) {
+    return '$name, I\'ve connected you to Palladin for secure access to my credentials. Learn how to create and use your Palladin skill here: $docs — or browse ready-made skills in the marketplace: $market.';
+  }
 
   @override
   String get apiKeysDone => 'Done';

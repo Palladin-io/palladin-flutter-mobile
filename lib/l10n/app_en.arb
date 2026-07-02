@@ -1110,7 +1110,7 @@
   "@apiKeysNameHint": {
     "description": "Placeholder text for the API key name input field"
   },
-  "apiKeysSecretTitle": "API key created",
+  "apiKeysSecretTitle": "API Key Created",
   "@apiKeysSecretTitle": {
     "description": "Title of the one-time secret reveal step in the generate sheet"
   },
@@ -1125,6 +1125,45 @@
   "apiKeysKeyCopied": "API key copied to clipboard.",
   "@apiKeysKeyCopied": {
     "description": "Snackbar confirmation shown after copying the API key secret"
+  },
+  "apiKeysCopied": "Copied to clipboard.",
+  "@apiKeysCopied": {
+    "description": "Generic snackbar confirmation shown after copying a command, message, or link"
+  },
+  "apiKeysConnectTitle": "Connect your agent",
+  "@apiKeysConnectTitle": {
+    "description": "Header of the collapsible section that shows how to connect an agent with the new key"
+  },
+  "apiKeysAgentNameLabel": "Agent name",
+  "@apiKeysAgentNameLabel": {
+    "description": "Label for the editable agent-name field in the connect section"
+  },
+  "apiKeysConnectInstall": "Don't have the CLI? Install it:",
+  "@apiKeysConnectInstall": {
+    "description": "Hint above the CLI install command in the connect section"
+  },
+  "apiKeysConnectDocs": "Documentation →",
+  "@apiKeysConnectDocs": {
+    "description": "Label for the documentation link in the connect section"
+  },
+  "apiKeysAgentMessageTitle": "Message for your agent",
+  "@apiKeysAgentMessageTitle": {
+    "description": "Header of the collapsible section with a ready-to-send message for the agent"
+  },
+  "apiKeysAgentMessageBody": "{name}, I've connected you to Palladin for secure access to my credentials. Learn how to create and use your Palladin skill here: {docs} — or browse ready-made skills in the marketplace: {market}.",
+  "@apiKeysAgentMessageBody": {
+    "description": "Copyable message a user can send to their agent after connecting it",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "docs": {
+        "type": "String"
+      },
+      "market": {
+        "type": "String"
+      }
+    }
   },
   "apiKeysDone": "Done",
   "@apiKeysDone": {
