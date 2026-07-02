@@ -2511,6 +2511,8 @@
   "@dashboardRecentlyModified": { "description": "Section header for recently added or updated entries on the dashboard" },
   "dashboardSeeAll": "See all",
   "@dashboardSeeAll": { "description": "See all link in section headers" },
+  "dashboardSearchRecent": "Recent",
+  "@dashboardSearchRecent": { "description": "Header for the focus-driven recent-entries suggestions shown under the dashboard search field" },
   "searchResultsEmpty": "No results for this search",
   "@searchResultsEmpty": { "description": "Empty state shown in search results" },
   "searchResultsError": "Search failed. Please try again.",

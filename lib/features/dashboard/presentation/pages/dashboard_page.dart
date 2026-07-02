@@ -64,14 +64,22 @@ class _DashboardView extends StatefulWidget {
 
 class _DashboardViewState extends State<_DashboardView> {
   final TextEditingController _searchController = TextEditingController();
+  late final FocusNode _searchFocusNode = FocusNode()
+    ..addListener(_onSearchFocusChanged);
   late final SearchCubit _searchCubit = getIt<SearchCubit>();
 
   @override
   void dispose() {
+    _searchFocusNode.removeListener(_onSearchFocusChanged);
+    _searchFocusNode.dispose();
     _searchController.dispose();
     _searchCubit.close();
     super.dispose();
   }
+
+  /// Rebuilds so the focus-driven "Recent" suggestions appear/disappear as
+  /// the empty search field gains or loses focus.
+  void _onSearchFocusChanged() => setState(() {});
 
   /// Fires analytics, navigates to the tapped result, then clears the
   /// search field so the dashboard content is visible on return.
@@ -86,8 +94,32 @@ class _DashboardViewState extends State<_DashboardView> {
         _openEntryDetail(context, result);
     }
     _searchController.clear();
+    _searchFocusNode.unfocus();
     _searchCubit.reset();
   }
+
+  /// Projects a recent-entry snapshot onto the shared [SearchResultEntity]
+  /// shape so a "Recent" suggestion can be rendered by [_SearchResultRow]
+  /// and tapped through the exact same path as an `entry` search hit.
+  SearchResultEntity _recentToSearchResult(RecentEntryEntity recent) =>
+      SearchResultEntity(
+        type: SearchResultType.entry,
+        id: recent.id,
+        name: recent.label,
+        vaultId: recent.vaultId,
+        vaultName: recent.vaultName,
+        icon: recent.icon,
+      );
+
+  /// Recent entries carried by the current dashboard state, if any. Only
+  /// [DashboardLoaded] and [DashboardUnknownAgent] carry them; every other
+  /// state has none.
+  List<RecentEntryEntity> _recentEntriesFor(DashboardState state) =>
+      switch (state) {
+        DashboardLoaded(:final recentEntries) => recentEntries,
+        DashboardUnknownAgent(:final recentEntries) => recentEntries,
+        _ => const [],
+      };
 
   /// Deep-links into the entry detail screen for an `entry` search hit.
   ///
@@ -240,6 +272,7 @@ class _DashboardViewState extends State<_DashboardView> {
                     ),
                     child: AppSearchField(
                       controller: _searchController,
+                      focusNode: _searchFocusNode,
                       hint: l10n.dashboardSearchHint,
                       onChanged: (v) => _searchCubit.query(v),
                     ),
@@ -264,7 +297,15 @@ class _DashboardViewState extends State<_DashboardView> {
       SearchIdle() => [
         BlocBuilder<DashboardCubit, DashboardState>(
           builder: (context, state) => SliverMainAxisGroup(
-            slivers: _contentSlivers(context, state),
+            // Focusing the empty field surfaces recent entries as tappable
+            // suggestions (parity with the web "Recent" list); losing focus
+            // returns to the normal dashboard content.
+            slivers: _searchFocusNode.hasFocus
+                ? _recentSuggestionSlivers(
+                    context,
+                    _recentEntriesFor(state),
+                  )
+                : _contentSlivers(context, state),
           ),
         ),
       ],
@@ -373,6 +414,38 @@ class _DashboardViewState extends State<_DashboardView> {
         ),
       ],
     };
+  }
+
+  /// Slivers shown when the empty search field is focused: a small "Recent"
+  /// header over up to five recent entries, each a tappable [_SearchResultRow]
+  /// mapped from a [RecentEntryEntity]. When there are no recent entries,
+  /// nothing extra is rendered (no heavy empty state).
+  List<Widget> _recentSuggestionSlivers(
+    BuildContext context,
+    List<RecentEntryEntity> recentEntries,
+  ) {
+    if (recentEntries.isEmpty) return const [];
+    final l10n = AppLocalizations.of(context)!;
+    final results =
+        recentEntries.take(5).map(_recentToSearchResult).toList(growable: false);
+
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.screenH,
+          0,
+          AppSpacing.screenH,
+          AppSpacing.cardGap,
+        ),
+        sliver: SliverToBoxAdapter(
+          child: _RecentSuggestionsHeader(label: l10n.dashboardSearchRecent),
+        ),
+      ),
+      _SearchResultsSliver(
+        results: results,
+        onTap: (result) => _onSearchResultTap(context, result),
+      ),
+    ];
   }
 
   String _displayName(AuthState state) {
@@ -706,6 +779,27 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
+
+/// Small muted header above the focus-driven "Recent" suggestions. Sentence
+/// case only — no all-caps (project rule against `text-transform`).
+class _RecentSuggestionsHeader extends StatelessWidget {
+  const _RecentSuggestionsHeader({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Text(
+      label,
+      style: TextStyle(
+        color: AppColors.onSurfaceSubtle(brightness),
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+}
 
 /// Sliver list of global-search results, each a tappable [_SearchResultRow].
 class _SearchResultsSliver extends StatelessWidget {

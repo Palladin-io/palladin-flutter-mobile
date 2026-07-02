@@ -2439,6 +2439,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get dashboardSeeAll => 'Zobacz wszystko';
 
   @override
+  String get dashboardSearchRecent => 'Ostatnie';
+
+  @override
   String get searchResultsEmpty => 'Brak wyników dla tego wyszukiwania';
 
   @override

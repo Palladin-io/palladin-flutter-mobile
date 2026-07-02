@@ -711,6 +711,7 @@
   "dashboardNoActivity": "Brak aktywności",
   "dashboardRecentlyModified": "Ostatnio dodane / zmodyfikowane",
   "dashboardSeeAll": "Zobacz wszystko",
+  "dashboardSearchRecent": "Ostatnie",
   "searchResultsEmpty": "Brak wyników dla tego wyszukiwania",
   "searchResultsError": "Wyszukiwanie nie powiodło się. Spróbuj ponownie.",
   "searchTypeBadgeAgent": "Agent",

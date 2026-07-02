@@ -4310,6 +4310,12 @@ abstract class AppLocalizations {
   /// **'See all'**
   String get dashboardSeeAll;
 
+  /// Header for the focus-driven recent-entries suggestions shown under the dashboard search field
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get dashboardSearchRecent;
+
   /// Empty state shown in search results
   ///
   /// In en, this message translates to:

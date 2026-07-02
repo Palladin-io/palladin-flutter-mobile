@@ -2419,6 +2419,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardSeeAll => 'See all';
 
   @override
+  String get dashboardSearchRecent => 'Recent';
+
+  @override
   String get searchResultsEmpty => 'No results for this search';
 
   @override
