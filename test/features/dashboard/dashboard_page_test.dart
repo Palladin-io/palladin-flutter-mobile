@@ -1,5 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -11,12 +12,15 @@ import 'package:mobile_palladin/features/approval/presentation/cubit/pending_gra
 import 'package:mobile_palladin/features/audit/domain/repositories/audit_repository.dart';
 import 'package:mobile_palladin/features/audit/presentation/widgets/audit_log_row.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mobile_palladin/features/dashboard/domain/entities/search_result_entity.dart';
 import 'package:mobile_palladin/features/dashboard/domain/repositories/dashboard_repository.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_cubit.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:mobile_palladin/features/notifications/data/services/notification_permission_service.dart';
 import 'package:mobile_palladin/features/shell/presentation/pages/app_shell.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 
 // ──────────────────────────────────────────────
@@ -24,6 +28,8 @@ import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 // ──────────────────────────────────────────────
 
 class _MockDashboardRepository extends Mock implements DashboardRepository {}
+
+class _MockEntryRepository extends Mock implements EntryRepository {}
 
 class _MockAuditRepository extends Mock implements AuditRepository {}
 
@@ -87,6 +93,11 @@ void main() {
   late _MockNotificationPermissionService permissionService;
   late _MockAnalyticsService analytics;
   late _MockAuthBloc authBloc;
+  late _MockEntryRepository entryRepository;
+
+  setUpAll(() {
+    registerFallbackValue(Uint8List(0));
+  });
 
   setUp(() {
     dashboardRepository = _MockDashboardRepository();
@@ -95,6 +106,7 @@ void main() {
     permissionService = _MockNotificationPermissionService();
     analytics = _MockAnalyticsService();
     authBloc = _MockAuthBloc();
+    entryRepository = _MockEntryRepository();
 
     when(() => dashboardRepository.globalSearch(any(),
         limit: any(named: 'limit'))).thenAnswer((_) async => const []);
@@ -106,6 +118,9 @@ void main() {
         analytics: analytics,
       ),
     );
+    // The dashboard resolves the entry repository lazily for the search-row
+    // copy-secret action.
+    getIt.registerFactory<EntryRepository>(() => entryRepository);
   });
 
   tearDown(() async {
@@ -118,6 +133,7 @@ void main() {
     WidgetTester tester, {
     required DashboardState state,
     required int permissions,
+    Uint8List? privateKey,
   }) async {
     whenListen(
       authBloc,
@@ -127,6 +143,7 @@ void main() {
         isOnboarded: true,
         permissions: permissions,
         email: 'ada@example.com',
+        privateKey: privateKey,
       ),
     );
 
@@ -241,6 +258,81 @@ void main() {
 
       expect(find.text('Recent'), findsOneWidget);
       expect(find.text('GitHub token'), findsOneWidget);
+    });
+  });
+
+  group('search result copy-secret', () {
+    testWidgets(
+        "tapping an entry hit's copy action decrypts + copies the secret "
+        'without navigating', (tester) async {
+      final clipboardCalls = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') clipboardCalls.add(call);
+          return null;
+        },
+      );
+      addTearDown(() => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null));
+
+      const entryHit = SearchResultEntity(
+        type: SearchResultType.entry,
+        id: 'e1',
+        name: 'Stripe',
+        vaultId: 'v1',
+        vaultName: 'Personal',
+      );
+      when(() => dashboardRepository.globalSearch(any(),
+          limit: any(named: 'limit'))).thenAnswer((_) async => [entryHit]);
+
+      when(() => entryRepository.revealEntry(
+            vaultId: any(named: 'vaultId'),
+            entryId: any(named: 'entryId'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+          )).thenAnswer(
+        (_) async => RevealedEntry(
+          entry: EntryEntity(
+            id: 'e1',
+            vaultId: 'v1',
+            label: 'Stripe',
+            type: EntryType.credential,
+            createdAt: DateTime.utc(2026, 6, 1),
+            updatedAt: DateTime.utc(2026, 6, 1),
+          ),
+          payload: const {'username': 'ada', 'password': 's3cr3t'},
+        ),
+      );
+
+      await pumpDashboard(
+        tester,
+        state: const DashboardLoaded(),
+        permissions: 0,
+        privateKey: Uint8List.fromList([1, 2, 3, 4]),
+      );
+
+      // Drive the search dropdown into a live result.
+      await tester.enterText(find.byType(TextField), 'stripe');
+      await tester.pump(); // focus + query
+      await tester.pump(const Duration(milliseconds: 300)); // debounce fires
+      await tester.pump(); // globalSearch resolves → SearchResults
+
+      expect(find.text('Stripe'), findsOneWidget);
+
+      // Tap the trailing copy action (not the row) — must not navigate.
+      await tester.tap(find.byIcon(Icons.content_copy));
+      await tester.pump(); // spinner
+      await tester.pump(); // revealEntry resolves + clipboard write
+
+      verify(() => entryRepository.revealEntry(
+            vaultId: 'v1',
+            entryId: 'e1',
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+          )).called(1);
+      expect(clipboardCalls, hasLength(1));
+      expect((clipboardCalls.single.arguments as Map)['text'], 's3cr3t');
     });
   });
 }

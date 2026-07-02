@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,6 +7,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/app_logger.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/router/app_router.dart';
@@ -16,6 +18,8 @@ import '../../../agents/presentation/widgets/approve_agent_sheet.dart';
 import '../../../audit/presentation/widgets/audit_log_row.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
+import '../../../vault/domain/exceptions/entry_exceptions.dart';
+import '../../../vault/domain/repositories/entry_repository.dart';
 import '../../../vault/presentation/pages/entry_detail_page.dart';
 import '../../../vault/presentation/widgets/vault_visuals.dart';
 import '../../domain/entities/search_result_entity.dart';
@@ -199,6 +203,75 @@ class _DashboardViewState extends State<_DashboardView> {
       ),
     );
   }
+
+  /// Fetches + decrypts an entry hit and copies its secret (password for a
+  /// credential, value for a key) to the clipboard — WITHOUT navigating and
+  /// without ever rendering the plaintext in the dropdown. The private key is
+  /// copied locally and zeroed in `finally`; the plaintext only touches the
+  /// clipboard, never the transient overlay.
+  Future<void> _copyEntrySecret(SearchResultEntity result) async {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    void snack(String message) {
+      if (!mounted) return;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 2),
+        ));
+    }
+
+    final vaultId = result.vaultId;
+    if (vaultId == null) {
+      snack(l10n.entryErrorNotFound);
+      return;
+    }
+
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated || auth.privateKey == null) {
+      // Same "locked" message the add/edit paths surface.
+      snack(l10n.entryErrorCrypto);
+      return;
+    }
+
+    final keyCopy = Uint8List.fromList(auth.privateKey!);
+    try {
+      final revealed = await getIt<EntryRepository>().revealEntry(
+        vaultId: vaultId,
+        entryId: result.id,
+        privateKey: keyCopy,
+      );
+      final payload = revealed.payload;
+      final secret = revealed.entry.type == EntryType.key
+          ? payload['value'] as String?
+          : payload['password'] as String?;
+      if (secret == null || secret.isEmpty) {
+        snack(l10n.entryErrorUnknown);
+        return;
+      }
+      await Clipboard.setData(ClipboardData(text: secret));
+      snack(l10n.entryCopied);
+    } on EntryException catch (e) {
+      AppLogger.w('Dashboard', 'copy secret failed: ${e.kind.name}');
+      snack(_entryErrorMessage(e.kind, l10n));
+    } catch (e, s) {
+      AppLogger.e('Dashboard', 'copy secret failed', error: e, stackTrace: s);
+      snack(l10n.entryErrorUnknown);
+    } finally {
+      keyCopy.fillRange(0, keyCopy.length, 0);
+    }
+  }
+
+  String _entryErrorMessage(EntryErrorKind kind, AppLocalizations l10n) =>
+      switch (kind) {
+        EntryErrorKind.notFound => l10n.entryErrorNotFound,
+        EntryErrorKind.forbidden => l10n.entryErrorForbidden,
+        EntryErrorKind.validation => l10n.entryErrorValidation,
+        EntryErrorKind.cryptoFailure => l10n.entryErrorCrypto,
+        EntryErrorKind.networkError => l10n.errorCannotConnectToServer,
+        EntryErrorKind.unknown => l10n.entryErrorUnknown,
+      };
 
   void _onVaultCta() {
     context.read<DashboardCubit>().onVaultCtaTapped();
@@ -495,6 +568,7 @@ class _DashboardViewState extends State<_DashboardView> {
         header: l10n.dashboardSearchRecent,
         results: results,
         onTap: (result) => _onSearchResultTap(context, result),
+        onCopySecret: _copyEntrySecret,
       );
     }
 
@@ -502,6 +576,7 @@ class _DashboardViewState extends State<_DashboardView> {
       SearchResults(:final results) => _SearchResultList(
         results: results,
         onTap: (result) => _onSearchResultTap(context, result),
+        onCopySecret: _copyEntrySecret,
       ),
       SearchEmpty() => _DropdownMessage(
         icon: Icons.search_off,
@@ -1026,11 +1101,16 @@ class _SearchResultList extends StatelessWidget {
     required this.results,
     required this.onTap,
     this.header,
+    this.onCopySecret,
   });
 
   final List<SearchResultEntity> results;
   final ValueChanged<SearchResultEntity> onTap;
   final String? header;
+
+  /// Decrypts + copies an entry hit's secret. Wired only for entry-type
+  /// rows; agent/vault rows never show the copy action.
+  final Future<void> Function(SearchResultEntity)? onCopySecret;
 
   @override
   Widget build(BuildContext context) {
@@ -1064,6 +1144,10 @@ class _SearchResultList extends StatelessWidget {
             _SearchResultRow(
               result: results[i],
               onTap: () => onTap(results[i]),
+              onCopySecret: results[i].type == SearchResultType.entry &&
+                      onCopySecret != null
+                  ? () => onCopySecret!(results[i])
+                  : null,
             ),
           ],
         ],
@@ -1144,14 +1228,41 @@ class _DropdownLoading extends StatelessWidget {
 
 /// One global-search result row: a type badge, a tinted icon circle, the
 /// object name, and a type/vault subtitle. Tapping navigates to the object.
-class _SearchResultRow extends StatelessWidget {
-  const _SearchResultRow({required this.result, required this.onTap});
+///
+/// Entry hits also render a trailing copy action ([onCopySecret]) that
+/// decrypts the entry and copies its secret to the clipboard without
+/// navigating; a small inline spinner replaces the icon while in flight.
+class _SearchResultRow extends StatefulWidget {
+  const _SearchResultRow({
+    required this.result,
+    required this.onTap,
+    this.onCopySecret,
+  });
 
   final SearchResultEntity result;
   final VoidCallback onTap;
+  final Future<void> Function()? onCopySecret;
+
+  @override
+  State<_SearchResultRow> createState() => _SearchResultRowState();
+}
+
+class _SearchResultRowState extends State<_SearchResultRow> {
+  bool _copying = false;
+
+  Future<void> _copy() async {
+    if (_copying || widget.onCopySecret == null) return;
+    setState(() => _copying = true);
+    try {
+      await widget.onCopySecret!();
+    } finally {
+      if (mounted) setState(() => _copying = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final result = widget.result;
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     final color = _typeColor(result.type);
@@ -1161,7 +1272,7 @@ class _SearchResultRow extends StatelessWidget {
         : label;
 
     return InkWell(
-      onTap: onTap,
+      onTap: widget.onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(
@@ -1177,7 +1288,11 @@ class _SearchResultRow extends StatelessWidget {
                 color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(_typeIcon(result), size: 16, color: color),
+              child: Icon(
+                _typeIcon(result),
+                size: 16,
+                color: color,
+              ),
             ),
             const SizedBox(width: AppSpacing.innerGap),
             Expanded(
@@ -1211,6 +1326,15 @@ class _SearchResultRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.innerGap),
+            if (widget.onCopySecret != null) ...[
+              _CopySecretButton(
+                busy: _copying,
+                tooltip: l10n.vaultCopyValue,
+                onPressed: _copy,
+                brightness: brightness,
+              ),
+              const SizedBox(width: AppSpacing.chipGap),
+            ],
             _TypeBadge(label: label, color: color),
           ],
         ),
@@ -1236,6 +1360,50 @@ class _SearchResultRow extends StatelessWidget {
         SearchResultType.vault => VaultVisuals.iconFor(result.icon),
         SearchResultType.entry => EntryVisuals.iconFor(result.icon),
       };
+}
+
+/// Trailing copy action for an entry search hit — a content_copy glyph that
+/// swaps to a small spinner while the entry is being decrypted.
+class _CopySecretButton extends StatelessWidget {
+  const _CopySecretButton({
+    required this.busy,
+    required this.tooltip,
+    required this.onPressed,
+    required this.brightness,
+  });
+
+  final bool busy;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final Brightness brightness;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkResponse(
+        onTap: busy ? null : onPressed,
+        radius: 18,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xs),
+          child: busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    color: AppColors.brandRed,
+                  ),
+                )
+              : Icon(
+                  Icons.content_copy,
+                  size: 16,
+                  color: AppColors.onSurfaceSubtle(brightness),
+                ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Small type pill (e.g. "Agent") tinted with the type color.
