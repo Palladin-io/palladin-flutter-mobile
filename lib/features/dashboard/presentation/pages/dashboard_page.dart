@@ -365,7 +365,7 @@ class _DashboardViewState extends State<_DashboardView> {
           showWhenUnlinked: false,
           targetAnchor: Alignment.bottomLeft,
           followerAnchor: Alignment.topLeft,
-          offset: const Offset(0, AppSpacing.xs),
+          offset: const Offset(0, AppSpacing.sm),
           child: Align(
             alignment: Alignment.topLeft,
             child: SizedBox(
@@ -375,10 +375,21 @@ class _DashboardViewState extends State<_DashboardView> {
                 child: BlocBuilder<SearchCubit, SearchState>(
                   builder: (context, searchState) =>
                       BlocBuilder<DashboardCubit, DashboardState>(
-                    builder: (context, dashboardState) => _dropdownContent(
-                      context,
-                      searchState,
-                      _recentEntriesFor(dashboardState),
+                    builder: (context, dashboardState) => AnimatedSize(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOut,
+                      alignment: Alignment.topCenter,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        child: KeyedSubtree(
+                          key: ValueKey(_dropdownContentKey(searchState)),
+                          child: _dropdownContent(
+                            context,
+                            searchState,
+                            _recentEntriesFor(dashboardState),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -388,6 +399,20 @@ class _DashboardViewState extends State<_DashboardView> {
         ),
       ],
     );
+  }
+
+  /// Identifies the current dropdown "range" so the [AnimatedSwitcher] cross-
+  /// fades when it changes (recent ↔ results ↔ loading ↔ empty ↔ error).
+  String _dropdownContentKey(SearchState searchState) {
+    final isSearching =
+        _searchController.text.trim().length >= _minQueryChars;
+    if (!isSearching) return 'recent';
+    return switch (searchState) {
+      SearchResults() => 'results',
+      SearchEmpty() => 'empty',
+      SearchError() => 'error',
+      SearchLoading() || SearchIdle() => 'loading',
+    };
   }
 
   /// Chooses the dropdown body: the Recent list on an empty/sub-threshold
@@ -1084,8 +1109,6 @@ class _SearchResultRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _TypeBadge(label: label, color: color),
-            const SizedBox(width: AppSpacing.innerGap),
             Container(
               width: 32,
               height: 32,
@@ -1126,6 +1149,8 @@ class _SearchResultRow extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(width: AppSpacing.innerGap),
+            _TypeBadge(label: label, color: color),
           ],
         ),
       ),
