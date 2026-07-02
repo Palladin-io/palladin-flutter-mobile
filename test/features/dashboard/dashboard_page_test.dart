@@ -8,6 +8,8 @@ import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
 import 'package:mobile_palladin/core/permissions.dart';
 import 'package:mobile_palladin/features/approval/presentation/cubit/pending_grants_cubit.dart';
+import 'package:mobile_palladin/features/audit/domain/repositories/audit_repository.dart';
+import 'package:mobile_palladin/features/audit/presentation/widgets/audit_log_row.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/dashboard/domain/repositories/dashboard_repository.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/dashboard_cubit.dart';
@@ -22,6 +24,8 @@ import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 // ──────────────────────────────────────────────
 
 class _MockDashboardRepository extends Mock implements DashboardRepository {}
+
+class _MockAuditRepository extends Mock implements AuditRepository {}
 
 class _MockPendingGrantsCubit extends Mock implements PendingGrantsCubit {}
 
@@ -40,6 +44,7 @@ class _FakeDashboardCubit extends DashboardCubit {
   _FakeDashboardCubit(
     this._seed, {
     required super.repository,
+    required super.auditRepository,
     required super.pendingGrantsCubit,
     required super.analytics,
     required super.notificationPermissionService,
@@ -48,7 +53,7 @@ class _FakeDashboardCubit extends DashboardCubit {
   final DashboardState _seed;
 
   @override
-  Future<void> load() async => emit(_seed);
+  Future<void> load({bool canViewAudit = false}) async => emit(_seed);
 }
 
 // ──────────────────────────────────────────────
@@ -65,8 +70,19 @@ RecentEntryEntity _recent() => RecentEntryEntity(
       createdAt: DateTime.utc(2026, 6, 1),
     );
 
+AuditLogEntry _auditEntry() => AuditLogEntry(
+      id: 'a1',
+      eventType: AuditEventType.entryCreated,
+      rawEventType: 'entry.created',
+      actorType: AuditActorType.user,
+      actorName: 'Ada',
+      entryLabel: 'GitHub token',
+      createdAt: DateTime.utc(2026, 6, 30),
+    );
+
 void main() {
   late _MockDashboardRepository dashboardRepository;
+  late _MockAuditRepository auditRepository;
   late _MockPendingGrantsCubit pendingGrantsCubit;
   late _MockNotificationPermissionService permissionService;
   late _MockAnalyticsService analytics;
@@ -74,6 +90,7 @@ void main() {
 
   setUp(() {
     dashboardRepository = _MockDashboardRepository();
+    auditRepository = _MockAuditRepository();
     pendingGrantsCubit = _MockPendingGrantsCubit();
     permissionService = _MockNotificationPermissionService();
     analytics = _MockAnalyticsService();
@@ -117,6 +134,7 @@ void main() {
       () => _FakeDashboardCubit(
         state,
         repository: dashboardRepository,
+        auditRepository: auditRepository,
         pendingGrantsCubit: pendingGrantsCubit,
         analytics: analytics,
         notificationPermissionService: permissionService,
@@ -164,6 +182,42 @@ void main() {
       );
 
       expect(find.text('Recently added / modified'), findsNothing);
+    });
+  });
+
+  group('Recent Activity gating', () {
+    testWidgets(
+        'with AuditView + seeded logs: renders AuditLogRow and hides '
+        '"Recently added"', (tester) async {
+      await pumpDashboard(
+        tester,
+        state: DashboardLoaded(
+          recentEntries: [_recent()],
+          recentActivity: [_auditEntry()],
+        ),
+        permissions: Permissions.auditView,
+      );
+
+      expect(find.text('Recent Activity'), findsOneWidget);
+      expect(find.byType(AuditLogRow), findsOneWidget);
+      expect(find.text('Recently added / modified'), findsNothing);
+    });
+
+    testWidgets(
+        'without AuditView: hides "Recent Activity" and shows '
+        '"Recently added"', (tester) async {
+      await pumpDashboard(
+        tester,
+        state: DashboardLoaded(
+          recentEntries: [_recent()],
+          recentActivity: const [],
+        ),
+        permissions: 0,
+      );
+
+      expect(find.text('Recent Activity'), findsNothing);
+      expect(find.byType(AuditLogRow), findsNothing);
+      expect(find.text('Recently added / modified'), findsOneWidget);
     });
   });
 

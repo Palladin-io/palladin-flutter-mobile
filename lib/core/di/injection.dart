@@ -455,6 +455,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<DashboardCubit>(
     () => DashboardCubit(
       repository: getIt<DashboardRepository>(),
+      auditRepository: getIt<AuditRepository>(),
       pendingGrantsCubit: getIt<PendingGrantsCubit>(),
       analytics: getIt<AnalyticsService>(),
       notificationPermissionService: getIt<NotificationPermissionService>(),

@@ -5,6 +5,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/features/approval/presentation/cubit/pending_grants_cubit.dart';
+import 'package:mobile_palladin/features/audit/domain/repositories/audit_repository.dart';
 import 'package:mobile_palladin/features/dashboard/domain/repositories/dashboard_repository.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'package:mobile_palladin/features/notifications/data/services/notification_permission_service.dart';
@@ -14,6 +15,8 @@ import 'package:mobile_palladin/features/notifications/data/services/notificatio
 // ──────────────────────────────────────────────
 
 class MockDashboardRepository extends Mock implements DashboardRepository {}
+
+class MockAuditRepository extends Mock implements AuditRepository {}
 
 class MockPendingGrantsCubit extends Mock implements PendingGrantsCubit {}
 
@@ -46,6 +49,7 @@ void main() {
   });
 
   late MockDashboardRepository repository;
+  late MockAuditRepository auditRepository;
   late MockPendingGrantsCubit pendingGrantsCubit;
   late MockNotificationPermissionService permissionService;
   late MockAnalyticsService analytics;
@@ -56,6 +60,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
 
     repository = MockDashboardRepository();
+    auditRepository = MockAuditRepository();
     pendingGrantsCubit = MockPendingGrantsCubit();
     permissionService = MockNotificationPermissionService();
     analytics = MockAnalyticsService();
@@ -79,6 +84,7 @@ void main() {
 
   DashboardCubit buildCubit() => DashboardCubit(
         repository: repository,
+        auditRepository: auditRepository,
         pendingGrantsCubit: pendingGrantsCubit,
         analytics: analytics,
         notificationPermissionService: permissionService,

@@ -13,6 +13,7 @@ import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/presentation/widgets/approve_agent_sheet.dart';
+import '../../../audit/presentation/widgets/audit_log_row.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
 import '../../../vault/presentation/pages/entry_detail_page.dart';
@@ -43,7 +44,18 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
-    _cubit = getIt<DashboardCubit>()..load();
+    // Read the audit permission from the app-wide AuthBloc so the cubit only
+    // fetches the Recent Activity feed for users who can actually see it
+    // (others would get a 403).
+    _cubit = getIt<DashboardCubit>()
+      ..load(canViewAudit: _canViewAudit(context));
+  }
+
+  /// Whether the authenticated user holds the `auditView` permission.
+  static bool _canViewAudit(BuildContext context) {
+    final auth = context.read<AuthBloc>().state;
+    final permissions = auth is AuthAuthenticated ? auth.permissions : 0;
+    return (permissions & Permissions.auditView) != 0;
   }
 
   @override
@@ -215,7 +227,9 @@ class _DashboardViewState extends State<_DashboardView> {
       initialName: grant.agentName,
     );
     if (!mounted) return;
-    context.read<DashboardCubit>().load();
+    context.read<DashboardCubit>().load(
+          canViewAudit: _DashboardPageState._canViewAudit(context),
+        );
   }
 
   void _onReject(PendingGrant grant) {
@@ -277,6 +291,39 @@ class _DashboardViewState extends State<_DashboardView> {
           ],
         ),
       ),
+      const SizedBox(height: AppSpacing.section),
+    ];
+  }
+
+  /// Builds the "Recent Activity" section for users WITH audit access.
+  ///
+  /// Renders up to [DashboardCubit._recentActivityLimit] real org audit-log
+  /// rows via the shared [AuditLogRow] (styling matches the full audit
+  /// screen), with a "See all" link into the org-wide audit log. When the
+  /// feed is genuinely empty it shows the [_ActivityEmpty] zero-state.
+  ///
+  /// `agentNames` is passed empty because the backend denormalizes
+  /// `agentName` / `actorName` into each row server-side, so no client-side
+  /// id→name lookup is needed here.
+  List<Widget> _buildRecentActivitySection(
+    BuildContext context,
+    List<AuditLogEntry> logs,
+  ) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return [
+      _SectionHeader(
+        title: l10n.dashboardRecentActivity,
+        onSeeAll: () => context.go('/audit'),
+      ),
+      const SizedBox(height: AppSpacing.cardGap),
+      if (logs.isEmpty)
+        const _ActivityEmpty()
+      else
+        for (int i = 0; i < logs.length; i++) ...[
+          if (i > 0) const SizedBox(height: AppSpacing.cardGap),
+          AuditLogRow(entry: logs[i], agentNames: const {}),
+        ],
       const SizedBox(height: AppSpacing.section),
     ];
   }
@@ -496,7 +543,44 @@ class _DashboardViewState extends State<_DashboardView> {
             ),
           ),
         ],
-      DashboardUnknownAgent(:final grant, :final recentEntries) => [
+      DashboardUnknownAgent(
+        :final grant,
+        :final recentEntries,
+        :final recentActivity,
+      ) =>
+        [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              0,
+              AppSpacing.screenH,
+              AppSpacing.listBottom,
+            ),
+            sliver: SliverList.list(
+              children: [
+                _SectionHeader(
+                  title:
+                      AppLocalizations.of(context)!.dashboardPendingApprovals,
+                  badge: '1',
+                ),
+                const SizedBox(height: AppSpacing.cardGap),
+                UnknownAgentCard(
+                  grant: grant,
+                  onRegisterApprove: () => _onRegisterApprove(grant),
+                  onReject: () => _onReject(grant),
+                ),
+                const SizedBox(height: AppSpacing.section),
+                // Users WITH audit access see the real audit-log activity;
+                // everyone else gets the "Recently added / modified" surface.
+                if (hasAuditView)
+                  ..._buildRecentActivitySection(context, recentActivity)
+                else
+                  ..._buildRecentEntriesSection(context, recentEntries),
+              ],
+            ),
+          ),
+        ],
+      DashboardLoaded(:final recentEntries, :final recentActivity) => [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.screenH,
@@ -506,49 +590,12 @@ class _DashboardViewState extends State<_DashboardView> {
           ),
           sliver: SliverList.list(
             children: [
-              _SectionHeader(
-                title: AppLocalizations.of(context)!.dashboardPendingApprovals,
-                badge: '1',
-              ),
-              const SizedBox(height: AppSpacing.cardGap),
-              UnknownAgentCard(
-                grant: grant,
-                onRegisterApprove: () => _onRegisterApprove(grant),
-                onReject: () => _onReject(grant),
-              ),
-              const SizedBox(height: AppSpacing.section),
-              // Only shown to users WITHOUT audit-log access — those with it
-              // get the richer audit/recent-activity surface instead.
-              if (!hasAuditView)
+              // Users WITH audit access see the real audit-log activity;
+              // everyone else gets the "Recently added / modified" surface.
+              if (hasAuditView)
+                ..._buildRecentActivitySection(context, recentActivity)
+              else
                 ..._buildRecentEntriesSection(context, recentEntries),
-              _SectionHeader(
-                title: AppLocalizations.of(context)!.dashboardRecentActivity,
-              ),
-              const SizedBox(height: AppSpacing.cardGap),
-              const _ActivityEmpty(),
-            ],
-          ),
-        ),
-      ],
-      DashboardLoaded(:final recentEntries) => [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenH,
-            0,
-            AppSpacing.screenH,
-            AppSpacing.listBottom,
-          ),
-          sliver: SliverList.list(
-            children: [
-              // Only shown to users WITHOUT audit-log access — those with it
-              // get the richer audit/recent-activity surface instead.
-              if (!hasAuditView)
-                ..._buildRecentEntriesSection(context, recentEntries),
-              _SectionHeader(
-                title: AppLocalizations.of(context)!.dashboardRecentActivity,
-              ),
-              const SizedBox(height: AppSpacing.cardGap),
-              const _ActivityEmpty(),
             ],
           ),
         ),
@@ -557,7 +604,9 @@ class _DashboardViewState extends State<_DashboardView> {
         SliverFillRemaining(
           hasScrollBody: false,
           child: _ErrorView(
-            onRetry: () => context.read<DashboardCubit>().load(),
+            onRetry: () => context
+                .read<DashboardCubit>()
+                .load(canViewAudit: hasAuditView),
           ),
         ),
       ],

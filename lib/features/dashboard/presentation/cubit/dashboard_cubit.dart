@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
+import '../../../audit/domain/repositories/audit_repository.dart';
 import '../../../notifications/data/services/notification_permission_service.dart';
 import '../../domain/repositories/dashboard_repository.dart';
 import 'dashboard_state.dart';
@@ -21,15 +22,20 @@ export 'dashboard_state.dart';
 class DashboardCubit extends Cubit<DashboardState> {
   DashboardCubit({
     required this.repository,
+    required this.auditRepository,
     required this.pendingGrantsCubit,
     required this.analytics,
     required this.notificationPermissionService,
   }) : super(const DashboardInitial());
 
   final DashboardRepository repository;
+  final AuditRepository auditRepository;
   final PendingGrantsCubit pendingGrantsCubit;
   final AnalyticsService analytics;
   final NotificationPermissionService notificationPermissionService;
+
+  /// How many recent audit-log rows the Home "Recent Activity" section shows.
+  static const int _recentActivityLimit = 6;
 
   /// Persisted flag: the user dismissed the onboarding checklist entirely.
   static const String _kOnboardingSkipped = 'onboarding_skipped';
@@ -37,7 +43,13 @@ class DashboardCubit extends Cubit<DashboardState> {
   /// Persisted flag: the notifications step was enabled or skipped.
   static const String _kNotificationSkipped = 'notification_step_skipped';
 
-  Future<void> load() async {
+  /// Loads the home tab.
+  ///
+  /// [canViewAudit] mirrors the caller's `auditView` permission (read from
+  /// [AuthBloc] at the page). Only when it is `true` does [load] fetch the
+  /// recent org audit-log feed for the "Recent Activity" section — callers
+  /// without the permission would get a 403, so we never ask.
+  Future<void> load({bool canViewAudit = false}) async {
     emit(const DashboardLoading());
     try {
       // Prefs holds only best-effort UI flags — a plugin/platform-channel
@@ -46,6 +58,7 @@ class DashboardCubit extends Cubit<DashboardState> {
       final prefs = await _tryPrefs();
 
       final recentEntries = await _loadRecentEntriesOrEmpty();
+      final recentActivity = await _loadRecentActivityOrEmpty(canViewAudit);
 
       // Keep the cross-vault pending list current so unknown-agent
       // detection reflects the latest requests (quiet — no skeleton flip).
@@ -59,8 +72,12 @@ class DashboardCubit extends Cubit<DashboardState> {
               ? DashboardUnknownAgent(
                   grant: unknownGrant,
                   recentEntries: recentEntries,
+                  recentActivity: recentActivity,
                 )
-              : DashboardLoaded(recentEntries: recentEntries),
+              : DashboardLoaded(
+                  recentEntries: recentEntries,
+                  recentActivity: recentActivity,
+                ),
         );
         return;
       }
@@ -73,6 +90,7 @@ class DashboardCubit extends Cubit<DashboardState> {
           DashboardUnknownAgent(
             grant: unknownGrant,
             recentEntries: recentEntries,
+            recentActivity: recentActivity,
           ),
         );
         return;
@@ -104,7 +122,12 @@ class DashboardCubit extends Cubit<DashboardState> {
         return;
       }
 
-      emit(DashboardLoaded(recentEntries: recentEntries));
+      emit(
+        DashboardLoaded(
+          recentEntries: recentEntries,
+          recentActivity: recentActivity,
+        ),
+      );
     } catch (e, s) {
       AppLogger.e('Dashboard', 'load failed', error: e, stackTrace: s);
       emit(DashboardError(e));
@@ -128,6 +151,37 @@ class DashboardCubit extends Cubit<DashboardState> {
       return const [];
     } catch (e, s) {
       AppLogger.e('Dashboard', 'recent entries load failed',
+          error: e, stackTrace: s);
+      return const [];
+    }
+  }
+
+  /// Fetches a small page of recent org audit logs for the Home "Recent
+  /// Activity" section, returning `[]` on any error.
+  ///
+  /// Only called when [canViewAudit] is `true` — callers without the
+  /// `auditView` permission would get a 403, so we skip the request entirely.
+  /// Any failure is logged (never the payload) and suppressed so a permission
+  /// gap or network hiccup degrades to an empty section rather than blanking
+  /// the whole Home screen.
+  Future<List<AuditLogEntry>> _loadRecentActivityOrEmpty(
+    bool canViewAudit,
+  ) async {
+    if (!canViewAudit) return const [];
+    try {
+      final page =
+          await auditRepository.listOrgLogs(pageSize: _recentActivityLimit);
+      return page.entries;
+    } on DioException catch (e, s) {
+      AppLogger.e(
+        'Dashboard',
+        'recent activity unavailable (${e.response?.statusCode})',
+        error: e,
+        stackTrace: s,
+      );
+      return const [];
+    } catch (e, s) {
+      AppLogger.e('Dashboard', 'recent activity load failed',
           error: e, stackTrace: s);
       return const [];
     }
