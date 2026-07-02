@@ -976,14 +976,14 @@ class AppLocalizationsPl extends AppLocalizations {
   String get apiKeysConnectInstall => 'Nie masz CLI? Zainstaluj:';
 
   @override
-  String get apiKeysConnectDocs => 'Dokumentacja →';
+  String get apiKeysConnectDocs => 'Skopiuj link do dokumentacji';
 
   @override
   String get apiKeysAgentMessageTitle => 'Wiadomość dla agenta';
 
   @override
   String apiKeysAgentMessageBody(String name, String docs, String market) {
-    return '$name, podłączyłem Cię do Palladin dla bezpiecznego dostępu do moich danych. Dowiedz się, jak utworzyć i używać swojego skilla Palladin: $docs — albo przejrzyj gotowe skille w markecie: $market.';
+    return '$name, podłączono Cię do Palladin dla bezpiecznego dostępu do moich danych. Dowiedz się, jak utworzyć i używać swojego skilla Palladin: $docs — albo przejrzyj gotowe skille w markecie: $market.';
   }
 
   @override
@@ -2433,6 +2433,9 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get dashboardUnknownAgentReject => 'Odrzuć';
+
+  @override
+  String get dashboardRequestRejected => 'Prośba odrzucona';
 
   @override
   String get dashboardPendingApprovals => 'Oczekujące zgody';

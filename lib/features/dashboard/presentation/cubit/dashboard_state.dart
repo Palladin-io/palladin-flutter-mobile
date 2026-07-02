@@ -49,12 +49,19 @@ final class DashboardOnboarding extends DashboardState {
 final class DashboardUnknownAgent extends DashboardState {
   const DashboardUnknownAgent({
     required this.grant,
+    this.pendingCount = 1,
     this.recentEntries = const [],
     this.recentActivity = const [],
+    this.agentNames = const {},
   });
 
   /// The pending grant raised by the unregistered agent.
   final PendingGrant grant;
+
+  /// Total number of pending grant requests awaiting the owner — drives the
+  /// "Pending Approvals" badge so it reflects reality when more than one is
+  /// outstanding (the card itself surfaces the first unknown-agent request).
+  final int pendingCount;
 
   /// Recently updated entries — silently empty on 403 / network error.
   final List<RecentEntryEntity> recentEntries;
@@ -62,6 +69,11 @@ final class DashboardUnknownAgent extends DashboardState {
   /// Recent org audit-log entries, newest-first. Populated only for callers
   /// with the `auditView` permission; silently empty on 403 / network error.
   final List<AuditLogEntry> recentActivity;
+
+  /// Best-effort agent id → display-name map, used by the Recent Activity
+  /// rows as a fallback when the backend has not denormalized the agent name.
+  /// Empty when name resolution failed or the feed carries no agent rows.
+  final Map<String, String> agentNames;
 }
 
 /// Normal dashboard with optional recent entries.
@@ -69,6 +81,7 @@ final class DashboardLoaded extends DashboardState {
   const DashboardLoaded({
     this.recentEntries = const [],
     this.recentActivity = const [],
+    this.agentNames = const {},
   });
 
   /// Recently updated entries, sorted descending by
@@ -79,6 +92,11 @@ final class DashboardLoaded extends DashboardState {
   /// Recent org audit-log entries, newest-first. Populated only for callers
   /// with the `auditView` permission; silently empty on 403 / network error.
   final List<AuditLogEntry> recentActivity;
+
+  /// Best-effort agent id → display-name map, used by the Recent Activity
+  /// rows as a fallback when the backend has not denormalized the agent name.
+  /// Empty when name resolution failed or the feed carries no agent rows.
+  final Map<String, String> agentNames;
 }
 
 final class DashboardError extends DashboardState {

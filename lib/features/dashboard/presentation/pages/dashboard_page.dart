@@ -14,7 +14,12 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../agents/domain/exceptions/agents_exceptions.dart';
+import '../../../agents/domain/repositories/agents_repository.dart';
+import '../../../agents/presentation/widgets/agent_format.dart';
 import '../../../agents/presentation/widgets/approve_agent_sheet.dart';
+import '../../../approval/presentation/widgets/approve_grant_sheet.dart';
+import '../../../approval/presentation/widgets/deny_grant_sheet.dart';
 import '../../../audit/presentation/widgets/audit_log_row.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
@@ -187,6 +192,16 @@ class _DashboardViewState extends State<_DashboardView> {
   void _openEntryDetail(BuildContext context, SearchResultEntity result) {
     final vaultId = result.vaultId;
     if (vaultId == null) {
+      // No vault to scope the detail screen to — tell the user why the tap
+      // lands on the vault list instead of the entry (same "not found"
+      // message the reveal path surfaces).
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(l10n.entryErrorNotFound),
+          duration: const Duration(seconds: 2),
+        ));
       context.go('/vaults');
       return;
     }
@@ -294,23 +309,76 @@ class _DashboardViewState extends State<_DashboardView> {
     context.go('/agents');
   }
 
+  /// Register-and-approve for an unknown agent: capture the agent's
+  /// name/type/icon, enrol (approve) the agent so the grant becomes
+  /// actionable, then run the existing zero-knowledge grant-approval sheet to
+  /// seal the envelope. Refreshes the dashboard so the card drops once the
+  /// agent is registered.
   Future<void> _onRegisterApprove(PendingGrant grant) async {
-    // Reuse the existing approve-agent sheet to capture the new agent's
-    // name/type/icon. Full "register & approve" wiring (crypto envelope +
-    // enrollment) is out of scope here — opening the sheet is the stub.
-    await ApproveAgentSheet.show(
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+
+    final details = await ApproveAgentSheet.show(
       context,
       initialName: grant.agentName,
     );
+    // Cancelled / dismissed — nothing registered, leave the card in place.
+    if (details == null || !mounted) return;
+
+    try {
+      await getIt<AgentsRepository>().approveAgent(
+        grant.agentId,
+        name: details.name,
+        type: details.type,
+        iconKey: details.iconKey,
+      );
+    } on AgentsException catch (e) {
+      AppLogger.w('Dashboard', 'agent register failed: ${e.kind.name}');
+      _showSnack(messenger, agentsErrorMessage(l10n, e.kind));
+      return;
+    } catch (e, s) {
+      AppLogger.e('Dashboard', 'agent register failed', error: e, stackTrace: s);
+      _showSnack(messenger, l10n.settingsErrorUnknown);
+      return;
+    }
+
+    // Agent is now enrolled — approve the pending grant (produces the
+    // zero-knowledge envelope on-device). The sheet owns its own success /
+    // error feedback.
+    if (!mounted) return;
+    await ApproveGrantSheet.show(context, grant);
+
     if (!mounted) return;
     context.read<DashboardCubit>().load(
           canViewAudit: _DashboardPageState._canViewAudit(context),
         );
   }
 
-  void _onReject(PendingGrant grant) {
-    // Stub for now — rejection flow is tracked separately.
-    // TODO(approvals): wire reject endpoint + remove from pending list.
+  /// Rejects an unknown-agent request via the shared deny sheet (optional
+  /// reason), then refreshes the pending list + dashboard and confirms with a
+  /// snackbar. The deny sheet resolves to `true` once the request is denied.
+  Future<void> _onReject(PendingGrant grant) async {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+
+    final denied = await DenyGrantSheet.show(context, grant);
+    if (denied != true || !mounted) return;
+
+    _showSnack(messenger, l10n.dashboardRequestRejected);
+    context.read<DashboardCubit>().load(
+          canViewAudit: _DashboardPageState._canViewAudit(context),
+        );
+  }
+
+  /// Shows a short single-line snackbar, replacing any current one.
+  void _showSnack(ScaffoldMessengerState messenger, String message) {
+    if (!mounted) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+      ));
   }
 
   void _onRecentEntryTap(RecentEntryEntity recent) {
@@ -378,12 +446,14 @@ class _DashboardViewState extends State<_DashboardView> {
   /// screen), with a "See all" link into the org-wide audit log. When the
   /// feed is genuinely empty it shows the [_ActivityEmpty] zero-state.
   ///
-  /// `agentNames` is passed empty because the backend denormalizes
-  /// `agentName` / `actorName` into each row server-side, so no client-side
-  /// id→name lookup is needed here.
+  /// [agentNames] is the best-effort id→name map resolved by [DashboardCubit]
+  /// (mirroring `AuditLogCubit`), used as the fallback for agent rows the
+  /// backend has not denormalized — without it those rows read "Unknown
+  /// agent".
   List<Widget> _buildRecentActivitySection(
     BuildContext context,
     List<AuditLogEntry> logs,
+    Map<String, String> agentNames,
   ) {
     final l10n = AppLocalizations.of(context)!;
 
@@ -398,7 +468,7 @@ class _DashboardViewState extends State<_DashboardView> {
       else
         for (int i = 0; i < logs.length; i++) ...[
           if (i > 0) const SizedBox(height: AppSpacing.cardGap),
-          AuditLogRow(entry: logs[i], agentNames: const {}),
+          AuditLogRow(entry: logs[i], agentNames: agentNames),
         ],
       const SizedBox(height: AppSpacing.section),
     ];
@@ -635,8 +705,10 @@ class _DashboardViewState extends State<_DashboardView> {
         ],
       DashboardUnknownAgent(
         :final grant,
+        :final pendingCount,
         :final recentEntries,
         :final recentActivity,
+        :final agentNames,
       ) =>
         [
           SliverPadding(
@@ -651,7 +723,9 @@ class _DashboardViewState extends State<_DashboardView> {
                 _SectionHeader(
                   title:
                       AppLocalizations.of(context)!.dashboardPendingApprovals,
-                  badge: '1',
+                  // Reflect the true number of outstanding requests; hide the
+                  // badge entirely if the count is somehow non-positive.
+                  badge: pendingCount > 0 ? '$pendingCount' : null,
                 ),
                 const SizedBox(height: AppSpacing.cardGap),
                 UnknownAgentCard(
@@ -663,33 +737,46 @@ class _DashboardViewState extends State<_DashboardView> {
                 // Users WITH audit access see the real audit-log activity;
                 // everyone else gets the "Recently added / modified" surface.
                 if (hasAuditView)
-                  ..._buildRecentActivitySection(context, recentActivity)
+                  ..._buildRecentActivitySection(
+                    context,
+                    recentActivity,
+                    agentNames,
+                  )
                 else
                   ..._buildRecentEntriesSection(context, recentEntries),
               ],
             ),
           ),
         ],
-      DashboardLoaded(:final recentEntries, :final recentActivity) => [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenH,
-            0,
-            AppSpacing.screenH,
-            AppSpacing.listBottom,
+      DashboardLoaded(
+        :final recentEntries,
+        :final recentActivity,
+        :final agentNames,
+      ) =>
+        [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              0,
+              AppSpacing.screenH,
+              AppSpacing.listBottom,
+            ),
+            sliver: SliverList.list(
+              children: [
+                // Users WITH audit access see the real audit-log activity;
+                // everyone else gets the "Recently added / modified" surface.
+                if (hasAuditView)
+                  ..._buildRecentActivitySection(
+                    context,
+                    recentActivity,
+                    agentNames,
+                  )
+                else
+                  ..._buildRecentEntriesSection(context, recentEntries),
+              ],
+            ),
           ),
-          sliver: SliverList.list(
-            children: [
-              // Users WITH audit access see the real audit-log activity;
-              // everyone else gets the "Recently added / modified" surface.
-              if (hasAuditView)
-                ..._buildRecentActivitySection(context, recentActivity)
-              else
-                ..._buildRecentEntriesSection(context, recentEntries),
-            ],
-          ),
-        ),
-      ],
+        ],
       DashboardError() => [
         SliverFillRemaining(
           hasScrollBody: false,
@@ -1238,8 +1325,9 @@ class _DropdownLoading extends StatelessWidget {
 /// panel below the row (leaving the row itself unchanged) that shows the
 /// decrypted secret — mirroring the vault entries-tab reveal panel; a second
 /// tap collapses it. Copy writes the secret to the clipboard. Neither
-/// navigates. The secret is decrypted once and cached for the row, so reveal
-/// and copy never double-fetch; a small inline spinner shows while decrypting.
+/// navigates. While the panel is open the secret is decrypted once and cached
+/// so reveal + copy share a single fetch; it is dropped on collapse / dispose
+/// to minimise plaintext retention. A small inline spinner shows while decrypting.
 class _SearchResultRow extends StatefulWidget {
   const _SearchResultRow({
     required this.result,
@@ -1259,14 +1347,24 @@ class _SearchResultRow extends StatefulWidget {
 }
 
 class _SearchResultRowState extends State<_SearchResultRow> {
-  /// Decrypted secret, cached for the row's lifetime so reveal + copy share a
-  /// single fetch. Held in memory only; only shown while [_expanded].
+  /// Decrypted secret, cached only while the reveal panel is open so a reveal
+  /// and a following copy share a single fetch. Held in memory only, shown
+  /// only while [_expanded], and dropped on collapse / dispose to shrink the
+  /// plaintext retention window (see CLAUDE.md security-cleanup rule).
   String? _secret;
   bool _expanded = false;
   bool _copyBusy = false;
   bool _revealBusy = false;
 
   bool get _busy => _copyBusy || _revealBusy;
+
+  @override
+  void dispose() {
+    // Drop the cached plaintext reference on teardown so it is eligible for
+    // GC immediately rather than lingering with the disposed element.
+    _secret = null;
+    super.dispose();
+  }
 
   /// Decrypts the secret on first need and caches it; subsequent calls reuse
   /// the cached plaintext (no second `revealEntry` round-trip).
@@ -1303,9 +1401,13 @@ class _SearchResultRowState extends State<_SearchResultRow> {
 
   Future<void> _onToggleReveal() async {
     if (widget.onRevealSecret == null) return;
-    // Collapsing is instant — the plaintext stays cached for a later re-open.
+    // Collapsing is instant. Drop the cached plaintext so it does not linger
+    // while hidden; a later re-open re-fetches it (security over one round-trip).
     if (_expanded) {
-      setState(() => _expanded = false);
+      setState(() {
+        _expanded = false;
+        _secret = null;
+      });
       return;
     }
     if (_secret != null) {

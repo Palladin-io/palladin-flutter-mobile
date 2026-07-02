@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../agents/domain/repositories/agents_repository.dart';
 import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
 import '../../../audit/domain/repositories/audit_repository.dart';
 import '../../../notifications/data/services/notification_permission_service.dart';
@@ -23,6 +24,7 @@ class DashboardCubit extends Cubit<DashboardState> {
   DashboardCubit({
     required this.repository,
     required this.auditRepository,
+    required this.agentsRepository,
     required this.pendingGrantsCubit,
     required this.analytics,
     required this.notificationPermissionService,
@@ -30,6 +32,7 @@ class DashboardCubit extends Cubit<DashboardState> {
 
   final DashboardRepository repository;
   final AuditRepository auditRepository;
+  final AgentsRepository agentsRepository;
   final PendingGrantsCubit pendingGrantsCubit;
   final AnalyticsService analytics;
   final NotificationPermissionService notificationPermissionService;
@@ -59,11 +62,17 @@ class DashboardCubit extends Cubit<DashboardState> {
 
       final recentEntries = await _loadRecentEntriesOrEmpty();
       final recentActivity = await _loadRecentActivityOrEmpty(canViewAudit);
+      // Resolve agent names only when there are activity rows that might carry
+      // an unresolved agent id — otherwise the map is unused, so skip the call.
+      final agentNames = recentActivity.isEmpty
+          ? const <String, String>{}
+          : await _resolveAgentNamesOrEmpty();
 
       // Keep the cross-vault pending list current so unknown-agent
       // detection reflects the latest requests (quiet — no skeleton flip).
       await pendingGrantsCubit.refresh();
       final unknownGrant = _firstUnknownAgentGrant();
+      final pendingCount = pendingGrantsCubit.state.grants.length;
 
       final skipped = prefs?.getBool(_kOnboardingSkipped) ?? false;
       if (skipped) {
@@ -71,12 +80,15 @@ class DashboardCubit extends Cubit<DashboardState> {
           unknownGrant != null
               ? DashboardUnknownAgent(
                   grant: unknownGrant,
+                  pendingCount: pendingCount,
                   recentEntries: recentEntries,
                   recentActivity: recentActivity,
+                  agentNames: agentNames,
                 )
               : DashboardLoaded(
                   recentEntries: recentEntries,
                   recentActivity: recentActivity,
+                  agentNames: agentNames,
                 ),
         );
         return;
@@ -89,8 +101,10 @@ class DashboardCubit extends Cubit<DashboardState> {
         emit(
           DashboardUnknownAgent(
             grant: unknownGrant,
+            pendingCount: pendingCount,
             recentEntries: recentEntries,
             recentActivity: recentActivity,
+            agentNames: agentNames,
           ),
         );
         return;
@@ -126,6 +140,7 @@ class DashboardCubit extends Cubit<DashboardState> {
         DashboardLoaded(
           recentEntries: recentEntries,
           recentActivity: recentActivity,
+          agentNames: agentNames,
         ),
       );
     } catch (e, s) {
@@ -187,6 +202,24 @@ class DashboardCubit extends Cubit<DashboardState> {
     }
   }
 
+  /// Resolves an agent id → display-name map for the Recent Activity rows,
+  /// mirroring `AuditLogCubit._resolveAgentNames`. Best-effort: a failure
+  /// returns an empty map so the rows fall back to the server-denormalized
+  /// name or a shortened id rather than blanking the section.
+  Future<Map<String, String>> _resolveAgentNamesOrEmpty() async {
+    try {
+      final agents = await agentsRepository.listAgents();
+      return {
+        for (final a in agents)
+          if (a.name != null && a.name!.trim().isNotEmpty)
+            a.agentId: a.name!.trim(),
+      };
+    } catch (e) {
+      AppLogger.w('Dashboard', 'Agent name resolution failed: $e');
+      return const {};
+    }
+  }
+
   /// Best-effort SharedPreferences — the home's skip flags are UI-only, so a
   /// plugin/platform-channel failure returns null (treated as "not skipped")
   /// instead of blanking the whole dashboard behind a generic error.
@@ -201,8 +234,8 @@ class DashboardCubit extends Cubit<DashboardState> {
 
   /// Marks the notifications step as skipped and refreshes the checklist.
   Future<void> skipNotificationStep() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kNotificationSkipped, true);
+    final prefs = await _tryPrefs();
+    await prefs?.setBool(_kNotificationSkipped, true);
     _markNotificationStepDone();
   }
 
@@ -222,8 +255,8 @@ class DashboardCubit extends Cubit<DashboardState> {
       unawaited(
         analytics.capture('identity', 'onboarding-notifications-enabled'),
       );
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_kNotificationSkipped, true);
+      final prefs = await _tryPrefs();
+      await prefs?.setBool(_kNotificationSkipped, true);
       _markNotificationStepDone();
     } else if (status == NotificationPermissionStatus.denied) {
       // iOS: the native prompt will not appear again. Send the user to
@@ -242,8 +275,8 @@ class DashboardCubit extends Cubit<DashboardState> {
 
   /// Dismisses the onboarding checklist for good.
   Future<void> skipSetup() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kOnboardingSkipped, true);
+    final prefs = await _tryPrefs();
+    await prefs?.setBool(_kOnboardingSkipped, true);
     unawaited(analytics.capture('identity', 'onboarding-skipped'));
     emit(const DashboardLoaded());
   }

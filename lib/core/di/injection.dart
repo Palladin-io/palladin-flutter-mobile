@@ -456,6 +456,7 @@ void configureDependencies(EnvConfig config) {
     () => DashboardCubit(
       repository: getIt<DashboardRepository>(),
       auditRepository: getIt<AuditRepository>(),
+      agentsRepository: getIt<AgentsRepository>(),
       pendingGrantsCubit: getIt<PendingGrantsCubit>(),
       analytics: getIt<AnalyticsService>(),
       notificationPermissionService: getIt<NotificationPermissionService>(),

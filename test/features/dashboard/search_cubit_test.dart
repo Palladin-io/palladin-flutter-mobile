@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/widgets.dart';
@@ -164,6 +166,63 @@ void main() {
       verifyNever(() => repository.globalSearch('ab', limit: 10));
       verifyNever(() => repository.globalSearch('abc', limit: 10));
       verifyNever(() => repository.globalSearch('abcd', limit: 10));
+
+      cubit.close();
+    });
+  });
+
+  // ── generation guard (stale result drop) ────
+
+  test('a slow earlier query does not overwrite a newer query\'s results', () {
+    fakeAsync((async) {
+      final slow = Completer<List<SearchResultEntity>>();
+      final fast = Completer<List<SearchResultEntity>>();
+      when(() => repository.globalSearch('ab', limit: 10))
+          .thenAnswer((_) => slow.future);
+      when(() => repository.globalSearch('abcd', limit: 10))
+          .thenAnswer((_) => fast.future);
+
+      final cubit = buildCubit();
+
+      // First query fires its request (generation 1).
+      cubit.query('ab');
+      async.elapse(const Duration(milliseconds: 250));
+      // Second query fires its request (generation 2) before the first resolves.
+      cubit.query('abcd');
+      async.elapse(const Duration(milliseconds: 250));
+
+      // The newer request resolves first and wins.
+      fast.complete(const [_entryResult]);
+      async.flushMicrotasks();
+      expect((cubit.state as SearchResults).results, [_entryResult]);
+
+      // The older, now-stale request resolves last — must be dropped, not
+      // clobber the fresher results.
+      slow.complete(const [_oneResult]);
+      async.flushMicrotasks();
+      expect((cubit.state as SearchResults).results, [_entryResult]);
+
+      cubit.close();
+    });
+  });
+
+  test('an in-flight query dropped by reset() cannot re-populate results', () {
+    fakeAsync((async) {
+      final slow = Completer<List<SearchResultEntity>>();
+      when(() => repository.globalSearch('ab', limit: 10))
+          .thenAnswer((_) => slow.future);
+
+      final cubit = buildCubit();
+      cubit.query('ab');
+      async.elapse(const Duration(milliseconds: 250)); // _run('ab') in flight
+
+      cubit.reset();
+      expect(cubit.state, isA<SearchIdle>());
+
+      // The late result must not resurrect a results state after reset().
+      slow.complete(const [_oneResult]);
+      async.flushMicrotasks();
+      expect(cubit.state, isA<SearchIdle>());
 
       cubit.close();
     });

@@ -492,9 +492,10 @@ class _MonospaceBox extends StatelessWidget {
   }
 }
 
-/// Brand-red interactive text that copies its target URL to the clipboard
-/// on tap (url_launcher is not a dependency, so links are copyable rather
-/// than opened).
+/// Brand-red tap-to-copy affordance for a URL. `url_launcher` is not a
+/// dependency, so tapping copies the link to the clipboard rather than
+/// opening it — the leading copy glyph makes that unambiguous (no "→" that
+/// would read like a browser link).
 class _LinkText extends StatelessWidget {
   const _LinkText({required this.label, required this.onTap});
 
@@ -507,13 +508,20 @@ class _LinkText extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: GestureDetector(
         onTap: onTap,
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.brandRed,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.copy, size: 13, color: AppColors.brandRed),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.brandRed,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );

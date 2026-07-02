@@ -3,3 +3,4 @@
 - [patterns_shell_fab_ownership.md](patterns_shell_fab_ownership.md) - Shell FAB ownership stack: FabRegistrar identity, every shell page must register (fab:null if none)
 - [patterns_spacing_system.md](patterns_spacing_system.md) - AppSpacing tokens (never bare numbers) + AppScreen wrapper for top-level screens
 - [patterns_list_screen_scroll.md](patterns_list_screen_scroll.md) - List screens: search/segment row scroll WITH the list (only title pinned); fixes overscroll gap bug
+- [patterns_url_open_degrade.md](patterns_url_open_degrade.md) - url_launcher NOT a dep; "open URL" actions copy-the-URL instead of launching

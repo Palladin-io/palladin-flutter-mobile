@@ -1155,9 +1155,9 @@
   "@apiKeysConnectInstall": {
     "description": "Hint above the CLI install command in the connect section"
   },
-  "apiKeysConnectDocs": "Documentation →",
+  "apiKeysConnectDocs": "Copy docs link",
   "@apiKeysConnectDocs": {
-    "description": "Label for the documentation link in the connect section"
+    "description": "Label for the tap-to-copy documentation link in the connect section (url_launcher is not a dependency, so the link is copied, not opened)"
   },
   "apiKeysAgentMessageTitle": "Message for your agent",
   "@apiKeysAgentMessageTitle": {
@@ -2514,6 +2514,8 @@
   "@dashboardUnknownAgentRegisterAndApprove": { "description": "Register & Approve button label" },
   "dashboardUnknownAgentReject": "Reject",
   "@dashboardUnknownAgentReject": { "description": "Reject button label on unknown agent card" },
+  "dashboardRequestRejected": "Request rejected",
+  "@dashboardRequestRejected": { "description": "Snackbar confirmation shown after the owner rejects an unknown-agent access request" },
   "dashboardPendingApprovals": "Pending Approvals",
   "@dashboardPendingApprovals": { "description": "Pending approvals section header" },
   "dashboardRecentActivity": "Recent Activity",

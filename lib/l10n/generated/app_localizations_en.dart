@@ -958,7 +958,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get apiKeysConnectInstall => 'Don\'t have the CLI? Install it:';
 
   @override
-  String get apiKeysConnectDocs => 'Documentation →';
+  String get apiKeysConnectDocs => 'Copy docs link';
 
   @override
   String get apiKeysAgentMessageTitle => 'Message for your agent';
@@ -2413,6 +2413,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dashboardUnknownAgentReject => 'Reject';
+
+  @override
+  String get dashboardRequestRejected => 'Request rejected';
 
   @override
   String get dashboardPendingApprovals => 'Pending Approvals';

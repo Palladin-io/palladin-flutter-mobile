@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile_palladin/core/analytics/analytics_service.dart';
+import 'package:mobile_palladin/features/agents/domain/repositories/agents_repository.dart';
 import 'package:mobile_palladin/features/approval/presentation/cubit/pending_grants_cubit.dart';
 import 'package:mobile_palladin/features/audit/domain/repositories/audit_repository.dart';
 import 'package:mobile_palladin/features/dashboard/domain/repositories/dashboard_repository.dart';
@@ -17,6 +18,8 @@ import 'package:mobile_palladin/features/notifications/data/services/notificatio
 class MockDashboardRepository extends Mock implements DashboardRepository {}
 
 class MockAuditRepository extends Mock implements AuditRepository {}
+
+class MockAgentsRepository extends Mock implements AgentsRepository {}
 
 class MockPendingGrantsCubit extends Mock implements PendingGrantsCubit {}
 
@@ -50,6 +53,7 @@ void main() {
 
   late MockDashboardRepository repository;
   late MockAuditRepository auditRepository;
+  late MockAgentsRepository agentsRepository;
   late MockPendingGrantsCubit pendingGrantsCubit;
   late MockNotificationPermissionService permissionService;
   late MockAnalyticsService analytics;
@@ -61,6 +65,7 @@ void main() {
 
     repository = MockDashboardRepository();
     auditRepository = MockAuditRepository();
+    agentsRepository = MockAgentsRepository();
     pendingGrantsCubit = MockPendingGrantsCubit();
     permissionService = MockNotificationPermissionService();
     analytics = MockAnalyticsService();
@@ -70,6 +75,7 @@ void main() {
         .thenAnswer((_) async => _incompleteStatus);
     when(() => repository.getRecentEntries(any()))
         .thenAnswer((_) async => const []);
+    when(() => agentsRepository.listAgents()).thenAnswer((_) async => const []);
     when(() => pendingGrantsCubit.refresh()).thenAnswer((_) async {});
     when(() => pendingGrantsCubit.state)
         .thenReturn(const PendingGrantsState());
@@ -85,6 +91,7 @@ void main() {
   DashboardCubit buildCubit() => DashboardCubit(
         repository: repository,
         auditRepository: auditRepository,
+        agentsRepository: agentsRepository,
         pendingGrantsCubit: pendingGrantsCubit,
         analytics: analytics,
         notificationPermissionService: permissionService,

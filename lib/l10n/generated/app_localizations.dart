@@ -1664,10 +1664,10 @@ abstract class AppLocalizations {
   /// **'Don\'t have the CLI? Install it:'**
   String get apiKeysConnectInstall;
 
-  /// Label for the documentation link in the connect section
+  /// Label for the tap-to-copy documentation link in the connect section (url_launcher is not a dependency, so the link is copied, not opened)
   ///
   /// In en, this message translates to:
-  /// **'Documentation →'**
+  /// **'Copy docs link'**
   String get apiKeysConnectDocs;
 
   /// Header of the collapsible section with a ready-to-send message for the agent
@@ -4297,6 +4297,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reject'**
   String get dashboardUnknownAgentReject;
+
+  /// Snackbar confirmation shown after the owner rejects an unknown-agent access request
+  ///
+  /// In en, this message translates to:
+  /// **'Request rejected'**
+  String get dashboardRequestRejected;
 
   /// Pending approvals section header
   ///

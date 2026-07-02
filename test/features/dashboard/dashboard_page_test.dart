@@ -8,6 +8,9 @@ import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
 import 'package:mobile_palladin/core/permissions.dart';
+import 'package:mobile_palladin/features/agents/domain/repositories/agents_repository.dart';
+import 'package:mobile_palladin/features/approval/domain/repositories/approval_repository.dart';
+import 'package:mobile_palladin/features/approval/presentation/cubit/grant_approval_cubit.dart';
 import 'package:mobile_palladin/features/approval/presentation/cubit/pending_grants_cubit.dart';
 import 'package:mobile_palladin/features/audit/domain/repositories/audit_repository.dart';
 import 'package:mobile_palladin/features/audit/presentation/widgets/audit_log_row.dart';
@@ -33,6 +36,10 @@ class _MockEntryRepository extends Mock implements EntryRepository {}
 
 class _MockAuditRepository extends Mock implements AuditRepository {}
 
+class _MockAgentsRepository extends Mock implements AgentsRepository {}
+
+class _MockApprovalRepository extends Mock implements ApprovalRepository {}
+
 class _MockPendingGrantsCubit extends Mock implements PendingGrantsCubit {}
 
 class _MockNotificationPermissionService extends Mock
@@ -51,6 +58,7 @@ class _FakeDashboardCubit extends DashboardCubit {
     this._seed, {
     required super.repository,
     required super.auditRepository,
+    required super.agentsRepository,
     required super.pendingGrantsCubit,
     required super.analytics,
     required super.notificationPermissionService,
@@ -58,8 +66,15 @@ class _FakeDashboardCubit extends DashboardCubit {
 
   final DashboardState _seed;
 
+  /// Number of times [load] was invoked — lets a test assert the page
+  /// refreshed after an action (mount = 1, a subsequent refresh = 2).
+  int loadCount = 0;
+
   @override
-  Future<void> load({bool canViewAudit = false}) async => emit(_seed);
+  Future<void> load({bool canViewAudit = false}) async {
+    loadCount++;
+    emit(_seed);
+  }
 }
 
 // ──────────────────────────────────────────────
@@ -76,6 +91,18 @@ RecentEntryEntity _recent() => RecentEntryEntity(
       createdAt: DateTime.utc(2026, 6, 1),
     );
 
+PendingGrant _grant() => PendingGrant(
+      grantId: 'g1',
+      vaultId: 'v1',
+      agentId: 'ag1',
+      entryId: 'e1',
+      agentPublicKey: 'pk',
+      agentName: 'Scraper Bot',
+      vaultName: 'Personal',
+      isAgentRegistered: false,
+      createdAt: DateTime.utc(2026, 6, 30),
+    );
+
 AuditLogEntry _auditEntry() => AuditLogEntry(
       id: 'a1',
       eventType: AuditEventType.entryCreated,
@@ -89,24 +116,34 @@ AuditLogEntry _auditEntry() => AuditLogEntry(
 void main() {
   late _MockDashboardRepository dashboardRepository;
   late _MockAuditRepository auditRepository;
+  late _MockAgentsRepository agentsRepository;
+  late _MockApprovalRepository approvalRepository;
   late _MockPendingGrantsCubit pendingGrantsCubit;
   late _MockNotificationPermissionService permissionService;
   late _MockAnalyticsService analytics;
   late _MockAuthBloc authBloc;
   late _MockEntryRepository entryRepository;
 
+  /// The most recently created fake dashboard cubit — captured so tests can
+  /// assert on [loadCount] (page refreshes).
+  _FakeDashboardCubit? lastDashboardCubit;
+
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(_grant());
   });
 
   setUp(() {
     dashboardRepository = _MockDashboardRepository();
     auditRepository = _MockAuditRepository();
+    agentsRepository = _MockAgentsRepository();
+    approvalRepository = _MockApprovalRepository();
     pendingGrantsCubit = _MockPendingGrantsCubit();
     permissionService = _MockNotificationPermissionService();
     analytics = _MockAnalyticsService();
     authBloc = _MockAuthBloc();
     entryRepository = _MockEntryRepository();
+    lastDashboardCubit = null;
 
     when(() => dashboardRepository.globalSearch(any(),
         limit: any(named: 'limit'))).thenAnswer((_) async => const []);
@@ -121,6 +158,12 @@ void main() {
     // The dashboard resolves the entry repository lazily for the search-row
     // copy-secret action.
     getIt.registerFactory<EntryRepository>(() => entryRepository);
+    // The reject flow opens the shared DenyGrantSheet, which resolves a
+    // GrantApprovalCubit (parameterized by the grant) from getIt.
+    getIt.registerFactoryParam<GrantApprovalCubit, PendingGrant, void>(
+      (grant, _) =>
+          GrantApprovalCubit(repository: approvalRepository, grant: grant),
+    );
   });
 
   tearDown(() async {
@@ -148,10 +191,11 @@ void main() {
     );
 
     getIt.registerFactory<DashboardCubit>(
-      () => _FakeDashboardCubit(
+      () => lastDashboardCubit = _FakeDashboardCubit(
         state,
         repository: dashboardRepository,
         auditRepository: auditRepository,
+        agentsRepository: agentsRepository,
         pendingGrantsCubit: pendingGrantsCubit,
         analytics: analytics,
         notificationPermissionService: permissionService,
@@ -373,6 +417,57 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('s3cr3t'), findsNothing);
       expect(find.text('Personal'), findsOneWidget);
+    });
+  });
+
+  group('pending approvals badge', () {
+    testWidgets('shows the real pending count, not a hardcoded "1"',
+        (tester) async {
+      await pumpDashboard(
+        tester,
+        state: DashboardUnknownAgent(grant: _grant(), pendingCount: 3),
+        permissions: 0,
+      );
+
+      expect(find.text('Pending Approvals'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+      expect(find.text('1'), findsNothing);
+    });
+  });
+
+  group('reject unknown-agent request', () {
+    testWidgets(
+        'tapping Reject opens the deny sheet; confirming calls denyGrant '
+        'and refreshes the dashboard', (tester) async {
+      when(() => approvalRepository.denyGrant(
+            grant: any(named: 'grant'),
+            reason: any(named: 'reason'),
+          )).thenAnswer((_) async {});
+
+      await pumpDashboard(
+        tester,
+        state: DashboardUnknownAgent(grant: _grant(), pendingCount: 1),
+        permissions: 0,
+      );
+      // Mounted once → load() called a single time so far.
+      expect(lastDashboardCubit!.loadCount, 1);
+
+      // Tap the card's Reject CTA → the shared deny sheet opens.
+      await tester.tap(find.text('Reject'));
+      await tester.pumpAndSettle();
+      expect(find.text('Deny Scraper Bot?'), findsOneWidget);
+
+      // Confirm the denial.
+      await tester.tap(find.text('Deny'));
+      await tester.pumpAndSettle();
+
+      verify(() => approvalRepository.denyGrant(
+            grant: any(named: 'grant'),
+            reason: any(named: 'reason'),
+          )).called(1);
+      // Confirmation snackbar + a refresh (load called again).
+      expect(find.text('Request rejected'), findsOneWidget);
+      expect(lastDashboardCubit!.loadCount, 2);
     });
   });
 }
