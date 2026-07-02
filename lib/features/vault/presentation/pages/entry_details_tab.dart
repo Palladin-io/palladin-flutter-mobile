@@ -609,17 +609,28 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: _EditToggleButton(
-              label: l10n.vaultCancel,
-              icon: Icons.close,
-              onPressed: isBusy ? null : _cancelEdit,
-            ),
+          // Cancel sits inline with the first field's "Label" header, right-aligned.
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.entryLabelLabel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.onSurfaceMuted(brightness),
+                  ),
+                ),
+              ),
+              _EditToggleButton(
+                label: l10n.vaultCancel,
+                icon: Icons.close,
+                onPressed: isBusy ? null : _cancelEdit,
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.fieldGap),
+          const SizedBox(height: AppSpacing.innerGap),
           OnboardingTextField(
-            label: l10n.entryLabelLabel,
             hintText: l10n.entryLabelHint,
             controller: _labelController,
             textCapitalization: TextCapitalization.sentences,
