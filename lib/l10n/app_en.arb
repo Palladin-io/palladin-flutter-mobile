@@ -1009,6 +1009,11 @@
   "@entryEditAction": {
     "description": "Button that switches the read-only entry detail into edit mode"
   },
+  "entryCopiedField": "{field} copied to clipboard",
+  "@entryCopiedField": {
+    "description": "Snackbar after copying a specific entry field (field = localized field name)",
+    "placeholders": { "field": { "type": "String" } }
+  },
   "entryCopied": "Copied to clipboard",
   "@entryCopied": {
     "description": "Snackbar confirmation shown after copying an entry field or secret"

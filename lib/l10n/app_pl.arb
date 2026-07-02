@@ -226,6 +226,7 @@
   "entryErrorCrypto": "Nie udało się odszyfrować wpisu. Zablokuj i odblokuj sejf, a następnie spróbuj ponownie.",
   "entryErrorUnknown": "Coś poszło nie tak. Spróbuj ponownie.",
   "entryEditAction": "Edytuj",
+  "entryCopiedField": "Skopiowano {field} do schowka",
   "entryCopied": "Skopiowano do schowka",
   "settingsScreenTitle": "Ustawienia",
   "settingsOrganization": "Organizacja",

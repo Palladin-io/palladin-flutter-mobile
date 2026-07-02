@@ -95,15 +95,18 @@ void main() {
 
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
 
-    // Read-only mode: no editable form / danger zone yet.
-    expect(find.text(l10n.entryDangerZone), findsNothing);
+    // Read-only mode: the danger zone is available here too, but there are no
+    // editable fields yet.
+    expect(find.text(l10n.entryDangerZone), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
 
-    await tester.tap(find.text(l10n.entryEditAction));
+    // Edit sits below the encrypted fields — scroll it into view before tapping.
+    final editButton = find.text(l10n.entryEditAction);
+    await tester.ensureVisible(editButton);
+    await tester.tap(editButton);
     await tester.pumpAndSettle();
 
-    // Edit mode: the form (with its danger zone) is now shown.
-    expect(find.text(l10n.entryDangerZone), findsOneWidget);
+    // Edit mode: the editable form is now shown.
     expect(find.byType(TextField), findsWidgets);
   });
 }

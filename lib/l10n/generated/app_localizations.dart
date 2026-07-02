@@ -1454,6 +1454,12 @@ abstract class AppLocalizations {
   /// **'Edit'**
   String get entryEditAction;
 
+  /// Snackbar after copying a specific entry field (field = localized field name)
+  ///
+  /// In en, this message translates to:
+  /// **'{field} copied to clipboard'**
+  String entryCopiedField(String field);
+
   /// Snackbar confirmation shown after copying an entry field or secret
   ///
   /// In en, this message translates to:

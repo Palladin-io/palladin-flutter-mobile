@@ -856,6 +856,11 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryEditAction => 'Edytuj';
 
   @override
+  String entryCopiedField(String field) {
+    return 'Skopiowano $field do schowka';
+  }
+
+  @override
   String get entryCopied => 'Skopiowano do schowka';
 
   @override

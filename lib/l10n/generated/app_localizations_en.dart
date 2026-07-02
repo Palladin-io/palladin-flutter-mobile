@@ -841,6 +841,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryEditAction => 'Edit';
 
   @override
+  String entryCopiedField(String field) {
+    return '$field copied to clipboard';
+  }
+
+  @override
   String get entryCopied => 'Copied to clipboard';
 
   @override

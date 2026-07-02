@@ -13,6 +13,7 @@ import '../../../../core/widgets/icon_picker_grid.dart' show IconMoreTile;
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
+import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../data/datasources/entry_remote_datasource.dart';
 import '../../data/services/entry_icon_upload_service.dart';
 import '../../data/services/vault_icon_upload_service.dart'
@@ -158,14 +159,14 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
 
   // ── Copy / clipboard ───────────────────────────────────────────────
 
-  Future<void> _copy(String value) async {
+  Future<void> _copy(String value, String field) async {
     await Clipboard.setData(ClipboardData(text: value));
     if (!mounted) return;
     final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(
-        content: Text(l10n.entryCopied),
+        content: Text(l10n.entryCopiedField(field)),
         duration: const Duration(seconds: 1),
       ));
   }
@@ -451,7 +452,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
           isMasked: false,
           revealed: true,
           onToggleReveal: null,
-          onCopy: () => _copy(description),
+          onCopy: () => _copy(description, l10n.entryDescriptionLabel),
         ),
       ));
     }
@@ -465,12 +466,12 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
           isMasked: false,
           revealed: true,
           onToggleReveal: null,
-          onCopy: () => _copy(url),
+          onCopy: () => _copy(url, l10n.entryUrlLabel),
           extraTrailing: EntrySmallIconButton(
             icon: Icons.open_in_new,
             tooltip: l10n.vaultOpenLink,
             // url_launcher is not a dependency — degrade "open" to copy.
-            onPressed: () => _copy(url),
+            onPressed: () => _copy(url, l10n.entryUrlLabel),
           ),
         ),
       ));
@@ -487,7 +488,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
             revealed: _secretRevealed,
             onToggleReveal: () =>
                 setState(() => _secretRevealed = !_secretRevealed),
-            onCopy: () => _copy(value),
+            onCopy: () => _copy(value, l10n.entryValueLabel),
           ),
         ));
       }
@@ -501,7 +502,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
             isMasked: false,
             revealed: true,
             onToggleReveal: null,
-            onCopy: () => _copy(username),
+            onCopy: () => _copy(username, l10n.entryUsernameLabel),
           ),
         ));
       }
@@ -515,7 +516,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
             revealed: _secretRevealed,
             onToggleReveal: () =>
                 setState(() => _secretRevealed = !_secretRevealed),
-            onCopy: () => _copy(password),
+            onCopy: () => _copy(password, l10n.entryPasswordLabel),
           ),
         ));
       }
@@ -530,7 +531,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
           isMasked: false,
           revealed: true,
           onToggleReveal: null,
-          onCopy: () => _copy(notes),
+          onCopy: () => _copy(notes, l10n.entryNotesLabel),
         ),
       ));
     }
@@ -545,15 +546,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: _EditToggleButton(
-              label: l10n.entryEditAction,
-              icon: Icons.edit_outlined,
-              onPressed: _enterEditMode,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
           if (fields.isEmpty)
             _EmptyReadOnly(message: l10n.entryEmpty, brightness: brightness)
           else
@@ -577,6 +569,19 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
             ),
           const SizedBox(height: AppSpacing.section),
           EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
+          const SizedBox(height: AppSpacing.section),
+          // Edit as a full-width button below the encrypted fields.
+          PrimaryButton(
+            label: l10n.entryEditAction,
+            onPressed: _enterEditMode,
+          ),
+          const SizedBox(height: AppSpacing.xxxl),
+          _DangerZone(
+            label: l10n.entryDangerZone,
+            deleteLabel: l10n.entryDeleteAction,
+            onDelete: _confirmDelete,
+            brightness: brightness,
+          ),
         ],
       ),
     );
@@ -784,34 +789,6 @@ class _FieldDivider extends StatelessWidget {
 }
 
 /// Small right-aligned Edit / Cancel affordance shown above the fields.
-class _EditToggleButton extends StatelessWidget {
-  const _EditToggleButton({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 16),
-      label: Text(label),
-      style: TextButton.styleFrom(
-        foregroundColor: AppColors.brandRed,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.xs,
-        ),
-        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-}
 
 class _EmptyReadOnly extends StatelessWidget {
   const _EmptyReadOnly({required this.message, required this.brightness});
@@ -894,6 +871,36 @@ class _RevealError extends StatelessWidget {
 }
 
 // ── Danger zone ──────────────────────────────────────────────────────
+
+/// Small text button used for the in-tab Cancel (edit mode) action.
+class _EditToggleButton extends StatelessWidget {
+  const _EditToggleButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.brandRed,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
 
 class _DangerZone extends StatelessWidget {
   const _DangerZone({
