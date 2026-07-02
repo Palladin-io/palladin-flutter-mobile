@@ -132,7 +132,7 @@ class DashboardCubit extends Cubit<DashboardState> {
             notificationPermissionDenied: permissionDenied,
           ),
         );
-        unawaited(analytics.capture('identity', 'onboarding-viewed'));
+        unawaited(analytics.capture('dashboard', 'onboarding-viewed'));
         return;
       }
 
@@ -253,7 +253,7 @@ class DashboardCubit extends Cubit<DashboardState> {
 
     if (status == NotificationPermissionStatus.authorized) {
       unawaited(
-        analytics.capture('identity', 'onboarding-notifications-enabled'),
+        analytics.capture('dashboard', 'onboarding-notifications-enabled'),
       );
       final prefs = await _tryPrefs();
       await prefs?.setBool(_kNotificationSkipped, true);
@@ -277,23 +277,23 @@ class DashboardCubit extends Cubit<DashboardState> {
   Future<void> skipSetup() async {
     final prefs = await _tryPrefs();
     await prefs?.setBool(_kOnboardingSkipped, true);
-    unawaited(analytics.capture('identity', 'onboarding-skipped'));
+    unawaited(analytics.capture('dashboard', 'onboarding-skipped'));
     emit(const DashboardLoaded());
   }
 
   void onVaultCtaTapped() =>
-      unawaited(analytics.capture('identity', 'onboarding-entry-clicked'));
+      unawaited(analytics.capture('dashboard', 'onboarding-entry-clicked'));
 
   void onApiKeyCtaTapped() =>
-      unawaited(analytics.capture('identity', 'onboarding-api-key-clicked'));
+      unawaited(analytics.capture('dashboard', 'onboarding-api-key-clicked'));
 
   void onAgentCtaTapped() =>
-      unawaited(analytics.capture('identity', 'onboarding-agent-clicked'));
+      unawaited(analytics.capture('dashboard', 'onboarding-agent-clicked'));
 
   /// Fired when the full onboarding is completed; reloads to drop the
   /// checklist in favour of the normal dashboard.
   Future<void> onOnboardingCompleted() async {
-    unawaited(analytics.capture('identity', 'onboarding-completed'));
+    unawaited(analytics.capture('dashboard', 'onboarding-completed'));
     await load();
   }
 
