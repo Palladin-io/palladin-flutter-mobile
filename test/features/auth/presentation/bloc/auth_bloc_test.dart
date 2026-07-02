@@ -207,6 +207,54 @@ void main() {
     );
 
     blocTest<AuthBloc, AuthState>(
+      'OnboardingCompleted with keys → unlocked AuthAuthenticated carrying them',
+      build: () {
+        when(() => mockRepo.getUserId()).thenAnswer((_) async => 'user-789');
+        return AuthBloc(authRepository: mockRepo);
+      },
+      act: (bloc) => bloc.add(OnboardingCompleted(
+        masterKey: Uint8List.fromList(List.filled(32, 0xAA)),
+        privateKey: Uint8List.fromList(List.filled(32, 0xBB)),
+      )),
+      expect: () => [
+        isA<AuthAuthenticated>()
+            .having((s) => s.userId, 'userId', 'user-789')
+            .having((s) => s.isOnboarded, 'isOnboarded', true)
+            .having((s) => s.isVaultLocked, 'isVaultLocked', false)
+            .having((s) => s.masterKey, 'masterKey', isNotNull)
+            .having((s) => s.privateKey, 'privateKey', isNotNull),
+      ],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'OnboardingCompleted without keys → locked vault (never unlocked with null keys)',
+      build: () {
+        when(() => mockRepo.getUserId()).thenAnswer((_) async => 'user-789');
+        return AuthBloc(authRepository: mockRepo);
+      },
+      act: (bloc) => bloc.add(const OnboardingCompleted()),
+      expect: () => [
+        isA<AuthAuthenticated>()
+            .having((s) => s.isOnboarded, 'isOnboarded', true)
+            .having((s) => s.isVaultLocked, 'isVaultLocked', true)
+            .having((s) => s.masterKey, 'masterKey', isNull)
+            .having((s) => s.privateKey, 'privateKey', isNull),
+      ],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'OnboardingCompleted → unauthenticated when userId is missing',
+      build: () {
+        when(() => mockRepo.getUserId()).thenAnswer((_) async => null);
+        return AuthBloc(authRepository: mockRepo);
+      },
+      act: (bloc) => bloc.add(const OnboardingCompleted()),
+      expect: () => [
+        isA<AuthUnauthenticated>(),
+      ],
+    );
+
+    blocTest<AuthBloc, AuthState>(
       'VaultLockRequested clears keys and re-locks the vault',
       build: () => AuthBloc(authRepository: mockRepo),
       seed: () => AuthAuthenticated(

@@ -61,7 +61,7 @@ class OnboardingCubit extends Cubit<OnboardingState> {
     ));
 
     try {
-      await repository.completeSetup(
+      final keys = await repository.completeSetup(
         masterPassword: state.masterPassword,
         recoveryMnemonic: state.mnemonic,
         defaultVaultName: defaultVaultName,
@@ -71,7 +71,7 @@ class OnboardingCubit extends Cubit<OnboardingState> {
       // submitting step, leave the current state alone.
       if (state.step != OnboardingStep.submitting) return;
       AppLogger.i('Onboarding', 'Setup completed successfully');
-      emit(state.copyWith(step: OnboardingStep.completed));
+      emit(state.copyWith(step: OnboardingStep.completed, unlockKeys: keys));
     } on OnboardingAlreadyCompletedException {
       // The backend already has a setup for this account (409). The
       // repository has already flipped the local onboarded flag —
@@ -87,6 +87,19 @@ class OnboardingCubit extends Cubit<OnboardingState> {
         error: e,
       ));
     }
+  }
+
+  /// Drops the cubit's reference to the freshly derived unlock keys
+  /// after the presentation layer has handed them to `AuthBloc`.
+  ///
+  /// The byte buffers are intentionally **not** zeroed here — the same
+  /// references now live in `AuthAuthenticated` for the unlocked
+  /// session, so zeroing them would wipe the live session keys. Dropping
+  /// the reference just stops this (short-lived, factory-scoped) cubit
+  /// from retaining a second handle to the key material.
+  void clearUnlockKeys() {
+    if (state.unlockKeys == null) return;
+    emit(state.copyWith(clearUnlockKeys: true));
   }
 
   /// Goes back one step (used by system back-button handling on

@@ -135,6 +135,7 @@ void configureDependencies(EnvConfig config) {
       // resolves lazily so ordering in this file does not matter.
       vaultCryptoService: getIt<VaultCryptoService>(),
       tokenStorage: getIt<SecureTokenStorage>(),
+      secureStorage: getIt<FlutterSecureStorage>(),
     ),
   );
 

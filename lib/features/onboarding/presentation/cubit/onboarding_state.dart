@@ -1,3 +1,5 @@
+import '../../domain/repositories/onboarding_repository.dart';
+
 /// Current step of the onboarding wizard.
 enum OnboardingStep {
   /// Screen 1 — user is choosing a master password.
@@ -27,6 +29,7 @@ class OnboardingState {
     this.masterPassword = '',
     this.mnemonic = const <String>[],
     this.error,
+    this.unlockKeys,
   });
 
   final OnboardingStep step;
@@ -37,18 +40,27 @@ class OnboardingState {
   /// maps it to a localized message.
   final Object? error;
 
+  /// Set alongside [OnboardingStep.completed] on a fresh setup — the raw
+  /// keys the presentation layer hands to `AuthBloc` so the vault is
+  /// immediately unlocked. `null` on the "already onboarded" (409) path,
+  /// where no fresh keys exist and the vault stays locked.
+  final OnboardingUnlockKeys? unlockKeys;
+
   OnboardingState copyWith({
     OnboardingStep? step,
     String? masterPassword,
     List<String>? mnemonic,
     Object? error,
     bool clearError = false,
+    OnboardingUnlockKeys? unlockKeys,
+    bool clearUnlockKeys = false,
   }) {
     return OnboardingState(
       step: step ?? this.step,
       masterPassword: masterPassword ?? this.masterPassword,
       mnemonic: mnemonic ?? this.mnemonic,
       error: clearError ? null : (error ?? this.error),
+      unlockKeys: clearUnlockKeys ? null : (unlockKeys ?? this.unlockKeys),
     );
   }
 }

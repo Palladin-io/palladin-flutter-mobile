@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -11,6 +13,10 @@ void main() {
   late _MockOnboardingRepository mockRepo;
 
   final mnemonic = List<String>.generate(24, (i) => 'word${i + 1}');
+  final unlockKeys = OnboardingUnlockKeys(
+    masterKey: Uint8List.fromList(List.filled(32, 0xAA)),
+    privateKey: Uint8List.fromList(List.filled(32, 0xBB)),
+  );
 
   setUp(() {
     mockRepo = _MockOnboardingRepository();
@@ -61,13 +67,13 @@ void main() {
     );
 
     blocTest<OnboardingCubit, OnboardingState>(
-      'completeSetup emits submitting then completed on success',
+      'completeSetup emits submitting then completed with unlock keys on success',
       build: () {
         when(() => mockRepo.completeSetup(
               masterPassword: any(named: 'masterPassword'),
               recoveryMnemonic: any(named: 'recoveryMnemonic'),
               defaultVaultName: any(named: 'defaultVaultName'),
-            )).thenAnswer((_) async {});
+            )).thenAnswer((_) async => unlockKeys);
         return OnboardingCubit(repository: mockRepo);
       },
       seed: () => OnboardingState(
@@ -78,7 +84,27 @@ void main() {
       act: (cubit) => cubit.completeSetup(defaultVaultName: 'Personal'),
       expect: () => [
         predicate<OnboardingState>((s) => s.step == OnboardingStep.submitting),
-        predicate<OnboardingState>((s) => s.step == OnboardingStep.completed),
+        predicate<OnboardingState>(
+          (s) =>
+              s.step == OnboardingStep.completed && s.unlockKeys == unlockKeys,
+        ),
+      ],
+    );
+
+    blocTest<OnboardingCubit, OnboardingState>(
+      'clearUnlockKeys drops the reference without touching later steps',
+      build: () => OnboardingCubit(repository: mockRepo),
+      seed: () => OnboardingState(
+        step: OnboardingStep.completed,
+        masterPassword: 'pw',
+        mnemonic: mnemonic,
+        unlockKeys: unlockKeys,
+      ),
+      act: (cubit) => cubit.clearUnlockKeys(),
+      expect: () => [
+        predicate<OnboardingState>(
+          (s) => s.step == OnboardingStep.completed && s.unlockKeys == null,
+        ),
       ],
     );
 
@@ -101,7 +127,10 @@ void main() {
       expect: () => [
         predicate<OnboardingState>((s) => s.step == OnboardingStep.submitting),
         predicate<OnboardingState>(
-          (s) => s.step == OnboardingStep.completed && s.error == null,
+          (s) =>
+              s.step == OnboardingStep.completed &&
+              s.error == null &&
+              s.unlockKeys == null,
         ),
       ],
     );

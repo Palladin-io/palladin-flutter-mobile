@@ -16,9 +16,12 @@ import '../../domain/repositories/onboarding_repository.dart';
 /// 4. Encrypt the private key with both MK and RK using
 ///    `crypto_secretbox_easy` (XSalsa20-Poly1305) with a prepended nonce.
 ///
-/// No plaintext key material leaves this class — the returned
-/// [OnboardingSetupPayload] contains only the salt, the public key,
-/// and the two encrypted-private-key blobs.
+/// The only plaintext key material to leave this class is the raw
+/// master key and private key carried on the returned
+/// [OnboardingSetupResult] — retained so the session can be unlocked
+/// straight after setup (mirroring a successful password unlock).
+/// Every other intermediate (recovery key, the plaintext used to build
+/// the encrypted blobs) is zeroed before this method returns.
 class OnboardingCryptoService {
   OnboardingCryptoService({Future<SodiumSumo> Function()? sodiumLoader})
       : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
@@ -26,8 +29,10 @@ class OnboardingCryptoService {
   final Future<SodiumSumo> Function() _sodiumLoader;
 
   /// Runs the full key-derivation and encryption pipeline and returns
-  /// the payload ready to be submitted to `POST /api/account/setup`.
-  Future<OnboardingSetupPayload> buildSetupPayload({
+  /// the [OnboardingSetupPayload] ready to be submitted to
+  /// `POST /api/account/setup`, together with the raw [masterKey] and
+  /// [privateKey] bytes so the caller can seed the unlocked session.
+  Future<OnboardingSetupResult> buildSetupPayload({
     required String masterPassword,
     required List<String> recoveryMnemonic,
   }) async {
@@ -59,17 +64,28 @@ class OnboardingCryptoService {
               key: recoveryKey,
             );
 
-            return OnboardingSetupPayload(
-              salt: salt,
-              recoverySalt: recoverySalt,
-              publicKey: Uint8List.fromList(keyPair.publicKey),
-              encryptedPrivateKey: encryptedPrivateKey,
-              encryptedPrivateKeyByRecovery: encryptedPrivateKeyByRecovery,
+            // Retain the two keys that must survive this method: a copy
+            // of the private key (the local plaintext is zeroed below)
+            // and the extracted master-key bytes (the SecureKey is
+            // disposed below). The caller takes ownership of both.
+            final retainedPrivateKey = Uint8List.fromList(privateKeyBytes);
+            final retainedMasterKey = masterKey.extractBytes();
+
+            return OnboardingSetupResult(
+              payload: OnboardingSetupPayload(
+                salt: salt,
+                recoverySalt: recoverySalt,
+                publicKey: Uint8List.fromList(keyPair.publicKey),
+                encryptedPrivateKey: encryptedPrivateKey,
+                encryptedPrivateKeyByRecovery: encryptedPrivateKeyByRecovery,
+              ),
+              masterKey: retainedMasterKey,
+              privateKey: retainedPrivateKey,
             );
           } finally {
             // Zeroize the plaintext private key bytes in memory — the
-            // encrypted copies in the payload are the only thing that
-            // should survive this method.
+            // encrypted copies in the payload and the retained copy
+            // above are the only things that should survive this method.
             privateKeyBytes.fillRange(0, privateKeyBytes.length, 0);
           }
         } finally {

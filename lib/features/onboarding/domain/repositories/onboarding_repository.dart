@@ -23,11 +23,37 @@ abstract class OnboardingRepository {
   /// set up (HTTP 409). The default-vault call is fire-and-forget: a
   /// 409 (already exists) or any transient error is swallowed so it
   /// never blocks the user from completing onboarding.
-  Future<void> completeSetup({
+  ///
+  /// On success returns the freshly derived [OnboardingUnlockKeys] so
+  /// the presentation layer can seed the unlocked session — the user
+  /// just set their master password, so there is no need to re-derive
+  /// the keys via the unlock screen. The caller takes ownership of the
+  /// returned key bytes and is responsible for their lifetime.
+  Future<OnboardingUnlockKeys> completeSetup({
     required String masterPassword,
     required List<String> recoveryMnemonic,
     required String defaultVaultName,
   });
+}
+
+/// The raw key material derived during onboarding, handed to the auth
+/// layer so the vault is immediately unlocked after setup.
+///
+/// Both fields are 32-byte buffers held **in memory only**. They mirror
+/// exactly what a successful master-password unlock produces
+/// (`UnlockSuccess`), and are consumed identically — carried into
+/// `AuthAuthenticated` for the duration of the session.
+class OnboardingUnlockKeys {
+  const OnboardingUnlockKeys({
+    required this.masterKey,
+    required this.privateKey,
+  });
+
+  /// 32-byte master key derived from the master password via Argon2id.
+  final Uint8List masterKey;
+
+  /// 32-byte X25519 private key generated during setup.
+  final Uint8List privateKey;
 }
 
 /// Thrown when the backend rejects the setup because the account has
@@ -81,4 +107,25 @@ class OnboardingSetupPayload {
   final Uint8List publicKey;
   final Uint8List encryptedPrivateKey;
   final Uint8List encryptedPrivateKeyByRecovery;
+}
+
+/// Result of the onboarding crypto pipeline: the network-bound
+/// [payload] plus the raw [masterKey] and [privateKey] retained so the
+/// session can be unlocked immediately after setup.
+///
+/// The raw keys are the **only** plaintext key material to leave
+/// [OnboardingCryptoService]; every other intermediate (recovery key,
+/// the plaintext used to build the encrypted blobs) is zeroed inside
+/// the service. The caller owns [masterKey] / [privateKey] and must
+/// zero them if it does not hand them off to the auth layer.
+class OnboardingSetupResult {
+  const OnboardingSetupResult({
+    required this.payload,
+    required this.masterKey,
+    required this.privateKey,
+  });
+
+  final OnboardingSetupPayload payload;
+  final Uint8List masterKey;
+  final Uint8List privateKey;
 }

@@ -151,9 +151,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(current.copyWith(isVaultLocked: true, clearKeys: true));
   }
 
-  /// Called when the onboarding wizard finishes setup. Marks the user
-  /// as onboarded with the vault immediately unlocked — no need to
-  /// re-enter the master password that was just set.
+  /// Called when the onboarding wizard finishes setup.
+  ///
+  /// When the event carries the freshly derived [masterKey] and
+  /// [privateKey] (fresh setup), the vault is marked unlocked and the
+  /// keys are carried into [AuthAuthenticated] — exactly the state a
+  /// successful unlock produces, so no need to re-enter the master
+  /// password that was just set. If the keys are absent (the "already
+  /// onboarded" 409 path), the vault stays locked so the router forwards
+  /// to `/unlock` — never leave an "unlocked" state with null keys.
   Future<void> _onOnboardingCompleted(
     OnboardingCompleted event,
     Emitter<AuthState> emit,
@@ -166,11 +172,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
     final permissions = await authRepository.getPermissions();
     final email = await authRepository.getEmail();
-    AppLogger.i('AuthBloc', 'Onboarding completed, vault unlocked for userId=$userId');
+    final hasKeys = event.masterKey != null && event.privateKey != null;
+    AppLogger.i(
+      'AuthBloc',
+      'Onboarding completed for userId=$userId (vaultUnlocked=$hasKeys)',
+    );
     emit(AuthAuthenticated(
       userId: userId,
       isOnboarded: true,
-      isVaultLocked: false,
+      isVaultLocked: !hasKeys,
+      masterKey: event.masterKey,
+      privateKey: event.privateKey,
       permissions: permissions,
       email: email,
     ));
