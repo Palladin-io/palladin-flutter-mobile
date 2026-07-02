@@ -204,15 +204,16 @@ class _DashboardViewState extends State<_DashboardView> {
     );
   }
 
-  /// Fetches + decrypts an entry hit and copies its secret (password for a
-  /// credential, value for a key) to the clipboard — WITHOUT navigating and
-  /// without ever rendering the plaintext in the dropdown. The private key is
-  /// copied locally and zeroed in `finally`; the plaintext only touches the
-  /// clipboard, never the transient overlay.
-  Future<void> _copyEntrySecret(SearchResultEntity result) async {
+  /// Fetches + decrypts an entry hit and returns its secret (password for a
+  /// credential, value for a key). Returns null on failure and surfaces a
+  /// short error snackbar. The caller (the row) decides what to do with the
+  /// plaintext — copy it to the clipboard or reveal it inline — and caches it
+  /// so copy and reveal share a single fetch. The private-key copy is zeroed
+  /// in `finally`; the plaintext is never logged.
+  Future<String?> _revealEntrySecret(SearchResultEntity result) async {
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.of(context);
-    void snack(String message) {
+    void errorSnack(String message) {
       if (!mounted) return;
       messenger
         ..hideCurrentSnackBar()
@@ -224,15 +225,15 @@ class _DashboardViewState extends State<_DashboardView> {
 
     final vaultId = result.vaultId;
     if (vaultId == null) {
-      snack(l10n.entryErrorNotFound);
-      return;
+      errorSnack(l10n.entryErrorNotFound);
+      return null;
     }
 
     final auth = context.read<AuthBloc>().state;
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
       // Same "locked" message the add/edit paths surface.
-      snack(l10n.entryErrorCrypto);
-      return;
+      errorSnack(l10n.entryErrorCrypto);
+      return null;
     }
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
@@ -247,17 +248,18 @@ class _DashboardViewState extends State<_DashboardView> {
           ? payload['value'] as String?
           : payload['password'] as String?;
       if (secret == null || secret.isEmpty) {
-        snack(l10n.entryErrorUnknown);
-        return;
+        errorSnack(l10n.entryErrorUnknown);
+        return null;
       }
-      await Clipboard.setData(ClipboardData(text: secret));
-      snack(l10n.entryCopied);
+      return secret;
     } on EntryException catch (e) {
-      AppLogger.w('Dashboard', 'copy secret failed: ${e.kind.name}');
-      snack(_entryErrorMessage(e.kind, l10n));
+      AppLogger.w('Dashboard', 'reveal secret failed: ${e.kind.name}');
+      errorSnack(_entryErrorMessage(e.kind, l10n));
+      return null;
     } catch (e, s) {
-      AppLogger.e('Dashboard', 'copy secret failed', error: e, stackTrace: s);
-      snack(l10n.entryErrorUnknown);
+      AppLogger.e('Dashboard', 'reveal secret failed', error: e, stackTrace: s);
+      errorSnack(l10n.entryErrorUnknown);
+      return null;
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
     }
@@ -568,7 +570,7 @@ class _DashboardViewState extends State<_DashboardView> {
         header: l10n.dashboardSearchRecent,
         results: results,
         onTap: (result) => _onSearchResultTap(context, result),
-        onCopySecret: _copyEntrySecret,
+        onRevealSecret: _revealEntrySecret,
       );
     }
 
@@ -576,7 +578,7 @@ class _DashboardViewState extends State<_DashboardView> {
       SearchResults(:final results) => _SearchResultList(
         results: results,
         onTap: (result) => _onSearchResultTap(context, result),
-        onCopySecret: _copyEntrySecret,
+        onRevealSecret: _revealEntrySecret,
       ),
       SearchEmpty() => _DropdownMessage(
         icon: Icons.search_off,
@@ -1101,16 +1103,17 @@ class _SearchResultList extends StatelessWidget {
     required this.results,
     required this.onTap,
     this.header,
-    this.onCopySecret,
+    this.onRevealSecret,
   });
 
   final List<SearchResultEntity> results;
   final ValueChanged<SearchResultEntity> onTap;
   final String? header;
 
-  /// Decrypts + copies an entry hit's secret. Wired only for entry-type
-  /// rows; agent/vault rows never show the copy action.
-  final Future<void> Function(SearchResultEntity)? onCopySecret;
+  /// Fetches + decrypts an entry hit's secret (returns null on failure).
+  /// Wired only for entry-type rows; agent/vault rows show neither the
+  /// reveal nor the copy action.
+  final Future<String?> Function(SearchResultEntity)? onRevealSecret;
 
   @override
   Widget build(BuildContext context) {
@@ -1144,9 +1147,9 @@ class _SearchResultList extends StatelessWidget {
             _SearchResultRow(
               result: results[i],
               onTap: () => onTap(results[i]),
-              onCopySecret: results[i].type == SearchResultType.entry &&
-                      onCopySecret != null
-                  ? () => onCopySecret!(results[i])
+              onRevealSecret: results[i].type == SearchResultType.entry &&
+                      onRevealSecret != null
+                  ? () => onRevealSecret!(results[i])
                   : null,
             ),
           ],
@@ -1229,34 +1232,83 @@ class _DropdownLoading extends StatelessWidget {
 /// One global-search result row: a type badge, a tinted icon circle, the
 /// object name, and a type/vault subtitle. Tapping navigates to the object.
 ///
-/// Entry hits also render a trailing copy action ([onCopySecret]) that
-/// decrypts the entry and copies its secret to the clipboard without
-/// navigating; a small inline spinner replaces the icon while in flight.
+/// Entry hits also render trailing reveal + copy quick actions
+/// ([onRevealSecret]) that decrypt the entry on demand: reveal shows the
+/// secret inline in the subtitle (masked → shown, toggling back on a second
+/// tap), copy writes it to the clipboard — neither navigates. The secret is
+/// decrypted once and cached for the row, so reveal and copy never double-
+/// fetch. A small inline spinner replaces the tapped glyph while in flight.
 class _SearchResultRow extends StatefulWidget {
   const _SearchResultRow({
     required this.result,
     required this.onTap,
-    this.onCopySecret,
+    this.onRevealSecret,
   });
 
   final SearchResultEntity result;
   final VoidCallback onTap;
-  final Future<void> Function()? onCopySecret;
+
+  /// Decrypts + returns the entry's secret (null on failure). Null for
+  /// non-entry hits, which get neither reveal nor copy.
+  final Future<String?> Function()? onRevealSecret;
 
   @override
   State<_SearchResultRow> createState() => _SearchResultRowState();
 }
 
 class _SearchResultRowState extends State<_SearchResultRow> {
-  bool _copying = false;
+  /// Decrypted secret, cached for the row's lifetime so reveal + copy share a
+  /// single fetch. Held in memory only; only shown when [_revealed] is true.
+  String? _secret;
+  bool _revealed = false;
+  bool _copyBusy = false;
+  bool _revealBusy = false;
 
-  Future<void> _copy() async {
-    if (_copying || widget.onCopySecret == null) return;
-    setState(() => _copying = true);
+  bool get _busy => _copyBusy || _revealBusy;
+
+  /// Decrypts the secret on first need and caches it; subsequent calls reuse
+  /// the cached plaintext (no second `revealEntry` round-trip).
+  Future<String?> _ensureSecret() async {
+    if (_secret != null) return _secret;
+    final secret = await widget.onRevealSecret!.call();
+    if (secret != null) _secret = secret;
+    return secret;
+  }
+
+  Future<void> _onCopy() async {
+    if (_busy || widget.onRevealSecret == null) return;
+    setState(() => _copyBusy = true);
     try {
-      await widget.onCopySecret!();
+      final secret = await _ensureSecret();
+      if (secret == null || !mounted) return;
+      await Clipboard.setData(ClipboardData(text: secret));
+      if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(l10n.entryCopied),
+          duration: const Duration(seconds: 1),
+        ));
     } finally {
-      if (mounted) setState(() => _copying = false);
+      if (mounted) setState(() => _copyBusy = false);
+    }
+  }
+
+  Future<void> _onToggleReveal() async {
+    if (_busy || widget.onRevealSecret == null) return;
+    // Hiding is instant — the plaintext stays cached for a later re-reveal.
+    if (_revealed) {
+      setState(() => _revealed = false);
+      return;
+    }
+    setState(() => _revealBusy = true);
+    try {
+      final secret = await _ensureSecret();
+      if (secret == null || !mounted) return;
+      setState(() => _revealed = true);
+    } finally {
+      if (mounted) setState(() => _revealBusy = false);
     }
   }
 
@@ -1267,6 +1319,8 @@ class _SearchResultRowState extends State<_SearchResultRow> {
     final brightness = Theme.of(context).brightness;
     final color = _typeColor(result.type);
     final label = _typeLabel(l10n, result.type);
+    final hasActions = widget.onRevealSecret != null;
+    final showSecret = _revealed && _secret != null;
     final subtitle = result.type == SearchResultType.entry
         ? (result.vaultName ?? label)
         : label;
@@ -1312,25 +1366,44 @@ class _SearchResultRowState extends State<_SearchResultRow> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xxs),
+                  // When revealed, the subtitle carries the decrypted secret
+                  // inline (monospace), mirroring the entries-tab reveal.
                   Text(
-                    subtitle,
+                    showSecret ? _secret! : subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppColors.onSurfaceSubtle(brightness),
-                      fontSize: 11,
-                      height: 1.2,
-                    ),
+                    style: showSecret
+                        ? TextStyle(
+                            color: AppColors.onSurface(brightness),
+                            fontSize: 11,
+                            height: 1.2,
+                            fontFamily: 'monospace',
+                            letterSpacing: 0.5,
+                          )
+                        : TextStyle(
+                            color: AppColors.onSurfaceSubtle(brightness),
+                            fontSize: 11,
+                            height: 1.2,
+                          ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: AppSpacing.innerGap),
-            if (widget.onCopySecret != null) ...[
-              _CopySecretButton(
-                busy: _copying,
+            if (hasActions) ...[
+              _RowActionButton(
+                icon: _revealed ? Icons.visibility_off : Icons.visibility,
+                busy: _revealBusy,
+                tooltip: l10n.vaultRevealValue,
+                onPressed: _onToggleReveal,
+                brightness: brightness,
+              ),
+              const SizedBox(width: AppSpacing.chipGap),
+              _RowActionButton(
+                icon: Icons.content_copy,
+                busy: _copyBusy,
                 tooltip: l10n.vaultCopyValue,
-                onPressed: _copy,
+                onPressed: _onCopy,
                 brightness: brightness,
               ),
               const SizedBox(width: AppSpacing.chipGap),
@@ -1362,16 +1435,19 @@ class _SearchResultRowState extends State<_SearchResultRow> {
       };
 }
 
-/// Trailing copy action for an entry search hit — a content_copy glyph that
-/// swaps to a small spinner while the entry is being decrypted.
-class _CopySecretButton extends StatelessWidget {
-  const _CopySecretButton({
+/// Trailing quick-action for an entry search hit (reveal / copy) — the glyph
+/// swaps to a small spinner while the entry is being decrypted. The 14px
+/// glyph sits inside a comfortable tap target (InkResponse + xs padding).
+class _RowActionButton extends StatelessWidget {
+  const _RowActionButton({
+    required this.icon,
     required this.busy,
     required this.tooltip,
     required this.onPressed,
     required this.brightness,
   });
 
+  final IconData icon;
   final bool busy;
   final String tooltip;
   final VoidCallback onPressed;
@@ -1388,16 +1464,16 @@ class _CopySecretButton extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.xs),
           child: busy
               ? const SizedBox(
-                  width: 16,
-                  height: 16,
+                  width: 14,
+                  height: 14,
                   child: CircularProgressIndicator(
                     strokeWidth: 1.5,
                     color: AppColors.brandRed,
                   ),
                 )
               : Icon(
-                  Icons.content_copy,
-                  size: 16,
+                  icon,
+                  size: 14,
                   color: AppColors.onSurfaceSubtle(brightness),
                 ),
         ),

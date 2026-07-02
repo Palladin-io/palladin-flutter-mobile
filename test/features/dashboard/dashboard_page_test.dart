@@ -261,28 +261,18 @@ void main() {
     });
   });
 
-  group('search result copy-secret', () {
-    testWidgets(
-        "tapping an entry hit's copy action decrypts + copies the secret "
-        'without navigating', (tester) async {
-      final clipboardCalls = <MethodCall>[];
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        (call) async {
-          if (call.method == 'Clipboard.setData') clipboardCalls.add(call);
-          return null;
-        },
-      );
-      addTearDown(() => tester.binding.defaultBinaryMessenger
-          .setMockMethodCallHandler(SystemChannels.platform, null));
+  group('search result reveal + copy', () {
+    const entryHit = SearchResultEntity(
+      type: SearchResultType.entry,
+      id: 'e1',
+      name: 'Stripe',
+      vaultId: 'v1',
+      vaultName: 'Personal',
+    );
 
-      const entryHit = SearchResultEntity(
-        type: SearchResultType.entry,
-        id: 'e1',
-        name: 'Stripe',
-        vaultId: 'v1',
-        vaultName: 'Personal',
-      );
+    /// Stubs an entry search hit + its decrypt, pumps the dashboard, and
+    /// drives the field into a live [SearchResults] state with the hit shown.
+    Future<void> pumpWithEntryHit(WidgetTester tester) async {
       when(() => dashboardRepository.globalSearch(any(),
           limit: any(named: 'limit'))).thenAnswer((_) async => [entryHit]);
 
@@ -312,13 +302,29 @@ void main() {
         privateKey: Uint8List.fromList([1, 2, 3, 4]),
       );
 
-      // Drive the search dropdown into a live result.
       await tester.enterText(find.byType(TextField), 'stripe');
       await tester.pump(); // focus + query
       await tester.pump(const Duration(milliseconds: 300)); // debounce fires
       await tester.pump(); // globalSearch resolves → SearchResults
 
       expect(find.text('Stripe'), findsOneWidget);
+    }
+
+    testWidgets(
+        "tapping an entry hit's copy action decrypts + copies the secret "
+        'without navigating', (tester) async {
+      final clipboardCalls = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') clipboardCalls.add(call);
+          return null;
+        },
+      );
+      addTearDown(() => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null));
+
+      await pumpWithEntryHit(tester);
 
       // Tap the trailing copy action (not the row) — must not navigate.
       await tester.tap(find.byIcon(Icons.content_copy));
@@ -333,6 +339,29 @@ void main() {
           )).called(1);
       expect(clipboardCalls, hasLength(1));
       expect((clipboardCalls.single.arguments as Map)['text'], 's3cr3t');
+    });
+
+    testWidgets(
+        "tapping an entry hit's eye action reveals the decrypted secret "
+        'inline in the row', (tester) async {
+      await pumpWithEntryHit(tester);
+
+      // Before reveal: the secret is masked (subtitle shows the vault name).
+      expect(find.text('s3cr3t'), findsNothing);
+      expect(find.text('Personal'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.visibility));
+      await tester.pump(); // spinner
+      await tester.pump(); // revealEntry resolves → secret shown
+
+      expect(find.text('s3cr3t'), findsOneWidget);
+      expect(find.byIcon(Icons.visibility_off), findsOneWidget);
+      verify(() => entryRepository.revealEntry(
+            vaultId: 'v1',
+            entryId: 'e1',
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+          )).called(1);
     });
   });
 }
