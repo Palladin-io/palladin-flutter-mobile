@@ -575,7 +575,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
             label: l10n.entryEditAction,
             onPressed: _enterEditMode,
           ),
-          const SizedBox(height: AppSpacing.xxxl),
+          const SizedBox(height: AppSpacing.section),
           _DangerZone(
             label: l10n.entryDangerZone,
             deleteLabel: l10n.entryDeleteAction,
