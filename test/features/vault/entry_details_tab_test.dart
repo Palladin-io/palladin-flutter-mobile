@@ -7,6 +7,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
 import 'package:mobile_palladin/features/vault/presentation/cubit/edit_entry_cubit.dart';
+import 'package:mobile_palladin/core/utils/secure_clipboard.dart';
 import 'package:mobile_palladin/features/vault/presentation/pages/entry_details_tab.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 
@@ -87,6 +88,9 @@ void main() {
       (clipboardCalls.single.arguments as Map)['text'],
       secret,
     );
+
+    // Drain SecureClipboard's auto-clear timer so it isn't left pending.
+    await tester.pump(SecureClipboard.defaultClearAfter + const Duration(seconds: 1));
   });
 
   testWidgets('tapping Edit switches the read-only view into the edit form',
