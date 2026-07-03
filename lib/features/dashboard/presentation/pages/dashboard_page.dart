@@ -56,9 +56,10 @@ class _DashboardPageState extends State<DashboardPage> {
     super.initState();
     // Read the audit permission from the app-wide AuthBloc so the cubit only
     // fetches the Recent Activity feed for users who can actually see it
-    // (others would get a 403).
+    // (others would get a 403). The userId scopes the onboarding skip flags
+    // so one account's dismissal never hides onboarding for another account.
     _cubit = getIt<DashboardCubit>()
-      ..load(canViewAudit: _canViewAudit(context));
+      ..load(canViewAudit: _canViewAudit(context), userId: _userId(context));
   }
 
   /// Whether the authenticated user holds the `auditView` permission.
@@ -66,6 +67,14 @@ class _DashboardPageState extends State<DashboardPage> {
     final auth = context.read<AuthBloc>().state;
     final permissions = auth is AuthAuthenticated ? auth.permissions : 0;
     return (permissions & Permissions.auditView) != 0;
+  }
+
+  /// The authenticated user's id, used to scope the persisted onboarding /
+  /// notification skip flags. `null` when unauthenticated — the cubit then
+  /// falls back to showing onboarding rather than reading a device-wide flag.
+  static String? _userId(BuildContext context) {
+    final auth = context.read<AuthBloc>().state;
+    return auth is AuthAuthenticated ? auth.userId : null;
   }
 
   @override
@@ -351,6 +360,7 @@ class _DashboardViewState extends State<_DashboardView> {
     if (!mounted) return;
     context.read<DashboardCubit>().load(
           canViewAudit: _DashboardPageState._canViewAudit(context),
+          userId: _DashboardPageState._userId(context),
         );
   }
 
@@ -367,6 +377,7 @@ class _DashboardViewState extends State<_DashboardView> {
     _showSnack(messenger, l10n.dashboardRequestRejected);
     context.read<DashboardCubit>().load(
           canViewAudit: _DashboardPageState._canViewAudit(context),
+          userId: _DashboardPageState._userId(context),
         );
   }
 
@@ -691,11 +702,17 @@ class _DashboardViewState extends State<_DashboardView> {
                 status: status,
                 notificationStepDone: notificationStepDone,
                 notificationPermissionDenied: notificationPermissionDenied,
-                onSkipSetup: () => context.read<DashboardCubit>().skipSetup(),
+                onSkipSetup: () => context.read<DashboardCubit>().skipSetup(
+                      _DashboardPageState._userId(context),
+                    ),
                 onEnableNotifications: () =>
-                    context.read<DashboardCubit>().enableNotifications(),
+                    context.read<DashboardCubit>().enableNotifications(
+                          _DashboardPageState._userId(context),
+                        ),
                 onSkipNotification: () =>
-                    context.read<DashboardCubit>().skipNotificationStep(),
+                    context.read<DashboardCubit>().skipNotificationStep(
+                          _DashboardPageState._userId(context),
+                        ),
                 onVaultCta: _onVaultCta,
                 onApiKeyCta: _onApiKeyCta,
                 onAgentCta: _onAgentCta,
@@ -781,9 +798,10 @@ class _DashboardViewState extends State<_DashboardView> {
         SliverFillRemaining(
           hasScrollBody: false,
           child: _ErrorView(
-            onRetry: () => context
-                .read<DashboardCubit>()
-                .load(canViewAudit: hasAuditView),
+            onRetry: () => context.read<DashboardCubit>().load(
+                  canViewAudit: hasAuditView,
+                  userId: _DashboardPageState._userId(context),
+                ),
           ),
         ),
       ],

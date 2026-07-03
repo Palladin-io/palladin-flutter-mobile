@@ -71,7 +71,7 @@ class _FakeDashboardCubit extends DashboardCubit {
   int loadCount = 0;
 
   @override
-  Future<void> load({bool canViewAudit = false}) async {
+  Future<void> load({bool canViewAudit = false, String? userId}) async {
     loadCount++;
     emit(_seed);
   }

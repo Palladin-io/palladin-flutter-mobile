@@ -40,11 +40,36 @@ class DashboardCubit extends Cubit<DashboardState> {
   /// How many recent audit-log rows the Home "Recent Activity" section shows.
   static const int _recentActivityLimit = 6;
 
-  /// Persisted flag: the user dismissed the onboarding checklist entirely.
+  /// Persisted-flag base key: the user dismissed the onboarding checklist.
+  /// Scoped per user via [_scopedKey] so a skip made by one account never
+  /// hides onboarding for a different account signing in on the same device.
   static const String _kOnboardingSkipped = 'onboarding_skipped';
 
-  /// Persisted flag: the notifications step was enabled or skipped.
+  /// Persisted-flag base key: the notifications step was enabled or skipped.
+  /// Scoped per user via [_scopedKey] (see [_kOnboardingSkipped]).
   static const String _kNotificationSkipped = 'notification_step_skipped';
+
+  /// Builds the per-user SharedPreferences key for a skip flag, e.g.
+  /// `onboarding_skipped:{userId}`. Keying by [userId] is the whole fix:
+  /// device-wide flags previously leaked one account's dismissal onto every
+  /// subsequent account.
+  static String _scopedKey(String base, String userId) => '$base:$userId';
+
+  /// Best-effort removal of the legacy device-wide (unscoped) skip flags so no
+  /// stale global state lingers once a user has migrated to the per-user keys.
+  /// Not required for correctness — the unscoped keys are simply never read
+  /// anymore — but this self-heals the store on the next load.
+  Future<void> _dropLegacyFlags(SharedPreferences? prefs) async {
+    if (prefs == null) return;
+    // Fast path — only touch storage on the rare devices that still carry the
+    // pre-per-user global keys, instead of removing on every load().
+    if (prefs.containsKey(_kOnboardingSkipped)) {
+      await prefs.remove(_kOnboardingSkipped);
+    }
+    if (prefs.containsKey(_kNotificationSkipped)) {
+      await prefs.remove(_kNotificationSkipped);
+    }
+  }
 
   /// Loads the home tab.
   ///
@@ -52,13 +77,20 @@ class DashboardCubit extends Cubit<DashboardState> {
   /// [AuthBloc] at the page). Only when it is `true` does [load] fetch the
   /// recent org audit-log feed for the "Recent Activity" section — callers
   /// without the permission would get a 403, so we never ask.
-  Future<void> load({bool canViewAudit = false}) async {
+  ///
+  /// [userId] scopes the persisted onboarding/notification skip flags to the
+  /// authenticated user. When it is `null` (no authenticated user resolvable)
+  /// we deliberately fall back to "not skipped" — showing onboarding — rather
+  /// than reading any device-wide key, so onboarding is never hidden without a
+  /// matching per-user flag.
+  Future<void> load({bool canViewAudit = false, String? userId}) async {
     emit(const DashboardLoading());
     try {
       // Prefs holds only best-effort UI flags — a plugin/platform-channel
       // hiccup must never blank the whole home, so read defensively and fall
       // back to "not skipped".
       final prefs = await _tryPrefs();
+      await _dropLegacyFlags(prefs);
 
       final recentEntries = await _loadRecentEntriesOrEmpty();
       final recentActivity = await _loadRecentActivityOrEmpty(canViewAudit);
@@ -74,7 +106,9 @@ class DashboardCubit extends Cubit<DashboardState> {
       final unknownGrant = _firstUnknownAgentGrant();
       final pendingCount = pendingGrantsCubit.state.grants.length;
 
-      final skipped = prefs?.getBool(_kOnboardingSkipped) ?? false;
+      // No userId → no per-user key to read → never treat as skipped.
+      final skipped = userId != null &&
+          (prefs?.getBool(_scopedKey(_kOnboardingSkipped, userId)) ?? false);
       if (skipped) {
         emit(
           unknownGrant != null
@@ -111,7 +145,9 @@ class DashboardCubit extends Cubit<DashboardState> {
       }
 
       if (!status.isSetupComplete) {
-        final prefsDone = prefs?.getBool(_kNotificationSkipped) ?? false;
+        final prefsDone = userId != null &&
+            (prefs?.getBool(_scopedKey(_kNotificationSkipped, userId)) ??
+                false);
 
         // Check live OS permission — the user may have granted it from outside
         // the app (e.g., via Settings). If already authorized the step is done
@@ -232,10 +268,14 @@ class DashboardCubit extends Cubit<DashboardState> {
     }
   }
 
-  /// Marks the notifications step as skipped and refreshes the checklist.
-  Future<void> skipNotificationStep() async {
+  /// Marks the notifications step as skipped (for [userId]) and refreshes the
+  /// checklist. A `null` [userId] cannot be persisted, so the step is advanced
+  /// for this session only — the next [load] shows it again.
+  Future<void> skipNotificationStep(String? userId) async {
     final prefs = await _tryPrefs();
-    await prefs?.setBool(_kNotificationSkipped, true);
+    if (userId != null) {
+      await prefs?.setBool(_scopedKey(_kNotificationSkipped, userId), true);
+    }
     _markNotificationStepDone();
   }
 
@@ -248,7 +288,7 @@ class DashboardCubit extends Cubit<DashboardState> {
   ///   The step is NOT marked done — the next [load] call picks up the change
   ///   if the user returns with notifications enabled.
   /// - If dismissed / notDetermined: no-op (user can tap again later).
-  Future<void> enableNotifications() async {
+  Future<void> enableNotifications(String? userId) async {
     final status = await notificationPermissionService.requestPermission();
 
     if (status == NotificationPermissionStatus.authorized) {
@@ -256,7 +296,9 @@ class DashboardCubit extends Cubit<DashboardState> {
         analytics.capture('dashboard', 'onboarding-notifications-enabled'),
       );
       final prefs = await _tryPrefs();
-      await prefs?.setBool(_kNotificationSkipped, true);
+      if (userId != null) {
+        await prefs?.setBool(_scopedKey(_kNotificationSkipped, userId), true);
+      }
       _markNotificationStepDone();
     } else if (status == NotificationPermissionStatus.denied) {
       // iOS: the native prompt will not appear again. Send the user to
@@ -273,10 +315,14 @@ class DashboardCubit extends Cubit<DashboardState> {
     // notDetermined: dialog was dismissed without a decision — do nothing.
   }
 
-  /// Dismisses the onboarding checklist for good.
-  Future<void> skipSetup() async {
+  /// Dismisses the onboarding checklist for good (for [userId]). A `null`
+  /// [userId] cannot be persisted, so the checklist is dismissed for this
+  /// session only — the next [load] shows it again.
+  Future<void> skipSetup(String? userId) async {
     final prefs = await _tryPrefs();
-    await prefs?.setBool(_kOnboardingSkipped, true);
+    if (userId != null) {
+      await prefs?.setBool(_scopedKey(_kOnboardingSkipped, userId), true);
+    }
     unawaited(analytics.capture('dashboard', 'onboarding-skipped'));
     emit(const DashboardLoaded());
   }
@@ -292,9 +338,9 @@ class DashboardCubit extends Cubit<DashboardState> {
 
   /// Fired when the full onboarding is completed; reloads to drop the
   /// checklist in favour of the normal dashboard.
-  Future<void> onOnboardingCompleted() async {
+  Future<void> onOnboardingCompleted({String? userId}) async {
     unawaited(analytics.capture('dashboard', 'onboarding-completed'));
-    await load();
+    await load(userId: userId);
   }
 
   /// Re-emits the current onboarding state with the notifications step
