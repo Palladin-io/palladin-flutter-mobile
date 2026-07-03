@@ -6,17 +6,22 @@ import 'package:logger/logger.dart';
 /// Wraps the `logger` package with a static API for convenient tagged logging.
 /// In debug builds, uses [PrettyPrinter] with colors and method info.
 ///
-/// In release builds ALL logging is silenced. A bare [ProductionFilter] still
-/// emits warning/error level records (its threshold defaults to the global
-/// `Logger.level`), which on a zero-knowledge app risks leaking diagnostic
-/// payloads to the device log — so we pin the release filter to [Level.off].
+/// Filter is tri-state, because a profile build can still reach a device
+/// (QA / TestFlight):
+///  - **release** — ALL logging silenced ([Level.off]). A bare
+///    [ProductionFilter] would still emit warning/error records (its threshold
+///    defaults to the global `Logger.level`), which on a zero-knowledge app
+///    risks leaking diagnostic payloads to the device log.
+///  - **profile** — [ProductionFilter] (warning+ only), never the full debug
+///    stream, so a stray profile build can't dump verbose logs.
+///  - **debug** — [DevelopmentFilter] (full logs) for local development.
 class AppLogger {
   AppLogger._();
 
   static final Logger _logger = Logger(
     filter: kReleaseMode
         ? (ProductionFilter()..level = Level.off)
-        : DevelopmentFilter(),
+        : (kDebugMode ? DevelopmentFilter() : ProductionFilter()),
     printer: PrettyPrinter(
       methodCount: 1,
       lineLength: 80,

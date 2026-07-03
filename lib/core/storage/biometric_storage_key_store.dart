@@ -108,7 +108,7 @@ class BiometricStorageKeyStore implements BiometricKeyStore {
       iOptions: BiometricKeyStorage.iosOptions,
       aOptions: BiometricKeyStorage.androidOptions,
     );
-    await _deleteLegacyRawKey();
+    await purgeLegacyRawKey();
   }
 
   @override
@@ -145,7 +145,8 @@ class BiometricStorageKeyStore implements BiometricKeyStore {
     await BiometricKeyStorage.clear(_markerStorage);
   }
 
-  Future<void> _deleteLegacyRawKey() async {
+  @override
+  Future<void> purgeLegacyRawKey() async {
     try {
       await _markerStorage.delete(
         key: BiometricKeyStorage.legacyRawKey,
@@ -163,9 +164,11 @@ class BiometricStorageKeyStore implements BiometricKeyStore {
       AuthExceptionCode.canceled =>
         BiometricAuthFailureReason.canceled,
       AuthExceptionCode.timeout => BiometricAuthFailureReason.failed,
-      AuthExceptionCode.linuxAppArmorDenied ||
-      AuthExceptionCode.unknown =>
-        BiometricAuthFailureReason.unavailable,
+      // Catch-all fails closed to `unavailable`. `biometric_storage` is an
+      // external plugin, so a minor bump adding a new AuthExceptionCode must
+      // not break compilation — the wildcard also covers the current
+      // `unknown` and `linuxAppArmorDenied` codes.
+      _ => BiometricAuthFailureReason.unavailable,
     };
   }
 }

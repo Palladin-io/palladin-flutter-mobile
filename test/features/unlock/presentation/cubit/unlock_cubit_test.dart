@@ -45,6 +45,8 @@ void main() {
     datasource = _MockAccountDatasource();
     crypto = _MockCryptoService();
     keyStore = _MockKeyStore();
+    // Legacy-key purge runs on every password unlock — default it to a no-op.
+    when(() => keyStore.purgeLegacyRawKey()).thenAnswer((_) async {});
   });
 
   /// Default enrollment stubs: device supports biometric storage and nothing
@@ -127,6 +129,25 @@ void main() {
       act: (cubit) => cubit.unlock('pw', biometricCopy: copy),
       expect: () => [isA<UnlockLoading>(), isA<UnlockSuccess>()],
       verify: (_) {
+        verifyNever(() => keyStore.enroll(any(), any()));
+      },
+    );
+
+    blocTest<UnlockCubit, UnlockState>(
+      'unlock purges the legacy raw MK even when the device cannot store a '
+      'biometric key (CVT-199 upgrade path)',
+      build: () {
+        when(() => keyStore.isEnrolled()).thenAnswer((_) async => false);
+        when(() => keyStore.canStore()).thenAnswer((_) async => false);
+        stubPasswordUnlockSuccess();
+        return buildCubit();
+      },
+      act: (cubit) => cubit.unlock('pw', biometricCopy: copy),
+      expect: () => [isA<UnlockLoading>(), isA<UnlockSuccess>()],
+      verify: (_) {
+        // Purge must run before the canStore() guard bails out; enrollment
+        // itself is correctly skipped on a non-biometric device.
+        verify(() => keyStore.purgeLegacyRawKey()).called(1);
         verifyNever(() => keyStore.enroll(any(), any()));
       },
     );

@@ -65,6 +65,9 @@ class CertificatePinningService {
   ///   subject, subjectPublicKeyInfo, ... }
   static Uint8List _subjectPublicKeyInfo(Uint8List der) {
     final certificate = _readElement(der, 0); // outer SEQUENCE
+    if (certificate.tag != 0x30) {
+      throw const FormatException('Certificate is not a SEQUENCE');
+    }
     final tbs = _readElement(der, certificate.contentStart); // tbsCertificate
     var offset = tbs.contentStart;
 

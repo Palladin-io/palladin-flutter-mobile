@@ -100,6 +100,18 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     final obscured = state != AppLifecycleState.resumed;
     if (obscured != _obscured) {
       setState(() => _obscured = obscured);
+      if (obscured) {
+        // iOS may snapshot the app-switcher between applicationWillResignActive
+        // and applicationDidEnterBackground — i.e. before Flutter paints the
+        // setState above (which only schedules a frame for the next vsync).
+        // Force a frame now to render the cover as early as possible. This
+        // NARROWS but does not fully close the window: a hard guarantee needs a
+        // native applicationWillResignActive platform-channel hook that paints
+        // the cover synchronously (tracked for on-device QA, CVT-214). We
+        // deliberately do NOT use Android FLAG_SECURE (it also blocks the
+        // user's own legitimate screenshots).
+        WidgetsBinding.instance.scheduleWarmUpFrame();
+      }
     }
 
     // On returning to the foreground, re-open the real-time channel (idempotent)

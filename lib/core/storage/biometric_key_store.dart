@@ -93,4 +93,15 @@ abstract interface class BiometricKeyStore {
   /// Removes the enrolled key + marker (and any legacy raw key). Best-effort
   /// — never throws, never prompts.
   Future<void> clear();
+
+  /// Deletes the pre-hardening raw master key (the CVT-199 legacy key written
+  /// directly to `flutter_secure_storage`) if it is still present.
+  ///
+  /// Best-effort — never throws, never prompts. Independent of biometric
+  /// availability: it MUST run even on devices that cannot store a
+  /// biometric-gated key (`canStore() == false`), otherwise an upgrading user
+  /// on a non-biometric device would keep the raw MK on disk until logout.
+  /// A no-op once the legacy key is gone, so it is safe to call on every
+  /// unlock.
+  Future<void> purgeLegacyRawKey();
 }

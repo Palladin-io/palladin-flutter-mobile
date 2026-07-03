@@ -98,6 +98,13 @@ class UnlockCubit extends Cubit<UnlockState> {
     Uint8List masterKey,
     BiometricPromptCopy copy,
   ) async {
+    // Purge the pre-hardening raw MK FIRST, unconditionally — before the
+    // isEnrolled()/canStore() guards. On a non-biometric device canStore()
+    // returns false and we bail out before enrollment; if the purge lived only
+    // inside enroll(), an upgrading user on such a device would keep the raw MK
+    // on disk until logout, partially undoing CVT-199. Best-effort; never
+    // blocks unlock.
+    await keyStore.purgeLegacyRawKey();
     try {
       if (await keyStore.isEnrolled()) return;
       if (!await keyStore.canStore()) return;
