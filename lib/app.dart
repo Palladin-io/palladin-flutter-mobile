@@ -11,6 +11,7 @@ import 'core/router/app_router.dart';
 import 'core/storage/user_preferences.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/theme_cubit.dart';
+import 'core/widgets/privacy_cover.dart';
 import 'features/agents/presentation/bloc/agents_cubit.dart';
 import 'features/approval/presentation/cubit/pending_grants_cubit.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
@@ -58,6 +59,10 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final NotificationSignalRService _signalR =
       getIt<NotificationSignalRService>();
 
+  /// Whether the app is backgrounded/inactive — drives the [PrivacyCover] so
+  /// the OS app-switcher snapshot never captures vault contents (CVT-214).
+  bool _obscured = false;
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +94,14 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Cover the UI whenever we leave the foreground so the OS app-switcher
+    // snapshot (taken on iOS resignActive / Android onPause) shows the brand
+    // cover, not the open vault. Revealed again only on `resumed`.
+    final obscured = state != AppLifecycleState.resumed;
+    if (obscured != _obscured) {
+      setState(() => _obscured = obscured);
+    }
+
     // On returning to the foreground, re-open the real-time channel (idempotent)
     // and quietly refresh live lists so anything that changed while backgrounded
     // (and any events missed while the socket was suspended) shows up.
@@ -200,6 +213,16 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               routerConfig: _router,
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
+              builder: (context, child) {
+                // Overlay the privacy cover above the whole navigator (incl.
+                // dialogs/sheets) while backgrounded.
+                return Stack(
+                  children: [
+                    ?child,
+                    if (_obscured) const PrivacyCover(),
+                  ],
+                );
+              },
             );
           },
         ),
