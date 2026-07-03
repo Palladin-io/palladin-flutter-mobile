@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/storage/biometric_key_store.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/brand_hero.dart';
@@ -234,17 +235,31 @@ class _UnlockViewState extends State<_UnlockView> {
     );
   }
 
+  /// Localized OS-prompt strings for the enclave-bound biometric store.
+  /// Built here (where `AppLocalizations` is available) and threaded down —
+  /// the data/core layer stays free of hardcoded user-facing text.
+  BiometricPromptCopy _biometricCopy(AppLocalizations l10n) => BiometricPromptCopy(
+        promptTitle: l10n.unlockBiometricPromptTitle,
+        enrollTitle: l10n.unlockBiometricEnrollPrompt,
+        accessTitle: l10n.unlockBiometricPrompt,
+        cancelLabel: l10n.vaultCancel,
+      );
+
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
-    await context.read<UnlockCubit>().unlock(_passwordController.text);
+    final l10n = AppLocalizations.of(context)!;
+    await context.read<UnlockCubit>().unlock(
+          _passwordController.text,
+          biometricCopy: _biometricCopy(l10n),
+        );
   }
 
   Future<void> _tryBiometrics() async {
     FocusScope.of(context).unfocus();
     final l10n = AppLocalizations.of(context)!;
     await context.read<UnlockCubit>().unlockWithBiometrics(
-      localizedReason: l10n.unlockBiometricPrompt,
-    );
+          copy: _biometricCopy(l10n),
+        );
   }
 
   void _handleStateChange(BuildContext context, UnlockState state) {

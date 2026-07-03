@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
+import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/app_logger.dart';
@@ -1394,7 +1395,7 @@ class _SearchResultRowState extends State<_SearchResultRow> {
   }
 
   Future<void> _copyValue(String value) async {
-    await Clipboard.setData(ClipboardData(text: value));
+    await SecureClipboard.copy(value);
     if (!mounted) return;
     final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context)

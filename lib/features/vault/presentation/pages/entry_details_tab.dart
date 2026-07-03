@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
@@ -173,7 +174,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
   // ── Copy / clipboard ───────────────────────────────────────────────
 
   Future<void> _copy(String value, String field) async {
-    await Clipboard.setData(ClipboardData(text: value));
+    await SecureClipboard.copy(value);
     if (!mounted) return;
     final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context)

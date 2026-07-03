@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
@@ -96,7 +96,7 @@ class _GenerateApiKeySheetState extends State<GenerateApiKeySheet> {
   Future<void> _copyKey() async {
     final key = _newKey;
     if (key == null) return;
-    await Clipboard.setData(ClipboardData(text: key.plaintext));
+    await SecureClipboard.copy(key.plaintext);
     if (!mounted) return;
     final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context)
@@ -274,7 +274,7 @@ class _RevealPhaseState extends State<_RevealPhase> {
       'palladin connect ${widget.newKey.plaintext} --id "$_agentId"';
 
   Future<void> _copy(String text) async {
-    await Clipboard.setData(ClipboardData(text: text));
+    await SecureClipboard.copy(text);
     if (!mounted) return;
     final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context)

@@ -11,6 +11,7 @@ import 'core/router/app_router.dart';
 import 'core/storage/user_preferences.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/theme_cubit.dart';
+import 'core/widgets/privacy_cover.dart';
 import 'features/agents/presentation/bloc/agents_cubit.dart';
 import 'features/approval/presentation/cubit/pending_grants_cubit.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
@@ -58,6 +59,10 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final NotificationSignalRService _signalR =
       getIt<NotificationSignalRService>();
 
+  /// Backgrounded/inactive — drives the [PrivacyCover] over the app-switcher
+  /// snapshot.
+  bool _obscured = false;
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +94,17 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final obscured = state != AppLifecycleState.resumed;
+    if (obscured != _obscured) {
+      setState(() => _obscured = obscured);
+      if (obscured) {
+        // Force an early frame so the cover paints before the OS snapshots the
+        // app-switcher. No FLAG_SECURE by design — it would also block the
+        // user's own screenshots.
+        WidgetsBinding.instance.scheduleWarmUpFrame();
+      }
+    }
+
     // On returning to the foreground, re-open the real-time channel (idempotent)
     // and quietly refresh live lists so anything that changed while backgrounded
     // (and any events missed while the socket was suspended) shows up.
@@ -200,6 +216,14 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               routerConfig: _router,
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
+              builder: (context, child) {
+                return Stack(
+                  children: [
+                    ?child,
+                    if (_obscured) const PrivacyCover(),
+                  ],
+                );
+              },
             );
           },
         ),

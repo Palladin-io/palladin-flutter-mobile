@@ -22,7 +22,8 @@ android {
 
     defaultConfig {
         applicationId = "io.palladin.mobile"
-        minSdk = flutter.minSdkVersion
+        // API 23+ required for biometric-bound Keystore keys (biometric unlock).
+        minSdk = maxOf(23, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

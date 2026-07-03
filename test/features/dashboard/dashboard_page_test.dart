@@ -8,6 +8,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
 import 'package:mobile_palladin/core/permissions.dart';
+import 'package:mobile_palladin/core/utils/secure_clipboard.dart';
 import 'package:mobile_palladin/features/agents/domain/repositories/agents_repository.dart';
 import 'package:mobile_palladin/features/approval/domain/repositories/approval_repository.dart';
 import 'package:mobile_palladin/features/approval/presentation/cubit/grant_approval_cubit.dart';
@@ -383,6 +384,9 @@ void main() {
           )).called(1);
       expect(clipboardCalls, hasLength(1));
       expect((clipboardCalls.single.arguments as Map)['text'], 's3cr3t');
+
+      // Drain SecureClipboard's auto-clear timer so it isn't left pending.
+      await tester.pump(SecureClipboard.defaultClearAfter + const Duration(seconds: 1));
     });
 
     testWidgets(

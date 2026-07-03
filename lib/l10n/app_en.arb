@@ -242,6 +242,14 @@
   "@unlockBiometricPrompt": {
     "description": "Localized reason passed to the OS biometric prompt"
   },
+  "unlockBiometricPromptTitle": "Unlock Palladin",
+  "@unlockBiometricPromptTitle": {
+    "description": "Android BiometricPrompt title for the biometric unlock/enroll dialog"
+  },
+  "unlockBiometricEnrollPrompt": "Confirm to enable biometric unlock",
+  "@unlockBiometricEnrollPrompt": {
+    "description": "Reason shown when enrolling the master key into biometric-gated storage"
+  },
   "unlockBiometricUnavailable": "Biometric unlock is not set up on this device. Enter your master password.",
   "@unlockBiometricUnavailable": {
     "description": "Error when no MK has been stashed yet for biometric unlock"

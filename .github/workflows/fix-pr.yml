@@ -1,5 +1,7 @@
 name: "Claude Code: Fix PR"
 
+# Manual-trigger only: has contents:write and pushes commits, so a maintainer
+# must trigger it and review the fix commits. Bash allowlist scoped, no wildcards.
 on:
   workflow_dispatch:
     inputs:
@@ -102,5 +104,5 @@ jobs:
             --model "$CLAUDE_MODEL" \
             --max-turns 120 \
             --dangerously-skip-permissions \
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(gh:*),Bash(jq:*),Bash(git:*),Bash(flutter:*)" \
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(jq:*),Bash(gh pr:*),Bash(gh api:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git checkout:*),Bash(git switch:*),Bash(git restore:*),Bash(git config:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(flutter pub get),Bash(flutter analyze),Bash(flutter test),Bash(flutter gen-l10n)" \
             < /tmp/fix_prompt.md

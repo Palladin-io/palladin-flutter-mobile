@@ -194,6 +194,13 @@ class AppLocalizationsPl extends AppLocalizations {
   String get unlockBiometricPrompt => 'Uwierzytelnij się, aby odblokować sejf';
 
   @override
+  String get unlockBiometricPromptTitle => 'Odblokuj Palladin';
+
+  @override
+  String get unlockBiometricEnrollPrompt =>
+      'Potwierdź, aby włączyć odblokowanie biometryczne';
+
+  @override
   String get unlockBiometricUnavailable =>
       'Odblokowanie biometryczne nie jest jeszcze skonfigurowane. Wpisz hasło główne.';
 

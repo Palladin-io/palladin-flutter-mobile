@@ -75,6 +75,8 @@ import '../../features/vault/presentation/cubit/entry_list_cubit.dart';
 import '../../features/vault/presentation/cubit/vault_detail_cubit.dart';
 import '../../features/vault/presentation/cubit/vault_list_cubit.dart';
 import '../network/api_client.dart';
+import '../storage/biometric_key_store.dart';
+import '../storage/biometric_storage_key_store.dart';
 import '../storage/secure_token_storage.dart';
 
 /// Global service locator instance.
@@ -93,6 +95,14 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerLazySingleton<SecureTokenStorage>(
     () => SecureTokenStorage(getIt<FlutterSecureStorage>()),
+  );
+  // Enclave-bound, biometric-gated store for the master key (biometric
+  // unlock). Never holds the raw MK in a form readable without a fresh
+  // biometric authentication — see BiometricStorageKeyStore.
+  getIt.registerLazySingleton<BiometricKeyStore>(
+    () => BiometricStorageKeyStore(
+      markerStorage: getIt<FlutterSecureStorage>(),
+    ),
   );
 
   // Network
@@ -135,7 +145,6 @@ void configureDependencies(EnvConfig config) {
       // resolves lazily so ordering in this file does not matter.
       vaultCryptoService: getIt<VaultCryptoService>(),
       tokenStorage: getIt<SecureTokenStorage>(),
-      secureStorage: getIt<FlutterSecureStorage>(),
     ),
   );
 
@@ -157,7 +166,7 @@ void configureDependencies(EnvConfig config) {
     () => UnlockCubit(
       datasource: getIt<AccountRemoteDatasource>(),
       cryptoService: getIt<UnlockCryptoService>(),
-      secureStorage: getIt<FlutterSecureStorage>(),
+      keyStore: getIt<BiometricKeyStore>(),
     ),
   );
 

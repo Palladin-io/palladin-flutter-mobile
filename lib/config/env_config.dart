@@ -15,6 +15,7 @@ class EnvConfig {
     required this.posthogKey,
     required this.posthogHost,
     required this.googleServerClientId,
+    this.certificatePins = const [],
   });
 
   final AppFlavor flavor;
@@ -25,6 +26,10 @@ class EnvConfig {
   /// Google OAuth web client ID used as `serverClientId` in GoogleSignIn.
   /// Ensures the ID token audience matches what the backend validates against.
   final String googleServerClientId;
+
+  /// Base64 SHA-256 SPKI pins; empty = pinning disabled. Always ship a backup
+  /// pin before switching the server cert.
+  final List<String> certificatePins;
 
   /// Local development environment targeting `localhost:5000`.
   ///
@@ -64,6 +69,8 @@ class EnvConfig {
       posthogKey: '', // TODO: Add PostHog production project key
       posthogHost: 'https://app.posthog.com',
       googleServerClientId: '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
+      // Empty until the production certificate is issued (pinning disabled).
+      certificatePins: [],
     );
   }
 

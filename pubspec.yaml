@@ -65,6 +65,9 @@ dependencies:
   # Foreground notification banner (Android heads-up; iOS shows natively)
   flutter_local_notifications: ^18.0.1
 
+  # SHA-256 for TLS SPKI certificate pinning (CVT-213)
+  crypto: ^3.0.6
+
   # Logging
   logger: ^2.5.0
 
@@ -77,6 +80,12 @@ dependencies:
   # Opens system app-settings page (used to direct users to Notification
   # settings when the OS permission has been denied and cannot be re-prompted).
   app_settings: ^5.1.1
+
+  # Enclave-bound, biometric-gated master-key storage for biometric unlock
+  # (CVT-199). iOS SecAccessControl .biometryCurrentSet / Android Keystore
+  # setUserAuthenticationRequired — the MK is never stored where it can be
+  # read without a fresh biometric authentication.
+  biometric_storage: ^5.0.1
 
 dev_dependencies:
   flutter_test:

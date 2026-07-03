@@ -194,6 +194,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unlockBiometricPrompt => 'Authenticate to unlock your vault';
 
   @override
+  String get unlockBiometricPromptTitle => 'Unlock Palladin';
+
+  @override
+  String get unlockBiometricEnrollPrompt =>
+      'Confirm to enable biometric unlock';
+
+  @override
   String get unlockBiometricUnavailable =>
       'Biometric unlock is not set up on this device. Enter your master password.';
 

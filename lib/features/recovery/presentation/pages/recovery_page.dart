@@ -10,6 +10,7 @@ import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
@@ -701,7 +702,7 @@ class _SaveNewKeyStep extends StatelessWidget {
     BuildContext context,
     AppLocalizations l10n,
   ) async {
-    await Clipboard.setData(ClipboardData(text: mnemonic.join(' ')));
+    await SecureClipboard.copy(mnemonic.join(' '));
     if (!context.mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
