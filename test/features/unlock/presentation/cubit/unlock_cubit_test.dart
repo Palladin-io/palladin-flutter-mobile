@@ -1,13 +1,11 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:local_auth/local_auth.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:mobile_palladin/core/storage/biometric_key_store.dart';
 import 'package:mobile_palladin/features/unlock/data/datasources/account_remote_datasource.dart';
 import 'package:mobile_palladin/features/unlock/data/models/account_response.dart';
 import 'package:mobile_palladin/features/unlock/data/services/unlock_crypto_service.dart';
@@ -18,15 +16,12 @@ class _MockAccountDatasource extends Mock implements AccountRemoteDatasource {}
 
 class _MockCryptoService extends Mock implements UnlockCryptoService {}
 
-class _MockSecureStorage extends Mock implements FlutterSecureStorage {}
-
-class _MockLocalAuth extends Mock implements LocalAuthentication {}
+class _MockKeyStore extends Mock implements BiometricKeyStore {}
 
 void main() {
   late _MockAccountDatasource datasource;
   late _MockCryptoService crypto;
-  late _MockSecureStorage storage;
-  late _MockLocalAuth auth;
+  late _MockKeyStore keyStore;
 
   final masterKey = Uint8List.fromList(List.filled(32, 0xAA));
   final privateKey = Uint8List.fromList(List.filled(32, 0xBB));
@@ -34,38 +29,49 @@ void main() {
     salt: 'c2FsdC1pcy1zaXh0ZWVuISE=', // 16 bytes of arbitrary base64
     encryptedPrivateKey: 'ZW5jcnlwdGVk',
   );
+  const copy = BiometricPromptCopy(
+    promptTitle: 'title',
+    enrollTitle: 'enroll',
+    accessTitle: 'access',
+    cancelLabel: 'cancel',
+  );
 
   setUpAll(() {
-    registerFallbackValue(const IOSOptions());
-    registerFallbackValue(const AndroidOptions());
-    registerFallbackValue(const AuthenticationOptions());
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(copy);
   });
 
   setUp(() {
     datasource = _MockAccountDatasource();
     crypto = _MockCryptoService();
-    storage = _MockSecureStorage();
-    auth = _MockLocalAuth();
+    keyStore = _MockKeyStore();
   });
 
-  /// Stub `secureStorage.write` with a success response. Kept per-test
-  /// because mocktail's `any(named: ...)` matchers leak across `when`
-  /// blocks if declared in a shared setUp.
-  void stubStorageWriteSuccess() {
-    when(() => storage.write(
-          key: any(named: 'key'),
-          value: any(named: 'value'),
-          iOptions: any(named: 'iOptions'),
-          aOptions: any(named: 'aOptions'),
-        )).thenAnswer((_) async {});
+  /// Default enrollment stubs: device supports biometric storage and nothing
+  /// is enrolled yet, so the first password unlock enrolls the MK.
+  void stubEnrollmentReady() {
+    when(() => keyStore.isEnrolled()).thenAnswer((_) async => false);
+    when(() => keyStore.canStore()).thenAnswer((_) async => true);
+    when(() => keyStore.enroll(any(), any())).thenAnswer((_) async {});
+  }
+
+  void stubPasswordUnlockSuccess() {
+    when(() => datasource.getAccount())
+        .thenAnswer((_) async => accountResponse);
+    when(() => crypto.deriveAndDecrypt(
+          masterPassword: any(named: 'masterPassword'),
+          saltBase64: any(named: 'saltBase64'),
+          encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+        )).thenAnswer((_) async => UnlockResult(
+          masterKey: masterKey,
+          privateKey: privateKey,
+        ));
   }
 
   UnlockCubit buildCubit() => UnlockCubit(
         datasource: datasource,
         cryptoService: crypto,
-        secureStorage: storage,
-        localAuth: auth,
+        keyStore: keyStore,
       );
 
   group('UnlockCubit', () {
@@ -76,23 +82,14 @@ void main() {
     });
 
     blocTest<UnlockCubit, UnlockState>(
-      'unlock emits [Loading, Success] and stashes MK on correct password',
+      'unlock emits [Loading, Success] and enrolls MK on correct password',
       build: () {
-        stubStorageWriteSuccess();
-        when(() => datasource.getAccount())
-            .thenAnswer((_) async => accountResponse);
-        when(() => crypto.deriveAndDecrypt(
-              masterPassword: any(named: 'masterPassword'),
-              saltBase64: any(named: 'saltBase64'),
-              encryptedPrivateKeyBase64:
-                  any(named: 'encryptedPrivateKeyBase64'),
-            )).thenAnswer((_) async => UnlockResult(
-              masterKey: masterKey,
-              privateKey: privateKey,
-            ));
+        stubEnrollmentReady();
+        stubPasswordUnlockSuccess();
         return buildCubit();
       },
-      act: (cubit) => cubit.unlock('Correct Horse Battery 9!'),
+      act: (cubit) =>
+          cubit.unlock('Correct Horse Battery 9!', biometricCopy: copy),
       expect: () => [
         isA<UnlockLoading>(),
         isA<UnlockSuccess>()
@@ -101,42 +98,52 @@ void main() {
             .having((s) => s.privateKey, 'privateKey', privateKey),
       ],
       verify: (_) {
-        verify(() => storage.write(
-              key: 'vault_mk',
-              value: base64.encode(masterKey),
-              iOptions: any(named: 'iOptions'),
-              aOptions: any(named: 'aOptions'),
-            )).called(1);
+        verify(() => keyStore.enroll(masterKey, copy)).called(1);
       },
     );
 
     blocTest<UnlockCubit, UnlockState>(
-      'unlock still succeeds when MK persistence fails',
+      'unlock skips enrollment when MK is already enrolled',
       build: () {
-        when(() => datasource.getAccount())
-            .thenAnswer((_) async => accountResponse);
-        when(() => crypto.deriveAndDecrypt(
-              masterPassword: any(named: 'masterPassword'),
-              saltBase64: any(named: 'saltBase64'),
-              encryptedPrivateKeyBase64:
-                  any(named: 'encryptedPrivateKeyBase64'),
-            )).thenAnswer((_) async => UnlockResult(
-              masterKey: masterKey,
-              privateKey: privateKey,
-            ));
-        when(() => storage.write(
-              key: any(named: 'key'),
-              value: any(named: 'value'),
-              iOptions: any(named: 'iOptions'),
-              aOptions: any(named: 'aOptions'),
-            )).thenThrow(Exception('keychain unavailable'));
+        when(() => keyStore.isEnrolled()).thenAnswer((_) async => true);
+        stubPasswordUnlockSuccess();
         return buildCubit();
       },
-      act: (cubit) => cubit.unlock('pw'),
-      expect: () => [
-        isA<UnlockLoading>(),
-        isA<UnlockSuccess>(),
-      ],
+      act: (cubit) => cubit.unlock('pw', biometricCopy: copy),
+      expect: () => [isA<UnlockLoading>(), isA<UnlockSuccess>()],
+      verify: (_) {
+        verifyNever(() => keyStore.enroll(any(), any()));
+      },
+    );
+
+    blocTest<UnlockCubit, UnlockState>(
+      'unlock skips enrollment when device cannot store a biometric key',
+      build: () {
+        when(() => keyStore.isEnrolled()).thenAnswer((_) async => false);
+        when(() => keyStore.canStore()).thenAnswer((_) async => false);
+        stubPasswordUnlockSuccess();
+        return buildCubit();
+      },
+      act: (cubit) => cubit.unlock('pw', biometricCopy: copy),
+      expect: () => [isA<UnlockLoading>(), isA<UnlockSuccess>()],
+      verify: (_) {
+        verifyNever(() => keyStore.enroll(any(), any()));
+      },
+    );
+
+    blocTest<UnlockCubit, UnlockState>(
+      'unlock still succeeds when biometric enrollment throws',
+      build: () {
+        when(() => keyStore.isEnrolled()).thenAnswer((_) async => false);
+        when(() => keyStore.canStore()).thenAnswer((_) async => true);
+        when(() => keyStore.enroll(any(), any())).thenThrow(
+          const BiometricAuthException(BiometricAuthFailureReason.canceled),
+        );
+        stubPasswordUnlockSuccess();
+        return buildCubit();
+      },
+      act: (cubit) => cubit.unlock('pw', biometricCopy: copy),
+      expect: () => [isA<UnlockLoading>(), isA<UnlockSuccess>()],
     );
 
     blocTest<UnlockCubit, UnlockState>(
@@ -152,19 +159,14 @@ void main() {
             )).thenThrow(const WrongMasterPasswordException());
         return buildCubit();
       },
-      act: (cubit) => cubit.unlock('wrong'),
+      act: (cubit) => cubit.unlock('wrong', biometricCopy: copy),
       expect: () => [
         isA<UnlockLoading>(),
         isA<UnlockFailed>()
             .having((s) => s.error, 'error', isA<WrongMasterPasswordException>()),
       ],
       verify: (_) {
-        verifyNever(() => storage.write(
-              key: any(named: 'key'),
-              value: any(named: 'value'),
-              iOptions: any(named: 'iOptions'),
-              aOptions: any(named: 'aOptions'),
-            ));
+        verifyNever(() => keyStore.enroll(any(), any()));
       },
     );
 
@@ -182,19 +184,14 @@ void main() {
         );
         return buildCubit();
       },
-      act: (cubit) => cubit.unlock('pw'),
+      act: (cubit) => cubit.unlock('pw', biometricCopy: copy),
       expect: () => [
         isA<UnlockLoading>(),
         isA<UnlockFailed>()
             .having((s) => s.error, 'error', isA<SessionExpiredException>()),
       ],
       verify: (_) {
-        verifyNever(() => storage.write(
-              key: any(named: 'key'),
-              value: any(named: 'value'),
-              iOptions: any(named: 'iOptions'),
-              aOptions: any(named: 'aOptions'),
-            ));
+        verifyNever(() => keyStore.enroll(any(), any()));
       },
     );
 
@@ -209,17 +206,12 @@ void main() {
     );
 
     blocTest<UnlockCubit, UnlockState>(
-      'unlockWithBiometrics emits Failed when no MK is stashed',
+      'unlockWithBiometrics emits Failed when no MK is enrolled',
       build: () {
-        when(() => storage.containsKey(
-              key: any(named: 'key'),
-              iOptions: any(named: 'iOptions'),
-              aOptions: any(named: 'aOptions'),
-            )).thenAnswer((_) async => false);
+        when(() => keyStore.unlockKey(any())).thenAnswer((_) async => null);
         return buildCubit();
       },
-      act: (cubit) =>
-          cubit.unlockWithBiometrics(localizedReason: 'reason'),
+      act: (cubit) => cubit.unlockWithBiometrics(copy: copy),
       expect: () => [
         isA<UnlockLoading>(),
         isA<UnlockFailed>().having(
@@ -231,21 +223,14 @@ void main() {
     );
 
     blocTest<UnlockCubit, UnlockState>(
-      'unlockWithBiometrics emits Failed when OS auth refuses',
+      'unlockWithBiometrics emits Failed when the OS auth is cancelled',
       build: () {
-        when(() => storage.containsKey(
-              key: any(named: 'key'),
-              iOptions: any(named: 'iOptions'),
-              aOptions: any(named: 'aOptions'),
-            )).thenAnswer((_) async => true);
-        when(() => auth.authenticate(
-              localizedReason: any(named: 'localizedReason'),
-              options: any(named: 'options'),
-            )).thenAnswer((_) async => false);
+        when(() => keyStore.unlockKey(any())).thenThrow(
+          const BiometricAuthException(BiometricAuthFailureReason.canceled),
+        );
         return buildCubit();
       },
-      act: (cubit) =>
-          cubit.unlockWithBiometrics(localizedReason: 'reason'),
+      act: (cubit) => cubit.unlockWithBiometrics(copy: copy),
       expect: () => [
         isA<UnlockLoading>(),
         isA<UnlockFailed>().having(
@@ -257,22 +242,29 @@ void main() {
     );
 
     blocTest<UnlockCubit, UnlockState>(
+      'unlockWithBiometrics maps an unavailable enclave to key-missing',
+      build: () {
+        when(() => keyStore.unlockKey(any())).thenThrow(
+          const BiometricAuthException(BiometricAuthFailureReason.unavailable),
+        );
+        return buildCubit();
+      },
+      act: (cubit) => cubit.unlockWithBiometrics(copy: copy),
+      expect: () => [
+        isA<UnlockLoading>(),
+        isA<UnlockFailed>().having(
+          (s) => s.error,
+          'error',
+          isA<BiometricKeyMissingException>(),
+        ),
+      ],
+    );
+
+    blocTest<UnlockCubit, UnlockState>(
       'unlockWithBiometrics emits Success with viaBiometrics=true on happy path',
       build: () {
-        when(() => storage.containsKey(
-              key: any(named: 'key'),
-              iOptions: any(named: 'iOptions'),
-              aOptions: any(named: 'aOptions'),
-            )).thenAnswer((_) async => true);
-        when(() => storage.read(
-              key: any(named: 'key'),
-              iOptions: any(named: 'iOptions'),
-              aOptions: any(named: 'aOptions'),
-            )).thenAnswer((_) async => base64.encode(masterKey));
-        when(() => auth.authenticate(
-              localizedReason: any(named: 'localizedReason'),
-              options: any(named: 'options'),
-            )).thenAnswer((_) async => true);
+        when(() => keyStore.unlockKey(any()))
+            .thenAnswer((_) async => masterKey);
         when(() => datasource.getAccount())
             .thenAnswer((_) async => accountResponse);
         when(() => crypto.decryptWithMasterKey(
@@ -285,8 +277,7 @@ void main() {
             ));
         return buildCubit();
       },
-      act: (cubit) =>
-          cubit.unlockWithBiometrics(localizedReason: 'reason'),
+      act: (cubit) => cubit.unlockWithBiometrics(copy: copy),
       expect: () => [
         isA<UnlockLoading>(),
         isA<UnlockSuccess>()

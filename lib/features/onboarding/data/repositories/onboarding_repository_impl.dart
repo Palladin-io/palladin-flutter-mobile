@@ -1,11 +1,8 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../../../../core/storage/biometric_key_storage.dart';
 import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../vault/data/services/vault_crypto_service.dart';
@@ -31,14 +28,12 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
     required this.cryptoService,
     required this.vaultCryptoService,
     required this.tokenStorage,
-    required this.secureStorage,
   });
 
   final OnboardingRemoteDatasource remoteDatasource;
   final OnboardingCryptoService cryptoService;
   final VaultCryptoService vaultCryptoService;
   final SecureTokenStorage tokenStorage;
-  final FlutterSecureStorage secureStorage;
 
   @override
   Future<List<String>> generateRecoveryMnemonic() async {
@@ -97,10 +92,10 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
         name: defaultVaultName,
       );
 
-      // Stash the MK for biometric unlock next session — same slot the
-      // password-unlock path writes. Best-effort; a failure must not
-      // block onboarding.
-      await _stashMasterKeyForBiometrics(result.masterKey);
+      // NOTE: the master key is intentionally NOT persisted here. Biometric
+      // unlock is enrolled — into the enclave-bound, biometric-gated store —
+      // on the user's first password unlock (see UnlockCubit). Writing the
+      // raw MK to secure storage at onboarding was the H4 finding (CVT-199).
 
       return OnboardingUnlockKeys(
         masterKey: result.masterKey,
@@ -115,26 +110,6 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
     }
   }
 
-  /// Persists the master key to the OS keychain/keystore so biometric
-  /// unlock works on the next session, matching what the password
-  /// unlock flow does. Best-effort — never rethrows.
-  Future<void> _stashMasterKeyForBiometrics(Uint8List masterKey) async {
-    try {
-      await secureStorage.write(
-        key: BiometricKeyStorage.storageKey,
-        value: base64.encode(masterKey),
-        iOptions: BiometricKeyStorage.iosOptions,
-        aOptions: BiometricKeyStorage.androidOptions,
-      );
-    } catch (e, s) {
-      AppLogger.e(
-        'Onboarding',
-        'Failed to stash MK for biometric unlock (non-blocking)',
-        error: e,
-        stackTrace: s,
-      );
-    }
-  }
 
   /// Wraps a fresh VK for [publicKey] and submits it to
   /// `POST /api/account/default-vault`. 409 (already exists) and any

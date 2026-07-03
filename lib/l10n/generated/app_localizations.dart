@@ -434,6 +434,18 @@ abstract class AppLocalizations {
   /// **'Authenticate to unlock your vault'**
   String get unlockBiometricPrompt;
 
+  /// Android BiometricPrompt title for the biometric unlock/enroll dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock Palladin'**
+  String get unlockBiometricPromptTitle;
+
+  /// Reason shown when enrolling the master key into biometric-gated storage
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm to enable biometric unlock'**
+  String get unlockBiometricEnrollPrompt;
+
   /// Error when no MK has been stashed yet for biometric unlock
   ///
   /// In en, this message translates to:

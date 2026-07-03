@@ -1,12 +1,9 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:local_auth/local_auth.dart';
 
-import '../../../../core/storage/biometric_key_storage.dart';
+import '../../../../core/storage/biometric_key_store.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../data/datasources/account_remote_datasource.dart';
 import '../../data/services/unlock_crypto_service.dart';
@@ -21,31 +18,39 @@ export 'unlock_state.dart';
 /// 1. `GET /api/account` — fetch salt + encrypted private key.
 /// 2. Run Argon2id to derive MK, open `crypto_secretbox_easy` to
 ///    recover the private key.
-/// 3. Stash the MK in the OS keychain/keystore so biometric unlock can
-///    recover it next session without re-running Argon2id.
+/// 3. On the FIRST successful password unlock, enroll the MK into the
+///    enclave-bound, biometric-gated [BiometricKeyStore] so the biometric
+///    shortcut can recover it next session — the MK is never persisted in a
+///    form that can be read without a fresh biometric authentication.
 ///
 /// Biometric flow (shortcut):
-/// 1. Prompt `LocalAuthentication` — OS surfaces Face ID / fingerprint.
-/// 2. On success, read the stashed MK from secure storage and use it
-///    to decrypt the private key (fresh `GET /api/account` each time
-///    so key rotations propagate).
+/// 1. [BiometricKeyStore.unlockKey] triggers the OS biometric prompt; the
+///    enclave releases the MK only on a successful authentication.
+/// 2. Decrypt the private key with the recovered MK (fresh
+///    `GET /api/account` each time so key rotations propagate).
+///
+/// The password path never touches [BiometricKeyStore], so a device without
+/// biometrics — or any enclave failure — leaves password unlock fully working.
 class UnlockCubit extends Cubit<UnlockState> {
   UnlockCubit({
     required this.datasource,
     required this.cryptoService,
-    required this.secureStorage,
-    LocalAuthentication? localAuth,
-  })  : _localAuth = localAuth ?? LocalAuthentication(),
-        super(const UnlockInitial());
+    required this.keyStore,
+  }) : super(const UnlockInitial());
 
   final AccountRemoteDatasource datasource;
   final UnlockCryptoService cryptoService;
-  final FlutterSecureStorage secureStorage;
-  final LocalAuthentication _localAuth;
-
+  final BiometricKeyStore keyStore;
 
   /// Runs the master-password unlock pipeline.
-  Future<void> unlock(String password) async {
+  ///
+  /// [biometricCopy] carries localized OS-prompt strings for the one-time
+  /// biometric enrollment. When `null`, enrollment is skipped (the unlock
+  /// itself still succeeds).
+  Future<void> unlock(
+    String password, {
+    BiometricPromptCopy? biometricCopy,
+  }) async {
     if (password.isEmpty) return;
     AppLogger.d('Unlock', 'Password unlock requested');
     emit(const UnlockLoading());
@@ -58,13 +63,8 @@ class UnlockCubit extends Cubit<UnlockState> {
         encryptedPrivateKeyBase64: account.encryptedPrivateKey,
       );
 
-      // Stash MK for biometric unlock next session. Best-effort — a
-      // storage failure here should not block the current unlock.
-      try {
-        await _persistMasterKey(result.masterKey);
-      } catch (e, s) {
-        AppLogger.e('Unlock', 'Failed to persist MK for biometric unlock',
-            error: e, stackTrace: s);
+      if (biometricCopy != null) {
+        await _maybeEnrollBiometric(result.masterKey, biometricCopy);
       }
 
       AppLogger.i('Unlock', 'Password unlock succeeded');
@@ -89,55 +89,57 @@ class UnlockCubit extends Cubit<UnlockState> {
     }
   }
 
+  /// Enrolls [masterKey] into the biometric-gated store on first unlock only.
+  ///
+  /// Best-effort: an enrollment failure (device can't do biometric-bound
+  /// storage, or the user declines the one-time Android confirm) must never
+  /// block the current unlock.
+  Future<void> _maybeEnrollBiometric(
+    Uint8List masterKey,
+    BiometricPromptCopy copy,
+  ) async {
+    try {
+      if (await keyStore.isEnrolled()) return;
+      if (!await keyStore.canStore()) return;
+      await keyStore.enroll(masterKey, copy);
+      AppLogger.i('Unlock', 'MK enrolled for biometric unlock');
+    } catch (e) {
+      // Never log the key or the raw error payload — just the type.
+      AppLogger.w('Unlock', 'Biometric enrollment skipped: ${e.runtimeType}');
+    }
+  }
+
   /// Attempts a biometric unlock.
   ///
-  /// Assumes [isBiometricAvailable] returned true. Prompts the OS for
-  /// Face ID / fingerprint, then recovers the persisted MK and
-  /// decrypts the private key.
+  /// Assumes [isBiometricAvailable] returned true. [BiometricKeyStore.unlockKey]
+  /// surfaces the OS Face ID / fingerprint prompt and only returns the MK on a
+  /// successful, enclave-enforced authentication.
   ///
   /// On any failure emits [UnlockFailed] with a typed exception — the
   /// presentation layer surfaces a short error and leaves the password
   /// field focused so the user can fall back to manual entry.
-  Future<void> unlockWithBiometrics({required String localizedReason}) async {
+  Future<void> unlockWithBiometrics({
+    required BiometricPromptCopy copy,
+  }) async {
     AppLogger.d('Unlock', 'Biometric unlock requested');
     emit(const UnlockLoading());
 
     try {
-      final hasKey = await secureStorage.containsKey(
-        key: BiometricKeyStorage.storageKey,
-        iOptions: BiometricKeyStorage.iosOptions,
-        aOptions: BiometricKeyStorage.androidOptions,
-      );
-      if (!hasKey) {
-        AppLogger.w('Unlock', 'No stored MK — biometric unavailable');
+      final Uint8List? masterKey;
+      try {
+        masterKey = await keyStore.unlockKey(copy);
+      } on BiometricAuthException catch (e) {
+        AppLogger.w('Unlock', 'Biometric auth failed: ${e.reason.name}');
+        emit(UnlockFailed(_mapBiometricFailure(e.reason)));
+        return;
+      }
+
+      if (masterKey == null) {
+        AppLogger.w('Unlock', 'No enrolled MK — biometric unavailable');
         emit(const UnlockFailed(BiometricKeyMissingException()));
         return;
       }
 
-      final didAuthenticate = await _localAuth.authenticate(
-        localizedReason: localizedReason,
-        options: const AuthenticationOptions(
-          biometricOnly: true,
-          stickyAuth: true,
-        ),
-      );
-      if (!didAuthenticate) {
-        AppLogger.w('Unlock', 'Biometric auth refused');
-        emit(const UnlockFailed(BiometricAuthFailedException()));
-        return;
-      }
-
-      final stored = await secureStorage.read(
-        key: BiometricKeyStorage.storageKey,
-        iOptions: BiometricKeyStorage.iosOptions,
-        aOptions: BiometricKeyStorage.androidOptions,
-      );
-      if (stored == null || stored.isEmpty) {
-        emit(const UnlockFailed(BiometricKeyMissingException()));
-        return;
-      }
-
-      final masterKey = base64.decode(stored);
       final account = await datasource.getAccount();
       final result = await cryptoService.decryptWithMasterKey(
         masterKey: masterKey,
@@ -166,29 +168,26 @@ class UnlockCubit extends Cubit<UnlockState> {
     }
   }
 
-  /// Returns `true` if the device has biometrics enrolled AND a master
-  /// key has been persisted from a prior password unlock.
+  Exception _mapBiometricFailure(BiometricAuthFailureReason reason) {
+    return switch (reason) {
+      BiometricAuthFailureReason.canceled ||
+      BiometricAuthFailureReason.failed =>
+        const BiometricAuthFailedException(),
+      BiometricAuthFailureReason.unavailable =>
+        const BiometricKeyMissingException(),
+    };
+  }
+
+  /// Returns `true` if the device can perform a biometric-bound read AND a
+  /// master key has been enrolled from a prior password unlock.
   ///
   /// Called from `initState` so the UI can decide whether to show the
-  /// biometric button. Never throws — on any platform error returns
-  /// `false` so the user can still unlock with their password.
+  /// biometric button. Never throws — on any platform error returns `false`
+  /// so the user can still unlock with their password.
   Future<bool> isBiometricAvailable() async {
     try {
-      final supported = await _localAuth.isDeviceSupported();
-      if (!supported) return false;
-
-      final canCheck = await _localAuth.canCheckBiometrics;
-      if (!canCheck) return false;
-
-      final available = await _localAuth.getAvailableBiometrics();
-      if (available.isEmpty) return false;
-
-      final stored = await secureStorage.read(
-        key: BiometricKeyStorage.storageKey,
-        iOptions: BiometricKeyStorage.iosOptions,
-        aOptions: BiometricKeyStorage.androidOptions,
-      );
-      return stored != null && stored.isNotEmpty;
+      if (!await keyStore.isEnrolled()) return false;
+      return await keyStore.canStore();
     } catch (e) {
       AppLogger.w('Unlock',
           'Biometric availability check failed: ${e.runtimeType}');
@@ -196,15 +195,7 @@ class UnlockCubit extends Cubit<UnlockState> {
     }
   }
 
-  Future<void> _persistMasterKey(Uint8List masterKey) {
-    return secureStorage.write(
-      key: BiometricKeyStorage.storageKey,
-      value: base64.encode(masterKey),
-      iOptions: BiometricKeyStorage.iosOptions,
-      aOptions: BiometricKeyStorage.androidOptions,
-    );
-  }
-
-  /// Clears the stashed MK — called when the user explicitly turns biometric unlock off.
-  Future<void> clearBiometricKey() => BiometricKeyStorage.clear(secureStorage);
+  /// Clears the enrolled MK — called when the user explicitly turns biometric
+  /// unlock off (or on logout).
+  Future<void> clearBiometricKey() => keyStore.clear();
 }

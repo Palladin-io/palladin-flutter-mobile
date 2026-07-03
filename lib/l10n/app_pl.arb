@@ -56,6 +56,8 @@
   "unlockSessionExpired": "Sesja wygasła. Zaloguj się ponownie.",
   "unlockBiometricHint": "Odblokuj biometrycznie",
   "unlockBiometricPrompt": "Uwierzytelnij się, aby odblokować sejf",
+  "unlockBiometricPromptTitle": "Odblokuj Palladin",
+  "unlockBiometricEnrollPrompt": "Potwierdź, aby włączyć odblokowanie biometryczne",
   "unlockBiometricUnavailable": "Odblokowanie biometryczne nie jest jeszcze skonfigurowane. Wpisz hasło główne.",
   "unlockBiometricFailed": "Uwierzytelnianie biometryczne nie powiodło się. Spróbuj ponownie lub użyj hasła.",
   "unlockLockVault": "Zablokuj sejf",
