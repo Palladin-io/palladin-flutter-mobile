@@ -61,8 +61,14 @@ class DashboardCubit extends Cubit<DashboardState> {
   /// anymore — but this self-heals the store on the next load.
   Future<void> _dropLegacyFlags(SharedPreferences? prefs) async {
     if (prefs == null) return;
-    await prefs.remove(_kOnboardingSkipped);
-    await prefs.remove(_kNotificationSkipped);
+    // Fast path — only touch storage on the rare devices that still carry the
+    // pre-per-user global keys, instead of removing on every load().
+    if (prefs.containsKey(_kOnboardingSkipped)) {
+      await prefs.remove(_kOnboardingSkipped);
+    }
+    if (prefs.containsKey(_kNotificationSkipped)) {
+      await prefs.remove(_kNotificationSkipped);
+    }
   }
 
   /// Loads the home tab.
