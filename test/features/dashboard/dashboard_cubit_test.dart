@@ -160,7 +160,7 @@ void main() {
         status: _incompleteStatus,
         notificationStepDone: false,
       ),
-      act: (c) => c.enableNotifications(),
+      act: (c) => c.enableNotifications('user-a'),
       expect: () => [
         isA<DashboardOnboarding>()
             .having((s) => s.notificationStepDone, 'stepDone', isTrue),
@@ -188,7 +188,7 @@ void main() {
         status: _incompleteStatus,
         notificationStepDone: false,
       ),
-      act: (c) => c.enableNotifications(),
+      act: (c) => c.enableNotifications('user-a'),
       expect: () => [
         isA<DashboardOnboarding>()
             .having((s) => s.notificationStepDone, 'stepDone', isFalse)
@@ -220,7 +220,7 @@ void main() {
         status: _incompleteStatus,
         notificationStepDone: false,
       ),
-      act: (c) => c.enableNotifications(),
+      act: (c) => c.enableNotifications('user-a'),
       expect: () => const <DashboardState>[],
       verify: (_) {
         verifyNever(() => permissionService.openSettings());
@@ -244,7 +244,7 @@ void main() {
         status: _incompleteStatus,
         notificationStepDone: false,
       ),
-      act: (c) => c.skipNotificationStep(),
+      act: (c) => c.skipNotificationStep('user-a'),
       expect: () => [
         isA<DashboardOnboarding>()
             .having((s) => s.notificationStepDone, 'stepDone', isTrue),
@@ -253,6 +253,77 @@ void main() {
         verifyNever(() => permissionService.requestPermission());
         verifyNever(() => permissionService.openSettings());
       },
+    );
+  });
+
+  // ── per-account skip scoping (the bug) ──────
+
+  group('skip flags are scoped per user (userId)', () {
+    blocTest<DashboardCubit, DashboardState>(
+      'user A who skipped setup: load(userId: A) HIDES onboarding',
+      build: buildCubit,
+      act: (c) async {
+        await c.skipSetup('user-a');
+        await c.load(userId: 'user-a');
+      },
+      skip: 1, // drop the DashboardLoaded emitted synchronously by skipSetup
+      expect: () => [
+        isA<DashboardLoading>(),
+        isA<DashboardLoaded>(),
+      ],
+      verify: (_) {
+        // Onboarding was hidden without consulting the backend status.
+        verifyNever(() => repository.getOnboardingStatus());
+      },
+    );
+
+    blocTest<DashboardCubit, DashboardState>(
+      'user B (different id): load(userId: B) SHOWS onboarding even after A skipped',
+      build: buildCubit,
+      act: (c) async {
+        await c.skipSetup('user-a');
+        await c.load(userId: 'user-b');
+      },
+      skip: 1, // drop the DashboardLoaded emitted synchronously by skipSetup
+      expect: () => [
+        isA<DashboardLoading>(),
+        isA<DashboardOnboarding>(),
+      ],
+      verify: (_) {
+        // Onboarding was resolved from the backend status, not the A flag.
+        verify(() => repository.getOnboardingStatus()).called(1);
+      },
+    );
+
+    blocTest<DashboardCubit, DashboardState>(
+      'no userId: load() SHOWS onboarding even if a device-wide flag lingers',
+      setUp: () => SharedPreferences.setMockInitialValues({
+        // Legacy unscoped flag from the buggy build.
+        'onboarding_skipped': true,
+      }),
+      build: buildCubit,
+      act: (c) => c.load(),
+      expect: () => [
+        isA<DashboardLoading>(),
+        isA<DashboardOnboarding>(),
+      ],
+    );
+
+    blocTest<DashboardCubit, DashboardState>(
+      'notification skip is per-user: A skipped step, B still sees it pending',
+      build: buildCubit,
+      act: (c) async {
+        // From DashboardInitial, skipNotificationStep re-emits nothing
+        // (it only refreshes an already-visible DashboardOnboarding), so the
+        // only states are load()'s Loading → Onboarding.
+        await c.skipNotificationStep('user-a');
+        await c.load(userId: 'user-b');
+      },
+      expect: () => [
+        isA<DashboardLoading>(),
+        isA<DashboardOnboarding>()
+            .having((s) => s.notificationStepDone, 'stepDone', isFalse),
+      ],
     );
   });
 }
