@@ -2477,4 +2477,217 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get searchTypeBadgeEntry => 'Wpis';
+
+  @override
+  String get importTitle => 'Import';
+
+  @override
+  String get importChooseFile => 'Wybierz plik';
+
+  @override
+  String get importIntroTitle => 'Import z innego menedżera haseł';
+
+  @override
+  String get importIntroBody =>
+      'Wybierz plik eksportu z Chrome, Bitwarden, 1Password, LastPass i innych. Wszystko jest parsowane i szyfrowane na Twoim urządzeniu.';
+
+  @override
+  String get importSupportedFormats =>
+      'Obsługiwane: eksporty CSV, JSON, XML i ZIP (.1pux)';
+
+  @override
+  String get importParsing => 'Odczyt pliku…';
+
+  @override
+  String get importSelectVaultSubtitle =>
+      'Wybierz, gdzie trafią zaimportowane wpisy';
+
+  @override
+  String get importNoVaults =>
+      'Brak sejfów. Najpierw utwórz sejf, potem zaimportuj do niego.';
+
+  @override
+  String importEntriesCount(int count) {
+    return '$count wpisów';
+  }
+
+  @override
+  String importSkippedNote(int count) {
+    return 'Pominięto $count pozycji niebędących loginami';
+  }
+
+  @override
+  String get importConflictStrategyLabel => 'Dla wpisów, które już istnieją';
+
+  @override
+  String get importStrategySkip => 'Pomiń';
+
+  @override
+  String get importStrategyOverwrite => 'Nadpisz';
+
+  @override
+  String get importStrategyRename => 'Zachowaj oba';
+
+  @override
+  String get importConflictBadge => 'Istnieje';
+
+  @override
+  String get importTotpBadge => '2FA';
+
+  @override
+  String get importNotesBadge => 'Notatki';
+
+  @override
+  String importAction(int count) {
+    return 'Importuj $count wpisów';
+  }
+
+  @override
+  String importImporting(int done, int total) {
+    return 'Importowanie… $done z $total';
+  }
+
+  @override
+  String get importSuccessTitle => 'Import zakończony';
+
+  @override
+  String importSuccessBody(int created, int updated) {
+    return 'Dodano $created, zaktualizowano $updated';
+  }
+
+  @override
+  String importSuccessSkipped(int count) {
+    return 'Pominięto $count';
+  }
+
+  @override
+  String get importDone => 'Gotowe';
+
+  @override
+  String get importFailedTitle => 'Import nie powiódł się';
+
+  @override
+  String get importTryAnother => 'Wybierz inny plik';
+
+  @override
+  String get importErrorEmpty => 'Ten plik jest pusty.';
+
+  @override
+  String get importErrorEncrypted =>
+      'Ten eksport jest zaszyfrowany i nie można go odczytać. Wyeksportuj plik niezaszyfrowany (np. KeePass XML) i spróbuj ponownie.';
+
+  @override
+  String get importErrorUnrecognised =>
+      'Nie rozpoznaliśmy tego pliku. Spróbuj eksportu CSV, JSON lub XML.';
+
+  @override
+  String get importErrorNoEntries =>
+      'Nie znaleziono wpisów logowania w tym pliku.';
+
+  @override
+  String get importErrorCrypto =>
+      'Nie udało się zaszyfrować wpisów. Zablokuj i odblokuj sejf, a następnie spróbuj ponownie.';
+
+  @override
+  String get importErrorNetwork =>
+      'Nie można połączyć się z serwerem. Sprawdź połączenie i spróbuj ponownie.';
+
+  @override
+  String get importErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
+
+  @override
+  String get importColumnMapTitle => 'Mapuj kolumny';
+
+  @override
+  String get importColumnMapSubtitle =>
+      'Nie wykryliśmy tego formatu. Wskaż, która kolumna jest która.';
+
+  @override
+  String get importColumnName => 'Kolumna nazwy';
+
+  @override
+  String get importColumnUsername => 'Kolumna loginu';
+
+  @override
+  String get importColumnPassword => 'Kolumna hasła';
+
+  @override
+  String get importColumnUrl => 'Kolumna adresu URL';
+
+  @override
+  String get importColumnNotes => 'Kolumna notatek';
+
+  @override
+  String get importColumnTotp => 'Kolumna TOTP';
+
+  @override
+  String get importColumnNone => '— Brak —';
+
+  @override
+  String get importColumnMapContinue => 'Kontynuuj';
+
+  @override
+  String get importColumnMapNeedPassword =>
+      'Wybierz przynajmniej kolumnę hasła.';
+
+  @override
+  String get importFormatGeneric => 'CSV';
+
+  @override
+  String get importFormatManual => 'Własny CSV';
+
+  @override
+  String get settingsImport => 'Import';
+
+  @override
+  String get vaultActionImport => 'Importuj wpisy';
+
+  @override
+  String get vaultActionExport => 'Eksportuj sejf';
+
+  @override
+  String get exportTitle => 'Eksport sejfu';
+
+  @override
+  String get exportFormatCsv => 'CSV';
+
+  @override
+  String get exportFormatJson => 'JSON';
+
+  @override
+  String get exportCsvHint =>
+      'Zgodny z Chrome, Bitwarden i większością menedżerów.';
+
+  @override
+  String get exportJsonHint =>
+      'Pełny format Palladin — bezstratny ponowny import.';
+
+  @override
+  String get exportWarningTitle => 'EKSPORT W POSTACI JAWNEJ';
+
+  @override
+  String get exportWarningBody =>
+      'Plik zawiera Twoje hasła i sekrety TOTP w postaci jawnej. Każdy, kto ma ten plik, może je odczytać. Przechowuj go bezpiecznie i usuń po zakończeniu.';
+
+  @override
+  String get exportConfirm => 'Eksportuj';
+
+  @override
+  String exportSuccess(int count) {
+    return 'Wyeksportowano $count wpisów';
+  }
+
+  @override
+  String get exportEmpty => 'Ten sejf nie ma wpisów do eksportu.';
+
+  @override
+  String get exportErrorCrypto =>
+      'Nie udało się odszyfrować sejfu. Zablokuj i odblokuj, a następnie spróbuj ponownie.';
+
+  @override
+  String get exportErrorNetwork =>
+      'Nie można połączyć się z serwerem. Sprawdź połączenie i spróbuj ponownie.';
+
+  @override
+  String get exportErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
 }

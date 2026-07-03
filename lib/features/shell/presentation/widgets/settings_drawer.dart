@@ -11,6 +11,7 @@ import '../../../../core/theme/theme_cubit.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/presentation/bloc/agents_cubit.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../vault/presentation/pages/import_vault_picker_page.dart';
 
 /// Bit on the JWT `permissions` claim that flags the user as a paying
 /// (Pro) account. Mirrors `Permission.PremiumPlan = 256` on the backend
@@ -112,6 +113,11 @@ class SettingsDrawer extends StatelessWidget {
               onTap: () => _onNavigate(context, '/audit'),
             ),
             _DrawerItem(
+              icon: Icons.file_upload_outlined,
+              label: l10n.settingsImport,
+              onTap: () => _onImport(context),
+            ),
+            _DrawerItem(
               icon: Icons.lock_outline,
               label: l10n.settingsLockVault,
               onTap: () => _onLock(context),
@@ -135,6 +141,13 @@ class SettingsDrawer extends StatelessWidget {
     // route transition.
     Navigator.of(context).pop();
     context.push(route);
+  }
+
+  void _onImport(BuildContext context) {
+    // Close the drawer, then open the import flow with a vault picker as
+    // its first step (global entry point — the vault is not yet known).
+    Navigator.of(context).pop();
+    ImportVaultPickerPage.push(context);
   }
 
   void _onLock(BuildContext context) {

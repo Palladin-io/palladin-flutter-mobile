@@ -5,12 +5,14 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../domain/entities/entry_entity.dart';
+import '../../domain/entities/import_draft.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../../domain/repositories/entry_repository.dart';
 import '../datasources/entry_remote_datasource.dart';
 import '../datasources/vault_remote_datasource.dart';
 import '../models/create_entry_request.dart';
 import '../models/entry_model.dart';
+import '../models/import_entries_request.dart';
 import '../models/update_entry_request.dart';
 import '../services/entry_crypto_service.dart';
 
@@ -240,6 +242,153 @@ class EntryRepositoryImpl implements EntryRepository {
       if (vaultKey != null) {
         vaultKey.fillRange(0, vaultKey.length, 0);
       }
+    }
+  }
+
+  @override
+  Future<ImportResult> importEntriesEncrypted({
+    required String vaultId,
+    required String format,
+    required List<ImportEntryDraft> creates,
+    required List<ImportEntryOverwrite> overwrites,
+    required Uint8List privateKey,
+    String? wrappedVK,
+    int chunkSize = 500,
+    void Function(int done, int total)? onProgress,
+  }) async {
+    AppLogger.d('Entry',
+        'Importing ${creates.length} new + ${overwrites.length} overwrites into $vaultId');
+    final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
+    final total = creates.length + overwrites.length;
+    var done = 0;
+
+    Uint8List? vaultKey;
+    try {
+      vaultKey = await cryptoService.unwrapVK(
+        wrappedVK: vk,
+        privateKey: privateKey,
+      );
+
+      var createdCount = 0;
+      // Chunk the bulk creates to the backend's per-request limit.
+      for (var start = 0; start < creates.length; start += chunkSize) {
+        final end = (start + chunkSize).clamp(0, creates.length);
+        final chunk = creates.sublist(start, end);
+        final items = <ImportEntryItem>[];
+        for (final draft in chunk) {
+          final encrypted = await cryptoService.encryptEntry(
+            payload: draft.payload,
+            vaultKey: vaultKey,
+          );
+          items.add(ImportEntryItem(
+            label: draft.label,
+            description: draft.description,
+            type: draft.type.toWire(),
+            content: encrypted,
+            urlDomain: draft.urlDomain,
+          ));
+        }
+        try {
+          createdCount += await entryDatasource.importEntries(
+            vaultId,
+            ImportEntriesRequest(format: format, entries: items),
+          );
+        } on DioException catch (e, s) {
+          AppLogger.e('Entry', 'importEntries chunk failed',
+              error: e, stackTrace: s);
+          throw EntryException(_classifyError(e));
+        }
+        done += chunk.length;
+        onProgress?.call(done, total);
+      }
+
+      var updatedCount = 0;
+      for (final overwrite in overwrites) {
+        final encrypted = await cryptoService.encryptEntry(
+          payload: overwrite.payload,
+          vaultKey: vaultKey,
+        );
+        try {
+          await entryDatasource.updateEntry(
+            vaultId,
+            overwrite.entryId,
+            UpdateEntryRequest(
+              label: overwrite.label,
+              description: overwrite.description,
+              type: overwrite.type.toWire(),
+              content: encrypted,
+              urlDomain: overwrite.urlDomain,
+            ),
+          );
+          updatedCount++;
+        } on DioException catch (e, s) {
+          AppLogger.e('Entry', 'import overwrite failed',
+              error: e, stackTrace: s);
+          throw EntryException(_classifyError(e));
+        }
+        done++;
+        onProgress?.call(done, total);
+      }
+
+      AppLogger.i('Entry',
+          'Import done: created=$createdCount updated=$updatedCount');
+      return ImportResult(createdCount: createdCount, updatedCount: updatedCount);
+    } finally {
+      if (vaultKey != null) {
+        vaultKey.fillRange(0, vaultKey.length, 0);
+      }
+    }
+  }
+
+  @override
+  Future<List<RevealedEntry>> revealAllEntries({
+    required String vaultId,
+    required Uint8List privateKey,
+    String? wrappedVK,
+  }) async {
+    AppLogger.d('Entry', 'Revealing all entries in $vaultId for export');
+    final summaries = await listEntries(vaultId);
+    final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
+
+    Uint8List? vaultKey;
+    try {
+      vaultKey = await cryptoService.unwrapVK(
+        wrappedVK: vk,
+        privateKey: privateKey,
+      );
+      final revealed = <RevealedEntry>[];
+      for (final summary in summaries) {
+        final detail = await _fetchDetail(vaultId, summary.id);
+        final payload = await cryptoService.decryptEntry(
+          content: detail.content,
+          vaultKey: vaultKey,
+        );
+        revealed.add(RevealedEntry(
+          entry: detail.summary.toEntity(),
+          payload: payload,
+        ));
+      }
+      return revealed;
+    } finally {
+      if (vaultKey != null) {
+        vaultKey.fillRange(0, vaultKey.length, 0);
+      }
+    }
+  }
+
+  @override
+  Future<void> logExportAudit({
+    required String vaultId,
+    required String format,
+    required int entryCount,
+  }) async {
+    try {
+      await entryDatasource.logExportAudit(vaultId, format, entryCount);
+    } on DioException catch (e, s) {
+      // Best-effort — the export already succeeded, so a failed audit
+      // record must not surface to the user.
+      AppLogger.w('Entry', 'export-audit failed (non-fatal): ${e.type}');
+      AppLogger.e('Entry', 'export-audit error', error: e, stackTrace: s);
     }
   }
 

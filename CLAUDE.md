@@ -158,6 +158,7 @@ lib/
 | `ApproveActionButton` | `lib/core/widgets/approve_action_button.dart` | Full-width green-tinted approve CTA. Params: `label`, `onPressed`, `icon`, `isLoading`, `height` (default 44) |
 | `AppToggle` | `lib/core/widgets/app_toggle.dart` | Compact 32×18 pill toggle (brandRed when ON). Params: `value`, `onChanged` (null = locked/dimmed) |
 | `AppFab` | `lib/core/widgets/app_fab.dart` | Brand-red 44×44 FAB with shadow, zero elevation. Params: `onPressed`, `tooltip` |
+| `SheetDragHandle` | `lib/core/widgets/sheet_drag_handle.dart` | The 36×4 rounded pill at the top of a modal sheet. Use in new sheets; the ~17 inline copies migrate opportunistically |
 | `FabRegistrar` | `lib/core/widgets/fab_registrar.dart` | 0×0 widget that claims the shell FAB slot for the current page. Param: `fab` (null = suppress a covered page's leaked FAB) |
 | `AppDropdownField` | `lib/core/widgets/app_dropdown_field.dart` | 44px bordered dropdown matching input height, generic `<T>`. Params: `label`, `value`, `items`, `onChanged`, `hint`, `enabled`, `filled` |
 | `AppAutocompleteField` | `lib/core/widgets/app_autocomplete_field.dart` | Type-to-search autocomplete backed by `OnboardingTextField`, generic `<T extends Object>`. Params: `label`, `initialText`, `options`, `displayString`, `onSelected`, `onTextChanged` |
@@ -186,7 +187,7 @@ These belong conceptually to `core` but currently sit in a feature folder. Reuse
 
 These patterns are duplicated and have **no** shared widget yet. Extract to `lib/core/widgets/` when next touching the affected code, then replace all instances. **Do not add another copy.**
 
-- **Sheet drag handle (×17 files)** — 7 private `_SheetHandle` classes (incl. one inside the core `icon_color_browser_sheet.dart`) + 10 inline 36×4 pills → extract `SheetDragHandle` to `lib/core/widgets/`. Inline copies in approval (`approve_grant_sheet`, `deny_grant_sheet`, `grant_access_sheet`, `grant_methods_selector`, `regrant_sheet`), audit (`audit_legend_sheet`, `audit_log_filter_sheet`, `entry_logs_filter_sheet`), grants (`revoke_grant_sheet`), and `vault_list_page`.
+- **Sheet drag handle (×17 files)** — `SheetDragHandle` now exists in `lib/core/widgets/` (used by `export_sheet`); the ~17 inline copies still need migrating: 7 private `_SheetHandle` classes (incl. one inside the core `icon_color_browser_sheet.dart`) + 10 inline 36×4 pills in approval (`approve_grant_sheet`, `deny_grant_sheet`, `grant_access_sheet`, `grant_methods_selector`, `regrant_sheet`), audit (`audit_legend_sheet`, `audit_log_filter_sheet`, `entry_logs_filter_sheet`), grants (`revoke_grant_sheet`), and `vault_list_page`. Replace with the shared widget on next touch.
 - **AppBar title (×6)** — `Column(start, [Text(title,16/w700), Text(subtitle,11/subtle)])` duplicated in `vault_detail_page`, `entry_detail_page`, `api_keys_page`, `api_key_detail_page`, `agent_detail_page`, `settings_page` → extract `AppBarTitle({title, subtitle})`.
 - **Status pills (×2)** — `AgentStatusBadge` ≡ `ApiKeyStatusBadge` → extract `StatusPill({label, color})` (bg = `color.withValues(alpha:0.12)`, border = `alpha:0.5`, text 10/w700).
 - **Label/value rows (×2)** — `_DetailRow` in `api_key_details_tab.dart` + `agent_detail_body.dart` → extract `LabelValueRow`.

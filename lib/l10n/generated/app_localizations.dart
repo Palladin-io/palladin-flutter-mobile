@@ -4381,6 +4381,372 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Entry'**
   String get searchTypeBadgeEntry;
+
+  /// Title of the import wizard
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get importTitle;
+
+  /// Button to pick the export file to import
+  ///
+  /// In en, this message translates to:
+  /// **'Choose file'**
+  String get importChooseFile;
+
+  /// Heading on the import wizard intro step
+  ///
+  /// In en, this message translates to:
+  /// **'Import from another password manager'**
+  String get importIntroTitle;
+
+  /// Body copy on the import wizard intro step
+  ///
+  /// In en, this message translates to:
+  /// **'Pick an export file from Chrome, Bitwarden, 1Password, LastPass, and more. Everything is parsed and encrypted on your device.'**
+  String get importIntroBody;
+
+  /// Hint listing the supported import file types
+  ///
+  /// In en, this message translates to:
+  /// **'Supported: CSV, JSON, XML, and ZIP (.1pux) exports'**
+  String get importSupportedFormats;
+
+  /// Progress label while parsing the picked file
+  ///
+  /// In en, this message translates to:
+  /// **'Reading file…'**
+  String get importParsing;
+
+  /// Subtitle on the import vault picker
+  ///
+  /// In en, this message translates to:
+  /// **'Choose where the imported entries go'**
+  String get importSelectVaultSubtitle;
+
+  /// Empty state when there are no vaults to import into
+  ///
+  /// In en, this message translates to:
+  /// **'No vaults yet. Create a vault first, then import into it.'**
+  String get importNoVaults;
+
+  /// Count of parsed entries
+  ///
+  /// In en, this message translates to:
+  /// **'{count} entries'**
+  String importEntriesCount(int count);
+
+  /// Count of skipped non-login items
+  ///
+  /// In en, this message translates to:
+  /// **'{count} non-login items skipped'**
+  String importSkippedNote(int count);
+
+  /// Label above the conflict-resolution selector
+  ///
+  /// In en, this message translates to:
+  /// **'For entries that already exist'**
+  String get importConflictStrategyLabel;
+
+  /// Conflict strategy — skip the imported entry
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get importStrategySkip;
+
+  /// Conflict strategy — overwrite the existing entry
+  ///
+  /// In en, this message translates to:
+  /// **'Overwrite'**
+  String get importStrategyOverwrite;
+
+  /// Conflict strategy — import under a renamed label
+  ///
+  /// In en, this message translates to:
+  /// **'Keep both'**
+  String get importStrategyRename;
+
+  /// Badge on a preview row that collides with an existing entry
+  ///
+  /// In en, this message translates to:
+  /// **'Exists'**
+  String get importConflictBadge;
+
+  /// Badge indicating the entry carries a TOTP secret
+  ///
+  /// In en, this message translates to:
+  /// **'2FA'**
+  String get importTotpBadge;
+
+  /// Badge indicating the entry has notes
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get importNotesBadge;
+
+  /// Commit button on the import preview
+  ///
+  /// In en, this message translates to:
+  /// **'Import {count} entries'**
+  String importAction(int count);
+
+  /// Progress label during import commit
+  ///
+  /// In en, this message translates to:
+  /// **'Importing… {done} of {total}'**
+  String importImporting(int done, int total);
+
+  /// Heading on the import success step
+  ///
+  /// In en, this message translates to:
+  /// **'Import complete'**
+  String get importSuccessTitle;
+
+  /// Import success summary
+  ///
+  /// In en, this message translates to:
+  /// **'{created} added, {updated} updated'**
+  String importSuccessBody(int created, int updated);
+
+  /// Skipped count on the import success step
+  ///
+  /// In en, this message translates to:
+  /// **'{count} skipped'**
+  String importSuccessSkipped(int count);
+
+  /// Button to close the import wizard after success
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get importDone;
+
+  /// Heading on the import failure step
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed'**
+  String get importFailedTitle;
+
+  /// Button to retry import with a different file
+  ///
+  /// In en, this message translates to:
+  /// **'Choose another file'**
+  String get importTryAnother;
+
+  /// Import error — empty file
+  ///
+  /// In en, this message translates to:
+  /// **'That file is empty.'**
+  String get importErrorEmpty;
+
+  /// Import error — encrypted file
+  ///
+  /// In en, this message translates to:
+  /// **'This export is encrypted and can\'t be read. Export an unencrypted file (e.g. KeePass XML) and try again.'**
+  String get importErrorEncrypted;
+
+  /// Import error — unrecognised format
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t recognise this file. Try a CSV, JSON, or XML export.'**
+  String get importErrorUnrecognised;
+
+  /// Import error — no login entries
+  ///
+  /// In en, this message translates to:
+  /// **'No login entries were found in this file.'**
+  String get importErrorNoEntries;
+
+  /// Import error — crypto failure
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t encrypt the entries. Lock and unlock your vault, then try again.'**
+  String get importErrorCrypto;
+
+  /// Import error — network failure
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach the server. Check your connection and try again.'**
+  String get importErrorNetwork;
+
+  /// Import error — unknown
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get importErrorUnknown;
+
+  /// Title on the manual column mapping step
+  ///
+  /// In en, this message translates to:
+  /// **'Map columns'**
+  String get importColumnMapTitle;
+
+  /// Subtitle on the manual column mapping step
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t detect this format. Tell us which column is which.'**
+  String get importColumnMapSubtitle;
+
+  /// Column mapper — name field
+  ///
+  /// In en, this message translates to:
+  /// **'Name column'**
+  String get importColumnName;
+
+  /// Column mapper — username field
+  ///
+  /// In en, this message translates to:
+  /// **'Username column'**
+  String get importColumnUsername;
+
+  /// Column mapper — password field (required)
+  ///
+  /// In en, this message translates to:
+  /// **'Password column'**
+  String get importColumnPassword;
+
+  /// Column mapper — URL field
+  ///
+  /// In en, this message translates to:
+  /// **'URL column'**
+  String get importColumnUrl;
+
+  /// Column mapper — notes field
+  ///
+  /// In en, this message translates to:
+  /// **'Notes column'**
+  String get importColumnNotes;
+
+  /// Column mapper — TOTP field
+  ///
+  /// In en, this message translates to:
+  /// **'TOTP column'**
+  String get importColumnTotp;
+
+  /// Column mapper — unmapped option
+  ///
+  /// In en, this message translates to:
+  /// **'— None —'**
+  String get importColumnNone;
+
+  /// Button to proceed from column mapping
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get importColumnMapContinue;
+
+  /// Validation when no password column is mapped
+  ///
+  /// In en, this message translates to:
+  /// **'Choose at least a password column.'**
+  String get importColumnMapNeedPassword;
+
+  /// Format badge label for a generic CSV
+  ///
+  /// In en, this message translates to:
+  /// **'CSV'**
+  String get importFormatGeneric;
+
+  /// Format badge label for a manually-mapped CSV
+  ///
+  /// In en, this message translates to:
+  /// **'Custom CSV'**
+  String get importFormatManual;
+
+  /// Settings drawer item that opens the import flow
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get settingsImport;
+
+  /// Vault detail menu action to import entries
+  ///
+  /// In en, this message translates to:
+  /// **'Import entries'**
+  String get vaultActionImport;
+
+  /// Vault detail menu action to export the vault
+  ///
+  /// In en, this message translates to:
+  /// **'Export vault'**
+  String get vaultActionExport;
+
+  /// Title of the export sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Export vault'**
+  String get exportTitle;
+
+  /// Export format option — CSV
+  ///
+  /// In en, this message translates to:
+  /// **'CSV'**
+  String get exportFormatCsv;
+
+  /// Export format option — JSON
+  ///
+  /// In en, this message translates to:
+  /// **'JSON'**
+  String get exportFormatJson;
+
+  /// Hint under the CSV export option
+  ///
+  /// In en, this message translates to:
+  /// **'Compatible with Chrome, Bitwarden, and most managers.'**
+  String get exportCsvHint;
+
+  /// Hint under the JSON export option
+  ///
+  /// In en, this message translates to:
+  /// **'Full Palladin format — re-imports losslessly.'**
+  String get exportJsonHint;
+
+  /// Title of the plaintext-secrets export warning
+  ///
+  /// In en, this message translates to:
+  /// **'PLAINTEXT EXPORT'**
+  String get exportWarningTitle;
+
+  /// Body of the plaintext-secrets export warning
+  ///
+  /// In en, this message translates to:
+  /// **'The file contains your passwords and TOTP secrets in plaintext. Anyone with the file can read them. Store it securely and delete it when you\'re done.'**
+  String get exportWarningBody;
+
+  /// Confirm button on the export sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get exportConfirm;
+
+  /// Export success snackbar
+  ///
+  /// In en, this message translates to:
+  /// **'Exported {count} entries'**
+  String exportSuccess(int count);
+
+  /// Export error — empty vault
+  ///
+  /// In en, this message translates to:
+  /// **'This vault has no entries to export.'**
+  String get exportEmpty;
+
+  /// Export error — crypto failure
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t decrypt the vault. Lock and unlock, then try again.'**
+  String get exportErrorCrypto;
+
+  /// Export error — network failure
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach the server. Check your connection and try again.'**
+  String get exportErrorNetwork;
+
+  /// Export error — unknown
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get exportErrorUnknown;
 }
 
 class _AppLocalizationsDelegate

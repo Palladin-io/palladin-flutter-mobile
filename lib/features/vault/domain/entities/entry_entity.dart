@@ -135,6 +135,7 @@ class CredentialPayload {
     required this.password,
     this.url,
     this.notes,
+    this.totp,
   });
 
   final String username;
@@ -142,12 +143,20 @@ class CredentialPayload {
   final String? url;
   final String? notes;
 
+  /// Optional TOTP seed as an `otpauth://` URI. Populated when a
+  /// credential is imported from a manager that carries a 2FA secret.
+  /// Treated as an opaque blob on-device — the reveal UI may ignore it,
+  /// but keeping it in the encrypted payload means it survives an
+  /// import/export round-trip.
+  final String? totp;
+
   Map<String, dynamic> toJson() => {
         'type': 'CREDENTIAL',
         'username': username,
         'password': password,
         if (url != null) 'url': url,
         if (notes != null) 'notes': notes,
+        if (totp != null) 'totp': totp,
       };
 
   factory CredentialPayload.fromJson(Map<String, dynamic> json) =>
@@ -156,5 +165,6 @@ class CredentialPayload {
         password: (json['password'] as String?) ?? '',
         url: json['url'] as String?,
         notes: json['notes'] as String?,
+        totp: json['totp'] as String?,
       );
 }
