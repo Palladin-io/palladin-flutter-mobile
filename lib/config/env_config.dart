@@ -27,8 +27,8 @@ class EnvConfig {
   /// Ensures the ID token audience matches what the backend validates against.
   final String googleServerClientId;
 
-  /// Base64 SHA-256 SPKI pins; empty = pinning disabled. See release-checklist
-  /// for rotation (always ship a backup pin before switching the server cert).
+  /// Base64 SHA-256 SPKI pins; empty = pinning disabled. Always ship a backup
+  /// pin before switching the server cert.
   final List<String> certificatePins;
 
   /// Local development environment targeting `localhost:5000`.
