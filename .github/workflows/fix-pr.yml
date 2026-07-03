@@ -1,11 +1,7 @@
 name: "Claude Code: Fix PR"
 
-# SECURITY (CVT-217): manual-trigger only (workflow_dispatch) — this workflow
-# has `contents: write` and pushes commits, so it is never fired automatically
-# on PR events. A maintainer must (1) intentionally trigger it and (2) review
-# the resulting fix commits before merge. The Bash allowlist in the run step
-# below is scoped to the exact commands the fixer needs (no `Bash(git:*)` /
-# `Bash(flutter:*)` shell wildcards).
+# Manual-trigger only: has contents:write and pushes commits, so a maintainer
+# must trigger it and review the fix commits. Bash allowlist scoped, no wildcards.
 on:
   workflow_dispatch:
     inputs:

@@ -27,20 +27,8 @@ class EnvConfig {
   /// Ensures the ID token audience matches what the backend validates against.
   final String googleServerClientId;
 
-  /// Base64-encoded SHA-256 of the SPKI (SubjectPublicKeyInfo) for TLS
-  /// certificate pinning (CVT-213).
-  ///
-  /// EMPTY = pinning is a NO-OP (system CA trust only) — required while the
-  /// production certificate is not yet issued, and for local/staging dev.
-  ///
-  /// When populated, pin the leaf's SPKI. ALWAYS include a BACKUP pin (the
-  /// SPKI of a pre-provisioned next key / intermediate) so a certificate
-  /// rotation does not brick every installed client. Compute a pin with:
-  ///   openssl x509 -in cert.pem -pubkey -noout \
-  ///     | openssl pkey -pubin -outform der \
-  ///     | openssl dgst -sha256 -binary | openssl enc -base64
-  /// Rotation: ship the new pin (alongside the old) in an app update BEFORE
-  /// switching the server certificate, then drop the retired pin later.
+  /// Base64 SHA-256 SPKI pins; empty = pinning disabled. See release-checklist
+  /// for rotation (always ship a backup pin before switching the server cert).
   final List<String> certificatePins;
 
   /// Local development environment targeting `localhost:5000`.
@@ -81,10 +69,7 @@ class EnvConfig {
       posthogKey: '', // TODO: Add PostHog production project key
       posthogHost: 'https://app.posthog.com',
       googleServerClientId: '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
-      // TLS SPKI pins for api.palladin.io. EMPTY until the production
-      // certificate is issued — pinning is a no-op until then (CVT-213).
-      // Populate with the leaf SPKI pin AND a backup pin before switching the
-      // server cert; see [certificatePins] for the compute + rotation recipe.
+      // Empty until the production certificate is issued (pinning disabled).
       certificatePins: [],
     );
   }

@@ -8,20 +8,9 @@ import '../utils/app_logger.dart';
 import 'biometric_key_store.dart';
 import 'biometric_key_storage.dart';
 
-/// Enclave-bound, biometric-gated implementation of [BiometricKeyStore].
-///
-/// Backed by the `biometric_storage` plugin, which creates the wrapping key
-/// inside the platform secure enclave:
-///  - iOS/macOS: keychain item with `SecAccessControl` `.biometryCurrentSet`
-///    (`darwinBiometricOnly: true`) — invalidated if the biometric set
-///    changes, and unreadable without a fresh Face ID / Touch ID.
-///  - Android: Keystore key with `setUserAuthenticationRequired(true)` and
-///    biometric-only auth (`androidBiometricOnly: true` +
-///    `authenticationValidityDurationSeconds: -1`, which the plugin maps to
-///    `setInvalidatedByBiometricEnrollment(true)`).
-///
-/// The [FlutterSecureStorage] dependency is used ONLY for the non-secret
-/// enrollment marker and legacy-key cleanup — never for the MK itself.
+/// [BiometricKeyStore] backed by the `biometric_storage` plugin (enclave
+/// wrapping key, biometric-only, invalidated on biometric-set change).
+/// [FlutterSecureStorage] holds only the non-secret marker + legacy cleanup.
 class BiometricStorageKeyStore implements BiometricKeyStore {
   BiometricStorageKeyStore({
     required FlutterSecureStorage markerStorage,

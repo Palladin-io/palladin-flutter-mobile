@@ -6,19 +6,7 @@ import 'package:crypto/crypto.dart';
 
 import '../utils/app_logger.dart';
 
-/// TLS SPKI certificate pinning (CVT-213).
-///
-/// Enforced through Dio's `IOHttpClientAdapter.validateCertificate`, which
-/// runs AFTER the system/CA chain has already been validated and evaluates the
-/// leaf certificate. We additionally require the leaf's SubjectPublicKeyInfo
-/// (SPKI) SHA-256 to match one of the configured [pins].
-///
-/// Pinning the SPKI (not the whole certificate) means a routine certificate
-/// renewal that keeps the same key pair does NOT break pinning — only a key
-/// rotation does, which is why a backup pin is mandatory (see [EnvConfig]).
-///
-/// When [pins] is empty the check is a NO-OP (system trust only): the prod
-/// certificate is not issued yet, and local/staging dev must keep working.
+/// Pins the leaf SPKI SHA-256 against [pins]; empty [pins] disables pinning.
 class CertificatePinningService {
   const CertificatePinningService(this.pins);
 
@@ -27,11 +15,8 @@ class CertificatePinningService {
 
   bool get isEnabled => pins.isNotEmpty;
 
-  /// Returns whether [certificate] is acceptable under the pin set.
-  ///
-  /// - No pins configured ⇒ always `true` (no-op).
-  /// - Pins configured ⇒ `true` only if the leaf SPKI hash is pinned. FAILS
-  ///   CLOSED: a null cert or an SPKI we cannot parse is rejected.
+  /// Accepts the leaf only if its SPKI hash is pinned; fails closed on a null
+  /// or unparseable cert. No pins ⇒ always accepts.
   bool validateLeaf(X509Certificate? certificate, String host) {
     if (pins.isEmpty) return true;
     if (certificate == null) {
@@ -49,34 +34,25 @@ class CertificatePinningService {
     }
   }
 
-  /// Computes the base64 SHA-256 of the certificate's SPKI, in the same form
-  /// as `openssl ... | openssl dgst -sha256 -binary | openssl enc -base64`.
+  /// Base64 SHA-256 of the certificate's SPKI.
   static String spkiSha256Base64(Uint8List der) {
     final spki = _subjectPublicKeyInfo(der);
     return base64.encode(sha256.convert(spki).bytes);
   }
 
-  /// Extracts the DER-encoded SubjectPublicKeyInfo element from an X.509
-  /// certificate via a minimal ASN.1 walk.
-  ///
-  /// Certificate ::= SEQUENCE { tbsCertificate SEQUENCE {...}, ... }
-  /// TBSCertificate ::= SEQUENCE {
-  ///   [0] version OPTIONAL, serialNumber, signature, issuer, validity,
-  ///   subject, subjectPublicKeyInfo, ... }
+  /// Extracts the DER SubjectPublicKeyInfo from an X.509 cert via a minimal
+  /// ASN.1 walk (skip version, serial, signature, issuer, validity, subject).
   static Uint8List _subjectPublicKeyInfo(Uint8List der) {
-    final certificate = _readElement(der, 0); // outer SEQUENCE
+    final certificate = _readElement(der, 0);
     if (certificate.tag != 0x30) {
       throw const FormatException('Certificate is not a SEQUENCE');
     }
-    final tbs = _readElement(der, certificate.contentStart); // tbsCertificate
+    final tbs = _readElement(der, certificate.contentStart);
     var offset = tbs.contentStart;
 
-    // Skip the optional explicit [0] version (context tag 0xA0).
     final first = _readElement(der, offset);
     if (first.tag == 0xA0) offset = first.end;
 
-    // Skip serialNumber, signature, issuer, validity, subject (5 elements);
-    // subjectPublicKeyInfo is next.
     for (var i = 0; i < 5; i++) {
       offset = _readElement(der, offset).end;
     }
@@ -88,7 +64,6 @@ class CertificatePinningService {
     return Uint8List.sublistView(der, spki.start, spki.end);
   }
 
-  /// Reads one ASN.1 DER TLV element starting at [start].
   static _Asn1Element _readElement(Uint8List der, int start) {
     if (start + 1 >= der.length) {
       throw const FormatException('Truncated ASN.1 element');

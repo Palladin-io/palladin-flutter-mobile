@@ -22,9 +22,7 @@ android {
 
     defaultConfig {
         applicationId = "io.palladin.mobile"
-        // API 23+ is required for biometric-bound Keystore keys
-        // (setUserAuthenticationRequired) used by biometric unlock (CVT-199)
-        // and for the hardened backup rules (L9c).
+        // API 23+ required for biometric-bound Keystore keys (biometric unlock).
         minSdk = maxOf(23, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

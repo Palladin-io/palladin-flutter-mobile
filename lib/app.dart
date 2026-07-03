@@ -59,8 +59,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final NotificationSignalRService _signalR =
       getIt<NotificationSignalRService>();
 
-  /// Whether the app is backgrounded/inactive — drives the [PrivacyCover] so
-  /// the OS app-switcher snapshot never captures vault contents (CVT-214).
+  /// Backgrounded/inactive — drives the [PrivacyCover] over the app-switcher
+  /// snapshot.
   bool _obscured = false;
 
   @override
@@ -94,22 +94,13 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Cover the UI whenever we leave the foreground so the OS app-switcher
-    // snapshot (taken on iOS resignActive / Android onPause) shows the brand
-    // cover, not the open vault. Revealed again only on `resumed`.
     final obscured = state != AppLifecycleState.resumed;
     if (obscured != _obscured) {
       setState(() => _obscured = obscured);
       if (obscured) {
-        // iOS may snapshot the app-switcher between applicationWillResignActive
-        // and applicationDidEnterBackground — i.e. before Flutter paints the
-        // setState above (which only schedules a frame for the next vsync).
-        // Force a frame now to render the cover as early as possible. This
-        // NARROWS but does not fully close the window: a hard guarantee needs a
-        // native applicationWillResignActive platform-channel hook that paints
-        // the cover synchronously (tracked for on-device QA, CVT-214). We
-        // deliberately do NOT use Android FLAG_SECURE (it also blocks the
-        // user's own legitimate screenshots).
+        // Force an early frame so the cover paints before the OS snapshots the
+        // app-switcher. No FLAG_SECURE by design — it would also block the
+        // user's own screenshots.
         WidgetsBinding.instance.scheduleWarmUpFrame();
       }
     }
@@ -226,8 +217,6 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               builder: (context, child) {
-                // Overlay the privacy cover above the whole navigator (incl.
-                // dialogs/sheets) while backgrounded.
                 return Stack(
                   children: [
                     ?child,

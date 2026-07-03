@@ -2,26 +2,15 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../utils/app_logger.dart';
 
-/// Shared constants and the logout cleanup helper for the biometric master
-/// key.
-///
-/// The MK itself now lives in an enclave-bound, biometric-gated store (see
-/// [BiometricStorageKeyStore]); this class only owns:
-///  - the plaintext enrollment marker (non-secret) used for a cheap,
-///    non-prompting "is biometric unlock set up?" check, and
-///  - the [clear] helper called from `AuthRepositoryImpl.logout()`.
-///
-/// [legacyRawKey] is the pre-hardening key under which the *raw* MK used to be
-/// written directly to `flutter_secure_storage`. It is deleted on every clear
-/// (and on every enroll) so an upgrading install can never keep a
-/// non-enclave-bound MK sitting on disk.
+/// Marker constants + logout cleanup for the biometric master key. The MK
+/// itself lives in the enclave-bound store ([BiometricStorageKeyStore]); this
+/// class only owns the non-secret enrollment marker and the legacy-key purge.
 abstract final class BiometricKeyStorage {
-  /// Pre-hardening key: raw MK persisted directly to secure storage.
-  /// Retained ONLY so we can proactively delete it on upgrade.
+  /// Pre-hardening key: raw MK once persisted directly to secure storage.
+  /// Retained only so we can proactively delete it on upgrade.
   static const legacyRawKey = 'vault_mk';
 
-  /// Non-secret marker: `'1'` once the MK has been enrolled into the
-  /// enclave-bound biometric store.
+  /// Non-secret marker: `'1'` once the MK has been enrolled.
   static const enrolledMarkerKey = 'vault_mk_enrolled';
 
   static const iosOptions = IOSOptions(
@@ -33,12 +22,8 @@ abstract final class BiometricKeyStorage {
     encryptedSharedPreferences: true,
   );
 
-  /// Clears the enrollment marker AND proactively deletes any legacy raw MK.
-  ///
-  /// Best-effort — never throws, never prompts (touches only
-  /// `flutter_secure_storage`, not the enclave-protected key). The orphaned
-  /// enclave blob, if any, is harmless: it is biometric-gated and gets
-  /// overwritten on the next enroll. Called on logout.
+  /// Clears the enrollment marker and any legacy raw MK. Best-effort — never
+  /// throws, never prompts (does not touch the enclave-protected key).
   static Future<void> clear(FlutterSecureStorage storage) async {
     for (final key in const [legacyRawKey, enrolledMarkerKey]) {
       try {
