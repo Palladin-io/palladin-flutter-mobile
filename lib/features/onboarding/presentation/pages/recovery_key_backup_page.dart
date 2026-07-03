@@ -1,13 +1,14 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../cubit/onboarding_cubit.dart';
 import '../widgets/onboarding_scaffold.dart';
@@ -80,7 +81,7 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
   }
 
   Future<void> _copyToClipboard(List<String> words, AppLocalizations l10n) async {
-    await Clipboard.setData(ClipboardData(text: words.join(' ')));
+    await SecureClipboard.copy(words.join(' '));
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
