@@ -11,6 +11,7 @@ import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../cubit/entry_list_cubit.dart';
 import '../pages/entry_detail_page.dart';
+import 'entry_field_row.dart';
 import 'vault_visuals.dart';
 
 /// Entries tab on the vault detail page.
@@ -495,7 +496,7 @@ class _EntryCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: AppSpacing.chipGap),
-                    _SmallIconButton(
+                    EntrySmallIconButton(
                       icon: isExpanded
                           ? Icons.visibility_off
                           : Icons.visibility,
@@ -503,7 +504,7 @@ class _EntryCard extends StatelessWidget {
                       onPressed: onToggleReveal,
                     ),
                     const SizedBox(width: AppSpacing.chipGap),
-                    _SmallIconButton(
+                    EntrySmallIconButton(
                       icon: Icons.arrow_forward,
                       tooltip: l10n.vaultViewEntry,
                       onPressed: onEdit,
@@ -581,13 +582,15 @@ class _RevealPanel extends StatelessWidget {
     return Column(
       children: [
         if (url != null && url.isNotEmpty)
-          _RevealRow(
+          EntryFieldRow(
             icon: Icons.link,
             value: url,
             isMasked: false,
             revealed: true,
             onToggleReveal: null,
-            extraTrailing: _SmallIconButton(
+            valueFontSize: 10,
+            actionIconSize: 12,
+            extraTrailing: EntrySmallIconButton(
               icon: Icons.open_in_new,
               size: 12,
               tooltip: l10n.vaultOpenLink,
@@ -597,112 +600,52 @@ class _RevealPanel extends StatelessWidget {
           ),
         if (entry.type == EntryType.key) ...[
           if ((payload['value'] as String?)?.isNotEmpty ?? false)
-            _RevealRow(
+            EntryFieldRow(
               icon: Icons.vpn_key,
               value: payload['value'] as String,
               isMasked: true,
               revealed: revealedFields.contains('${entry.id}:value'),
               onToggleReveal: () => onToggleFieldReveal(entry.id, 'value'),
+              valueFontSize: 10,
+              actionIconSize: 12,
               onCopy: () => onCopy(payload['value'] as String),
             ),
         ] else ...[
           if ((payload['username'] as String?)?.isNotEmpty ?? false)
-            _RevealRow(
+            EntryFieldRow(
               icon: Icons.person,
               value: payload['username'] as String,
               isMasked: false,
               revealed: true,
               onToggleReveal: null,
+              valueFontSize: 10,
+              actionIconSize: 12,
               onCopy: () => onCopy(payload['username'] as String),
             ),
           if ((payload['password'] as String?)?.isNotEmpty ?? false)
-            _RevealRow(
+            EntryFieldRow(
               icon: Icons.lock,
               value: payload['password'] as String,
               isMasked: true,
               revealed: revealedFields.contains('${entry.id}:password'),
               onToggleReveal: () => onToggleFieldReveal(entry.id, 'password'),
+              valueFontSize: 10,
+              actionIconSize: 12,
               onCopy: () => onCopy(payload['password'] as String),
             ),
         ],
         if ((payload['notes'] as String?)?.isNotEmpty ?? false)
-          _RevealRow(
+          EntryFieldRow(
             icon: Icons.sticky_note_2_outlined,
             value: payload['notes'] as String,
             isMasked: false,
             revealed: true,
             onToggleReveal: null,
+            valueFontSize: 10,
+            actionIconSize: 12,
             onCopy: () => onCopy(payload['notes'] as String),
           ),
       ],
-    );
-  }
-}
-
-class _RevealRow extends StatelessWidget {
-  const _RevealRow({
-    required this.icon,
-    required this.value,
-    required this.isMasked,
-    required this.revealed,
-    required this.onToggleReveal,
-    required this.onCopy,
-    this.extraTrailing,
-  });
-
-  final IconData icon;
-  final String value;
-  final bool isMasked;
-  final bool revealed;
-  final VoidCallback? onToggleReveal;
-  final VoidCallback onCopy;
-  final Widget? extraTrailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    final displayed = isMasked && !revealed ? '••••••••••••' : value;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: Row(
-        children: [
-          Icon(icon, size: 12, color: AppColors.onSurfaceSubtle(brightness)),
-          const SizedBox(width: AppSpacing.innerGap),
-          Expanded(
-            child: Text(
-              displayed,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: AppColors.onSurface(brightness),
-                fontSize: 10,
-                fontFamily: 'monospace',
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-          if (onToggleReveal != null)
-            _SmallIconButton(
-              icon: revealed ? Icons.visibility_off : Icons.visibility,
-              size: 12,
-              tooltip: l10n.vaultRevealValue,
-              onPressed: onToggleReveal!,
-            ),
-          if (onToggleReveal != null)
-            const SizedBox(width: AppSpacing.xs),
-          _SmallIconButton(
-            icon: Icons.content_copy,
-            size: 12,
-            tooltip: l10n.vaultCopyValue,
-            onPressed: onCopy,
-          ),
-          if (extraTrailing != null) ...[
-            const SizedBox(width: AppSpacing.xs),
-            extraTrailing!,
-          ],
-        ],
-      ),
     );
   }
 }
@@ -770,36 +713,3 @@ class _EntryIconWidget extends StatelessWidget {
   }
 }
 
-class _SmallIconButton extends StatelessWidget {
-  const _SmallIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-    this.size = 14,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Tooltip(
-      message: tooltip,
-      child: InkResponse(
-        onTap: onPressed,
-        radius: 16,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xs),
-          child: Icon(
-            icon,
-            size: size,
-            color: AppColors.onSurfaceSubtle(brightness),
-          ),
-        ),
-      ),
-    );
-  }
-}

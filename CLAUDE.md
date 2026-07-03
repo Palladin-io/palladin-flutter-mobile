@@ -220,8 +220,8 @@ These patterns are duplicated and have **no** shared widget yet. Extract to `lib
 | `AppColors.mobileSurface` | `#23262C` | Graphite card background (vault list/detail) |
 | `AppColors.lightBackground` | `#E8EAED` | Light scaffold background — warm cream |
 | `AppColors.lightSurface` | `#DCDEE2` | Light elevated surfaces |
-| `AppColors.brandRed` | `#EB4747` | "Vault" wordmark, errors, primary buttons |
-| `AppColors.tealAccent` | `#48ECDF` | Primary interactive, loaders |
+| `AppColors.brandRed` | `#EB4747` | Primary/interactive color: "Vault" wordmark, errors, primary buttons, **all interactive actions** (links, Retry, button foregrounds), **active/focused inputs**, loaders |
+| `AppColors.positiveAccent` | `#10B981` | Success / positive green — password-strength "strong/veryStrong", positive states. **Same green as web (`--cv-success`); web↔mobile parity. NEVER use teal (`#48ECDF`) or `#2EC4B6` as the success green.** |
 | `AppColors.onBrandRed` | `#FFFFFF` | Text/icons on brandRed backgrounds (`onPrimary`, `foregroundColor`) |
 
 Brightness-aware semantic colors are static methods (`AppColors.onSurface(brightness)`, `cardFill(brightness)`, `modalBackground(brightness)`, etc.), not consts. The full background is `AppColors.backgroundGradient(brightness)`.

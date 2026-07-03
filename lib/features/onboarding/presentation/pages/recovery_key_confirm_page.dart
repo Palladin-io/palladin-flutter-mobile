@@ -139,7 +139,9 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
               label: l10n.onboardingConfirmVerify,
               isLoading: isSubmitting,
               onPressed: allCorrect && !isSubmitting
-                  ? () => context.read<OnboardingCubit>().completeSetup()
+                  ? () => context.read<OnboardingCubit>().completeSetup(
+                        defaultVaultName: l10n.defaultVaultName,
+                      )
                   : null,
             ),
           ],
@@ -188,7 +190,7 @@ class _ConfirmationInput extends StatelessWidget {
     };
 
     final focusBorderColor = result == _WordCheckResult.empty
-        ? AppColors.tealAccent
+        ? AppColors.brandRed
         : borderColor;
 
     final isVisible = result != _WordCheckResult.empty;

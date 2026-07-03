@@ -34,6 +34,20 @@ enum UnlockServerErrorKind {
   invalidResponse,
 }
 
+/// Thrown when the session (refresh token) has expired, so `GET
+/// /api/account` returns 401 and the account material can't be fetched.
+///
+/// A live session returns 200 regardless of whether the master password
+/// is correct (the password is verified locally by decryption), so a 401
+/// here means the session — not the password — is the problem. The
+/// presentation layer routes the user back to sign-in.
+class SessionExpiredException implements Exception {
+  const SessionExpiredException();
+
+  @override
+  String toString() => 'SessionExpiredException';
+}
+
 /// Thrown when biometric unlock is attempted but no master key has
 /// been persisted to secure storage yet (user has never unlocked via
 /// password on this device).

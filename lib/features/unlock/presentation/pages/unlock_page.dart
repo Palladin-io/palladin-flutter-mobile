@@ -195,7 +195,7 @@ class _UnlockViewState extends State<_UnlockView> {
           tooltip: l10n.unlockBiometricHint,
           icon: const Icon(
             Icons.fingerprint,
-            color: AppColors.tealAccent,
+            color: AppColors.brandRed,
             size: 40,
           ),
         ),
@@ -264,11 +264,18 @@ class _UnlockViewState extends State<_UnlockView> {
         'unlock-failed',
         properties: {'reason': _resolveFailureReason(state.error)},
       );
+      if (state.error is SessionExpiredException) {
+        // Session (refresh token) is dead — a valid session returns 200
+        // regardless of password, so this can only be recovered by signing
+        // in again. AuthBloc clears tokens and the router forwards to /login.
+        context.read<AuthBloc>().add(const AuthLogoutRequested());
+      }
     }
   }
 
   String _resolveFailureReason(Object error) {
     if (error is WrongMasterPasswordException) return 'wrong_password';
+    if (error is SessionExpiredException) return 'session_expired';
     if (error is BiometricKeyMissingException) return 'biometric_missing';
     if (error is BiometricAuthFailedException) return 'biometric_failed';
     if (error is UnlockServerException) return 'server_error';
@@ -279,6 +286,9 @@ class _UnlockViewState extends State<_UnlockView> {
     final l10n = AppLocalizations.of(context)!;
     if (error is WrongMasterPasswordException) {
       return l10n.unlockWrongPassword;
+    }
+    if (error is SessionExpiredException) {
+      return l10n.unlockSessionExpired;
     }
     if (error is BiometricKeyMissingException) {
       return l10n.unlockBiometricUnavailable;

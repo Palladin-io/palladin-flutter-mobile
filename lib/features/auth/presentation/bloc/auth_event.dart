@@ -46,9 +46,17 @@ final class VaultLockRequested extends AuthEvent {
   const VaultLockRequested();
 }
 
-/// Fired by the onboarding wizard after setup completes. Updates auth
-/// state with `isOnboarded: true` and `isVaultLocked: false` — the user
-/// just set their master password so there is no need to unlock again.
+/// Fired by the onboarding wizard after setup completes.
+///
+/// On a fresh setup it carries the just-derived [masterKey] and
+/// [privateKey] so `AuthBloc` can mark the vault unlocked immediately —
+/// the user just set their master password, so there is no need to
+/// unlock again. On the "already onboarded" (409) path both are `null`,
+/// and `AuthBloc` keeps the vault locked so the router forwards the user
+/// to `/unlock` (never an "unlocked" state with no keys).
 final class OnboardingCompleted extends AuthEvent {
-  const OnboardingCompleted();
+  const OnboardingCompleted({this.masterKey, this.privateKey});
+
+  final Uint8List? masterKey;
+  final Uint8List? privateKey;
 }

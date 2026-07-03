@@ -184,6 +184,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Incorrect master password. Please try again.';
 
   @override
+  String get unlockSessionExpired =>
+      'Your session expired. Please sign in again.';
+
+  @override
   String get unlockBiometricHint => 'Unlock with biometrics';
 
   @override
@@ -834,6 +838,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryErrorUnknown => 'Something went wrong. Please try again.';
 
   @override
+  String get entryEditAction => 'Edit';
+
+  @override
+  String entryCopiedField(String field) {
+    return '$field copied to clipboard';
+  }
+
+  @override
+  String get entryCopied => 'Copied to clipboard';
+
+  @override
   String get settingsScreenTitle => 'Settings';
 
   @override
@@ -918,7 +933,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get apiKeysNameHint => 'e.g. Production agent';
 
   @override
-  String get apiKeysSecretTitle => 'API key created';
+  String get apiKeysSecretTitle => 'API Key Created';
 
   @override
   String get apiKeysSecretWarning =>
@@ -929,6 +944,29 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get apiKeysKeyCopied => 'API key copied to clipboard.';
+
+  @override
+  String get apiKeysCopied => 'Copied to clipboard.';
+
+  @override
+  String get apiKeysConnectTitle => 'Connect your agent';
+
+  @override
+  String get apiKeysAgentNameLabel => 'Agent name';
+
+  @override
+  String get apiKeysConnectInstall => 'Don\'t have the CLI? Install it:';
+
+  @override
+  String get apiKeysConnectDocs => 'Copy docs link';
+
+  @override
+  String get apiKeysAgentMessageTitle => 'Message for your agent';
+
+  @override
+  String apiKeysAgentMessageBody(String name, String docs, String market) {
+    return '$name, I\'ve connected you to Palladin for secure access to my credentials. Learn how to create and use your Palladin skill here: $docs — or browse ready-made skills in the marketplace: $market.';
+  }
 
   @override
   String get apiKeysDone => 'Done';
@@ -2286,4 +2324,129 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get auditObjectAgent => 'an agent';
+
+  @override
+  String get dashboardGoodMorning => 'Good morning';
+
+  @override
+  String get dashboardSearchHint => 'Agents, vaults, entries…';
+
+  @override
+  String get defaultVaultName => 'Personal';
+
+  @override
+  String get dashboardOnboardingTitle => 'Set up Palladin';
+
+  @override
+  String get dashboardOnboardingSubtitle =>
+      'Complete these steps to start managing access securely';
+
+  @override
+  String dashboardOnboardingProgress(int completed) {
+    return '$completed of 4 completed';
+  }
+
+  @override
+  String get dashboardOnboardingSkipSetup => 'Skip setup';
+
+  @override
+  String get dashboardOnboardingStep1Title => 'Enable notifications';
+
+  @override
+  String get dashboardOnboardingStep1Description =>
+      'Respond in seconds — agents wait for your approval. Faster responses mean smoother AI workflows.';
+
+  @override
+  String get dashboardOnboardingStep1Enable => 'Enable';
+
+  @override
+  String get dashboardOnboardingStep1Skip => 'Skip';
+
+  @override
+  String get dashboardOnboardingStep1OpenSettings => 'Open Settings';
+
+  @override
+  String get dashboardOnboardingStep2Title =>
+      'Add your first entry or import passwords';
+
+  @override
+  String get dashboardOnboardingStep2Description =>
+      'Your Personal vault is ready — add a password entry manually or import your existing credentials.';
+
+  @override
+  String get dashboardOnboardingStep2Cta => 'Go to Vaults';
+
+  @override
+  String get dashboardOnboardingStep3Title => 'Add an API Key';
+
+  @override
+  String get dashboardOnboardingStep3Description =>
+      'Connect Palladin to external services';
+
+  @override
+  String get dashboardOnboardingStep3Cta => 'Add API Key';
+
+  @override
+  String get dashboardOnboardingStep4Title => 'Register an Agent';
+
+  @override
+  String get dashboardOnboardingStep4Description =>
+      'Add your first AI agent that can request access';
+
+  @override
+  String get dashboardOnboardingStep4Cta => 'Register Agent';
+
+  @override
+  String dashboardOnboardingStep(int n) {
+    return 'Step $n';
+  }
+
+  @override
+  String get dashboardUnknownAgentWarning => 'Unregistered agent';
+
+  @override
+  String get dashboardUnknownAgentDescription =>
+      'This agent is not yet in the system. You can register it and approve access at the same time.';
+
+  @override
+  String get dashboardUnknownAgentRegisterAndApprove => 'Register & Approve';
+
+  @override
+  String get dashboardUnknownAgentReject => 'Reject';
+
+  @override
+  String get dashboardRequestRejected => 'Request rejected';
+
+  @override
+  String get dashboardPendingApprovals => 'Pending Approvals';
+
+  @override
+  String get dashboardRecentActivity => 'Recent Activity';
+
+  @override
+  String get dashboardNoActivity => 'No activity yet';
+
+  @override
+  String get dashboardRecentlyModified => 'Recently added / modified';
+
+  @override
+  String get dashboardSeeAll => 'See all';
+
+  @override
+  String get dashboardSearchRecent => 'Recent';
+
+  @override
+  String get searchResultsEmpty => 'No results for this search';
+
+  @override
+  String get searchResultsError => 'Search failed. Please try again.';
+
+  @override
+  String get searchTypeBadgeAgent => 'Agent';
+
+  @override
+  String get searchTypeBadgeVault => 'Vault';
+
+  @override
+  String get searchTypeBadgeEntry => 'Entry';
 }

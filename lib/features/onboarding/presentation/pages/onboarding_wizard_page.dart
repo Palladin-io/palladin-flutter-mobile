@@ -36,9 +36,18 @@ class _OnboardingWizardView extends StatelessWidget {
       listenWhen: (p, c) =>
           p.step != c.step && c.step == OnboardingStep.completed,
       listener: (context, state) {
-        // Signal setup completion — vault stays unlocked so the user
-        // doesn't have to re-enter the password they just set.
-        context.read<AuthBloc>().add(const OnboardingCompleted());
+        // Hand the freshly derived keys to AuthBloc so the vault is
+        // unlocked immediately — the user doesn't have to re-enter the
+        // password they just set. On the "already onboarded" path the
+        // keys are null and AuthBloc keeps the vault locked (→ /unlock).
+        final keys = state.unlockKeys;
+        context.read<AuthBloc>().add(OnboardingCompleted(
+              masterKey: keys?.masterKey,
+              privateKey: keys?.privateKey,
+            ));
+        // Drop the cubit's now-redundant reference (AuthBloc owns the
+        // live copies for the session).
+        context.read<OnboardingCubit>().clearUnlockKeys();
       },
       child: BlocBuilder<OnboardingCubit, OnboardingState>(
         buildWhen: (p, c) => p.step != c.step || p.mnemonic != c.mnemonic,

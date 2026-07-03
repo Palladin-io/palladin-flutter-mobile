@@ -253,7 +253,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
       textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
       scaffoldBackgroundColor: AppColors.darkBackground,
       colorScheme: const ColorScheme.dark(
-        primary: AppColors.tealAccent,
+        primary: AppColors.brandRed,
         error: AppColors.brandRed,
         surface: AppColors.darkSurface,
       ),

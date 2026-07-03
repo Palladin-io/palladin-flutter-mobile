@@ -165,8 +165,8 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
       PasswordStrength.tooShort => AppColors.brandRed,
       PasswordStrength.weak => AppColors.brandRed,
       PasswordStrength.fair => AppColors.strengthFair,
-      PasswordStrength.strong => AppColors.tealAccent,
-      PasswordStrength.veryStrong => AppColors.tealAccent,
+      PasswordStrength.strong => AppColors.positiveAccent,
+      PasswordStrength.veryStrong => AppColors.positiveAccent,
     };
   }
 }

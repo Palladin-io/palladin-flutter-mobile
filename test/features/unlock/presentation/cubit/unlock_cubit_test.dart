@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:bloc_test/bloc_test.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_auth/local_auth.dart';
@@ -156,6 +157,36 @@ void main() {
         isA<UnlockLoading>(),
         isA<UnlockFailed>()
             .having((s) => s.error, 'error', isA<WrongMasterPasswordException>()),
+      ],
+      verify: (_) {
+        verifyNever(() => storage.write(
+              key: any(named: 'key'),
+              value: any(named: 'value'),
+              iOptions: any(named: 'iOptions'),
+              aOptions: any(named: 'aOptions'),
+            ));
+      },
+    );
+
+    blocTest<UnlockCubit, UnlockState>(
+      'unlock emits Failed(SessionExpiredException) on a 401 from getAccount',
+      build: () {
+        when(() => datasource.getAccount()).thenThrow(
+          DioException(
+            requestOptions: RequestOptions(path: '/api/account'),
+            response: Response<dynamic>(
+              requestOptions: RequestOptions(path: '/api/account'),
+              statusCode: 401,
+            ),
+          ),
+        );
+        return buildCubit();
+      },
+      act: (cubit) => cubit.unlock('pw'),
+      expect: () => [
+        isA<UnlockLoading>(),
+        isA<UnlockFailed>()
+            .having((s) => s.error, 'error', isA<SessionExpiredException>()),
       ],
       verify: (_) {
         verifyNever(() => storage.write(

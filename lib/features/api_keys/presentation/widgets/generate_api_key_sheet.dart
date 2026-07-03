@@ -134,21 +134,27 @@ class _GenerateApiKeySheetState extends State<GenerateApiKeySheet> {
               children: [
                 _SheetHandle(),
                 const SizedBox(height: AppSpacing.xxl),
-                if (_isRevealPhase)
-                  _RevealPhase(
-                    newKey: _newKey!,
-                    onCopy: _copyKey,
-                  )
-                else
-                  _NamePhase(
-                    controller: _nameController,
-                    isSubmitting: _isSubmitting,
-                    errorText: _error == null
-                        ? null
-                        : settingsErrorMessage(l10n, _error!),
-                    onChanged: () => setState(() {}),
-                    onSubmit: _submit,
+                // The reveal phase can grow taller than the viewport (agent
+                // connection helpers), so the phase content scrolls while the
+                // drag handle stays pinned above it.
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: _isRevealPhase
+                        ? _RevealPhase(
+                            newKey: _newKey!,
+                            onCopy: _copyKey,
+                          )
+                        : _NamePhase(
+                            controller: _nameController,
+                            isSubmitting: _isSubmitting,
+                            errorText: _error == null
+                                ? null
+                                : settingsErrorMessage(l10n, _error!),
+                            onChanged: () => setState(() {}),
+                            onSubmit: _submit,
+                          ),
                   ),
+                ),
               ],
             ),
           ),
@@ -224,12 +230,57 @@ class _NamePhase extends StatelessWidget {
   }
 }
 
-/// Phase 2 — reveals the one-time plaintext secret.
-class _RevealPhase extends StatelessWidget {
+// Product URLs shown on the reveal screen. TODO: point at the real URLs
+// once palladin.io is live (mirrors the web panel's placeholders).
+const String _docsUrl = 'https://palladin.io/docs';
+const String _skillDocsUrl = 'https://palladin.io/docs/skill';
+const String _marketUrl = 'https://palladin.io/market';
+const String _installCommand = 'npm i -g @palladin/agent';
+
+/// Phase 2 — reveals the one-time plaintext secret and the agent-connection
+/// helpers (connect command, install hint, docs link, agent message).
+///
+/// Stateful because the agent name is editable and the `palladin connect`
+/// command is rebuilt live from it. The command embeds the plaintext secret;
+/// it is only rendered on this one-time screen and is never logged.
+class _RevealPhase extends StatefulWidget {
   const _RevealPhase({required this.newKey, required this.onCopy});
 
   final NewApiKey newKey;
   final VoidCallback onCopy;
+
+  @override
+  State<_RevealPhase> createState() => _RevealPhaseState();
+}
+
+class _RevealPhaseState extends State<_RevealPhase> {
+  late final TextEditingController _agentNameController =
+      TextEditingController(text: widget.newKey.name);
+
+  @override
+  void dispose() {
+    _agentNameController.dispose();
+    super.dispose();
+  }
+
+  /// The agent identifier used in the connect command and message — the
+  /// edited name, falling back to the key name when the field is cleared.
+  String get _agentId {
+    final trimmed = _agentNameController.text.trim();
+    return trimmed.isEmpty ? widget.newKey.name : trimmed;
+  }
+
+  String get _connectCommand =>
+      'palladin connect ${widget.newKey.plaintext} --id "$_agentId"';
+
+  Future<void> _copy(String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(l10n.apiKeysCopied)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -283,26 +334,10 @@ class _RevealPhase extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.md),
         // The plaintext secret in a monospace, selectable highlighted box.
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.cardPadding),
-          decoration: BoxDecoration(
-            color: AppColors.inputFill(brightness),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.inputBorder(brightness)),
-          ),
-          child: SelectableText(
-            newKey.plaintext,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 13,
-              fontFamily: 'monospace',
-              height: 1.4,
-            ),
-          ),
-        ),
+        _MonospaceBox(text: widget.newKey.plaintext),
         const SizedBox(height: AppSpacing.md),
         OutlinedButton.icon(
-          onPressed: onCopy,
+          onPressed: widget.onCopy,
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.onSurface(brightness),
             side: BorderSide(color: AppColors.onSurface(brightness)),
@@ -317,12 +352,254 @@ class _RevealPhase extends StatelessWidget {
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ),
+        const SizedBox(height: AppSpacing.md),
+        _CollapsibleSection(
+          title: l10n.apiKeysConnectTitle,
+          defaultOpen: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              OnboardingTextField(
+                controller: _agentNameController,
+                label: l10n.apiKeysAgentNameLabel,
+                hintText: l10n.apiKeysNameHint,
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.done,
+                onChanged: (_) => setState(() {}),
+                feedbackReserveSpace: false,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _MonospaceBox(
+                text: _connectCommand,
+                onCopy: () => _copy(_connectCommand),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                l10n.apiKeysConnectInstall,
+                style: TextStyle(
+                  color: AppColors.onSurfaceSubtle(brightness),
+                  fontSize: 11,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.innerGap),
+              _MonospaceBox(
+                text: _installCommand,
+                onCopy: () => _copy(_installCommand),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _LinkText(
+                label: l10n.apiKeysConnectDocs,
+                onTap: () => _copy(_docsUrl),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: AppSpacing.innerGap),
+        _CollapsibleSection(
+          title: l10n.apiKeysAgentMessageTitle,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _MonospaceBox(
+                text: l10n.apiKeysAgentMessageBody(
+                  _agentId,
+                  _skillDocsUrl,
+                  _marketUrl,
+                ),
+                monospace: false,
+                onCopy: () => _copy(
+                  l10n.apiKeysAgentMessageBody(
+                    _agentId,
+                    _skillDocsUrl,
+                    _marketUrl,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
         PrimaryButton(
           label: l10n.apiKeysDone,
           onPressed: () => Navigator.of(context).pop(),
         ),
       ],
+    );
+  }
+}
+
+/// A bordered, selectable text box (monospace by default) with an optional
+/// trailing copy affordance. Reused for the secret, the connect command,
+/// the install command, and the agent message.
+class _MonospaceBox extends StatelessWidget {
+  const _MonospaceBox({
+    required this.text,
+    this.onCopy,
+    this.monospace = true,
+  });
+
+  final String text;
+  final VoidCallback? onCopy;
+  final bool monospace;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.cardPadding,
+        AppSpacing.md,
+        onCopy == null ? AppSpacing.cardPadding : AppSpacing.sm,
+        AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.inputFill(brightness),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.inputBorder(brightness)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: SelectableText(
+              text,
+              style: TextStyle(
+                color: AppColors.onSurface(brightness),
+                fontSize: monospace ? 13 : 12,
+                fontFamily: monospace ? 'monospace' : null,
+                height: 1.4,
+              ),
+            ),
+          ),
+          if (onCopy != null) ...[
+            const SizedBox(width: AppSpacing.innerGap),
+            InkResponse(
+              onTap: onCopy,
+              radius: 18,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xs),
+                child: Icon(
+                  Icons.copy,
+                  size: 16,
+                  color: AppColors.onSurfaceSubtle(brightness),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Brand-red tap-to-copy affordance for a URL. `url_launcher` is not a
+/// dependency, so tapping copies the link to the clipboard rather than
+/// opening it — the leading copy glyph makes that unambiguous (no "→" that
+/// would read like a browser link).
+class _LinkText extends StatelessWidget {
+  const _LinkText({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.copy, size: 13, color: AppColors.brandRed),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.brandRed,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A tap-to-toggle bordered section: header row with a title + chevron and a
+/// collapsible body below. Mirrors the web `CollapsibleSection`.
+class _CollapsibleSection extends StatefulWidget {
+  const _CollapsibleSection({
+    required this.title,
+    required this.child,
+    this.defaultOpen = false,
+  });
+
+  final String title;
+  final Widget child;
+  final bool defaultOpen;
+
+  @override
+  State<_CollapsibleSection> createState() => _CollapsibleSectionState();
+}
+
+class _CollapsibleSectionState extends State<_CollapsibleSection> {
+  late bool _open = widget.defaultOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.cardBorder(brightness)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _open = !_open),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.cardPadding,
+                vertical: AppSpacing.md,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: TextStyle(
+                        color: AppColors.onSurface(brightness),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _open ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                    color: AppColors.onSurfaceSubtle(brightness),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_open)
+            Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: AppColors.cardBorder(brightness)),
+                ),
+              ),
+              padding: const EdgeInsets.all(AppSpacing.cardPadding),
+              child: widget.child,
+            ),
+        ],
+      ),
     );
   }
 }

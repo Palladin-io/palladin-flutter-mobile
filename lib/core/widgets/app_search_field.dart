@@ -21,6 +21,7 @@ class AppSearchField extends StatelessWidget {
     required this.controller,
     required this.hint,
     this.onChanged,
+    this.focusNode,
     this.filterActive = false,
     this.onToggleFilter,
   });
@@ -28,6 +29,11 @@ class AppSearchField extends StatelessWidget {
   /// Text editing controller backing the field. Owned by the caller
   /// (and disposed by them).
   final TextEditingController controller;
+
+  /// Optional focus node — pass when the caller needs to observe or drive
+  /// focus (e.g. to reveal focus-driven suggestions). Owned and disposed
+  /// by the caller.
+  final FocusNode? focusNode;
 
   /// Placeholder shown when the field is empty.
   final String hint;
@@ -50,6 +56,7 @@ class AppSearchField extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     return OnboardingTextField(
       controller: controller,
+      focusNode: focusNode,
       hintText: hint,
       onChanged: onChanged,
       // Use the brightness-aware default fill from OnboardingTextField

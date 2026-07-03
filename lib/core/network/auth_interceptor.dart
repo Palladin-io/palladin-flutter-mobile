@@ -35,7 +35,25 @@ class AuthInterceptor extends QueuedInterceptor {
       return;
     }
 
-    // Attempt token refresh on 401
+    // Never run the 401→refresh flow for the auth endpoints themselves, and
+    // never a second time for an already-retried request — otherwise a 401 on
+    // the refresh (dead session) would re-enter this handler and recurse.
+    final path = err.requestOptions.path;
+    final isAuthPath = path.contains('/api/auth/refresh') ||
+        path.contains('/api/auth/login') ||
+        path.contains('/api/auth/register');
+    final alreadyRetried = err.requestOptions.extra['__retried__'] == true;
+    if (isAuthPath || alreadyRetried) {
+      // A 401 on refresh/login means the session is dead — drop it so the
+      // user is routed back to sign-in rather than looping on a stale token.
+      if (path.contains('/api/auth/refresh') ||
+          path.contains('/api/auth/login')) {
+        await tokenStorage.clearAll();
+      }
+      handler.next(err);
+      return;
+    }
+
     final refresh = await tokenStorage.refreshToken;
     if (refresh == null || refresh.isEmpty) {
       await tokenStorage.clearAll();
@@ -44,29 +62,49 @@ class AuthInterceptor extends QueuedInterceptor {
     }
 
     try {
-      final response = await _dio.post(
-        '/api/auth/refresh',
-        data: {'refreshToken': refresh},
-      );
+      final newAccessToken = await _refreshTokens(refresh);
 
-      final newAccessToken = response.data['accessToken'] as String;
-      final newRefreshToken = response.data['refreshToken'] as String;
-
-      await tokenStorage.updateTokens(
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
-      );
-
-      // Retry the original request with the new token
+      // Retry the original request once with the new token. The
+      // `__retried__` flag guarantees a second 401 short-circuits above
+      // instead of triggering another refresh.
       final options = err.requestOptions;
       options.headers['Authorization'] = 'Bearer $newAccessToken';
+      options.extra['__retried__'] = true;
 
       final retryResponse = await _dio.fetch(options);
       handler.resolve(retryResponse);
     } on DioException {
-      // Refresh failed — clear tokens and propagate the original error
+      // Refresh failed — clear tokens and propagate the original error.
       await tokenStorage.clearAll();
       handler.next(err);
     }
+  }
+
+  /// Exchanges the refresh token for a fresh access/refresh pair.
+  ///
+  /// Uses a dedicated, interceptor-free Dio so the refresh request can never
+  /// re-enter [AuthInterceptor] and recurse or deadlock the [QueuedInterceptor].
+  Future<String> _refreshTokens(String refreshToken) async {
+    final refreshDio = Dio(BaseOptions(
+      baseUrl: _dio.options.baseUrl,
+      connectTimeout: _dio.options.connectTimeout,
+      receiveTimeout: _dio.options.receiveTimeout,
+    ));
+
+    final response = await refreshDio.post<Map<String, dynamic>>(
+      '/api/auth/refresh',
+      data: {'refreshToken': refreshToken},
+    );
+
+    final data = response.data!;
+    final newAccessToken = data['accessToken'] as String;
+    final newRefreshToken = data['refreshToken'] as String;
+
+    await tokenStorage.updateTokens(
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    );
+
+    return newAccessToken;
   }
 }

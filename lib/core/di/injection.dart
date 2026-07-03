@@ -30,6 +30,11 @@ import '../../features/audit/data/repositories/audit_repository_impl.dart';
 import '../../features/audit/domain/repositories/audit_repository.dart';
 import '../../features/audit/presentation/cubit/audit_log_cubit.dart';
 import '../../features/audit/presentation/cubit/entry_logs_cubit.dart';
+import '../../features/dashboard/data/datasources/dashboard_remote_datasource.dart';
+import '../../features/dashboard/data/repositories/dashboard_repository_impl.dart';
+import '../../features/dashboard/domain/repositories/dashboard_repository.dart';
+import '../../features/dashboard/presentation/cubit/dashboard_cubit.dart';
+import '../../features/dashboard/presentation/cubit/search_cubit.dart';
 import '../../features/grants/data/datasources/grants_remote_datasource.dart';
 import '../../features/grants/data/repositories/grants_repository_impl.dart';
 import '../../features/grants/domain/repositories/grants_repository.dart';
@@ -37,6 +42,7 @@ import '../../features/grants/presentation/cubit/org_grants_cubit.dart';
 import '../../features/notifications/data/datasources/notification_center_remote_datasource.dart';
 import '../../features/notifications/data/datasources/push_token_remote_datasource.dart';
 import '../../features/notifications/data/repositories/notification_center_repository_impl.dart';
+import '../../features/notifications/data/services/notification_permission_service.dart';
 import '../../features/notifications/data/services/notification_signalr_service.dart';
 import '../../features/notifications/data/services/push_notification_service.dart';
 import '../../features/notifications/domain/repositories/notification_center_repository.dart';
@@ -123,7 +129,13 @@ void configureDependencies(EnvConfig config) {
     () => OnboardingRepositoryImpl(
       remoteDatasource: getIt<OnboardingRemoteDatasource>(),
       cryptoService: getIt<OnboardingCryptoService>(),
+      // VaultCryptoService is needed to generate a wrapped VK for the
+      // default vault during onboarding, before the private key is cached
+      // in auth state. Registered after the vault section below; get_it
+      // resolves lazily so ordering in this file does not matter.
+      vaultCryptoService: getIt<VaultCryptoService>(),
       tokenStorage: getIt<SecureTokenStorage>(),
+      secureStorage: getIt<FlutterSecureStorage>(),
     ),
   );
 
@@ -306,6 +318,12 @@ void configureDependencies(EnvConfig config) {
     ),
   );
 
+  // Stateless permission helper used by DashboardCubit for the onboarding
+  // checklist step. Singleton — no state, no streams.
+  getIt.registerLazySingleton<NotificationPermissionService>(
+    () => NotificationPermissionService(),
+  );
+
   // AnalyticsService is a process-wide singleton (initialized in bootstrap)
   // — register it in the locator so callers depend on the interface rather
   // than the static `instance`, which makes them unit-testable.
@@ -421,5 +439,37 @@ void configureDependencies(EnvConfig config) {
   // in-sheet, so no construction args.
   getIt.registerFactory<GrantAccessCubit>(
     () => GrantAccessCubit(repository: getIt<ApprovalRepository>()),
+  );
+
+  // Dashboard (CVT-114) — data layer.
+  getIt.registerLazySingleton<DashboardRemoteDatasource>(
+    () => DashboardRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<DashboardRepository>(
+    () => DashboardRepositoryImpl(getIt<DashboardRemoteDatasource>()),
+  );
+
+  // Dashboard — presentation. Singleton so the home tab keeps its
+  // resolved state across shell tab switches; the page calls load() on
+  // each mount to refresh.
+  getIt.registerLazySingleton<DashboardCubit>(
+    () => DashboardCubit(
+      repository: getIt<DashboardRepository>(),
+      auditRepository: getIt<AuditRepository>(),
+      agentsRepository: getIt<AgentsRepository>(),
+      pendingGrantsCubit: getIt<PendingGrantsCubit>(),
+      analytics: getIt<AnalyticsService>(),
+      notificationPermissionService: getIt<NotificationPermissionService>(),
+    ),
+  );
+
+  // SearchCubit: factory so each dashboard mount gets a fresh instance
+  // (no stale results leak across visits). Reuses the shared
+  // DashboardRepository for the /api/search endpoint.
+  getIt.registerFactory<SearchCubit>(
+    () => SearchCubit(
+      repository: getIt<DashboardRepository>(),
+      analytics: getIt<AnalyticsService>(),
+    ),
   );
 }

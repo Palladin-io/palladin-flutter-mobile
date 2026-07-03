@@ -50,4 +50,29 @@ class VaultCryptoService {
       scalar.dispose();
     }
   }
+
+  /// Generates a random 32-byte vault key, seals it directly for the
+  /// supplied X25519 [publicKey], and returns the sealed bytes
+  /// base64-encoded.
+  ///
+  /// Use this variant when the private key is unavailable (e.g. during
+  /// the onboarding flow where the keypair is generated, used to build
+  /// the setup payload, and then zeroed before this call). The public
+  /// key from [OnboardingSetupPayload.publicKey] is passed directly so
+  /// no private-key material is needed.
+  ///
+  /// The plaintext VK is zeroized before returning.
+  Future<String> generateWrappedVKFromPublicKey(Uint8List publicKey) async {
+    final sodium = await _sodiumLoader();
+    final vk = sodium.randombytes.buf(32);
+    try {
+      final wrapped = sodium.crypto.box.seal(
+        message: vk,
+        publicKey: publicKey,
+      );
+      return base64.encode(wrapped);
+    } finally {
+      vk.fillRange(0, vk.length, 0);
+    }
+  }
 }

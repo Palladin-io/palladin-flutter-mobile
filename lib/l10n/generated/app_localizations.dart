@@ -416,6 +416,12 @@ abstract class AppLocalizations {
   /// **'Incorrect master password. Please try again.'**
   String get unlockWrongPassword;
 
+  /// Error shown when the session/refresh token has expired and the account material can't be fetched — the user is routed back to sign-in
+  ///
+  /// In en, this message translates to:
+  /// **'Your session expired. Please sign in again.'**
+  String get unlockSessionExpired;
+
   /// Tooltip and caption for the biometric unlock button
   ///
   /// In en, this message translates to:
@@ -1442,6 +1448,24 @@ abstract class AppLocalizations {
   /// **'Something went wrong. Please try again.'**
   String get entryErrorUnknown;
 
+  /// Button that switches the read-only entry detail into edit mode
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get entryEditAction;
+
+  /// Snackbar after copying a specific entry field (field = localized field name)
+  ///
+  /// In en, this message translates to:
+  /// **'{field} copied to clipboard'**
+  String entryCopiedField(String field);
+
+  /// Snackbar confirmation shown after copying an entry field or secret
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard'**
+  String get entryCopied;
+
   /// Title of the dedicated settings screen (organization details)
   ///
   /// In en, this message translates to:
@@ -1595,7 +1619,7 @@ abstract class AppLocalizations {
   /// Title of the one-time secret reveal step in the generate sheet
   ///
   /// In en, this message translates to:
-  /// **'API key created'**
+  /// **'API Key Created'**
   String get apiKeysSecretTitle;
 
   /// Warning shown above the one-time plaintext API key secret
@@ -1615,6 +1639,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'API key copied to clipboard.'**
   String get apiKeysKeyCopied;
+
+  /// Generic snackbar confirmation shown after copying a command, message, or link
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard.'**
+  String get apiKeysCopied;
+
+  /// Header of the collapsible section that shows how to connect an agent with the new key
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your agent'**
+  String get apiKeysConnectTitle;
+
+  /// Label for the editable agent-name field in the connect section
+  ///
+  /// In en, this message translates to:
+  /// **'Agent name'**
+  String get apiKeysAgentNameLabel;
+
+  /// Hint above the CLI install command in the connect section
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t have the CLI? Install it:'**
+  String get apiKeysConnectInstall;
+
+  /// Label for the tap-to-copy documentation link in the connect section (url_launcher is not a dependency, so the link is copied, not opened)
+  ///
+  /// In en, this message translates to:
+  /// **'Copy docs link'**
+  String get apiKeysConnectDocs;
+
+  /// Header of the collapsible section with a ready-to-send message for the agent
+  ///
+  /// In en, this message translates to:
+  /// **'Message for your agent'**
+  String get apiKeysAgentMessageTitle;
+
+  /// Copyable message a user can send to their agent after connecting it
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, I\'ve connected you to Palladin for secure access to my credentials. Learn how to create and use your Palladin skill here: {docs} — or browse ready-made skills in the marketplace: {market}.'**
+  String apiKeysAgentMessageBody(String name, String docs, String market);
 
   /// Label for the button that dismisses the secret reveal step
   ///
@@ -4075,6 +4141,234 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'an agent'**
   String get auditObjectAgent;
+
+  /// Greeting on the dashboard
+  ///
+  /// In en, this message translates to:
+  /// **'Good morning'**
+  String get dashboardGoodMorning;
+
+  /// Search placeholder on dashboard
+  ///
+  /// In en, this message translates to:
+  /// **'Agents, vaults, entries…'**
+  String get dashboardSearchHint;
+
+  /// Localized name for the default vault auto-created during onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Personal'**
+  String get defaultVaultName;
+
+  /// Title of the onboarding progress card
+  ///
+  /// In en, this message translates to:
+  /// **'Set up Palladin'**
+  String get dashboardOnboardingTitle;
+
+  /// Subtitle of the onboarding progress card
+  ///
+  /// In en, this message translates to:
+  /// **'Complete these steps to start managing access securely'**
+  String get dashboardOnboardingSubtitle;
+
+  /// Progress counter in the onboarding card
+  ///
+  /// In en, this message translates to:
+  /// **'{completed} of 4 completed'**
+  String dashboardOnboardingProgress(int completed);
+
+  /// Link to dismiss the onboarding checklist
+  ///
+  /// In en, this message translates to:
+  /// **'Skip setup'**
+  String get dashboardOnboardingSkipSetup;
+
+  /// Step 1 title
+  ///
+  /// In en, this message translates to:
+  /// **'Enable notifications'**
+  String get dashboardOnboardingStep1Title;
+
+  /// Step 1 description
+  ///
+  /// In en, this message translates to:
+  /// **'Respond in seconds — agents wait for your approval. Faster responses mean smoother AI workflows.'**
+  String get dashboardOnboardingStep1Description;
+
+  /// Enable notifications button
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get dashboardOnboardingStep1Enable;
+
+  /// Skip notifications step button
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get dashboardOnboardingStep1Skip;
+
+  /// Button shown instead of Enable when the OS notification permission was denied — opens system app settings
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get dashboardOnboardingStep1OpenSettings;
+
+  /// Step 2 title — prompts user to add a password entry or import
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first entry or import passwords'**
+  String get dashboardOnboardingStep2Title;
+
+  /// Step 2 description
+  ///
+  /// In en, this message translates to:
+  /// **'Your Personal vault is ready — add a password entry manually or import your existing credentials.'**
+  String get dashboardOnboardingStep2Description;
+
+  /// Step 2 CTA button — navigates to vault list so user can add first entry
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Vaults'**
+  String get dashboardOnboardingStep2Cta;
+
+  /// Step 3 title
+  ///
+  /// In en, this message translates to:
+  /// **'Add an API Key'**
+  String get dashboardOnboardingStep3Title;
+
+  /// Step 3 description
+  ///
+  /// In en, this message translates to:
+  /// **'Connect Palladin to external services'**
+  String get dashboardOnboardingStep3Description;
+
+  /// Step 3 CTA button
+  ///
+  /// In en, this message translates to:
+  /// **'Add API Key'**
+  String get dashboardOnboardingStep3Cta;
+
+  /// Step 4 title
+  ///
+  /// In en, this message translates to:
+  /// **'Register an Agent'**
+  String get dashboardOnboardingStep4Title;
+
+  /// Step 4 description
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first AI agent that can request access'**
+  String get dashboardOnboardingStep4Description;
+
+  /// Step 4 CTA button
+  ///
+  /// In en, this message translates to:
+  /// **'Register Agent'**
+  String get dashboardOnboardingStep4Cta;
+
+  /// Step number badge
+  ///
+  /// In en, this message translates to:
+  /// **'Step {n}'**
+  String dashboardOnboardingStep(int n);
+
+  /// Warning label on the unknown agent card
+  ///
+  /// In en, this message translates to:
+  /// **'Unregistered agent'**
+  String get dashboardUnknownAgentWarning;
+
+  /// Unknown agent card description
+  ///
+  /// In en, this message translates to:
+  /// **'This agent is not yet in the system. You can register it and approve access at the same time.'**
+  String get dashboardUnknownAgentDescription;
+
+  /// Register & Approve button label
+  ///
+  /// In en, this message translates to:
+  /// **'Register & Approve'**
+  String get dashboardUnknownAgentRegisterAndApprove;
+
+  /// Reject button label on unknown agent card
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get dashboardUnknownAgentReject;
+
+  /// Snackbar confirmation shown after the owner rejects an unknown-agent access request
+  ///
+  /// In en, this message translates to:
+  /// **'Request rejected'**
+  String get dashboardRequestRejected;
+
+  /// Pending approvals section header
+  ///
+  /// In en, this message translates to:
+  /// **'Pending Approvals'**
+  String get dashboardPendingApprovals;
+
+  /// Recent activity section header
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Activity'**
+  String get dashboardRecentActivity;
+
+  /// Empty state message for activity section
+  ///
+  /// In en, this message translates to:
+  /// **'No activity yet'**
+  String get dashboardNoActivity;
+
+  /// Section header for recently added or updated entries on the dashboard
+  ///
+  /// In en, this message translates to:
+  /// **'Recently added / modified'**
+  String get dashboardRecentlyModified;
+
+  /// See all link in section headers
+  ///
+  /// In en, this message translates to:
+  /// **'See all'**
+  String get dashboardSeeAll;
+
+  /// Header for the focus-driven recent-entries suggestions shown under the dashboard search field
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get dashboardSearchRecent;
+
+  /// Empty state shown in search results
+  ///
+  /// In en, this message translates to:
+  /// **'No results for this search'**
+  String get searchResultsEmpty;
+
+  /// Error state for search results
+  ///
+  /// In en, this message translates to:
+  /// **'Search failed. Please try again.'**
+  String get searchResultsError;
+
+  /// Type badge label for agent search results
+  ///
+  /// In en, this message translates to:
+  /// **'Agent'**
+  String get searchTypeBadgeAgent;
+
+  /// Type badge label for vault search results
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get searchTypeBadgeVault;
+
+  /// Type badge label for entry search results
+  ///
+  /// In en, this message translates to:
+  /// **'Entry'**
+  String get searchTypeBadgeEntry;
 }
 
 class _AppLocalizationsDelegate

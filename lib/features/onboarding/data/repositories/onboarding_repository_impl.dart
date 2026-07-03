@@ -1,13 +1,19 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../../../../core/storage/biometric_key_storage.dart';
 import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../vault/data/services/vault_crypto_service.dart';
 import '../../domain/mnemonic.dart' as mnemonic;
 import '../../domain/repositories/onboarding_repository.dart';
 import '../datasources/onboarding_remote_datasource.dart';
 import '../models/account_setup_request.dart';
+import '../models/default_vault_request.dart';
 import '../services/onboarding_crypto_service.dart';
 
 /// Concrete implementation of [OnboardingRepository].
@@ -15,16 +21,24 @@ import '../services/onboarding_crypto_service.dart';
 /// Orchestrates mnemonic generation, key derivation / encryption via
 /// [OnboardingCryptoService], and submission of the resulting payload
 /// to the backend.
+///
+/// After the account setup call succeeds, auto-creates the user's
+/// default vault via `POST /api/account/default-vault` (zero-knowledge:
+/// the VK is wrapped with the user's public key from the setup payload).
 class OnboardingRepositoryImpl implements OnboardingRepository {
   OnboardingRepositoryImpl({
     required this.remoteDatasource,
     required this.cryptoService,
+    required this.vaultCryptoService,
     required this.tokenStorage,
+    required this.secureStorage,
   });
 
   final OnboardingRemoteDatasource remoteDatasource;
   final OnboardingCryptoService cryptoService;
+  final VaultCryptoService vaultCryptoService;
   final SecureTokenStorage tokenStorage;
+  final FlutterSecureStorage secureStorage;
 
   @override
   Future<List<String>> generateRecoveryMnemonic() async {
@@ -32,41 +46,132 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
   }
 
   @override
-  Future<void> completeSetup({
+  Future<OnboardingUnlockKeys> completeSetup({
     required String masterPassword,
     required List<String> recoveryMnemonic,
+    required String defaultVaultName,
   }) async {
     AppLogger.d('Onboarding', 'Building setup payload');
-    final payload = await cryptoService.buildSetupPayload(
+    final result = await cryptoService.buildSetupPayload(
       masterPassword: masterPassword,
       recoveryMnemonic: recoveryMnemonic,
     );
-
-    final request = AccountSetupRequest(
-      salt: payload.salt,
-      recoverySalt: payload.recoverySalt,
-      publicKey: payload.publicKey,
-      encryptedPrivateKey: payload.encryptedPrivateKey,
-      encryptedPrivateKeyByRecovery: payload.encryptedPrivateKeyByRecovery,
-    );
+    final payload = result.payload;
 
     try {
-      AppLogger.d('Onboarding', 'POST /api/account/setup');
-      await remoteDatasource.setupAccount(request);
-      await tokenStorage.setOnboarded(true);
-      AppLogger.i('Onboarding', 'Account setup complete');
+      final request = AccountSetupRequest(
+        salt: payload.salt,
+        recoverySalt: payload.recoverySalt,
+        publicKey: payload.publicKey,
+        encryptedPrivateKey: payload.encryptedPrivateKey,
+        encryptedPrivateKeyByRecovery: payload.encryptedPrivateKeyByRecovery,
+      );
+
+      try {
+        AppLogger.d('Onboarding', 'POST /api/account/setup');
+        await remoteDatasource.setupAccount(request);
+        await tokenStorage.setOnboarded(true);
+        AppLogger.i('Onboarding', 'Account setup complete');
+      } on DioException catch (e, s) {
+        if (e.response?.statusCode == 409) {
+          // The backend says this account is already onboarded — mark the
+          // local flag so the router stops redirecting here, then surface
+          // the "already onboarded" signal to the UI (which treats it as
+          // success, not an error). These freshly derived keys are NOT
+          // the account's real keys, so they must not seed a session —
+          // the catch below zeroes them before this rethrows.
+          AppLogger.w('Onboarding', 'Account already onboarded (409)');
+          await tokenStorage.setOnboarded(true);
+          throw OnboardingAlreadyCompletedException();
+        }
+        AppLogger.e('Onboarding', 'Setup failed', error: e, stackTrace: s);
+        throw OnboardingServerException(_classifyError(e));
+      }
+
+      // Auto-create the default vault using the public key from the setup
+      // payload. Fire-and-forget: 409 means the default vault already
+      // exists (safe to swallow); any other transient error is logged and
+      // suppressed so it never blocks the user from proceeding.
+      await _createDefaultVaultOrIgnore(
+        publicKey: payload.publicKey,
+        name: defaultVaultName,
+      );
+
+      // Stash the MK for biometric unlock next session — same slot the
+      // password-unlock path writes. Best-effort; a failure must not
+      // block onboarding.
+      await _stashMasterKeyForBiometrics(result.masterKey);
+
+      return OnboardingUnlockKeys(
+        masterKey: result.masterKey,
+        privateKey: result.privateKey,
+      );
+    } catch (_) {
+      // On any failure the caller never receives the keys, so zero the
+      // retained copies before they are dropped.
+      result.masterKey.fillRange(0, result.masterKey.length, 0);
+      result.privateKey.fillRange(0, result.privateKey.length, 0);
+      rethrow;
+    }
+  }
+
+  /// Persists the master key to the OS keychain/keystore so biometric
+  /// unlock works on the next session, matching what the password
+  /// unlock flow does. Best-effort — never rethrows.
+  Future<void> _stashMasterKeyForBiometrics(Uint8List masterKey) async {
+    try {
+      await secureStorage.write(
+        key: BiometricKeyStorage.storageKey,
+        value: base64.encode(masterKey),
+        iOptions: BiometricKeyStorage.iosOptions,
+        aOptions: BiometricKeyStorage.androidOptions,
+      );
+    } catch (e, s) {
+      AppLogger.e(
+        'Onboarding',
+        'Failed to stash MK for biometric unlock (non-blocking)',
+        error: e,
+        stackTrace: s,
+      );
+    }
+  }
+
+  /// Wraps a fresh VK for [publicKey] and submits it to
+  /// `POST /api/account/default-vault`. 409 (already exists) and any
+  /// transient error are swallowed — the caller must never surface them.
+  Future<void> _createDefaultVaultOrIgnore({
+    required Uint8List publicKey,
+    required String name,
+  }) async {
+    try {
+      AppLogger.d('Onboarding', 'Generating wrapped VK for default vault');
+      final wrappedVK = await vaultCryptoService.generateWrappedVKFromPublicKey(
+        publicKey,
+      );
+      AppLogger.d('Onboarding', 'POST /api/account/default-vault');
+      await remoteDatasource.createDefaultVault(
+        DefaultVaultRequest(name: name, wrappedVK: wrappedVK),
+      );
+      AppLogger.i('Onboarding', 'Default vault created');
     } on DioException catch (e, s) {
       if (e.response?.statusCode == 409) {
-        // The backend says this account is already onboarded — mark the
-        // local flag so the router stops redirecting here, then surface
-        // the "already onboarded" signal to the UI (which treats it as
-        // success, not an error).
-        AppLogger.w('Onboarding', 'Account already onboarded (409)');
-        await tokenStorage.setOnboarded(true);
-        throw OnboardingAlreadyCompletedException();
+        // Default vault already exists — idempotent, nothing to do.
+        AppLogger.i('Onboarding', 'Default vault already exists (409) — skipping');
+        return;
       }
-      AppLogger.e('Onboarding', 'Setup failed', error: e, stackTrace: s);
-      throw OnboardingServerException(_classifyError(e));
+      AppLogger.e(
+        'Onboarding',
+        'Default vault creation failed (non-blocking)',
+        error: e,
+        stackTrace: s,
+      );
+    } catch (e, s) {
+      AppLogger.e(
+        'Onboarding',
+        'Default vault creation failed unexpectedly (non-blocking)',
+        error: e,
+        stackTrace: s,
+      );
     }
   }
 

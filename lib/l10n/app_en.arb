@@ -230,6 +230,10 @@
   "@unlockWrongPassword": {
     "description": "Error shown when password-based decryption fails"
   },
+  "unlockSessionExpired": "Your session expired. Please sign in again.",
+  "@unlockSessionExpired": {
+    "description": "Error shown when the session/refresh token has expired and the account material can't be fetched — the user is routed back to sign-in"
+  },
   "unlockBiometricHint": "Unlock with biometrics",
   "@unlockBiometricHint": {
     "description": "Tooltip and caption for the biometric unlock button"
@@ -1001,6 +1005,19 @@
   "@entryErrorUnknown": {
     "description": "Generic fallback error for entry operations"
   },
+  "entryEditAction": "Edit",
+  "@entryEditAction": {
+    "description": "Button that switches the read-only entry detail into edit mode"
+  },
+  "entryCopiedField": "{field} copied to clipboard",
+  "@entryCopiedField": {
+    "description": "Snackbar after copying a specific entry field (field = localized field name)",
+    "placeholders": { "field": { "type": "String" } }
+  },
+  "entryCopied": "Copied to clipboard",
+  "@entryCopied": {
+    "description": "Snackbar confirmation shown after copying an entry field or secret"
+  },
   "settingsScreenTitle": "Settings",
   "@settingsScreenTitle": {
     "description": "Title of the dedicated settings screen (organization details)"
@@ -1106,7 +1123,7 @@
   "@apiKeysNameHint": {
     "description": "Placeholder text for the API key name input field"
   },
-  "apiKeysSecretTitle": "API key created",
+  "apiKeysSecretTitle": "API Key Created",
   "@apiKeysSecretTitle": {
     "description": "Title of the one-time secret reveal step in the generate sheet"
   },
@@ -1121,6 +1138,45 @@
   "apiKeysKeyCopied": "API key copied to clipboard.",
   "@apiKeysKeyCopied": {
     "description": "Snackbar confirmation shown after copying the API key secret"
+  },
+  "apiKeysCopied": "Copied to clipboard.",
+  "@apiKeysCopied": {
+    "description": "Generic snackbar confirmation shown after copying a command, message, or link"
+  },
+  "apiKeysConnectTitle": "Connect your agent",
+  "@apiKeysConnectTitle": {
+    "description": "Header of the collapsible section that shows how to connect an agent with the new key"
+  },
+  "apiKeysAgentNameLabel": "Agent name",
+  "@apiKeysAgentNameLabel": {
+    "description": "Label for the editable agent-name field in the connect section"
+  },
+  "apiKeysConnectInstall": "Don't have the CLI? Install it:",
+  "@apiKeysConnectInstall": {
+    "description": "Hint above the CLI install command in the connect section"
+  },
+  "apiKeysConnectDocs": "Copy docs link",
+  "@apiKeysConnectDocs": {
+    "description": "Label for the tap-to-copy documentation link in the connect section (url_launcher is not a dependency, so the link is copied, not opened)"
+  },
+  "apiKeysAgentMessageTitle": "Message for your agent",
+  "@apiKeysAgentMessageTitle": {
+    "description": "Header of the collapsible section with a ready-to-send message for the agent"
+  },
+  "apiKeysAgentMessageBody": "{name}, I've connected you to Palladin for secure access to my credentials. Learn how to create and use your Palladin skill here: {docs} — or browse ready-made skills in the marketplace: {market}.",
+  "@apiKeysAgentMessageBody": {
+    "description": "Copyable message a user can send to their agent after connecting it",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "docs": {
+        "type": "String"
+      },
+      "market": {
+        "type": "String"
+      }
+    }
   },
   "apiKeysDone": "Done",
   "@apiKeysDone": {
@@ -2399,5 +2455,87 @@
   "auditObjectEntry": "an entry",
   "auditObjectOrg": "the organization",
   "auditObjectApiKey": "an API key",
-  "auditObjectAgent": "an agent"
+  "auditObjectAgent": "an agent",
+  "dashboardGoodMorning": "Good morning",
+  "@dashboardGoodMorning": { "description": "Greeting on the dashboard" },
+  "dashboardSearchHint": "Agents, vaults, entries…",
+  "@dashboardSearchHint": { "description": "Search placeholder on dashboard" },
+  "defaultVaultName": "Personal",
+  "@defaultVaultName": { "description": "Localized name for the default vault auto-created during onboarding" },
+  "dashboardOnboardingTitle": "Set up Palladin",
+  "@dashboardOnboardingTitle": { "description": "Title of the onboarding progress card" },
+  "dashboardOnboardingSubtitle": "Complete these steps to start managing access securely",
+  "@dashboardOnboardingSubtitle": { "description": "Subtitle of the onboarding progress card" },
+  "dashboardOnboardingProgress": "{completed} of 4 completed",
+  "@dashboardOnboardingProgress": {
+    "description": "Progress counter in the onboarding card",
+    "placeholders": { "completed": { "type": "int" } }
+  },
+  "dashboardOnboardingSkipSetup": "Skip setup",
+  "@dashboardOnboardingSkipSetup": { "description": "Link to dismiss the onboarding checklist" },
+  "dashboardOnboardingStep1Title": "Enable notifications",
+  "@dashboardOnboardingStep1Title": { "description": "Step 1 title" },
+  "dashboardOnboardingStep1Description": "Respond in seconds — agents wait for your approval. Faster responses mean smoother AI workflows.",
+  "@dashboardOnboardingStep1Description": { "description": "Step 1 description" },
+  "dashboardOnboardingStep1Enable": "Enable",
+  "@dashboardOnboardingStep1Enable": { "description": "Enable notifications button" },
+  "dashboardOnboardingStep1Skip": "Skip",
+  "@dashboardOnboardingStep1Skip": { "description": "Skip notifications step button" },
+  "dashboardOnboardingStep1OpenSettings": "Open Settings",
+  "@dashboardOnboardingStep1OpenSettings": { "description": "Button shown instead of Enable when the OS notification permission was denied — opens system app settings" },
+  "dashboardOnboardingStep2Title": "Add your first entry or import passwords",
+  "@dashboardOnboardingStep2Title": { "description": "Step 2 title — prompts user to add a password entry or import" },
+  "dashboardOnboardingStep2Description": "Your Personal vault is ready — add a password entry manually or import your existing credentials.",
+  "@dashboardOnboardingStep2Description": { "description": "Step 2 description" },
+  "dashboardOnboardingStep2Cta": "Go to Vaults",
+  "@dashboardOnboardingStep2Cta": { "description": "Step 2 CTA button — navigates to vault list so user can add first entry" },
+  "dashboardOnboardingStep3Title": "Add an API Key",
+  "@dashboardOnboardingStep3Title": { "description": "Step 3 title" },
+  "dashboardOnboardingStep3Description": "Connect Palladin to external services",
+  "@dashboardOnboardingStep3Description": { "description": "Step 3 description" },
+  "dashboardOnboardingStep3Cta": "Add API Key",
+  "@dashboardOnboardingStep3Cta": { "description": "Step 3 CTA button" },
+  "dashboardOnboardingStep4Title": "Register an Agent",
+  "@dashboardOnboardingStep4Title": { "description": "Step 4 title" },
+  "dashboardOnboardingStep4Description": "Add your first AI agent that can request access",
+  "@dashboardOnboardingStep4Description": { "description": "Step 4 description" },
+  "dashboardOnboardingStep4Cta": "Register Agent",
+  "@dashboardOnboardingStep4Cta": { "description": "Step 4 CTA button" },
+  "dashboardOnboardingStep": "Step {n}",
+  "@dashboardOnboardingStep": {
+    "description": "Step number badge",
+    "placeholders": { "n": { "type": "int" } }
+  },
+  "dashboardUnknownAgentWarning": "Unregistered agent",
+  "@dashboardUnknownAgentWarning": { "description": "Warning label on the unknown agent card" },
+  "dashboardUnknownAgentDescription": "This agent is not yet in the system. You can register it and approve access at the same time.",
+  "@dashboardUnknownAgentDescription": { "description": "Unknown agent card description" },
+  "dashboardUnknownAgentRegisterAndApprove": "Register & Approve",
+  "@dashboardUnknownAgentRegisterAndApprove": { "description": "Register & Approve button label" },
+  "dashboardUnknownAgentReject": "Reject",
+  "@dashboardUnknownAgentReject": { "description": "Reject button label on unknown agent card" },
+  "dashboardRequestRejected": "Request rejected",
+  "@dashboardRequestRejected": { "description": "Snackbar confirmation shown after the owner rejects an unknown-agent access request" },
+  "dashboardPendingApprovals": "Pending Approvals",
+  "@dashboardPendingApprovals": { "description": "Pending approvals section header" },
+  "dashboardRecentActivity": "Recent Activity",
+  "@dashboardRecentActivity": { "description": "Recent activity section header" },
+  "dashboardNoActivity": "No activity yet",
+  "@dashboardNoActivity": { "description": "Empty state message for activity section" },
+  "dashboardRecentlyModified": "Recently added / modified",
+  "@dashboardRecentlyModified": { "description": "Section header for recently added or updated entries on the dashboard" },
+  "dashboardSeeAll": "See all",
+  "@dashboardSeeAll": { "description": "See all link in section headers" },
+  "dashboardSearchRecent": "Recent",
+  "@dashboardSearchRecent": { "description": "Header for the focus-driven recent-entries suggestions shown under the dashboard search field" },
+  "searchResultsEmpty": "No results for this search",
+  "@searchResultsEmpty": { "description": "Empty state shown in search results" },
+  "searchResultsError": "Search failed. Please try again.",
+  "@searchResultsError": { "description": "Error state for search results" },
+  "searchTypeBadgeAgent": "Agent",
+  "@searchTypeBadgeAgent": { "description": "Type badge label for agent search results" },
+  "searchTypeBadgeVault": "Vault",
+  "@searchTypeBadgeVault": { "description": "Type badge label for vault search results" },
+  "searchTypeBadgeEntry": "Entry",
+  "@searchTypeBadgeEntry": { "description": "Type badge label for entry search results" }
 }

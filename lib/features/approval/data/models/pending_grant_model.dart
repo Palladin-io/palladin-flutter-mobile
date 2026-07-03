@@ -19,6 +19,7 @@ class PendingGrantModel {
     this.entryLabel,
     this.reason,
     this.methods,
+    this.isAgentRegistered = true,
   });
 
   final String grantId;
@@ -35,6 +36,10 @@ class PendingGrantModel {
   /// Combined-flags string the agent requested, e.g. "get, exec" (CVT-149).
   final String? methods;
 
+  /// Whether the requesting agent is already enrolled. Defaults to `true`
+  /// when the backend omits `agentRegistered`.
+  final bool isAgentRegistered;
+
   factory PendingGrantModel.fromJson(Map<String, dynamic> json) {
     return PendingGrantModel(
       // Tolerate both `grantId` and `id` keys.
@@ -49,6 +54,7 @@ class PendingGrantModel {
       entryLabel: json['entryLabel'] as String?,
       reason: json['reason'] as String?,
       methods: json['methods'] as String?,
+      isAgentRegistered: json['agentRegistered'] as bool? ?? true,
     );
   }
 
@@ -64,6 +70,7 @@ class PendingGrantModel {
       entryLabel: entryLabel,
       reason: reason,
       requestedMethods: parseGrantMethods(methods),
+      isAgentRegistered: isAgentRegistered,
       createdAt: DateTime.parse(createdAt).toLocal(),
     );
   }

@@ -45,5 +45,32 @@ void main() {
       expect(entity.entryLabel, isNull);
       expect(entity.reason, isNull);
     });
+
+    test('defaults isAgentRegistered to true when `agentRegistered` absent', () {
+      final entity = PendingGrantModel.fromJson(<String, dynamic>{
+        'grantId': 'g-3',
+        'vaultId': 'v-3',
+        'agentId': 'a-3',
+        'entryId': 'e-3',
+        'agentPublicKey': 'a2V5',
+        'createdAt': '2026-06-02T08:00:00Z',
+      }).toEntity();
+
+      expect(entity.isAgentRegistered, isTrue);
+    });
+
+    test('maps `agentRegistered: false` for an unknown agent request', () {
+      final entity = PendingGrantModel.fromJson(<String, dynamic>{
+        'grantId': 'g-4',
+        'vaultId': 'v-4',
+        'agentId': 'a-4',
+        'entryId': 'e-4',
+        'agentPublicKey': 'a2V5',
+        'agentRegistered': false,
+        'createdAt': '2026-06-02T08:00:00Z',
+      }).toEntity();
+
+      expect(entity.isAgentRegistered, isFalse);
+    });
   });
 }

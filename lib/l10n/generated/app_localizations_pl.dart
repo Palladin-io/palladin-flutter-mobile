@@ -185,6 +185,9 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nieprawidłowe hasło główne. Spróbuj ponownie.';
 
   @override
+  String get unlockSessionExpired => 'Sesja wygasła. Zaloguj się ponownie.';
+
+  @override
   String get unlockBiometricHint => 'Odblokuj biometrycznie';
 
   @override
@@ -850,6 +853,17 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
 
   @override
+  String get entryEditAction => 'Edytuj';
+
+  @override
+  String entryCopiedField(String field) {
+    return 'Skopiowano $field do schowka';
+  }
+
+  @override
+  String get entryCopied => 'Skopiowano do schowka';
+
+  @override
   String get settingsScreenTitle => 'Ustawienia';
 
   @override
@@ -948,6 +962,29 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get apiKeysKeyCopied => 'Skopiowano klucz API do schowka.';
+
+  @override
+  String get apiKeysCopied => 'Skopiowano do schowka.';
+
+  @override
+  String get apiKeysConnectTitle => 'Podłącz agenta';
+
+  @override
+  String get apiKeysAgentNameLabel => 'Nazwa agenta';
+
+  @override
+  String get apiKeysConnectInstall => 'Nie masz CLI? Zainstaluj:';
+
+  @override
+  String get apiKeysConnectDocs => 'Skopiuj link do dokumentacji';
+
+  @override
+  String get apiKeysAgentMessageTitle => 'Wiadomość dla agenta';
+
+  @override
+  String apiKeysAgentMessageBody(String name, String docs, String market) {
+    return '$name, podłączono Cię do Palladin dla bezpiecznego dostępu do moich danych. Dowiedz się, jak utworzyć i używać swojego skilla Palladin: $docs — albo przejrzyj gotowe skille w markecie: $market.';
+  }
 
   @override
   String get apiKeysDone => 'Gotowe';
@@ -2306,4 +2343,131 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get auditObjectAgent => 'agenta';
+
+  @override
+  String get dashboardGoodMorning => 'Dzień dobry';
+
+  @override
+  String get dashboardSearchHint => 'Agenci, sejfy, wpisy…';
+
+  @override
+  String get defaultVaultName => 'Osobisty';
+
+  @override
+  String get dashboardOnboardingTitle => 'Skonfiguruj Palladin';
+
+  @override
+  String get dashboardOnboardingSubtitle =>
+      'Wykonaj te kroki, aby bezpiecznie zarządzać dostępem';
+
+  @override
+  String dashboardOnboardingProgress(int completed) {
+    return 'Ukończono $completed z 4';
+  }
+
+  @override
+  String get dashboardOnboardingSkipSetup => 'Pomiń konfigurację';
+
+  @override
+  String get dashboardOnboardingStep1Title => 'Włącz powiadomienia';
+
+  @override
+  String get dashboardOnboardingStep1Description =>
+      'Reaguj w sekundy — agenci czekają na Twoją zgodę. Szybsze odpowiedzi to płynniejsze przepływy pracy AI.';
+
+  @override
+  String get dashboardOnboardingStep1Enable => 'Włącz';
+
+  @override
+  String get dashboardOnboardingStep1Skip => 'Pomiń';
+
+  @override
+  String get dashboardOnboardingStep1OpenSettings => 'Otwórz Ustawienia';
+
+  @override
+  String get dashboardOnboardingStep2Title =>
+      'Dodaj pierwszy wpis lub zaimportuj hasła';
+
+  @override
+  String get dashboardOnboardingStep2Description =>
+      'Twój sejf Osobisty jest gotowy — dodaj hasło ręcznie lub zaimportuj istniejące dane.';
+
+  @override
+  String get dashboardOnboardingStep2Cta => 'Przejdź do sejfów';
+
+  @override
+  String get dashboardOnboardingStep3Title => 'Dodaj klucz API';
+
+  @override
+  String get dashboardOnboardingStep3Description =>
+      'Połącz Palladin z zewnętrznymi usługami';
+
+  @override
+  String get dashboardOnboardingStep3Cta => 'Dodaj klucz API';
+
+  @override
+  String get dashboardOnboardingStep4Title => 'Zarejestruj agenta';
+
+  @override
+  String get dashboardOnboardingStep4Description =>
+      'Dodaj pierwszego agenta AI, który może prosić o dostęp';
+
+  @override
+  String get dashboardOnboardingStep4Cta => 'Zarejestruj agenta';
+
+  @override
+  String dashboardOnboardingStep(int n) {
+    return 'Krok $n';
+  }
+
+  @override
+  String get dashboardUnknownAgentWarning => 'Niezarejestrowany agent';
+
+  @override
+  String get dashboardUnknownAgentDescription =>
+      'Tego agenta nie ma jeszcze w systemie. Możesz go zarejestrować i jednocześnie zatwierdzić dostęp.';
+
+  @override
+  String get dashboardUnknownAgentRegisterAndApprove =>
+      'Zarejestruj i zatwierdź';
+
+  @override
+  String get dashboardUnknownAgentReject => 'Odrzuć';
+
+  @override
+  String get dashboardRequestRejected => 'Prośba odrzucona';
+
+  @override
+  String get dashboardPendingApprovals => 'Oczekujące zgody';
+
+  @override
+  String get dashboardRecentActivity => 'Ostatnia aktywność';
+
+  @override
+  String get dashboardNoActivity => 'Brak aktywności';
+
+  @override
+  String get dashboardRecentlyModified => 'Ostatnio dodane / zmodyfikowane';
+
+  @override
+  String get dashboardSeeAll => 'Zobacz wszystko';
+
+  @override
+  String get dashboardSearchRecent => 'Ostatnie';
+
+  @override
+  String get searchResultsEmpty => 'Brak wyników dla tego wyszukiwania';
+
+  @override
+  String get searchResultsError =>
+      'Wyszukiwanie nie powiodło się. Spróbuj ponownie.';
+
+  @override
+  String get searchTypeBadgeAgent => 'Agent';
+
+  @override
+  String get searchTypeBadgeVault => 'Vault';
+
+  @override
+  String get searchTypeBadgeEntry => 'Wpis';
 }

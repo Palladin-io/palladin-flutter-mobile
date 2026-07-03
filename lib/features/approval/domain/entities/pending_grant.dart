@@ -21,6 +21,7 @@ class PendingGrant {
     this.entryLabel,
     this.reason,
     this.requestedMethods = const [],
+    this.isAgentRegistered = true,
   });
 
   final String grantId;
@@ -45,6 +46,14 @@ class PendingGrant {
   /// Methods the agent requested (CVT-149) — used to pre-select the approval
   /// choices. Empty when the backend predates the methods feature.
   final List<GrantMethod> requestedMethods;
+
+  /// Whether the requesting agent is already enrolled in the system.
+  ///
+  /// `false` surfaces the "unknown agent" dashboard state, where the owner
+  /// can register the agent and approve access in one flow. Defaults to
+  /// `true` for backward compatibility with backends that predate the
+  /// `agentRegistered` field.
+  final bool isAgentRegistered;
 
   final DateTime createdAt;
 }
