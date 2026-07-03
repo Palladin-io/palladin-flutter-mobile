@@ -1,10 +1,12 @@
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 
 import '../../config/env_config.dart';
 import '../analytics/analytics_headers_service.dart';
 import '../storage/secure_token_storage.dart';
 import '../utils/app_logger.dart';
 import 'auth_interceptor.dart';
+import 'certificate_pinning.dart';
 
 /// Creates a pre-configured [Dio] instance pointing at the backend API.
 ///
@@ -19,6 +21,17 @@ Dio createDio(EnvConfig config, SecureTokenStorage tokenStorage) {
       receiveTimeout: const Duration(seconds: 15),
     ),
   );
+
+  // TLS SPKI pinning (CVT-213). `validateCertificate` runs only after the
+  // system CA chain is trusted and evaluates the leaf; when no pins are
+  // configured it is a no-op so local/staging dev is unaffected.
+  final pinning = CertificatePinningService(config.certificatePins);
+  if (pinning.isEnabled) {
+    dio.httpClientAdapter = IOHttpClientAdapter(
+      validateCertificate: (cert, host, port) =>
+          pinning.validateLeaf(cert, host),
+    );
+  }
 
   dio.interceptors.add(_LoggingInterceptor());
   dio.interceptors.add(_AnalyticsHeadersInterceptor());
