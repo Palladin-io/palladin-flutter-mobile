@@ -45,6 +45,8 @@ class _SettingsView extends StatelessWidget {
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
+        titleSpacing: 0,
+        centerTitle: false,
         iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
         title: AppBarTitle(title: l10n.settingsScreenTitle),
       ),
