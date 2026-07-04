@@ -766,6 +766,8 @@
   "importColumnNotes": "Kolumna notatek",
   "importColumnTotp": "Kolumna TOTP",
   "importColumnNone": "— Brak —",
+  "importColumnFallback": "Kolumna {number}",
+  "importUntitledFallback": "Bez nazwy",
   "importColumnMapContinue": "Kontynuuj",
   "importColumnMapNeedPassword": "Wybierz przynajmniej kolumnę hasła.",
   "importFormatGeneric": "CSV",

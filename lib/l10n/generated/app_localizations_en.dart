@@ -2607,6 +2607,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importColumnNone => '— None —';
 
   @override
+  String importColumnFallback(int number) {
+    return 'Column $number';
+  }
+
+  @override
+  String get importUntitledFallback => 'Untitled';
+
+  @override
   String get importColumnMapContinue => 'Continue';
 
   @override

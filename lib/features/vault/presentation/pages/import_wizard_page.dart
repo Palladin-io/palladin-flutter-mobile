@@ -113,6 +113,7 @@ class _ImportWizardViewState extends State<_ImportWizardView> {
     try {
       await context.read<ImportWizardCubit>().import(
             privateKey: keyCopy,
+            untitledLabel: l10n.importUntitledFallback,
             wrappedVK: widget.wrappedVK,
           );
     } finally {

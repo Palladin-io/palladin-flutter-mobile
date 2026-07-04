@@ -4634,6 +4634,18 @@ abstract class AppLocalizations {
   /// **'— None —'**
   String get importColumnNone;
 
+  /// Column mapper — label for a CSV column with a blank header
+  ///
+  /// In en, this message translates to:
+  /// **'Column {number}'**
+  String importColumnFallback(int number);
+
+  /// Fallback name for an imported entry whose source carried no title
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled'**
+  String get importUntitledFallback;
+
   /// Button to proceed from column mapping
   ///
   /// In en, this message translates to:

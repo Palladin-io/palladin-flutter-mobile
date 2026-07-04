@@ -20,6 +20,7 @@ enum ImportFormat {
   nordpassCsv('nordpass-csv'),
   keeperJson('keeper-json'),
   protonPassJson('protonpass-json'),
+  enpassJson('enpass-json'),
   roboformCsv('roboform-csv'),
   palladinJson('palladin-json'),
   palladinCsv('palladin-csv'),
@@ -67,8 +68,11 @@ class ParsedEntry {
     this.folder,
   });
 
-  /// Display label (maps to [EntryEntity.label]).
-  final String name;
+  /// Display label (maps to [EntryEntity.label]), or `null` when the source
+  /// carried no title, host, or username to derive one from — the
+  /// presentation layer substitutes a localized fallback before display and
+  /// before building the draft.
+  final String? name;
 
   final String? username;
   final String? password;

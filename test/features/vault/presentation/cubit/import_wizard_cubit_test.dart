@@ -189,7 +189,7 @@ void main() {
       },
       act: (c) async {
         await c.parseBytes(_bytes(csv));
-        await c.import(privateKey: privateKey);
+        await c.import(privateKey: privateKey, untitledLabel: 'Untitled');
       },
       expect: () => [
         isA<ImportWizardParsing>(),
@@ -221,6 +221,46 @@ void main() {
     );
 
     blocTest<ImportWizardCubit, ImportWizardState>(
+      'applies the localized untitled fallback to an unnamed entry',
+      build: () {
+        when(() => repository.listEntries(any())).thenAnswer((_) async => []);
+        when(() => repository.importEntriesEncrypted(
+              vaultId: any(named: 'vaultId'),
+              format: any(named: 'format'),
+              creates: any(named: 'creates'),
+              overwrites: any(named: 'overwrites'),
+              privateKey: any(named: 'privateKey'),
+              wrappedVK: any(named: 'wrappedVK'),
+              chunkSize: any(named: 'chunkSize'),
+              onProgress: any(named: 'onProgress'),
+            )).thenAnswer(
+          (_) async => const ImportResult(createdCount: 1, updatedCount: 0),
+        );
+        return build();
+      },
+      act: (c) async {
+        await c
+            .parseBytes(_bytes('name,url,username,password,note\n,,,S3cr3t!,'));
+        await c.import(privateKey: privateKey, untitledLabel: 'No name');
+      },
+      verify: (_) {
+        final captured = verify(() => repository.importEntriesEncrypted(
+              vaultId: any(named: 'vaultId'),
+              format: any(named: 'format'),
+              creates: captureAny(named: 'creates'),
+              overwrites: any(named: 'overwrites'),
+              privateKey: any(named: 'privateKey'),
+              wrappedVK: any(named: 'wrappedVK'),
+              chunkSize: any(named: 'chunkSize'),
+              onProgress: any(named: 'onProgress'),
+            )).captured;
+        final creates = captured[0] as List<ImportEntryDraft>;
+        expect(creates, hasLength(1));
+        expect(creates.first.label, 'No name');
+      },
+    );
+
+    blocTest<ImportWizardCubit, ImportWizardState>(
       'maps a network EntryException to a network failure',
       build: () {
         when(() => repository.listEntries(any())).thenAnswer((_) async => []);
@@ -238,7 +278,7 @@ void main() {
       },
       act: (c) async {
         await c.parseBytes(_bytes(csv));
-        await c.import(privateKey: privateKey);
+        await c.import(privateKey: privateKey, untitledLabel: 'Untitled');
       },
       expect: () => [
         isA<ImportWizardParsing>(),
@@ -274,7 +314,7 @@ void main() {
       act: (c) async {
         await c.parseBytes(_bytes(csv));
         c.setConflictStrategy(ImportConflictStrategy.overwrite);
-        await c.import(privateKey: privateKey);
+        await c.import(privateKey: privateKey, untitledLabel: 'Untitled');
       },
       verify: (_) {
         final captured = verify(() => repository.importEntriesEncrypted(

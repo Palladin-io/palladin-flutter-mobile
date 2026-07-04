@@ -116,8 +116,13 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
   }
 
   /// Encrypts and commits the included entries. [privateKey] comes from
-  /// the unlocked auth state; the caller owns zeroing its copy.
-  Future<void> import({required Uint8List privateKey, String? wrappedVK}) async {
+  /// the unlocked auth state; the caller owns zeroing its copy. [untitledLabel]
+  /// is the localized fallback used for entries the source left unnamed.
+  Future<void> import({
+    required Uint8List privateKey,
+    required String untitledLabel,
+    String? wrappedVK,
+  }) async {
     final current = state;
     if (current is! ImportWizardPreview) return;
     if (privateKey.isEmpty) {
@@ -132,11 +137,12 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     for (final item in current.items) {
       if (!item.effectiveIncluded(current.conflictStrategy)) continue;
       final parsed = item.parsed;
+      final baseName = parsed.name ?? untitledLabel;
       if (item.hasConflict &&
           current.conflictStrategy == ImportConflictStrategy.overwrite) {
         overwrites.add(ImportEntryOverwrite(
           entryId: item.conflict!.id,
-          label: _clamp(parsed.name, _maxLabel),
+          label: _clamp(baseName, _maxLabel),
           description: _clampOrNull(parsed.folder, _maxDescription),
           type: EntryType.credential,
           payload: parsed.toPayload(),
@@ -146,8 +152,8 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       } else {
         final label = item.hasConflict &&
                 current.conflictStrategy == ImportConflictStrategy.rename
-            ? _uniqueLabel(parsed.name, existingLabels)
-            : parsed.name;
+            ? _uniqueLabel(baseName, existingLabels)
+            : baseName;
         existingLabels.add(label.trim().toLowerCase());
         creates.add(ImportEntryDraft(
           label: _clamp(label, _maxLabel),
@@ -200,6 +206,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
   /// grant. Bounded in practice (active grants per vault are few); the loop
   /// guards against a FULL grant sitting past the first page.
   Future<bool> _hasActiveFullGrants() async {
+    final seenCursors = <String>{};
     String? cursor;
     do {
       final page = await grantsRepository.listGrants(
@@ -210,6 +217,9 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       );
       if (page.grants.any((g) => g.scope == GrantScope.full)) return true;
       cursor = page.nextCursor;
+      // Stop if the backend ever repeats a cursor (broken pagination) so we
+      // can't spin forever.
+      if (cursor != null && !seenCursors.add(cursor)) break;
     } while (cursor != null);
     return false;
   }
@@ -237,7 +247,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       for (final parsed in result.entries)
         ImportPreviewItem(
           parsed: parsed,
-          conflict: _existingByLabel[parsed.name.trim().toLowerCase()],
+          conflict: _existingByLabel[parsed.name?.trim().toLowerCase()],
         ),
     ];
     emit(ImportWizardPreview(

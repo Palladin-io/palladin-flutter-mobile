@@ -150,6 +150,16 @@ void main() {
       expect(e.folder, 'Dev');
     });
 
+    test('row with only a password yields a null name (UI supplies fallback)',
+        () {
+      const csv = 'name,url,username,password,note\n'
+          ',,,S3cr3t!,';
+      final result = _parsed(csv);
+      final e = result.entries.first;
+      expect(e.name, isNull);
+      expect(e.password, 'S3cr3t!');
+    });
+
     test('unrecognised CSV yields a manual-mapping outcome', () {
       const csv = 'col_a,col_b,col_c\nfoo,bar,baz';
       final outcome = ImportEngine.parse(_bytes(csv));
@@ -261,6 +271,31 @@ void main() {
       final e = result.entries.first;
       expect(e.username, 'octo@acme.io');
       expect(e.folder, 'Personal');
+      expect(e.totp, 'otpauth://totp/x?secret=ABC');
+    });
+
+    test('Enpass JSON — per-field type, reported as its own format', () {
+      final json = jsonEncode({
+        'items': [
+          {
+            'title': 'GitHub',
+            'note': 'note',
+            'fields': [
+              {'type': 'username', 'value': 'octocat'},
+              {'type': 'password', 'value': 'S3cr3t!'},
+              {'type': 'url', 'value': 'https://github.com'},
+              {'type': 'totp', 'value': 'otpauth://totp/x?secret=ABC'}
+            ]
+          }
+        ]
+      });
+      final result = _parsed(json);
+      expect(result.format, ImportFormat.enpassJson);
+      final e = result.entries.first;
+      expect(e.name, 'GitHub');
+      expect(e.username, 'octocat');
+      expect(e.password, 'S3cr3t!');
+      expect(e.urlDomain, 'github.com');
       expect(e.totp, 'otpauth://totp/x?secret=ABC');
     });
 

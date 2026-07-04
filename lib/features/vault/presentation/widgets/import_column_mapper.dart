@@ -147,7 +147,7 @@ class _ImportColumnMapperState extends State<ImportColumnMapper> {
           DropdownMenuItem(
             value: i,
             child: Text(
-              _columnLabel(i),
+              _columnLabel(i, l10n),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -159,8 +159,8 @@ class _ImportColumnMapperState extends State<ImportColumnMapper> {
   /// Column label — header only. We deliberately never sample a cell
   /// value here: one of these columns holds a plaintext password, so a
   /// preview would leak a secret into the picker.
-  String _columnLabel(int index) {
+  String _columnLabel(int index, AppLocalizations l10n) {
     final header = widget.table.headers[index].trim();
-    return header.isEmpty ? 'Column ${index + 1}' : header;
+    return header.isEmpty ? l10n.importColumnFallback(index + 1) : header;
   }
 }

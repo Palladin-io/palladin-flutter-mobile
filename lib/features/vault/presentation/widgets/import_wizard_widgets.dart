@@ -24,6 +24,7 @@ class ImportWizardCopy {
         ImportFormat.nordpassCsv => 'NordPass',
         ImportFormat.keeperJson => 'Keeper',
         ImportFormat.protonPassJson => 'Proton Pass',
+        ImportFormat.enpassJson => 'Enpass',
         ImportFormat.roboformCsv => 'RoboForm',
         ImportFormat.palladinJson => 'Palladin',
         ImportFormat.palladinCsv => 'Palladin',

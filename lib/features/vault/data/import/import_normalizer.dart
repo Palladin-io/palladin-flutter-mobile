@@ -40,8 +40,7 @@ class ImportNormalizer {
 
     final resolvedName = _clean(name) ??
         (host != null ? nameFromHost(host) : null) ??
-        trimmedUser ??
-        'Untitled';
+        trimmedUser;
 
     return ParsedEntry(
       name: resolvedName,

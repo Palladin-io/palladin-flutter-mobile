@@ -2628,6 +2628,14 @@ class AppLocalizationsPl extends AppLocalizations {
   String get importColumnNone => '— Brak —';
 
   @override
+  String importColumnFallback(int number) {
+    return 'Kolumna $number';
+  }
+
+  @override
+  String get importUntitledFallback => 'Bez nazwy';
+
+  @override
   String get importColumnMapContinue => 'Kontynuuj';
 
   @override

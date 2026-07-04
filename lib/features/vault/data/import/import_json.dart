@@ -253,7 +253,7 @@ class ImportJsonParser {
       }
     }
     return ParsedFile(
-      format: ImportFormat.palladinJson,
+      format: ImportFormat.enpassJson,
       entries: entries,
       skippedCount: skipped,
     );

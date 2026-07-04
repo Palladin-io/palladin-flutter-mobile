@@ -33,32 +33,38 @@ class ImportPreviewList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.screenH,
-              0,
-              AppSpacing.screenH,
-              AppSpacing.section,
-            ),
-            children: [
-              _SummaryHeader(state: state),
-              if (state.conflictCount > 0) ...[
-                const SizedBox(height: AppSpacing.section),
-                _ConflictSelector(
-                  strategy: state.conflictStrategy,
-                  onStrategy: onStrategy,
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenH,
+                  0,
+                  AppSpacing.screenH,
+                  AppSpacing.section,
                 ),
-              ],
-              const SizedBox(height: AppSpacing.section),
-              for (var i = 0; i < state.items.length; i++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
-                  child: _PreviewRow(
-                    item: state.items[i],
-                    strategy: state.conflictStrategy,
-                    onToggle: () => onToggle(i),
+                sliver: SliverToBoxAdapter(
+                  child: _PreviewHeader(state: state, onStrategy: onStrategy),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenH,
+                  0,
+                  AppSpacing.screenH,
+                  AppSpacing.section,
+                ),
+                sliver: SliverList.builder(
+                  itemCount: state.items.length,
+                  itemBuilder: (context, i) => Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
+                    child: _PreviewRow(
+                      item: state.items[i],
+                      strategy: state.conflictStrategy,
+                      onToggle: () => onToggle(i),
+                    ),
                   ),
                 ),
+              ),
             ],
           ),
         ),
@@ -74,6 +80,32 @@ class ImportPreviewList extends StatelessWidget {
             onPressed: included > 0 ? onImport : null,
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Leading (non-scrolling-cost) block above the lazily-built rows: the
+/// format summary and, when collisions exist, the conflict-strategy selector.
+class _PreviewHeader extends StatelessWidget {
+  const _PreviewHeader({required this.state, required this.onStrategy});
+
+  final ImportWizardPreview state;
+  final ValueChanged<ImportConflictStrategy> onStrategy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SummaryHeader(state: state),
+        if (state.conflictCount > 0) ...[
+          const SizedBox(height: AppSpacing.section),
+          _ConflictSelector(
+            strategy: state.conflictStrategy,
+            onStrategy: onStrategy,
+          ),
+        ],
       ],
     );
   }
@@ -252,7 +284,7 @@ class _PreviewRow extends StatelessWidget {
                     children: [
                       Flexible(
                         child: Text(
-                          parsed.name,
+                          parsed.name ?? l10n.importUntitledFallback,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(

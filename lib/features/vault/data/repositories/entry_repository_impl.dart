@@ -384,11 +384,10 @@ class EntryRepositoryImpl implements EntryRepository {
   }) async {
     try {
       await entryDatasource.logExportAudit(vaultId, format, entryCount);
-    } on DioException catch (e, s) {
+    } on DioException catch (e) {
       // Best-effort — the export already succeeded, so a failed audit
       // record must not surface to the user.
-      AppLogger.w('Entry', 'export-audit failed (non-fatal): ${e.type}');
-      AppLogger.e('Entry', 'export-audit error', error: e, stackTrace: s);
+      AppLogger.w('Entry', 'export-audit failed (non-fatal)', error: e);
     }
   }
 

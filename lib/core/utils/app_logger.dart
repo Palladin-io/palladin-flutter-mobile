@@ -41,9 +41,9 @@ class AppLogger {
   static void i(String tag, String message) =>
       _logger.i('[$tag] $message');
 
-  /// Logs a warning-level message.
-  static void w(String tag, String message) =>
-      _logger.w('[$tag] $message');
+  /// Logs a warning-level message with an optional [error] object.
+  static void w(String tag, String message, {Object? error}) =>
+      _logger.w('[$tag] $message', error: error);
 
   /// Logs an error-level message with optional [error] and [stackTrace].
   static void e(

@@ -2631,6 +2631,13 @@
   "@importColumnTotp": { "description": "Column mapper — TOTP field" },
   "importColumnNone": "— None —",
   "@importColumnNone": { "description": "Column mapper — unmapped option" },
+  "importColumnFallback": "Column {number}",
+  "@importColumnFallback": {
+    "description": "Column mapper — label for a CSV column with a blank header",
+    "placeholders": { "number": { "type": "int" } }
+  },
+  "importUntitledFallback": "Untitled",
+  "@importUntitledFallback": { "description": "Fallback name for an imported entry whose source carried no title" },
   "importColumnMapContinue": "Continue",
   "@importColumnMapContinue": { "description": "Button to proceed from column mapping" },
   "importColumnMapNeedPassword": "Choose at least a password column.",
