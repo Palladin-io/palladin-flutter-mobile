@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../entities/entry_entity.dart';
+import '../entities/import_draft.dart';
 
 /// A revealed entry — metadata bundled with the decrypted payload.
 ///
@@ -113,5 +114,45 @@ abstract interface class EntryRepository {
     required Uint8List privateKey,
     String? wrappedVK,
     required DateTime createdAt,
+  });
+
+  /// Bulk-imports entries into [vaultId]. The vault's VK is unwrapped
+  /// exactly once, then every draft payload is encrypted with it before
+  /// the ciphertext is shipped — no plaintext VK crosses the data-layer
+  /// boundary and the key bytes are zeroed in `finally`.
+  ///
+  /// [creates] are POSTed to the bulk import endpoint in chunks of at most
+  /// [chunkSize] (backend limit 500). [overwrites] target existing entries
+  /// via individual PUTs. [onProgress] fires after each unit of work
+  /// (`done` out of `total`) so the wizard can render a progress bar.
+  ///
+  /// [format] is the stable source-format id recorded by the backend.
+  Future<ImportResult> importEntriesEncrypted({
+    required String vaultId,
+    required String format,
+    required List<ImportEntryDraft> creates,
+    required List<ImportEntryOverwrite> overwrites,
+    required Uint8List privateKey,
+    String? wrappedVK,
+    int chunkSize,
+    void Function(int done, int total)? onProgress,
+  });
+
+  /// Reveals every entry in [vaultId] for export — unwraps the VK once,
+  /// then fetches and decrypts each entry's payload. The plaintext VK is
+  /// zeroed in `finally`; the returned payloads are plaintext and must be
+  /// handled (and discarded) carefully by the caller.
+  Future<List<RevealedEntry>> revealAllEntries({
+    required String vaultId,
+    required Uint8List privateKey,
+    String? wrappedVK,
+  });
+
+  /// Records a plaintext export in the backend audit log. Best-effort —
+  /// failures must not surface to the user (the export already succeeded).
+  Future<void> logExportAudit({
+    required String vaultId,
+    required String format,
+    required int entryCount,
   });
 }

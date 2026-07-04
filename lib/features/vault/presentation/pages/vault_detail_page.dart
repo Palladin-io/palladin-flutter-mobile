@@ -6,6 +6,7 @@ import '../../../../core/di/injection.dart';
 import '../cubit/vault_list_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -20,10 +21,12 @@ import '../widgets/vault_form.dart';
 import '../../../approval/presentation/widgets/grant_access_sheet.dart';
 import '../../../audit/presentation/widgets/vault_audit_log_tab.dart';
 import '../../../grants/presentation/widgets/context_grants_tab.dart';
+import '../widgets/export_sheet.dart';
 import '../widgets/vault_placeholder_tab.dart';
 import '../widgets/vault_settings_tab.dart';
 import '../widgets/vault_visuals.dart';
 import 'add_entry_page.dart';
+import 'import_wizard_page.dart';
 
 /// Vault detail screen — wraps a [DefaultTabController] with five tabs:
 /// Entries, Agents, Logs, Members, Settings. Each tab body lives in
@@ -71,6 +74,9 @@ class VaultDetailPage extends StatelessWidget {
 }
 
 enum _VaultTab { entries, agents, logs, members, settings }
+
+/// Overflow-menu actions on the vault detail AppBar.
+enum _VaultAction { import, export }
 
 class _VaultDetailView extends StatefulWidget {
   const _VaultDetailView({required this.vaultId});
@@ -185,6 +191,38 @@ class _VaultDetailViewState extends State<_VaultDetailView>
         onPressed: _onFabPressed,
         tooltip: onAgents ? l10n.grantAccessTitleVault : l10n.vaultAddEntryFab,
       ),
+    );
+  }
+
+  /// Opens the import wizard for this vault, then refreshes the entries
+  /// list and the header count when at least one entry was imported.
+  Future<void> _onImport() async {
+    final detailState = context.read<VaultDetailCubit>().state;
+    if (detailState is! VaultDetailLoaded) return;
+    final vault = detailState.vault;
+    final entryListCubit = context.read<EntryListCubit>();
+    final detailCubit = context.read<VaultDetailCubit>();
+    final imported = await ImportWizardPage.push(
+      context,
+      vaultId: widget.vaultId,
+      vaultName: vault.name,
+      wrappedVK: vault.wrappedVK,
+    );
+    if (imported == true) {
+      await entryListCubit.loadEntries();
+      await detailCubit.load(widget.vaultId);
+    }
+  }
+
+  Future<void> _onExport() async {
+    final detailState = context.read<VaultDetailCubit>().state;
+    if (detailState is! VaultDetailLoaded) return;
+    final vault = detailState.vault;
+    await ExportSheet.show(
+      context,
+      vaultId: widget.vaultId,
+      vaultName: vault.name,
+      wrappedVK: vault.wrappedVK,
     );
   }
 
@@ -304,6 +342,8 @@ class _VaultDetailViewState extends State<_VaultDetailView>
               state: state,
               onBack: () => context.pop(),
               tabController: _tabController,
+              onImport: _onImport,
+              onExport: _onExport,
             ),
             body: Stack(
               children: [
@@ -355,11 +395,15 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.state,
     required this.onBack,
     required this.tabController,
+    required this.onImport,
+    required this.onExport,
   });
 
   final VaultDetailState state;
   final VoidCallback onBack;
   final TabController tabController;
+  final VoidCallback onImport;
+  final VoidCallback onExport;
 
   static const double _tabBarHeight = 44;
 
@@ -397,27 +441,36 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
         icon: const Icon(Icons.arrow_back_ios_new, size: 18),
         onPressed: onBack,
       ),
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            loaded?.name ?? l10n.vaultTitle,
-            style: TextStyle(
-              color: onSurface,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-            ),
+      actions: [
+        if (loaded != null)
+          PopupMenuButton<_VaultAction>(
+            icon: Icon(Icons.more_vert, color: onSurface),
+            color: AppColors.modalBackground(brightness),
+            onSelected: (action) => switch (action) {
+              _VaultAction.import => onImport(),
+              _VaultAction.export => onExport(),
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: _VaultAction.import,
+                child: _MenuRow(
+                  icon: Icons.file_upload_outlined,
+                  label: l10n.vaultActionImport,
+                ),
+              ),
+              PopupMenuItem(
+                value: _VaultAction.export,
+                child: _MenuRow(
+                  icon: Icons.file_download_outlined,
+                  label: l10n.vaultActionExport,
+                ),
+              ),
+            ],
           ),
-          if (subtitle.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              subtitle,
-              style: TextStyle(color: subtle, fontSize: 11, height: 1.2),
-            ),
-          ],
-        ],
+      ],
+      title: AppBarTitle(
+        title: loaded?.name ?? l10n.vaultTitle,
+        subtitle: subtitle,
       ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(_tabBarHeight),
@@ -459,6 +512,32 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Row inside the AppBar overflow menu — icon + label.
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: AppColors.iconDefault(brightness)),
+        const SizedBox(width: AppSpacing.md),
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.onSurface(brightness),
+            fontSize: 14,
+          ),
+        ),
+      ],
     );
   }
 }

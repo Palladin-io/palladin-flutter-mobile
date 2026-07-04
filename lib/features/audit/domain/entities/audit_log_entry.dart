@@ -60,6 +60,7 @@ enum AuditEventType {
   vaultCreated('vault.created', AuditEventGroup.vaultEntry),
   vaultUpdated('vault.updated', AuditEventGroup.vaultEntry),
   vaultDeleted('vault.deleted', AuditEventGroup.vaultEntry),
+  vaultExported('vault.exported', AuditEventGroup.vaultEntry),
   entryCreated('entry.created', AuditEventGroup.vaultEntry),
   entryUpdated('entry.updated', AuditEventGroup.vaultEntry),
   entryDeleted('entry.deleted', AuditEventGroup.vaultEntry),

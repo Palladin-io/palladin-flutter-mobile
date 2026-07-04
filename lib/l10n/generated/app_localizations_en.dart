@@ -2152,6 +2152,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditEventVaultDeleted => 'Vault deleted';
 
   @override
+  String get auditEventVaultExported => 'Vault exported';
+
+  @override
   String get auditEventEntryCreated => 'Entry created';
 
   @override
@@ -2250,6 +2253,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String auditSentenceDeleted(String actor, String object) {
     return '$actor deleted $object';
+  }
+
+  @override
+  String auditSentenceExported(String actor, String object) {
+    return '$actor exported $object';
   }
 
   @override
@@ -2456,4 +2464,258 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchTypeBadgeEntry => 'Entry';
+
+  @override
+  String get importTitle => 'Import';
+
+  @override
+  String get importChooseFile => 'Choose file';
+
+  @override
+  String get importIntroTitle => 'Import from another password manager';
+
+  @override
+  String get importIntroBody =>
+      'Pick an export file from Chrome, Bitwarden, 1Password, LastPass, and more. Everything is parsed and encrypted on your device.';
+
+  @override
+  String get importSupportedFormats =>
+      'Supported: CSV, JSON, XML, and ZIP (.1pux) exports';
+
+  @override
+  String get importParsing => 'Reading file…';
+
+  @override
+  String get importSelectVaultSubtitle =>
+      'Choose where the imported entries go';
+
+  @override
+  String get importNoVaults =>
+      'No vaults yet. Create a vault first, then import into it.';
+
+  @override
+  String importEntriesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries',
+      one: '1 entry',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String importSkippedNote(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count non-login items skipped',
+      one: '1 non-login item skipped',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get importConflictStrategyLabel => 'For entries that already exist';
+
+  @override
+  String get importStrategySkip => 'Skip';
+
+  @override
+  String get importStrategyOverwrite => 'Overwrite';
+
+  @override
+  String get importStrategyRename => 'Keep both';
+
+  @override
+  String get importConflictBadge => 'Exists';
+
+  @override
+  String get importTotpBadge => '2FA';
+
+  @override
+  String get importNotesBadge => 'Notes';
+
+  @override
+  String importAction(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries',
+      one: '1 entry',
+    );
+    return 'Import $_temp0';
+  }
+
+  @override
+  String importImporting(int done, int total) {
+    return 'Importing… $done of $total';
+  }
+
+  @override
+  String get importSuccessTitle => 'Import complete';
+
+  @override
+  String importSuccessBody(int created, int updated) {
+    String _temp0 = intl.Intl.pluralLogic(
+      created,
+      locale: localeName,
+      other: '$created added',
+      one: '1 added',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      updated,
+      locale: localeName,
+      other: '$updated updated',
+      one: '1 updated',
+    );
+    return '$_temp0, $_temp1';
+  }
+
+  @override
+  String importSuccessSkipped(int count) {
+    return '$count skipped';
+  }
+
+  @override
+  String get importDone => 'Done';
+
+  @override
+  String get importFailedTitle => 'Import failed';
+
+  @override
+  String get importTryAnother => 'Choose another file';
+
+  @override
+  String get importErrorEmpty => 'That file is empty.';
+
+  @override
+  String get importErrorEncrypted =>
+      'This export is encrypted and can\'t be read. Export an unencrypted file (e.g. KeePass XML) and try again.';
+
+  @override
+  String get importErrorUnrecognised =>
+      'We couldn\'t recognise this file. Try a CSV, JSON, or XML export.';
+
+  @override
+  String get importErrorNoEntries =>
+      'No login entries were found in this file.';
+
+  @override
+  String get importErrorCrypto =>
+      'We couldn\'t encrypt the entries. Lock and unlock your vault, then try again.';
+
+  @override
+  String get importErrorNetwork =>
+      'Couldn\'t reach the server. Check your connection and try again.';
+
+  @override
+  String get importErrorFullGrants =>
+      'This vault has agents with full access. Importing to it isn\'t supported on mobile yet — revoke the full-access grants first, or import from the web panel.';
+
+  @override
+  String get importErrorUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get importColumnMapTitle => 'Map columns';
+
+  @override
+  String get importColumnMapSubtitle =>
+      'We couldn\'t detect this format. Tell us which column is which.';
+
+  @override
+  String get importColumnName => 'Name column';
+
+  @override
+  String get importColumnUsername => 'Username column';
+
+  @override
+  String get importColumnPassword => 'Password column';
+
+  @override
+  String get importColumnUrl => 'URL column';
+
+  @override
+  String get importColumnNotes => 'Notes column';
+
+  @override
+  String get importColumnTotp => 'TOTP column';
+
+  @override
+  String get importColumnNone => '— None —';
+
+  @override
+  String importColumnFallback(int number) {
+    return 'Column $number';
+  }
+
+  @override
+  String get importUntitledFallback => 'Untitled';
+
+  @override
+  String get importColumnMapContinue => 'Continue';
+
+  @override
+  String get importColumnMapNeedPassword =>
+      'Choose at least a password column.';
+
+  @override
+  String get importFormatGeneric => 'CSV';
+
+  @override
+  String get importFormatManual => 'Custom CSV';
+
+  @override
+  String get settingsImport => 'Import';
+
+  @override
+  String get vaultActionImport => 'Import entries';
+
+  @override
+  String get vaultActionExport => 'Export vault';
+
+  @override
+  String get exportTitle => 'Export vault';
+
+  @override
+  String get exportFormatCsv => 'CSV';
+
+  @override
+  String get exportFormatJson => 'JSON';
+
+  @override
+  String get exportCsvHint =>
+      'Compatible with Chrome, Bitwarden, and most managers.';
+
+  @override
+  String get exportJsonHint => 'Full Palladin format — re-imports losslessly.';
+
+  @override
+  String get exportWarningTitle => 'PLAINTEXT EXPORT';
+
+  @override
+  String get exportWarningBody =>
+      'The file contains your passwords and TOTP secrets in plaintext. Anyone with the file can read them. Store it securely and delete it when you\'re done.';
+
+  @override
+  String get exportConfirm => 'Export';
+
+  @override
+  String exportSuccess(int count) {
+    return 'Exported $count entries';
+  }
+
+  @override
+  String get exportEmpty => 'This vault has no entries to export.';
+
+  @override
+  String get exportErrorCrypto =>
+      'We couldn\'t decrypt the vault. Lock and unlock, then try again.';
+
+  @override
+  String get exportErrorNetwork =>
+      'Couldn\'t reach the server. Check your connection and try again.';
+
+  @override
+  String get exportErrorUnknown => 'Something went wrong. Please try again.';
 }

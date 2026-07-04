@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -199,7 +200,6 @@ class _AppBarTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
     final agent = context.select<AgentsCubit, Agent?>(
       (cubit) => cubit.state.agentById(agentId),
     );
@@ -213,34 +213,7 @@ class _AppBarTitle extends StatelessWidget {
       null => '',
     };
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: AppColors.onSurface(brightness),
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-          ),
-        ),
-        if (statusLabel.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            statusLabel,
-            style: TextStyle(
-              color: AppColors.onSurfaceSubtle(brightness),
-              fontSize: 11,
-              height: 1.2,
-            ),
-          ),
-        ],
-      ],
-    );
+    return AppBarTitle(title: name, subtitle: statusLabel);
   }
 }
 

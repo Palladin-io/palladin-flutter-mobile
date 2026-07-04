@@ -158,7 +158,9 @@ lib/
 | `ApproveActionButton` | `lib/core/widgets/approve_action_button.dart` | Full-width green-tinted approve CTA. Params: `label`, `onPressed`, `icon`, `isLoading`, `height` (default 44) |
 | `AppToggle` | `lib/core/widgets/app_toggle.dart` | Compact 32×18 pill toggle (brandRed when ON). Params: `value`, `onChanged` (null = locked/dimmed) |
 | `AppFab` | `lib/core/widgets/app_fab.dart` | Brand-red 44×44 FAB with shadow, zero elevation. Params: `onPressed`, `tooltip` |
+| `SheetDragHandle` | `lib/core/widgets/sheet_drag_handle.dart` | The 36×4 rounded pill at the top of a modal sheet. Use in new sheets; the ~17 inline copies migrate opportunistically |
 | `FabRegistrar` | `lib/core/widgets/fab_registrar.dart` | 0×0 widget that claims the shell FAB slot for the current page. Param: `fab` (null = suppress a covered page's leaked FAB) |
+| `AppBarTitle` | `lib/core/widgets/app_bar_title.dart` | Canonical pushed-screen AppBar title: 16/w700 name + optional 11px subtle subtitle (ellipsised). Params: `title`, `subtitle` (null/empty ⇒ title only). Use in every `AppBar(title:)` — never hand-roll the `Column(start, [Text, Text])` |
 | `AppDropdownField` | `lib/core/widgets/app_dropdown_field.dart` | 44px bordered dropdown matching input height, generic `<T>`. Params: `label`, `value`, `items`, `onChanged`, `hint`, `enabled`, `filled` |
 | `AppAutocompleteField` | `lib/core/widgets/app_autocomplete_field.dart` | Type-to-search autocomplete backed by `OnboardingTextField`, generic `<T extends Object>`. Params: `label`, `initialText`, `options`, `displayString`, `onSelected`, `onTextChanged` |
 | `BrandHero` | `lib/core/widgets/brand_hero.dart` | Logo + "Palladin.io" wordmark (`.io` always brandRed). Param: `textColor`; static `BrandHero.textColorFor(brightness)` |
@@ -186,8 +188,7 @@ These belong conceptually to `core` but currently sit in a feature folder. Reuse
 
 These patterns are duplicated and have **no** shared widget yet. Extract to `lib/core/widgets/` when next touching the affected code, then replace all instances. **Do not add another copy.**
 
-- **Sheet drag handle (×17 files)** — 7 private `_SheetHandle` classes (incl. one inside the core `icon_color_browser_sheet.dart`) + 10 inline 36×4 pills → extract `SheetDragHandle` to `lib/core/widgets/`. Inline copies in approval (`approve_grant_sheet`, `deny_grant_sheet`, `grant_access_sheet`, `grant_methods_selector`, `regrant_sheet`), audit (`audit_legend_sheet`, `audit_log_filter_sheet`, `entry_logs_filter_sheet`), grants (`revoke_grant_sheet`), and `vault_list_page`.
-- **AppBar title (×6)** — `Column(start, [Text(title,16/w700), Text(subtitle,11/subtle)])` duplicated in `vault_detail_page`, `entry_detail_page`, `api_keys_page`, `api_key_detail_page`, `agent_detail_page`, `settings_page` → extract `AppBarTitle({title, subtitle})`.
+- **Sheet drag handle (×17 files)** — `SheetDragHandle` now exists in `lib/core/widgets/` (used by `export_sheet`); the ~17 inline copies still need migrating: 7 private `_SheetHandle` classes (incl. one inside the core `icon_color_browser_sheet.dart`) + 10 inline 36×4 pills in approval (`approve_grant_sheet`, `deny_grant_sheet`, `grant_access_sheet`, `grant_methods_selector`, `regrant_sheet`), audit (`audit_legend_sheet`, `audit_log_filter_sheet`, `entry_logs_filter_sheet`), grants (`revoke_grant_sheet`), and `vault_list_page`. Replace with the shared widget on next touch.
 - **Status pills (×2)** — `AgentStatusBadge` ≡ `ApiKeyStatusBadge` → extract `StatusPill({label, color})` (bg = `color.withValues(alpha:0.12)`, border = `alpha:0.5`, text 10/w700).
 - **Label/value rows (×2)** — `_DetailRow` in `api_key_details_tab.dart` + `agent_detail_body.dart` → extract `LabelValueRow`.
 - **Empty cards (×3)** — `_AgentsEmpty` (agents_page), `_KeysEmpty` (api_keys_page), `_EmptyCard` (notification_center_page) → extract `ListEmptyCard({icon, title, hint})`.
@@ -196,6 +197,14 @@ These patterns are duplicated and have **no** shared widget yet. Extract to `lib
 ### Skeleton reimplementations to replace
 
 `SkeletonBox` is the canonical primitive, but two screens still ship their own `StatefulWidget` + `AnimationController` + `Tween(0.4, 0.85)`: `vault_list_page.dart` (`_SkeletonCard`) and `vault_entries_tab.dart` (`_SkeletonRow`). Replace both with `SkeletonBox(height: X, delay: Duration(milliseconds: i * 80))`.
+
+### Screen titles — ALWAYS left-aligned
+
+**Every screen title sits on the LEFT edge of the AppBar/header — never centered.** This is a hard product rule (recurring user finding, last: Import wizard centered on iOS).
+
+- **Pushed screens** (`AppScreen.appBar`): `AppBar` MUST set `titleSpacing: 0` **and** `centerTitle: false` — without `centerTitle: false` iOS silently centers the title. Title widget = shared `AppBarTitle(title:, subtitle:)` (16/w700 + 11px subtle subtitle, e.g. screen name + vault name). Never hand-roll the title `Column`.
+- **Top-level tabs**: `AppScreen.titled(...)` (in-body `ListScreenHeader`, inherently left-aligned).
+- Decorative/context icons (e.g. the red upload glyph on the Import wizard) go on the **right** as `actions:` (padded `AppSpacing.screenH` from the edge) — never above/inside the body header.
 
 ### Reuse rules
 

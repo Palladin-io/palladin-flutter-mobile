@@ -6,6 +6,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/fab_registrar.dart';
@@ -104,32 +105,13 @@ class _ApiKeysViewState extends State<_ApiKeysView> {
         iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
         title: BlocBuilder<ApiKeysCubit, ApiKeysState>(
           builder: (context, state) {
-            final brightness = Theme.of(context).brightness;
             final total = state.apiKeys.length;
             final active = state.apiKeys.where((k) => k.isActive).length;
             final showSummary =
                 state.status == ApiKeysStatus.loaded && total > 0;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  l10n.apiKeysScreenTitle,
-                  style: TextStyle(
-                    color: AppColors.onSurface(brightness),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (showSummary)
-                  Text(
-                    l10n.apiKeysListSummary(total, active),
-                    style: TextStyle(
-                      color: AppColors.onSurfaceSubtle(brightness),
-                      fontSize: 11,
-                    ),
-                  ),
-              ],
+            return AppBarTitle(
+              title: l10n.apiKeysScreenTitle,
+              subtitle: showSummary ? l10n.apiKeysListSummary(total, active) : null,
             );
           },
         ),

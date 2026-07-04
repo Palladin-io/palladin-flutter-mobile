@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../models/create_entry_request.dart';
 import '../models/entry_model.dart';
+import '../models/import_entries_request.dart';
 import '../models/update_entry_request.dart';
 import 'vault_remote_datasource.dart' show PresignResponse;
 
@@ -102,6 +103,43 @@ class EntryRemoteDatasource {
   /// `DELETE /api/vaults/{vaultId}/entries/{entryId}` → 204 No Content.
   Future<void> deleteEntry(String vaultId, String entryId) async {
     await _dio.delete<void>('/api/vaults/$vaultId/entries/$entryId');
+  }
+
+  /// `POST /api/vaults/{vaultId}/entries/import` → `{ importedCount,
+  /// entryIds }`. Bulk-creates pre-encrypted entries. The caller chunks
+  /// the request to the backend's per-call limit (500).
+  Future<int> importEntries(
+    String vaultId,
+    ImportEntriesRequest request,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries/import',
+      data: request.toJson(),
+    );
+    final data = response.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Empty response body',
+      );
+    }
+    return (data['importedCount'] as int?) ?? request.entries.length;
+  }
+
+  /// `POST /api/vaults/{vaultId}/export-audit` → records that a plaintext
+  /// export happened. Fire-and-forget from the caller's perspective — an
+  /// audit failure must not block the export UX.
+  Future<void> logExportAudit(
+    String vaultId,
+    String format,
+    int entryCount,
+  ) async {
+    await _dio.post<void>(
+      '/api/vaults/$vaultId/export-audit',
+      data: {'format': format, 'entryCount': entryCount},
+    );
   }
 
   /// `PUT /api/vaults/{vaultId}/entries/{entryId}` → 204 No Content.

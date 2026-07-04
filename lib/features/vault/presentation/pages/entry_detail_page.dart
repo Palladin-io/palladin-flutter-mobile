@@ -7,6 +7,7 @@ import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../../core/widgets/app_fab.dart';
@@ -319,16 +320,7 @@ class _EntryDetailAppBar extends StatelessWidget
         icon: const Icon(Icons.arrow_back_ios_new, size: 18),
         onPressed: onBack,
       ),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: onSurface,
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      title: AppBarTitle(title: label),
       // Cancel sits beside the name at the very top — visible only while the
       // Details tab is in edit mode.
       actions: [
