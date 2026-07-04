@@ -2508,12 +2508,28 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String importEntriesCount(int count) {
-    return '$count wpisów';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count wpisu',
+      many: '$count wpisów',
+      few: '$count wpisy',
+      one: '1 wpis',
+    );
+    return '$_temp0';
   }
 
   @override
   String importSkippedNote(int count) {
-    return 'Pominięto $count pozycji niebędących loginami';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Pominięto $count pozycji niebędącej loginami',
+      many: 'Pominięto $count pozycji niebędących loginami',
+      few: 'Pominięto $count pozycje niebędące loginami',
+      one: 'Pominięto 1 pozycję niebędącą loginem',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -2539,7 +2555,15 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String importAction(int count) {
-    return 'Importuj $count wpisów';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count wpisu',
+      many: '$count wpisów',
+      few: '$count wpisy',
+      one: '1 wpis',
+    );
+    return 'Importuj $_temp0';
   }
 
   @override
@@ -2552,7 +2576,21 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String importSuccessBody(int created, int updated) {
-    return 'Dodano $created, zaktualizowano $updated';
+    String _temp0 = intl.Intl.pluralLogic(
+      created,
+      locale: localeName,
+      other: 'Dodano $created wpisu',
+      many: 'Dodano $created wpisów',
+      few: 'Dodano $created wpisy',
+      one: 'Dodano 1 wpis',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      updated,
+      locale: localeName,
+      other: 'zaktualizowano $updated',
+      one: 'zaktualizowano 1',
+    );
+    return '$_temp0, $_temp1';
   }
 
   @override

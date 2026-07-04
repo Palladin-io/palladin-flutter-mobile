@@ -143,6 +143,9 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     final creates = <ImportEntryDraft>[];
     final overwrites = <ImportEntryOverwrite>[];
     final existingLabels = _existingByLabel.keys.toSet();
+    // Two source rows can collide with the same existing entry — only the
+    // first may overwrite it, or the batch issues two PUTs to one entryId.
+    final overwrittenIds = <String>{};
 
     for (final item in current.items) {
       if (!item.effectiveIncluded(current.conflictStrategy)) continue;
@@ -150,6 +153,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       final baseName = parsed.name ?? untitledLabel;
       if (item.hasConflict &&
           current.conflictStrategy == ImportConflictStrategy.overwrite) {
+        if (!overwrittenIds.add(item.conflict!.id)) continue;
         overwrites.add(ImportEntryOverwrite(
           entryId: item.conflict!.id,
           label: _clamp(baseName, _maxLabel),
@@ -274,12 +278,16 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
   }
 
   String _uniqueLabel(String base, Set<String> takenLower) {
+    // Leave room for the " (n)" suffix within the label limit, otherwise the
+    // later clamp would cut the suffix off and re-introduce the duplicate.
+    const suffixRoom = 8;
+    final safeBase = _clamp(base, _maxLabel - suffixRoom);
     if (!takenLower.contains(base.trim().toLowerCase())) return base;
     var n = 2;
-    while (takenLower.contains('$base ($n)'.trim().toLowerCase())) {
+    while (takenLower.contains('$safeBase ($n)'.trim().toLowerCase())) {
       n++;
     }
-    return '$base ($n)';
+    return '$safeBase ($n)';
   }
 
   void _trackFailed(String reason) {

@@ -4433,13 +4433,13 @@ abstract class AppLocalizations {
   /// Count of parsed entries
   ///
   /// In en, this message translates to:
-  /// **'{count} entries'**
+  /// **'{count, plural, =1{1 entry} other{{count} entries}}'**
   String importEntriesCount(int count);
 
   /// Count of skipped non-login items
   ///
   /// In en, this message translates to:
-  /// **'{count} non-login items skipped'**
+  /// **'{count, plural, =1{1 non-login item skipped} other{{count} non-login items skipped}}'**
   String importSkippedNote(int count);
 
   /// Label above the conflict-resolution selector
@@ -4487,7 +4487,7 @@ abstract class AppLocalizations {
   /// Commit button on the import preview
   ///
   /// In en, this message translates to:
-  /// **'Import {count} entries'**
+  /// **'Import {count, plural, =1{1 entry} other{{count} entries}}'**
   String importAction(int count);
 
   /// Progress label during import commit
@@ -4505,7 +4505,7 @@ abstract class AppLocalizations {
   /// Import success summary
   ///
   /// In en, this message translates to:
-  /// **'{created} added, {updated} updated'**
+  /// **'{created, plural, =1{1 added} other{{created} added}}, {updated, plural, =1{1 updated} other{{updated} updated}}'**
   String importSuccessBody(int created, int updated);
 
   /// Skipped count on the import success step

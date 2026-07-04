@@ -198,6 +198,14 @@ These patterns are duplicated and have **no** shared widget yet. Extract to `lib
 
 `SkeletonBox` is the canonical primitive, but two screens still ship their own `StatefulWidget` + `AnimationController` + `Tween(0.4, 0.85)`: `vault_list_page.dart` (`_SkeletonCard`) and `vault_entries_tab.dart` (`_SkeletonRow`). Replace both with `SkeletonBox(height: X, delay: Duration(milliseconds: i * 80))`.
 
+### Screen titles — ALWAYS left-aligned
+
+**Every screen title sits on the LEFT edge of the AppBar/header — never centered.** This is a hard product rule (recurring user finding, last: Import wizard centered on iOS).
+
+- **Pushed screens** (`AppScreen.appBar`): `AppBar` MUST set `titleSpacing: 0` **and** `centerTitle: false` — without `centerTitle: false` iOS silently centers the title. Title widget = shared `AppBarTitle(title:, subtitle:)` (16/w700 + 11px subtle subtitle, e.g. screen name + vault name). Never hand-roll the title `Column`.
+- **Top-level tabs**: `AppScreen.titled(...)` (in-body `ListScreenHeader`, inherently left-aligned).
+- Decorative/context icons (e.g. the red upload glyph on the Import wizard) go on the **right** as `actions:` (padded `AppSpacing.screenH` from the edge) — never above/inside the body header.
+
 ### Reuse rules
 
 1. **Colors** — only `AppColors.*` (`lib/core/theme/app_colors.dart`). Never `Color(0x..)`, `Colors.white`, or a hex literal anywhere outside that file.

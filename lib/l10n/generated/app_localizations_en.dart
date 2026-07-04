@@ -2487,12 +2487,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String importEntriesCount(int count) {
-    return '$count entries';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries',
+      one: '1 entry',
+    );
+    return '$_temp0';
   }
 
   @override
   String importSkippedNote(int count) {
-    return '$count non-login items skipped';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count non-login items skipped',
+      one: '1 non-login item skipped',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -2518,7 +2530,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String importAction(int count) {
-    return 'Import $count entries';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries',
+      one: '1 entry',
+    );
+    return 'Import $_temp0';
   }
 
   @override
@@ -2531,7 +2549,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String importSuccessBody(int created, int updated) {
-    return '$created added, $updated updated';
+    String _temp0 = intl.Intl.pluralLogic(
+      created,
+      locale: localeName,
+      other: '$created added',
+      one: '1 added',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      updated,
+      locale: localeName,
+      other: '$updated updated',
+      one: '1 updated',
+    );
+    return '$_temp0, $_temp1';
   }
 
   @override

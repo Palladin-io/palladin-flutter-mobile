@@ -142,6 +142,8 @@ class _ImportWizardViewState extends State<_ImportWizardView> {
             elevation: 0,
             scrolledUnderElevation: 0,
             surfaceTintColor: Colors.transparent,
+            titleSpacing: 0,
+            centerTitle: false,
             iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
             leading: IconButton(
               icon: const Icon(Icons.close, size: 22),
@@ -152,6 +154,16 @@ class _ImportWizardViewState extends State<_ImportWizardView> {
                       .pop(state is ImportWizardSuccess),
             ),
             title: AppBarTitle(title: l10n.importTitle, subtitle: widget.vaultName),
+            actions: const [
+              Padding(
+                padding: EdgeInsets.only(right: AppSpacing.screenH),
+                child: Icon(
+                  Icons.file_upload_outlined,
+                  size: 24,
+                  color: AppColors.brandRed,
+                ),
+              ),
+            ],
           ),
           body: _buildBody(context, state, l10n),
         );
@@ -218,12 +230,6 @@ class _IntroStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(
-            Icons.file_upload_outlined,
-            size: 48,
-            color: AppColors.brandRed,
-          ),
-          const SizedBox(height: AppSpacing.section),
           Text(
             l10n.importIntroTitle,
             style: TextStyle(

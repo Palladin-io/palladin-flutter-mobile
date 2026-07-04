@@ -15,6 +15,40 @@ PODS:
     - Flutter
   - device_info_plus (0.0.1):
     - Flutter
+  - DKImagePickerController/Core (4.3.9):
+    - DKImagePickerController/ImageDataManager
+    - DKImagePickerController/Resource
+  - DKImagePickerController/ImageDataManager (4.3.9)
+  - DKImagePickerController/PhotoGallery (4.3.9):
+    - DKImagePickerController/Core
+    - DKPhotoGallery
+  - DKImagePickerController/Resource (4.3.9)
+  - DKPhotoGallery (0.0.19):
+    - DKPhotoGallery/Core (= 0.0.19)
+    - DKPhotoGallery/Model (= 0.0.19)
+    - DKPhotoGallery/Preview (= 0.0.19)
+    - DKPhotoGallery/Resource (= 0.0.19)
+    - SDWebImage
+    - SwiftyGif
+  - DKPhotoGallery/Core (0.0.19):
+    - DKPhotoGallery/Model
+    - DKPhotoGallery/Preview
+    - SDWebImage
+    - SwiftyGif
+  - DKPhotoGallery/Model (0.0.19):
+    - SDWebImage
+    - SwiftyGif
+  - DKPhotoGallery/Preview (0.0.19):
+    - DKPhotoGallery/Model
+    - DKPhotoGallery/Resource
+    - SDWebImage
+    - SwiftyGif
+  - DKPhotoGallery/Resource (0.0.19):
+    - SDWebImage
+    - SwiftyGif
+  - file_picker (0.0.1):
+    - DKImagePickerController/PhotoGallery
+    - Flutter
   - Firebase/CoreOnly (11.15.0):
     - FirebaseCore (~> 11.15.0)
   - Firebase/Messaging (11.15.0):
@@ -116,6 +150,9 @@ PODS:
     - FlutterMacOS
     - PostHog (< 4.0.0, >= 3.47.0)
   - PromisesObjC (2.4.0)
+  - SDWebImage (5.21.7):
+    - SDWebImage/Core (= 5.21.7)
+  - SDWebImage/Core (5.21.7)
   - share_plus (0.0.1):
     - Flutter
   - shared_preferences_foundation (0.0.1):
@@ -124,11 +161,13 @@ PODS:
   - "sodium_libs (3.4.6+4)":
     - Flutter
     - FlutterMacOS
+  - SwiftyGif (5.4.5)
 
 DEPENDENCIES:
   - app_settings (from `.symlinks/plugins/app_settings/ios`)
   - biometric_storage (from `.symlinks/plugins/biometric_storage/ios`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
+  - file_picker (from `.symlinks/plugins/file_picker/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - Flutter (from `Flutter`)
@@ -147,6 +186,8 @@ SPEC REPOS:
   trunk:
     - AppAuth
     - AppCheckCore
+    - DKImagePickerController
+    - DKPhotoGallery
     - Firebase
     - FirebaseCore
     - FirebaseCoreInternal
@@ -160,6 +201,8 @@ SPEC REPOS:
     - nanopb
     - PostHog
     - PromisesObjC
+    - SDWebImage
+    - SwiftyGif
 
 EXTERNAL SOURCES:
   app_settings:
@@ -168,6 +211,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/biometric_storage/ios"
   device_info_plus:
     :path: ".symlinks/plugins/device_info_plus/ios"
+  file_picker:
+    :path: ".symlinks/plugins/file_picker/ios"
   firebase_core:
     :path: ".symlinks/plugins/firebase_core/ios"
   firebase_messaging:
@@ -201,6 +246,9 @@ SPEC CHECKSUMS:
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
   biometric_storage: 662167ef947fba48891850f0b3042f892a839e9a
   device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
+  DKImagePickerController: 946cec48c7873164274ecc4624d19e3da4c1ef3c
+  DKPhotoGallery: b3834fecb755ee09a593d7c9e389d8b5d6deed60
+  file_picker: a0560bc09d61de87f12d246fc47d2119e6ef37be
   Firebase: d99ac19b909cd2c548339c2241ecd0d1599ab02e
   firebase_core: 995454a784ff288be5689b796deb9e9fa3601818
   firebase_messaging: f4a41dd102ac18b840eba3f39d67e77922d3f707
@@ -224,9 +272,11 @@ SPEC CHECKSUMS:
   PostHog: 03a7f279ef47449caf4b5757efe226f77798990c
   posthog_flutter: 789630788986be1f728624d10f4b4e753f83c39f
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
+  SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   sodium_libs: 650f802d77b08c737ca4fed4ed68e822fa560c5a
+  SwiftyGif: 706c60cf65fa2bc5ee0313beece843c8eb8194d4
 
 PODFILE CHECKSUM: ff8bbc5a1500fc62f916e2dee440d32067e94d30
 
