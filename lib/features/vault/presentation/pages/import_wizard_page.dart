@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -150,7 +151,7 @@ class _ImportWizardViewState extends State<_ImportWizardView> {
                   : () => Navigator.of(context)
                       .pop(state is ImportWizardSuccess),
             ),
-            title: _AppBarTitle(state: state, vaultName: widget.vaultName),
+            title: AppBarTitle(title: l10n.importTitle, subtitle: widget.vaultName),
           ),
           body: _buildBody(context, state, l10n),
         );
@@ -193,45 +194,6 @@ class _ImportWizardViewState extends State<_ImportWizardView> {
           onClose: () => Navigator.of(context).pop(false),
         ),
     };
-  }
-}
-
-class _AppBarTitle extends StatelessWidget {
-  const _AppBarTitle({required this.state, required this.vaultName});
-
-  final ImportWizardState state;
-  final String vaultName;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          l10n.importTitle,
-          style: TextStyle(
-            color: AppColors.onSurface(brightness),
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          vaultName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: AppColors.onSurfaceSubtle(brightness),
-            fontSize: 11,
-            height: 1.2,
-          ),
-        ),
-      ],
-    );
   }
 }
 

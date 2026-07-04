@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -45,14 +46,7 @@ class _SettingsView extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
-        title: Text(
-          l10n.settingsScreenTitle,
-          style: TextStyle(
-            color: AppColors.onSurface(brightness),
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        title: AppBarTitle(title: l10n.settingsScreenTitle),
       ),
       body: RefreshIndicator(
         color: AppColors.brandRed,

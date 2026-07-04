@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../grants/domain/entities/grant.dart';
+import '../../../grants/domain/exceptions/grants_exceptions.dart';
 import '../../../grants/domain/repositories/grants_repository.dart';
 import '../../data/import/import_engine.dart';
 import '../../data/import/import_models.dart';
@@ -80,6 +81,15 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
           _trackFailed('unsupported');
           emit(ImportWizardFailure(_mapUnsupported(reason)));
       }
+    } on GrantsException catch (e) {
+      // Grant lookup runs before we touch the file, so a wire failure here
+      // must not be reported as an unrecognised file.
+      _trackFailed(e.kind.name);
+      emit(ImportWizardFailure(
+        e.kind == GrantsErrorKind.networkError
+            ? ImportFailureReason.network
+            : ImportFailureReason.unknown,
+      ));
     } on EntryException catch (e) {
       _trackFailed(e.kind.name);
       emit(ImportWizardFailure(_mapEntryError(e.kind)));
@@ -150,8 +160,13 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
           createdAt: item.conflict!.createdAt,
         ));
       } else {
-        final label = item.hasConflict &&
-                current.conflictStrategy == ImportConflictStrategy.rename
+        // Under the rename strategy, dedup both against the vault's existing
+        // labels and against earlier rows in this same batch (two identical
+        // names in the source file would otherwise collide).
+        final collidesInBatch =
+            existingLabels.contains(baseName.trim().toLowerCase());
+        final label = current.conflictStrategy == ImportConflictStrategy.rename &&
+                (item.hasConflict || collidesInBatch)
             ? _uniqueLabel(baseName, existingLabels)
             : baseName;
         existingLabels.add(label.trim().toLowerCase());

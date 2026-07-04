@@ -5,6 +5,7 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
+import 'package:mobile_palladin/features/grants/domain/exceptions/grants_exceptions.dart';
 import 'package:mobile_palladin/features/grants/domain/repositories/grants_repository.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/import_draft.dart';
@@ -144,6 +145,29 @@ void main() {
       expect: () => [
         isA<ImportWizardParsing>(),
         isA<ImportWizardPreview>().having((s) => s.items.length, 'items', 2),
+      ],
+    );
+
+    blocTest<ImportWizardCubit, ImportWizardState>(
+      'maps a grant-lookup network failure to network, not unrecognised file',
+      build: () {
+        when(() => grantsRepository.listGrants(
+              any(),
+              status: any(named: 'status'),
+              agentId: any(named: 'agentId'),
+              cursor: any(named: 'cursor'),
+              pageSize: any(named: 'pageSize'),
+            )).thenThrow(const GrantsException(GrantsErrorKind.networkError));
+        return build();
+      },
+      act: (c) => c.parseBytes(_bytes(csv)),
+      expect: () => [
+        isA<ImportWizardParsing>(),
+        isA<ImportWizardFailure>().having(
+          (s) => s.reason,
+          'reason',
+          ImportFailureReason.network,
+        ),
       ],
     );
 

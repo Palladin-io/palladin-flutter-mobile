@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -54,29 +55,9 @@ class _PickerView extends StatelessWidget {
           icon: const Icon(Icons.arrow_back_ios_new, size: 18),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              l10n.importTitle,
-              style: TextStyle(
-                color: AppColors.onSurface(brightness),
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                height: 1.2,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              l10n.importSelectVaultSubtitle,
-              style: TextStyle(
-                color: AppColors.onSurfaceSubtle(brightness),
-                fontSize: 11,
-                height: 1.2,
-              ),
-            ),
-          ],
+        title: AppBarTitle(
+          title: l10n.importTitle,
+          subtitle: l10n.importSelectVaultSubtitle,
         ),
       ),
       body: BlocBuilder<VaultListCubit, VaultListState>(

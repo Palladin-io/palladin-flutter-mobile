@@ -6,6 +6,7 @@ import '../../../../core/di/injection.dart';
 import '../cubit/vault_list_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -467,27 +468,9 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
             ],
           ),
       ],
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            loaded?.name ?? l10n.vaultTitle,
-            style: TextStyle(
-              color: onSurface,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-            ),
-          ),
-          if (subtitle.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              subtitle,
-              style: TextStyle(color: subtle, fontSize: 11, height: 1.2),
-            ),
-          ],
-        ],
+      title: AppBarTitle(
+        title: loaded?.name ?? l10n.vaultTitle,
+        subtitle: subtitle,
       ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(_tabBarHeight),

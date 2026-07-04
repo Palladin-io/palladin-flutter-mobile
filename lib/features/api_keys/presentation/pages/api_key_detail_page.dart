@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../settings/domain/entities/api_key.dart';
@@ -144,7 +145,6 @@ class _AppBarTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
     final key = context.select<ApiKeysCubit, ApiKey?>(
       (cubit) => cubit.state.keyById(keyId),
     );
@@ -155,30 +155,7 @@ class _AppBarTitle extends StatelessWidget {
             ? l10n.apiKeysStatusActive
             : l10n.apiKeysStatusRevoked);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: AppColors.onSurface(brightness),
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        if (statusLabel.isNotEmpty)
-          Text(
-            statusLabel,
-            style: TextStyle(
-              color: AppColors.onSurfaceSubtle(brightness),
-              fontSize: 11,
-            ),
-          ),
-      ],
-    );
+    return AppBarTitle(title: name, subtitle: statusLabel);
   }
 }
 

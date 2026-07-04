@@ -298,7 +298,7 @@ class _PreviewRow extends StatelessWidget {
                         const SizedBox(width: AppSpacing.chipGap),
                         _Badge(
                           label: l10n.importConflictBadge,
-                          color: AppColors.premium(brightness),
+                          color: AppColors.vaultPeach,
                         ),
                       ],
                     ],
