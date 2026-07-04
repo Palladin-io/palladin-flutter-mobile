@@ -2593,6 +2593,10 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nie można połączyć się z serwerem. Sprawdź połączenie i spróbuj ponownie.';
 
   @override
+  String get importErrorFullGrants =>
+      'Ten sejf ma agentów z pełnym dostępem. Import na telefonie nie jest jeszcze dla niego obsługiwany — najpierw cofnij granty pełnego dostępu albo zaimportuj z panelu web.';
+
+  @override
   String get importErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
 
   @override

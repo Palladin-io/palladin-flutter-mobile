@@ -2572,6 +2572,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Couldn\'t reach the server. Check your connection and try again.';
 
   @override
+  String get importErrorFullGrants =>
+      'This vault has agents with full access. Importing to it isn\'t supported on mobile yet — revoke the full-access grants first, or import from the web panel.';
+
+  @override
   String get importErrorUnknown => 'Something went wrong. Please try again.';
 
   @override

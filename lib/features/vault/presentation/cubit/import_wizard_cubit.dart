@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../grants/domain/entities/grant.dart';
+import '../../../grants/domain/repositories/grants_repository.dart';
 import '../../data/import/import_engine.dart';
 import '../../data/import/import_models.dart';
 import '../../domain/entities/entry_entity.dart';
@@ -28,14 +30,22 @@ export 'import_wizard_state.dart';
 class ImportWizardCubit extends Cubit<ImportWizardState> {
   ImportWizardCubit({
     required this.repository,
+    required this.grantsRepository,
     required this.vaultId,
     AnalyticsService? analytics,
   })  : _analytics = analytics ?? AnalyticsService.instance,
         super(const ImportWizardInitial());
 
   final EntryRepository repository;
+  final GrantsRepository grantsRepository;
   final String vaultId;
   final AnalyticsService _analytics;
+
+  /// Backend field-length limits (import batch is atomic — one over-length
+  /// field 400s the whole batch), so clamp defensively client-side.
+  static const int _maxLabel = 200;
+  static const int _maxDescription = 2000;
+  static const int _maxUrlDomain = 255;
 
   /// Cached table for the manual-mapping step so [applyMapping] can
   /// re-parse without re-reading the file.
@@ -50,6 +60,14 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
   Future<void> parseBytes(Uint8List bytes, {String? fileName}) async {
     emit(const ImportWizardParsing());
     try {
+      // The backend requires per-entry re-wrap material for every active
+      // FULL grant on the vault. The mobile create/import flow can't produce
+      // it, so block up-front rather than fail the atomic batch server-side.
+      if (await _hasActiveFullGrants()) {
+        _trackFailed('full-grants-blocked');
+        emit(const ImportWizardFailure(ImportFailureReason.fullGrantsBlocked));
+        return;
+      }
       await _loadExistingEntries();
       final outcome = ImportEngine.parse(bytes, fileName: fileName);
       switch (outcome) {
@@ -118,11 +136,11 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
           current.conflictStrategy == ImportConflictStrategy.overwrite) {
         overwrites.add(ImportEntryOverwrite(
           entryId: item.conflict!.id,
-          label: parsed.name,
-          description: parsed.folder,
+          label: _clamp(parsed.name, _maxLabel),
+          description: _clampOrNull(parsed.folder, _maxDescription),
           type: EntryType.credential,
           payload: parsed.toPayload(),
-          urlDomain: parsed.urlDomain,
+          urlDomain: _clampOrNull(parsed.urlDomain, _maxUrlDomain),
           createdAt: item.conflict!.createdAt,
         ));
       } else {
@@ -132,11 +150,11 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
             : parsed.name;
         existingLabels.add(label.trim().toLowerCase());
         creates.add(ImportEntryDraft(
-          label: label,
-          description: parsed.folder,
+          label: _clamp(label, _maxLabel),
+          description: _clampOrNull(parsed.folder, _maxDescription),
           type: EntryType.credential,
           payload: parsed.toPayload(),
-          urlDomain: parsed.urlDomain,
+          urlDomain: _clampOrNull(parsed.urlDomain, _maxUrlDomain),
         ));
       }
     }
@@ -177,6 +195,30 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       emit(const ImportWizardFailure(ImportFailureReason.unknown));
     }
   }
+
+  /// Pages through the vault's active grants looking for any FULL-scope
+  /// grant. Bounded in practice (active grants per vault are few); the loop
+  /// guards against a FULL grant sitting past the first page.
+  Future<bool> _hasActiveFullGrants() async {
+    String? cursor;
+    do {
+      final page = await grantsRepository.listGrants(
+        vaultId,
+        status: 'active',
+        cursor: cursor,
+        pageSize: 50,
+      );
+      if (page.grants.any((g) => g.scope == GrantScope.full)) return true;
+      cursor = page.nextCursor;
+    } while (cursor != null);
+    return false;
+  }
+
+  static String _clamp(String value, int max) =>
+      value.length <= max ? value : value.substring(0, max);
+
+  static String? _clampOrNull(String? value, int max) =>
+      value == null ? null : _clamp(value, max);
 
   Future<void> _loadExistingEntries() async {
     final existing = await repository.listEntries(vaultId);

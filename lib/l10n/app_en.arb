@@ -2609,6 +2609,8 @@
   "@importErrorCrypto": { "description": "Import error — crypto failure" },
   "importErrorNetwork": "Couldn't reach the server. Check your connection and try again.",
   "@importErrorNetwork": { "description": "Import error — network failure" },
+  "importErrorFullGrants": "This vault has agents with full access. Importing to it isn't supported on mobile yet — revoke the full-access grants first, or import from the web panel.",
+  "@importErrorFullGrants": { "description": "Import error — vault has active FULL grants that mobile cannot re-wrap" },
   "importErrorUnknown": "Something went wrong. Please try again.",
   "@importErrorUnknown": { "description": "Import error — unknown" },
   "importColumnMapTitle": "Map columns",

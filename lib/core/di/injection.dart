@@ -258,6 +258,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerFactoryParam<ImportWizardCubit, String, void>(
     (vaultId, _) => ImportWizardCubit(
       repository: getIt<EntryRepository>(),
+      grantsRepository: getIt<GrantsRepository>(),
       vaultId: vaultId,
     ),
   );

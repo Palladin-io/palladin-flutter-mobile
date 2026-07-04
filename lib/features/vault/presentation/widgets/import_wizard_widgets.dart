@@ -41,6 +41,7 @@ class ImportWizardCopy {
         ImportFailureReason.noEntries => l10n.importErrorNoEntries,
         ImportFailureReason.crypto => l10n.importErrorCrypto,
         ImportFailureReason.network => l10n.importErrorNetwork,
+        ImportFailureReason.fullGrantsBlocked => l10n.importErrorFullGrants,
         ImportFailureReason.unknown => l10n.importErrorUnknown,
       };
 

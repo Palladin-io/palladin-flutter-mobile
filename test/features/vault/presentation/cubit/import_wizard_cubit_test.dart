@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
+import 'package:mobile_palladin/features/grants/domain/repositories/grants_repository.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/import_draft.dart';
 import 'package:mobile_palladin/features/vault/domain/exceptions/entry_exceptions.dart';
@@ -12,10 +14,13 @@ import 'package:mobile_palladin/features/vault/presentation/cubit/import_wizard_
 
 class _MockRepository extends Mock implements EntryRepository {}
 
+class _MockGrantsRepository extends Mock implements GrantsRepository {}
+
 Uint8List _bytes(String s) => Uint8List.fromList(utf8.encode(s));
 
 void main() {
   late _MockRepository repository;
+  late _MockGrantsRepository grantsRepository;
 
   const csv = 'name,url,username,password,note\n'
       'GitHub,https://github.com,octocat,S3cr3t!,\n'
@@ -28,10 +33,32 @@ void main() {
     registerFallbackValue(Uint8List(0));
   });
 
-  setUp(() => repository = _MockRepository());
+  setUp(() {
+    repository = _MockRepository();
+    grantsRepository = _MockGrantsRepository();
+    when(() => grantsRepository.listGrants(
+          any(),
+          status: any(named: 'status'),
+          agentId: any(named: 'agentId'),
+          cursor: any(named: 'cursor'),
+          pageSize: any(named: 'pageSize'),
+        )).thenAnswer((_) async => const GrantListPage(grants: []));
+  });
 
-  ImportWizardCubit build() =>
-      ImportWizardCubit(repository: repository, vaultId: 'v-1');
+  ImportWizardCubit build() => ImportWizardCubit(
+        repository: repository,
+        grantsRepository: grantsRepository,
+        vaultId: 'v-1',
+      );
+
+  Grant grant(GrantScope scope) => Grant(
+        id: 'g-1',
+        vaultId: 'v-1',
+        agentId: 'a-1',
+        status: GrantStatus.active,
+        scope: scope,
+        createdAt: DateTime.utc(2026, 1, 1),
+      );
 
   EntryEntity existing(String label) => EntryEntity(
         id: 'e-$label',
@@ -69,6 +96,54 @@ void main() {
       expect: () => [
         isA<ImportWizardParsing>(),
         isA<ImportWizardPreview>().having((s) => s.conflictCount, 'conflicts', 1),
+      ],
+    );
+
+    blocTest<ImportWizardCubit, ImportWizardState>(
+      'blocks the import when the vault has an active FULL grant',
+      build: () {
+        when(() => grantsRepository.listGrants(
+              any(),
+              status: any(named: 'status'),
+              agentId: any(named: 'agentId'),
+              cursor: any(named: 'cursor'),
+              pageSize: any(named: 'pageSize'),
+            )).thenAnswer(
+          (_) async => GrantListPage(grants: [grant(GrantScope.full)]),
+        );
+        return build();
+      },
+      act: (c) => c.parseBytes(_bytes(csv)),
+      expect: () => [
+        isA<ImportWizardParsing>(),
+        isA<ImportWizardFailure>().having(
+          (s) => s.reason,
+          'reason',
+          ImportFailureReason.fullGrantsBlocked,
+        ),
+      ],
+      verify: (_) => verifyNever(() => repository.listEntries(any())),
+    );
+
+    blocTest<ImportWizardCubit, ImportWizardState>(
+      'a granular grant does not block the import',
+      build: () {
+        when(() => grantsRepository.listGrants(
+              any(),
+              status: any(named: 'status'),
+              agentId: any(named: 'agentId'),
+              cursor: any(named: 'cursor'),
+              pageSize: any(named: 'pageSize'),
+            )).thenAnswer(
+          (_) async => GrantListPage(grants: [grant(GrantScope.granular)]),
+        );
+        when(() => repository.listEntries(any())).thenAnswer((_) async => []);
+        return build();
+      },
+      act: (c) => c.parseBytes(_bytes(csv)),
+      expect: () => [
+        isA<ImportWizardParsing>(),
+        isA<ImportWizardPreview>().having((s) => s.items.length, 'items', 2),
       ],
     );
 

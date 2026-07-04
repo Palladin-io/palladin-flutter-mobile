@@ -755,6 +755,7 @@
   "importErrorNoEntries": "Nie znaleziono wpisów logowania w tym pliku.",
   "importErrorCrypto": "Nie udało się zaszyfrować wpisów. Zablokuj i odblokuj sejf, a następnie spróbuj ponownie.",
   "importErrorNetwork": "Nie można połączyć się z serwerem. Sprawdź połączenie i spróbuj ponownie.",
+  "importErrorFullGrants": "Ten sejf ma agentów z pełnym dostępem. Import na telefonie nie jest jeszcze dla niego obsługiwany — najpierw cofnij granty pełnego dostępu albo zaimportuj z panelu web.",
   "importErrorUnknown": "Coś poszło nie tak. Spróbuj ponownie.",
   "importColumnMapTitle": "Mapuj kolumny",
   "importColumnMapSubtitle": "Nie wykryliśmy tego formatu. Wskaż, która kolumna jest która.",

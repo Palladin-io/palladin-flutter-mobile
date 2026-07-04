@@ -4568,6 +4568,12 @@ abstract class AppLocalizations {
   /// **'Couldn\'t reach the server. Check your connection and try again.'**
   String get importErrorNetwork;
 
+  /// Import error — vault has active FULL grants that mobile cannot re-wrap
+  ///
+  /// In en, this message translates to:
+  /// **'This vault has agents with full access. Importing to it isn\'t supported on mobile yet — revoke the full-access grants first, or import from the web panel.'**
+  String get importErrorFullGrants;
+
   /// Import error — unknown
   ///
   /// In en, this message translates to:
