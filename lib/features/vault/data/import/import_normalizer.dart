@@ -94,19 +94,38 @@ class ImportNormalizer {
     return 'otpauth://totp/${Uri.encodeComponent(label)}?$query';
   }
 
+  /// Google Password Manager app-credential URI:
+  /// `android://<signing-cert hash>@<package>/`.
+  static final RegExp _androidCredentialUri =
+      RegExp(r'^android://[^@]+@([a-zA-Z0-9_.]+)/?$');
+
+  /// Package ids are reverse-DNS — `com.facebook.katana` → `facebook.com`.
+  static String? _domainFromAndroidPackage(String packageId) {
+    final labels = packageId.toLowerCase().split('.');
+    if (labels.length < 2) return null;
+    final tld = labels[0];
+    final name = labels[1];
+    if (name.isEmpty || !RegExp(r'^[a-z]{2,6}$').hasMatch(tld)) return null;
+    return '$name.$tld';
+  }
+
   /// Extracts the bare host from a URL string (no scheme, no path).
   /// Returns `null` when [raw] is blank or yields no host.
   static String? hostFrom(String? raw) {
     final text = _clean(raw);
     if (text == null) return null;
+    final androidMatch = _androidCredentialUri.firstMatch(text);
+    if (androidMatch != null) {
+      return _domainFromAndroidPackage(androidMatch.group(1)!);
+    }
     final toParse = text.contains('://') ? text : 'https://$text';
     final uri = Uri.tryParse(toParse);
-    if (uri != null && uri.host.isNotEmpty) return uri.host;
-    // Fallback: strip scheme manually and take the authority segment.
+    // A dotless "host" (stray scheme, app id) is useless as a urlDomain.
+    if (uri != null && uri.host.contains('.')) return uri.host;
     final withoutScheme =
         text.replaceFirst(RegExp(r'^[a-zA-Z][a-zA-Z0-9+\-.]*://'), '');
     final firstSegment = withoutScheme.split('/').first.split('?').first;
-    return firstSegment.isEmpty ? null : firstSegment;
+    return firstSegment.contains('.') ? firstSegment : null;
   }
 
   /// Derives a display name from a host — drops a leading `www.` and

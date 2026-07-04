@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/vault/data/import/import_engine.dart';
 import 'package:mobile_palladin/features/vault/data/import/import_models.dart';
+import 'package:mobile_palladin/features/vault/data/import/import_normalizer.dart';
 
 Uint8List _bytes(String s) => Uint8List.fromList(utf8.encode(s));
 
@@ -440,6 +441,25 @@ void main() {
     test('binary / random bytes are unrecognised', () {
       final outcome = ImportEngine.parse(Uint8List.fromList([1, 2, 3, 4, 5]));
       expect(outcome, isA<ImportUnsupported>());
+    });
+  });
+
+  group('ImportNormalizer.hostFrom — android app-credential URIs', () {
+    test('derives domain from reverse-DNS package id', () {
+      expect(
+        ImportNormalizer.hostFrom(
+            'android://zQxb6hXv1MJiC1Yyotdhi8HP@com.facebook.katana/'),
+        'facebook.com',
+      );
+      expect(
+        ImportNormalizer.hostFrom('android://hash@com.spotify.music/'),
+        'spotify.com',
+      );
+    });
+
+    test('rejects packages without a plausible TLD and dotless hosts', () {
+      expect(ImportNormalizer.hostFrom('android://hash@localonly/'), isNull);
+      expect(ImportNormalizer.hostFrom('android'), isNull);
     });
   });
 }
