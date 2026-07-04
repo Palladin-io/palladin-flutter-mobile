@@ -31,6 +31,7 @@ String auditEventLabel(
     AuditEventType.vaultCreated => l10n.auditEventVaultCreated,
     AuditEventType.vaultUpdated => l10n.auditEventVaultUpdated,
     AuditEventType.vaultDeleted => l10n.auditEventVaultDeleted,
+    AuditEventType.vaultExported => l10n.auditEventVaultExported,
     AuditEventType.entryCreated => l10n.auditEventEntryCreated,
     AuditEventType.entryUpdated => l10n.auditEventEntryUpdated,
     AuditEventType.entryDeleted => l10n.auditEventEntryDeleted,
@@ -81,6 +82,7 @@ Color auditEventColor(AuditEventType eventType) {
     AuditEventType.agentEnrolled ||
     AuditEventType.vaultCreated ||
     AuditEventType.vaultUpdated ||
+    AuditEventType.vaultExported ||
     AuditEventType.entryCreated ||
     AuditEventType.entryUpdated ||
     AuditEventType.apikeyCreated ||
@@ -240,6 +242,7 @@ List<AuditSentenceSpan>? auditEventSentence(
     AuditEventType.vaultCreated => l10n.auditSentenceCreated(actor, vault),
     AuditEventType.vaultUpdated => l10n.auditSentenceUpdated(actor, vault),
     AuditEventType.vaultDeleted => l10n.auditSentenceDeleted(actor, vault),
+    AuditEventType.vaultExported => l10n.auditSentenceExported(actor, vault),
     AuditEventType.entryCreated => l10n.auditSentenceCreated(actor, item),
     AuditEventType.entryUpdated => l10n.auditSentenceUpdated(actor, item),
     AuditEventType.entryDeleted => l10n.auditSentenceDeleted(actor, item),

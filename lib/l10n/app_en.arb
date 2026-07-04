@@ -2340,6 +2340,8 @@
   "auditEventVaultCreated": "Vault created",
   "auditEventVaultUpdated": "Vault updated",
   "auditEventVaultDeleted": "Vault deleted",
+  "auditEventVaultExported": "Vault exported",
+  "@auditEventVaultExported": { "description": "Audit event label — vault entries exported to a file" },
   "auditEventEntryCreated": "Entry created",
   "auditEventEntryUpdated": "Entry updated",
   "auditEventEntryDeleted": "Entry deleted",
@@ -2390,6 +2392,14 @@
   },
   "auditSentenceDeleted": "{actor} deleted {object}",
   "@auditSentenceDeleted": {
+    "placeholders": {
+      "actor": { "type": "String" },
+      "object": { "type": "String" }
+    }
+  },
+  "auditSentenceExported": "{actor} exported {object}",
+  "@auditSentenceExported": {
+    "description": "Audit sentence — vault exported",
     "placeholders": {
       "actor": { "type": "String" },
       "object": { "type": "String" }

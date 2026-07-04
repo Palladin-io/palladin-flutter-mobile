@@ -2169,6 +2169,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get auditEventVaultDeleted => 'Usunięto sejf';
 
   @override
+  String get auditEventVaultExported => 'Sejf wyeksportowany';
+
+  @override
   String get auditEventEntryCreated => 'Utworzono wpis';
 
   @override
@@ -2269,6 +2272,11 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String auditSentenceDeleted(String actor, String object) {
     return '$actor: usunięto $object';
+  }
+
+  @override
+  String auditSentenceExported(String actor, String object) {
+    return '$actor wyeksportował $object';
   }
 
   @override

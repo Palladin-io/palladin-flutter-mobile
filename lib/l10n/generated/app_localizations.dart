@@ -3860,6 +3860,12 @@ abstract class AppLocalizations {
   /// **'Vault deleted'**
   String get auditEventVaultDeleted;
 
+  /// Audit event label — vault entries exported to a file
+  ///
+  /// In en, this message translates to:
+  /// **'Vault exported'**
+  String get auditEventVaultExported;
+
   /// No description provided for @auditEventEntryCreated.
   ///
   /// In en, this message translates to:
@@ -4045,6 +4051,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{actor} deleted {object}'**
   String auditSentenceDeleted(String actor, String object);
+
+  /// Audit sentence — vault exported
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} exported {object}'**
+  String auditSentenceExported(String actor, String object);
 
   /// No description provided for @auditSentenceActivated.
   ///

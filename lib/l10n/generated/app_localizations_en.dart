@@ -2152,6 +2152,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditEventVaultDeleted => 'Vault deleted';
 
   @override
+  String get auditEventVaultExported => 'Vault exported';
+
+  @override
   String get auditEventEntryCreated => 'Entry created';
 
   @override
@@ -2250,6 +2253,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String auditSentenceDeleted(String actor, String object) {
     return '$actor deleted $object';
+  }
+
+  @override
+  String auditSentenceExported(String actor, String object) {
+    return '$actor exported $object';
   }
 
   @override
