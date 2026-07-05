@@ -1,30 +1,38 @@
+import 'custom_field.dart';
+
 /// Type of vault entry — drives icon, payload schema, and reveal-panel
 /// layout.
 ///
-/// Mirrors the backend `EntryType` enum (`Key = 0`, `Credential = 1`).
-/// Wire format is the integer ordinal stored on the row-level `type`
-/// column. The decrypted payload schema is selected by [EntryType] on
-/// the client; the JSONB content envelope itself carries no
-/// discriminator.
+/// Mirrors the backend `EntryType` enum (`Key = 0`, `Credential = 1`,
+/// `Script = 2`). Wire format is the integer ordinal stored on the
+/// row-level `type` column. The decrypted payload schema is selected by
+/// [EntryType] on the client; the JSONB content envelope itself carries
+/// no discriminator.
 enum EntryType {
   /// Single secret value — API key, token, etc.
   key,
 
   /// Username + password (+ optional URL).
   credential,
+
+  /// Executable script with declared credential references (`refs`).
+  /// Delivered to agents under the `exec` method only (spec §5).
+  script,
 }
 
 extension EntryTypeExtension on EntryType {
   /// Wire format used by the .NET API (int ordinal: `Key = 0`,
-  /// `Credential = 1`).
+  /// `Credential = 1`, `Script = 2`).
   int toWire() => switch (this) {
         EntryType.key => 0,
         EntryType.credential => 1,
+        EntryType.script => 2,
       };
 
   static EntryType fromWire(int value) => switch (value) {
         0 => EntryType.key,
         1 => EntryType.credential,
+        2 => EntryType.script,
         // Default to credential for unknown wire values — surfaces the
         // safer two-field reveal panel rather than the single-secret
         // panel, matching the backend default.
@@ -103,7 +111,12 @@ class EntryEntity {
 /// Plaintext payload shape for a `KEY` entry. Lives only in memory
 /// after decryption — never persisted in plaintext.
 class KeyPayload {
-  const KeyPayload({required this.value, this.url, this.notes});
+  const KeyPayload({
+    required this.value,
+    this.url,
+    this.notes,
+    this.fields = const [],
+  });
 
   /// The secret itself (token, API key, …).
   final String value;
@@ -113,17 +126,24 @@ class KeyPayload {
 
   final String? notes;
 
+  /// User-defined custom fields (blob schema v2). Empty for legacy v1
+  /// entries.
+  final List<CustomField> fields;
+
   Map<String, dynamic> toJson() => {
+        'v': 2,
         'type': 'KEY',
         'value': value,
         if (url != null) 'url': url,
         if (notes != null) 'notes': notes,
+        if (fields.isNotEmpty) 'fields': CustomField.listToJson(fields),
       };
 
   factory KeyPayload.fromJson(Map<String, dynamic> json) => KeyPayload(
         value: (json['value'] as String?) ?? '',
         url: json['url'] as String?,
         notes: json['notes'] as String?,
+        fields: CustomField.listFromPayload(json),
       );
 }
 
@@ -136,12 +156,17 @@ class CredentialPayload {
     this.url,
     this.notes,
     this.totp,
+    this.fields = const [],
   });
 
   final String username;
   final String password;
   final String? url;
   final String? notes;
+
+  /// User-defined custom fields (blob schema v2). Empty for legacy v1
+  /// entries.
+  final List<CustomField> fields;
 
   /// Optional TOTP seed as an `otpauth://` URI. Populated when a
   /// credential is imported from a manager that carries a 2FA secret.
@@ -151,12 +176,14 @@ class CredentialPayload {
   final String? totp;
 
   Map<String, dynamic> toJson() => {
+        'v': 2,
         'type': 'CREDENTIAL',
         'username': username,
         'password': password,
         if (url != null) 'url': url,
         if (notes != null) 'notes': notes,
         if (totp != null) 'totp': totp,
+        if (fields.isNotEmpty) 'fields': CustomField.listToJson(fields),
       };
 
   factory CredentialPayload.fromJson(Map<String, dynamic> json) =>
@@ -166,5 +193,119 @@ class CredentialPayload {
         url: json['url'] as String?,
         notes: json['notes'] as String?,
         totp: json['totp'] as String?,
+        fields: CustomField.listFromPayload(json),
+      );
+}
+
+/// Interpreter used to execute a `SCRIPT` entry (spec §5). Wire tokens are
+/// the lowercase names carried inside the encrypted blob and validated
+/// against this enum by the agent CLI.
+enum ScriptInterpreter {
+  bash,
+  sh,
+  node,
+  python;
+
+  String get wireName => name;
+
+  /// Parses an interpreter token. Falls back to [ScriptInterpreter.bash]
+  /// for missing or unknown input.
+  static ScriptInterpreter fromName(String? raw) => switch (raw) {
+        'sh' => ScriptInterpreter.sh,
+        'node' => ScriptInterpreter.node,
+        'python' => ScriptInterpreter.python,
+        _ => ScriptInterpreter.bash,
+      };
+}
+
+/// One declared credential reference on a `SCRIPT` entry — an explicit
+/// mapping of an environment variable name to a field on another entry
+/// (spec §5, v1: no in-body substitution; `refs` is the whole contract).
+class ScriptRef {
+  const ScriptRef({
+    required this.env,
+    required this.entryId,
+    required this.field,
+  });
+
+  /// Environment variable name the agent CLI populates before exec.
+  final String env;
+
+  /// Target entry the value is pulled from (agent resolves via its own
+  /// grant).
+  final String entryId;
+
+  /// Field on the target entry (`value`, `username`, `password`, `url`,
+  /// `notes`, or a custom field label).
+  final String field;
+
+  Map<String, dynamic> toJson() => {
+        'placeholder': env,
+        'entryId': entryId,
+        'field': field,
+      };
+
+  factory ScriptRef.fromJson(Map<String, dynamic> json) => ScriptRef(
+        env: (json['placeholder'] as String?) ?? (json['env'] as String?) ?? '',
+        entryId: (json['entryId'] as String?) ?? '',
+        field: (json['field'] as String?) ?? '',
+      );
+
+  static List<ScriptRef> listFromPayload(Map<String, dynamic> payload) {
+    final raw = payload['refs'];
+    if (raw is! List) return const [];
+    final result = <ScriptRef>[];
+    for (final item in raw) {
+      if (item is Map<String, dynamic>) {
+        result.add(ScriptRef.fromJson(item));
+      } else if (item is Map) {
+        result.add(ScriptRef.fromJson(Map<String, dynamic>.from(item)));
+      }
+    }
+    return result;
+  }
+}
+
+/// Plaintext payload shape for a `SCRIPT` entry (spec §5). Lives only in
+/// memory after decryption — never persisted in plaintext.
+class ScriptPayload {
+  const ScriptPayload({
+    required this.script,
+    this.interpreter = ScriptInterpreter.bash,
+    this.notes,
+    this.refs = const [],
+    this.fields = const [],
+  });
+
+  /// The script body. Shown to the human owner; delivered to agents only
+  /// under the `exec` method.
+  final String script;
+
+  final ScriptInterpreter interpreter;
+  final String? notes;
+
+  /// Declared environment-variable → entry.field mappings.
+  final List<ScriptRef> refs;
+
+  /// User-defined custom fields (blob schema v2).
+  final List<CustomField> fields;
+
+  Map<String, dynamic> toJson() => {
+        'v': 2,
+        'type': 'SCRIPT',
+        'script': script,
+        'interpreter': interpreter.wireName,
+        if (notes != null) 'notes': notes,
+        if (refs.isNotEmpty)
+          'refs': refs.map((r) => r.toJson()).toList(growable: false),
+        if (fields.isNotEmpty) 'fields': CustomField.listToJson(fields),
+      };
+
+  factory ScriptPayload.fromJson(Map<String, dynamic> json) => ScriptPayload(
+        script: (json['script'] as String?) ?? '',
+        interpreter: ScriptInterpreter.fromName(json['interpreter'] as String?),
+        notes: json['notes'] as String?,
+        refs: ScriptRef.listFromPayload(json),
+        fields: CustomField.listFromPayload(json),
       );
 }

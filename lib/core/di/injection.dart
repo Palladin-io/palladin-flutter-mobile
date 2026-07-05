@@ -66,6 +66,7 @@ import '../../features/vault/data/repositories/entry_repository_impl.dart';
 import '../../features/vault/data/repositories/vault_repository_impl.dart';
 import '../../features/vault/data/export/export_sharer.dart';
 import '../../features/vault/data/services/entry_crypto_service.dart';
+import '../../features/vault/data/services/totp_service.dart';
 import '../../features/vault/data/services/vault_crypto_service.dart';
 import '../../features/vault/domain/repositories/entry_repository.dart';
 import '../../features/vault/domain/repositories/vault_repository.dart';
@@ -221,6 +222,7 @@ void configureDependencies(EnvConfig config) {
 
   // Entry — data layer
   getIt.registerLazySingleton<EntryCryptoService>(() => EntryCryptoService());
+  getIt.registerLazySingleton<TotpService>(() => const TotpService());
   getIt.registerLazySingleton<EntryRemoteDatasource>(
     () => EntryRemoteDatasource(getIt<Dio>()),
   );

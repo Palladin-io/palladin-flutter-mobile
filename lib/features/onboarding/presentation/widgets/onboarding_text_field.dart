@@ -159,6 +159,7 @@ class OnboardingTextField extends StatelessWidget {
     this.feedbackVisible = false,
     this.feedbackReserveSpace = true,
     this.maxLines = 1,
+    this.monospace = false,
   });
 
   final TextEditingController controller;
@@ -226,6 +227,10 @@ class OnboardingTextField extends StatelessWidget {
   /// scrollable forms where a collapsing slot is preferred.
   final bool feedbackReserveSpace;
 
+  /// Renders the input text in a monospace font — used for code / script
+  /// bodies where alignment matters.
+  final bool monospace;
+
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
@@ -250,7 +255,11 @@ class OnboardingTextField extends StatelessWidget {
       enabled: enabled,
       onSubmitted: onSubmitted,
       onChanged: onChanged,
-      style: TextStyle(color: AppColors.inputText(brightness), fontSize: 13),
+      style: TextStyle(
+        color: AppColors.inputText(brightness),
+        fontSize: 13,
+        fontFamily: monospace ? 'monospace' : null,
+      ),
       decoration: InputDecoration(
         // isDense + tighter vertical padding brings the field to ~44px, in line with the app's
         // buttons/controls (the default was ~48-52, which read as oversized).

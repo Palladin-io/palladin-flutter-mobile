@@ -856,6 +856,145 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryCopied => 'Copied to clipboard';
 
   @override
+  String get entryTypeScript => 'Script';
+
+  @override
+  String get entryCustomFieldsLabel => 'Custom fields';
+
+  @override
+  String get entryAddFieldAction => 'Add field';
+
+  @override
+  String get entryFieldNameLabel => 'Field name';
+
+  @override
+  String get entryFieldNameHint => 'e.g. Recovery email';
+
+  @override
+  String get entryFieldValueLabel => 'Value';
+
+  @override
+  String get entryFieldTypeLabel => 'Type';
+
+  @override
+  String get entryFieldTypeText => 'Text';
+
+  @override
+  String get entryFieldTypeConcealed => 'Hidden';
+
+  @override
+  String get entryFieldTypeTotp => 'One-time code';
+
+  @override
+  String get entryFieldRemove => 'Remove field';
+
+  @override
+  String get entryFieldReorder => 'Drag to reorder';
+
+  @override
+  String get entryFieldNameRequired => 'Add a name for this field';
+
+  @override
+  String get totpSetupTitle => 'One-time code';
+
+  @override
+  String get totpScanQr => 'Scan QR code';
+
+  @override
+  String get totpOr => 'or';
+
+  @override
+  String get totpSetupKeyLabel => 'Setup key';
+
+  @override
+  String get totpSetupKeyHint => 'otpauth://… or base32 secret';
+
+  @override
+  String get totpIssuerLabel => 'Issuer (optional)';
+
+  @override
+  String get totpAccountLabel => 'Account (optional)';
+
+  @override
+  String get totpInvalidKey => 'Enter a valid otpauth:// key or base32 secret';
+
+  @override
+  String get totpScanInstruction =>
+      'Point the camera at the authenticator QR code';
+
+  @override
+  String get totpScannerTitle => 'Scan QR code';
+
+  @override
+  String get totpCameraDenied =>
+      'Camera access is off. Enable it in Settings, or paste the setup key instead.';
+
+  @override
+  String get totpCameraOpenSettings => 'Open settings';
+
+  @override
+  String get totpConfigured => 'One-time code configured';
+
+  @override
+  String get totpReplaceSecret => 'Replace';
+
+  @override
+  String get totpCodeCopied => 'One-time code copied';
+
+  @override
+  String get totpInvalidConfigured => 'Invalid code secret';
+
+  @override
+  String get entryScriptLabel => 'Script';
+
+  @override
+  String get entryScriptHint => '#!/usr/bin/env bash\\n…';
+
+  @override
+  String get entryInterpreterLabel => 'Interpreter';
+
+  @override
+  String get entryScriptRefsLabel => 'Credential references';
+
+  @override
+  String get entryScriptRefsHint =>
+      'Map an environment variable to a field on another entry.';
+
+  @override
+  String get entryAddRefAction => 'Add reference';
+
+  @override
+  String get entryRefEnvLabel => 'Environment variable';
+
+  @override
+  String get entryRefEnvHint => 'e.g. GITHUB_TOKEN';
+
+  @override
+  String get entryRefEntryLabel => 'Entry';
+
+  @override
+  String get entryRefFieldLabel => 'Field';
+
+  @override
+  String get entryRefEntryHint => 'Select an entry';
+
+  @override
+  String get entryRefRemove => 'Remove reference';
+
+  @override
+  String get entryScriptEmpty => 'No script yet';
+
+  @override
+  String get entryRefsEmpty => 'No credential references';
+
+  @override
+  String get entryScriptExecOnlyTitle => 'EXEC-ONLY DELIVERY';
+
+  @override
+  String get entryScriptExecOnlyNotice =>
+      'Scripts are delivered to agents only via the exec method — the body is never returned as plaintext.';
+
+  @override
   String get settingsScreenTitle => 'Settings';
 
   @override

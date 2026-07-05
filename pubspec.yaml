@@ -95,6 +95,7 @@ dependencies:
   # setUserAuthenticationRequired — the MK is never stored where it can be
   # read without a fresh biometric authentication.
   biometric_storage: ^5.0.1
+  mobile_scanner: ^7.2.0
 
 dev_dependencies:
   flutter_test:

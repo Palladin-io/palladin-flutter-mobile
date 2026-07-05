@@ -11,6 +11,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/icon_picker_grid.dart' show IconMoreTile;
+import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -18,11 +19,15 @@ import '../../data/datasources/entry_remote_datasource.dart';
 import '../../data/services/entry_icon_upload_service.dart';
 import '../../data/services/vault_icon_upload_service.dart'
     show VaultIconUploadErrorKind, VaultIconUploadException;
+import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/entry_entity.dart';
+import '../../domain/repositories/entry_repository.dart';
 import '../cubit/create_entry_cubit.dart';
+import '../widgets/custom_fields_editor.dart';
 import '../widgets/entry_form_utils.dart';
 import '../widgets/entry_form_widgets.dart';
 import '../widgets/entry_icon_picker.dart';
+import '../widgets/script_refs_editor.dart';
 import '../widgets/vault_visuals.dart';
 
 /// Full-screen Add Entry form.
@@ -85,8 +90,10 @@ class _AddEntryViewState extends State<_AddEntryView> {
   final _passwordController = TextEditingController();
   final _urlController = TextEditingController();
   final _notesController = TextEditingController();
+  final _scriptController = TextEditingController();
 
   EntryType _type = EntryType.credential;
+  ScriptInterpreter _interpreter = ScriptInterpreter.bash;
   String _icon = EntryVisuals.defaultIconName;
   String _colorHex = EntryVisuals.defaultColorHex;
   bool _pickingIcon = false;
@@ -95,6 +102,15 @@ class _AddEntryViewState extends State<_AddEntryView> {
   bool _valueObscured = true;
   bool _passwordObscured = true;
   String? _urlError;
+
+  List<CustomField> _customFields = const [];
+  bool _customFieldsValid = true;
+  List<ScriptRef> _refs = const [];
+
+  /// Candidate reference targets for a Script entry, loaded lazily the
+  /// first time the user selects the Script type. `null` = not loaded yet.
+  List<EntryEntity>? _vaultEntries;
+  bool _loadingEntries = false;
 
   @override
   void dispose() {
@@ -105,16 +121,41 @@ class _AddEntryViewState extends State<_AddEntryView> {
     _passwordController.dispose();
     _urlController.dispose();
     _notesController.dispose();
+    _scriptController.dispose();
     super.dispose();
   }
 
-  bool get _canSubmit => EntryFormUtils.canSubmit(
-    type: _type,
-    label: _labelController.text,
-    value: _valueController.text,
-    username: _usernameController.text,
-    password: _passwordController.text,
-  );
+  bool get _canSubmit =>
+      _customFieldsValid &&
+      EntryFormUtils.canSubmit(
+        type: _type,
+        label: _labelController.text,
+        value: _valueController.text,
+        username: _usernameController.text,
+        password: _passwordController.text,
+        script: _scriptController.text,
+      );
+
+  /// Loads the vault's key/credential entries so a Script entry can point
+  /// its references at them. Best-effort — a failure just leaves the
+  /// picker empty.
+  Future<void> _ensureVaultEntriesLoaded() async {
+    if (_vaultEntries != null || _loadingEntries) return;
+    setState(() => _loadingEntries = true);
+    try {
+      final entries = await getIt<EntryRepository>().listEntries(widget.vaultId);
+      if (!mounted) return;
+      setState(() {
+        _vaultEntries = entries
+            .where((e) => e.type != EntryType.script)
+            .toList(growable: false);
+      });
+    } catch (_) {
+      if (mounted) setState(() => _vaultEntries = const []);
+    } finally {
+      if (mounted) setState(() => _loadingEntries = false);
+    }
+  }
 
   bool _validateUrl() {
     final valid = EntryFormUtils.isValidUrl(_urlController.text);
@@ -133,7 +174,96 @@ class _AddEntryViewState extends State<_AddEntryView> {
     password: _passwordController.text,
     url: _urlController.text,
     notes: _notesController.text,
+    fields: _customFields,
+    script: _scriptController.text,
+    interpreter: _interpreter,
+    refs: _refs,
   );
+
+  /// Type-specific form fields for the currently-selected [_type].
+  List<Widget> _typeFields(AppLocalizations l10n) {
+    return switch (_type) {
+      EntryType.key => [
+          OnboardingTextField(
+            label: l10n.entryValueLabel,
+            controller: _valueController,
+            obscureText: _valueObscured,
+            textInputAction: TextInputAction.next,
+            onChanged: (_) => setState(() {}),
+            suffixIcon: EntryObscureToggle(
+              obscured: _valueObscured,
+              onPressed: () =>
+                  setState(() => _valueObscured = !_valueObscured),
+            ),
+          ),
+        ],
+      EntryType.credential => [
+          OnboardingTextField(
+            label: l10n.entryUsernameLabel,
+            controller: _usernameController,
+            textInputAction: TextInputAction.next,
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: AppSpacing.fieldGap),
+          OnboardingTextField(
+            label: l10n.entryPasswordLabel,
+            controller: _passwordController,
+            obscureText: _passwordObscured,
+            textInputAction: TextInputAction.next,
+            onChanged: (_) => setState(() {}),
+            suffixIcon: EntryObscureToggle(
+              obscured: _passwordObscured,
+              onPressed: () =>
+                  setState(() => _passwordObscured = !_passwordObscured),
+            ),
+          ),
+        ],
+      EntryType.script => [
+          WarningZone(
+            title: l10n.entryScriptExecOnlyTitle,
+            message: l10n.entryScriptExecOnlyNotice,
+          ),
+          const SizedBox(height: AppSpacing.fieldGap),
+          OnboardingTextField(
+            label: l10n.entryScriptLabel,
+            hintText: l10n.entryScriptHint,
+            controller: _scriptController,
+            maxLines: 8,
+            monospace: true,
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: AppSpacing.fieldGap),
+          EntryInterpreterDropdown(
+            value: _interpreter,
+            onChanged: (next) {
+              if (next == null) return;
+              setState(() => _interpreter = next);
+            },
+          ),
+          const SizedBox(height: AppSpacing.fieldGap),
+          if (_loadingEntries && _vaultEntries == null)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.brandRed,
+                  ),
+                ),
+              ),
+            )
+          else
+            ScriptRefsEditor(
+              entries: _vaultEntries ?? const [],
+              initial: _refs,
+              onChanged: (refs) => setState(() => _refs = refs),
+            ),
+        ],
+    };
+  }
 
   /// Called by the browser upload circle — returns the file:// path
   /// without updating [_icon] (the browser handles selection state).
@@ -343,27 +473,29 @@ class _AddEntryViewState extends State<_AddEntryView> {
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: AppSpacing.fieldGap),
-                // 3. URL
-                OnboardingTextField(
-                  label: l10n.entryUrlLabel,
-                  controller: _urlController,
-                  textInputAction: TextInputAction.next,
-                  borderColor: _urlError != null ? AppColors.brandRed : null,
-                  focusBorderColor: _urlError != null
-                      ? AppColors.brandRed
-                      : null,
-                  onChanged: (_) => _validateUrl(),
-                  feedbackChild: Text(
-                    _urlError ?? '',
-                    style: const TextStyle(
-                      color: AppColors.brandRed,
-                      fontSize: 11,
+                // 3. URL — not applicable to Script entries.
+                if (_type != EntryType.script) ...[
+                  OnboardingTextField(
+                    label: l10n.entryUrlLabel,
+                    controller: _urlController,
+                    textInputAction: TextInputAction.next,
+                    borderColor: _urlError != null ? AppColors.brandRed : null,
+                    focusBorderColor: _urlError != null
+                        ? AppColors.brandRed
+                        : null,
+                    onChanged: (_) => _validateUrl(),
+                    feedbackChild: Text(
+                      _urlError ?? '',
+                      style: const TextStyle(
+                        color: AppColors.brandRed,
+                        fontSize: 11,
+                      ),
                     ),
+                    feedbackVisible: _urlError != null,
+                    feedbackReserveSpace: false,
                   ),
-                  feedbackVisible: _urlError != null,
-                  feedbackReserveSpace: false,
-                ),
-                const SizedBox(height: AppSpacing.fieldGap),
+                  const SizedBox(height: AppSpacing.fieldGap),
+                ],
                 // 4. Icon picker
                 Text(
                   l10n.vaultIconLabel,
@@ -387,47 +519,25 @@ class _AddEntryViewState extends State<_AddEntryView> {
                   onChanged: (next) {
                     if (next == null || next == _type) return;
                     setState(() => _type = next);
+                    if (next == EntryType.script) {
+                      _ensureVaultEntriesLoaded();
+                    }
                   },
                 ),
                 const SizedBox(height: AppSpacing.fieldGap),
-                // 7. Type-specific fields
-                if (_type == EntryType.key) ...[
-                  OnboardingTextField(
-                    label: l10n.entryValueLabel,
-                    controller: _valueController,
-                    obscureText: _valueObscured,
-                    textInputAction: TextInputAction.next,
-                    onChanged: (_) => setState(() {}),
-                    suffixIcon: EntryObscureToggle(
-                      obscured: _valueObscured,
-                      onPressed: () =>
-                          setState(() => _valueObscured = !_valueObscured),
-                    ),
-                  ),
-                ] else ...[
-                  OnboardingTextField(
-                    label: l10n.entryUsernameLabel,
-                    controller: _usernameController,
-                    textInputAction: TextInputAction.next,
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: AppSpacing.fieldGap),
-                  OnboardingTextField(
-                    label: l10n.entryPasswordLabel,
-                    controller: _passwordController,
-                    obscureText: _passwordObscured,
-                    textInputAction: TextInputAction.next,
-                    onChanged: (_) => setState(() {}),
-                    suffixIcon: EntryObscureToggle(
-                      obscured: _passwordObscured,
-                      onPressed: () => setState(
-                        () => _passwordObscured = !_passwordObscured,
-                      ),
-                    ),
-                  ),
-                ],
+                // 6. Type-specific fields
+                ..._typeFields(l10n),
                 const SizedBox(height: AppSpacing.fieldGap),
-                // 6. Notes
+                // 7. Custom fields (all types).
+                CustomFieldsEditor(
+                  initial: _customFields,
+                  onChanged: (fields, valid) => setState(() {
+                    _customFields = fields;
+                    _customFieldsValid = valid;
+                  }),
+                ),
+                const SizedBox(height: AppSpacing.fieldGap),
+                // 8. Notes
                 EntryNotesField(
                   controller: _notesController,
                   label: l10n.entryNotesLabel,

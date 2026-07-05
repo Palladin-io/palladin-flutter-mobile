@@ -46,6 +46,51 @@ class EntryTypeDropdown extends StatelessWidget {
           value: EntryType.key,
           child: Text(l10n.entryTypeKey),
         ),
+        DropdownMenuItem(
+          value: EntryType.script,
+          child: Text(l10n.entryTypeScript),
+        ),
+      ],
+    );
+  }
+}
+
+/// Dropdown selector for a script entry's interpreter (bash / sh / node /
+/// python).
+class EntryInterpreterDropdown extends StatelessWidget {
+  const EntryInterpreterDropdown({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final ScriptInterpreter value;
+  final ValueChanged<ScriptInterpreter?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return AppDropdownField<ScriptInterpreter>(
+      label: l10n.entryInterpreterLabel,
+      value: value,
+      onChanged: onChanged,
+      items: const [
+        DropdownMenuItem(
+          value: ScriptInterpreter.bash,
+          child: Text('bash'),
+        ),
+        DropdownMenuItem(
+          value: ScriptInterpreter.sh,
+          child: Text('sh'),
+        ),
+        DropdownMenuItem(
+          value: ScriptInterpreter.node,
+          child: Text('node'),
+        ),
+        DropdownMenuItem(
+          value: ScriptInterpreter.python,
+          child: Text('python'),
+        ),
       ],
     );
   }

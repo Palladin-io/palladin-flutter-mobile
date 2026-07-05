@@ -1,4 +1,5 @@
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 
@@ -47,16 +48,27 @@ class EntryFormUtils {
     return firstSegment.isEmpty ? null : firstSegment;
   }
 
-  /// Builds the plaintext payload map for the given entry [type] from the
-  /// already-trimmed text values. The result is what the cubit will
-  /// encrypt on-device before sending to the API.
+  /// Builds the plaintext payload map (blob schema v2) for the given entry
+  /// [type] from the already-trimmed text values plus any custom [fields].
+  /// The result is what the cubit will encrypt on-device before sending to
+  /// the API.
+  ///
+  /// [credentialTotp] carries a legacy `otpauth://` TOTP string forward on
+  /// a credential edit so it is not silently dropped (v2 moves TOTP into a
+  /// custom field, but older imported entries may still carry the flat
+  /// field).
   static Map<String, dynamic> buildPayload({
     required EntryType type,
-    required String value,
-    required String username,
-    required String password,
-    required String url,
-    required String notes,
+    String value = '',
+    String username = '',
+    String password = '',
+    String url = '',
+    String notes = '',
+    List<CustomField> fields = const [],
+    String script = '',
+    ScriptInterpreter interpreter = ScriptInterpreter.bash,
+    List<ScriptRef> refs = const [],
+    String? credentialTotp,
   }) {
     final urlOrNull = url.trim().isEmpty ? null : url.trim();
     final notesOrNull = notes.trim().isEmpty ? null : notes.trim();
@@ -65,12 +77,22 @@ class EntryFormUtils {
           value: value.trim(),
           url: urlOrNull,
           notes: notesOrNull,
+          fields: fields,
         ).toJson(),
       EntryType.credential => CredentialPayload(
           username: username.trim(),
           password: password.trim(),
           url: urlOrNull,
           notes: notesOrNull,
+          totp: credentialTotp,
+          fields: fields,
+        ).toJson(),
+      EntryType.script => ScriptPayload(
+          script: script.trim(),
+          interpreter: interpreter,
+          notes: notesOrNull,
+          refs: refs,
+          fields: fields,
         ).toJson(),
     };
   }
@@ -80,15 +102,17 @@ class EntryFormUtils {
   static bool canSubmit({
     required EntryType type,
     required String label,
-    required String value,
-    required String username,
-    required String password,
+    String value = '',
+    String username = '',
+    String password = '',
+    String script = '',
   }) {
     if (label.trim().isEmpty) return false;
     return switch (type) {
       EntryType.key => value.trim().isNotEmpty,
       EntryType.credential =>
         username.trim().isNotEmpty && password.trim().isNotEmpty,
+      EntryType.script => script.trim().isNotEmpty,
     };
   }
 

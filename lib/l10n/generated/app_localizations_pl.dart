@@ -871,6 +871,146 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryCopied => 'Skopiowano do schowka';
 
   @override
+  String get entryTypeScript => 'Skrypt';
+
+  @override
+  String get entryCustomFieldsLabel => 'Pola niestandardowe';
+
+  @override
+  String get entryAddFieldAction => 'Dodaj pole';
+
+  @override
+  String get entryFieldNameLabel => 'Nazwa pola';
+
+  @override
+  String get entryFieldNameHint => 'np. E-mail odzyskiwania';
+
+  @override
+  String get entryFieldValueLabel => 'Wartość';
+
+  @override
+  String get entryFieldTypeLabel => 'Typ';
+
+  @override
+  String get entryFieldTypeText => 'Tekst';
+
+  @override
+  String get entryFieldTypeConcealed => 'Ukryte';
+
+  @override
+  String get entryFieldTypeTotp => 'Kod jednorazowy';
+
+  @override
+  String get entryFieldRemove => 'Usuń pole';
+
+  @override
+  String get entryFieldReorder => 'Przeciągnij, aby zmienić kolejność';
+
+  @override
+  String get entryFieldNameRequired => 'Dodaj nazwę tego pola';
+
+  @override
+  String get totpSetupTitle => 'Kod jednorazowy';
+
+  @override
+  String get totpScanQr => 'Zeskanuj kod QR';
+
+  @override
+  String get totpOr => 'lub';
+
+  @override
+  String get totpSetupKeyLabel => 'Klucz konfiguracyjny';
+
+  @override
+  String get totpSetupKeyHint => 'otpauth://… lub sekret base32';
+
+  @override
+  String get totpIssuerLabel => 'Wydawca (opcjonalnie)';
+
+  @override
+  String get totpAccountLabel => 'Konto (opcjonalnie)';
+
+  @override
+  String get totpInvalidKey =>
+      'Podaj prawidłowy klucz otpauth:// lub sekret base32';
+
+  @override
+  String get totpScanInstruction =>
+      'Skieruj aparat na kod QR z aplikacji uwierzytelniającej';
+
+  @override
+  String get totpScannerTitle => 'Zeskanuj kod QR';
+
+  @override
+  String get totpCameraDenied =>
+      'Dostęp do aparatu jest wyłączony. Włącz go w Ustawieniach lub wklej klucz konfiguracyjny.';
+
+  @override
+  String get totpCameraOpenSettings => 'Otwórz ustawienia';
+
+  @override
+  String get totpConfigured => 'Kod jednorazowy skonfigurowany';
+
+  @override
+  String get totpReplaceSecret => 'Zmień';
+
+  @override
+  String get totpCodeCopied => 'Skopiowano kod jednorazowy';
+
+  @override
+  String get totpInvalidConfigured => 'Nieprawidłowy sekret kodu';
+
+  @override
+  String get entryScriptLabel => 'Skrypt';
+
+  @override
+  String get entryScriptHint => '#!/usr/bin/env bash\\n…';
+
+  @override
+  String get entryInterpreterLabel => 'Interpreter';
+
+  @override
+  String get entryScriptRefsLabel => 'Odwołania do danych';
+
+  @override
+  String get entryScriptRefsHint =>
+      'Przypisz zmienną środowiskową do pola innego wpisu.';
+
+  @override
+  String get entryAddRefAction => 'Dodaj odwołanie';
+
+  @override
+  String get entryRefEnvLabel => 'Zmienna środowiskowa';
+
+  @override
+  String get entryRefEnvHint => 'np. GITHUB_TOKEN';
+
+  @override
+  String get entryRefEntryLabel => 'Wpis';
+
+  @override
+  String get entryRefFieldLabel => 'Pole';
+
+  @override
+  String get entryRefEntryHint => 'Wybierz wpis';
+
+  @override
+  String get entryRefRemove => 'Usuń odwołanie';
+
+  @override
+  String get entryScriptEmpty => 'Brak skryptu';
+
+  @override
+  String get entryRefsEmpty => 'Brak odwołań do danych';
+
+  @override
+  String get entryScriptExecOnlyTitle => 'DOSTAWA TYLKO EXEC';
+
+  @override
+  String get entryScriptExecOnlyNotice =>
+      'Skrypty są dostarczane agentom wyłącznie metodą exec — treść nigdy nie wraca jako plaintext.';
+
+  @override
   String get settingsScreenTitle => 'Ustawienia';
 
   @override
