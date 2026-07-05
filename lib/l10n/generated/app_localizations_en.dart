@@ -988,6 +988,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryRefsEmpty => 'No credential references';
 
   @override
+  String get entryTooLarge =>
+      'This entry is too large. Shorten the script or remove some fields.';
+
+  @override
   String get entryScriptExecOnlyTitle => 'EXEC-ONLY DELIVERY';
 
   @override

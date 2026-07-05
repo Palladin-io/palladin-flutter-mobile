@@ -273,6 +273,7 @@
   "entryRefRemove": "Usuń odwołanie",
   "entryScriptEmpty": "Brak skryptu",
   "entryRefsEmpty": "Brak odwołań do danych",
+  "entryTooLarge": "Ten wpis jest zbyt duży. Skróć skrypt lub usuń część pól.",
   "entryScriptExecOnlyTitle": "DOSTAWA TYLKO EXEC",
   "entryScriptExecOnlyNotice": "Skrypty są dostarczane agentom wyłącznie metodą exec — treść nigdy nie wraca jako plaintext.",
   "settingsScreenTitle": "Ustawienia",

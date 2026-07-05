@@ -1198,6 +1198,10 @@
   "@entryRefsEmpty": {
     "description": "Empty state when a script has no credential references"
   },
+  "entryTooLarge": "This entry is too large. Shorten the script or remove some fields.",
+  "@entryTooLarge": {
+    "description": "Shown when the encrypted payload exceeds the backend's size limit"
+  },
   "entryScriptExecOnlyTitle": "EXEC-ONLY DELIVERY",
   "@entryScriptExecOnlyTitle": {
     "description": "Uppercase title of the script security warning box"

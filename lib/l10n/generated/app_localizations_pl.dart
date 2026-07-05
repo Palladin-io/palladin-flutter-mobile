@@ -1004,6 +1004,10 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryRefsEmpty => 'Brak odwołań do danych';
 
   @override
+  String get entryTooLarge =>
+      'Ten wpis jest zbyt duży. Skróć skrypt lub usuń część pól.';
+
+  @override
   String get entryScriptExecOnlyTitle => 'DOSTAWA TYLKO EXEC';
 
   @override

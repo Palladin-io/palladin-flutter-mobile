@@ -224,12 +224,19 @@ enum ScriptInterpreter {
 class ScriptRef {
   const ScriptRef({
     required this.env,
+    this.vaultId,
     required this.entryId,
     required this.field,
   });
 
   /// Environment variable name the agent CLI populates before exec.
   final String env;
+
+  /// Vault the target entry lives in. Written on new blobs so the agent
+  /// CLI can resolve a cross-vault reference; the CLI defaults a missing
+  /// `vaultId` to the script's own vault (backward compatibility), so it
+  /// is optional on parse.
+  final String? vaultId;
 
   /// Target entry the value is pulled from (agent resolves via its own
   /// grant).
@@ -240,13 +247,17 @@ class ScriptRef {
   final String field;
 
   Map<String, dynamic> toJson() => {
-        'placeholder': env,
+        'env': env,
+        if (vaultId != null && vaultId!.isNotEmpty) 'vaultId': vaultId,
         'entryId': entryId,
         'field': field,
       };
 
   factory ScriptRef.fromJson(Map<String, dynamic> json) => ScriptRef(
-        env: (json['placeholder'] as String?) ?? (json['env'] as String?) ?? '',
+        // `env` is the current wire key; `placeholder` is read for
+        // backward compatibility with earlier draft blobs.
+        env: (json['env'] as String?) ?? (json['placeholder'] as String?) ?? '',
+        vaultId: json['vaultId'] as String?,
         entryId: (json['entryId'] as String?) ?? '',
         field: (json['field'] as String?) ?? '',
       );

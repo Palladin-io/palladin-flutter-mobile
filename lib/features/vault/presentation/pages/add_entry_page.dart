@@ -257,6 +257,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
             )
           else
             ScriptRefsEditor(
+              vaultId: widget.vaultId,
               entries: _vaultEntries ?? const [],
               initial: _refs,
               onChanged: (refs) => setState(() => _refs = refs),
@@ -320,6 +321,15 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
   Future<void> _submit() async {
     if (!_validateUrl()) return;
+    final payload = _buildPayload();
+    if (!EntryFormUtils.isPayloadWithinLimit(payload)) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.entryTooLarge)),
+        );
+      return;
+    }
     final auth = context.read<AuthBloc>().state;
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
       ScaffoldMessenger.of(context)
@@ -345,7 +355,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
         description: _descriptionController.text,
         icon: iconForApi,
         type: _type,
-        payload: _buildPayload(),
+        payload: payload,
         urlDomain: urlDomain,
         privateKey: keyCopy,
         wrappedVK: widget.wrappedVK,

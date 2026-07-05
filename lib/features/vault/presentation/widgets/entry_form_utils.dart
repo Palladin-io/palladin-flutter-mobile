@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/entry_entity.dart';
@@ -115,6 +117,19 @@ class EntryFormUtils {
       EntryType.script => script.trim().isNotEmpty,
     };
   }
+
+  /// Soft ceiling on the plaintext payload in bytes. The backend caps the
+  /// encrypted blob at 64 KiB; base64 inflates ciphertext by ~4/3, so the
+  /// plaintext must stay under ~48 KiB to leave headroom for the envelope.
+  static const int maxPayloadBytes = 48 * 1024;
+
+  /// UTF-8 byte length of the JSON-encoded [payload] — what gets encrypted.
+  static int payloadBytes(Map<String, dynamic> payload) =>
+      utf8.encode(jsonEncode(payload)).length;
+
+  /// True when [payload] fits under [maxPayloadBytes].
+  static bool isPayloadWithinLimit(Map<String, dynamic> payload) =>
+      payloadBytes(payload) <= maxPayloadBytes;
 
   /// Maps an [EntryErrorKind] to a localized error string. Used directly
   /// under the save button on both Add Entry and Edit Entry forms.

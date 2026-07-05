@@ -364,6 +364,11 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
 
   Future<void> _submit() async {
     if (!_validateUrl()) return;
+    final payload = _buildPayload();
+    if (!EntryFormUtils.isPayloadWithinLimit(payload)) {
+      _showSnackBar(AppLocalizations.of(context)!.entryTooLarge);
+      return;
+    }
     final auth = context.read<AuthBloc>().state;
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
       _showSnackBar(AppLocalizations.of(context)!.entryErrorCrypto);
@@ -383,7 +388,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
         description: _descriptionController.text,
         icon: iconForApi,
         type: _type,
-        payload: _buildPayload(),
+        payload: payload,
         urlDomain: urlDomain,
         privateKey: keyCopy,
         wrappedVK: widget.wrappedVK,
@@ -685,6 +690,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
                 children: fields,
               ),
             ),
+          if (entry.type == EntryType.script) ...[
+            const SizedBox(height: AppSpacing.section),
+            WarningZone(
+              title: l10n.entryScriptExecOnlyTitle,
+              message: l10n.entryScriptExecOnlyNotice,
+            ),
+          ],
           const SizedBox(height: AppSpacing.section),
           EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
           const SizedBox(height: AppSpacing.section),
@@ -897,6 +909,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
             )
           else
             ScriptRefsEditor(
+              vaultId: widget.entry.vaultId,
               entries: _vaultEntries ?? const [],
               initial: _refs,
               onChanged: (refs) => setState(() => _refs = refs),

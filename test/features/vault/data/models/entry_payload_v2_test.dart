@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/custom_field.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
+import 'package:mobile_palladin/features/vault/data/models/entry_model.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/totp_config.dart';
 import 'package:mobile_palladin/features/vault/presentation/widgets/entry_form_utils.dart';
 
@@ -13,6 +14,30 @@ void main() {
 
     test('unknown ordinals still default to credential', () {
       expect(EntryTypeExtension.fromWire(99), EntryType.credential);
+    });
+
+    test('EntryModel parses the string type "script"', () {
+      Map<String, dynamic> base(Object type) => {
+            'id': 'e1',
+            'vaultId': 'v1',
+            'label': 'Deploy',
+            'type': type,
+            'createdAt': '2026-01-01T00:00:00Z',
+            'updatedAt': '2026-01-01T00:00:00Z',
+          };
+      expect(
+        EntryModel.fromJson(base('script')).toEntity().type,
+        EntryType.script,
+      );
+      expect(
+        EntryModel.fromJson(base('Script')).toEntity().type,
+        EntryType.script,
+      );
+      // Unknown string types fall back to credential instead of throwing.
+      expect(
+        EntryModel.fromJson(base('mystery')).toEntity().type,
+        EntryType.credential,
+      );
     });
   });
 
@@ -96,7 +121,12 @@ void main() {
         interpreter: ScriptInterpreter.node,
         notes: 'deploy',
         refs: const [
-          ScriptRef(env: 'GITHUB_TOKEN', entryId: 'e1', field: 'value'),
+          ScriptRef(
+            env: 'GITHUB_TOKEN',
+            vaultId: 'v1',
+            entryId: 'e1',
+            field: 'value',
+          ),
         ],
         fields: [CustomField.concealed(id: '1', label: 'PIN', value: '9')],
       );
@@ -104,15 +134,29 @@ void main() {
       expect(json['v'], 2);
       expect(json['type'], 'SCRIPT');
       expect(json['interpreter'], 'node');
-      // refs serialize the env under the `placeholder` wire key (spec §5).
-      expect((json['refs'] as List).first['placeholder'], 'GITHUB_TOKEN');
+      // refs wire shape: {env, vaultId, entryId, field}.
+      final refJson = (json['refs'] as List).first as Map<String, dynamic>;
+      expect(refJson['env'], 'GITHUB_TOKEN');
+      expect(refJson['vaultId'], 'v1');
 
       final parsed = ScriptPayload.fromJson(json);
       expect(parsed.interpreter, ScriptInterpreter.node);
       expect(parsed.refs.single.env, 'GITHUB_TOKEN');
+      expect(parsed.refs.single.vaultId, 'v1');
       expect(parsed.refs.single.entryId, 'e1');
       expect(parsed.refs.single.field, 'value');
       expect(parsed.fields.single.type, CustomFieldType.concealed);
+    });
+
+    test('reads the legacy placeholder key and optional vaultId', () {
+      final parsed = ScriptPayload.fromJson({
+        'script': 'echo',
+        'refs': [
+          {'placeholder': 'TOKEN', 'entryId': 'e1', 'field': 'value'},
+        ],
+      });
+      expect(parsed.refs.single.env, 'TOKEN');
+      expect(parsed.refs.single.vaultId, isNull);
     });
 
     test('interpreter falls back to bash for unknown tokens', () {

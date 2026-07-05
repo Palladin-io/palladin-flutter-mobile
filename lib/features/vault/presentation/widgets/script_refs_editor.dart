@@ -16,10 +16,15 @@ import 'entry_field_names.dart';
 class ScriptRefsEditor extends StatefulWidget {
   const ScriptRefsEditor({
     super.key,
+    required this.vaultId,
     required this.entries,
     required this.initial,
     required this.onChanged,
   });
+
+  /// Vault the script (and its reference targets) live in — written onto
+  /// each [ScriptRef] so the agent CLI can resolve it.
+  final String vaultId;
 
   /// Candidate target entries (key / credential entries in the vault, minus
   /// the entry being edited).
@@ -63,6 +68,7 @@ class _ScriptRefsEditorState extends State<ScriptRefsEditor> {
         if (d.env.trim().isNotEmpty && d.entryId != null && d.field != null)
           ScriptRef(
             env: d.env.trim(),
+            vaultId: widget.vaultId,
             entryId: d.entryId!,
             field: d.field!,
           ),

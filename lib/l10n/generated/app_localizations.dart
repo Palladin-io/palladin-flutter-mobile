@@ -1736,6 +1736,12 @@ abstract class AppLocalizations {
   /// **'No credential references'**
   String get entryRefsEmpty;
 
+  /// Shown when the encrypted payload exceeds the backend's size limit
+  ///
+  /// In en, this message translates to:
+  /// **'This entry is too large. Shorten the script or remove some fields.'**
+  String get entryTooLarge;
+
   /// Uppercase title of the script security warning box
   ///
   /// In en, this message translates to:
