@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../../domain/repositories/entry_repository.dart';
@@ -45,6 +46,7 @@ class CreateEntryCubit extends Cubit<CreateEntryState> {
     String? urlDomain,
     required Uint8List privateKey,
     String? wrappedVK,
+    List<AgentField>? agentFields,
   }) async {
     if (label.trim().isEmpty || privateKey.isEmpty) {
       AppLogger.w('Entry', 'createEntry called with invalid input');
@@ -65,6 +67,7 @@ class CreateEntryCubit extends Cubit<CreateEntryState> {
         urlDomain: _trimToNull(urlDomain),
         privateKey: privateKey,
         wrappedVK: wrappedVK,
+        agentFields: agentFields,
       );
       AppLogger.i('Entry', 'Entry created: id=${entry.id}');
       emit(CreateEntrySuccess(entry));

@@ -47,6 +47,40 @@ unchanged** on save so an older client never drops a newer client's fields.
   opaque `crypto_secretbox` blob, so the existing encrypt / edit / re-wrap path
   covers them with no new endpoints.
 
+### Add/Edit redesign + agent-visible fields (CVT-204, mockup parity)
+
+The Add/Edit form matches the approved mockup: Type is a select-input (first),
+the Label carries an inline `EntryIconTile` (opens the icon browser), sections
+use `EntrySectionHeader` (small caption + divider), and the primary CTA stays a
+44px `PrimaryButton`. Field order: Type → Label(+icon) → Description →
+type-specific(+URL / injected data) → 2FA → Additional fields → Notes.
+
+- **Field types** now include `CustomFieldType.multiline` (wire `"multiline"`,
+  monospace growing input). Types: `text | multiline | concealed | totp | unknown`.
+- **Two-factor** is its own section (`TotpSection`): dashed empty state → "Add
+  2FA", configured → a card with the live code (`TotpDisplay`) + a "⋯" bottom
+  sheet (copy / replace / remove). QR scanning lives only in `TotpSetupSheet`.
+  Data-wise these are ordinary `totp` custom fields; `CustomFieldsEditor`
+  excludes them so 2FA has a single home. The page keeps `_totpFields` +
+  `_customFields` and folds `_allCustomFields` (2FA first) into the blob.
+- **Additional fields** (`CustomFieldsEditor`) is a grouped card of one-line
+  rows (type glyph + inline label/value + "⋯"). The row menu (`showAppMenuSheet`)
+  changes type, toggles **Visible to agents** (text/multiline only), reorders,
+  and removes. Field ids are stable (never regenerated).
+- **agentVisible (CVT-204)**: `CustomField.agentVisible` serializes
+  `agentVisible:true` only for text/multiline; create/update requests carry a
+  plaintext `agentFields:[{label,value}]` mirror (`CustomField.agentFieldsFrom`),
+  patch semantics on update (null = unchanged, [] = clear). Backend limits
+  20 fields / label 200 / value 2000 (`CustomField.max*`).
+- **Script**: `ScriptEditorField` (line-number gutter, fixed height + internal
+  scroll, inline interpreter picker in the field label, footer, and a calm
+  script-accent exec-only note — not a `WarningZone`). Injected data uses the
+  `Injected vault data` section header.
+- **New shared widget**: `AppMenuSheet` (`lib/core/widgets/app_menu_sheet.dart`)
+  — native bottom-sheet action menu (`showAppMenuSheet`), the mobile
+  counterpart of the web "⋯" popover. Used by the field menus, add-field, and
+  2FA menus.
+
 **Cross-feature deps:** `approval` (grant access sheets), `audit` (`VaultAuditLogTab` embedded in detail), `grants` (`ContextGrantsTab` in detail), `agents` (agent list in the Agents tab).
 
 **⚠ Architecture smells:**

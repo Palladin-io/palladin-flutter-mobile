@@ -1,3 +1,4 @@
+import '../../domain/entities/custom_field.dart';
 import 'entry_model.dart';
 
 /// DTO sent to `POST /api/vaults/{vaultId}/entries` to create a new
@@ -14,6 +15,7 @@ class CreateEntryRequest {
     required this.type,
     required this.content,
     this.urlDomain,
+    this.agentFields,
   });
 
   final String label;
@@ -31,6 +33,10 @@ class CreateEntryRequest {
   /// row's meta line. The full URL belongs inside the encrypted payload.
   final String? urlDomain;
 
+  /// Plaintext mirror of the custom fields the owner marked agent-visible
+  /// (CVT-204). Discovery metadata like label/description — never a secret.
+  final List<AgentField>? agentFields;
+
   Map<String, dynamic> toJson() {
     return {
       'label': label,
@@ -39,6 +45,8 @@ class CreateEntryRequest {
       'type': type,
       'content': content.toJson(),
       if (urlDomain != null) 'urlDomain': urlDomain,
+      if (agentFields != null)
+        'agentFields': agentFields!.map((f) => f.toJson()).toList(),
     };
   }
 }

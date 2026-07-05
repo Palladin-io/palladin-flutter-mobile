@@ -11,6 +11,7 @@ import 'totp_config.dart';
 /// an older client edits the entry (forward-compat, spec §1).
 enum CustomFieldType {
   text,
+  multiline,
   concealed,
   totp,
   unknown;
@@ -19,10 +20,17 @@ enum CustomFieldType {
   /// [CustomFieldType.unknown] rather than throwing.
   static CustomFieldType fromWire(String? raw) => switch (raw) {
         'text' => CustomFieldType.text,
+        'multiline' => CustomFieldType.multiline,
         'concealed' => CustomFieldType.concealed,
         'totp' => CustomFieldType.totp,
         _ => CustomFieldType.unknown,
       };
+
+  /// Whether a field of this type may be marked visible to agents
+  /// (CVT-204). Only non-secret helper text — never a concealed value or a
+  /// TOTP secret.
+  bool get canBeAgentVisible =>
+      this == CustomFieldType.text || this == CustomFieldType.multiline;
 }
 
 /// A single custom field inside the decrypted entry blob.
@@ -38,6 +46,7 @@ class CustomField {
     required this.type,
     required this.rawType,
     this.value,
+    this.agentVisible = false,
   });
 
   /// Client-generated stable id (uuid v4). Used to address the field for
@@ -56,10 +65,16 @@ class CustomField {
   /// round-trips unchanged even though [type] collapses to `unknown`.
   final String rawType;
 
-  /// Raw JSON value (`String` for text/concealed, `Map` for totp).
+  /// Raw JSON value (`String` for text/multiline/concealed, `Map` for
+  /// totp).
   final Object? value;
 
-  /// String value for text / concealed fields (empty for other types).
+  /// Owner marked this field visible to agents (plaintext discovery
+  /// metadata, CVT-204). Only meaningful for text/multiline fields.
+  final bool agentVisible;
+
+  /// String value for text / multiline / concealed fields (empty for other
+  /// types).
   String get textValue => value is String ? value as String : '';
 
   /// Parsed TOTP config for a `totp` field, or null when the field is not
@@ -74,13 +89,19 @@ class CustomField {
     return null;
   }
 
-  CustomField copyWith({String? label, CustomFieldType? type, Object? value}) =>
+  CustomField copyWith({
+    String? label,
+    CustomFieldType? type,
+    Object? value,
+    bool? agentVisible,
+  }) =>
       CustomField(
         id: id,
         label: label ?? this.label,
         type: type ?? this.type,
         rawType: type != null ? _wireFor(type) : rawType,
         value: value ?? this.value,
+        agentVisible: agentVisible ?? this.agentVisible,
       );
 
   Map<String, dynamic> toJson() => {
@@ -88,12 +109,16 @@ class CustomField {
         'label': label,
         'type': rawType,
         'value': value,
+        // Emit only when true and the type actually supports it — a secret
+        // (concealed / totp) must never be flagged agent-visible.
+        if (agentVisible && type.canBeAgentVisible) 'agentVisible': true,
       };
 
   factory CustomField.text({
     required String id,
     required String label,
     required String value,
+    bool agentVisible = false,
   }) =>
       CustomField(
         id: id,
@@ -101,6 +126,22 @@ class CustomField {
         type: CustomFieldType.text,
         rawType: 'text',
         value: value,
+        agentVisible: agentVisible,
+      );
+
+  factory CustomField.multiline({
+    required String id,
+    required String label,
+    required String value,
+    bool agentVisible = false,
+  }) =>
+      CustomField(
+        id: id,
+        label: label,
+        type: CustomFieldType.multiline,
+        rawType: 'multiline',
+        value: value,
+        agentVisible: agentVisible,
       );
 
   factory CustomField.concealed({
@@ -137,6 +178,7 @@ class CustomField {
       type: CustomFieldType.fromWire(rawType),
       rawType: rawType,
       value: json['value'],
+      agentVisible: json['agentVisible'] == true,
     );
   }
 
@@ -160,12 +202,33 @@ class CustomField {
   static List<Map<String, dynamic>> listToJson(List<CustomField> fields) =>
       fields.map((f) => f.toJson()).toList(growable: false);
 
+  /// The plaintext agent-visible mirror (CVT-204) — `{label, value}` for
+  /// each text/multiline field the owner flagged. Sent alongside the
+  /// encrypted blob so agents can discover these without a grant.
+  static List<AgentField> agentFieldsFrom(List<CustomField> fields) {
+    final result = <AgentField>[];
+    for (final f in fields) {
+      if (f.agentVisible && f.type.canBeAgentVisible) {
+        final label = f.label.trim();
+        if (label.isEmpty) continue;
+        result.add(AgentField(label: label, value: f.textValue.trim()));
+      }
+    }
+    return result;
+  }
+
   static String _wireFor(CustomFieldType type) => switch (type) {
         CustomFieldType.text => 'text',
+        CustomFieldType.multiline => 'multiline',
         CustomFieldType.concealed => 'concealed',
         CustomFieldType.totp => 'totp',
         CustomFieldType.unknown => 'text',
       };
+
+  /// Backend limits (CVT-204) — mirrored client-side for early validation.
+  static const int maxAgentFields = 20;
+  static const int maxAgentFieldLabel = 200;
+  static const int maxAgentFieldValue = 2000;
 
   /// Generates a random RFC 4122 v4 UUID using a cryptographically secure
   /// source. Avoids pulling in a uuid package for a single call site.
@@ -178,4 +241,17 @@ class CustomField {
     return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
         '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
   }
+}
+
+/// Plaintext `{label, value}` pair sent alongside a create/update request
+/// so an agent can discover it without a grant (CVT-204). The encrypted
+/// blob remains the source of truth; this is a denormalized mirror of the
+/// custom fields the owner marked visible.
+class AgentField {
+  const AgentField({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  Map<String, dynamic> toJson() => {'label': label, 'value': value};
 }

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../../domain/repositories/entry_repository.dart';
@@ -84,6 +85,7 @@ class EditEntryCubit extends Cubit<EditEntryState> {
     required Uint8List privateKey,
     String? wrappedVK,
     required DateTime createdAt,
+    List<AgentField>? agentFields,
   }) async {
     if (label.trim().isEmpty || privateKey.isEmpty) {
       AppLogger.w('Entry', 'updateEntry called with invalid input');
@@ -106,6 +108,7 @@ class EditEntryCubit extends Cubit<EditEntryState> {
         privateKey: privateKey,
         wrappedVK: wrappedVK,
         createdAt: createdAt,
+        agentFields: agentFields,
       );
       AppLogger.i('Entry', 'Entry updated: id=${updated.id}');
       emit(EditEntrySuccess(updated));

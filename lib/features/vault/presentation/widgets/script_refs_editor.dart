@@ -105,24 +105,6 @@ class _ScriptRefsEditorState extends State<ScriptRefsEditor> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          l10n.entryScriptRefsLabel,
-          style: TextStyle(
-            color: AppColors.onSurfaceSubtle(brightness),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          l10n.entryScriptRefsHint,
-          style: TextStyle(
-            color: AppColors.onSurfaceSubtle(brightness),
-            fontSize: 11,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.innerGap),
         for (final draft in _drafts)
           _RefCard(
             key: ValueKey(draft.id),

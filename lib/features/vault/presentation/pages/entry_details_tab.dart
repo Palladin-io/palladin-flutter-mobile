@@ -10,8 +10,6 @@ import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
-import '../../../../core/widgets/icon_picker_grid.dart' show IconMoreTile;
-import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -29,9 +27,11 @@ import '../widgets/custom_fields_editor.dart';
 import '../widgets/entry_field_row.dart';
 import '../widgets/entry_form_utils.dart';
 import '../widgets/entry_form_widgets.dart';
-import '../widgets/entry_icon_picker.dart';
+import '../widgets/entry_icon_tile.dart';
+import '../widgets/script_editor_field.dart';
 import '../widgets/script_refs_editor.dart';
 import '../widgets/totp_display.dart';
+import '../widgets/totp_section.dart';
 import '../widgets/vault_visuals.dart';
 
 /// The Details tab of the entry detail screen.
@@ -99,7 +99,11 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
 
   List<CustomField> _customFields = const [];
   bool _customFieldsValid = true;
+  List<CustomField> _totpFields = const [];
   List<ScriptRef> _refs = const [];
+
+  /// Every custom field in display order — 2FA first, then the rest.
+  List<CustomField> get _allCustomFields => [..._totpFields, ..._customFields];
 
   /// Legacy flat `otpauth://` TOTP string on an imported credential — kept
   /// so an edit does not drop it (v2 moves TOTP into a custom field).
@@ -198,7 +202,11 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     _icon = entry.icon ?? EntryVisuals.defaultIconName;
     _urlController.text = (payload['url'] as String?) ?? '';
     _notesController.text = (payload['notes'] as String?) ?? '';
-    _customFields = CustomField.listFromPayload(payload);
+    final allFields = CustomField.listFromPayload(payload);
+    _totpFields =
+        allFields.where((f) => f.type == CustomFieldType.totp).toList();
+    _customFields =
+        allFields.where((f) => f.type != CustomFieldType.totp).toList();
     _customFieldsValid = true;
     switch (entry.type) {
       case EntryType.key:
@@ -303,7 +311,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
         password: _passwordController.text,
         url: _urlController.text,
         notes: _notesController.text,
-        fields: _customFields,
+        fields: _allCustomFields,
         script: _scriptController.text,
         interpreter: _interpreter,
         refs: _refs,
@@ -393,6 +401,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
         privateKey: keyCopy,
         wrappedVK: widget.wrappedVK,
         createdAt: _originalCreatedAt(cubit.state),
+        agentFields: CustomField.agentFieldsFrom(_allCustomFields),
       );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
@@ -692,10 +701,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
             ),
           if (entry.type == EntryType.script) ...[
             const SizedBox(height: AppSpacing.section),
-            WarningZone(
-              title: l10n.entryScriptExecOnlyTitle,
-              message: l10n.entryScriptExecOnlyNotice,
-            ),
+            _ExecOnlyNote(message: l10n.entryScriptExecOnlyNotice),
           ],
           const SizedBox(height: AppSpacing.section),
           EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
@@ -789,15 +795,21 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     for (final field in customFields) {
       switch (field.type) {
         case CustomFieldType.text:
+        case CustomFieldType.multiline:
           addField(_ReadOnlyField(
             label: field.label,
             row: EntryFieldRow(
-              icon: Icons.short_text,
+              icon: field.type == CustomFieldType.multiline
+                  ? Icons.notes
+                  : Icons.short_text,
               value: field.textValue,
               isMasked: false,
               revealed: true,
               onToggleReveal: null,
               onCopy: () => _copy(field.textValue, field.label),
+              extraTrailing: field.agentVisible
+                  ? _AgentBadge(tip: l10n.entryFieldAgentVisibleTip)
+                  : null,
             ),
           ));
         case CustomFieldType.concealed:
@@ -832,6 +844,21 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
 
   // ── Edit form (previous default presentation) ──────────────────────
 
+  Widget _urlField(AppLocalizations l10n) => OnboardingTextField(
+        label: l10n.entryUrlLabel,
+        controller: _urlController,
+        textInputAction: TextInputAction.next,
+        borderColor: _urlError != null ? AppColors.brandRed : null,
+        focusBorderColor: _urlError != null ? AppColors.brandRed : null,
+        onChanged: (_) => _validateUrl(),
+        feedbackChild: Text(
+          _urlError ?? '',
+          style: const TextStyle(color: AppColors.brandRed, fontSize: 11),
+        ),
+        feedbackVisible: _urlError != null,
+        feedbackReserveSpace: false,
+      );
+
   /// Type-specific edit fields for the currently-selected [_type].
   List<Widget> _typeFields(AppLocalizations l10n) {
     return switch (_type) {
@@ -848,6 +875,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
                   setState(() => _valueObscured = !_valueObscured),
             ),
           ),
+          const SizedBox(height: AppSpacing.fieldGap),
+          _urlField(l10n),
         ],
       EntryType.credential => [
           OnboardingTextField(
@@ -869,30 +898,20 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
                   setState(() => _passwordObscured = !_passwordObscured),
             ),
           ),
+          const SizedBox(height: AppSpacing.fieldGap),
+          _urlField(l10n),
         ],
       EntryType.script => [
-          WarningZone(
-            title: l10n.entryScriptExecOnlyTitle,
-            message: l10n.entryScriptExecOnlyNotice,
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          OnboardingTextField(
-            label: l10n.entryScriptLabel,
-            hintText: l10n.entryScriptHint,
+          ScriptEditorField(
             controller: _scriptController,
-            maxLines: 8,
-            monospace: true,
-            onChanged: (_) => setState(() {}),
+            interpreter: _interpreter,
+            onInterpreterChanged: (next) =>
+                setState(() => _interpreter = next),
+            onChanged: () => setState(() {}),
           ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          EntryInterpreterDropdown(
-            value: _interpreter,
-            onChanged: (next) {
-              if (next == null) return;
-              setState(() => _interpreter = next);
-            },
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
+          const SizedBox(height: AppSpacing.section),
+          EntrySectionHeader(label: l10n.entryInjectedDataLabel),
+          const SizedBox(height: AppSpacing.innerGap),
           if (_loadingEntries && _vaultEntries == null)
             const Center(
               child: Padding(
@@ -938,67 +957,66 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          OnboardingTextField(
-            label: l10n.entryLabelLabel,
-            hintText: l10n.entryLabelHint,
-            controller: _labelController,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.next,
-            onChanged: (_) => setState(() {}),
+          EntryTypeDropdown(
+            value: _type,
+            onChanged: (next) {
+              if (next == null || next == _type) return;
+              setState(() {
+                _type = next;
+                if (!EntryVisuals.isCustomUrl(_icon)) {
+                  _icon = EntryVisuals.defaultIconForType(next);
+                }
+              });
+              if (next == EntryType.script) _ensureVaultEntriesLoaded();
+            },
           ),
           const SizedBox(height: AppSpacing.fieldGap),
-          OnboardingTextField(
+          EntryFieldCaption(
+            label: l10n.entryLabelLabel,
+            agentVisibleHint: true,
+          ),
+          const SizedBox(height: AppSpacing.innerGap),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              EntryIconTile(
+                icon: _icon,
+                accentColor: accentColor,
+                onTap: _openEntryBrowser,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: OnboardingTextField(
+                  hintText: l10n.entryLabelHint,
+                  controller: _labelController,
+                  textCapitalization: TextCapitalization.sentences,
+                  textInputAction: TextInputAction.next,
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.fieldGap),
+          EntryFieldCaption(
             label: l10n.entryDescriptionLabel,
+            agentVisibleHint: true,
+          ),
+          const SizedBox(height: AppSpacing.innerGap),
+          OnboardingTextField(
             controller: _descriptionController,
             textCapitalization: TextCapitalization.sentences,
             textInputAction: TextInputAction.next,
           ),
           const SizedBox(height: AppSpacing.fieldGap),
-          if (_type != EntryType.script) ...[
-            OnboardingTextField(
-              label: l10n.entryUrlLabel,
-              controller: _urlController,
-              textInputAction: TextInputAction.next,
-              borderColor: _urlError != null ? AppColors.brandRed : null,
-              focusBorderColor: _urlError != null ? AppColors.brandRed : null,
-              onChanged: (_) => _validateUrl(),
-              feedbackChild: Text(
-                _urlError ?? '',
-                style:
-                    const TextStyle(color: AppColors.brandRed, fontSize: 11),
-              ),
-              feedbackVisible: _urlError != null,
-              feedbackReserveSpace: false,
-            ),
-            const SizedBox(height: AppSpacing.fieldGap),
-          ],
-          Text(
-            l10n.vaultIconLabel,
-            style: TextStyle(
-              color: AppColors.onSurfaceSubtle(brightness),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.innerGap),
-          EntryIconPicker(
-            selected: _icon,
-            accentColor: accentColor,
-            onSelected: (name) => setState(() => _icon = name),
-            moreTile: IconMoreTile(onTap: _openEntryBrowser),
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          EntryTypeDropdown(
-            value: _type,
-            onChanged: (next) {
-              if (next == null || next == _type) return;
-              setState(() => _type = next);
-              if (next == EntryType.script) _ensureVaultEntriesLoaded();
-            },
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
           ..._typeFields(l10n),
-          const SizedBox(height: AppSpacing.fieldGap),
+          const SizedBox(height: AppSpacing.section),
+          if (_type != EntryType.script) ...[
+            TotpSection(
+              initial: _totpFields,
+              onChanged: (fields) => setState(() => _totpFields = fields),
+            ),
+            const SizedBox(height: AppSpacing.section),
+          ],
           CustomFieldsEditor(
             initial: _customFields,
             onChanged: (fields, valid) => setState(() {
@@ -1006,7 +1024,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
               _customFieldsValid = valid;
             }),
           ),
-          const SizedBox(height: AppSpacing.fieldGap),
+          const SizedBox(height: AppSpacing.section),
           EntryNotesField(
             controller: _notesController,
             label: l10n.entryNotesLabel,
@@ -1108,6 +1126,59 @@ class _EmptyReadOnly extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Small "visible to agents" indicator shown next to a field's value in
+/// the read-only view (CVT-204).
+class _AgentBadge extends StatelessWidget {
+  const _AgentBadge({required this.tip});
+
+  final String tip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tip,
+      child: const Icon(
+        Icons.smart_toy_outlined,
+        size: 13,
+        color: AppColors.vaultBlue,
+      ),
+    );
+  }
+}
+
+/// Calm exec-only annotation (script accent) shown below a Script entry —
+/// replaces the louder WarningZone per the redesign.
+class _ExecOnlyNote extends StatelessWidget {
+  const _ExecOnlyNote({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: AppSpacing.xxs),
+          child: Icon(Icons.terminal, size: 12, color: AppColors.vaultViolet),
+        ),
+        const SizedBox(width: AppSpacing.innerGap),
+        Expanded(
+          child: Text(
+            message,
+            style: TextStyle(
+              color: AppColors.onSurfaceSubtle(brightness),
+              fontSize: 11.5,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

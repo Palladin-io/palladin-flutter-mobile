@@ -2,22 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/app_dropdown_field.dart';
+import '../../../../core/widgets/app_menu_sheet.dart';
 import '../../../../l10n/generated/app_localizations.dart';
-import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../domain/entities/custom_field.dart';
-import '../../domain/entities/totp_config.dart';
 import 'entry_form_widgets.dart';
-import 'totp_setup_sheet.dart';
 
-/// Editable list of user-defined custom fields (blob schema v2).
+/// Editable grouped list of non-TOTP custom fields (text / multiline /
+/// hidden) — the "Additional fields" section (blob schema v2, CVT-204).
 ///
-/// Owns the per-row [TextEditingController]s and reorder state. Reports the
-/// current field list plus a validity flag on every change so the host
-/// form can gate its Save button. Unknown-type fields (reserved / future
-/// types the UI can't render) are held aside and re-appended on emit so an
-/// older client editing a newer entry never drops them (spec §1
-/// forward-compat).
+/// TOTP fields are owned by the dedicated 2FA section, not here. Each row
+/// is one line: a type glyph, an inline label + value, and a "⋯" menu that
+/// opens a bottom sheet for changing type, toggling agent visibility
+/// (text/multiline only), reordering, and removing. Unknown-type fields
+/// are preserved verbatim for round-trip (spec §1).
 class CustomFieldsEditor extends StatefulWidget {
   const CustomFieldsEditor({
     super.key,
@@ -27,8 +24,8 @@ class CustomFieldsEditor extends StatefulWidget {
 
   final List<CustomField> initial;
 
-  /// Called with the current editable fields (complete ones only, plus any
-  /// preserved unknown fields) and whether the editor has no invalid rows.
+  /// Emits the current editable fields (complete ones + preserved unknown
+  /// fields) and whether every row is valid.
   final void Function(List<CustomField> fields, bool valid) onChanged;
 
   @override
@@ -37,18 +34,21 @@ class CustomFieldsEditor extends StatefulWidget {
 
 class _CustomFieldsEditorState extends State<CustomFieldsEditor> {
   final List<_FieldDraft> _drafts = [];
-
-  /// Unknown-type fields kept verbatim for round-trip; never rendered.
   final List<CustomField> _preserved = [];
 
   @override
   void initState() {
     super.initState();
     for (final field in widget.initial) {
-      if (field.type == CustomFieldType.unknown) {
-        _preserved.add(field);
-      } else {
-        _drafts.add(_FieldDraft.fromField(field));
+      switch (field.type) {
+        case CustomFieldType.text:
+        case CustomFieldType.multiline:
+        case CustomFieldType.concealed:
+          _drafts.add(_FieldDraft.fromField(field));
+        case CustomFieldType.totp:
+        case CustomFieldType.unknown:
+          // totp lives in the 2FA section; unknown types round-trip as-is.
+          _preserved.add(field);
       }
     }
   }
@@ -72,49 +72,116 @@ class _CustomFieldsEditorState extends State<CustomFieldsEditor> {
     widget.onChanged(fields, valid);
   }
 
-  void _addField() {
-    setState(() => _drafts.add(_FieldDraft.empty()));
+  Future<void> _addField() async {
+    final type = await showAppMenuSheet<CustomFieldType>(
+      context: context,
+      title: AppLocalizations.of(context)!.entryAddFieldAction,
+      items: [
+        _typeItem(CustomFieldType.text),
+        _typeItem(CustomFieldType.multiline),
+        _typeItem(CustomFieldType.concealed),
+      ],
+    );
+    if (type == null || !mounted) return;
+    setState(() => _drafts.add(_FieldDraft.empty(type)));
     _emit();
   }
 
-  void _removeField(_FieldDraft draft) {
+  AppMenuItem<CustomFieldType> _typeItem(CustomFieldType type) {
+    final l10n = AppLocalizations.of(context)!;
+    return AppMenuItem(
+      value: type,
+      icon: customFieldTypeIcon(type),
+      label: _typeLabel(l10n, type),
+      trailing: _typeHint(l10n, type),
+    );
+  }
+
+  Future<void> _openRowMenu(_FieldDraft draft) async {
+    final l10n = AppLocalizations.of(context)!;
+    final index = _drafts.indexOf(draft);
+    final canAgent = draft.type.canBeAgentVisible;
+    final action = await showAppMenuSheet<_RowAction>(
+      context: context,
+      items: [
+        AppMenuItem(
+          value: _RowAction.typeText,
+          icon: customFieldTypeIcon(CustomFieldType.text),
+          label: _typeLabel(l10n, CustomFieldType.text),
+          trailing: draft.type == CustomFieldType.text ? '✓' : null,
+          trailingColor: AppColors.brandRed,
+        ),
+        AppMenuItem(
+          value: _RowAction.typeMultiline,
+          icon: customFieldTypeIcon(CustomFieldType.multiline),
+          label: _typeLabel(l10n, CustomFieldType.multiline),
+          trailing: draft.type == CustomFieldType.multiline ? '✓' : null,
+          trailingColor: AppColors.brandRed,
+        ),
+        AppMenuItem(
+          value: _RowAction.typeHidden,
+          icon: customFieldTypeIcon(CustomFieldType.concealed),
+          label: _typeLabel(l10n, CustomFieldType.concealed),
+          trailing: draft.type == CustomFieldType.concealed ? '✓' : null,
+          trailingColor: AppColors.brandRed,
+        ),
+        if (canAgent)
+          AppMenuItem(
+            value: _RowAction.toggleAgent,
+            icon: Icons.smart_toy_outlined,
+            label: l10n.entryFieldAgentVisible,
+            trailing:
+                draft.agentVisible ? l10n.entryFieldOn : l10n.entryFieldOff,
+            trailingColor: draft.agentVisible ? AppColors.vaultBlue : null,
+            dividerBefore: true,
+          ),
+        AppMenuItem(
+          value: _RowAction.moveUp,
+          icon: Icons.arrow_upward,
+          label: l10n.entryFieldMoveUp,
+          dividerBefore: true,
+        ),
+        AppMenuItem(
+          value: _RowAction.moveDown,
+          icon: Icons.arrow_downward,
+          label: l10n.entryFieldMoveDown,
+        ),
+        AppMenuItem(
+          value: _RowAction.remove,
+          icon: Icons.delete_outline,
+          label: l10n.entryFieldRemove,
+          danger: true,
+          dividerBefore: true,
+        ),
+      ],
+    );
+    if (action == null || !mounted) return;
     setState(() {
-      _drafts.remove(draft);
-      draft.dispose();
-    });
-    _emit();
-  }
-
-  Future<void> _changeType(_FieldDraft draft, CustomFieldType next) async {
-    if (next == draft.type) return;
-    if (next == CustomFieldType.totp) {
-      final config = await TotpSetupSheet.show(context, initial: draft.totp);
-      if (!mounted || config == null) return;
-      setState(() {
-        draft.type = next;
-        draft.totp = config;
-      });
-    } else {
-      setState(() {
-        draft.type = next;
-        draft.totp = null;
-      });
-    }
-    _emit();
-  }
-
-  Future<void> _configureTotp(_FieldDraft draft) async {
-    final config = await TotpSetupSheet.show(context, initial: draft.totp);
-    if (!mounted || config == null) return;
-    setState(() => draft.totp = config);
-    _emit();
-  }
-
-  void _onReorder(int oldIndex, int newIndex) {
-    setState(() {
-      if (newIndex > oldIndex) newIndex -= 1;
-      final draft = _drafts.removeAt(oldIndex);
-      _drafts.insert(newIndex, draft);
+      switch (action) {
+        case _RowAction.typeText:
+          draft.setType(CustomFieldType.text);
+        case _RowAction.typeMultiline:
+          draft.setType(CustomFieldType.multiline);
+        case _RowAction.typeHidden:
+          draft.setType(CustomFieldType.concealed);
+        case _RowAction.toggleAgent:
+          draft.agentVisible = !draft.agentVisible;
+        case _RowAction.moveUp:
+          if (index > 0) {
+            _drafts
+              ..removeAt(index)
+              ..insert(index - 1, draft);
+          }
+        case _RowAction.moveDown:
+          if (index < _drafts.length - 1) {
+            _drafts
+              ..removeAt(index)
+              ..insert(index + 1, draft);
+          }
+        case _RowAction.remove:
+          _drafts.remove(draft);
+          draft.dispose();
+      }
     });
     _emit();
   }
@@ -123,318 +190,362 @@ class _CustomFieldsEditorState extends State<CustomFieldsEditor> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+    final hairline =
+        AppColors.onSurface(brightness).withValues(alpha: 0.08);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          l10n.entryCustomFieldsLabel,
-          style: TextStyle(
-            color: AppColors.onSurfaceSubtle(brightness),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        if (_drafts.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.innerGap),
-          ReorderableListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            buildDefaultDragHandles: false,
-            itemCount: _drafts.length,
-            onReorder: _onReorder,
-            itemBuilder: (context, index) {
-              final draft = _drafts[index];
-              return _FieldCard(
-                key: ValueKey(draft.id),
-                index: index,
-                draft: draft,
-                l10n: l10n,
-                brightness: brightness,
-                onChanged: _emit,
-                onTypeChanged: (type) => _changeType(draft, type),
-                onConfigureTotp: () => _configureTotp(draft),
-                onRemove: () => _removeField(draft),
-              );
-            },
-          ),
-        ],
+        EntrySectionHeader(label: l10n.entryCustomFieldsLabel),
         const SizedBox(height: AppSpacing.innerGap),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: _addField,
-            icon: const Icon(Icons.add, size: 16),
-            label: Text(l10n.entryAddFieldAction),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.brandRed,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: AppSpacing.xs,
-              ),
-              textStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.cardFill(brightness),
+            borderRadius: BorderRadius.circular(14),
+            border:
+                Border.all(color: AppColors.cardBorder(brightness), width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < _drafts.length; i++) ...[
+                if (i > 0)
+                  Divider(height: 1, thickness: 1, color: hairline),
+                _FieldRow(
+                  key: ValueKey(_drafts[i].id),
+                  draft: _drafts[i],
+                  brightness: brightness,
+                  l10n: l10n,
+                  onChanged: _emit,
+                  onMenu: () => _openRowMenu(_drafts[i]),
+                ),
+              ],
+              if (_drafts.isNotEmpty)
+                Divider(height: 1, thickness: 1, color: hairline),
+              _AddRow(label: l10n.entryAddFieldAction, onTap: _addField),
+            ],
           ),
         ),
       ],
     );
   }
+
+  static String _typeLabel(AppLocalizations l10n, CustomFieldType type) =>
+      switch (type) {
+        CustomFieldType.text => l10n.entryFieldTypeText,
+        CustomFieldType.multiline => l10n.entryFieldTypeMultiline,
+        CustomFieldType.concealed => l10n.entryFieldTypeConcealed,
+        CustomFieldType.totp => l10n.entryFieldTypeTotp,
+        CustomFieldType.unknown => l10n.entryFieldTypeText,
+      };
+
+  static String? _typeHint(AppLocalizations l10n, CustomFieldType type) =>
+      switch (type) {
+        CustomFieldType.text => l10n.entryFieldTypeTextHint,
+        CustomFieldType.multiline => l10n.entryFieldTypeMultilineHint,
+        CustomFieldType.concealed => l10n.entryFieldTypeConcealedHint,
+        _ => null,
+      };
 }
 
-/// One editable custom field row: name + type + value (or TOTP status).
-class _FieldCard extends StatelessWidget {
-  const _FieldCard({
+enum _RowAction {
+  typeText,
+  typeMultiline,
+  typeHidden,
+  toggleAgent,
+  moveUp,
+  moveDown,
+  remove,
+}
+
+class _FieldRow extends StatelessWidget {
+  const _FieldRow({
     super.key,
-    required this.index,
     required this.draft,
-    required this.l10n,
     required this.brightness,
+    required this.l10n,
     required this.onChanged,
-    required this.onTypeChanged,
-    required this.onConfigureTotp,
-    required this.onRemove,
+    required this.onMenu,
   });
 
-  final int index;
   final _FieldDraft draft;
-  final AppLocalizations l10n;
   final Brightness brightness;
+  final AppLocalizations l10n;
   final VoidCallback onChanged;
-  final ValueChanged<CustomFieldType> onTypeChanged;
-  final VoidCallback onConfigureTotp;
-  final VoidCallback onRemove;
+  final VoidCallback onMenu;
 
   @override
   Widget build(BuildContext context) {
-    final showNameError = draft.hasContent &&
-        draft.labelController.text.trim().isEmpty;
+    final showLabelError =
+        draft.hasContent && draft.labelController.text.trim().isEmpty;
+    final isMultiline = draft.type == CustomFieldType.multiline;
+    final isHidden = draft.type == CustomFieldType.concealed;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.cardGap),
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
-      decoration: BoxDecoration(
-        color: AppColors.cardFill(brightness),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder(brightness), width: 1),
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.md,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              ReorderableDragStartListener(
-                index: index,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: AppSpacing.sm),
-                  child: Tooltip(
-                    message: l10n.entryFieldReorder,
-                    child: Icon(
-                      Icons.drag_indicator,
-                      size: 18,
+          _TypeGlyph(type: draft.type, brightness: brightness),
+          const SizedBox(width: AppSpacing.innerGap),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: draft.labelController,
+                  onChanged: (_) => onChanged(),
+                  maxLength: CustomField.maxAgentFieldLabel,
+                  style: TextStyle(
+                    color: AppColors.onSurfaceMuted(brightness),
+                    fontSize: 12,
+                  ),
+                  decoration: InputDecoration.collapsed(
+                    hintText: l10n.entryFieldNameLabel,
+                    hintStyle: TextStyle(
                       color: AppColors.onSurfaceSubtle(brightness),
+                      fontSize: 12,
+                    ),
+                  ).copyWith(counterText: ''),
+                ),
+                if (showLabelError)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.xxs),
+                    child: Text(
+                      l10n.entryFieldNameRequired,
+                      style: const TextStyle(
+                        color: AppColors.brandRed,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: AppSpacing.xxs),
+                TextField(
+                  controller: draft.valueController,
+                  onChanged: (_) => onChanged(),
+                  obscureText: isHidden && draft.obscured,
+                  minLines: isMultiline ? 2 : 1,
+                  maxLines: isMultiline ? null : 1,
+                  keyboardType: isMultiline ? TextInputType.multiline : null,
+                  style: TextStyle(
+                    color: AppColors.onSurface(brightness),
+                    fontSize: 13,
+                    fontFamily: isMultiline ? 'monospace' : null,
+                  ),
+                  decoration: InputDecoration.collapsed(
+                    hintText: l10n.entryFieldValueLabel,
+                    hintStyle: TextStyle(
+                      color: AppColors.onSurfaceSubtle(brightness),
+                      fontSize: 13,
                     ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: OnboardingTextField(
-                  hintText: l10n.entryFieldNameHint,
-                  controller: draft.labelController,
-                  textCapitalization: TextCapitalization.sentences,
-                  onChanged: (_) => onChanged(),
-                  borderColor: showNameError ? AppColors.brandRed : null,
-                  focusBorderColor:
-                      showNameError ? AppColors.brandRed : null,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close, size: 18),
-                color: AppColors.onSurfaceSubtle(brightness),
-                tooltip: l10n.entryFieldRemove,
-                onPressed: onRemove,
-              ),
-            ],
+              ],
+            ),
           ),
-          if (showNameError)
+          const SizedBox(width: AppSpacing.innerGap),
+          if (draft.agentVisible && draft.type.canBeAgentVisible)
             Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.xs),
-              child: Text(
-                l10n.entryFieldNameRequired,
-                style: const TextStyle(
-                  color: AppColors.brandRed,
-                  fontSize: 11,
+              padding: const EdgeInsets.only(
+                right: AppSpacing.xs,
+                top: AppSpacing.xs,
+              ),
+              child: Tooltip(
+                message: l10n.entryFieldAgentVisibleTip,
+                child: const Icon(
+                  Icons.smart_toy_outlined,
+                  size: 14,
+                  color: AppColors.vaultBlue,
                 ),
               ),
             ),
-          const SizedBox(height: AppSpacing.innerGap),
-          AppDropdownField<CustomFieldType>(
-            label: l10n.entryFieldTypeLabel,
-            value: draft.type,
-            filled: false,
-            onChanged: (type) {
-              if (type != null) onTypeChanged(type);
-            },
-            items: [
-              DropdownMenuItem(
-                value: CustomFieldType.text,
-                child: Text(l10n.entryFieldTypeText),
-              ),
-              DropdownMenuItem(
-                value: CustomFieldType.concealed,
-                child: Text(l10n.entryFieldTypeConcealed),
-              ),
-              DropdownMenuItem(
-                value: CustomFieldType.totp,
-                child: Text(l10n.entryFieldTypeTotp),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.innerGap),
-          if (draft.type == CustomFieldType.totp)
-            _TotpFieldStatus(
-              configured: draft.totp != null,
-              l10n: l10n,
+          if (isHidden)
+            _RowIconButton(
+              icon: draft.obscured ? Icons.visibility : Icons.visibility_off,
+              tooltip: l10n.vaultRevealValue,
               brightness: brightness,
-              onConfigure: onConfigureTotp,
-            )
-          else
-            OnboardingTextField(
-              label: l10n.entryFieldValueLabel,
-              controller: draft.valueController,
-              obscureText: draft.type == CustomFieldType.concealed &&
-                  draft.obscured,
-              onChanged: (_) => onChanged(),
-              suffixIcon: draft.type == CustomFieldType.concealed
-                  ? EntryObscureToggle(
-                      obscured: draft.obscured,
-                      onPressed: () {
-                        draft.obscured = !draft.obscured;
-                        onChanged();
-                      },
-                    )
-                  : null,
+              onPressed: () {
+                draft.obscured = !draft.obscured;
+                onChanged();
+              },
             ),
+          _RowIconButton(
+            icon: Icons.more_vert,
+            tooltip: l10n.entryFieldMenu,
+            brightness: brightness,
+            onPressed: onMenu,
+          ),
         ],
       ),
     );
   }
 }
 
-class _TotpFieldStatus extends StatelessWidget {
-  const _TotpFieldStatus({
-    required this.configured,
-    required this.l10n,
-    required this.brightness,
-    required this.onConfigure,
-  });
+class _TypeGlyph extends StatelessWidget {
+  const _TypeGlyph({required this.type, required this.brightness});
 
-  final bool configured;
-  final AppLocalizations l10n;
+  final CustomFieldType type;
   final Brightness brightness;
-  final VoidCallback onConfigure;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(
-          configured ? Icons.check_circle_outline : Icons.timer_outlined,
-          size: 16,
-          color: configured
-              ? AppColors.positiveAccent
-              : AppColors.onSurfaceSubtle(brightness),
-        ),
-        const SizedBox(width: AppSpacing.innerGap),
-        Expanded(
-          child: Text(
-            configured ? l10n.totpConfigured : l10n.totpSetupTitle,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 12,
-            ),
-          ),
-        ),
-        TextButton(
-          onPressed: onConfigure,
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.brandRed,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          ),
-          child: Text(
-            configured ? l10n.totpReplaceSecret : l10n.totpScanQr,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ],
+    return Container(
+      width: 24,
+      height: 24,
+      margin: const EdgeInsets.only(top: AppSpacing.xxs),
+      decoration: BoxDecoration(
+        color: AppColors.onSurface(brightness).withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      alignment: Alignment.center,
+      child: Icon(
+        customFieldTypeIcon(type),
+        size: 12,
+        color: AppColors.onSurfaceSubtle(brightness),
+      ),
     );
   }
 }
 
-/// Mutable editing state for one custom field.
+class _RowIconButton extends StatelessWidget {
+  const _RowIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.brightness,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final Brightness brightness;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkResponse(
+        onTap: onPressed,
+        radius: 18,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xs),
+          child: Icon(
+            icon,
+            size: 16,
+            color: AppColors.onSurfaceSubtle(brightness),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddRow extends StatelessWidget {
+  const _AddRow({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.add,
+              size: 16,
+              color: AppColors.onSurfaceSubtle(brightness),
+            ),
+            const SizedBox(width: AppSpacing.innerGap),
+            Text(
+              label,
+              style: TextStyle(
+                color: AppColors.onSurfaceSubtle(brightness),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Mutable editing state for one non-TOTP custom field.
 class _FieldDraft {
   _FieldDraft({
     required this.id,
     required this.type,
     String label = '',
     String value = '',
-    this.totp,
+    this.agentVisible = false,
   })  : labelController = TextEditingController(text: label),
         valueController = TextEditingController(text: value);
 
-  factory _FieldDraft.empty() =>
-      _FieldDraft(id: CustomField.newId(), type: CustomFieldType.text);
+  factory _FieldDraft.empty(CustomFieldType type) =>
+      _FieldDraft(id: CustomField.newId(), type: type);
 
   factory _FieldDraft.fromField(CustomField field) => _FieldDraft(
         id: field.id,
         type: field.type,
         label: field.label,
-        value: field.type == CustomFieldType.totp ? '' : field.textValue,
-        totp: field.totp,
+        value: field.textValue,
+        agentVisible: field.agentVisible,
       );
 
   final String id;
   CustomFieldType type;
   final TextEditingController labelController;
   final TextEditingController valueController;
-  TotpConfig? totp;
+  bool agentVisible;
   bool obscured = true;
 
-  /// True when the row carries any user input worth validating.
+  void setType(CustomFieldType next) {
+    type = next;
+    // Agent visibility only applies to text/multiline — drop it otherwise.
+    if (!next.canBeAgentVisible) agentVisible = false;
+  }
+
   bool get hasContent =>
       labelController.text.trim().isNotEmpty ||
-      valueController.text.trim().isNotEmpty ||
-      totp != null;
+      valueController.text.trim().isNotEmpty;
 
-  /// True when the row can be saved: a name, and a secret for TOTP.
-  bool get isComplete {
-    if (labelController.text.trim().isEmpty) return false;
-    if (type == CustomFieldType.totp) return totp != null;
-    return true;
-  }
+  bool get isComplete => labelController.text.trim().isNotEmpty;
 
   CustomField? toField() {
     if (!isComplete) return null;
     final label = labelController.text.trim();
+    final value = valueController.text.trim();
     return switch (type) {
       CustomFieldType.text => CustomField.text(
           id: id,
           label: label,
-          value: valueController.text.trim(),
+          value: value,
+          agentVisible: agentVisible,
+        ),
+      CustomFieldType.multiline => CustomField.multiline(
+          id: id,
+          label: label,
+          value: value,
+          agentVisible: agentVisible,
         ),
       CustomFieldType.concealed => CustomField.concealed(
           id: id,
           label: label,
-          value: valueController.text.trim(),
+          value: value,
         ),
-      CustomFieldType.totp => CustomField.totpField(
-          id: id,
-          label: label,
-          config: totp!,
-        ),
-      CustomFieldType.unknown => null,
+      CustomFieldType.totp || CustomFieldType.unknown => null,
     };
   }
 

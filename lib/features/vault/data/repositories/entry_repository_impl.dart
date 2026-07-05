@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/import_draft.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
@@ -61,6 +62,7 @@ class EntryRepositoryImpl implements EntryRepository {
     required String encryptedBlob,
     required String nonce,
     String? urlDomain,
+    List<AgentField>? agentFields,
   }) async {
     try {
       AppLogger.d('Entry', 'POST /api/vaults/$vaultId/entries');
@@ -76,6 +78,7 @@ class EntryRepositoryImpl implements EntryRepository {
             nonce: nonce,
           ),
           urlDomain: urlDomain,
+          agentFields: agentFields,
         ),
       );
       return model.toEntity();
@@ -142,6 +145,7 @@ class EntryRepositoryImpl implements EntryRepository {
     String? urlDomain,
     required Uint8List privateKey,
     String? wrappedVK,
+    List<AgentField>? agentFields,
   }) async {
     AppLogger.d('Entry', 'Creating encrypted entry in vault $vaultId');
     // See [revealEntry] — same fallback contract.
@@ -166,6 +170,7 @@ class EntryRepositoryImpl implements EntryRepository {
         encryptedBlob: encrypted.encryptedBlob,
         nonce: encrypted.nonce,
         urlDomain: urlDomain,
+        agentFields: agentFields,
       );
     } finally {
       if (vaultKey != null) {
@@ -187,6 +192,7 @@ class EntryRepositoryImpl implements EntryRepository {
     required Uint8List privateKey,
     String? wrappedVK,
     required DateTime createdAt,
+    List<AgentField>? agentFields,
   }) async {
     AppLogger.d('Entry', 'Updating encrypted entry id=$entryId');
     final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
@@ -215,6 +221,7 @@ class EntryRepositoryImpl implements EntryRepository {
               nonce: encrypted.nonce,
             ),
             urlDomain: urlDomain,
+            agentFields: agentFields,
           ),
         );
       } on DioException catch (e, s) {

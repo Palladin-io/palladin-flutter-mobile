@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../entities/custom_field.dart';
 import '../entities/entry_entity.dart';
 import '../entities/import_draft.dart';
 
@@ -44,6 +45,7 @@ abstract interface class EntryRepository {
     required String encryptedBlob,
     required String nonce,
     String? urlDomain,
+    List<AgentField>? agentFields,
   });
 
   /// Permanently deletes an entry.
@@ -90,6 +92,7 @@ abstract interface class EntryRepository {
     String? urlDomain,
     required Uint8List privateKey,
     String? wrappedVK,
+    List<AgentField>? agentFields,
   });
 
   /// Re-encrypts [payload] with the vault's VK and PUTs the update to
@@ -114,6 +117,7 @@ abstract interface class EntryRepository {
     required Uint8List privateKey,
     String? wrappedVK,
     required DateTime createdAt,
+    List<AgentField>? agentFields,
   });
 
   /// Bulk-imports entries into [vaultId]. The vault's VK is unwrapped

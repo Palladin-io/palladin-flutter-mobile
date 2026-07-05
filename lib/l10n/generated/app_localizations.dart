@@ -1676,6 +1676,12 @@ abstract class AppLocalizations {
   /// **'Credential references'**
   String get entryScriptRefsLabel;
 
+  /// Section heading for a script's injected credential references
+  ///
+  /// In en, this message translates to:
+  /// **'Injected vault data'**
+  String get entryInjectedDataLabel;
+
   /// Explains what credential references do on a script entry
   ///
   /// In en, this message translates to:
@@ -1748,11 +1754,125 @@ abstract class AppLocalizations {
   /// **'EXEC-ONLY DELIVERY'**
   String get entryScriptExecOnlyTitle;
 
-  /// Security note shown on the script entry form
+  /// Calm exec-only annotation shown below the script editor
   ///
   /// In en, this message translates to:
-  /// **'Scripts are delivered to agents only via the exec method — the body is never returned as plaintext.'**
+  /// **'Runs on the agent via palladin exec — agents execute it, never read it.'**
   String get entryScriptExecOnlyNotice;
+
+  /// Script editor footer — interpreter name and line count
+  ///
+  /// In en, this message translates to:
+  /// **'{interpreter} · {lines, plural, one{1 line} other{{lines} lines}}'**
+  String entryScriptFooter(String interpreter, int lines);
+
+  /// Custom field type — multi-line monospace text (configs, keys)
+  ///
+  /// In en, this message translates to:
+  /// **'Multiline'**
+  String get entryFieldTypeMultiline;
+
+  /// Hint next to the Text field type in the add-field menu
+  ///
+  /// In en, this message translates to:
+  /// **'single line'**
+  String get entryFieldTypeTextHint;
+
+  /// Hint next to the Multiline field type in the add-field menu
+  ///
+  /// In en, this message translates to:
+  /// **'notes, config'**
+  String get entryFieldTypeMultilineHint;
+
+  /// Hint next to the Hidden field type in the add-field menu
+  ///
+  /// In en, this message translates to:
+  /// **'masked'**
+  String get entryFieldTypeConcealedHint;
+
+  /// Row-menu toggle that exposes a field to agents as discovery metadata
+  ///
+  /// In en, this message translates to:
+  /// **'Visible to agents'**
+  String get entryFieldAgentVisible;
+
+  /// Tooltip explaining the agent-visible field indicator
+  ///
+  /// In en, this message translates to:
+  /// **'Visible to agents in your organization — shown in agent discovery without a grant. Only for non-secret helper info.'**
+  String get entryFieldAgentVisibleTip;
+
+  /// Trailing state for an enabled toggle in a field menu
+  ///
+  /// In en, this message translates to:
+  /// **'On'**
+  String get entryFieldOn;
+
+  /// Trailing state for a disabled toggle in a field menu
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get entryFieldOff;
+
+  /// Field menu action — move the field one position up
+  ///
+  /// In en, this message translates to:
+  /// **'Move up'**
+  String get entryFieldMoveUp;
+
+  /// Field menu action — move the field one position down
+  ///
+  /// In en, this message translates to:
+  /// **'Move down'**
+  String get entryFieldMoveDown;
+
+  /// Tooltip for the per-field overflow (⋯) button
+  ///
+  /// In en, this message translates to:
+  /// **'Field options'**
+  String get entryFieldMenu;
+
+  /// Subtle hint appended to the Label and Description field captions
+  ///
+  /// In en, this message translates to:
+  /// **'visible to agents'**
+  String get entryVisibleToAgents;
+
+  /// Section header for the entry's TOTP two-factor code
+  ///
+  /// In en, this message translates to:
+  /// **'Two-factor authentication'**
+  String get totpSectionTitle;
+
+  /// Explanation shown in the empty 2FA section
+  ///
+  /// In en, this message translates to:
+  /// **'Add a time-based code (TOTP) to autofill 2FA for this login.'**
+  String get totpEmptyHint;
+
+  /// Button that starts TOTP setup in the empty 2FA section
+  ///
+  /// In en, this message translates to:
+  /// **'Add 2FA'**
+  String get totpAdd;
+
+  /// Subtitle on a configured 2FA card
+  ///
+  /// In en, this message translates to:
+  /// **'rotates every 30 s'**
+  String get totpRotates;
+
+  /// 2FA card menu action — copy the current one-time code
+  ///
+  /// In en, this message translates to:
+  /// **'Copy code'**
+  String get totpCopyCode;
+
+  /// 2FA card menu action — delete the TOTP secret
+  ///
+  /// In en, this message translates to:
+  /// **'Remove 2FA'**
+  String get totpRemove;
 
   /// Title of the dedicated settings screen (organization details)
   ///

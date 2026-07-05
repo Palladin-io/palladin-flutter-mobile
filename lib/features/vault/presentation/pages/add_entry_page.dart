@@ -10,8 +10,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
-import '../../../../core/widgets/icon_picker_grid.dart' show IconMoreTile;
-import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -26,8 +24,10 @@ import '../cubit/create_entry_cubit.dart';
 import '../widgets/custom_fields_editor.dart';
 import '../widgets/entry_form_utils.dart';
 import '../widgets/entry_form_widgets.dart';
-import '../widgets/entry_icon_picker.dart';
+import '../widgets/entry_icon_tile.dart';
+import '../widgets/script_editor_field.dart';
 import '../widgets/script_refs_editor.dart';
+import '../widgets/totp_section.dart';
 import '../widgets/vault_visuals.dart';
 
 /// Full-screen Add Entry form.
@@ -94,7 +94,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
   EntryType _type = EntryType.credential;
   ScriptInterpreter _interpreter = ScriptInterpreter.bash;
-  String _icon = EntryVisuals.defaultIconName;
+  String _icon = EntryVisuals.defaultIconForType(EntryType.credential);
   String _colorHex = EntryVisuals.defaultColorHex;
   bool _pickingIcon = false;
   bool _uploadingIcon = false;
@@ -103,9 +103,17 @@ class _AddEntryViewState extends State<_AddEntryView> {
   bool _passwordObscured = true;
   String? _urlError;
 
+  /// Non-TOTP custom fields (managed by [CustomFieldsEditor]).
   List<CustomField> _customFields = const [];
   bool _customFieldsValid = true;
+
+  /// TOTP fields (managed by the dedicated 2FA section).
+  List<CustomField> _totpFields = const [];
+
   List<ScriptRef> _refs = const [];
+
+  /// Every custom field in display order — 2FA first, then the rest.
+  List<CustomField> get _allCustomFields => [..._totpFields, ..._customFields];
 
   /// Candidate reference targets for a Script entry, loaded lazily the
   /// first time the user selects the Script type. `null` = not loaded yet.
@@ -174,13 +182,29 @@ class _AddEntryViewState extends State<_AddEntryView> {
     password: _passwordController.text,
     url: _urlController.text,
     notes: _notesController.text,
-    fields: _customFields,
+    fields: _allCustomFields,
     script: _scriptController.text,
     interpreter: _interpreter,
     refs: _refs,
   );
 
-  /// Type-specific form fields for the currently-selected [_type].
+  Widget _urlField(AppLocalizations l10n) => OnboardingTextField(
+        label: l10n.entryUrlLabel,
+        controller: _urlController,
+        textInputAction: TextInputAction.next,
+        borderColor: _urlError != null ? AppColors.brandRed : null,
+        focusBorderColor: _urlError != null ? AppColors.brandRed : null,
+        onChanged: (_) => _validateUrl(),
+        feedbackChild: Text(
+          _urlError ?? '',
+          style: const TextStyle(color: AppColors.brandRed, fontSize: 11),
+        ),
+        feedbackVisible: _urlError != null,
+        feedbackReserveSpace: false,
+      );
+
+  /// Type-specific form fields for the currently-selected [_type]. Ends
+  /// with the type's own trailing controls (URL / injected data).
   List<Widget> _typeFields(AppLocalizations l10n) {
     return switch (_type) {
       EntryType.key => [
@@ -196,6 +220,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
                   setState(() => _valueObscured = !_valueObscured),
             ),
           ),
+          const SizedBox(height: AppSpacing.fieldGap),
+          _urlField(l10n),
         ],
       EntryType.credential => [
           OnboardingTextField(
@@ -217,30 +243,20 @@ class _AddEntryViewState extends State<_AddEntryView> {
                   setState(() => _passwordObscured = !_passwordObscured),
             ),
           ),
+          const SizedBox(height: AppSpacing.fieldGap),
+          _urlField(l10n),
         ],
       EntryType.script => [
-          WarningZone(
-            title: l10n.entryScriptExecOnlyTitle,
-            message: l10n.entryScriptExecOnlyNotice,
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          OnboardingTextField(
-            label: l10n.entryScriptLabel,
-            hintText: l10n.entryScriptHint,
+          ScriptEditorField(
             controller: _scriptController,
-            maxLines: 8,
-            monospace: true,
-            onChanged: (_) => setState(() {}),
+            interpreter: _interpreter,
+            onInterpreterChanged: (next) =>
+                setState(() => _interpreter = next),
+            onChanged: () => setState(() {}),
           ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          EntryInterpreterDropdown(
-            value: _interpreter,
-            onChanged: (next) {
-              if (next == null) return;
-              setState(() => _interpreter = next);
-            },
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
+          const SizedBox(height: AppSpacing.section),
+          EntrySectionHeader(label: l10n.entryInjectedDataLabel),
+          const SizedBox(height: AppSpacing.innerGap),
           if (_loadingEntries && _vaultEntries == null)
             const Center(
               child: Padding(
@@ -359,6 +375,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
         urlDomain: urlDomain,
         privateKey: keyCopy,
         wrappedVK: widget.wrappedVK,
+        agentFields: CustomField.agentFieldsFrom(_allCustomFields),
       );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
@@ -465,80 +482,72 @@ class _AddEntryViewState extends State<_AddEntryView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 1. Label
-                OnboardingTextField(
-                  label: l10n.entryLabelLabel,
-                  hintText: l10n.entryLabelHint,
-                  controller: _labelController,
-                  textCapitalization: TextCapitalization.sentences,
-                  textInputAction: TextInputAction.next,
-                  onChanged: (_) => setState(() {}),
+                // 1. Type — a select-input, consistent with the other fields.
+                EntryTypeDropdown(
+                  value: _type,
+                  onChanged: (next) {
+                    if (next == null || next == _type) return;
+                    setState(() {
+                      _type = next;
+                      if (EntryVisuals.isCustomUrl(_icon)) return;
+                      _icon = EntryVisuals.defaultIconForType(next);
+                    });
+                    if (next == EntryType.script) _ensureVaultEntriesLoaded();
+                  },
                 ),
                 const SizedBox(height: AppSpacing.fieldGap),
-                // 2. Description
-                OnboardingTextField(
+                // 2. Label — with inline entry icon + agent-visible hint.
+                EntryFieldCaption(
+                  label: l10n.entryLabelLabel,
+                  agentVisibleHint: true,
+                ),
+                const SizedBox(height: AppSpacing.innerGap),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    EntryIconTile(
+                      icon: _icon,
+                      accentColor: accentColor,
+                      onTap: _openEntryBrowser,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: OnboardingTextField(
+                        hintText: l10n.entryLabelHint,
+                        controller: _labelController,
+                        textCapitalization: TextCapitalization.sentences,
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.fieldGap),
+                // 3. Description — agent-visible.
+                EntryFieldCaption(
                   label: l10n.entryDescriptionLabel,
+                  agentVisibleHint: true,
+                ),
+                const SizedBox(height: AppSpacing.innerGap),
+                OnboardingTextField(
                   controller: _descriptionController,
                   textCapitalization: TextCapitalization.sentences,
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: AppSpacing.fieldGap),
-                // 3. URL — not applicable to Script entries.
-                if (_type != EntryType.script) ...[
-                  OnboardingTextField(
-                    label: l10n.entryUrlLabel,
-                    controller: _urlController,
-                    textInputAction: TextInputAction.next,
-                    borderColor: _urlError != null ? AppColors.brandRed : null,
-                    focusBorderColor: _urlError != null
-                        ? AppColors.brandRed
-                        : null,
-                    onChanged: (_) => _validateUrl(),
-                    feedbackChild: Text(
-                      _urlError ?? '',
-                      style: const TextStyle(
-                        color: AppColors.brandRed,
-                        fontSize: 11,
-                      ),
-                    ),
-                    feedbackVisible: _urlError != null,
-                    feedbackReserveSpace: false,
-                  ),
-                  const SizedBox(height: AppSpacing.fieldGap),
-                ],
-                // 4. Icon picker
-                Text(
-                  l10n.vaultIconLabel,
-                  style: TextStyle(
-                    color: AppColors.onSurfaceSubtle(brightness),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.innerGap),
-                EntryIconPicker(
-                  selected: _icon,
-                  accentColor: accentColor,
-                  onSelected: (name) => setState(() => _icon = name),
-                  moreTile: IconMoreTile(onTap: _openEntryBrowser),
-                ),
-                const SizedBox(height: AppSpacing.fieldGap),
-                // 5. Type dropdown
-                EntryTypeDropdown(
-                  value: _type,
-                  onChanged: (next) {
-                    if (next == null || next == _type) return;
-                    setState(() => _type = next);
-                    if (next == EntryType.script) {
-                      _ensureVaultEntriesLoaded();
-                    }
-                  },
-                ),
-                const SizedBox(height: AppSpacing.fieldGap),
-                // 6. Type-specific fields
+                // 4. Type-specific fields (+ URL / injected data).
                 ..._typeFields(l10n),
-                const SizedBox(height: AppSpacing.fieldGap),
-                // 7. Custom fields (all types).
+                const SizedBox(height: AppSpacing.section),
+                // 5. Two-factor authentication (not for Script).
+                if (_type != EntryType.script) ...[
+                  TotpSection(
+                    initial: _totpFields,
+                    onChanged: (fields) =>
+                        setState(() => _totpFields = fields),
+                  ),
+                  const SizedBox(height: AppSpacing.section),
+                ],
+                // 6. Additional fields (all types).
                 CustomFieldsEditor(
                   initial: _customFields,
                   onChanged: (fields, valid) => setState(() {
@@ -546,14 +555,13 @@ class _AddEntryViewState extends State<_AddEntryView> {
                     _customFieldsValid = valid;
                   }),
                 ),
-                const SizedBox(height: AppSpacing.fieldGap),
-                // 8. Notes
+                const SizedBox(height: AppSpacing.section),
+                // 7. Notes
                 EntryNotesField(
                   controller: _notesController,
                   label: l10n.entryNotesLabel,
                 ),
                 const SizedBox(height: AppSpacing.section),
-                // 7. Encryption notice
                 EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
                 if (state is CreateEntryError) ...[
                   const SizedBox(height: AppSpacing.fieldGap),

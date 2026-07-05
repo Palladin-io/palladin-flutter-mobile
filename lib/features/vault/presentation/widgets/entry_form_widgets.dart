@@ -6,6 +6,7 @@ import '../../../../core/widgets/app_dropdown_field.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/entry_entity.dart';
 
 /// Shared form widgets for Add Entry / Edit Entry pages.
@@ -190,6 +191,89 @@ class EntryEncryptionNotice extends StatelessWidget {
     );
   }
 }
+
+/// Field caption rendered above an input, with an optional subtle
+/// "· visible to agents" hint (mockup parity for Label / Description).
+class EntryFieldCaption extends StatelessWidget {
+  const EntryFieldCaption({
+    super.key,
+    required this.label,
+    this.agentVisibleHint = false,
+  });
+
+  final String label;
+  final bool agentVisibleHint;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return RichText(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: AppColors.onSurfaceMuted(brightness),
+        ),
+        children: agentVisibleHint
+            ? [
+                TextSpan(
+                  text: '  ·  ${AppLocalizations.of(context)!.entryVisibleToAgents}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.onSurfaceSubtle(brightness),
+                  ),
+                ),
+              ]
+            : null,
+      ),
+    );
+  }
+}
+
+/// Section divider header — a small caption followed by a hairline rule
+/// (`msect` in the mockup). Groups related form controls (2FA, additional
+/// fields, injected data).
+class EntrySectionHeader extends StatelessWidget {
+  const EntrySectionHeader({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    return Row(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.onSurfaceSubtle(brightness),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.onSurface(brightness).withValues(alpha: 0.1),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Leading glyph for a custom field row, keyed to its type (mockup `ficon`).
+IconData customFieldTypeIcon(CustomFieldType type) => switch (type) {
+      CustomFieldType.text => Icons.short_text,
+      CustomFieldType.multiline => Icons.notes,
+      CustomFieldType.concealed => Icons.more_horiz,
+      CustomFieldType.totp => Icons.shield_outlined,
+      CustomFieldType.unknown => Icons.help_outline,
+    };
 
 /// Thin wrapper around [PrimaryButton] that swaps the label for the
 /// "saving…" copy while [isLoading] is true. Used as the Save action on

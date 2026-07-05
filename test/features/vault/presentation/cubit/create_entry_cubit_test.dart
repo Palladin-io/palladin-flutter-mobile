@@ -4,6 +4,7 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:mobile_palladin/features/vault/domain/entities/custom_field.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/exceptions/entry_exceptions.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
@@ -29,6 +30,7 @@ void main() {
   setUpAll(() {
     registerFallbackValue(EntryType.credential);
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(<AgentField>[]);
     registerFallbackValue(<String, dynamic>{});
   });
 
@@ -69,6 +71,7 @@ void main() {
               type: any(named: 'type'),
               payload: any(named: 'payload'),
               privateKey: any(named: 'privateKey'),
+              agentFields: any(named: 'agentFields'),
             ));
       },
     );
@@ -104,6 +107,7 @@ void main() {
               payload: any(named: 'payload'),
               urlDomain: any(named: 'urlDomain'),
               privateKey: any(named: 'privateKey'),
+              agentFields: any(named: 'agentFields'),
             )).thenAnswer((_) async => fakeEntry);
         return buildCubit();
       },
@@ -150,6 +154,7 @@ void main() {
               payload: any(named: 'payload'),
               urlDomain: any(named: 'urlDomain'),
               privateKey: any(named: 'privateKey'),
+              agentFields: any(named: 'agentFields'),
             )).thenThrow(
           const EntryException(EntryErrorKind.cryptoFailure),
         );
@@ -184,6 +189,7 @@ void main() {
               payload: any(named: 'payload'),
               urlDomain: any(named: 'urlDomain'),
               privateKey: any(named: 'privateKey'),
+              agentFields: any(named: 'agentFields'),
             )).thenThrow(StateError('boom'));
         return buildCubit();
       },
@@ -216,6 +222,7 @@ void main() {
               payload: any(named: 'payload'),
               urlDomain: any(named: 'urlDomain'),
               privateKey: any(named: 'privateKey'),
+              agentFields: any(named: 'agentFields'),
             )).thenAnswer((_) async => fakeEntry);
         return buildCubit();
       },

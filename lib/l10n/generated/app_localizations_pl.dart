@@ -973,6 +973,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryScriptRefsLabel => 'Odwołania do danych';
 
   @override
+  String get entryInjectedDataLabel => 'Wstrzyknięte dane skarbca';
+
+  @override
   String get entryScriptRefsHint =>
       'Przypisz zmienną środowiskową do pola innego wpisu.';
 
@@ -1012,7 +1015,76 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get entryScriptExecOnlyNotice =>
-      'Skrypty są dostarczane agentom wyłącznie metodą exec — treść nigdy nie wraca jako plaintext.';
+      'Uruchamiane u agenta przez palladin exec — agenci wykonują, nigdy nie czytają.';
+
+  @override
+  String entryScriptFooter(String interpreter, int lines) {
+    String _temp0 = intl.Intl.pluralLogic(
+      lines,
+      locale: localeName,
+      other: '$lines linii',
+      many: '$lines linii',
+      few: '$lines linie',
+      one: '1 linia',
+    );
+    return '$interpreter · $_temp0';
+  }
+
+  @override
+  String get entryFieldTypeMultiline => 'Wieloliniowe';
+
+  @override
+  String get entryFieldTypeTextHint => 'jedna linia';
+
+  @override
+  String get entryFieldTypeMultilineHint => 'notatki, config';
+
+  @override
+  String get entryFieldTypeConcealedHint => 'zamaskowane';
+
+  @override
+  String get entryFieldAgentVisible => 'Widoczne dla agentów';
+
+  @override
+  String get entryFieldAgentVisibleTip =>
+      'Widoczne dla agentów w Twojej organizacji — pokazywane w wyszukiwaniu agentów bez grantu. Tylko dla niesekretnych informacji pomocniczych.';
+
+  @override
+  String get entryFieldOn => 'Wł.';
+
+  @override
+  String get entryFieldOff => 'Wył.';
+
+  @override
+  String get entryFieldMoveUp => 'Przenieś w górę';
+
+  @override
+  String get entryFieldMoveDown => 'Przenieś w dół';
+
+  @override
+  String get entryFieldMenu => 'Opcje pola';
+
+  @override
+  String get entryVisibleToAgents => 'widoczne dla agentów';
+
+  @override
+  String get totpSectionTitle => 'Uwierzytelnianie dwuskładnikowe';
+
+  @override
+  String get totpEmptyHint =>
+      'Dodaj kod czasowy (TOTP), aby autouzupełniać 2FA dla tego loginu.';
+
+  @override
+  String get totpAdd => 'Dodaj 2FA';
+
+  @override
+  String get totpRotates => 'zmienia się co 30 s';
+
+  @override
+  String get totpCopyCode => 'Kopiuj kod';
+
+  @override
+  String get totpRemove => 'Usuń 2FA';
 
   @override
   String get settingsScreenTitle => 'Ustawienia';

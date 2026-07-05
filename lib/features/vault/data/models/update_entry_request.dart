@@ -1,3 +1,4 @@
+import '../../domain/entities/custom_field.dart';
 import 'entry_model.dart';
 
 /// DTO sent to `PUT /api/vaults/{vaultId}/entries/{entryId}` to update
@@ -15,6 +16,7 @@ class UpdateEntryRequest {
     required this.type,
     required this.content,
     this.urlDomain,
+    this.agentFields,
   });
 
   final String label;
@@ -29,6 +31,12 @@ class UpdateEntryRequest {
 
   final String? urlDomain;
 
+  /// Plaintext agent-visible mirror (CVT-204). Patch semantics: `null`
+  /// leaves the stored set unchanged; an empty list clears it. The full
+  /// edit flow always sends the current set (possibly empty) so removals
+  /// take effect.
+  final List<AgentField>? agentFields;
+
   Map<String, dynamic> toJson() => {
         'label': label,
         if (description != null) 'description': description,
@@ -39,5 +47,7 @@ class UpdateEntryRequest {
         'type': type,
         'content': content.toJson(),
         if (urlDomain != null) 'urlDomain': urlDomain,
+        if (agentFields != null)
+          'agentFields': agentFields!.map((f) => f.toJson()).toList(),
       };
 }

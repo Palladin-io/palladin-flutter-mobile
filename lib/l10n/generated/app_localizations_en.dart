@@ -957,6 +957,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryScriptRefsLabel => 'Credential references';
 
   @override
+  String get entryInjectedDataLabel => 'Injected vault data';
+
+  @override
   String get entryScriptRefsHint =>
       'Map an environment variable to a field on another entry.';
 
@@ -996,7 +999,74 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get entryScriptExecOnlyNotice =>
-      'Scripts are delivered to agents only via the exec method — the body is never returned as plaintext.';
+      'Runs on the agent via palladin exec — agents execute it, never read it.';
+
+  @override
+  String entryScriptFooter(String interpreter, int lines) {
+    String _temp0 = intl.Intl.pluralLogic(
+      lines,
+      locale: localeName,
+      other: '$lines lines',
+      one: '1 line',
+    );
+    return '$interpreter · $_temp0';
+  }
+
+  @override
+  String get entryFieldTypeMultiline => 'Multiline';
+
+  @override
+  String get entryFieldTypeTextHint => 'single line';
+
+  @override
+  String get entryFieldTypeMultilineHint => 'notes, config';
+
+  @override
+  String get entryFieldTypeConcealedHint => 'masked';
+
+  @override
+  String get entryFieldAgentVisible => 'Visible to agents';
+
+  @override
+  String get entryFieldAgentVisibleTip =>
+      'Visible to agents in your organization — shown in agent discovery without a grant. Only for non-secret helper info.';
+
+  @override
+  String get entryFieldOn => 'On';
+
+  @override
+  String get entryFieldOff => 'Off';
+
+  @override
+  String get entryFieldMoveUp => 'Move up';
+
+  @override
+  String get entryFieldMoveDown => 'Move down';
+
+  @override
+  String get entryFieldMenu => 'Field options';
+
+  @override
+  String get entryVisibleToAgents => 'visible to agents';
+
+  @override
+  String get totpSectionTitle => 'Two-factor authentication';
+
+  @override
+  String get totpEmptyHint =>
+      'Add a time-based code (TOTP) to autofill 2FA for this login.';
+
+  @override
+  String get totpAdd => 'Add 2FA';
+
+  @override
+  String get totpRotates => 'rotates every 30 s';
+
+  @override
+  String get totpCopyCode => 'Copy code';
+
+  @override
+  String get totpRemove => 'Remove 2FA';
 
   @override
   String get settingsScreenTitle => 'Settings';

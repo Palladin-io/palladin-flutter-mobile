@@ -4,6 +4,7 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:mobile_palladin/features/vault/domain/entities/custom_field.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/exceptions/entry_exceptions.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
@@ -33,6 +34,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(<AgentField>[]);
     registerFallbackValue(EntryType.credential);
     registerFallbackValue(DateTime.utc(2026, 1, 1));
   });
@@ -142,6 +144,7 @@ void main() {
               privateKey: any(named: 'privateKey'),
               wrappedVK: any(named: 'wrappedVK'),
               createdAt: any(named: 'createdAt'),
+              agentFields: any(named: 'agentFields'),
             )).thenAnswer((_) async => sampleEntry);
         return buildCubit();
       },
@@ -204,6 +207,7 @@ void main() {
               payload: any(named: 'payload'),
               privateKey: any(named: 'privateKey'),
               createdAt: any(named: 'createdAt'),
+              agentFields: any(named: 'agentFields'),
             ));
       },
     );

@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/custom_field.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
+import 'package:mobile_palladin/features/vault/data/models/create_entry_request.dart';
 import 'package:mobile_palladin/features/vault/data/models/entry_model.dart';
+import 'package:mobile_palladin/features/vault/data/models/update_entry_request.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/totp_config.dart';
 import 'package:mobile_palladin/features/vault/presentation/widgets/entry_form_utils.dart';
 
@@ -73,6 +75,86 @@ void main() {
     test('missing / malformed fields array yields empty list', () {
       expect(CustomField.listFromPayload({}), isEmpty);
       expect(CustomField.listFromPayload({'fields': 'nope'}), isEmpty);
+    });
+
+    test('multiline round-trips and agentVisible only for text/multiline',
+        () {
+      final fields = [
+        CustomField.text(
+            id: '1', label: 'Account', value: 'acme', agentVisible: true),
+        CustomField.multiline(
+            id: '2', label: 'Config', value: 'a\nb', agentVisible: true),
+        CustomField.concealed(id: '3', label: 'PIN', value: '1234'),
+      ];
+      final json = CustomField.listToJson(fields);
+      expect(json[0]['type'], 'text');
+      expect(json[0]['agentVisible'], true);
+      expect(json[1]['type'], 'multiline');
+      expect(json[1]['agentVisible'], true);
+      // concealed can never be agent-visible — the key is absent.
+      expect(json[2].containsKey('agentVisible'), isFalse);
+
+      final parsed = CustomField.listFromPayload({'fields': json});
+      expect(parsed[1].type, CustomFieldType.multiline);
+      expect(parsed[1].textValue, 'a\nb');
+      expect(parsed[1].agentVisible, isTrue);
+    });
+
+    test('agentFieldsFrom mirrors only agent-visible text/multiline fields',
+        () {
+      final agentFields = CustomField.agentFieldsFrom([
+        CustomField.text(
+            id: '1', label: 'Account', value: 'acme', agentVisible: true),
+        CustomField.text(id: '2', label: 'Hidden helper', value: 'x'),
+        CustomField.multiline(
+            id: '3', label: 'Region', value: 'eu', agentVisible: true),
+        CustomField.concealed(id: '4', label: 'PIN', value: '1'),
+      ]);
+      expect(agentFields.map((f) => f.label), ['Account', 'Region']);
+      expect(agentFields.map((f) => f.value), ['acme', 'eu']);
+    });
+
+    test('a concealed field flagged agent-visible never leaks the flag', () {
+      // Even if constructed with agentVisible via copyWith, concealed drops it.
+      final field = CustomField.concealed(id: '1', label: 'PIN', value: '1')
+          .copyWith(agentVisible: true);
+      expect(field.toJson().containsKey('agentVisible'), isFalse);
+      expect(CustomField.agentFieldsFrom([field]), isEmpty);
+    });
+  });
+
+  group('agentFields on request DTOs (CVT-204)', () {
+    const content = EntryContentModel(encryptedBlob: 'blob', nonce: 'n');
+
+    test('create request serializes agentFields', () {
+      final json = CreateEntryRequest(
+        label: 'GitHub',
+        type: 1,
+        content: content,
+        agentFields: const [AgentField(label: 'Account', value: 'acme')],
+      ).toJson();
+      expect(json['agentFields'], [
+        {'label': 'Account', 'value': 'acme'},
+      ]);
+    });
+
+    test('update request omits agentFields when null (patch unchanged)', () {
+      final json = UpdateEntryRequest(
+        label: 'GitHub',
+        type: 1,
+        content: content,
+      ).toJson();
+      expect(json.containsKey('agentFields'), isFalse);
+    });
+
+    test('update request sends an empty list to clear agent fields', () {
+      final json = UpdateEntryRequest(
+        label: 'GitHub',
+        type: 1,
+        content: content,
+        agentFields: const [],
+      ).toJson();
+      expect(json['agentFields'], isEmpty);
     });
   });
 

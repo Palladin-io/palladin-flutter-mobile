@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../domain/entities/entry_entity.dart';
 
 /// Mapping helpers between the string identifiers stored on the
 /// [VaultEntity] (icon name + `#RRGGBB` color) and Flutter's typed
@@ -120,6 +121,15 @@ abstract final class VaultVisuals {
 abstract final class EntryVisuals {
   static const String defaultIconName = 'vpn_key';
   static const String defaultColorHex = '#10B981';
+
+  /// Preset icon name that best represents an entry [type] — used as the
+  /// default when the user hasn't picked a custom icon (globe for logins,
+  /// key for secrets, terminal for scripts).
+  static String defaultIconForType(EntryType type) => switch (type) {
+        EntryType.key => 'vpn_key',
+        EntryType.credential => 'language',
+        EntryType.script => 'terminal',
+      };
 
   static const List<VaultIconChoice> iconChoices = <VaultIconChoice>[
     VaultIconChoice(name: 'vpn_key',      icon: Icons.vpn_key,        paletteColor: AppColors.positiveAccent),

@@ -1158,6 +1158,10 @@
   "@entryScriptRefsLabel": {
     "description": "Section heading for a script's environment-variable references"
   },
+  "entryInjectedDataLabel": "Injected vault data",
+  "@entryInjectedDataLabel": {
+    "description": "Section heading for a script's injected credential references"
+  },
   "entryScriptRefsHint": "Map an environment variable to a field on another entry.",
   "@entryScriptRefsHint": {
     "description": "Explains what credential references do on a script entry"
@@ -1206,9 +1210,89 @@
   "@entryScriptExecOnlyTitle": {
     "description": "Uppercase title of the script security warning box"
   },
-  "entryScriptExecOnlyNotice": "Scripts are delivered to agents only via the exec method — the body is never returned as plaintext.",
+  "entryScriptExecOnlyNotice": "Runs on the agent via palladin exec — agents execute it, never read it.",
   "@entryScriptExecOnlyNotice": {
-    "description": "Security note shown on the script entry form"
+    "description": "Calm exec-only annotation shown below the script editor"
+  },
+  "entryScriptFooter": "{interpreter} · {lines, plural, one{1 line} other{{lines} lines}}",
+  "@entryScriptFooter": {
+    "description": "Script editor footer — interpreter name and line count",
+    "placeholders": {
+      "interpreter": { "type": "String" },
+      "lines": { "type": "int" }
+    }
+  },
+  "entryFieldTypeMultiline": "Multiline",
+  "@entryFieldTypeMultiline": {
+    "description": "Custom field type — multi-line monospace text (configs, keys)"
+  },
+  "entryFieldTypeTextHint": "single line",
+  "@entryFieldTypeTextHint": {
+    "description": "Hint next to the Text field type in the add-field menu"
+  },
+  "entryFieldTypeMultilineHint": "notes, config",
+  "@entryFieldTypeMultilineHint": {
+    "description": "Hint next to the Multiline field type in the add-field menu"
+  },
+  "entryFieldTypeConcealedHint": "masked",
+  "@entryFieldTypeConcealedHint": {
+    "description": "Hint next to the Hidden field type in the add-field menu"
+  },
+  "entryFieldAgentVisible": "Visible to agents",
+  "@entryFieldAgentVisible": {
+    "description": "Row-menu toggle that exposes a field to agents as discovery metadata"
+  },
+  "entryFieldAgentVisibleTip": "Visible to agents in your organization — shown in agent discovery without a grant. Only for non-secret helper info.",
+  "@entryFieldAgentVisibleTip": {
+    "description": "Tooltip explaining the agent-visible field indicator"
+  },
+  "entryFieldOn": "On",
+  "@entryFieldOn": {
+    "description": "Trailing state for an enabled toggle in a field menu"
+  },
+  "entryFieldOff": "Off",
+  "@entryFieldOff": {
+    "description": "Trailing state for a disabled toggle in a field menu"
+  },
+  "entryFieldMoveUp": "Move up",
+  "@entryFieldMoveUp": {
+    "description": "Field menu action — move the field one position up"
+  },
+  "entryFieldMoveDown": "Move down",
+  "@entryFieldMoveDown": {
+    "description": "Field menu action — move the field one position down"
+  },
+  "entryFieldMenu": "Field options",
+  "@entryFieldMenu": {
+    "description": "Tooltip for the per-field overflow (⋯) button"
+  },
+  "entryVisibleToAgents": "visible to agents",
+  "@entryVisibleToAgents": {
+    "description": "Subtle hint appended to the Label and Description field captions"
+  },
+  "totpSectionTitle": "Two-factor authentication",
+  "@totpSectionTitle": {
+    "description": "Section header for the entry's TOTP two-factor code"
+  },
+  "totpEmptyHint": "Add a time-based code (TOTP) to autofill 2FA for this login.",
+  "@totpEmptyHint": {
+    "description": "Explanation shown in the empty 2FA section"
+  },
+  "totpAdd": "Add 2FA",
+  "@totpAdd": {
+    "description": "Button that starts TOTP setup in the empty 2FA section"
+  },
+  "totpRotates": "rotates every 30 s",
+  "@totpRotates": {
+    "description": "Subtitle on a configured 2FA card"
+  },
+  "totpCopyCode": "Copy code",
+  "@totpCopyCode": {
+    "description": "2FA card menu action — copy the current one-time code"
+  },
+  "totpRemove": "Remove 2FA",
+  "@totpRemove": {
+    "description": "2FA card menu action — delete the TOTP secret"
   },
   "settingsScreenTitle": "Settings",
   "@settingsScreenTitle": {
