@@ -302,6 +302,7 @@
   "totpRotates": "zmienia się co 30 s",
   "totpCopyCode": "Kopiuj kod",
   "totpRemove": "Usuń 2FA",
+  "entryAddNotes": "Dodaj notatki",
   "settingsScreenTitle": "Ustawienia",
   "settingsOrganization": "Organizacja",
   "settingsManageOrganization": "Organizacja",

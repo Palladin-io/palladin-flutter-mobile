@@ -1874,6 +1874,12 @@ abstract class AppLocalizations {
   /// **'Remove 2FA'**
   String get totpRemove;
 
+  /// Ghost affordance that reveals the optional Notes field
+  ///
+  /// In en, this message translates to:
+  /// **'Add notes'**
+  String get entryAddNotes;
+
   /// Title of the dedicated settings screen (organization details)
   ///
   /// In en, this message translates to:

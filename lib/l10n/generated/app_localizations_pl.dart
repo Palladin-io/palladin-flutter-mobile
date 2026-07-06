@@ -1087,6 +1087,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get totpRemove => 'Usuń 2FA';
 
   @override
+  String get entryAddNotes => 'Dodaj notatki';
+
+  @override
   String get settingsScreenTitle => 'Ustawienia';
 
   @override

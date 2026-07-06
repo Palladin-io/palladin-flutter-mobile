@@ -131,15 +131,18 @@ class EntryNotesField extends StatelessWidget {
     super.key,
     required this.controller,
     required this.label,
+    this.focusNode,
   });
 
   final TextEditingController controller;
   final String label;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
     return OnboardingTextField(
       controller: controller,
+      focusNode: focusNode,
       label: label,
       textCapitalization: TextCapitalization.sentences,
       maxLines: 3,

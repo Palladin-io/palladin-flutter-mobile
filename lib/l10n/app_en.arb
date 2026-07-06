@@ -1294,6 +1294,10 @@
   "@totpRemove": {
     "description": "2FA card menu action — delete the TOTP secret"
   },
+  "entryAddNotes": "Add notes",
+  "@entryAddNotes": {
+    "description": "Ghost affordance that reveals the optional Notes field"
+  },
   "settingsScreenTitle": "Settings",
   "@settingsScreenTitle": {
     "description": "Title of the dedicated settings screen (organization details)"

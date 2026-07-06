@@ -25,6 +25,7 @@ import '../widgets/custom_fields_editor.dart';
 import '../widgets/entry_form_utils.dart';
 import '../widgets/entry_form_widgets.dart';
 import '../widgets/entry_icon_tile.dart';
+import '../widgets/entry_notes_section.dart';
 import '../widgets/script_editor_field.dart';
 import '../widgets/script_refs_editor.dart';
 import '../widgets/totp_section.dart';
@@ -556,10 +557,10 @@ class _AddEntryViewState extends State<_AddEntryView> {
                   }),
                 ),
                 const SizedBox(height: AppSpacing.section),
-                // 7. Notes
-                EntryNotesField(
+                // 7. Notes — add-on-demand (hidden until the user taps).
+                EntryNotesSection(
                   controller: _notesController,
-                  label: l10n.entryNotesLabel,
+                  initiallyVisible: _notesController.text.trim().isNotEmpty,
                 ),
                 const SizedBox(height: AppSpacing.section),
                 EntryEncryptionNotice(message: l10n.entryEncryptionNotice),

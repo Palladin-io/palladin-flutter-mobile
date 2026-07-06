@@ -1069,6 +1069,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get totpRemove => 'Remove 2FA';
 
   @override
+  String get entryAddNotes => 'Add notes';
+
+  @override
   String get settingsScreenTitle => 'Settings';
 
   @override
