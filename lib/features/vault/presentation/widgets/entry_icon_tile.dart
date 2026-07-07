@@ -3,12 +3,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import 'vault_visuals.dart';
 
-/// The 40×40 entry icon shown inline beside the Label field (mockup
-/// parity). Tapping it opens the icon + color browser. Renders a custom
-/// uploaded image (file:// while pending, https:// once uploaded) or a
-/// tinted preset glyph.
+/// The entry icon shown inline beside the Label field (mockup parity),
+/// sized to the input height ([AppSpacing.controlHeight]) so it lines up
+/// with the label field next to it. Tapping it opens the icon + color
+/// browser. Renders a custom uploaded image (file:// while pending,
+/// https:// once uploaded) or a tinted preset glyph.
 class EntryIconTile extends StatelessWidget {
   const EntryIconTile({
     super.key,
@@ -22,6 +24,8 @@ class EntryIconTile extends StatelessWidget {
   final Color accentColor;
   final VoidCallback onTap;
 
+  static const double _size = AppSpacing.controlHeight;
+
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
@@ -29,8 +33,8 @@ class EntryIconTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        width: 40,
-        height: 40,
+        width: _size,
+        height: _size,
         decoration: BoxDecoration(
           color: EntryVisuals.isCustomUrl(icon)
               ? null
@@ -49,8 +53,8 @@ class EntryIconTile extends StatelessWidget {
     if (icon.startsWith('file://')) {
       return Image.file(
         File(icon.substring(7)),
-        width: 40,
-        height: 40,
+        width: _size,
+        height: _size,
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => _glyph(),
       );
@@ -58,8 +62,8 @@ class EntryIconTile extends StatelessWidget {
     if (icon.startsWith('http://') || icon.startsWith('https://')) {
       return Image.network(
         icon,
-        width: 40,
-        height: 40,
+        width: _size,
+        height: _size,
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => _glyph(),
       );
