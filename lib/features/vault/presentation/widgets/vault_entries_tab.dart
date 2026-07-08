@@ -612,6 +612,18 @@ class _RevealPanel extends StatelessWidget {
               actionIconSize: 12,
               onCopy: () => onCopy(payload['value'] as String),
             ),
+        ] else if (entry.type == EntryType.script) ...[
+          if ((payload['script'] as String?)?.isNotEmpty ?? false)
+            EntryFieldRow(
+              icon: Icons.terminal,
+              value: payload['script'] as String,
+              isMasked: true,
+              revealed: revealedFields.contains('${entry.id}:script'),
+              onToggleReveal: () => onToggleFieldReveal(entry.id, 'script'),
+              valueFontSize: 10,
+              actionIconSize: 12,
+              onCopy: () => onCopy(payload['script'] as String),
+            ),
         ] else ...[
           if ((payload['username'] as String?)?.isNotEmpty ?? false)
             EntryFieldRow(
@@ -694,14 +706,17 @@ class _EntryIconWidget extends StatelessWidget {
 
   Widget _presetIcon(String? name) {
     final choices = EntryVisuals.iconChoices;
+    final fallbackName = switch (entry.type) {
+      EntryType.key => choices.first.name,
+      EntryType.credential => 'lock',
+      EntryType.script => 'terminal',
+    };
     final choice = choices.firstWhere(
       (c) => c.name == (name ?? EntryVisuals.defaultIconName),
-      orElse: () => entry.type == EntryType.key
-          ? choices.first
-          : choices.firstWhere(
-              (c) => c.name == 'lock',
-              orElse: () => choices.first,
-            ),
+      orElse: () => choices.firstWhere(
+        (c) => c.name == fallbackName,
+        orElse: () => choices.first,
+      ),
     );
     final iconColor = choice.paletteColor;
     final iconBg = iconColor.withValues(alpha: 0.15);

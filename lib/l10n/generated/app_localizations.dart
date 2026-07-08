@@ -1478,6 +1478,408 @@ abstract class AppLocalizations {
   /// **'Copied to clipboard'**
   String get entryCopied;
 
+  /// Entry type option — an executable script with credential references
+  ///
+  /// In en, this message translates to:
+  /// **'Script'**
+  String get entryTypeScript;
+
+  /// Section heading for user-defined custom fields on an entry
+  ///
+  /// In en, this message translates to:
+  /// **'Custom fields'**
+  String get entryCustomFieldsLabel;
+
+  /// Button that appends a new custom field to the entry form
+  ///
+  /// In en, this message translates to:
+  /// **'Add field'**
+  String get entryAddFieldAction;
+
+  /// Label for the name input of a custom field
+  ///
+  /// In en, this message translates to:
+  /// **'Field name'**
+  String get entryFieldNameLabel;
+
+  /// Placeholder for the custom field name input
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Recovery email'**
+  String get entryFieldNameHint;
+
+  /// Label for the value input of a custom field
+  ///
+  /// In en, this message translates to:
+  /// **'Value'**
+  String get entryFieldValueLabel;
+
+  /// Label for the custom field type selector
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get entryFieldTypeLabel;
+
+  /// Custom field type — plain visible text
+  ///
+  /// In en, this message translates to:
+  /// **'Text'**
+  String get entryFieldTypeText;
+
+  /// Custom field type — a concealed value masked until revealed
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden'**
+  String get entryFieldTypeConcealed;
+
+  /// Custom field type — a time-based one-time password (TOTP)
+  ///
+  /// In en, this message translates to:
+  /// **'One-time code'**
+  String get entryFieldTypeTotp;
+
+  /// Tooltip for the button that deletes a custom field
+  ///
+  /// In en, this message translates to:
+  /// **'Remove field'**
+  String get entryFieldRemove;
+
+  /// Tooltip for the drag handle that reorders custom fields
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to reorder'**
+  String get entryFieldReorder;
+
+  /// Inline validation shown when a custom field has a value but no name
+  ///
+  /// In en, this message translates to:
+  /// **'Add a name for this field'**
+  String get entryFieldNameRequired;
+
+  /// Title of the TOTP setup bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'One-time code'**
+  String get totpSetupTitle;
+
+  /// Button that opens the camera to scan an authenticator QR code
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR code'**
+  String get totpScanQr;
+
+  /// Divider between the scan-QR option and manual TOTP entry
+  ///
+  /// In en, this message translates to:
+  /// **'or'**
+  String get totpOr;
+
+  /// Label for the input that accepts an otpauth:// URI or a base32 secret
+  ///
+  /// In en, this message translates to:
+  /// **'Setup key'**
+  String get totpSetupKeyLabel;
+
+  /// Placeholder for the TOTP setup key input
+  ///
+  /// In en, this message translates to:
+  /// **'otpauth://… or base32 secret'**
+  String get totpSetupKeyHint;
+
+  /// Label for the optional TOTP issuer name
+  ///
+  /// In en, this message translates to:
+  /// **'Issuer (optional)'**
+  String get totpIssuerLabel;
+
+  /// Label for the optional TOTP account name
+  ///
+  /// In en, this message translates to:
+  /// **'Account (optional)'**
+  String get totpAccountLabel;
+
+  /// Inline validation when the TOTP setup key cannot be parsed
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid otpauth:// key or base32 secret'**
+  String get totpInvalidKey;
+
+  /// Instruction shown on the QR scanner screen
+  ///
+  /// In en, this message translates to:
+  /// **'Point the camera at the authenticator QR code'**
+  String get totpScanInstruction;
+
+  /// App bar title of the TOTP QR scanner screen
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR code'**
+  String get totpScannerTitle;
+
+  /// Message shown when camera permission is denied for QR scanning
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access is off. Enable it in Settings, or paste the setup key instead.'**
+  String get totpCameraDenied;
+
+  /// Button that opens the OS settings to grant camera permission
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get totpCameraOpenSettings;
+
+  /// Status shown on a TOTP field once a secret is set
+  ///
+  /// In en, this message translates to:
+  /// **'One-time code configured'**
+  String get totpConfigured;
+
+  /// Button that replaces an already-configured TOTP secret
+  ///
+  /// In en, this message translates to:
+  /// **'Replace'**
+  String get totpReplaceSecret;
+
+  /// Snackbar after copying a live TOTP code
+  ///
+  /// In en, this message translates to:
+  /// **'One-time code copied'**
+  String get totpCodeCopied;
+
+  /// Shown when a stored TOTP secret cannot generate a code
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid code secret'**
+  String get totpInvalidConfigured;
+
+  /// Label for the script body input
+  ///
+  /// In en, this message translates to:
+  /// **'Script'**
+  String get entryScriptLabel;
+
+  /// Placeholder for the script body input
+  ///
+  /// In en, this message translates to:
+  /// **'#!/usr/bin/env bash\\n…'**
+  String get entryScriptHint;
+
+  /// Label for the script interpreter selector
+  ///
+  /// In en, this message translates to:
+  /// **'Interpreter'**
+  String get entryInterpreterLabel;
+
+  /// Section heading for a script's environment-variable references
+  ///
+  /// In en, this message translates to:
+  /// **'Credential references'**
+  String get entryScriptRefsLabel;
+
+  /// Section heading for a script's injected credential references
+  ///
+  /// In en, this message translates to:
+  /// **'Injected vault data'**
+  String get entryInjectedDataLabel;
+
+  /// Explains what credential references do on a script entry
+  ///
+  /// In en, this message translates to:
+  /// **'Map an environment variable to a field on another entry.'**
+  String get entryScriptRefsHint;
+
+  /// Button that appends a new credential reference to a script
+  ///
+  /// In en, this message translates to:
+  /// **'Add reference'**
+  String get entryAddRefAction;
+
+  /// Label for the environment variable name of a script reference
+  ///
+  /// In en, this message translates to:
+  /// **'Environment variable'**
+  String get entryRefEnvLabel;
+
+  /// Placeholder for the environment variable name
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. GITHUB_TOKEN'**
+  String get entryRefEnvHint;
+
+  /// Label for the target entry of a script credential reference
+  ///
+  /// In en, this message translates to:
+  /// **'Entry'**
+  String get entryRefEntryLabel;
+
+  /// Label for the target field of a script credential reference
+  ///
+  /// In en, this message translates to:
+  /// **'Field'**
+  String get entryRefFieldLabel;
+
+  /// Placeholder for the entry autocomplete in a script reference
+  ///
+  /// In en, this message translates to:
+  /// **'Select an entry'**
+  String get entryRefEntryHint;
+
+  /// Tooltip for the button that deletes a script credential reference
+  ///
+  /// In en, this message translates to:
+  /// **'Remove reference'**
+  String get entryRefRemove;
+
+  /// Empty state for a script entry detail with no body
+  ///
+  /// In en, this message translates to:
+  /// **'No script yet'**
+  String get entryScriptEmpty;
+
+  /// Empty state when a script has no credential references
+  ///
+  /// In en, this message translates to:
+  /// **'No credential references'**
+  String get entryRefsEmpty;
+
+  /// Shown when the encrypted payload exceeds the backend's size limit
+  ///
+  /// In en, this message translates to:
+  /// **'This entry is too large. Shorten the script or remove some fields.'**
+  String get entryTooLarge;
+
+  /// Uppercase title of the script security warning box
+  ///
+  /// In en, this message translates to:
+  /// **'EXEC-ONLY DELIVERY'**
+  String get entryScriptExecOnlyTitle;
+
+  /// Calm exec-only annotation shown below the script editor
+  ///
+  /// In en, this message translates to:
+  /// **'Runs on the agent via palladin exec — agents execute it, never read it.'**
+  String get entryScriptExecOnlyNotice;
+
+  /// Script editor footer — interpreter name and line count
+  ///
+  /// In en, this message translates to:
+  /// **'{interpreter} · {lines, plural, one{1 line} other{{lines} lines}}'**
+  String entryScriptFooter(String interpreter, int lines);
+
+  /// Custom field type — multi-line monospace text (configs, keys)
+  ///
+  /// In en, this message translates to:
+  /// **'Multiline'**
+  String get entryFieldTypeMultiline;
+
+  /// Hint next to the Text field type in the add-field menu
+  ///
+  /// In en, this message translates to:
+  /// **'single line'**
+  String get entryFieldTypeTextHint;
+
+  /// Hint next to the Multiline field type in the add-field menu
+  ///
+  /// In en, this message translates to:
+  /// **'notes, config'**
+  String get entryFieldTypeMultilineHint;
+
+  /// Hint next to the Hidden field type in the add-field menu
+  ///
+  /// In en, this message translates to:
+  /// **'masked'**
+  String get entryFieldTypeConcealedHint;
+
+  /// Row-menu toggle that exposes a field to agents as discovery metadata
+  ///
+  /// In en, this message translates to:
+  /// **'Visible to agents'**
+  String get entryFieldAgentVisible;
+
+  /// Tooltip explaining the agent-visible field indicator
+  ///
+  /// In en, this message translates to:
+  /// **'Visible to agents in your organization — shown in agent discovery without a grant. Only for non-secret helper info.'**
+  String get entryFieldAgentVisibleTip;
+
+  /// Trailing state for an enabled toggle in a field menu
+  ///
+  /// In en, this message translates to:
+  /// **'On'**
+  String get entryFieldOn;
+
+  /// Trailing state for a disabled toggle in a field menu
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get entryFieldOff;
+
+  /// Field menu action — move the field one position up
+  ///
+  /// In en, this message translates to:
+  /// **'Move up'**
+  String get entryFieldMoveUp;
+
+  /// Field menu action — move the field one position down
+  ///
+  /// In en, this message translates to:
+  /// **'Move down'**
+  String get entryFieldMoveDown;
+
+  /// Tooltip for the per-field overflow (⋯) button
+  ///
+  /// In en, this message translates to:
+  /// **'Field options'**
+  String get entryFieldMenu;
+
+  /// Subtle hint appended to the Label and Description field captions
+  ///
+  /// In en, this message translates to:
+  /// **'visible to agents'**
+  String get entryVisibleToAgents;
+
+  /// Section header for the entry's TOTP two-factor code
+  ///
+  /// In en, this message translates to:
+  /// **'Two-factor authentication'**
+  String get totpSectionTitle;
+
+  /// Explanation shown in the empty 2FA section
+  ///
+  /// In en, this message translates to:
+  /// **'Add a time-based code (TOTP) to autofill 2FA for this login.'**
+  String get totpEmptyHint;
+
+  /// Button that starts TOTP setup in the empty 2FA section
+  ///
+  /// In en, this message translates to:
+  /// **'Add 2FA'**
+  String get totpAdd;
+
+  /// Subtitle on a configured 2FA card
+  ///
+  /// In en, this message translates to:
+  /// **'rotates every 30 s'**
+  String get totpRotates;
+
+  /// 2FA card menu action — copy the current one-time code
+  ///
+  /// In en, this message translates to:
+  /// **'Copy code'**
+  String get totpCopyCode;
+
+  /// 2FA card menu action — delete the TOTP secret
+  ///
+  /// In en, this message translates to:
+  /// **'Remove 2FA'**
+  String get totpRemove;
+
+  /// Ghost affordance that reveals the optional Notes field
+  ///
+  /// In en, this message translates to:
+  /// **'Add notes'**
+  String get entryAddNotes;
+
   /// Title of the dedicated settings screen (organization details)
   ///
   /// In en, this message translates to:

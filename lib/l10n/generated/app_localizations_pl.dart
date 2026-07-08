@@ -871,6 +871,225 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryCopied => 'Skopiowano do schowka';
 
   @override
+  String get entryTypeScript => 'Skrypt';
+
+  @override
+  String get entryCustomFieldsLabel => 'Pola niestandardowe';
+
+  @override
+  String get entryAddFieldAction => 'Dodaj pole';
+
+  @override
+  String get entryFieldNameLabel => 'Nazwa pola';
+
+  @override
+  String get entryFieldNameHint => 'np. E-mail odzyskiwania';
+
+  @override
+  String get entryFieldValueLabel => 'Wartość';
+
+  @override
+  String get entryFieldTypeLabel => 'Typ';
+
+  @override
+  String get entryFieldTypeText => 'Tekst';
+
+  @override
+  String get entryFieldTypeConcealed => 'Ukryte';
+
+  @override
+  String get entryFieldTypeTotp => 'Kod jednorazowy';
+
+  @override
+  String get entryFieldRemove => 'Usuń pole';
+
+  @override
+  String get entryFieldReorder => 'Przeciągnij, aby zmienić kolejność';
+
+  @override
+  String get entryFieldNameRequired => 'Dodaj nazwę tego pola';
+
+  @override
+  String get totpSetupTitle => 'Kod jednorazowy';
+
+  @override
+  String get totpScanQr => 'Zeskanuj kod QR';
+
+  @override
+  String get totpOr => 'lub';
+
+  @override
+  String get totpSetupKeyLabel => 'Klucz konfiguracyjny';
+
+  @override
+  String get totpSetupKeyHint => 'otpauth://… lub sekret base32';
+
+  @override
+  String get totpIssuerLabel => 'Wydawca (opcjonalnie)';
+
+  @override
+  String get totpAccountLabel => 'Konto (opcjonalnie)';
+
+  @override
+  String get totpInvalidKey =>
+      'Podaj prawidłowy klucz otpauth:// lub sekret base32';
+
+  @override
+  String get totpScanInstruction =>
+      'Skieruj aparat na kod QR z aplikacji uwierzytelniającej';
+
+  @override
+  String get totpScannerTitle => 'Zeskanuj kod QR';
+
+  @override
+  String get totpCameraDenied =>
+      'Dostęp do aparatu jest wyłączony. Włącz go w Ustawieniach lub wklej klucz konfiguracyjny.';
+
+  @override
+  String get totpCameraOpenSettings => 'Otwórz ustawienia';
+
+  @override
+  String get totpConfigured => 'Kod jednorazowy skonfigurowany';
+
+  @override
+  String get totpReplaceSecret => 'Zmień';
+
+  @override
+  String get totpCodeCopied => 'Skopiowano kod jednorazowy';
+
+  @override
+  String get totpInvalidConfigured => 'Nieprawidłowy sekret kodu';
+
+  @override
+  String get entryScriptLabel => 'Skrypt';
+
+  @override
+  String get entryScriptHint => '#!/usr/bin/env bash\\n…';
+
+  @override
+  String get entryInterpreterLabel => 'Interpreter';
+
+  @override
+  String get entryScriptRefsLabel => 'Odwołania do danych';
+
+  @override
+  String get entryInjectedDataLabel => 'Wstrzyknięte dane skarbca';
+
+  @override
+  String get entryScriptRefsHint =>
+      'Przypisz zmienną środowiskową do pola innego wpisu.';
+
+  @override
+  String get entryAddRefAction => 'Dodaj odwołanie';
+
+  @override
+  String get entryRefEnvLabel => 'Zmienna środowiskowa';
+
+  @override
+  String get entryRefEnvHint => 'np. GITHUB_TOKEN';
+
+  @override
+  String get entryRefEntryLabel => 'Wpis';
+
+  @override
+  String get entryRefFieldLabel => 'Pole';
+
+  @override
+  String get entryRefEntryHint => 'Wybierz wpis';
+
+  @override
+  String get entryRefRemove => 'Usuń odwołanie';
+
+  @override
+  String get entryScriptEmpty => 'Brak skryptu';
+
+  @override
+  String get entryRefsEmpty => 'Brak odwołań do danych';
+
+  @override
+  String get entryTooLarge =>
+      'Ten wpis jest zbyt duży. Skróć skrypt lub usuń część pól.';
+
+  @override
+  String get entryScriptExecOnlyTitle => 'DOSTAWA TYLKO EXEC';
+
+  @override
+  String get entryScriptExecOnlyNotice =>
+      'Uruchamiane u agenta przez palladin exec — agenci wykonują, nigdy nie czytają.';
+
+  @override
+  String entryScriptFooter(String interpreter, int lines) {
+    String _temp0 = intl.Intl.pluralLogic(
+      lines,
+      locale: localeName,
+      other: '$lines linii',
+      many: '$lines linii',
+      few: '$lines linie',
+      one: '1 linia',
+    );
+    return '$interpreter · $_temp0';
+  }
+
+  @override
+  String get entryFieldTypeMultiline => 'Wieloliniowe';
+
+  @override
+  String get entryFieldTypeTextHint => 'jedna linia';
+
+  @override
+  String get entryFieldTypeMultilineHint => 'notatki, config';
+
+  @override
+  String get entryFieldTypeConcealedHint => 'zamaskowane';
+
+  @override
+  String get entryFieldAgentVisible => 'Widoczne dla agentów';
+
+  @override
+  String get entryFieldAgentVisibleTip =>
+      'Widoczne dla agentów w Twojej organizacji — pokazywane w wyszukiwaniu agentów bez grantu. Tylko dla niesekretnych informacji pomocniczych.';
+
+  @override
+  String get entryFieldOn => 'Wł.';
+
+  @override
+  String get entryFieldOff => 'Wył.';
+
+  @override
+  String get entryFieldMoveUp => 'Przenieś w górę';
+
+  @override
+  String get entryFieldMoveDown => 'Przenieś w dół';
+
+  @override
+  String get entryFieldMenu => 'Opcje pola';
+
+  @override
+  String get entryVisibleToAgents => 'widoczne dla agentów';
+
+  @override
+  String get totpSectionTitle => 'Uwierzytelnianie dwuskładnikowe';
+
+  @override
+  String get totpEmptyHint =>
+      'Dodaj kod czasowy (TOTP), aby autouzupełniać 2FA dla tego loginu.';
+
+  @override
+  String get totpAdd => 'Dodaj 2FA';
+
+  @override
+  String get totpRotates => 'zmienia się co 30 s';
+
+  @override
+  String get totpCopyCode => 'Kopiuj kod';
+
+  @override
+  String get totpRemove => 'Usuń 2FA';
+
+  @override
+  String get entryAddNotes => 'Dodaj notatki';
+
+  @override
   String get settingsScreenTitle => 'Ustawienia';
 
   @override

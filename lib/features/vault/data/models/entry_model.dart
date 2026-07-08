@@ -66,12 +66,15 @@ class EntryModel {
 
   static int _parseType(dynamic raw) {
     if (raw is int) return raw;
-    return switch (raw as String) {
-      'Key' => 0,
-      'key' => 0,
-      'Credential' => 1,
-      'credential' => 1,
-      _ => throw FormatException('Unknown EntryType: $raw'),
+    // The .NET API serializes the type as a string ("key"/"credential"/
+    // "script"). Unknown values fall back to credential (ordinal 1) — the
+    // same safe default as [EntryTypeExtension.fromWire] — so a newer
+    // server type never breaks the list/detail parse on an older client.
+    return switch (raw) {
+      'Key' || 'key' => 0,
+      'Credential' || 'credential' => 1,
+      'Script' || 'script' => 2,
+      _ => 1,
     };
   }
 

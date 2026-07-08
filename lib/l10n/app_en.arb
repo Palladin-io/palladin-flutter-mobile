@@ -1026,6 +1026,278 @@
   "@entryCopied": {
     "description": "Snackbar confirmation shown after copying an entry field or secret"
   },
+  "entryTypeScript": "Script",
+  "@entryTypeScript": {
+    "description": "Entry type option — an executable script with credential references"
+  },
+  "entryCustomFieldsLabel": "Custom fields",
+  "@entryCustomFieldsLabel": {
+    "description": "Section heading for user-defined custom fields on an entry"
+  },
+  "entryAddFieldAction": "Add field",
+  "@entryAddFieldAction": {
+    "description": "Button that appends a new custom field to the entry form"
+  },
+  "entryFieldNameLabel": "Field name",
+  "@entryFieldNameLabel": {
+    "description": "Label for the name input of a custom field"
+  },
+  "entryFieldNameHint": "e.g. Recovery email",
+  "@entryFieldNameHint": {
+    "description": "Placeholder for the custom field name input"
+  },
+  "entryFieldValueLabel": "Value",
+  "@entryFieldValueLabel": {
+    "description": "Label for the value input of a custom field"
+  },
+  "entryFieldTypeLabel": "Type",
+  "@entryFieldTypeLabel": {
+    "description": "Label for the custom field type selector"
+  },
+  "entryFieldTypeText": "Text",
+  "@entryFieldTypeText": {
+    "description": "Custom field type — plain visible text"
+  },
+  "entryFieldTypeConcealed": "Hidden",
+  "@entryFieldTypeConcealed": {
+    "description": "Custom field type — a concealed value masked until revealed"
+  },
+  "entryFieldTypeTotp": "One-time code",
+  "@entryFieldTypeTotp": {
+    "description": "Custom field type — a time-based one-time password (TOTP)"
+  },
+  "entryFieldRemove": "Remove field",
+  "@entryFieldRemove": {
+    "description": "Tooltip for the button that deletes a custom field"
+  },
+  "entryFieldReorder": "Drag to reorder",
+  "@entryFieldReorder": {
+    "description": "Tooltip for the drag handle that reorders custom fields"
+  },
+  "entryFieldNameRequired": "Add a name for this field",
+  "@entryFieldNameRequired": {
+    "description": "Inline validation shown when a custom field has a value but no name"
+  },
+  "totpSetupTitle": "One-time code",
+  "@totpSetupTitle": {
+    "description": "Title of the TOTP setup bottom sheet"
+  },
+  "totpScanQr": "Scan QR code",
+  "@totpScanQr": {
+    "description": "Button that opens the camera to scan an authenticator QR code"
+  },
+  "totpOr": "or",
+  "@totpOr": {
+    "description": "Divider between the scan-QR option and manual TOTP entry"
+  },
+  "totpSetupKeyLabel": "Setup key",
+  "@totpSetupKeyLabel": {
+    "description": "Label for the input that accepts an otpauth:// URI or a base32 secret"
+  },
+  "totpSetupKeyHint": "otpauth://… or base32 secret",
+  "@totpSetupKeyHint": {
+    "description": "Placeholder for the TOTP setup key input"
+  },
+  "totpIssuerLabel": "Issuer (optional)",
+  "@totpIssuerLabel": {
+    "description": "Label for the optional TOTP issuer name"
+  },
+  "totpAccountLabel": "Account (optional)",
+  "@totpAccountLabel": {
+    "description": "Label for the optional TOTP account name"
+  },
+  "totpInvalidKey": "Enter a valid otpauth:// key or base32 secret",
+  "@totpInvalidKey": {
+    "description": "Inline validation when the TOTP setup key cannot be parsed"
+  },
+  "totpScanInstruction": "Point the camera at the authenticator QR code",
+  "@totpScanInstruction": {
+    "description": "Instruction shown on the QR scanner screen"
+  },
+  "totpScannerTitle": "Scan QR code",
+  "@totpScannerTitle": {
+    "description": "App bar title of the TOTP QR scanner screen"
+  },
+  "totpCameraDenied": "Camera access is off. Enable it in Settings, or paste the setup key instead.",
+  "@totpCameraDenied": {
+    "description": "Message shown when camera permission is denied for QR scanning"
+  },
+  "totpCameraOpenSettings": "Open settings",
+  "@totpCameraOpenSettings": {
+    "description": "Button that opens the OS settings to grant camera permission"
+  },
+  "totpConfigured": "One-time code configured",
+  "@totpConfigured": {
+    "description": "Status shown on a TOTP field once a secret is set"
+  },
+  "totpReplaceSecret": "Replace",
+  "@totpReplaceSecret": {
+    "description": "Button that replaces an already-configured TOTP secret"
+  },
+  "totpCodeCopied": "One-time code copied",
+  "@totpCodeCopied": {
+    "description": "Snackbar after copying a live TOTP code"
+  },
+  "totpInvalidConfigured": "Invalid code secret",
+  "@totpInvalidConfigured": {
+    "description": "Shown when a stored TOTP secret cannot generate a code"
+  },
+  "entryScriptLabel": "Script",
+  "@entryScriptLabel": {
+    "description": "Label for the script body input"
+  },
+  "entryScriptHint": "#!/usr/bin/env bash\\n…",
+  "@entryScriptHint": {
+    "description": "Placeholder for the script body input"
+  },
+  "entryInterpreterLabel": "Interpreter",
+  "@entryInterpreterLabel": {
+    "description": "Label for the script interpreter selector"
+  },
+  "entryScriptRefsLabel": "Credential references",
+  "@entryScriptRefsLabel": {
+    "description": "Section heading for a script's environment-variable references"
+  },
+  "entryInjectedDataLabel": "Injected vault data",
+  "@entryInjectedDataLabel": {
+    "description": "Section heading for a script's injected credential references"
+  },
+  "entryScriptRefsHint": "Map an environment variable to a field on another entry.",
+  "@entryScriptRefsHint": {
+    "description": "Explains what credential references do on a script entry"
+  },
+  "entryAddRefAction": "Add reference",
+  "@entryAddRefAction": {
+    "description": "Button that appends a new credential reference to a script"
+  },
+  "entryRefEnvLabel": "Environment variable",
+  "@entryRefEnvLabel": {
+    "description": "Label for the environment variable name of a script reference"
+  },
+  "entryRefEnvHint": "e.g. GITHUB_TOKEN",
+  "@entryRefEnvHint": {
+    "description": "Placeholder for the environment variable name"
+  },
+  "entryRefEntryLabel": "Entry",
+  "@entryRefEntryLabel": {
+    "description": "Label for the target entry of a script credential reference"
+  },
+  "entryRefFieldLabel": "Field",
+  "@entryRefFieldLabel": {
+    "description": "Label for the target field of a script credential reference"
+  },
+  "entryRefEntryHint": "Select an entry",
+  "@entryRefEntryHint": {
+    "description": "Placeholder for the entry autocomplete in a script reference"
+  },
+  "entryRefRemove": "Remove reference",
+  "@entryRefRemove": {
+    "description": "Tooltip for the button that deletes a script credential reference"
+  },
+  "entryScriptEmpty": "No script yet",
+  "@entryScriptEmpty": {
+    "description": "Empty state for a script entry detail with no body"
+  },
+  "entryRefsEmpty": "No credential references",
+  "@entryRefsEmpty": {
+    "description": "Empty state when a script has no credential references"
+  },
+  "entryTooLarge": "This entry is too large. Shorten the script or remove some fields.",
+  "@entryTooLarge": {
+    "description": "Shown when the encrypted payload exceeds the backend's size limit"
+  },
+  "entryScriptExecOnlyTitle": "EXEC-ONLY DELIVERY",
+  "@entryScriptExecOnlyTitle": {
+    "description": "Uppercase title of the script security warning box"
+  },
+  "entryScriptExecOnlyNotice": "Runs on the agent via palladin exec — agents execute it, never read it.",
+  "@entryScriptExecOnlyNotice": {
+    "description": "Calm exec-only annotation shown below the script editor"
+  },
+  "entryScriptFooter": "{interpreter} · {lines, plural, one{1 line} other{{lines} lines}}",
+  "@entryScriptFooter": {
+    "description": "Script editor footer — interpreter name and line count",
+    "placeholders": {
+      "interpreter": { "type": "String" },
+      "lines": { "type": "int" }
+    }
+  },
+  "entryFieldTypeMultiline": "Multiline",
+  "@entryFieldTypeMultiline": {
+    "description": "Custom field type — multi-line monospace text (configs, keys)"
+  },
+  "entryFieldTypeTextHint": "single line",
+  "@entryFieldTypeTextHint": {
+    "description": "Hint next to the Text field type in the add-field menu"
+  },
+  "entryFieldTypeMultilineHint": "notes, config",
+  "@entryFieldTypeMultilineHint": {
+    "description": "Hint next to the Multiline field type in the add-field menu"
+  },
+  "entryFieldTypeConcealedHint": "masked",
+  "@entryFieldTypeConcealedHint": {
+    "description": "Hint next to the Hidden field type in the add-field menu"
+  },
+  "entryFieldAgentVisible": "Visible to agents",
+  "@entryFieldAgentVisible": {
+    "description": "Row-menu toggle that exposes a field to agents as discovery metadata"
+  },
+  "entryFieldAgentVisibleTip": "Visible to agents in your organization — shown in agent discovery without a grant. Only for non-secret helper info.",
+  "@entryFieldAgentVisibleTip": {
+    "description": "Tooltip explaining the agent-visible field indicator"
+  },
+  "entryFieldOn": "On",
+  "@entryFieldOn": {
+    "description": "Trailing state for an enabled toggle in a field menu"
+  },
+  "entryFieldOff": "Off",
+  "@entryFieldOff": {
+    "description": "Trailing state for a disabled toggle in a field menu"
+  },
+  "entryFieldMoveUp": "Move up",
+  "@entryFieldMoveUp": {
+    "description": "Field menu action — move the field one position up"
+  },
+  "entryFieldMoveDown": "Move down",
+  "@entryFieldMoveDown": {
+    "description": "Field menu action — move the field one position down"
+  },
+  "entryFieldMenu": "Field options",
+  "@entryFieldMenu": {
+    "description": "Tooltip for the per-field overflow (⋯) button"
+  },
+  "entryVisibleToAgents": "visible to agents",
+  "@entryVisibleToAgents": {
+    "description": "Subtle hint appended to the Label and Description field captions"
+  },
+  "totpSectionTitle": "Two-factor authentication",
+  "@totpSectionTitle": {
+    "description": "Section header for the entry's TOTP two-factor code"
+  },
+  "totpEmptyHint": "Add a time-based code (TOTP) to autofill 2FA for this login.",
+  "@totpEmptyHint": {
+    "description": "Explanation shown in the empty 2FA section"
+  },
+  "totpAdd": "Add 2FA",
+  "@totpAdd": {
+    "description": "Button that starts TOTP setup in the empty 2FA section"
+  },
+  "totpRotates": "rotates every 30 s",
+  "@totpRotates": {
+    "description": "Subtitle on a configured 2FA card"
+  },
+  "totpCopyCode": "Copy code",
+  "@totpCopyCode": {
+    "description": "2FA card menu action — copy the current one-time code"
+  },
+  "totpRemove": "Remove 2FA",
+  "@totpRemove": {
+    "description": "2FA card menu action — delete the TOTP secret"
+  },
+  "entryAddNotes": "Add notes",
+  "@entryAddNotes": {
+    "description": "Ghost affordance that reveals the optional Notes field"
+  },
   "settingsScreenTitle": "Settings",
   "@settingsScreenTitle": {
     "description": "Title of the dedicated settings screen (organization details)"

@@ -154,6 +154,7 @@ lib/
 | `AppSearchField` | `lib/core/widgets/app_search_field.dart` | Search input (wraps `OnboardingTextField`) with optional filter toggle (`tune` icon). Params: `controller`, `hint`, `onChanged`, `filterActive`, `onToggleFilter` |
 | `SkeletonBox` | `lib/core/widgets/skeleton_box.dart` | The only skeleton primitive — never reimplement the opacity loop. Params: `height`, `borderRadius` (default 12), `delay` (stagger) |
 | `SheetActionButtons` | `lib/core/widgets/sheet_action_buttons.dart` | Cancel (1×) + Confirm (2×) footer band for modal sheets. Params: `onCancel`, `onConfirm`, `confirmLabel`, `confirmColor`, `cancelLabel`, `busy` |
+| `AppMenuSheet` | `lib/core/widgets/app_menu_sheet.dart` | `showAppMenuSheet<T>({title, items})` — native bottom-sheet action menu (the mobile "⋯" popover). `AppMenuItem<T>(value, icon, label, trailing?, danger, dividerBefore)`. Use for row/overflow menus instead of hand-rolling a sheet |
 | `WarningZone` | `lib/core/widgets/warning_zone.dart` | Amber-bordered security warning box. Params: `title` (uppercase), `message` |
 | `ApproveActionButton` | `lib/core/widgets/approve_action_button.dart` | Full-width green-tinted approve CTA. Params: `label`, `onPressed`, `icon`, `isLoading`, `height` (default 44) |
 | `AppToggle` | `lib/core/widgets/app_toggle.dart` | Compact 32×18 pill toggle (brandRed when ON). Params: `value`, `onChanged` (null = locked/dimmed) |
