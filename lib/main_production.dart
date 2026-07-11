@@ -18,7 +18,19 @@ import 'core/storage/user_preferences.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final config = EnvConfig.production();
+  const backendEnvironment = String.fromEnvironment(
+    'PALLADIN_BACKEND_ENVIRONMENT',
+    defaultValue: 'production',
+  );
+  if (backendEnvironment != 'staging' && backendEnvironment != 'production') {
+    throw StateError(
+      'Unsupported PALLADIN_BACKEND_ENVIRONMENT: $backendEnvironment',
+    );
+  }
+
+  final config = EnvConfig.production(
+    useStagingBackend: backendEnvironment == 'staging',
+  );
 
   await AnalyticsService.instance.init(config);
   await AnalyticsHeadersService.instance.init();
@@ -29,10 +41,12 @@ void main() async {
   final themeMode = await prefs.themeMode;
   final locale = await prefs.locale;
 
-  runApp(PalladinApp(
-    config: config,
-    userPreferences: prefs,
-    initialThemeMode: themeMode,
-    initialLocale: locale,
-  ));
+  runApp(
+    PalladinApp(
+      config: config,
+      userPreferences: prefs,
+      initialThemeMode: themeMode,
+      initialLocale: locale,
+    ),
+  );
 }
