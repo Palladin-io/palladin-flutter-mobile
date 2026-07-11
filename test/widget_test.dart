@@ -20,4 +20,16 @@ void main() {
     expect(config.isStaging, isFalse);
     expect(config.isProduction, isTrue);
   });
+
+  test(
+    'EnvConfig store testing keeps production identity with staging API',
+    () {
+      final config = EnvConfig.production(useStagingBackend: true);
+      expect(config.flavor, AppFlavor.production);
+      expect(config.appName, 'Palladin');
+      expect(config.apiBaseUrl, 'https://api.stage.palladin.io');
+      expect(config.isStaging, isFalse);
+      expect(config.isProduction, isTrue);
+    },
+  );
 }

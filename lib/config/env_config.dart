@@ -23,6 +23,7 @@ class EnvConfig {
   final String apiBaseUrl;
   final String posthogKey;
   final String posthogHost;
+
   /// Google OAuth web client ID used as `serverClientId` in GoogleSignIn.
   /// Ensures the ID token audience matches what the backend validates against.
   final String googleServerClientId;
@@ -44,7 +45,8 @@ class EnvConfig {
       posthogKey: '',
       posthogHost: 'https://app.posthog.com',
       // Staging Firebase project used for local development
-      googleServerClientId: '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
+      googleServerClientId:
+          '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
     );
   }
 
@@ -56,19 +58,26 @@ class EnvConfig {
       apiBaseUrl: 'https://api.stage.palladin.io',
       posthogKey: '', // TODO: Add PostHog staging project key
       posthogHost: 'https://app.posthog.com',
-      googleServerClientId: '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
+      googleServerClientId:
+          '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
     );
   }
 
-  /// Production environment targeting `api.palladin.io`.
-  factory EnvConfig.production() {
-    return const EnvConfig._(
+  /// Production distribution configuration.
+  ///
+  /// Store testing keeps the production app identity and Firebase/signing
+  /// configuration while temporarily targeting the staging API.
+  factory EnvConfig.production({bool useStagingBackend = false}) {
+    return EnvConfig._(
       flavor: AppFlavor.production,
       appName: 'Palladin',
-      apiBaseUrl: 'https://api.palladin.io',
+      apiBaseUrl: useStagingBackend
+          ? 'https://api.stage.palladin.io'
+          : 'https://api.palladin.io',
       posthogKey: '', // TODO: Add PostHog production project key
       posthogHost: 'https://app.posthog.com',
-      googleServerClientId: '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
+      googleServerClientId:
+          '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
       // Empty until the production certificate is issued (pinning disabled).
       certificatePins: [],
     );

@@ -8,7 +8,21 @@ The `Mobile Store Builds` GitHub Actions workflow creates store-ready artifacts:
 Run it manually from GitHub Actions and choose:
 
 - `flavor`: `staging` or `production`
+- `backend_environment`: `matching`, `staging`, or `production`
 - `platform`: `both`, `android`, or `ios`
+
+For Google Play closed testing and TestFlight, build with:
+
+- `flavor`: `production`
+- `backend_environment`: `staging`
+- `platform`: `both` (or the store currently being configured)
+
+This produces the final store identities (`io.palladin.mobile` and
+`io.palladin.mobile.CredentialProvider`) with production Firebase/signing,
+while API traffic still goes to `https://api.stage.palladin.io`. Moving the
+same store app to the production backend requires a new build with
+`backend_environment: production`; package and bundle identifiers do not
+change.
 
 The app version is read from `pubspec.yaml`:
 

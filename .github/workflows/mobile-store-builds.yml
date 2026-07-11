@@ -4,11 +4,20 @@ on:
   workflow_dispatch:
     inputs:
       flavor:
-        description: App flavor to build.
+        description: Distribution identity, Firebase config, and signing profile.
         required: true
         default: staging
         type: choice
         options:
+          - staging
+          - production
+      backend_environment:
+        description: API environment. Use staging with production for store testing.
+        required: true
+        default: matching
+        type: choice
+        options:
+          - matching
           - staging
           - production
       platform:
@@ -25,7 +34,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: mobile-store-${{ github.ref }}-${{ inputs.flavor }}
+  group: mobile-store-${{ github.ref }}-${{ inputs.flavor }}-${{ inputs.backend_environment }}
   cancel-in-progress: false
 
 jobs:
@@ -99,9 +108,31 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Select runtime configuration
+        id: runtime_config
+        env:
+          FLAVOR: ${{ inputs.flavor }}
+          BACKEND_ENVIRONMENT: ${{ inputs.backend_environment }}
+        run: |
+          set -euo pipefail
+
+          backend_environment="${BACKEND_ENVIRONMENT}"
+          if [ "${backend_environment}" = "matching" ]; then
+            backend_environment="${FLAVOR}"
+          fi
+          if [ "${FLAVOR}" = "staging" ] && [ "${backend_environment}" != "staging" ]; then
+            echo "::error::The staging distribution can only target the staging backend"
+            exit 1
+          fi
+
+          echo "backend_environment=${backend_environment}" >> "$GITHUB_OUTPUT"
+          echo "target=lib/main_${FLAVOR}.dart" >> "$GITHUB_OUTPUT"
+
       - name: Build Android App Bundle
         env:
           FLAVOR: ${{ inputs.flavor }}
+          BACKEND_ENVIRONMENT: ${{ steps.runtime_config.outputs.backend_environment }}
+          TARGET: ${{ steps.runtime_config.outputs.target }}
           BUILD_NAME: ${{ steps.app_version.outputs.build_name }}
           BUILD_NUMBER: ${{ steps.app_version.outputs.build_number }}
         run: |
@@ -109,14 +140,15 @@ jobs:
           flutter build appbundle \
             --release \
             --flavor "${FLAVOR}" \
-            -t "lib/main_${FLAVOR}.dart" \
+            -t "${TARGET}" \
+            --dart-define="PALLADIN_BACKEND_ENVIRONMENT=${BACKEND_ENVIRONMENT}" \
             --build-name "${BUILD_NAME}" \
             --build-number "${BUILD_NUMBER}"
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
-          name: palladin-${{ inputs.flavor }}-android-aab
+          name: palladin-${{ inputs.flavor }}-${{ steps.runtime_config.outputs.backend_environment }}-api-android-aab
           path: build/app/outputs/bundle/${{ inputs.flavor }}Release/*.aab
           if-no-files-found: error
           retention-days: 14
@@ -344,9 +376,31 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Select runtime configuration
+        id: runtime_config
+        env:
+          FLAVOR: ${{ inputs.flavor }}
+          BACKEND_ENVIRONMENT: ${{ inputs.backend_environment }}
+        run: |
+          set -euo pipefail
+
+          backend_environment="${BACKEND_ENVIRONMENT}"
+          if [ "${backend_environment}" = "matching" ]; then
+            backend_environment="${FLAVOR}"
+          fi
+          if [ "${FLAVOR}" = "staging" ] && [ "${backend_environment}" != "staging" ]; then
+            echo "::error::The staging distribution can only target the staging backend"
+            exit 1
+          fi
+
+          echo "backend_environment=${backend_environment}" >> "$GITHUB_OUTPUT"
+          echo "target=lib/main_${FLAVOR}.dart" >> "$GITHUB_OUTPUT"
+
       - name: Build iOS IPA
         env:
           FLAVOR: ${{ inputs.flavor }}
+          BACKEND_ENVIRONMENT: ${{ steps.runtime_config.outputs.backend_environment }}
+          TARGET: ${{ steps.runtime_config.outputs.target }}
           BUILD_NAME: ${{ steps.app_version.outputs.build_name }}
           BUILD_NUMBER: ${{ steps.app_version.outputs.build_number }}
         run: |
@@ -354,7 +408,8 @@ jobs:
           flutter build ipa \
             --release \
             --flavor "${FLAVOR}" \
-            -t "lib/main_${FLAVOR}.dart" \
+            -t "${TARGET}" \
+            --dart-define="PALLADIN_BACKEND_ENVIRONMENT=${BACKEND_ENVIRONMENT}" \
             --build-name "${BUILD_NAME}" \
             --build-number "${BUILD_NUMBER}" \
             --export-options-plist=ios/ExportOptions.plist
@@ -362,7 +417,7 @@ jobs:
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: palladin-${{ inputs.flavor }}-ios-ipa
+          name: palladin-${{ inputs.flavor }}-${{ steps.runtime_config.outputs.backend_environment }}-api-ios-ipa
           path: build/ios/ipa/*.ipa
           if-no-files-found: error
           retention-days: 14

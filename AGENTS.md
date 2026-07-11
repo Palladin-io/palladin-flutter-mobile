@@ -78,6 +78,12 @@ Three flavors: **local**, **staging**, **production**. Each has its own entry po
 
 Config class: `lib/config/env_config.dart` — `EnvConfig.local()` / `EnvConfig.staging()` / `EnvConfig.production()`.
 
+Store testing is the one intentional exception to flavor/API matching: build
+the `production` flavor with `PALLADIN_BACKEND_ENVIRONMENT=staging`. This keeps
+the immutable store identity (`io.palladin.mobile`), production Firebase, and
+production signing while targeting the staging API. Never upload the
+`io.palladin.mobile.staging` package as the app that will later go to production.
+
 ### Android
 - Product flavors in `android/app/build.gradle.kts` (`staging`, `production`)
 - Firebase: place per-flavor `google-services.json` in `android/app/src/{flavor}/`
