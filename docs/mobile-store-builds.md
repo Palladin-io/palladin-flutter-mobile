@@ -9,8 +9,19 @@ Run it manually from GitHub Actions and choose:
 
 - `flavor`: `staging` or `production`
 - `platform`: `both`, `android`, or `ios`
-- `build_name`: semantic app version, for example `1.0.0`
-- `build_number`: store build number; if empty, GitHub run number is used
+
+The app version is read from `pubspec.yaml`:
+
+```yaml
+version: 0.1.0+1
+```
+
+Flutter maps this to:
+
+- `build-name`: `0.1.0`
+- `build-number`: `1`
+
+Before every store upload, increment the build number after `+`. Store build numbers must be monotonically increasing.
 
 ## Android Secrets
 

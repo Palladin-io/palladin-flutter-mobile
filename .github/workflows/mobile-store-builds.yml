@@ -20,13 +20,6 @@ on:
           - both
           - android
           - ios
-      build_name:
-        description: Version name, for example 1.0.0.
-        required: true
-        default: 1.0.0
-      build_number:
-        description: Store build number. Defaults to the GitHub run number when empty.
-        required: false
 
 permissions:
   contents: read
@@ -45,6 +38,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Read Flutter version
+        id: app_version
+        run: |
+          set -euo pipefail
+
+          version_line="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | head -n 1)"
+          build_name="${version_line%%+*}"
+          build_number="${version_line##*+}"
+
+          if [ -z "${version_line}" ] || [ "${build_name}" = "${version_line}" ] || [ -z "${build_number}" ]; then
+            echo "::error::pubspec.yaml must define version as '<version>+<buildNumber>', for example '1.0.0+1'"
+            exit 1
+          fi
+          if ! [[ "${build_number}" =~ ^[0-9]+$ ]]; then
+            echo "::error::pubspec.yaml build number must be numeric: ${build_number}"
+            exit 1
+          fi
+
+          echo "build_name=${build_name}" >> "$GITHUB_OUTPUT"
+          echo "build_number=${build_number}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -88,12 +102,10 @@ jobs:
       - name: Build Android App Bundle
         env:
           FLAVOR: ${{ inputs.flavor }}
-          BUILD_NAME: ${{ inputs.build_name }}
-          BUILD_NUMBER_INPUT: ${{ inputs.build_number }}
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          BUILD_NAME: ${{ steps.app_version.outputs.build_name }}
+          BUILD_NUMBER: ${{ steps.app_version.outputs.build_number }}
         run: |
           set -euo pipefail
-          BUILD_NUMBER="${BUILD_NUMBER_INPUT:-$GITHUB_RUN_NUMBER}"
           flutter build appbundle \
             --release \
             --flavor "${FLAVOR}" \
@@ -118,6 +130,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Read Flutter version
+        id: app_version
+        run: |
+          set -euo pipefail
+
+          version_line="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | head -n 1)"
+          build_name="${version_line%%+*}"
+          build_number="${version_line##*+}"
+
+          if [ -z "${version_line}" ] || [ "${build_name}" = "${version_line}" ] || [ -z "${build_number}" ]; then
+            echo "::error::pubspec.yaml must define version as '<version>+<buildNumber>', for example '1.0.0+1'"
+            exit 1
+          fi
+          if ! [[ "${build_number}" =~ ^[0-9]+$ ]]; then
+            echo "::error::pubspec.yaml build number must be numeric: ${build_number}"
+            exit 1
+          fi
+
+          echo "build_name=${build_name}" >> "$GITHUB_OUTPUT"
+          echo "build_number=${build_number}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -313,13 +346,11 @@ jobs:
       - name: Build iOS IPA
         env:
           FLAVOR: ${{ inputs.flavor }}
-          BUILD_NAME: ${{ inputs.build_name }}
-          BUILD_NUMBER_INPUT: ${{ inputs.build_number }}
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          BUILD_NAME: ${{ steps.app_version.outputs.build_name }}
+          BUILD_NUMBER: ${{ steps.app_version.outputs.build_number }}
           IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
         run: |
           set -euo pipefail
-          BUILD_NUMBER="${BUILD_NUMBER_INPUT:-$GITHUB_RUN_NUMBER}"
           export DEVELOPMENT_TEAM="${IOS_TEAM_ID}"
           flutter build ipa \
             --release \
