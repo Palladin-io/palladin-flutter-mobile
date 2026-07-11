@@ -89,12 +89,12 @@ jobs:
           done
 
           printf '%s' "${ANDROID_UPLOAD_KEYSTORE_BASE64}" | base64 --decode > android/upload-keystore.jks
-          cat > android/key.properties <<EOF
-          storePassword=${ANDROID_KEYSTORE_PASSWORD}
-          keyPassword=${ANDROID_KEY_PASSWORD}
-          keyAlias=${ANDROID_KEY_ALIAS}
-          storeFile=upload-keystore.jks
-          EOF
+          {
+            printf '%s=%s\n' 'storePassword' "${ANDROID_KEYSTORE_PASSWORD}"
+            printf '%s=%s\n' 'keyPassword' "${ANDROID_KEY_PASSWORD}"
+            printf '%s=%s\n' 'keyAlias' "${ANDROID_KEY_ALIAS}"
+            printf '%s=%s\n' 'storeFile' 'upload-keystore.jks'
+          } > android/key.properties
 
       - name: Install dependencies
         run: flutter pub get
@@ -236,7 +236,8 @@ jobs:
           security set-keychain-settings -lut 21600 "${keychain_path}"
           security unlock-keychain -p "${keychain_password}" "${keychain_path}"
           security import "${cert_path}" -P "${IOS_DISTRIBUTION_CERTIFICATE_PASSWORD}" -A -t cert -f pkcs12 -k "${keychain_path}"
-          security list-keychains -d user -s "${keychain_path}"
+          original_keychains="$(security list-keychains -d user | sed 's/[ "]//g')"
+          security list-keychains -d user -s "${keychain_path}" ${original_keychains}
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${keychain_password}" "${keychain_path}"
 
           mkdir -p "${HOME}/Library/MobileDevice/Provisioning Profiles"
@@ -348,10 +349,8 @@ jobs:
           FLAVOR: ${{ inputs.flavor }}
           BUILD_NAME: ${{ steps.app_version.outputs.build_name }}
           BUILD_NUMBER: ${{ steps.app_version.outputs.build_number }}
-          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
         run: |
           set -euo pipefail
-          export DEVELOPMENT_TEAM="${IOS_TEAM_ID}"
           flutter build ipa \
             --release \
             --flavor "${FLAVOR}" \

@@ -55,6 +55,9 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     }
 
     private func showLockedMessage() {
-        statusLabel.text = "Open Palladin, unlock your vault, and sync AutoFill before using this provider."
+        statusLabel.text = NSLocalizedString(
+            "credential_provider_locked",
+            comment: "Message shown when the AutoFill credential provider cannot return credentials because Palladin is locked."
+        )
     }
 }

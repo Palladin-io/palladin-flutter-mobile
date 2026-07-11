@@ -12,9 +12,12 @@ plugins {
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 val hasReleaseKeystore = keystorePropertiesFile.exists()
+val isCiBuild = System.getenv("CI") == "true"
 
 if (hasReleaseKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+} else if (isCiBuild) {
+    throw GradleException("Missing release keystore in CI. Generate android/key.properties before building release artifacts.")
 }
 
 android {
