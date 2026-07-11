@@ -49,10 +49,7 @@ abstract interface class EntryRepository {
   });
 
   /// Permanently deletes an entry.
-  Future<void> deleteEntry({
-    required String vaultId,
-    required String entryId,
-  });
+  Future<void> deleteEntry({required String vaultId, required String entryId});
 
   /// Fetches an entry's encrypted payload, unwraps the vault's VK with
   /// [privateKey], and returns the decrypted plaintext payload bundled
@@ -147,6 +144,15 @@ abstract interface class EntryRepository {
   /// zeroed in `finally`; the returned payloads are plaintext and must be
   /// handled (and discarded) carefully by the caller.
   Future<List<RevealedEntry>> revealAllEntries({
+    required String vaultId,
+    required Uint8List privateKey,
+    String? wrappedVK,
+  });
+
+  /// Reveals only domain-addressable `CREDENTIAL` entries for the native
+  /// system AutoFill cache. Entries without a usable domain and all KEY /
+  /// SCRIPT payloads are skipped before their encrypted detail is fetched.
+  Future<List<RevealedEntry>> revealAutoFillCredentials({
     required String vaultId,
     required Uint8List privateKey,
     String? wrappedVK,

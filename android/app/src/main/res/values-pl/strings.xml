@@ -2,4 +2,7 @@
 <resources>
     <string name="autofill_service_label">Autouzupełnianie Palladin</string>
     <string name="autofill_unlock_label">Odblokuj Palladin, aby uzupełnić dane</string>
+    <string name="autofill_biometric_title">Odblokuj Palladin</string>
+    <string name="autofill_biometric_subtitle">Użyj biometrii, aby uzupełnić dane dla %1$s</string>
+    <string name="autofill_cancel">Anuluj</string>
 </resources>

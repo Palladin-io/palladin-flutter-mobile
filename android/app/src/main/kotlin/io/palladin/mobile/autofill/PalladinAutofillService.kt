@@ -13,16 +13,15 @@ import android.text.InputType
 import android.view.View
 import android.view.autofill.AutofillId
 import android.widget.RemoteViews
-import io.palladin.mobile.MainActivity
 import io.palladin.mobile.R
 
 /**
  * System Autofill entry point.
  *
- * This first stage deliberately exposes no credential data. It only detects a
- * login form and offers an authenticated action that opens Palladin. A later
- * stage will replace that action with domain-matched datasets decrypted from
- * an OS-protected cache after explicit user authentication.
+ * It detects a domain-addressable login form and exposes only a biometric
+ * authentication action. Credential values stay encrypted until
+ * [AutofillAuthenticationActivity] completes a Keystore-bound biometric
+ * operation and returns domain-matched datasets.
  */
 class PalladinAutofillService : AutofillService() {
     override fun onFillRequest(
@@ -42,21 +41,29 @@ class PalladinAutofillService : AutofillService() {
         }
 
         val fields = CredentialFieldIds.from(structure)
-        if (fields.passwordIds.isEmpty()) {
+        val domain = CredentialFieldIds.domainFrom(structure)
+        val cacheStore = AutoFillCacheStore(this)
+        if (fields.passwordIds.isEmpty() || domain == null || !cacheStore.hasCache()) {
             callback.onSuccess(null)
             return
         }
 
-        val launchIntent = Intent(this, MainActivity::class.java).apply {
-            action = ACTION_UNLOCK_FOR_AUTOFILL
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            putExtra(EXTRA_AUTOFILL_UNLOCK_REQUESTED, true)
+        val launchIntent = Intent(this, AutofillAuthenticationActivity::class.java).apply {
+            putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, domain)
+            putParcelableArrayListExtra(
+                AutofillAuthenticationActivity.EXTRA_USERNAME_IDS,
+                ArrayList(fields.usernameIds),
+            )
+            putParcelableArrayListExtra(
+                AutofillAuthenticationActivity.EXTRA_PASSWORD_IDS,
+                ArrayList(fields.passwordIds),
+            )
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
-            AUTOFILL_UNLOCK_REQUEST_CODE,
+            domain.hashCode(),
             launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val presentation = RemoteViews(packageName, R.layout.autofill_unlock_prompt)
         val response = FillResponse.Builder()
@@ -71,8 +78,8 @@ class PalladinAutofillService : AutofillService() {
     }
 
     override fun onSaveRequest(request: SaveRequest, callback: SaveCallback) {
-        // Saving credentials is intentionally unsupported until the encrypted
-        // native cache and an explicit user-confirmation flow are implemented.
+        // Saving credentials requires an explicit user-confirmation flow and
+        // is intentionally outside the current MVP implementation.
         callback.onSuccess()
     }
 
@@ -97,6 +104,17 @@ class PalladinAutofillService : AutofillService() {
                 return CredentialFieldIds(usernames, passwords)
             }
 
+            fun domainFrom(structure: AssistStructure): String? {
+                val domains = mutableSetOf<String>()
+                for (index in 0 until structure.windowNodeCount) {
+                    collectDomains(
+                        structure.getWindowNodeAt(index).rootViewNode,
+                        domains,
+                    )
+                }
+                return domains.singleOrNull()
+            }
+
             private fun collect(
                 node: AssistStructure.ViewNode,
                 usernames: MutableList<AutofillId>,
@@ -111,6 +129,16 @@ class PalladinAutofillService : AutofillService() {
                 }
                 for (index in 0 until node.childCount) {
                     collect(node.getChildAt(index), usernames, passwords)
+                }
+            }
+
+            private fun collectDomains(
+                node: AssistStructure.ViewNode,
+                domains: MutableSet<String>,
+            ) {
+                AutoFillCacheStore.normalizeDomain(node.webDomain)?.let(domains::add)
+                for (index in 0 until node.childCount) {
+                    collectDomains(node.getChildAt(index), domains)
                 }
             }
 
@@ -150,9 +178,4 @@ class PalladinAutofillService : AutofillService() {
         }
     }
 
-    private companion object {
-        const val ACTION_UNLOCK_FOR_AUTOFILL = "io.palladin.mobile.action.UNLOCK_FOR_AUTOFILL"
-        const val EXTRA_AUTOFILL_UNLOCK_REQUESTED = "palladin.autofill.unlock_requested"
-        const val AUTOFILL_UNLOCK_REQUEST_CODE = 276
-    }
 }

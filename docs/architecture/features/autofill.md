@@ -4,57 +4,62 @@ Linear: CVT-276
 
 ## Current state
 
-- iOS embeds a signed `ASCredentialProviderExtension`. It fails closed with
-  `userInteractionRequired` and does not expose credentials yet.
-- Android registers `PalladinAutofillService`. It detects credential forms and
-  offers an authenticated action that opens Palladin. It does not read, save,
-  cache, or return credential values yet.
+- Flutter rebuilds a dedicated native cache after vault unlock and after vault
+  or entry mutations. Only credential entries with a normalized web domain are
+  included. Logout and account removal clear the cache and its platform key.
+- iOS embeds a signed `ASCredentialProviderExtension`, publishes credential
+  identities to `ASCredentialIdentityStore`, and releases credentials only
+  after Keychain biometric authorization.
+- Android registers `PalladinAutofillService` and releases domain-matched
+  datasets only after a Keystore-bound `BiometricPrompt` operation.
+- Android currently fails closed for native application forms that do not
+  expose a trustworthy `webDomain`. Package-to-domain association is not
+  inferred from a package name.
 
 ## Security contract
 
-1. MK, VK, the user's private key, decrypted vault payloads, passwords, and
-   TOTP seeds never enter App Groups, SharedPreferences, logs, analytics, or an
-   unprotected file.
+1. MK, VK, the user's private key, decrypted vault payloads, plaintext
+   passwords, and TOTP seeds never enter App Groups, SharedPreferences, logs,
+   analytics, or an unprotected file.
 2. Native providers never query the backend directly and never receive the
    user's vault keys.
-3. A future provider cache stores only per-platform ciphertext encrypted with
-   a dedicated random AutoFill key. This key is not derived from MK/VK and is
-   protected by Keychain/Keystore with user-presence requirements.
-4. Domain/package matching happens before decrypting a record. Ambiguous,
-   missing, or mismatched service identifiers fail closed.
-5. Logout, account deletion, disabling AutoFill, or biometric-set changes wipe
-   the cache and its dedicated key. Vault lock requires fresh provider
-   authentication before a credential can be returned.
-6. Plaintext exists only for the selected record and only long enough to build
-   the OS credential response. Temporary byte buffers are wiped on every exit
-   path.
+3. The provider cache stores platform ciphertext encrypted with a dedicated
+   random AutoFill key. This key is not derived from MK/VK and is protected by
+   Keychain/Keystore with biometric-set invalidation.
+4. Missing, ambiguous, or mismatched service identifiers fail closed. Native
+   Android application filling remains disabled until Palladin has a verified
+   package-to-domain association model.
+5. Logout and account deletion wipe the cache and its dedicated key. A
+   biometric-set change invalidates that key. Vault lock requires fresh
+   provider authentication before a credential can be returned.
+6. Plaintext exists only after successful provider authentication and only long
+   enough to build the OS credential response. Temporary byte buffers are
+   wiped where platform APIs expose mutable storage.
 
-## Delivery stages
+## Cache lifecycle
 
-### 1. Provider registration and locked flow
+1. Unlock synchronizes eligible credentials from server ciphertext using the
+   in-memory private key already held by `AuthBloc`.
+2. Create, update, delete, import, vault create, and vault delete clear the old
+   cache before rebuilding it. A failed rebuild therefore leaves no stale
+   password available to AutoFill.
+3. Ordinary vault lock keeps the encrypted cache so AutoFill can operate after
+   a fresh OS biometric challenge. The Flutter private key is never copied into
+   the native provider.
+4. Logout clears cache ciphertext, the dedicated platform key, and iOS
+   credential identities.
+5. A biometric-set change invalidates the platform key. A failed read clears
+   the unusable Android cache; iOS remains unavailable until the next unlocked
+   synchronization replaces its cache and key.
 
-- iOS extension embedded and signed.
-- Android service registered with `BIND_AUTOFILL_SERVICE`.
-- Both platforms expose no credential data and direct the user to unlock.
+## Required device QA
 
-### 2. Encrypted native cache
-
-- Flutter sends credential records only while the vault is unlocked.
-- iOS app encrypts records into its App Group; the extension accesses only a
-  dedicated shared Keychain key guarded by user presence.
-- Android encrypts records in private app storage with an
-  authentication-bound Android Keystore key.
-- Cache index contains normalized service identifiers and opaque record IDs;
-  username/password remain encrypted.
-
-### 3. Domain-matched fill
-
-- Generate/update iOS `ASPasswordCredentialIdentity` records.
-- Build iOS and Android datasets only from exact normalized domain/package
-  matches.
-- Decrypt only the selected credential after OS authentication.
-- Add settings/deep links, cache lifecycle wiring, and manual QA for Chrome and
-  one native Android login plus Safari and one native iOS login.
+- Android: Chrome login form, biometric success/cancel/failure, stale-cache
+  mutation test, logout wipe, biometric enrollment change.
+- iOS: Safari login form, identity selection, biometric success/cancel/failure,
+  stale-cache mutation test, logout wipe, biometric enrollment change.
+- Native Android application forms are expected to return no datasets until a
+  verified package association model is implemented.
 
 ## Native files
 

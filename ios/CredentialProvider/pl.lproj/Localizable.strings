@@ -1,1 +1,5 @@
 "credential_provider_locked" = "Otwórz Palladin, odblokuj vault i zsynchronizuj AutoFill przed użyciem tego dostawcy.";
+"credential_provider_unlocking" = "Uwierzytelnij się, aby odblokować dane logowania.";
+"credential_provider_biometric_prompt" = "Uwierzytelnij się, aby użyć autouzupełniania Palladin";
+"credential_provider_no_matches" = "Brak danych logowania pasujących do tej witryny lub aplikacji.";
+"credential_provider_unavailable" = "Autouzupełnianie jest niedostępne. Otwórz Palladin i odblokuj sejf, aby je odświeżyć.";

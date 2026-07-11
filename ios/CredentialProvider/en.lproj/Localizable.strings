@@ -1,1 +1,5 @@
 "credential_provider_locked" = "Open Palladin, unlock your vault, and sync AutoFill before using this provider.";
+"credential_provider_unlocking" = "Authenticate to unlock your credentials.";
+"credential_provider_biometric_prompt" = "Authenticate to use Palladin AutoFill";
+"credential_provider_no_matches" = "No credentials match this website or app.";
+"credential_provider_unavailable" = "AutoFill is unavailable. Open Palladin and unlock your vault to refresh it.";

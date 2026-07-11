@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -15,6 +17,8 @@ import 'core/widgets/privacy_cover.dart';
 import 'features/agents/presentation/bloc/agents_cubit.dart';
 import 'features/approval/presentation/cubit/pending_grants_cubit.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/autofill/data/autofill_cache_service.dart';
+import 'features/autofill/data/autofill_mutation_notifier.dart';
 import 'features/notifications/data/services/notification_signalr_service.dart';
 import 'features/notifications/data/services/push_notification_service.dart';
 import 'features/notifications/domain/entities/push_message.dart';
@@ -53,6 +57,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
 
   final PushNavigationCubit _pushNavigationCubit = getIt<PushNavigationCubit>();
   final PushNotificationService _pushService = getIt<PushNotificationService>();
+  final AutoFillCacheService _autoFillCache = getIt<AutoFillCacheService>();
+  late final StreamSubscription<void> _autoFillMutationSubscription;
 
   // In-app real-time channel (foreground). Works on the simulator too, unlike
   // FCM. Connected while authenticated; FCM/APNs covers the background.
@@ -75,6 +81,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     _pushService.onMessageReceived = _onForegroundPush;
     // In-app real-time over SignalR → same refresh handler.
     _signalR.onNotification = _onSignalRNotification;
+    _autoFillMutationSubscription = getIt<AutoFillMutationNotifier>().changes
+        .listen((_) => unawaited(_onAutoFillMutation()));
     // Handle a cold start triggered by a notification tap. Guard on `mounted`
     // — if the app is torn down before the future resolves, the cubit may
     // already be closed (Bad state: Cubit is already closed).
@@ -87,6 +95,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _autoFillMutationSubscription.cancel();
     _signalR.disconnect();
     _authBloc.close();
     super.dispose();
@@ -191,6 +200,21 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
             listenWhen: (prev, curr) => prev.runtimeType != curr.runtimeType,
             listener: _onAuthStateChanged,
           ),
+          BlocListener<AuthBloc, AuthState>(
+            listenWhen: (previous, current) =>
+                current is AuthAuthenticated &&
+                !current.isVaultLocked &&
+                current.privateKey != null &&
+                (previous is! AuthAuthenticated || previous.isVaultLocked),
+            listener: (_, state) {
+              final authenticated = state as AuthAuthenticated;
+              unawaited(
+                _autoFillCache.synchronize(
+                  privateKey: authenticated.privateKey!,
+                ),
+              );
+            },
+          ),
           // Deep-link: navigate when a tapped notification resolves to a
           // route, then clear the cubit so the next tap re-fires.
           BlocListener<PushNavigationCubit, String?>(
@@ -218,10 +242,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               supportedLocales: AppLocalizations.supportedLocales,
               builder: (context, child) {
                 return Stack(
-                  children: [
-                    ?child,
-                    if (_obscured) const PrivacyCover(),
-                  ],
+                  children: [?child, if (_obscured) const PrivacyCover()],
                 );
               },
             );
@@ -242,7 +263,20 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
       _pushService.unregister();
       _signalR.disconnect();
       getIt<NotificationCenterCubit>().reset();
+      unawaited(_autoFillCache.clear());
     }
+  }
+
+  Future<void> _onAutoFillMutation() async {
+    final state = _authBloc.state;
+    if (state is! AuthAuthenticated ||
+        state.isVaultLocked ||
+        state.privateKey == null) {
+      return;
+    }
+    // A mutation invalidates the previous cache immediately. If rebuilding
+    // fails, leaving AutoFill empty is safer than serving a deleted password.
+    await _autoFillCache.clearAndSynchronize(privateKey: state.privateKey!);
   }
 
   /// Light theme — warm cream background, navy text.

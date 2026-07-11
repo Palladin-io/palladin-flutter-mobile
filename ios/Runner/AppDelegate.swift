@@ -1,4 +1,5 @@
 import Flutter
+import PalladinAutoFillBridge
 import UIKit
 
 @main
@@ -12,5 +13,9 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    guard let registrar = engineBridge.pluginRegistry.registrar(
+      forPlugin: "PalladinAutoFillBridge"
+    ) else { return }
+    PalladinAutoFillBridgePlugin.register(with: registrar)
   }
 }
