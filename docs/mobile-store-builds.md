@@ -38,6 +38,8 @@ Required GitHub repository secrets:
 - `IOS_TEAM_ID`
 - `IOS_PROVISIONING_PROFILE_STAGING_BASE64`
 - `IOS_PROVISIONING_PROFILE_PRODUCTION_BASE64`
+- `IOS_PROVISIONING_PROFILE_STAGING_CREDENTIAL_PROVIDER_BASE64`
+- `IOS_PROVISIONING_PROFILE_PRODUCTION_CREDENTIAL_PROVIDER_BASE64`
 
 Create the base64 values:
 
@@ -45,9 +47,13 @@ Create the base64 values:
 base64 -i distribution_certificate.p12 | pbcopy
 base64 -i Palladin_Staging_AppStore.mobileprovision | pbcopy
 base64 -i Palladin_Production_AppStore.mobileprovision | pbcopy
+base64 -i Palladin_Staging_CredentialProvider_AppStore.mobileprovision | pbcopy
+base64 -i Palladin_Production_CredentialProvider_AppStore.mobileprovision | pbcopy
 ```
 
 Provisioning profiles must be App Store distribution profiles for these bundle IDs:
 
 - staging: `io.palladin.mobile.staging`
+- staging credential provider: `io.palladin.mobile.staging.CredentialProvider`
 - production: `io.palladin.mobile`
+- production credential provider: `io.palladin.mobile.CredentialProvider`
