@@ -17,7 +17,7 @@ Use `/brain` to navigate the brain, or: `grep -r "WORD" ../brain --include="*.md
 
 **After a session that changes functionality, business rules, or architecture: update the relevant note in the brain.**
 
-Repository: [Flamingo-Co/palladin-flutter-mobile](https://github.com/Flamingo-Co/palladin-flutter-mobile)
+Repository: [Palladin-io/palladin-flutter-mobile](https://github.com/Palladin-io/palladin-flutter-mobile)
 
 ## Architecture Reference Docs
 
@@ -87,6 +87,24 @@ Config class: `lib/config/env_config.dart` — `EnvConfig.local()` / `EnvConfig.
 - Build configs: `Debug-{flavor}`, `Release-{flavor}`, `Profile-{flavor}`
 - Xcconfig: `ios/Flutter/flavors/{flavor}.xcconfig`
 - Firebase: place per-flavor `GoogleService-Info.plist` via xcconfig or build phase
+
+## System Password Manager / AutoFill
+
+System AutoFill on iOS and Android is required for MVP. The implementation must preserve the zero-knowledge boundary: the backend never receives plaintext credentials and system integrations may only decrypt on-device after explicit OS/user authorization.
+
+Current iOS foundation:
+- `ios/CredentialProvider/` is an `ASCredentialProviderExtension` embedded in the Runner app.
+- Runner and extension use the AutoFill entitlement and the per-flavor `APP_GROUP_IDENTIFIER` configured in Xcode/Apple Developer.
+- The extension currently returns `userInteractionRequired` and shows a localized locked message. It does **not** yet list, decrypt, cache, or provide credentials.
+- Full iOS provider behavior and the Android Autofill Service are tracked in Linear as **CVT-276**.
+
+Security rules for all AutoFill work:
+1. Never persist MK, VK, private keys, decrypted vault payloads, passwords, or TOTP seeds in App Groups, shared preferences, files, logs, analytics, or extension caches.
+2. Do not copy the app's current keychain access group by deriving it from `PRODUCT_BUNDLE_IDENTIFIER`; sharing secrets requires an explicit, reviewed access-group design and biometric/user-presence enforcement.
+3. Match credentials against normalized service identifiers/domains and fail closed on ambiguous or mismatched domains.
+4. A locked app/provider must return `userInteractionRequired`; never weaken authentication to make background AutoFill succeed.
+5. Keep native provider code thin. Reuse the mobile crypto contract and wipe temporary plaintext/key buffers in `finally`/`defer` paths.
+6. Treat any plaintext logging, broad shared-container storage, missing domain verification, or authentication bypass as a Critical blocking finding.
 
 ## Tech Stack
 
