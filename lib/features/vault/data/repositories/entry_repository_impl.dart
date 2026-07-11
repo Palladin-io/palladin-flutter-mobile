@@ -278,6 +278,16 @@ class EntryRepositoryImpl implements EntryRepository {
     var done = 0;
     var mutated = false;
 
+    void markMutated() {
+      if (!mutated) {
+        // A multi-step import can continue for a long time after its first
+        // successful write. Revoke the old cache immediately; the finally
+        // block rebuilds it once all successful writes are visible.
+        autoFillMutationNotifier?.notifyInvalidated();
+      }
+      mutated = true;
+    }
+
     Uint8List? vaultKey;
     try {
       vaultKey = await cryptoService.unwrapVK(
@@ -311,7 +321,7 @@ class EntryRepositoryImpl implements EntryRepository {
             vaultId,
             ImportEntriesRequest(format: format, entries: items),
           );
-          mutated = true;
+          markMutated();
         } on DioException catch (e, s) {
           AppLogger.e(
             'Entry',
@@ -344,7 +354,7 @@ class EntryRepositoryImpl implements EntryRepository {
             ),
           );
           updatedCount++;
-          mutated = true;
+          markMutated();
         } on DioException catch (e, s) {
           AppLogger.e(
             'Entry',

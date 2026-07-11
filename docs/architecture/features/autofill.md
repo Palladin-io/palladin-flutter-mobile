@@ -12,9 +12,10 @@ Linear: CVT-276
   after Keychain biometric authorization.
 - Android registers `PalladinAutofillService` and releases domain-matched
   datasets only after a Keystore-bound `BiometricPrompt` operation.
-- Android currently fails closed for native application forms that do not
-  expose a trustworthy `webDomain`. Package-to-domain association is not
-  inferred from a package name.
+- Android accepts `webDomain` only when Android 12+ reports an OS-verified App
+  Link for the requesting package and exact host, or when the requester is the
+  explicitly allowlisted system Chrome package authenticated by its system-app
+  identity. Other native apps and sideloaded browser lookalikes fail closed.
 
 ## Security contract
 
@@ -26,9 +27,9 @@ Linear: CVT-276
 3. The provider cache stores platform ciphertext encrypted with a dedicated
    random AutoFill key. This key is not derived from MK/VK and is protected by
    Keychain/Keystore with biometric-set invalidation.
-4. Missing, ambiguous, or mismatched service identifiers fail closed. Native
-   Android application filling remains disabled until Palladin has a verified
-   package-to-domain association model.
+4. Missing, ambiguous, mismatched, or unverified service identifiers fail
+   closed. Android revalidates the requesting package and domain before and
+   after biometric authentication.
 5. Logout and account deletion wipe the cache and its dedicated key. A
    biometric-set change invalidates that key. Vault lock requires fresh
    provider authentication before a credential can be returned.
@@ -40,14 +41,17 @@ Linear: CVT-276
 
 1. Unlock synchronizes eligible credentials from server ciphertext using the
    in-memory private key already held by `AuthBloc`.
-2. Create, update, delete, import, vault create, and vault delete clear the old
-   cache before rebuilding it. A failed rebuild therefore leaves no stale
-   password available to AutoFill.
+2. Create, update, delete, vault create, and vault delete clear the old cache
+   before rebuilding it. Multi-step import invalidates after its first
+   successful write and rebuilds only after all completed writes are visible.
+   A failed rebuild therefore leaves no stale password available to AutoFill.
 3. Ordinary vault lock keeps the encrypted cache so AutoFill can operate after
    a fresh OS biometric challenge. The Flutter private key is never copied into
    the native provider.
-4. Logout clears cache ciphertext, the dedicated platform key, and iOS
-   credential identities.
+4. Logout waits for any active cache replacement, retries native revocation,
+   and clears cache ciphertext, the dedicated platform key, and iOS credential
+   identities before local auth tokens are removed. A revocation failure aborts
+   logout instead of reporting an unsafe successful session transition.
 5. A biometric-set change invalidates the platform key. A failed read clears
    the unusable Android cache; iOS remains unavailable until the next unlocked
    synchronization replaces its cache and key.
@@ -58,8 +62,8 @@ Linear: CVT-276
   mutation test, logout wipe, biometric enrollment change.
 - iOS: Safari login form, identity selection, biometric success/cancel/failure,
   stale-cache mutation test, logout wipe, biometric enrollment change.
-- Native Android application forms are expected to return no datasets until a
-  verified package association model is implemented.
+- Native Android application forms return datasets only for exact hosts backed
+  by an OS-verified App Link on Android 12+; unverified packages return none.
 
 ## Native files
 

@@ -104,7 +104,7 @@ Current implementation:
 - Runner and extension use the AutoFill entitlement and the per-flavor `APP_GROUP_IDENTIFIER` configured in Xcode/Apple Developer.
 - iOS reads the explicit per-flavor `APP_GROUP_IDENTIFIER` from signed build configuration, stores only encrypted provider records in that App Group, and protects the dedicated cache key with `biometryCurrentSet` in the same App Group keychain access group. Never derive this identifier from a bundle ID.
 - Android stores only encrypted provider records in `noBackupFilesDir` and protects the wrapping key with a biometric-bound Android Keystore key.
-- Both providers fail closed without a normalized service domain. Android native app forms without a trustworthy `webDomain` are intentionally unsupported until a verified package-to-domain association model exists.
+- Both providers fail closed without a normalized service domain. Android accepts a `webDomain` only from an Android 12+ package with an OS-verified App Link for that exact host or from the explicitly allowlisted, platform-authenticated system Chrome package; all other native/browser forms fail closed.
 - System AutoFill behavior is tracked in Linear as **CVT-276** and documented in `docs/architecture/features/autofill.md`.
 
 Security rules for all AutoFill work:

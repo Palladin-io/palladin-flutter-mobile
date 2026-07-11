@@ -25,7 +25,7 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
                         if error == nil {
                             DispatchQueue.main.async { result(nil) }
                         } else {
-                            store.clear()
+                            try? store.clear()
                             DispatchQueue.main.async {
                                 result(FlutterError(
                                     code: "AUTOFILL_IDENTITY_ERROR",
@@ -36,9 +36,19 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
                         }
                     }
                 case "clearCache":
-                    store.clear()
-                    AutoFillCacheStore.clearIdentities {
-                        DispatchQueue.main.async { result(nil) }
+                    try store.clear()
+                    AutoFillCacheStore.clearIdentities { error in
+                        DispatchQueue.main.async {
+                            if error == nil {
+                                result(nil)
+                            } else {
+                                result(FlutterError(
+                                    code: "AUTOFILL_IDENTITY_ERROR",
+                                    message: "Unable to clear credential identities",
+                                    details: nil
+                                ))
+                            }
+                        }
                     }
                 default:
                     DispatchQueue.main.async { result(FlutterMethodNotImplemented) }

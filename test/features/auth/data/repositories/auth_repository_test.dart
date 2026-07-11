@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -7,6 +9,7 @@ import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
 import 'package:mobile_palladin/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:mobile_palladin/features/auth/data/models/auth_result_model.dart';
 import 'package:mobile_palladin/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:mobile_palladin/features/autofill/domain/autofill_cache_invalidator.dart';
 
 class MockAuthRemoteDatasource extends Mock implements AuthRemoteDatasource {}
 
@@ -21,11 +24,15 @@ class MockGoogleSignInAuthentication extends Mock
 
 class MockFlutterSecureStorage extends Mock implements FlutterSecureStorage {}
 
+class MockAutoFillCacheInvalidator extends Mock
+    implements AutoFillCacheInvalidator {}
+
 void main() {
   late MockAuthRemoteDatasource mockDatasource;
   late MockSecureTokenStorage mockStorage;
   late MockGoogleSignIn mockGoogleSignIn;
   late MockFlutterSecureStorage mockSecureStorage;
+  late MockAutoFillCacheInvalidator mockAutoFillCacheInvalidator;
   late AuthRepositoryImpl repository;
 
   const authResult = AuthResultModel(
@@ -40,15 +47,20 @@ void main() {
     mockStorage = MockSecureTokenStorage();
     mockGoogleSignIn = MockGoogleSignIn();
     mockSecureStorage = MockFlutterSecureStorage();
-    when(() => mockSecureStorage.delete(
-          key: any(named: 'key'),
-          iOptions: any(named: 'iOptions'),
-          aOptions: any(named: 'aOptions'),
-        )).thenAnswer((_) async {});
+    mockAutoFillCacheInvalidator = MockAutoFillCacheInvalidator();
+    when(() => mockAutoFillCacheInvalidator.clear()).thenAnswer((_) async {});
+    when(
+      () => mockSecureStorage.delete(
+        key: any(named: 'key'),
+        iOptions: any(named: 'iOptions'),
+        aOptions: any(named: 'aOptions'),
+      ),
+    ).thenAnswer((_) async {});
     repository = AuthRepositoryImpl(
       remoteDatasource: mockDatasource,
       tokenStorage: mockStorage,
       secureStorage: mockSecureStorage,
+      autoFillCacheInvalidator: mockAutoFillCacheInvalidator,
       googleServerClientId: 'test-server-client-id',
       googleSignIn: mockGoogleSignIn,
     );
@@ -59,20 +71,23 @@ void main() {
       final mockAccount = MockGoogleSignInAccount();
       final mockAuth = MockGoogleSignInAuthentication();
 
-      when(() => mockGoogleSignIn.signIn())
-          .thenAnswer((_) async => mockAccount);
+      when(
+        () => mockGoogleSignIn.signIn(),
+      ).thenAnswer((_) async => mockAccount);
       when(() => mockAccount.email).thenReturn('test@example.com');
-      when(() => mockAccount.authentication)
-          .thenAnswer((_) async => mockAuth);
+      when(() => mockAccount.authentication).thenAnswer((_) async => mockAuth);
       when(() => mockAuth.idToken).thenReturn('google-id-token');
-      when(() => mockDatasource.oauthGoogle('google-id-token'))
-          .thenAnswer((_) async => authResult);
-      when(() => mockStorage.saveTokens(
-            accessToken: any(named: 'accessToken'),
-            refreshToken: any(named: 'refreshToken'),
-            userId: any(named: 'userId'),
-            isOnboarded: any(named: 'isOnboarded'),
-          )).thenAnswer((_) async {});
+      when(
+        () => mockDatasource.oauthGoogle('google-id-token'),
+      ).thenAnswer((_) async => authResult);
+      when(
+        () => mockStorage.saveTokens(
+          accessToken: any(named: 'accessToken'),
+          refreshToken: any(named: 'refreshToken'),
+          userId: any(named: 'userId'),
+          isOnboarded: any(named: 'isOnboarded'),
+        ),
+      ).thenAnswer((_) async {});
 
       final result = await repository.loginWithGoogle();
 
@@ -80,12 +95,14 @@ void main() {
       expect(result.userId, 'user-789');
 
       verify(() => mockDatasource.oauthGoogle('google-id-token')).called(1);
-      verify(() => mockStorage.saveTokens(
-            accessToken: 'access-123',
-            refreshToken: 'refresh-456',
-            userId: 'user-789',
-            isOnboarded: true,
-          )).called(1);
+      verify(
+        () => mockStorage.saveTokens(
+          accessToken: 'access-123',
+          refreshToken: 'refresh-456',
+          userId: 'user-789',
+          isOnboarded: true,
+        ),
+      ).called(1);
     });
 
     test('throws AuthCancelledException when user cancels', () async {
@@ -101,11 +118,11 @@ void main() {
       final mockAccount = MockGoogleSignInAccount();
       final mockAuth = MockGoogleSignInAuthentication();
 
-      when(() => mockGoogleSignIn.signIn())
-          .thenAnswer((_) async => mockAccount);
+      when(
+        () => mockGoogleSignIn.signIn(),
+      ).thenAnswer((_) async => mockAccount);
       when(() => mockAccount.email).thenReturn('test@example.com');
-      when(() => mockAccount.authentication)
-          .thenAnswer((_) async => mockAuth);
+      when(() => mockAccount.authentication).thenAnswer((_) async => mockAuth);
       when(() => mockAuth.idToken).thenReturn(null);
 
       expect(
@@ -117,10 +134,10 @@ void main() {
 
   group('logout', () {
     test('clears storage and signs out of Google', () async {
-      when(() => mockStorage.refreshToken)
-          .thenAnswer((_) async => 'refresh-456');
-      when(() => mockDatasource.logout('refresh-456'))
-          .thenAnswer((_) async {});
+      when(
+        () => mockStorage.refreshToken,
+      ).thenAnswer((_) async => 'refresh-456');
+      when(() => mockDatasource.logout('refresh-456')).thenAnswer((_) async {});
       when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
       when(() => mockStorage.clearAll()).thenAnswer((_) async {});
 
@@ -129,13 +146,16 @@ void main() {
       verify(() => mockDatasource.logout('refresh-456')).called(1);
       verify(() => mockGoogleSignIn.signOut()).called(1);
       verify(() => mockStorage.clearAll()).called(1);
+      verify(() => mockAutoFillCacheInvalidator.clear()).called(1);
     });
 
     test('clears storage even if backend logout fails', () async {
-      when(() => mockStorage.refreshToken)
-          .thenAnswer((_) async => 'refresh-456');
-      when(() => mockDatasource.logout('refresh-456'))
-          .thenThrow(Exception('Network error'));
+      when(
+        () => mockStorage.refreshToken,
+      ).thenAnswer((_) async => 'refresh-456');
+      when(
+        () => mockDatasource.logout('refresh-456'),
+      ).thenThrow(Exception('Network error'));
       when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
       when(() => mockStorage.clearAll()).thenAnswer((_) async {});
 
@@ -143,12 +163,47 @@ void main() {
 
       verify(() => mockStorage.clearAll()).called(1);
     });
+
+    test(
+      'waits for AutoFill revocation before clearing auth storage',
+      () async {
+        final clearStarted = Completer<void>();
+        final allowClear = Completer<void>();
+        when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
+        when(() => mockAutoFillCacheInvalidator.clear()).thenAnswer((_) async {
+          clearStarted.complete();
+          await allowClear.future;
+        });
+        when(() => mockStorage.clearAll()).thenAnswer((_) async {});
+        when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
+
+        final logout = repository.logout();
+        await clearStarted.future;
+
+        verifyNever(() => mockStorage.clearAll());
+        allowClear.complete();
+        await logout;
+
+        verify(() => mockStorage.clearAll()).called(1);
+      },
+    );
+
+    test('keeps auth storage when AutoFill revocation fails', () async {
+      when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
+      when(
+        () => mockAutoFillCacheInvalidator.clear(),
+      ).thenThrow(Exception('native wipe failed'));
+
+      await expectLater(repository.logout(), throwsException);
+
+      verifyNever(() => mockStorage.clearAll());
+      verifyNever(() => mockGoogleSignIn.signOut());
+    });
   });
 
   group('isAuthenticated', () {
     test('returns true when access token exists', () async {
-      when(() => mockStorage.accessToken)
-          .thenAnswer((_) async => 'access-123');
+      when(() => mockStorage.accessToken).thenAnswer((_) async => 'access-123');
 
       expect(await repository.isAuthenticated(), isTrue);
     });
@@ -168,27 +223,33 @@ void main() {
 
   group('refreshToken', () {
     test('calls datasource and stores new tokens', () async {
-      when(() => mockStorage.refreshToken)
-          .thenAnswer((_) async => 'old-refresh');
-      when(() => mockDatasource.refreshToken('old-refresh'))
-          .thenAnswer((_) async => authResult);
-      when(() => mockStorage.saveTokens(
-            accessToken: any(named: 'accessToken'),
-            refreshToken: any(named: 'refreshToken'),
-            userId: any(named: 'userId'),
-            isOnboarded: any(named: 'isOnboarded'),
-          )).thenAnswer((_) async {});
+      when(
+        () => mockStorage.refreshToken,
+      ).thenAnswer((_) async => 'old-refresh');
+      when(
+        () => mockDatasource.refreshToken('old-refresh'),
+      ).thenAnswer((_) async => authResult);
+      when(
+        () => mockStorage.saveTokens(
+          accessToken: any(named: 'accessToken'),
+          refreshToken: any(named: 'refreshToken'),
+          userId: any(named: 'userId'),
+          isOnboarded: any(named: 'isOnboarded'),
+        ),
+      ).thenAnswer((_) async {});
 
       final result = await repository.refreshToken();
 
       expect(result.accessToken, 'access-123');
       verify(() => mockDatasource.refreshToken('old-refresh')).called(1);
-      verify(() => mockStorage.saveTokens(
-            accessToken: 'access-123',
-            refreshToken: 'refresh-456',
-            userId: 'user-789',
-            isOnboarded: true,
-          )).called(1);
+      verify(
+        () => mockStorage.saveTokens(
+          accessToken: 'access-123',
+          refreshToken: 'refresh-456',
+          userId: 'user-789',
+          isOnboarded: true,
+        ),
+      ).called(1);
     });
 
     test('throws when no refresh token stored', () async {

@@ -8,6 +8,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.SecureRandom
@@ -73,10 +74,16 @@ internal class AutoFillCacheStore(private val context: Context) {
     }
 
     fun clear() {
-        cacheFile.delete()
-        File(cacheFile.parentFile, "$CACHE_FILE_NAME.tmp").delete()
+        val files = listOf(
+            cacheFile,
+            File(cacheFile.parentFile, "$CACHE_FILE_NAME.tmp"),
+        )
+        val failedFile = files.firstOrNull { it.exists() && !it.delete() }
         val keyStore = loadKeyStore()
         if (keyStore.containsAlias(KEY_ALIAS)) keyStore.deleteEntry(KEY_ALIAS)
+        if (failedFile != null) {
+            throw IOException("Unable to remove AutoFill cache")
+        }
     }
 
     fun createUnwrapCipher(): Cipher {

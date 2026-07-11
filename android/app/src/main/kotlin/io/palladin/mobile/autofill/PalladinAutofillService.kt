@@ -42,14 +42,27 @@ class PalladinAutofillService : AutofillService() {
 
         val fields = CredentialFieldIds.from(structure)
         val domain = CredentialFieldIds.domainFrom(structure)
+        val requestingPackage = structure.activityComponent?.packageName
         val cacheStore = AutoFillCacheStore(this)
-        if (fields.passwordIds.isEmpty() || domain == null || !cacheStore.hasCache()) {
+        val originVerified = domain != null &&
+            requestingPackage != null &&
+            AutofillOriginVerifier(this).isVerified(requestingPackage, domain)
+        if (fields.passwordIds.isEmpty() ||
+            domain == null ||
+            requestingPackage == null ||
+            !originVerified ||
+            !cacheStore.hasCache()
+        ) {
             callback.onSuccess(null)
             return
         }
 
         val launchIntent = Intent(this, AutofillAuthenticationActivity::class.java).apply {
             putExtra(AutofillAuthenticationActivity.EXTRA_DOMAIN, domain)
+            putExtra(
+                AutofillAuthenticationActivity.EXTRA_PACKAGE_NAME,
+                requestingPackage,
+            )
             putParcelableArrayListExtra(
                 AutofillAuthenticationActivity.EXTRA_USERNAME_IDS,
                 ArrayList(fields.usernameIds),

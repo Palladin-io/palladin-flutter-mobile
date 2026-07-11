@@ -25,7 +25,12 @@ class AutofillAuthenticationActivity : FragmentActivity() {
         val domain = AutoFillCacheStore.normalizeDomain(
             intent.getStringExtra(EXTRA_DOMAIN),
         )
-        if (domain == null || !cacheStore.hasCache()) {
+        val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME)
+            ?.takeIf(String::isNotBlank)
+        val originVerified = domain != null &&
+            packageName != null &&
+            AutofillOriginVerifier(this).isVerified(packageName, domain)
+        if (domain == null || !originVerified || !cacheStore.hasCache()) {
             finishCanceled()
             return
         }
@@ -131,6 +136,7 @@ class AutofillAuthenticationActivity : FragmentActivity() {
 
     companion object {
         const val EXTRA_DOMAIN = "palladin.autofill.domain"
+        const val EXTRA_PACKAGE_NAME = "palladin.autofill.package_name"
         const val EXTRA_USERNAME_IDS = "palladin.autofill.username_ids"
         const val EXTRA_PASSWORD_IDS = "palladin.autofill.password_ids"
     }

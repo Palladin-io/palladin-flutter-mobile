@@ -66,10 +66,12 @@ final class AutoFillCacheStore {
     }
 
     func replace(records rawRecords: [[String: Any]]) throws -> [AutoFillCredentialRecord] {
-        let serialized = try JSONSerialization.data(withJSONObject: rawRecords)
+        var serialized = try JSONSerialization.data(withJSONObject: rawRecords)
+        defer { serialized.resetBytes(in: 0..<serialized.count) }
         let records = try JSONDecoder().decode([AutoFillCredentialRecord].self, from: serialized)
             .compactMap(Self.validated)
-        let plaintext = try JSONEncoder().encode(records)
+        var plaintext = try JSONEncoder().encode(records)
+        defer { plaintext.resetBytes(in: 0..<plaintext.count) }
         var keyBytes = Data((0..<32).map { _ in UInt8.random(in: .min ... .max) })
         defer { keyBytes.resetBytes(in: 0..<keyBytes.count) }
 
@@ -103,9 +105,20 @@ final class AutoFillCacheStore {
         return try JSONDecoder().decode([AutoFillCredentialRecord].self, from: plaintext)
     }
 
-    func clear() {
-        try? FileManager.default.removeItem(at: cacheURL)
-        SecItemDelete(keychainBaseQuery() as CFDictionary)
+    func clear() throws {
+        var fileError: Error?
+        do {
+            try FileManager.default.removeItem(at: cacheURL)
+        } catch CocoaError.fileNoSuchFile {
+            // Idempotent clear: an absent cache is already safe.
+        } catch {
+            fileError = error
+        }
+        let status = SecItemDelete(keychainBaseQuery() as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw AutoFillCacheError.keychain(status)
+        }
+        if let fileError { throw fileError }
     }
 
     static func replaceIdentities(
@@ -127,9 +140,9 @@ final class AutoFillCacheStore {
         }
     }
 
-    static func clearIdentities(completion: @escaping () -> Void) {
-        ASCredentialIdentityStore.shared.removeAllCredentialIdentities { _, _ in
-            completion()
+    static func clearIdentities(completion: @escaping (Error?) -> Void) {
+        ASCredentialIdentityStore.shared.removeAllCredentialIdentities { success, error in
+            completion(success ? nil : (error ?? AutoFillCacheError.cacheUnavailable))
         }
     }
 

@@ -12,6 +12,7 @@ import 'core/l10n/locale_cubit.dart';
 import 'core/router/app_router.dart';
 import 'core/storage/user_preferences.dart';
 import 'core/theme/app_colors.dart';
+import 'core/utils/app_logger.dart';
 import 'core/theme/theme_cubit.dart';
 import 'core/widgets/privacy_cover.dart';
 import 'features/agents/presentation/bloc/agents_cubit.dart';
@@ -58,7 +59,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final PushNavigationCubit _pushNavigationCubit = getIt<PushNavigationCubit>();
   final PushNotificationService _pushService = getIt<PushNotificationService>();
   final AutoFillCacheService _autoFillCache = getIt<AutoFillCacheService>();
-  late final StreamSubscription<void> _autoFillMutationSubscription;
+  late final StreamSubscription<AutoFillMutationAction>
+  _autoFillMutationSubscription;
 
   // In-app real-time channel (foreground). Works on the simulator too, unlike
   // FCM. Connected while authenticated; FCM/APNs covers the background.
@@ -82,7 +84,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     // In-app real-time over SignalR → same refresh handler.
     _signalR.onNotification = _onSignalRNotification;
     _autoFillMutationSubscription = getIt<AutoFillMutationNotifier>().changes
-        .listen((_) => unawaited(_onAutoFillMutation()));
+        .listen((action) => unawaited(_onAutoFillMutation(action)));
     // Handle a cold start triggered by a notification tap. Guard on `mounted`
     // — if the app is torn down before the future resolves, the cubit may
     // already be closed (Bad state: Cubit is already closed).
@@ -263,20 +265,43 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
       _pushService.unregister();
       _signalR.disconnect();
       getIt<NotificationCenterCubit>().reset();
-      unawaited(_autoFillCache.clear());
+      unawaited(_clearAutoFillAfterSessionLoss());
     }
   }
 
-  Future<void> _onAutoFillMutation() async {
+  Future<void> _onAutoFillMutation(AutoFillMutationAction action) async {
     final state = _authBloc.state;
     if (state is! AuthAuthenticated ||
         state.isVaultLocked ||
         state.privateKey == null) {
       return;
     }
-    // A mutation invalidates the previous cache immediately. If rebuilding
-    // fails, leaving AutoFill empty is safer than serving a deleted password.
-    await _autoFillCache.clearAndSynchronize(privateKey: state.privateKey!);
+    switch (action) {
+      case AutoFillMutationAction.invalidate:
+        try {
+          await _autoFillCache.clear();
+        } catch (error) {
+          AppLogger.w(
+            'AutoFill',
+            'Mutation cache invalidation failed: ${error.runtimeType}',
+          );
+        }
+      case AutoFillMutationAction.rebuild:
+        // A mutation invalidates the previous cache before rebuilding. If the
+        // rebuild fails, leaving AutoFill empty is safer than serving stale data.
+        await _autoFillCache.clearAndSynchronize(privateKey: state.privateKey!);
+    }
+  }
+
+  Future<void> _clearAutoFillAfterSessionLoss() async {
+    try {
+      await _autoFillCache.clear();
+    } catch (error) {
+      AppLogger.w(
+        'AutoFill',
+        'Session-loss cache invalidation failed: ${error.runtimeType}',
+      );
+    }
   }
 
   /// Light theme — warm cream background, navy text.

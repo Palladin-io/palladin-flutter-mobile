@@ -10,6 +10,7 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/autofill/data/autofill_cache_bridge.dart';
 import '../../features/autofill/data/autofill_cache_service.dart';
 import '../../features/autofill/data/autofill_mutation_notifier.dart';
+import '../../features/autofill/domain/autofill_cache_invalidator.dart';
 import '../../features/onboarding/data/datasources/onboarding_remote_datasource.dart';
 import '../../features/onboarding/data/repositories/onboarding_repository_impl.dart';
 import '../../features/onboarding/data/services/onboarding_crypto_service.dart';
@@ -131,6 +132,7 @@ void configureDependencies(EnvConfig config) {
       remoteDatasource: getIt<AuthRemoteDatasource>(),
       tokenStorage: getIt<SecureTokenStorage>(),
       secureStorage: getIt<FlutterSecureStorage>(),
+      autoFillCacheInvalidator: getIt<AutoFillCacheInvalidator>(),
       googleServerClientId: config.googleServerClientId,
     ),
   );
@@ -251,6 +253,9 @@ void configureDependencies(EnvConfig config) {
       entryRepository: getIt<EntryRepository>(),
       bridge: getIt<AutoFillCacheBridge>(),
     ),
+  );
+  getIt.registerLazySingleton<AutoFillCacheInvalidator>(
+    () => getIt<AutoFillCacheService>(),
   );
 
   // Entry — presentation layer (factory: fresh cubit per page mount so

@@ -4,6 +4,7 @@ import '../../../core/utils/app_logger.dart';
 import '../../vault/domain/entities/entry_entity.dart';
 import '../../vault/domain/repositories/entry_repository.dart';
 import '../../vault/domain/repositories/vault_repository.dart';
+import '../domain/autofill_cache_invalidator.dart';
 import '../domain/autofill_record.dart';
 import 'autofill_cache_bridge.dart';
 
@@ -11,7 +12,7 @@ import 'autofill_cache_bridge.dart';
 /// already unlocked. Native code immediately re-encrypts the records with a
 /// dedicated platform key; this service never persists plaintext or key
 /// material and never sends it to analytics or logs.
-class AutoFillCacheService {
+class AutoFillCacheService implements AutoFillCacheInvalidator {
   AutoFillCacheService({
     required VaultRepository vaultRepository,
     required EntryRepository entryRepository,
@@ -30,13 +31,16 @@ class AutoFillCacheService {
   Future<void> synchronize({required Uint8List privateKey}) {
     if (privateKey.isEmpty) return Future<void>.value();
     final generation = ++_generation;
-    return _enqueue(() async {
-      await _clearNative();
-      if (generation != _generation) return;
-      await _synchronizeOnce(privateKey, generation);
-    });
+    return _bestEffort(
+      _enqueue(() async {
+        await _clearNative();
+        if (generation != _generation) return;
+        await _synchronizeOnce(privateKey, generation);
+      }),
+    );
   }
 
+  @override
   Future<void> clear() {
     ++_generation;
     return _enqueue(_clearNative);
@@ -45,22 +49,47 @@ class AutoFillCacheService {
   Future<void> clearAndSynchronize({required Uint8List privateKey}) {
     if (privateKey.isEmpty) return clear();
     final generation = ++_generation;
-    return _enqueue(() async {
-      await _clearNative();
-      if (generation != _generation) return;
-      await _synchronizeOnce(privateKey, generation);
-    });
+    return _bestEffort(
+      _enqueue(() async {
+        await _clearNative();
+        if (generation != _generation) return;
+        await _synchronizeOnce(privateKey, generation);
+      }),
+    );
   }
 
   Future<void> _clearNative() async {
+    Object? lastError;
+    StackTrace? lastStackTrace;
+    for (var attempt = 1; attempt <= _clearAttempts; attempt++) {
+      try {
+        await _bridge.clearCache();
+        return;
+      } on MissingPluginException {
+        // Unit/widget test hosts do not install the native bridge.
+        return;
+      } catch (error, stackTrace) {
+        lastError = error;
+        lastStackTrace = stackTrace;
+        AppLogger.w(
+          'AutoFill',
+          'Native cache clear failed '
+              '(attempt $attempt/$_clearAttempts): ${error.runtimeType}',
+        );
+      }
+    }
+    if (lastError != null && lastStackTrace != null) {
+      Error.throwWithStackTrace(lastError, lastStackTrace);
+    }
+  }
+
+  Future<void> _bestEffort(Future<void> operation) async {
     try {
-      await _bridge.clearCache();
-    } on MissingPluginException {
-      // Unit/widget test hosts do not install the native bridge.
+      await operation;
     } catch (error) {
       AppLogger.w(
         'AutoFill',
-        'Native cache clear failed: ${error.runtimeType}',
+        'Cache synchronization aborted: ${error.runtimeType}',
       );
     }
   }
@@ -139,4 +168,6 @@ class AutoFillCacheService {
       return null;
     }
   }
+
+  static const _clearAttempts = 3;
 }

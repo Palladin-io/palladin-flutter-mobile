@@ -8,6 +8,7 @@ import '../../../../core/storage/biometric_key_storage.dart';
 import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/jwt_claims.dart';
+import '../../../autofill/domain/autofill_cache_invalidator.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
 import '../models/auth_result_model.dart';
@@ -21,19 +22,24 @@ class AuthRepositoryImpl implements AuthRepository {
     required this.remoteDatasource,
     required this.tokenStorage,
     required this.secureStorage,
+    required this.autoFillCacheInvalidator,
     required String googleServerClientId,
     GoogleSignIn? googleSignIn,
-  }) : _googleSignIn = googleSignIn ??
-            GoogleSignIn(
-              scopes: ['email'],
-              // serverClientId ensures the ID token audience matches the backend's
-              // web OAuth client ID, enabling server-side token validation.
-              serverClientId: googleServerClientId.isEmpty ? null : googleServerClientId,
-            );
+  }) : _googleSignIn =
+           googleSignIn ??
+           GoogleSignIn(
+             scopes: ['email'],
+             // serverClientId ensures the ID token audience matches the backend's
+             // web OAuth client ID, enabling server-side token validation.
+             serverClientId: googleServerClientId.isEmpty
+                 ? null
+                 : googleServerClientId,
+           );
 
   final AuthRemoteDatasource remoteDatasource;
   final SecureTokenStorage tokenStorage;
   final FlutterSecureStorage secureStorage;
+  final AutoFillCacheInvalidator autoFillCacheInvalidator;
   final GoogleSignIn _googleSignIn;
 
   @override
@@ -128,9 +134,13 @@ class AuthRepositoryImpl implements AuthRepository {
     AppLogger.d('Auth', 'Starting logout');
     final currentRefreshToken = await tokenStorage.refreshToken;
 
-    // Clear local state FIRST so the session is truly gone even if the remote
-    // revoke or Google sign-out hangs/fails — otherwise a hanging network call
-    // would leave the user stuck on a loading screen with tokens intact.
+    // Revoke the native provider before removing the authenticated session.
+    // AutoFillCacheService serializes this behind any active replacement, so a
+    // successful logout can never leave a late-written credential cache.
+    await autoFillCacheInvalidator.clear();
+
+    // Clear local auth state before best-effort network operations so backend
+    // availability can never keep a valid local session alive.
     await tokenStorage.clearAll();
     await BiometricKeyStorage.clear(secureStorage);
 

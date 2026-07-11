@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_cache_bridge.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_cache_service.dart';
+import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
 import 'package:mobile_palladin/features/autofill/domain/autofill_record.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
@@ -114,6 +115,65 @@ void main() {
 
     verify(() => bridge.clearCache()).called(2);
     verifyNever(() => bridge.replaceCache(any()));
+  });
+
+  test(
+    'logout wipe completes after an already active native replace',
+    () async {
+      final replaceStarted = Completer<void>();
+      final allowReplace = Completer<void>();
+      when(vaultRepository.listVaults).thenAnswer((_) async => const []);
+      when(() => bridge.replaceCache(any())).thenAnswer((_) async {
+        replaceStarted.complete();
+        await allowReplace.future;
+      });
+
+      final synchronization = service.synchronize(privateKey: Uint8List(32));
+      await replaceStarted.future;
+      final logoutClear = service.clear();
+
+      verify(() => bridge.clearCache()).called(1);
+      allowReplace.complete();
+      await Future.wait([synchronization, logoutClear]);
+
+      verify(() => bridge.clearCache()).called(1);
+    },
+  );
+
+  test('logout clear retries and propagates a native wipe failure', () async {
+    when(
+      bridge.clearCache,
+    ).thenThrow(PlatformException(code: 'AUTOFILL_CACHE_ERROR'));
+
+    await expectLater(service.clear(), throwsA(isA<PlatformException>()));
+
+    verify(() => bridge.clearCache()).called(3);
+  });
+
+  test('failed pre-sync clear never writes a replacement cache', () async {
+    when(
+      bridge.clearCache,
+    ).thenThrow(PlatformException(code: 'AUTOFILL_CACHE_ERROR'));
+
+    await service.synchronize(privateKey: Uint8List(32));
+
+    verifyNever(() => bridge.replaceCache(any()));
+  });
+
+  test('mutation notifier distinguishes invalidation from rebuild', () async {
+    final notifier = AutoFillMutationNotifier();
+    final events = expectLater(
+      notifier.changes.take(2),
+      emitsInOrder([
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.rebuild,
+      ]),
+    );
+
+    notifier.notifyInvalidated();
+    notifier.notifyChanged();
+
+    await events;
   });
 }
 

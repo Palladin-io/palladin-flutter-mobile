@@ -37,12 +37,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final permissions = await authRepository.getPermissions();
       final email = await authRepository.getEmail();
       AppLogger.i('AuthBloc', 'Authenticated: userId=${result.userId}');
-      emit(AuthAuthenticated(
-        userId: result.userId,
-        isOnboarded: result.isOnboarded,
-        permissions: permissions,
-        email: email,
-      ));
+      emit(
+        AuthAuthenticated(
+          userId: result.userId,
+          isOnboarded: result.isOnboarded,
+          permissions: permissions,
+          email: email,
+        ),
+      );
     } on AuthCancelledException {
       AppLogger.i('AuthBloc', 'Sign-in cancelled, returning unauthenticated');
       emit(const AuthUnauthenticated());
@@ -62,12 +64,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final permissions = await authRepository.getPermissions();
       final email = await authRepository.getEmail();
       AppLogger.i('AuthBloc', 'Refresh successful: userId=${result.userId}');
-      emit(AuthAuthenticated(
-        userId: result.userId,
-        isOnboarded: result.isOnboarded,
-        permissions: permissions,
-        email: email,
-      ));
+      emit(
+        AuthAuthenticated(
+          userId: result.userId,
+          isOnboarded: result.isOnboarded,
+          permissions: permissions,
+          email: email,
+        ),
+      );
     } catch (e) {
       AppLogger.w('AuthBloc', 'Refresh failed: ${e.runtimeType}');
       emit(const AuthUnauthenticated());
@@ -79,11 +83,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     AppLogger.d('AuthBloc', 'Logout requested');
+    final stateBeforeLogout = state;
     emit(const AuthLoading());
     try {
       await authRepository.logout();
     } catch (e) {
-      AppLogger.w('AuthBloc', 'Logout error (best-effort): ${e.runtimeType}');
+      // Local security cleanup (including native AutoFill revocation) is a
+      // prerequisite for logout. Remote failures are already swallowed by the
+      // repository, so reaching this branch means the session must stay active.
+      AppLogger.w('AuthBloc', 'Logout aborted: ${e.runtimeType}');
+      emit(stateBeforeLogout);
+      return;
     }
     AppLogger.i('AuthBloc', 'Logout complete');
     emit(const AuthUnauthenticated());
@@ -108,12 +118,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     if (userId != null) {
       AppLogger.i('AuthBloc', 'Restored session: userId=$userId');
-      emit(AuthAuthenticated(
-        userId: userId,
-        isOnboarded: isOnboarded,
-        permissions: permissions,
-        email: email,
-      ));
+      emit(
+        AuthAuthenticated(
+          userId: userId,
+          isOnboarded: isOnboarded,
+          permissions: permissions,
+          email: email,
+        ),
+      );
     } else {
       AppLogger.w('AuthBloc', 'Token present but no userId, unauthenticated');
       emit(const AuthUnauthenticated());
@@ -131,11 +143,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
     AppLogger.i('AuthBloc', 'Vault unlocked for userId=${current.userId}');
-    emit(current.copyWith(
-      isVaultLocked: false,
-      masterKey: event.masterKey,
-      privateKey: event.privateKey,
-    ));
+    emit(
+      current.copyWith(
+        isVaultLocked: false,
+        masterKey: event.masterKey,
+        privateKey: event.privateKey,
+      ),
+    );
   }
 
   /// Locks the vault by clearing the in-memory key material. Keeps the
@@ -177,14 +191,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       'AuthBloc',
       'Onboarding completed for userId=$userId (vaultUnlocked=$hasKeys)',
     );
-    emit(AuthAuthenticated(
-      userId: userId,
-      isOnboarded: true,
-      isVaultLocked: !hasKeys,
-      masterKey: event.masterKey,
-      privateKey: event.privateKey,
-      permissions: permissions,
-      email: email,
-    ));
+    emit(
+      AuthAuthenticated(
+        userId: userId,
+        isOnboarded: true,
+        isVaultLocked: !hasKeys,
+        masterKey: event.masterKey,
+        privateKey: event.privateKey,
+        permissions: permissions,
+        email: email,
+      ),
+    );
   }
 }
