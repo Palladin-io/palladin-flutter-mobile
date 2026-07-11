@@ -1767,7 +1767,7 @@
 				86BF2158D59151A9A569F8CB /* Profile-local */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = "Release-production";
 		};
 /* End XCConfigurationList section */
 	};
