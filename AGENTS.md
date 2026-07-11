@@ -43,6 +43,7 @@ The **shared widget catalog lives in this file** (see "## Shared Widget Catalog"
 | audit | `docs/architecture/features/audit.md` |
 | settings | `docs/architecture/features/settings.md` |
 | api_keys | `docs/architecture/features/api_keys.md` |
+| autofill | `docs/architecture/features/autofill.md` |
 
 ## Build & Run
 
