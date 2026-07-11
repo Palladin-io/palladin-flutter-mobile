@@ -8,6 +8,8 @@ enum AppFlavor { local, staging, production }
 /// Each flavor (staging, production) has its own factory constructor
 /// that provides the correct URLs, keys, and identifiers.
 class EnvConfig {
+  static const _productionCertificatePins = <String>[];
+
   const EnvConfig._({
     required this.flavor,
     required this.appName,
@@ -78,8 +80,10 @@ class EnvConfig {
       posthogHost: 'https://app.posthog.com',
       googleServerClientId:
           '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
-      // Empty until the production certificate is issued (pinning disabled).
-      certificatePins: [],
+      // Staging and production must never share certificate pin sets.
+      certificatePins: useStagingBackend
+          ? const []
+          : _productionCertificatePins,
     );
   }
 
