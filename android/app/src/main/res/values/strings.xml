@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="autofill_service_label">Palladin AutoFill</string>
+    <string name="autofill_unlock_label">Unlock Palladin to autofill</string>
+    <string name="autofill_biometric_title">Unlock Palladin</string>
+    <string name="autofill_biometric_subtitle">Use biometrics to fill a credential for %1$s</string>
+    <string name="autofill_cancel">Cancel</string>
+</resources>

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../autofill/data/autofill_mutation_notifier.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
 import '../../domain/repositories/vault_repository.dart';
@@ -15,9 +16,10 @@ import '../models/create_vault_request.dart';
 /// typed [VaultException]s with semantic [VaultErrorKind] values so
 /// the presentation layer can render localized error messages.
 class VaultRepositoryImpl implements VaultRepository {
-  VaultRepositoryImpl(this._datasource);
+  VaultRepositoryImpl(this._datasource, {this.autoFillMutationNotifier});
 
   final VaultRemoteDatasource _datasource;
+  final AutoFillMutationNotifier? autoFillMutationNotifier;
 
   @override
   Future<List<VaultEntity>> listVaults() async {
@@ -64,6 +66,7 @@ class VaultRepositoryImpl implements VaultRepository {
           wrappedVK: wrappedVK,
         ),
       );
+      autoFillMutationNotifier?.notifyChanged();
       return model.toEntity();
     } on DioException catch (e, s) {
       AppLogger.e('Vault', 'createVault failed', error: e, stackTrace: s);
@@ -103,6 +106,7 @@ class VaultRepositoryImpl implements VaultRepository {
     try {
       AppLogger.d('Vault', 'DELETE /api/vaults/$id');
       await _datasource.deleteVault(id);
+      autoFillMutationNotifier?.notifyChanged();
     } on DioException catch (e, s) {
       AppLogger.e('Vault', 'deleteVault failed', error: e, stackTrace: s);
       throw VaultException(_classifyError(e));

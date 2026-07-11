@@ -1,12 +1,31 @@
-import Flutter
-import UIKit
+import AuthenticationServices
 import XCTest
+@testable import PalladinAutoFillBridge
 
-class RunnerTests: XCTestCase {
+final class RunnerTests: XCTestCase {
+    func testAutoFillDomainNormalization() {
+        XCTAssertEqual(
+            AutoFillCredentialRecord.normalizeDomain("https://WWW.Example.com/login"),
+            "example.com"
+        )
+        XCTAssertNil(AutoFillCredentialRecord.normalizeDomain("localhost"))
+        XCTAssertNil(AutoFillCredentialRecord.normalizeDomain("example..com"))
+    }
 
-  func testExample() {
-    // If you add code to the Runner application, consider adding tests here.
-    // See https://developer.apple.com/documentation/xctest for more information about using XCTest.
-  }
+    func testAutoFillMatchesExactDomainOnly() {
+        let record = AutoFillCredentialRecord(
+            id: "entry-1",
+            label: "Example",
+            username: "user@example.com",
+            password: "test-only-password",
+            domains: ["example.com"]
+        )
 
+        XCTAssertTrue(record.matches(serviceIdentifiers: [
+            ASCredentialServiceIdentifier(identifier: "example.com", type: .domain),
+        ]))
+        XCTAssertFalse(record.matches(serviceIdentifiers: [
+            ASCredentialServiceIdentifier(identifier: "login.example.com", type: .domain),
+        ]))
+    }
 }

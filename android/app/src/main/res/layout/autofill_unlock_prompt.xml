@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/autofill_unlock_label"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:drawableStart="@mipmap/ic_launcher"
+    android:drawablePadding="8dp"
+    android:gravity="center_vertical"
+    android:maxLines="1"
+    android:padding="8dp"
+    android:text="@string/autofill_unlock_label"
+    android:textColor="@color/autofill_prompt_text"
+    android:textSize="14sp" />

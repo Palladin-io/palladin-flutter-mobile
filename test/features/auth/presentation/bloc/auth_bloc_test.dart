@@ -40,8 +40,9 @@ void main() {
     blocTest<AuthBloc, AuthState>(
       'emits [AuthLoading, AuthAuthenticated] on successful Google login',
       build: () {
-        when(() => mockRepo.loginWithGoogle())
-            .thenAnswer((_) async => authResult);
+        when(
+          () => mockRepo.loginWithGoogle(),
+        ).thenAnswer((_) async => authResult);
         return AuthBloc(authRepository: mockRepo);
       },
       act: (bloc) => bloc.add(const AuthLoginWithGoogle()),
@@ -59,8 +60,9 @@ void main() {
     blocTest<AuthBloc, AuthState>(
       'emits [AuthLoading, AuthError] when Google login fails',
       build: () {
-        when(() => mockRepo.loginWithGoogle())
-            .thenThrow(Exception('Network error'));
+        when(
+          () => mockRepo.loginWithGoogle(),
+        ).thenThrow(Exception('Network error'));
         return AuthBloc(authRepository: mockRepo);
       },
       act: (bloc) => bloc.add(const AuthLoginWithGoogle()),
@@ -77,15 +79,13 @@ void main() {
     blocTest<AuthBloc, AuthState>(
       'emits [AuthUnauthenticated] when user cancels Google sign-in',
       build: () {
-        when(() => mockRepo.loginWithGoogle())
-            .thenThrow(AuthCancelledException());
+        when(
+          () => mockRepo.loginWithGoogle(),
+        ).thenThrow(AuthCancelledException());
         return AuthBloc(authRepository: mockRepo);
       },
       act: (bloc) => bloc.add(const AuthLoginWithGoogle()),
-      expect: () => [
-        isA<AuthLoading>(),
-        isA<AuthUnauthenticated>(),
-      ],
+      expect: () => [isA<AuthLoading>(), isA<AuthUnauthenticated>()],
     );
 
     blocTest<AuthBloc, AuthState>(
@@ -95,13 +95,29 @@ void main() {
         return AuthBloc(authRepository: mockRepo);
       },
       act: (bloc) => bloc.add(const AuthLogoutRequested()),
-      expect: () => [
-        isA<AuthLoading>(),
-        isA<AuthUnauthenticated>(),
-      ],
+      expect: () => [isA<AuthLoading>(), isA<AuthUnauthenticated>()],
       verify: (_) {
         verify(() => mockRepo.logout()).called(1);
       },
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'keeps the authenticated session when local logout cleanup fails',
+      build: () {
+        when(() => mockRepo.logout()).thenThrow(Exception('wipe failed'));
+        return AuthBloc(authRepository: mockRepo);
+      },
+      seed: () =>
+          const AuthAuthenticated(userId: 'user-789', isOnboarded: true),
+      act: (bloc) => bloc.add(const AuthLogoutRequested()),
+      expect: () => [
+        isA<AuthLoading>(),
+        isA<AuthAuthenticated>().having(
+          (state) => state.userId,
+          'userId',
+          'user-789',
+        ),
+      ],
     );
 
     blocTest<AuthBloc, AuthState>(
@@ -127,43 +143,39 @@ void main() {
         return AuthBloc(authRepository: mockRepo);
       },
       act: (bloc) => bloc.add(const AuthCheckRequested()),
-      expect: () => [
-        isA<AuthUnauthenticated>(),
-      ],
+      expect: () => [isA<AuthUnauthenticated>()],
     );
 
     blocTest<AuthBloc, AuthState>(
       'emits [AuthAuthenticated] on successful token refresh',
       build: () {
-        when(() => mockRepo.refreshToken())
-            .thenAnswer((_) async => authResult);
+        when(() => mockRepo.refreshToken()).thenAnswer((_) async => authResult);
         return AuthBloc(authRepository: mockRepo);
       },
       act: (bloc) => bloc.add(const AuthRefreshRequested()),
       expect: () => [
-        isA<AuthAuthenticated>()
-            .having((s) => s.userId, 'userId', 'user-789'),
+        isA<AuthAuthenticated>().having((s) => s.userId, 'userId', 'user-789'),
       ],
     );
 
     blocTest<AuthBloc, AuthState>(
       'emits [AuthUnauthenticated] when token refresh fails',
       build: () {
-        when(() => mockRepo.refreshToken())
-            .thenThrow(AuthNoRefreshTokenException());
+        when(
+          () => mockRepo.refreshToken(),
+        ).thenThrow(AuthNoRefreshTokenException());
         return AuthBloc(authRepository: mockRepo);
       },
       act: (bloc) => bloc.add(const AuthRefreshRequested()),
-      expect: () => [
-        isA<AuthUnauthenticated>(),
-      ],
+      expect: () => [isA<AuthUnauthenticated>()],
     );
 
     blocTest<AuthBloc, AuthState>(
       'AuthAuthenticated starts with isVaultLocked=true after login',
       build: () {
-        when(() => mockRepo.loginWithGoogle())
-            .thenAnswer((_) async => authResult);
+        when(
+          () => mockRepo.loginWithGoogle(),
+        ).thenAnswer((_) async => authResult);
         return AuthBloc(authRepository: mockRepo);
       },
       act: (bloc) => bloc.add(const AuthLoginWithGoogle()),
@@ -179,14 +191,14 @@ void main() {
     blocTest<AuthBloc, AuthState>(
       'VaultUnlocked carries keys into AuthAuthenticated state',
       build: () => AuthBloc(authRepository: mockRepo),
-      seed: () => const AuthAuthenticated(
-        userId: 'user-789',
-        isOnboarded: true,
+      seed: () =>
+          const AuthAuthenticated(userId: 'user-789', isOnboarded: true),
+      act: (bloc) => bloc.add(
+        VaultUnlocked(
+          masterKey: Uint8List.fromList(List.filled(32, 0xAA)),
+          privateKey: Uint8List.fromList(List.filled(32, 0xBB)),
+        ),
       ),
-      act: (bloc) => bloc.add(VaultUnlocked(
-        masterKey: Uint8List.fromList(List.filled(32, 0xAA)),
-        privateKey: Uint8List.fromList(List.filled(32, 0xBB)),
-      )),
       expect: () => [
         isA<AuthAuthenticated>()
             .having((s) => s.isVaultLocked, 'isVaultLocked', false)
@@ -199,10 +211,12 @@ void main() {
       'VaultUnlocked is ignored when not authenticated',
       build: () => AuthBloc(authRepository: mockRepo),
       seed: () => const AuthUnauthenticated(),
-      act: (bloc) => bloc.add(VaultUnlocked(
-        masterKey: Uint8List.fromList(List.filled(32, 0xAA)),
-        privateKey: Uint8List.fromList(List.filled(32, 0xBB)),
-      )),
+      act: (bloc) => bloc.add(
+        VaultUnlocked(
+          masterKey: Uint8List.fromList(List.filled(32, 0xAA)),
+          privateKey: Uint8List.fromList(List.filled(32, 0xBB)),
+        ),
+      ),
       expect: () => const <AuthState>[],
     );
 
@@ -212,10 +226,12 @@ void main() {
         when(() => mockRepo.getUserId()).thenAnswer((_) async => 'user-789');
         return AuthBloc(authRepository: mockRepo);
       },
-      act: (bloc) => bloc.add(OnboardingCompleted(
-        masterKey: Uint8List.fromList(List.filled(32, 0xAA)),
-        privateKey: Uint8List.fromList(List.filled(32, 0xBB)),
-      )),
+      act: (bloc) => bloc.add(
+        OnboardingCompleted(
+          masterKey: Uint8List.fromList(List.filled(32, 0xAA)),
+          privateKey: Uint8List.fromList(List.filled(32, 0xBB)),
+        ),
+      ),
       expect: () => [
         isA<AuthAuthenticated>()
             .having((s) => s.userId, 'userId', 'user-789')
@@ -249,9 +265,7 @@ void main() {
         return AuthBloc(authRepository: mockRepo);
       },
       act: (bloc) => bloc.add(const OnboardingCompleted()),
-      expect: () => [
-        isA<AuthUnauthenticated>(),
-      ],
+      expect: () => [isA<AuthUnauthenticated>()],
     );
 
     blocTest<AuthBloc, AuthState>(

@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>PalladinAutoFillAppGroupIdentifier</key>
+	<string>$(APP_GROUP_IDENTIFIER)</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Palladin uses the camera to scan authenticator QR codes when adding a one-time code (TOTP) to an entry.</string>
 	<key>CFBundleURLTypes</key>

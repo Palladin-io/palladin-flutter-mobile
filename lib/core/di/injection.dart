@@ -7,6 +7,10 @@ import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../features/autofill/data/autofill_cache_bridge.dart';
+import '../../features/autofill/data/autofill_cache_service.dart';
+import '../../features/autofill/data/autofill_mutation_notifier.dart';
+import '../../features/autofill/domain/autofill_cache_invalidator.dart';
 import '../../features/onboarding/data/datasources/onboarding_remote_datasource.dart';
 import '../../features/onboarding/data/repositories/onboarding_repository_impl.dart';
 import '../../features/onboarding/data/services/onboarding_crypto_service.dart';
@@ -104,9 +108,14 @@ void configureDependencies(EnvConfig config) {
   // unlock). Never holds the raw MK in a form readable without a fresh
   // biometric authentication — see BiometricStorageKeyStore.
   getIt.registerLazySingleton<BiometricKeyStore>(
-    () => BiometricStorageKeyStore(
-      markerStorage: getIt<FlutterSecureStorage>(),
-    ),
+    () =>
+        BiometricStorageKeyStore(markerStorage: getIt<FlutterSecureStorage>()),
+  );
+  getIt.registerLazySingleton<AutoFillMutationNotifier>(
+    AutoFillMutationNotifier.new,
+  );
+  getIt.registerLazySingleton<AutoFillCacheBridge>(
+    MethodChannelAutoFillCacheBridge.new,
   );
 
   // Network
@@ -123,6 +132,7 @@ void configureDependencies(EnvConfig config) {
       remoteDatasource: getIt<AuthRemoteDatasource>(),
       tokenStorage: getIt<SecureTokenStorage>(),
       secureStorage: getIt<FlutterSecureStorage>(),
+      autoFillCacheInvalidator: getIt<AutoFillCacheInvalidator>(),
       googleServerClientId: config.googleServerClientId,
     ),
   );
@@ -201,7 +211,10 @@ void configureDependencies(EnvConfig config) {
     () => VaultRemoteDatasource(getIt<Dio>()),
   );
   getIt.registerLazySingleton<VaultRepository>(
-    () => VaultRepositoryImpl(getIt<VaultRemoteDatasource>()),
+    () => VaultRepositoryImpl(
+      getIt<VaultRemoteDatasource>(),
+      autoFillMutationNotifier: getIt<AutoFillMutationNotifier>(),
+    ),
   );
 
   // VaultListCubit is a singleton so cached vault data survives tab
@@ -231,7 +244,18 @@ void configureDependencies(EnvConfig config) {
       entryDatasource: getIt<EntryRemoteDatasource>(),
       vaultDatasource: getIt<VaultRemoteDatasource>(),
       cryptoService: getIt<EntryCryptoService>(),
+      autoFillMutationNotifier: getIt<AutoFillMutationNotifier>(),
     ),
+  );
+  getIt.registerLazySingleton<AutoFillCacheService>(
+    () => AutoFillCacheService(
+      vaultRepository: getIt<VaultRepository>(),
+      entryRepository: getIt<EntryRepository>(),
+      bridge: getIt<AutoFillCacheBridge>(),
+    ),
+  );
+  getIt.registerLazySingleton<AutoFillCacheInvalidator>(
+    () => getIt<AutoFillCacheService>(),
   );
 
   // Entry — presentation layer (factory: fresh cubit per page mount so
@@ -266,7 +290,9 @@ void configureDependencies(EnvConfig config) {
   );
 
   // Export flow (CVT-235) — reveals + serializes + shares a vault.
-  getIt.registerLazySingleton<ExportSharer>(() => const SharePlusExportSharer());
+  getIt.registerLazySingleton<ExportSharer>(
+    () => const SharePlusExportSharer(),
+  );
   getIt.registerFactory<ExportCubit>(
     () => ExportCubit(
       repository: getIt<EntryRepository>(),

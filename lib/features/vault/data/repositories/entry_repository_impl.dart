@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../autofill/data/autofill_mutation_notifier.dart';
 import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/import_draft.dart';
@@ -31,11 +32,13 @@ class EntryRepositoryImpl implements EntryRepository {
     required this.entryDatasource,
     required this.vaultDatasource,
     required this.cryptoService,
+    this.autoFillMutationNotifier,
   });
 
   final EntryRemoteDatasource entryDatasource;
   final VaultRemoteDatasource vaultDatasource;
   final EntryCryptoService cryptoService;
+  final AutoFillMutationNotifier? autoFillMutationNotifier;
 
   @override
   Future<List<EntryEntity>> listEntries(String vaultId) async {
@@ -81,6 +84,7 @@ class EntryRepositoryImpl implements EntryRepository {
           agentFields: agentFields,
         ),
       );
+      autoFillMutationNotifier?.notifyChanged();
       return model.toEntity();
     } on DioException catch (e, s) {
       AppLogger.e('Entry', 'createEntry failed', error: e, stackTrace: s);
@@ -96,6 +100,7 @@ class EntryRepositoryImpl implements EntryRepository {
     try {
       AppLogger.d('Entry', 'DELETE /api/vaults/$vaultId/entries/$entryId');
       await entryDatasource.deleteEntry(vaultId, entryId);
+      autoFillMutationNotifier?.notifyChanged();
     } on DioException catch (e, s) {
       AppLogger.e('Entry', 'deleteEntry failed', error: e, stackTrace: s);
       throw EntryException(_classifyError(e));
@@ -224,6 +229,7 @@ class EntryRepositoryImpl implements EntryRepository {
             agentFields: agentFields,
           ),
         );
+        autoFillMutationNotifier?.notifyChanged();
       } on DioException catch (e, s) {
         AppLogger.e('Entry', 'updateEntry failed', error: e, stackTrace: s);
         throw EntryException(_classifyError(e));
@@ -263,11 +269,24 @@ class EntryRepositoryImpl implements EntryRepository {
     int chunkSize = 500,
     void Function(int done, int total)? onProgress,
   }) async {
-    AppLogger.d('Entry',
-        'Importing ${creates.length} new + ${overwrites.length} overwrites into $vaultId');
+    AppLogger.d(
+      'Entry',
+      'Importing ${creates.length} new + ${overwrites.length} overwrites into $vaultId',
+    );
     final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
     final total = creates.length + overwrites.length;
     var done = 0;
+    var mutated = false;
+
+    void markMutated() {
+      if (!mutated) {
+        // A multi-step import can continue for a long time after its first
+        // successful write. Revoke the old cache immediately; the finally
+        // block rebuilds it once all successful writes are visible.
+        autoFillMutationNotifier?.notifyInvalidated();
+      }
+      mutated = true;
+    }
 
     Uint8List? vaultKey;
     try {
@@ -287,22 +306,29 @@ class EntryRepositoryImpl implements EntryRepository {
             payload: draft.payload,
             vaultKey: vaultKey,
           );
-          items.add(ImportEntryItem(
-            label: draft.label,
-            description: draft.description,
-            type: draft.type.toWire(),
-            content: encrypted,
-            urlDomain: draft.urlDomain,
-          ));
+          items.add(
+            ImportEntryItem(
+              label: draft.label,
+              description: draft.description,
+              type: draft.type.toWire(),
+              content: encrypted,
+              urlDomain: draft.urlDomain,
+            ),
+          );
         }
         try {
           createdCount += await entryDatasource.importEntries(
             vaultId,
             ImportEntriesRequest(format: format, entries: items),
           );
+          markMutated();
         } on DioException catch (e, s) {
-          AppLogger.e('Entry', 'importEntries chunk failed',
-              error: e, stackTrace: s);
+          AppLogger.e(
+            'Entry',
+            'importEntries chunk failed',
+            error: e,
+            stackTrace: s,
+          );
           throw EntryException(_classifyError(e));
         }
         done += chunk.length;
@@ -328,19 +354,30 @@ class EntryRepositoryImpl implements EntryRepository {
             ),
           );
           updatedCount++;
+          markMutated();
         } on DioException catch (e, s) {
-          AppLogger.e('Entry', 'import overwrite failed',
-              error: e, stackTrace: s);
+          AppLogger.e(
+            'Entry',
+            'import overwrite failed',
+            error: e,
+            stackTrace: s,
+          );
           throw EntryException(_classifyError(e));
         }
         done++;
         onProgress?.call(done, total);
       }
 
-      AppLogger.i('Entry',
-          'Import done: created=$createdCount updated=$updatedCount');
-      return ImportResult(createdCount: createdCount, updatedCount: updatedCount);
+      AppLogger.i(
+        'Entry',
+        'Import done: created=$createdCount updated=$updatedCount',
+      );
+      return ImportResult(
+        createdCount: createdCount,
+        updatedCount: updatedCount,
+      );
     } finally {
+      if (mutated) autoFillMutationNotifier?.notifyChanged();
       if (vaultKey != null) {
         vaultKey.fillRange(0, vaultKey.length, 0);
       }
@@ -370,16 +407,55 @@ class EntryRepositoryImpl implements EntryRepository {
           content: detail.content,
           vaultKey: vaultKey,
         );
-        revealed.add(RevealedEntry(
-          entry: detail.summary.toEntity(),
-          payload: payload,
-        ));
+        revealed.add(
+          RevealedEntry(entry: detail.summary.toEntity(), payload: payload),
+        );
       }
       return revealed;
     } finally {
       if (vaultKey != null) {
         vaultKey.fillRange(0, vaultKey.length, 0);
       }
+    }
+  }
+
+  @override
+  Future<List<RevealedEntry>> revealAutoFillCredentials({
+    required String vaultId,
+    required Uint8List privateKey,
+    String? wrappedVK,
+  }) async {
+    final summaries = await listEntries(vaultId);
+    final candidates = summaries
+        .where(
+          (entry) =>
+              entry.type == EntryType.credential &&
+              (entry.urlDomain?.trim().isNotEmpty ?? false),
+        )
+        .toList(growable: false);
+    if (candidates.isEmpty) return const [];
+
+    final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
+    Uint8List? vaultKey;
+    try {
+      vaultKey = await cryptoService.unwrapVK(
+        wrappedVK: vk,
+        privateKey: privateKey,
+      );
+      final revealed = <RevealedEntry>[];
+      for (final summary in candidates) {
+        final detail = await _fetchDetail(vaultId, summary.id);
+        final payload = await cryptoService.decryptEntry(
+          content: detail.content,
+          vaultKey: vaultKey,
+        );
+        revealed.add(
+          RevealedEntry(entry: detail.summary.toEntity(), payload: payload),
+        );
+      }
+      return revealed;
+    } finally {
+      vaultKey?.fillRange(0, vaultKey.length, 0);
     }
   }
 
@@ -404,8 +480,7 @@ class EntryRepositoryImpl implements EntryRepository {
     try {
       return await vaultDatasource.getVaultWrappedKey(vaultId);
     } on DioException catch (e, s) {
-      AppLogger.e('Entry', 'wrappedVK fetch failed',
-          error: e, stackTrace: s);
+      AppLogger.e('Entry', 'wrappedVK fetch failed', error: e, stackTrace: s);
       throw EntryException(_classifyError(e));
     }
   }
