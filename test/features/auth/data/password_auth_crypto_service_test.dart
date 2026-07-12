@@ -66,6 +66,12 @@ void main() {
       recoveryMnemonic: mnemonic,
     );
 
+    // authSalt is exactly 16 bytes — it must match the server's fixed
+    // PseudoSaltLength (16) so that a real account's authSalt is
+    // length-indistinguishable from the pseudo-salt returned for an
+    // unknown email on login/salt (anti-enumeration).
+    expect(material.authSalt.length, 16);
+
     // authHash equals a direct Argon2id(password, authSalt).
     final expectedAuth = deriveKey(password, material.authSalt);
     expect(material.authHash, base64.encode(expectedAuth.extractBytes()));
