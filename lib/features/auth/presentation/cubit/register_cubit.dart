@@ -41,6 +41,10 @@ class RegisterCubit extends Cubit<RegisterState> {
   /// user navigates back to the credentials step. Empty once dropped.
   String get passwordDraft => _password ?? '';
 
+  /// Drops the in-memory master password. Strings can't be zeroed, but
+  /// releasing the reference lets it be collected.
+  void _clearPassword() => _password = null;
+
   /// Records the chosen email + master password and generates the recovery
   /// mnemonic, advancing to the backup step.
   Future<void> submitCredentials({
@@ -116,7 +120,7 @@ class RegisterCubit extends Cubit<RegisterState> {
       // to AuthBloc, so the plaintext password is no longer needed. Drop it.
       // (On failure it is retained so the user can retry from the confirm
       // step; the factory-scoped cubit closes when the page unmounts.)
-      _password = null;
+      _clearPassword();
       AppLogger.i('Register', 'Registration complete');
       emit(state.copyWith(
         step: RegisterStep.completed,

@@ -78,53 +78,59 @@ class PasswordAuthCryptoService {
     final encSalt = sodium.randombytes.buf(CryptoParams.saltLength);
     final recoverySalt = sodium.randombytes.buf(CryptoParams.saltLength);
 
+    // Each derived key sits inside the try guarded by the previously
+    // derived key's finally, so a throw from any later derivation can never
+    // leave an earlier key's secret buffer undisposed.
     final authKey = _deriveKey(sodium, password, authSalt);
-    final masterKey = _deriveKey(sodium, password, encSalt);
     try {
-      final recoveryKey = _deriveKey(
-        sodium,
-        recoveryMnemonic.join(' '),
-        recoverySalt,
-      );
+      final masterKey = _deriveKey(sodium, password, encSalt);
       try {
-        final keyPair = sodium.crypto.box.keyPair();
+        final recoveryKey = _deriveKey(
+          sodium,
+          recoveryMnemonic.join(' '),
+          recoverySalt,
+        );
         try {
-          final privateKeyBytes = keyPair.secretKey.extractBytes();
+          final keyPair = sodium.crypto.box.keyPair();
           try {
-            final encryptedPrivateKey = _encryptWithKey(
-              sodium,
-              plaintext: privateKeyBytes,
-              key: masterKey,
-            );
-            final encryptedPrivateKeyByRecovery = _encryptWithKey(
-              sodium,
-              plaintext: privateKeyBytes,
-              key: recoveryKey,
-            );
+            final privateKeyBytes = keyPair.secretKey.extractBytes();
+            try {
+              final encryptedPrivateKey = _encryptWithKey(
+                sodium,
+                plaintext: privateKeyBytes,
+                key: masterKey,
+              );
+              final encryptedPrivateKeyByRecovery = _encryptWithKey(
+                sodium,
+                plaintext: privateKeyBytes,
+                key: recoveryKey,
+              );
 
-            return RegistrationCryptoMaterial(
-              authHash: base64.encode(authKey.extractBytes()),
-              authSalt: authSalt,
-              encSalt: encSalt,
-              recoverySalt: recoverySalt,
-              publicKey: Uint8List.fromList(keyPair.publicKey),
-              encryptedPrivateKey: encryptedPrivateKey,
-              encryptedPrivateKeyByRecovery: encryptedPrivateKeyByRecovery,
-              masterKey: masterKey.extractBytes(),
-              privateKey: Uint8List.fromList(privateKeyBytes),
-            );
+              return RegistrationCryptoMaterial(
+                authHash: base64.encode(authKey.extractBytes()),
+                authSalt: authSalt,
+                encSalt: encSalt,
+                recoverySalt: recoverySalt,
+                publicKey: Uint8List.fromList(keyPair.publicKey),
+                encryptedPrivateKey: encryptedPrivateKey,
+                encryptedPrivateKeyByRecovery: encryptedPrivateKeyByRecovery,
+                masterKey: masterKey.extractBytes(),
+                privateKey: Uint8List.fromList(privateKeyBytes),
+              );
+            } finally {
+              privateKeyBytes.fillRange(0, privateKeyBytes.length, 0);
+            }
           } finally {
-            privateKeyBytes.fillRange(0, privateKeyBytes.length, 0);
+            keyPair.dispose();
           }
         } finally {
-          keyPair.dispose();
+          recoveryKey.dispose();
         }
       } finally {
-        recoveryKey.dispose();
+        masterKey.dispose();
       }
     } finally {
       authKey.dispose();
-      masterKey.dispose();
     }
   }
 

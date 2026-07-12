@@ -11,6 +11,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/secure_clipboard.dart';
+import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/mnemonic_word_grid.dart';
 import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -737,14 +738,9 @@ class _CompletedPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: AppColors.backgroundGradient(brightness),
-        ),
-        child: const Center(child: CircularProgressIndicator()),
+    return const AppScreen(
+      body: Center(
+        child: CircularProgressIndicator(color: AppColors.brandRed),
       ),
     );
   }

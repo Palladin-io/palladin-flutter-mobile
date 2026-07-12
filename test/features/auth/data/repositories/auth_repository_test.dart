@@ -9,6 +9,7 @@ import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
 import 'package:mobile_palladin/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:mobile_palladin/features/auth/data/models/auth_result_model.dart';
 import 'package:mobile_palladin/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:mobile_palladin/features/auth/domain/auth_provider_id.dart';
 import 'package:mobile_palladin/features/autofill/domain/autofill_cache_invalidator.dart';
 
 class MockAuthRemoteDatasource extends Mock implements AuthRemoteDatasource {}
@@ -105,6 +106,10 @@ void main() {
           isOnboarded: true,
         ),
       ).called(1);
+      // The OAuth-gating safety valve depends on this marker being written —
+      // without it, password-only account actions would leak to Google users.
+      verify(() => mockStorage.setAuthProvider(AuthProviderId.google))
+          .called(1);
     });
 
     test('throws AuthCancelledException when user cancels', () async {
