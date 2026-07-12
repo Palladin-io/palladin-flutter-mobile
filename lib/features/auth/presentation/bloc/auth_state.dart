@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import '../../domain/auth_provider_id.dart';
+
 /// Base class for all authentication states.
 sealed class AuthState {
   const AuthState();
@@ -38,12 +40,25 @@ final class AuthAuthenticated extends AuthState {
     this.permissions = 0,
     this.email,
     this.emailVerified = true,
+    this.authProvider,
   });
 
   final String userId;
   final bool isOnboarded;
   final bool isVaultLocked;
   final int permissions;
+
+  /// How this session was authenticated (`AuthProviderId.*`), or `null`
+  /// when unknown. Drives gating of password-only account actions (change
+  /// master password, TOTP enrolment). Persisted at login — the JWT carries
+  /// no provider claim.
+  final String? authProvider;
+
+  /// `true` only for an email + master-password account — the only kind
+  /// that has an `authHash` / can enrol TOTP. A `null` provider (unknown /
+  /// pre-marker session) reads as non-password so a broken action is never
+  /// shown to an OAuth user.
+  bool get isPasswordAccount => authProvider == AuthProviderId.password;
 
   /// Whether the account's email is verified (JWT `email_verified` claim).
   /// Defaults to `true` — OAuth sessions are always verified. A freshly
@@ -79,6 +94,7 @@ final class AuthAuthenticated extends AuthState {
     int? permissions,
     String? email,
     bool? emailVerified,
+    String? authProvider,
     bool clearKeys = false,
   }) {
     return AuthAuthenticated(
@@ -90,6 +106,7 @@ final class AuthAuthenticated extends AuthState {
       permissions: permissions ?? this.permissions,
       email: email ?? this.email,
       emailVerified: emailVerified ?? this.emailVerified,
+      authProvider: authProvider ?? this.authProvider,
     );
   }
 }

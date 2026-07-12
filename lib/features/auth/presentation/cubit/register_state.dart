@@ -31,14 +31,15 @@ class RegisterUnlockKeys {
 
 /// State held by the registration wizard.
 ///
-/// The email, master password, and mnemonic are kept **in memory only** —
-/// never persisted (zero-knowledge). The password never leaves the device
-/// except as the derived `authHash`.
+/// The email and mnemonic are kept **in memory only** — never persisted
+/// (zero-knowledge). The master **password is deliberately NOT part of
+/// this state** — it lives in a private field on `RegisterCubit` and is
+/// dropped on completion, so it never sits in an observable (bloc-logged)
+/// state object. The password only ever leaves the device as `authHash`.
 class RegisterState {
   const RegisterState({
     this.step = RegisterStep.credentials,
     this.email = '',
-    this.password = '',
     this.mnemonic = const <String>[],
     this.error,
     this.unlockKeys,
@@ -46,7 +47,6 @@ class RegisterState {
 
   final RegisterStep step;
   final String email;
-  final String password;
   final List<String> mnemonic;
 
   /// Typed exception when registration fails; the presentation layer maps
@@ -60,7 +60,6 @@ class RegisterState {
   RegisterState copyWith({
     RegisterStep? step,
     String? email,
-    String? password,
     List<String>? mnemonic,
     Object? error,
     bool clearError = false,
@@ -70,7 +69,6 @@ class RegisterState {
     return RegisterState(
       step: step ?? this.step,
       email: email ?? this.email,
-      password: password ?? this.password,
       mnemonic: mnemonic ?? this.mnemonic,
       error: clearError ? null : (error ?? this.error),
       unlockKeys: clearUnlockKeys ? null : (unlockKeys ?? this.unlockKeys),

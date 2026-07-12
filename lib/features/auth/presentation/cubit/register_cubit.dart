@@ -6,6 +6,7 @@ import '../../../onboarding/domain/mnemonic.dart' as mnemonic;
 import '../../data/datasources/password_auth_remote_datasource.dart';
 import '../../data/models/register_request.dart';
 import '../../data/services/password_auth_crypto_service.dart';
+import '../../domain/auth_provider_id.dart';
 import 'register_state.dart';
 
 export 'register_state.dart';
@@ -30,6 +31,16 @@ class RegisterCubit extends Cubit<RegisterState> {
   final PasswordAuthCryptoService cryptoService;
   final SecureTokenStorage tokenStorage;
 
+  /// The chosen master password, held **in memory only** and never placed
+  /// in the observable [RegisterState]. Dropped on completion via
+  /// [_clearPassword]. Strings can't be zeroed, but keeping it off the
+  /// state and dropping the reference is the strongest available guard.
+  String? _password;
+
+  /// The master password entered so far, for pre-filling the field when the
+  /// user navigates back to the credentials step. Empty once dropped.
+  String get passwordDraft => _password ?? '';
+
   /// Records the chosen email + master password and generates the recovery
   /// mnemonic, advancing to the backup step.
   Future<void> submitCredentials({
@@ -37,11 +48,11 @@ class RegisterCubit extends Cubit<RegisterState> {
     required String password,
   }) async {
     AppLogger.d('Register', 'Credentials submitted, generating mnemonic');
+    _password = password;
     final phrase = mnemonic.generateRecoveryMnemonic();
     emit(state.copyWith(
       step: RegisterStep.recoveryKeyBackup,
       email: email,
-      password: password,
       mnemonic: phrase,
       clearError: true,
     ));
@@ -62,7 +73,9 @@ class RegisterCubit extends Cubit<RegisterState> {
   Future<void> completeRegistration({
     required String preferredLanguage,
   }) async {
-    if (state.email.isEmpty || state.password.isEmpty || state.mnemonic.isEmpty) {
+    final password = _password;
+    if (state.email.isEmpty || password == null || password.isEmpty ||
+        state.mnemonic.isEmpty) {
       AppLogger.w('Register', 'Cannot complete — missing credentials/mnemonic');
       return;
     }
@@ -70,7 +83,7 @@ class RegisterCubit extends Cubit<RegisterState> {
     emit(state.copyWith(step: RegisterStep.submitting, clearError: true));
 
     final material = await cryptoService.buildRegistrationMaterial(
-      password: state.password,
+      password: password,
       recoveryMnemonic: state.mnemonic,
     );
 
@@ -96,8 +109,14 @@ class RegisterCubit extends Cubit<RegisterState> {
         userId: session.userId,
         isOnboarded: session.isOnboarded,
       );
+      await tokenStorage.setAuthProvider(AuthProviderId.password);
 
       if (state.step != RegisterStep.submitting) return;
+      // Registration succeeded — the keys are derived and about to be handed
+      // to AuthBloc, so the plaintext password is no longer needed. Drop it.
+      // (On failure it is retained so the user can retry from the confirm
+      // step; the factory-scoped cubit closes when the page unmounts.)
+      _password = null;
       AppLogger.i('Register', 'Registration complete');
       emit(state.copyWith(
         step: RegisterStep.completed,

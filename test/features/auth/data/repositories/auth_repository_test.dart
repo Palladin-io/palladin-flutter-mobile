@@ -88,6 +88,8 @@ void main() {
           isOnboarded: any(named: 'isOnboarded'),
         ),
       ).thenAnswer((_) async {});
+      when(() => mockStorage.setAuthProvider(any()))
+          .thenAnswer((_) async {});
 
       final result = await repository.loginWithGoogle();
 

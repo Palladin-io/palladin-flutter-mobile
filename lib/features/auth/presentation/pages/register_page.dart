@@ -142,11 +142,14 @@ class _CredentialsStepState extends State<_CredentialsStep> {
   @override
   void initState() {
     super.initState();
-    final saved = context.read<RegisterCubit>().state;
-    if (saved.email.isNotEmpty) _emailController.text = saved.email;
-    if (saved.password.isNotEmpty) {
-      _passwordController.text = saved.password;
-      _confirmController.text = saved.password;
+    final cubit = context.read<RegisterCubit>();
+    if (cubit.state.email.isNotEmpty) _emailController.text = cubit.state.email;
+    // Password draft lives on the cubit (never in observable state); pre-fill
+    // it when the user navigates back to this step.
+    final passwordDraft = cubit.passwordDraft;
+    if (passwordDraft.isNotEmpty) {
+      _passwordController.text = passwordDraft;
+      _confirmController.text = passwordDraft;
     }
     _emailController.addListener(_onChanged);
     _passwordController.addListener(_onPasswordChanged);

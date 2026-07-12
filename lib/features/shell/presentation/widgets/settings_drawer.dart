@@ -58,6 +58,8 @@ class SettingsDrawer extends StatelessWidget {
     final email = authState is AuthAuthenticated ? authState.email : null;
     final permissions =
         authState is AuthAuthenticated ? authState.permissions : 0;
+    final isPasswordAccount =
+        authState is AuthAuthenticated && authState.isPasswordAccount;
     final isPro = permissions != 0 &&
         permissions != _kPermissionsMaxValue &&
         (permissions & _kPremiumPlanBit) != 0;
@@ -107,16 +109,21 @@ class SettingsDrawer extends StatelessWidget {
               label: l10n.settingsApiKeys,
               onTap: () => _onNavigate(context, '/api-keys'),
             ),
-            _DrawerItem(
-              icon: Icons.password_outlined,
-              label: l10n.settingsChangePassword,
-              onTap: () => _onNavigate(context, '/change-password'),
-            ),
-            _DrawerItem(
-              icon: Icons.shield_outlined,
-              label: l10n.settingsTwoFactor,
-              onTap: () => _onNavigate(context, '/totp/enroll'),
-            ),
+            // Change-password and TOTP only apply to email + master-password
+            // accounts — an OAuth (Google) session has no authHash to rotate
+            // and no password-login TOTP, so hide both for those users.
+            if (isPasswordAccount) ...[
+              _DrawerItem(
+                icon: Icons.password_outlined,
+                label: l10n.settingsChangePassword,
+                onTap: () => _onNavigate(context, '/change-password'),
+              ),
+              _DrawerItem(
+                icon: Icons.shield_outlined,
+                label: l10n.settingsTwoFactor,
+                onTap: () => _onNavigate(context, '/totp/enroll'),
+              ),
+            ],
             _DrawerItem(
               icon: Icons.history,
               label: l10n.navAudit,

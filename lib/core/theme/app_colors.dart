@@ -104,6 +104,13 @@ abstract final class AppColors {
   /// Google brand blue — used in the Google OAuth button icon.
   static const Color googleBlue = Color(0xFF4285F4);
 
+  /// White background of the Google OAuth button (Google brand guideline:
+  /// the sign-in button sits on white). One brand-point for the button.
+  static const Color googleButtonBackground = Color(0xFFFFFFFF);
+
+  /// Near-black foreground text/icon on the white Google button.
+  static const Color googleButtonForeground = Color(0xDD000000);
+
   // === Onboarding / strength indicator ===
 
   /// Mid-strength color for the password strength meter — amber.

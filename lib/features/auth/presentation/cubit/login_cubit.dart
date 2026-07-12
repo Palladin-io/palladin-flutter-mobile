@@ -8,6 +8,7 @@ import '../../data/datasources/password_auth_remote_datasource.dart';
 import '../../data/models/login_response.dart';
 import '../../data/models/password_session_model.dart';
 import '../../data/services/password_auth_crypto_service.dart';
+import '../../domain/auth_provider_id.dart';
 import '../../domain/password_auth_exceptions.dart';
 import 'login_state.dart';
 
@@ -109,6 +110,7 @@ class LoginCubit extends Cubit<LoginState> {
       userId: session.userId,
       isOnboarded: session.isOnboarded,
     );
+    await tokenStorage.setAuthProvider(AuthProviderId.password);
 
     final account = await accountDatasource.getAccount();
     final result = await unlockCryptoService.deriveAndDecrypt(

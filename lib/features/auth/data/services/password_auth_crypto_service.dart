@@ -172,26 +172,31 @@ class PasswordAuthCryptoService {
 
       final newAuthSalt = sodium.randombytes.buf(CryptoParams.saltLength);
       final newEncSalt = sodium.randombytes.buf(CryptoParams.saltLength);
+      // Nested try/finally so a throw from the second derivation can never
+      // leave the first key's secret buffer undisposed.
       final newAuthKey = _deriveKey(sodium, newPassword, newAuthSalt);
-      final newMasterKey = _deriveKey(sodium, newPassword, newEncSalt);
       try {
-        final newEncryptedPrivateKey = _encryptWithKey(
-          sodium,
-          plaintext: privateKeyBytes,
-          key: newMasterKey,
-        );
-        return ChangePasswordMaterial(
-          currentAuthHash: currentAuthHash,
-          authHash: base64.encode(newAuthKey.extractBytes()),
-          authSalt: newAuthSalt,
-          encSalt: newEncSalt,
-          encryptedPrivateKey: newEncryptedPrivateKey,
-          masterKey: newMasterKey.extractBytes(),
-          privateKey: Uint8List.fromList(privateKeyBytes),
-        );
+        final newMasterKey = _deriveKey(sodium, newPassword, newEncSalt);
+        try {
+          final newEncryptedPrivateKey = _encryptWithKey(
+            sodium,
+            plaintext: privateKeyBytes,
+            key: newMasterKey,
+          );
+          return ChangePasswordMaterial(
+            currentAuthHash: currentAuthHash,
+            authHash: base64.encode(newAuthKey.extractBytes()),
+            authSalt: newAuthSalt,
+            encSalt: newEncSalt,
+            encryptedPrivateKey: newEncryptedPrivateKey,
+            masterKey: newMasterKey.extractBytes(),
+            privateKey: Uint8List.fromList(privateKeyBytes),
+          );
+        } finally {
+          newMasterKey.dispose();
+        }
       } finally {
         newAuthKey.dispose();
-        newMasterKey.dispose();
       }
     } finally {
       if (privateKeyBytes != null) {

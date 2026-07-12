@@ -39,6 +39,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final permissions = await authRepository.getPermissions();
       final email = await authRepository.getEmail();
       final emailVerified = await authRepository.isEmailVerified();
+      final authProvider = await authRepository.getAuthProvider();
       AppLogger.i('AuthBloc', 'Authenticated: userId=${result.userId}');
       emit(
         AuthAuthenticated(
@@ -47,6 +48,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           permissions: permissions,
           email: email,
           emailVerified: emailVerified,
+          authProvider: authProvider,
         ),
       );
     } on AuthCancelledException {
@@ -68,6 +70,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final permissions = await authRepository.getPermissions();
       final email = await authRepository.getEmail();
       final emailVerified = await authRepository.isEmailVerified();
+      final authProvider = await authRepository.getAuthProvider();
       AppLogger.i('AuthBloc', 'Refresh successful: userId=${result.userId}');
       emit(
         AuthAuthenticated(
@@ -76,6 +79,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           permissions: permissions,
           email: email,
           emailVerified: emailVerified,
+          authProvider: authProvider,
         ),
       );
     } catch (e) {
@@ -122,6 +126,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final permissions = await authRepository.getPermissions();
     final email = await authRepository.getEmail();
     final emailVerified = await authRepository.isEmailVerified();
+    final authProvider = await authRepository.getAuthProvider();
 
     if (userId != null) {
       AppLogger.i('AuthBloc', 'Restored session: userId=$userId');
@@ -132,6 +137,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           permissions: permissions,
           email: email,
           emailVerified: emailVerified,
+          authProvider: authProvider,
         ),
       );
     } else {
@@ -195,6 +201,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final permissions = await authRepository.getPermissions();
     final email = await authRepository.getEmail();
     final emailVerified = await authRepository.isEmailVerified();
+    final authProvider = await authRepository.getAuthProvider();
     final hasKeys = event.masterKey != null && event.privateKey != null;
     AppLogger.i(
       'AuthBloc',
@@ -210,6 +217,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         permissions: permissions,
         email: email,
         emailVerified: emailVerified,
+        authProvider: authProvider,
       ),
     );
   }
@@ -233,6 +241,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final permissions = await authRepository.getPermissions();
     final email = await authRepository.getEmail();
     final emailVerified = await authRepository.isEmailVerified();
+    final authProvider = await authRepository.getAuthProvider();
     AppLogger.i(
       'AuthBloc',
       'Password session established for userId=$userId '
@@ -248,6 +257,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         permissions: permissions,
         email: email,
         emailVerified: emailVerified,
+        authProvider: authProvider,
       ),
     );
   }

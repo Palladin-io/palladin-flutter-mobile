@@ -45,4 +45,10 @@ abstract class AuthRepository {
   /// missing (OAuth sessions are always verified) so a user is never
   /// wedged behind the verification wall by a missing claim.
   Future<bool> isEmailVerified();
+
+  /// Returns how the current session was authenticated
+  /// (`AuthProviderId.password` / `AuthProviderId.google`), or `null` when
+  /// unknown. Persisted at login time (the JWT carries no provider claim)
+  /// and used to gate password-only account actions.
+  Future<String?> getAuthProvider();
 }

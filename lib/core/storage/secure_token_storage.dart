@@ -11,6 +11,7 @@ class SecureTokenStorage {
   static const _refreshTokenKey = 'refresh_token';
   static const _userIdKey = 'user_id';
   static const _isOnboardedKey = 'is_onboarded';
+  static const _authProviderKey = 'auth_provider';
 
   /// Persists all auth-related tokens and metadata after a successful login
   /// or token refresh.
@@ -62,6 +63,17 @@ class SecureTokenStorage {
   Future<void> setOnboarded(bool value) {
     return _storage.write(key: _isOnboardedKey, value: value.toString());
   }
+
+  /// Records how the session was authenticated (`AuthProviderId.*`). Set at
+  /// login / registration; used to gate password-only account actions. Not
+  /// a secret — it holds a provider label, never credentials.
+  Future<void> setAuthProvider(String provider) {
+    return _storage.write(key: _authProviderKey, value: provider);
+  }
+
+  /// Returns the stored auth-provider label, or `null` when unknown (e.g. a
+  /// session established before this marker existed).
+  Future<String?> get authProvider => _storage.read(key: _authProviderKey);
 
   /// Removes all stored tokens and metadata. Used on logout.
   Future<void> clearAll() => _storage.deleteAll();

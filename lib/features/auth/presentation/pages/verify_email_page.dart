@@ -6,6 +6,7 @@ import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/brand_hero.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
@@ -54,7 +55,6 @@ class _VerifyEmailViewState extends State<_VerifyEmailView> {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
     return BlocListener<VerifyEmailCubit, VerifyEmailState>(
       listenWhen: (p, c) => p.resend != c.resend,
       listener: (context, state) {
@@ -65,32 +65,27 @@ class _VerifyEmailViewState extends State<_VerifyEmailView> {
           _snack(context, AppLocalizations.of(context)!.authVerifyResendError);
         }
       },
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: AppColors.backgroundGradient(brightness),
+      child: AppScreen(
+        body: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.screenH,
+            vertical: AppSpacing.xxl,
           ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.screenH,
-                vertical: AppSpacing.xxl,
-              ),
-              child: BlocBuilder<VerifyEmailCubit, VerifyEmailState>(
-                builder: (context, state) => Column(
-                  children: [
-                    const Spacer(flex: 2),
-                    BrandHero(textColor: BrandHero.textColorFor(brightness)),
-                    const Spacer(flex: 1),
-                    widget.token != null && widget.token!.isNotEmpty
-                        ? _ResultBody(state: state)
-                        : const _GateBody(),
-                    const Spacer(flex: 2),
-                  ],
-                ),
-              ),
-            ),
+          child: BlocBuilder<VerifyEmailCubit, VerifyEmailState>(
+            builder: (context, state) {
+              final brightness = Theme.of(context).brightness;
+              return Column(
+                children: [
+                  const Spacer(flex: 2),
+                  BrandHero(textColor: BrandHero.textColorFor(brightness)),
+                  const Spacer(flex: 1),
+                  widget.token != null && widget.token!.isNotEmpty
+                      ? _ResultBody(state: state)
+                      : const _GateBody(),
+                  const Spacer(flex: 2),
+                ],
+              );
+            },
           ),
         ),
       ),
