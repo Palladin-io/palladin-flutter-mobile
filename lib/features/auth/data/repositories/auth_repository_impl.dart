@@ -9,6 +9,7 @@ import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/jwt_claims.dart';
 import '../../../autofill/domain/autofill_cache_invalidator.dart';
+import '../../domain/auth_provider_id.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
 import '../models/auth_result_model.dart';
@@ -77,6 +78,9 @@ class AuthRepositoryImpl implements AuthRepository {
       userId: result.userId,
       isOnboarded: result.isOnboarded,
     );
+    // Mark this session as Google-authenticated so password-only account
+    // actions (change master password, TOTP) stay hidden for OAuth users.
+    await tokenStorage.setAuthProvider(AuthProviderId.google);
 
     AppLogger.i('Auth', 'Login successful, userId: ${result.userId}');
     return result;
@@ -196,6 +200,9 @@ class AuthRepositoryImpl implements AuthRepository {
     if (token == null || token.isEmpty) return true;
     return JwtClaims.emailVerifiedFrom(token);
   }
+
+  @override
+  Future<String?> getAuthProvider() => tokenStorage.authProvider;
 }
 
 /// Thrown when the user cancels the Google Sign-In dialog.

@@ -249,8 +249,8 @@ class _LoginViewState extends State<_LoginView> {
         OAuthButton(
           label: l10n.continueWithGoogle,
           icon: _providerGlyph('G', AppColors.googleBlue),
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black87,
+          backgroundColor: AppColors.googleButtonBackground,
+          foregroundColor: AppColors.googleButtonForeground,
           onPressed: isLoading
               ? null
               : () => context.read<AuthBloc>().add(const AuthLoginWithGoogle()),
@@ -258,18 +258,18 @@ class _LoginViewState extends State<_LoginView> {
         const SizedBox(height: AppSpacing.fieldGap),
         OAuthButton(
           label: l10n.continueWithApple,
-          icon: const Icon(Icons.apple, color: Colors.white, size: 24),
+          icon: const Icon(Icons.apple, color: AppColors.onBrandRed, size: 24),
           backgroundColor: AppColors.disabledButtonBackground,
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.onBrandRed,
           enabled: false,
           onDisabledTap: () => _comingSoon(context, 'Apple'),
         ),
         const SizedBox(height: AppSpacing.fieldGap),
         OAuthButton(
           label: l10n.continueWithX,
-          icon: _providerGlyph('X', Colors.white),
+          icon: _providerGlyph('X', AppColors.onBrandRed),
           backgroundColor: AppColors.disabledButtonBackground,
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.onBrandRed,
           enabled: false,
           onDisabledTap: () => _comingSoon(context, 'X'),
         ),
