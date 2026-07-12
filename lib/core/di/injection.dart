@@ -4,9 +4,17 @@ import 'package:get_it/get_it.dart';
 
 import '../../config/env_config.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
+import '../../features/auth/data/datasources/password_auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
+import '../../features/auth/data/services/hibp_service.dart';
+import '../../features/auth/data/services/password_auth_crypto_service.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../features/auth/presentation/cubit/change_password_cubit.dart';
+import '../../features/auth/presentation/cubit/login_cubit.dart';
+import '../../features/auth/presentation/cubit/register_cubit.dart';
+import '../../features/auth/presentation/cubit/totp_enroll_cubit.dart';
+import '../../features/auth/presentation/cubit/verify_email_cubit.dart';
 import '../../features/autofill/data/autofill_cache_bridge.dart';
 import '../../features/autofill/data/autofill_cache_service.dart';
 import '../../features/autofill/data/autofill_mutation_notifier.dart';
@@ -54,6 +62,7 @@ import '../../features/notifications/presentation/cubit/notification_center_cubi
 import '../../features/notifications/presentation/cubit/notification_preferences_cubit.dart';
 import '../../features/notifications/presentation/cubit/push_navigation_cubit.dart';
 import '../analytics/analytics_service.dart';
+import '../deep_link/deep_link_service.dart';
 import '../../features/recovery/data/datasources/recovery_remote_datasource.dart';
 import '../../features/settings/data/datasources/settings_remote_data_source.dart';
 import '../../features/settings/data/repositories/settings_repository_impl.dart';
@@ -141,6 +150,55 @@ void configureDependencies(EnvConfig config) {
   getIt.registerFactory<AuthBloc>(
     () => AuthBloc(authRepository: getIt<AuthRepository>()),
   );
+
+  // Email + master-password auth (CVT-252) — data layer.
+  getIt.registerLazySingleton<PasswordAuthCryptoService>(
+    () => PasswordAuthCryptoService(),
+  );
+  getIt.registerLazySingleton<HibpService>(() => HibpService());
+  getIt.registerLazySingleton<PasswordAuthRemoteDatasource>(
+    () => PasswordAuthRemoteDatasource(getIt<Dio>()),
+  );
+
+  // Email + master-password auth — presentation layer. Each screen owns a
+  // fresh cubit per mount so failed-attempt state never leaks between
+  // sessions, and any in-memory password held for master-key derivation is
+  // dropped when the cubit closes.
+  getIt.registerFactory<RegisterCubit>(
+    () => RegisterCubit(
+      datasource: getIt<PasswordAuthRemoteDatasource>(),
+      cryptoService: getIt<PasswordAuthCryptoService>(),
+      tokenStorage: getIt<SecureTokenStorage>(),
+    ),
+  );
+  getIt.registerFactory<LoginCubit>(
+    () => LoginCubit(
+      datasource: getIt<PasswordAuthRemoteDatasource>(),
+      cryptoService: getIt<PasswordAuthCryptoService>(),
+      accountDatasource: getIt<AccountRemoteDatasource>(),
+      unlockCryptoService: getIt<UnlockCryptoService>(),
+      tokenStorage: getIt<SecureTokenStorage>(),
+    ),
+  );
+  getIt.registerFactory<VerifyEmailCubit>(
+    () => VerifyEmailCubit(datasource: getIt<PasswordAuthRemoteDatasource>()),
+  );
+  getIt.registerFactory<ChangePasswordCubit>(
+    () => ChangePasswordCubit(
+      accountDatasource: getIt<AccountRemoteDatasource>(),
+      datasource: getIt<PasswordAuthRemoteDatasource>(),
+      cryptoService: getIt<PasswordAuthCryptoService>(),
+      keyStore: getIt<BiometricKeyStore>(),
+    ),
+  );
+  getIt.registerFactory<TotpEnrollCubit>(
+    () => TotpEnrollCubit(datasource: getIt<PasswordAuthRemoteDatasource>()),
+  );
+
+  // Custom-scheme deep links (CVT-261). Singleton — owns the link stream
+  // subscription for the whole session; the app-level listener routes
+  // resolved links via GoRouter.
+  getIt.registerLazySingleton<DeepLinkService>(() => DeepLinkService());
 
   // Onboarding — data layer
   getIt.registerLazySingleton<OnboardingRemoteDatasource>(

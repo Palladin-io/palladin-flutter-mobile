@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'l10n/generated/app_localizations.dart';
 
 import 'config/env_config.dart';
+import 'core/deep_link/deep_link_service.dart';
 import 'core/di/injection.dart';
 import 'core/l10n/locale_cubit.dart';
 import 'core/router/app_router.dart';
@@ -56,6 +57,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     navigatorKey: _navigatorKey,
   );
 
+  final DeepLinkService _deepLink = getIt<DeepLinkService>();
   final PushNavigationCubit _pushNavigationCubit = getIt<PushNavigationCubit>();
   final PushNotificationService _pushService = getIt<PushNotificationService>();
   final AutoFillCacheService _autoFillCache = getIt<AutoFillCacheService>();
@@ -92,12 +94,24 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
       if (!mounted || message == null) return;
       _pushNavigationCubit.onNotificationTapped(message);
     });
+
+    // Custom-scheme deep links (palladin://verify-email?token=…). Resume /
+    // warm links route immediately; a cold-start link is applied once the
+    // first frame is up so the router has settled its initial redirect.
+    _deepLink.listen((route) {
+      if (mounted) _router.go(route);
+    });
+    _deepLink.initialRoute().then((route) {
+      if (!mounted || route == null) return;
+      _router.go(route);
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _autoFillMutationSubscription.cancel();
+    _deepLink.dispose();
     _signalR.disconnect();
     _authBloc.close();
     super.dispose();

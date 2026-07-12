@@ -48,4 +48,17 @@ abstract final class JwtClaims {
     if (raw is String && raw.isNotEmpty) return raw;
     return null;
   }
+
+  /// Reads the `email_verified` claim emitted by the backend
+  /// `TokenService`. Defaults to `true` when the claim is missing so an
+  /// OAuth session (always verified) or a token issued before the claim
+  /// existed is never wedged behind the verification wall. Accepts both a
+  /// JSON boolean and the string `"true"`/`"false"` encodings.
+  static bool emailVerifiedFrom(String token) {
+    final payload = decodePayload(token);
+    final raw = payload['email_verified'];
+    if (raw is bool) return raw;
+    if (raw is String) return raw.toLowerCase() != 'false';
+    return true;
+  }
 }

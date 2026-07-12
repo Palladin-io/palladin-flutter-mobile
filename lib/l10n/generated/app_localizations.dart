@@ -5179,6 +5179,456 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
   String get exportErrorUnknown;
+
+  /// Subtitle on the email + password sign-in screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with your email and master password.'**
+  String get authLoginSubtitle;
+
+  /// Email field label
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get authEmailLabel;
+
+  /// Email field placeholder
+  ///
+  /// In en, this message translates to:
+  /// **'you@example.com'**
+  String get authEmailHint;
+
+  /// Inline error when the email is malformed
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid email address.'**
+  String get authEmailInvalid;
+
+  /// Master password field label on sign-in / register
+  ///
+  /// In en, this message translates to:
+  /// **'Master Password'**
+  String get authPasswordLabel;
+
+  /// Primary sign-in button
+  ///
+  /// In en, this message translates to:
+  /// **'Sign In'**
+  String get authLoginButton;
+
+  /// Generic login failure (unknown email or bad password)
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect email or password.'**
+  String get authInvalidCredentials;
+
+  /// Login rejected due to rate limiting / lockout
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Please try again later.'**
+  String get authRateLimited;
+
+  /// Prompt before the sign-up link on the login screen
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t have an account?'**
+  String get authNoAccountPrompt;
+
+  /// Sign-up link on the login screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sign up'**
+  String get authSignUpLink;
+
+  /// Divider between password sign-in and OAuth providers
+  ///
+  /// In en, this message translates to:
+  /// **'or'**
+  String get authOrDivider;
+
+  /// Registration screen headline
+  ///
+  /// In en, this message translates to:
+  /// **'Create your account'**
+  String get authRegisterTitle;
+
+  /// Registration screen subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Your master password encrypts everything on-device. We never see it.'**
+  String get authRegisterSubtitle;
+
+  /// Confirm master password field label on register
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Password'**
+  String get authRegisterConfirmLabel;
+
+  /// Prompt before the sign-in link on register
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account?'**
+  String get authRegisterHaveAccount;
+
+  /// Sign-in link on the register screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get authRegisterSignIn;
+
+  /// Register failure — email already registered
+  ///
+  /// In en, this message translates to:
+  /// **'An account with this email already exists.'**
+  String get authRegisterEmailTaken;
+
+  /// Shown while the HIBP breach check runs
+  ///
+  /// In en, this message translates to:
+  /// **'Checking password…'**
+  String get authPasswordChecking;
+
+  /// Warning-zone title when the password is breached
+  ///
+  /// In en, this message translates to:
+  /// **'BREACHED PASSWORD'**
+  String get authPasswordBreachedTitle;
+
+  /// HIBP breach warning message
+  ///
+  /// In en, this message translates to:
+  /// **'This password appeared in a known data breach. Choose a different one.'**
+  String get authPasswordBreached;
+
+  /// Warning-zone title on the register recovery backup step
+  ///
+  /// In en, this message translates to:
+  /// **'SAVE YOUR RECOVERY KEY'**
+  String get authRecoveryWarningTitle;
+
+  /// Headline of the verify-email gate
+  ///
+  /// In en, this message translates to:
+  /// **'Verify your email'**
+  String get authVerifyGateTitle;
+
+  /// Verify-email gate body with the user's email
+  ///
+  /// In en, this message translates to:
+  /// **'We sent a verification link to {email}. Open it to activate your account.'**
+  String authVerifyGateSubtitle(String email);
+
+  /// Verify-email gate body when the email is unknown
+  ///
+  /// In en, this message translates to:
+  /// **'We sent you a verification link. Open it to activate your account.'**
+  String get authVerifyGateSubtitleNoEmail;
+
+  /// Resend the verification email
+  ///
+  /// In en, this message translates to:
+  /// **'Resend email'**
+  String get authVerifyResendButton;
+
+  /// Snackbar after a successful resend
+  ///
+  /// In en, this message translates to:
+  /// **'Verification email sent.'**
+  String get authVerifyResendSent;
+
+  /// Snackbar after a failed resend
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t resend. Please try again.'**
+  String get authVerifyResendError;
+
+  /// Sign out from the verify-email gate
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get authVerifyLogout;
+
+  /// Shown while an email-verification token is processed
+  ///
+  /// In en, this message translates to:
+  /// **'Verifying…'**
+  String get authVerifyingTitle;
+
+  /// Verification success headline
+  ///
+  /// In en, this message translates to:
+  /// **'Email verified'**
+  String get authVerifiedTitle;
+
+  /// Verification success body
+  ///
+  /// In en, this message translates to:
+  /// **'Your account is now active.'**
+  String get authVerifiedSubtitle;
+
+  /// Continue after a successful verification
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get authVerifyContinue;
+
+  /// Go to login after verification when not signed in
+  ///
+  /// In en, this message translates to:
+  /// **'Go to sign in'**
+  String get authVerifyGoToLogin;
+
+  /// Expired verification link headline
+  ///
+  /// In en, this message translates to:
+  /// **'Link expired'**
+  String get authVerifyExpiredTitle;
+
+  /// Expired verification link body
+  ///
+  /// In en, this message translates to:
+  /// **'This verification link has expired. Request a new one.'**
+  String get authVerifyExpiredSubtitle;
+
+  /// Invalid verification link headline
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid link'**
+  String get authVerifyInvalidTitle;
+
+  /// Invalid verification link body
+  ///
+  /// In en, this message translates to:
+  /// **'This verification link is invalid or has already been used.'**
+  String get authVerifyInvalidSubtitle;
+
+  /// TOTP login challenge headline
+  ///
+  /// In en, this message translates to:
+  /// **'Two-factor authentication'**
+  String get authTotpChallengeTitle;
+
+  /// TOTP login challenge subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the 6-digit code from your authenticator app.'**
+  String get authTotpChallengeSubtitle;
+
+  /// Subtitle when using a recovery code at login
+  ///
+  /// In en, this message translates to:
+  /// **'Enter one of your recovery codes.'**
+  String get authTotpRecoverySubtitle;
+
+  /// TOTP code field label
+  ///
+  /// In en, this message translates to:
+  /// **'Authentication code'**
+  String get authTotpCodeLabel;
+
+  /// Recovery code field label
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery code'**
+  String get authTotpRecoveryLabel;
+
+  /// Verify the TOTP / recovery code
+  ///
+  /// In en, this message translates to:
+  /// **'Verify'**
+  String get authTotpVerifyButton;
+
+  /// Switch to recovery-code entry
+  ///
+  /// In en, this message translates to:
+  /// **'Use a recovery code instead'**
+  String get authTotpUseRecovery;
+
+  /// Switch back to authenticator-code entry
+  ///
+  /// In en, this message translates to:
+  /// **'Use an authenticator code instead'**
+  String get authTotpUseCode;
+
+  /// Rejected TOTP / recovery code
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid code. Please try again.'**
+  String get authTotpInvalid;
+
+  /// TOTP enrollment screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Set up two-factor authentication'**
+  String get authTotpEnrollTitle;
+
+  /// TOTP enrollment instructions
+  ///
+  /// In en, this message translates to:
+  /// **'Scan the QR code with your authenticator app, or enter the setup key manually.'**
+  String get authTotpEnrollSubtitle;
+
+  /// Label for the manual TOTP secret
+  ///
+  /// In en, this message translates to:
+  /// **'Setup key'**
+  String get authTotpEnrollSecretLabel;
+
+  /// Copy the TOTP secret
+  ///
+  /// In en, this message translates to:
+  /// **'Copy setup key'**
+  String get authTotpEnrollCopyKey;
+
+  /// Snackbar after copying the TOTP secret
+  ///
+  /// In en, this message translates to:
+  /// **'Setup key copied.'**
+  String get authTotpEnrollKeyCopied;
+
+  /// TOTP confirmation code field label
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the 6-digit code'**
+  String get authTotpEnrollCodeLabel;
+
+  /// Enable TOTP after entering a code
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get authTotpEnrollConfirmButton;
+
+  /// Retry loading the TOTP secret
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get authTotpEnrollRetry;
+
+  /// Recovery codes screen headline
+  ///
+  /// In en, this message translates to:
+  /// **'Save your recovery codes'**
+  String get authTotpEnrollRecoveryTitle;
+
+  /// Recovery codes screen body
+  ///
+  /// In en, this message translates to:
+  /// **'Store these somewhere safe. Each code can be used once if you lose your authenticator.'**
+  String get authTotpEnrollRecoverySubtitle;
+
+  /// Warning-zone title for recovery codes
+  ///
+  /// In en, this message translates to:
+  /// **'SHOWN ONLY ONCE'**
+  String get authTotpEnrollRecoveryWarningTitle;
+
+  /// Warning-zone body for recovery codes
+  ///
+  /// In en, this message translates to:
+  /// **'These codes won\'t be shown again. Save them before you continue.'**
+  String get authTotpEnrollRecoveryWarning;
+
+  /// Fallback when no recovery codes are returned
+  ///
+  /// In en, this message translates to:
+  /// **'No recovery codes were returned.'**
+  String get authTotpEnrollNoCodes;
+
+  /// Copy all recovery codes
+  ///
+  /// In en, this message translates to:
+  /// **'Copy codes'**
+  String get authTotpEnrollCopyCodes;
+
+  /// Snackbar after copying recovery codes
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery codes copied.'**
+  String get authTotpEnrollCodesCopied;
+
+  /// Finish TOTP enrollment
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get authTotpEnrollDone;
+
+  /// Change-password screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Change master password'**
+  String get authChangePwTitle;
+
+  /// Change-password screen subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'This re-encrypts your vault key on-device. Your recovery key stays the same.'**
+  String get authChangePwSubtitle;
+
+  /// Current password field label
+  ///
+  /// In en, this message translates to:
+  /// **'Current master password'**
+  String get authChangePwCurrentLabel;
+
+  /// New password field label
+  ///
+  /// In en, this message translates to:
+  /// **'New master password'**
+  String get authChangePwNewLabel;
+
+  /// Confirm new password field label
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm new password'**
+  String get authChangePwConfirmLabel;
+
+  /// Inline error when the current password is wrong
+  ///
+  /// In en, this message translates to:
+  /// **'Current password is incorrect.'**
+  String get authChangePwWrongCurrent;
+
+  /// Inline error when the new password equals the current one
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a password different from your current one.'**
+  String get authChangePwSameAsCurrent;
+
+  /// Change-password warning-zone title
+  ///
+  /// In en, this message translates to:
+  /// **'BIOMETRIC UNLOCK'**
+  String get authChangePwWarningTitle;
+
+  /// Change-password warning-zone body
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll need to re-enable biometric unlock after changing your password.'**
+  String get authChangePwWarning;
+
+  /// Submit the master password change
+  ///
+  /// In en, this message translates to:
+  /// **'Change Password'**
+  String get authChangePwButton;
+
+  /// Snackbar after a successful password change
+  ///
+  /// In en, this message translates to:
+  /// **'Master password changed.'**
+  String get authChangePwSuccess;
+
+  /// Settings drawer item — change master password
+  ///
+  /// In en, this message translates to:
+  /// **'Change master password'**
+  String get settingsChangePassword;
+
+  /// Settings drawer item — set up TOTP two-factor auth
+  ///
+  /// In en, this message translates to:
+  /// **'Two-factor authentication'**
+  String get settingsTwoFactor;
 }
 
 class _AppLocalizationsDelegate

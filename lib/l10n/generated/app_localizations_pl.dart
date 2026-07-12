@@ -2967,4 +2967,247 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get exportErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
+
+  @override
+  String get authLoginSubtitle =>
+      'Zaloguj się adresem e-mail i hasłem głównym.';
+
+  @override
+  String get authEmailLabel => 'E-mail';
+
+  @override
+  String get authEmailHint => 'ty@przyklad.pl';
+
+  @override
+  String get authEmailInvalid => 'Podaj prawidłowy adres e-mail.';
+
+  @override
+  String get authPasswordLabel => 'Hasło główne';
+
+  @override
+  String get authLoginButton => 'Zaloguj się';
+
+  @override
+  String get authInvalidCredentials => 'Nieprawidłowy e-mail lub hasło.';
+
+  @override
+  String get authRateLimited => 'Zbyt wiele prób. Spróbuj ponownie później.';
+
+  @override
+  String get authNoAccountPrompt => 'Nie masz konta?';
+
+  @override
+  String get authSignUpLink => 'Zarejestruj się';
+
+  @override
+  String get authOrDivider => 'lub';
+
+  @override
+  String get authRegisterTitle => 'Załóż konto';
+
+  @override
+  String get authRegisterSubtitle =>
+      'Hasło główne szyfruje wszystko na urządzeniu. Nigdy go nie widzimy.';
+
+  @override
+  String get authRegisterConfirmLabel => 'Potwierdź hasło';
+
+  @override
+  String get authRegisterHaveAccount => 'Masz już konto?';
+
+  @override
+  String get authRegisterSignIn => 'Zaloguj się';
+
+  @override
+  String get authRegisterEmailTaken =>
+      'Konto z tym adresem e-mail już istnieje.';
+
+  @override
+  String get authPasswordChecking => 'Sprawdzanie hasła…';
+
+  @override
+  String get authPasswordBreachedTitle => 'HASŁO Z WYCIEKU';
+
+  @override
+  String get authPasswordBreached =>
+      'To hasło pojawiło się w znanym wycieku danych. Wybierz inne.';
+
+  @override
+  String get authRecoveryWarningTitle => 'ZAPISZ KLUCZ ODZYSKIWANIA';
+
+  @override
+  String get authVerifyGateTitle => 'Zweryfikuj e-mail';
+
+  @override
+  String authVerifyGateSubtitle(String email) {
+    return 'Wysłaliśmy link weryfikacyjny na adres $email. Otwórz go, aby aktywować konto.';
+  }
+
+  @override
+  String get authVerifyGateSubtitleNoEmail =>
+      'Wysłaliśmy Ci link weryfikacyjny. Otwórz go, aby aktywować konto.';
+
+  @override
+  String get authVerifyResendButton => 'Wyślij ponownie';
+
+  @override
+  String get authVerifyResendSent => 'E-mail weryfikacyjny wysłany.';
+
+  @override
+  String get authVerifyResendError =>
+      'Nie udało się wysłać ponownie. Spróbuj ponownie.';
+
+  @override
+  String get authVerifyLogout => 'Wyloguj się';
+
+  @override
+  String get authVerifyingTitle => 'Weryfikacja…';
+
+  @override
+  String get authVerifiedTitle => 'E-mail zweryfikowany';
+
+  @override
+  String get authVerifiedSubtitle => 'Twoje konto jest już aktywne.';
+
+  @override
+  String get authVerifyContinue => 'Kontynuuj';
+
+  @override
+  String get authVerifyGoToLogin => 'Przejdź do logowania';
+
+  @override
+  String get authVerifyExpiredTitle => 'Link wygasł';
+
+  @override
+  String get authVerifyExpiredSubtitle =>
+      'Ten link weryfikacyjny wygasł. Poproś o nowy.';
+
+  @override
+  String get authVerifyInvalidTitle => 'Nieprawidłowy link';
+
+  @override
+  String get authVerifyInvalidSubtitle =>
+      'Ten link weryfikacyjny jest nieprawidłowy lub został już użyty.';
+
+  @override
+  String get authTotpChallengeTitle => 'Uwierzytelnianie dwuskładnikowe';
+
+  @override
+  String get authTotpChallengeSubtitle =>
+      'Wpisz 6-cyfrowy kod z aplikacji uwierzytelniającej.';
+
+  @override
+  String get authTotpRecoverySubtitle =>
+      'Wpisz jeden ze swoich kodów odzyskiwania.';
+
+  @override
+  String get authTotpCodeLabel => 'Kod uwierzytelniający';
+
+  @override
+  String get authTotpRecoveryLabel => 'Kod odzyskiwania';
+
+  @override
+  String get authTotpVerifyButton => 'Zweryfikuj';
+
+  @override
+  String get authTotpUseRecovery => 'Użyj kodu odzyskiwania';
+
+  @override
+  String get authTotpUseCode => 'Użyj kodu z aplikacji';
+
+  @override
+  String get authTotpInvalid => 'Nieprawidłowy kod. Spróbuj ponownie.';
+
+  @override
+  String get authTotpEnrollTitle =>
+      'Skonfiguruj uwierzytelnianie dwuskładnikowe';
+
+  @override
+  String get authTotpEnrollSubtitle =>
+      'Zeskanuj kod QR aplikacją uwierzytelniającą lub wpisz klucz konfiguracyjny ręcznie.';
+
+  @override
+  String get authTotpEnrollSecretLabel => 'Klucz konfiguracyjny';
+
+  @override
+  String get authTotpEnrollCopyKey => 'Kopiuj klucz';
+
+  @override
+  String get authTotpEnrollKeyCopied => 'Skopiowano klucz konfiguracyjny.';
+
+  @override
+  String get authTotpEnrollCodeLabel => 'Wpisz 6-cyfrowy kod';
+
+  @override
+  String get authTotpEnrollConfirmButton => 'Włącz';
+
+  @override
+  String get authTotpEnrollRetry => 'Ponów';
+
+  @override
+  String get authTotpEnrollRecoveryTitle => 'Zapisz kody odzyskiwania';
+
+  @override
+  String get authTotpEnrollRecoverySubtitle =>
+      'Przechowuj je w bezpiecznym miejscu. Każdego kodu można użyć raz, jeśli utracisz aplikację uwierzytelniającą.';
+
+  @override
+  String get authTotpEnrollRecoveryWarningTitle => 'POKAZANE TYLKO RAZ';
+
+  @override
+  String get authTotpEnrollRecoveryWarning =>
+      'Te kody nie zostaną pokazane ponownie. Zapisz je, zanim przejdziesz dalej.';
+
+  @override
+  String get authTotpEnrollNoCodes => 'Nie zwrócono kodów odzyskiwania.';
+
+  @override
+  String get authTotpEnrollCopyCodes => 'Kopiuj kody';
+
+  @override
+  String get authTotpEnrollCodesCopied => 'Skopiowano kody odzyskiwania.';
+
+  @override
+  String get authTotpEnrollDone => 'Gotowe';
+
+  @override
+  String get authChangePwTitle => 'Zmień hasło główne';
+
+  @override
+  String get authChangePwSubtitle =>
+      'To ponownie zaszyfruje klucz sejfu na urządzeniu. Klucz odzyskiwania pozostaje bez zmian.';
+
+  @override
+  String get authChangePwCurrentLabel => 'Obecne hasło główne';
+
+  @override
+  String get authChangePwNewLabel => 'Nowe hasło główne';
+
+  @override
+  String get authChangePwConfirmLabel => 'Potwierdź nowe hasło';
+
+  @override
+  String get authChangePwWrongCurrent => 'Obecne hasło jest nieprawidłowe.';
+
+  @override
+  String get authChangePwSameAsCurrent => 'Wybierz hasło inne niż obecne.';
+
+  @override
+  String get authChangePwWarningTitle => 'ODBLOKOWANIE BIOMETRYCZNE';
+
+  @override
+  String get authChangePwWarning =>
+      'Po zmianie hasła musisz ponownie włączyć odblokowanie biometryczne.';
+
+  @override
+  String get authChangePwButton => 'Zmień hasło';
+
+  @override
+  String get authChangePwSuccess => 'Zmieniono hasło główne.';
+
+  @override
+  String get settingsChangePassword => 'Zmień hasło główne';
+
+  @override
+  String get settingsTwoFactor => 'Uwierzytelnianie dwuskładnikowe';
 }

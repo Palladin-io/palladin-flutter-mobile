@@ -39,4 +39,10 @@ abstract class AuthRepository {
   /// Read-only — used for display in account chrome (settings drawer
   /// header).
   Future<String?> getEmail();
+
+  /// Returns whether the current access token's `email_verified` claim is
+  /// set. Defaults to `true` when no token is stored or the claim is
+  /// missing (OAuth sessions are always verified) so a user is never
+  /// wedged behind the verification wall by a missing claim.
+  Future<bool> isEmailVerified();
 }

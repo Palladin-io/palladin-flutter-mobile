@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   biometric_storage
   file_selector_linux
   flutter_secure_storage_linux
+  gtk
   sodium_libs
   url_launcher_linux
 )

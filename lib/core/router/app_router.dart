@@ -9,7 +9,11 @@ import '../../features/api_keys/presentation/pages/api_key_detail_page.dart';
 import '../../features/api_keys/presentation/pages/api_keys_page.dart';
 import '../../features/audit/presentation/pages/global_audit_log_page.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../features/auth/presentation/pages/change_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/auth/presentation/pages/totp_enroll_page.dart';
+import '../../features/auth/presentation/pages/verify_email_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/notifications/presentation/pages/inbox_grants_page.dart';
 import '../../features/notifications/presentation/pages/notification_center_page.dart';
@@ -38,12 +42,16 @@ abstract final class AppRoutes {
 /// Creates the app-level [GoRouter] with auth-aware redirects.
 ///
 /// Redirect rules, in order:
-/// 1. Unauthenticated → `/login`
+/// 1. Unauthenticated → `/login` (but `/register` and `/verify-email` are
+///    allowed — registration, and the anonymous email-verification deep
+///    link, must work without a session)
 /// 2. Authenticated but not onboarded → `/onboarding`
-/// 3. Authenticated, onboarded, vault locked → `/unlock` (but `/recovery`
-///    is allowed for locked sessions — that's the whole point of it)
-/// 4. Fully set-up and unlocked user on `/login`, `/onboarding`,
-///    `/unlock`, or `/recovery` → `/`
+/// 3. Authenticated, onboarded, email NOT verified → `/verify-email`
+///    (the only route a verified-but-gated password account may sit on;
+///    OAuth accounts are always verified so they never hit this)
+/// 4. Authenticated, onboarded, verified, vault locked → `/unlock` (but
+///    `/recovery` is allowed for locked sessions — that's its purpose)
+/// 5. Fully set-up and unlocked user on an auth-only route → `/`
 GoRouter createRouter(
   AuthBloc authBloc, {
   GlobalKey<NavigatorState>? navigatorKey,
@@ -56,6 +64,8 @@ GoRouter createRouter(
       final authState = authBloc.state;
       final location = state.matchedLocation;
       final isOnLoginPage = location == '/login';
+      final isOnRegisterPage = location == '/register';
+      final isOnVerifyEmailPage = location == '/verify-email';
       final isOnOnboardingPage = location == '/onboarding';
       final isOnUnlockPage = location == '/unlock';
       final isOnRecoveryPage = location == '/recovery';
@@ -63,12 +73,23 @@ GoRouter createRouter(
       final isAuthenticated = authState is AuthAuthenticated;
 
       if (!isAuthenticated) {
-        return isOnLoginPage ? null : '/login';
+        // Registration and the email-verification deep link are the only
+        // routes reachable without a session.
+        if (isOnLoginPage || isOnRegisterPage || isOnVerifyEmailPage) {
+          return null;
+        }
+        return '/login';
       }
 
       final needsOnboarding = !authState.isOnboarded;
       if (needsOnboarding) {
         return isOnOnboardingPage ? null : '/onboarding';
+      }
+
+      // Email-verification gate — ahead of the vault. OAuth sessions are
+      // always verified, so only unverified password accounts land here.
+      if (!authState.emailVerified) {
+        return isOnVerifyEmailPage ? null : '/verify-email';
       }
 
       final isVaultLocked = authState.isVaultLocked;
@@ -81,6 +102,8 @@ GoRouter createRouter(
       }
 
       if (isOnLoginPage ||
+          isOnRegisterPage ||
+          isOnVerifyEmailPage ||
           isOnOnboardingPage ||
           isOnUnlockPage ||
           isOnRecoveryPage) {
@@ -90,12 +113,32 @@ GoRouter createRouter(
     },
     routes: [
       GoRoute(path: '/login', builder: (_, _) => const LoginPage()),
+      GoRoute(path: '/register', builder: (_, _) => const RegisterPage()),
+      GoRoute(
+        // `?token=` present → verification-result mode (deep link); absent →
+        // "please verify your email" gate with a resend action.
+        path: '/verify-email',
+        builder: (_, state) =>
+            VerifyEmailPage(token: state.uri.queryParameters['token']),
+      ),
       GoRoute(
         path: '/onboarding',
         builder: (_, _) => const OnboardingWizardPage(),
       ),
       GoRoute(path: '/unlock', builder: (_, _) => const UnlockPage()),
       GoRoute(path: '/recovery', builder: (_, _) => const RecoveryPage()),
+      GoRoute(
+        // Master-password change (CVT-273) — a focused full-screen flow
+        // pushed from Settings; sits outside the shell so it has no bottom
+        // nav. Guarded by the unlock redirect above (needs a session).
+        path: '/change-password',
+        builder: (_, _) => const ChangePasswordPage(),
+      ),
+      GoRoute(
+        // TOTP enrollment (CVT-274) — pushed from Settings › Security.
+        path: '/totp/enroll',
+        builder: (_, _) => const TotpEnrollPage(),
+      ),
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [

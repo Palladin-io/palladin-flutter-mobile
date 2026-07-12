@@ -37,12 +37,19 @@ final class AuthAuthenticated extends AuthState {
     this.privateKey,
     this.permissions = 0,
     this.email,
+    this.emailVerified = true,
   });
 
   final String userId;
   final bool isOnboarded;
   final bool isVaultLocked;
   final int permissions;
+
+  /// Whether the account's email is verified (JWT `email_verified` claim).
+  /// Defaults to `true` — OAuth sessions are always verified. A freshly
+  /// registered password account is `false`, which routes the user to the
+  /// "verify your email" gate before the vault. Read-only on mobile.
+  final bool emailVerified;
 
   /// User's email address, decoded from the JWT `email` claim. Used
   /// purely for display in account chrome (e.g. the settings drawer
@@ -71,6 +78,7 @@ final class AuthAuthenticated extends AuthState {
     Uint8List? privateKey,
     int? permissions,
     String? email,
+    bool? emailVerified,
     bool clearKeys = false,
   }) {
     return AuthAuthenticated(
@@ -81,6 +89,7 @@ final class AuthAuthenticated extends AuthState {
       privateKey: clearKeys ? null : (privateKey ?? this.privateKey),
       permissions: permissions ?? this.permissions,
       email: email ?? this.email,
+      emailVerified: emailVerified ?? this.emailVerified,
     );
   }
 }

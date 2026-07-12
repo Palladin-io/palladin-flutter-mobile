@@ -22,6 +22,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<VaultUnlocked>(_onVaultUnlocked);
     on<VaultLockRequested>(_onVaultLockRequested);
     on<OnboardingCompleted>(_onOnboardingCompleted);
+    on<PasswordSessionEstablished>(_onPasswordSessionEstablished);
+    on<AuthEmailVerified>(_onEmailVerified);
   }
 
   final AuthRepository authRepository;
@@ -36,6 +38,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final result = await authRepository.loginWithGoogle();
       final permissions = await authRepository.getPermissions();
       final email = await authRepository.getEmail();
+      final emailVerified = await authRepository.isEmailVerified();
       AppLogger.i('AuthBloc', 'Authenticated: userId=${result.userId}');
       emit(
         AuthAuthenticated(
@@ -43,6 +46,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           isOnboarded: result.isOnboarded,
           permissions: permissions,
           email: email,
+          emailVerified: emailVerified,
         ),
       );
     } on AuthCancelledException {
@@ -63,6 +67,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final result = await authRepository.refreshToken();
       final permissions = await authRepository.getPermissions();
       final email = await authRepository.getEmail();
+      final emailVerified = await authRepository.isEmailVerified();
       AppLogger.i('AuthBloc', 'Refresh successful: userId=${result.userId}');
       emit(
         AuthAuthenticated(
@@ -70,6 +75,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           isOnboarded: result.isOnboarded,
           permissions: permissions,
           email: email,
+          emailVerified: emailVerified,
         ),
       );
     } catch (e) {
@@ -115,6 +121,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final isOnboarded = await authRepository.isOnboarded();
     final permissions = await authRepository.getPermissions();
     final email = await authRepository.getEmail();
+    final emailVerified = await authRepository.isEmailVerified();
 
     if (userId != null) {
       AppLogger.i('AuthBloc', 'Restored session: userId=$userId');
@@ -124,6 +131,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           isOnboarded: isOnboarded,
           permissions: permissions,
           email: email,
+          emailVerified: emailVerified,
         ),
       );
     } else {
@@ -186,6 +194,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
     final permissions = await authRepository.getPermissions();
     final email = await authRepository.getEmail();
+    final emailVerified = await authRepository.isEmailVerified();
     final hasKeys = event.masterKey != null && event.privateKey != null;
     AppLogger.i(
       'AuthBloc',
@@ -200,7 +209,72 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         privateKey: event.privateKey,
         permissions: permissions,
         email: email,
+        emailVerified: emailVerified,
       ),
     );
+  }
+
+  /// Handles a completed email + master-password authentication. The
+  /// flow's cubit has already persisted the tokens, so read the
+  /// session metadata from storage and carry the freshly derived keys
+  /// into an unlocked session. A password account whose email is not yet
+  /// verified is still marked unlocked here — the router shows the
+  /// verification gate ahead of the vault based on [emailVerified].
+  Future<void> _onPasswordSessionEstablished(
+    PasswordSessionEstablished event,
+    Emitter<AuthState> emit,
+  ) async {
+    final userId = await authRepository.getUserId();
+    if (userId == null) {
+      AppLogger.w('AuthBloc', 'PasswordSession — no userId in storage');
+      emit(const AuthUnauthenticated());
+      return;
+    }
+    final permissions = await authRepository.getPermissions();
+    final email = await authRepository.getEmail();
+    final emailVerified = await authRepository.isEmailVerified();
+    AppLogger.i(
+      'AuthBloc',
+      'Password session established for userId=$userId '
+          '(emailVerified=$emailVerified)',
+    );
+    emit(
+      AuthAuthenticated(
+        userId: userId,
+        isOnboarded: true,
+        isVaultLocked: false,
+        masterKey: event.masterKey,
+        privateKey: event.privateKey,
+        permissions: permissions,
+        email: email,
+        emailVerified: emailVerified,
+      ),
+    );
+  }
+
+  /// Flips the current session to verified after the user confirms their
+  /// email. Best-effort refreshes the token so the `email_verified` claim
+  /// propagates to future API calls, then re-emits the authenticated
+  /// state with the keys preserved (a same-session verification stays
+  /// unlocked). No-op when not authenticated.
+  Future<void> _onEmailVerified(
+    AuthEmailVerified event,
+    Emitter<AuthState> emit,
+  ) async {
+    final current = state;
+    if (current is! AuthAuthenticated) {
+      AppLogger.w('AuthBloc', 'EmailVerified ignored — not authenticated');
+      return;
+    }
+    try {
+      await authRepository.refreshToken();
+    } catch (e) {
+      // The verification already succeeded server-side; a failed refresh
+      // only means the local token still carries the stale claim until the
+      // next refresh. Proceed optimistically so the user is not stuck.
+      AppLogger.w('AuthBloc', 'Post-verify refresh failed: ${e.runtimeType}');
+    }
+    AppLogger.i('AuthBloc', 'Email verified for userId=${current.userId}');
+    emit(current.copyWith(emailVerified: true));
   }
 }
