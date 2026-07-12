@@ -141,6 +141,7 @@ void main() {
     final changed = await service.buildChangePasswordMaterial(
       currentPassword: password,
       newPassword: newPassword,
+      currentAuthSaltBase64: base64.encode(reg.authSalt),
       currentEncSaltBase64: base64.encode(reg.encSalt),
       currentEncryptedPrivateKeyBase64: base64.encode(reg.encryptedPrivateKey),
     );
@@ -148,6 +149,10 @@ void main() {
     // The private key is unchanged; only the wrapping key rotated.
     expect(changed.privateKey, reg.privateKey);
     expect(changed.encSalt, isNot(reg.encSalt));
+
+    // currentAuthHash proves the old password against the old auth salt and
+    // equals the registration authHash (same password + same salt).
+    expect(changed.currentAuthHash, reg.authHash);
 
     final newMk = deriveKey(newPassword, changed.encSalt);
     expect(
@@ -177,6 +182,7 @@ void main() {
       () => service.buildChangePasswordMaterial(
         currentPassword: 'not-the-password',
         newPassword: 'whatever-Strong-1!',
+        currentAuthSaltBase64: base64.encode(reg.authSalt),
         currentEncSaltBase64: base64.encode(reg.encSalt),
         currentEncryptedPrivateKeyBase64:
             base64.encode(reg.encryptedPrivateKey),

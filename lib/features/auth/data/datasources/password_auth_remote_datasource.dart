@@ -7,6 +7,8 @@ import '../models/login_response.dart';
 import '../models/password_session_model.dart';
 import '../models/register_request.dart';
 import '../models/totp_enroll_model.dart';
+import '../services/password_auth_crypto_service.dart'
+    show ChangePasswordWrongCurrentException;
 
 /// Remote data source for the email + master-password auth endpoints on
 /// the .NET Identity module (`/api/auth/*`, `/api/account/*`).
@@ -149,29 +151,40 @@ class PasswordAuthRemoteDatasource {
     }
   }
 
-  /// Changes the master password for the authenticated user (CVT-273).
+  /// Changes the master password for the authenticated user (CVT-273) via
+  /// `PUT /api/account/password` (JWT).
   ///
-  /// NOTE: the auth contract does not yet define an authenticated
-  /// change-password endpoint (only register + mnemonic recovery), so this
-  /// targets a best-guess `PUT /api/account/password` pending backend
-  /// confirmation. The recovery mnemonic is intentionally left untouched.
+  /// [currentAuthHash] proves knowledge of the current password; the
+  /// server verifies it constant-time before overwriting key material (so
+  /// a stolen session alone cannot rotate the credential). The recovery
+  /// mnemonic (`recoverySalt` / `encryptedPrivateKeyByRecovery`) is left
+  /// untouched. The server revokes the other refresh tokens on success.
+  ///
+  /// Throws [ChangePasswordWrongCurrentException] if the server rejects the
+  /// current auth hash (HTTP 401 / 403).
   Future<void> changePassword({
-    required String authHash,
-    required String authSaltBase64,
-    required String saltBase64,
-    required String encryptedPrivateKeyBase64,
+    required String currentAuthHash,
+    required String newAuthHash,
+    required String newAuthSaltBase64,
+    required String newSaltBase64,
+    required String newEncryptedPrivateKeyBase64,
   }) async {
     try {
       await _dio.put<dynamic>(
         '/api/account/password',
         data: {
-          'authHash': authHash,
-          'authSalt': authSaltBase64,
-          'salt': saltBase64,
-          'encryptedPrivateKey': encryptedPrivateKeyBase64,
+          'currentAuthHash': currentAuthHash,
+          'newAuthHash': newAuthHash,
+          'newAuthSalt': newAuthSaltBase64,
+          'newSalt': newSaltBase64,
+          'newEncryptedPrivateKey': newEncryptedPrivateKeyBase64,
         },
       );
     } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 401 || status == 403) {
+        throw const ChangePasswordWrongCurrentException();
+      }
       throw PasswordAuthServerException(_classify(e));
     }
   }

@@ -228,7 +228,23 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
 
   void _submit() {
     FocusScope.of(context).unfocus();
+    final authState = context.read<AuthBloc>().state;
+    final email = authState is AuthAuthenticated ? authState.email : null;
+    if (email == null || email.isEmpty) {
+      // No email on the session — cannot fetch the current auth salt. This
+      // should never happen for a password account; surface a generic error.
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.errorConnectionFailed),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      return;
+    }
     context.read<ChangePasswordCubit>().changePassword(
+          email: email,
           currentPassword: _currentController.text,
           newPassword: _newController.text,
         );

@@ -35,30 +35,38 @@ class ChangePasswordCubit extends Cubit<ChangePasswordState> {
   final BiometricKeyStore keyStore;
 
   Future<void> changePassword({
+    required String email,
     required String currentPassword,
     required String newPassword,
   }) async {
-    if (currentPassword.isEmpty || newPassword.isEmpty) return;
+    if (email.isEmpty || currentPassword.isEmpty || newPassword.isEmpty) return;
     AppLogger.d('ChangePassword', 'Change requested');
     emit(const ChangePasswordLoading());
 
     ChangePasswordMaterial? material;
     try {
+      // The current auth salt lives server-side; fetch it (anonymous
+      // pre-check) so we can derive the current auth hash the server
+      // verifies. The account material carries the current encryption salt
+      // + wrapped private key.
+      final currentAuthSalt = await datasource.fetchLoginSalt(email);
       final account = await accountDatasource.getAccount();
       // Throws ChangePasswordWrongCurrentException if the current password
-      // can't unwrap the private key.
+      // can't unwrap the private key (client-side proof before the server's).
       material = await cryptoService.buildChangePasswordMaterial(
         currentPassword: currentPassword,
         newPassword: newPassword,
+        currentAuthSaltBase64: currentAuthSalt,
         currentEncSaltBase64: account.salt,
         currentEncryptedPrivateKeyBase64: account.encryptedPrivateKey,
       );
 
       await datasource.changePassword(
-        authHash: material.authHash,
-        authSaltBase64: base64Encode(material.authSalt),
-        saltBase64: base64Encode(material.encSalt),
-        encryptedPrivateKeyBase64: base64Encode(material.encryptedPrivateKey),
+        currentAuthHash: material.currentAuthHash,
+        newAuthHash: material.authHash,
+        newAuthSaltBase64: base64Encode(material.authSalt),
+        newSaltBase64: base64Encode(material.encSalt),
+        newEncryptedPrivateKeyBase64: base64Encode(material.encryptedPrivateKey),
       );
 
       // The stashed biometric master key is now stale — drop it so a

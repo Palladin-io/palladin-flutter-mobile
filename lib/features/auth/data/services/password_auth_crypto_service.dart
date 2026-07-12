@@ -145,11 +145,13 @@ class PasswordAuthCryptoService {
   Future<ChangePasswordMaterial> buildChangePasswordMaterial({
     required String currentPassword,
     required String newPassword,
+    required String currentAuthSaltBase64,
     required String currentEncSaltBase64,
     required String currentEncryptedPrivateKeyBase64,
   }) async {
     final sodium = await _sodiumLoader();
     final currentEncSalt = base64.decode(currentEncSaltBase64);
+    final currentAuthSalt = base64.decode(currentAuthSaltBase64);
 
     final currentMasterKey = _deriveKey(sodium, currentPassword, currentEncSalt);
     Uint8List? privateKeyBytes;
@@ -159,6 +161,14 @@ class PasswordAuthCryptoService {
         currentMasterKey,
         currentEncryptedPrivateKeyBase64,
       );
+
+      // The current auth hash (from the current auth salt) is sent so the
+      // server can verify knowledge of the current password constant-time
+      // before overwriting key material — a stolen session alone must not
+      // be able to rotate the credential.
+      final currentAuthKey = _deriveKey(sodium, currentPassword, currentAuthSalt);
+      final currentAuthHash = base64.encode(currentAuthKey.extractBytes());
+      currentAuthKey.dispose();
 
       final newAuthSalt = sodium.randombytes.buf(CryptoParams.saltLength);
       final newEncSalt = sodium.randombytes.buf(CryptoParams.saltLength);
@@ -171,6 +181,7 @@ class PasswordAuthCryptoService {
           key: newMasterKey,
         );
         return ChangePasswordMaterial(
+          currentAuthHash: currentAuthHash,
           authHash: base64.encode(newAuthKey.extractBytes()),
           authSalt: newAuthSalt,
           encSalt: newEncSalt,
@@ -305,6 +316,7 @@ class RegistrationCryptoMaterial {
 /// Crypto material produced by [PasswordAuthCryptoService.buildChangePasswordMaterial].
 class ChangePasswordMaterial {
   const ChangePasswordMaterial({
+    required this.currentAuthHash,
     required this.authHash,
     required this.authSalt,
     required this.encSalt,
@@ -312,6 +324,11 @@ class ChangePasswordMaterial {
     required this.masterKey,
     required this.privateKey,
   });
+
+  /// Base64 Argon2id auth hash derived from the **current** password and
+  /// the current auth salt — the server verifies this constant-time
+  /// before accepting the change.
+  final String currentAuthHash;
 
   /// Base64 Argon2id auth hash derived from the new password.
   final String authHash;
