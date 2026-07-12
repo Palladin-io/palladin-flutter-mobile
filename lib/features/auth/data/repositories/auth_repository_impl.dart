@@ -189,6 +189,13 @@ class AuthRepositoryImpl implements AuthRepository {
     if (token == null || token.isEmpty) return null;
     return JwtClaims.emailFrom(token);
   }
+
+  @override
+  Future<bool> isEmailVerified() async {
+    final token = await tokenStorage.accessToken;
+    if (token == null || token.isEmpty) return true;
+    return JwtClaims.emailVerifiedFrom(token);
+  }
 }
 
 /// Thrown when the user cancels the Google Sign-In dialog.

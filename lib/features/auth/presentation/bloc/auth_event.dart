@@ -46,6 +46,34 @@ final class VaultLockRequested extends AuthEvent {
   const VaultLockRequested();
 }
 
+/// Fired after a successful email + master-password session is
+/// established (registration, a non-TOTP login, or a completed TOTP
+/// challenge). The tokens have already been persisted by the flow's
+/// cubit, so `AuthBloc` reads userId / permissions / email /
+/// emailVerified from storage and carries the freshly derived
+/// [masterKey] and [privateKey] into an unlocked [AuthAuthenticated]
+/// state — the user just typed their password, so there is no separate
+/// unlock step.
+final class PasswordSessionEstablished extends AuthEvent {
+  const PasswordSessionEstablished({
+    required this.masterKey,
+    required this.privateKey,
+  });
+
+  final Uint8List masterKey;
+  final Uint8List privateKey;
+}
+
+/// Fired after the user's email is verified (via the deep-link result
+/// screen). Best-effort refreshes the access token so the updated
+/// `email_verified` claim propagates, then flips `emailVerified` on the
+/// current session **without** dropping the in-memory keys — a user who
+/// verified in the same session stays unlocked. A no-op when the user is
+/// not currently authenticated.
+final class AuthEmailVerified extends AuthEvent {
+  const AuthEmailVerified();
+}
+
 /// Fired by the onboarding wizard after setup completes.
 ///
 /// On a fresh setup it carries the just-derived [masterKey] and

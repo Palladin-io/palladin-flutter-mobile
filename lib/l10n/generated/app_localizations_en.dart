@@ -2934,4 +2934,245 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get exportErrorUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get authLoginSubtitle =>
+      'Sign in with your email and master password.';
+
+  @override
+  String get authEmailLabel => 'Email';
+
+  @override
+  String get authEmailHint => 'you@example.com';
+
+  @override
+  String get authEmailInvalid => 'Enter a valid email address.';
+
+  @override
+  String get authPasswordLabel => 'Master Password';
+
+  @override
+  String get authLoginButton => 'Sign In';
+
+  @override
+  String get authInvalidCredentials => 'Incorrect email or password.';
+
+  @override
+  String get authRateLimited => 'Too many attempts. Please try again later.';
+
+  @override
+  String get authNoAccountPrompt => 'Don\'t have an account?';
+
+  @override
+  String get authSignUpLink => 'Sign up';
+
+  @override
+  String get authOrDivider => 'or';
+
+  @override
+  String get authRegisterTitle => 'Create your account';
+
+  @override
+  String get authRegisterSubtitle =>
+      'Your master password encrypts everything on-device. We never see it.';
+
+  @override
+  String get authRegisterConfirmLabel => 'Confirm Password';
+
+  @override
+  String get authRegisterHaveAccount => 'Already have an account?';
+
+  @override
+  String get authRegisterSignIn => 'Sign in';
+
+  @override
+  String get authRegisterEmailTaken =>
+      'An account with this email already exists.';
+
+  @override
+  String get authPasswordChecking => 'Checking password…';
+
+  @override
+  String get authPasswordBreachedTitle => 'BREACHED PASSWORD';
+
+  @override
+  String get authPasswordBreached =>
+      'This password appeared in a known data breach. Choose a different one.';
+
+  @override
+  String get authRecoveryWarningTitle => 'SAVE YOUR RECOVERY KEY';
+
+  @override
+  String get authVerifyGateTitle => 'Verify your email';
+
+  @override
+  String authVerifyGateSubtitle(String email) {
+    return 'We sent a verification link to $email. Open it to activate your account.';
+  }
+
+  @override
+  String get authVerifyGateSubtitleNoEmail =>
+      'We sent you a verification link. Open it to activate your account.';
+
+  @override
+  String get authVerifyResendButton => 'Resend email';
+
+  @override
+  String get authVerifyResendSent => 'Verification email sent.';
+
+  @override
+  String get authVerifyResendError => 'Couldn\'t resend. Please try again.';
+
+  @override
+  String get authVerifyLogout => 'Sign out';
+
+  @override
+  String get authVerifyingTitle => 'Verifying…';
+
+  @override
+  String get authVerifiedTitle => 'Email verified';
+
+  @override
+  String get authVerifiedSubtitle => 'Your account is now active.';
+
+  @override
+  String get authVerifyContinue => 'Continue';
+
+  @override
+  String get authVerifyGoToLogin => 'Go to sign in';
+
+  @override
+  String get authVerifyExpiredTitle => 'Link expired';
+
+  @override
+  String get authVerifyExpiredSubtitle =>
+      'This verification link has expired. Request a new one.';
+
+  @override
+  String get authVerifyInvalidTitle => 'Invalid link';
+
+  @override
+  String get authVerifyInvalidSubtitle =>
+      'This verification link is invalid or has already been used.';
+
+  @override
+  String get authTotpChallengeTitle => 'Two-factor authentication';
+
+  @override
+  String get authTotpChallengeSubtitle =>
+      'Enter the 6-digit code from your authenticator app.';
+
+  @override
+  String get authTotpRecoverySubtitle => 'Enter one of your recovery codes.';
+
+  @override
+  String get authTotpCodeLabel => 'Authentication code';
+
+  @override
+  String get authTotpRecoveryLabel => 'Recovery code';
+
+  @override
+  String get authTotpVerifyButton => 'Verify';
+
+  @override
+  String get authTotpUseRecovery => 'Use a recovery code instead';
+
+  @override
+  String get authTotpUseCode => 'Use an authenticator code instead';
+
+  @override
+  String get authTotpInvalid => 'Invalid code. Please try again.';
+
+  @override
+  String get authTotpEnrollTitle => 'Set up two-factor authentication';
+
+  @override
+  String get authTotpEnrollSubtitle =>
+      'Scan the QR code with your authenticator app, or enter the setup key manually.';
+
+  @override
+  String get authTotpEnrollSecretLabel => 'Setup key';
+
+  @override
+  String get authTotpEnrollCopyKey => 'Copy setup key';
+
+  @override
+  String get authTotpEnrollKeyCopied => 'Setup key copied.';
+
+  @override
+  String get authTotpEnrollCodeLabel => 'Enter the 6-digit code';
+
+  @override
+  String get authTotpEnrollConfirmButton => 'Enable';
+
+  @override
+  String get authTotpEnrollRetry => 'Retry';
+
+  @override
+  String get authTotpEnrollRecoveryTitle => 'Save your recovery codes';
+
+  @override
+  String get authTotpEnrollRecoverySubtitle =>
+      'Store these somewhere safe. Each code can be used once if you lose your authenticator.';
+
+  @override
+  String get authTotpEnrollRecoveryWarningTitle => 'SHOWN ONLY ONCE';
+
+  @override
+  String get authTotpEnrollRecoveryWarning =>
+      'These codes won\'t be shown again. Save them before you continue.';
+
+  @override
+  String get authTotpEnrollNoCodes => 'No recovery codes were returned.';
+
+  @override
+  String get authTotpEnrollCopyCodes => 'Copy codes';
+
+  @override
+  String get authTotpEnrollCodesCopied => 'Recovery codes copied.';
+
+  @override
+  String get authTotpEnrollDone => 'Done';
+
+  @override
+  String get authChangePwTitle => 'Change master password';
+
+  @override
+  String get authChangePwSubtitle =>
+      'This re-encrypts your vault key on-device. Your recovery key stays the same.';
+
+  @override
+  String get authChangePwCurrentLabel => 'Current master password';
+
+  @override
+  String get authChangePwNewLabel => 'New master password';
+
+  @override
+  String get authChangePwConfirmLabel => 'Confirm new password';
+
+  @override
+  String get authChangePwWrongCurrent => 'Current password is incorrect.';
+
+  @override
+  String get authChangePwSameAsCurrent =>
+      'Choose a password different from your current one.';
+
+  @override
+  String get authChangePwWarningTitle => 'BIOMETRIC UNLOCK';
+
+  @override
+  String get authChangePwWarning =>
+      'You\'ll need to re-enable biometric unlock after changing your password.';
+
+  @override
+  String get authChangePwButton => 'Change Password';
+
+  @override
+  String get authChangePwSuccess => 'Master password changed.';
+
+  @override
+  String get settingsChangePassword => 'Change master password';
+
+  @override
+  String get settingsTwoFactor => 'Two-factor authentication';
 }

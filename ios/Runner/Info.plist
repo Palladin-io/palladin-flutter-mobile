@@ -16,6 +16,18 @@
 				<string>com.googleusercontent.apps.1006466869105-m9lc3djv76vmh7pnhh7opdbbtq9pbhce</string>
 			</array>
 		</dict>
+		<!-- app_links (CVT-261): custom scheme for the email-verification
+		     deep link palladin://verify-email?token=… -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>io.palladin.mobile.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>palladin</string>
+			</array>
+		</dict>
 	</array>
 	<!-- google_sign_in (iOS): GIDSignIn reads the client IDs from here. Without
 	     GIDClientID, GIDSignIn raises on sign-in (no clientID in configuration). -->

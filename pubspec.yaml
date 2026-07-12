@@ -97,6 +97,14 @@ dependencies:
   biometric_storage: ^5.0.1
   mobile_scanner: ^7.2.0
 
+  # Custom-scheme deep links (CVT-261) — palladin://verify-email?token=…
+  # routes an email-verification tap into the app on cold start + resume.
+  app_links: ^6.3.2
+
+  # Renders the TOTP enrollment QR (otpauth:// URI) so the user can scan
+  # it into their authenticator app (CVT-274). Display-only; never scans.
+  qr_flutter: ^4.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

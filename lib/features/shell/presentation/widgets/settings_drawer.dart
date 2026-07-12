@@ -108,6 +108,16 @@ class SettingsDrawer extends StatelessWidget {
               onTap: () => _onNavigate(context, '/api-keys'),
             ),
             _DrawerItem(
+              icon: Icons.password_outlined,
+              label: l10n.settingsChangePassword,
+              onTap: () => _onNavigate(context, '/change-password'),
+            ),
+            _DrawerItem(
+              icon: Icons.shield_outlined,
+              label: l10n.settingsTwoFactor,
+              onTap: () => _onNavigate(context, '/totp/enroll'),
+            ),
+            _DrawerItem(
               icon: Icons.history,
               label: l10n.navAudit,
               onTap: () => _onNavigate(context, '/audit'),

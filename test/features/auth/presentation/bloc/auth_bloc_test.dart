@@ -21,6 +21,7 @@ void main() {
     // per test when a specific bitmask or identity matters.
     when(() => mockRepo.getPermissions()).thenAnswer((_) async => 0);
     when(() => mockRepo.getEmail()).thenAnswer((_) async => null);
+    when(() => mockRepo.isEmailVerified()).thenAnswer((_) async => true);
   });
 
   const authResult = AuthResultModel(

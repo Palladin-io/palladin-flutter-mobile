@@ -50,4 +50,26 @@ void main() {
       expect(JwtClaims.permissionsFrom(token), 0);
     });
   });
+
+  group('JwtClaims.emailVerifiedFrom', () {
+    test('reads a boolean email_verified claim', () {
+      expect(JwtClaims.emailVerifiedFrom(_makeJwt({'email_verified': true})),
+          isTrue);
+      expect(JwtClaims.emailVerifiedFrom(_makeJwt({'email_verified': false})),
+          isFalse);
+    });
+
+    test('reads a string email_verified claim', () {
+      expect(JwtClaims.emailVerifiedFrom(_makeJwt({'email_verified': 'false'})),
+          isFalse);
+      expect(JwtClaims.emailVerifiedFrom(_makeJwt({'email_verified': 'true'})),
+          isTrue);
+    });
+
+    test('defaults to true when the claim is missing or the token is bad', () {
+      // A missing claim must never wedge a user behind the verify wall.
+      expect(JwtClaims.emailVerifiedFrom(_makeJwt({'sub': 'u1'})), isTrue);
+      expect(JwtClaims.emailVerifiedFrom('not-a-jwt'), isTrue);
+    });
+  });
 }
