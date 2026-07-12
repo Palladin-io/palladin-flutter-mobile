@@ -14,10 +14,7 @@ class AuthRemoteDatasource {
   Future<AuthResultModel> oauthGoogle(String idToken) async {
     final response = await _dio.post(
       '/api/auth/oauth/google',
-      data: {
-        'token': idToken,
-        'platform': 'mobile',
-      },
+      data: {'token': idToken},
     );
     return _parseAuthResult(response.data);
   }

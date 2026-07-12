@@ -19,6 +19,12 @@ void main() {
       );
     });
 
+    test('getHeaders includes x-platform set to mobile', () async {
+      final headers = await AnalyticsHeadersService.instance.getHeaders();
+
+      expect(headers['x-platform'], 'mobile');
+    });
+
     test('getHeaders omits x-app-version when PackageInfo not loaded',
         () async {
       final headers = await AnalyticsHeadersService.instance.getHeaders();
