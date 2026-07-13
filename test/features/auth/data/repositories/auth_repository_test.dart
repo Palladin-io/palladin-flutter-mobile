@@ -172,7 +172,7 @@ void main() {
     });
 
     test(
-      'waits for AutoFill revocation before clearing auth storage',
+      'attempts AutoFill revocation before clearing auth storage',
       () async {
         final clearStarted = Completer<void>();
         final allowClear = Completer<void>();
@@ -195,17 +195,24 @@ void main() {
       },
     );
 
-    test('keeps auth storage when AutoFill revocation fails', () async {
-      when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
-      when(
-        () => mockAutoFillCacheInvalidator.clear(),
-      ).thenThrow(Exception('native wipe failed'));
+    test(
+      'still clears auth storage when AutoFill revocation fails (best-effort)',
+      () async {
+        when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
+        when(
+          () => mockAutoFillCacheInvalidator.clear(),
+        ).thenThrow(Exception('native wipe failed'));
+        when(() => mockStorage.clearAll()).thenAnswer((_) async {});
+        when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
 
-      await expectLater(repository.logout(), throwsException);
+        // A native AutoFill failure must never abort logout — the critical
+        // token/key cleanup has to run so the user can always sign out.
+        await repository.logout();
 
-      verifyNever(() => mockStorage.clearAll());
-      verifyNever(() => mockGoogleSignIn.signOut());
-    });
+        verify(() => mockAutoFillCacheInvalidator.clear()).called(1);
+        verify(() => mockStorage.clearAll()).called(1);
+      },
+    );
   });
 
   group('isAuthenticated', () {

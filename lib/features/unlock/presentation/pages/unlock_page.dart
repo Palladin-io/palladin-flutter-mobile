@@ -99,7 +99,16 @@ class _UnlockViewState extends State<_UnlockView> {
                   _buildHero(context),
                   const Spacer(flex: 1),
                   _buildForm(context),
-                  const Spacer(flex: 2),
+                  // Biometric affordance sits symmetrically between the Unlock
+                  // button and the Forgot-password link — equal flexible space
+                  // above and below. Falls back to a single spacer when no
+                  // biometrics are enrolled so the vertical rhythm is preserved.
+                  if (_biometricAvailable) ...[
+                    const Spacer(flex: 1),
+                    _buildBiometricButton(context),
+                    const Spacer(flex: 1),
+                  ] else
+                    const Spacer(flex: 2),
                   _buildForgotPassword(context),
                   _buildLogout(context),
                   const SizedBox(height: AppSpacing.xxl),
@@ -118,9 +127,13 @@ class _UnlockViewState extends State<_UnlockView> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Shared brand lockup — identical logo + "Palladin.io" wordmark as the
-        // login screen (see BrandHero). Only the subtitle below differs.
-        BrandHero(textColor: BrandHero.textColorFor(brightness)),
+        // Shared brand lockup — same logo + "Palladin.io" wordmark as the login
+        // screen (see BrandHero), with a slightly smaller wordmark so it doesn't
+        // dominate the unlock screen's denser layout.
+        BrandHero(
+          textColor: BrandHero.textColorFor(brightness),
+          wordmarkFontSize: 42,
+        ),
         const SizedBox(height: AppSpacing.section),
         Text(
           l10n.unlockTitle,
@@ -176,21 +189,21 @@ class _UnlockViewState extends State<_UnlockView> {
               isLoading: isLoading,
               onPressed: canSubmit ? _submit : null,
             ),
-            if (_biometricAvailable) ...[
-              const SizedBox(height: AppSpacing.xl),
-              _buildBiometricRow(context, isLoading),
-            ],
           ],
         );
       },
     );
   }
 
-  Widget _buildBiometricRow(BuildContext context, bool isLoading) {
+  /// Text-less biometric shortcut — just the fingerprint affordance. The
+  /// [AppLocalizations.unlockBiometricHint] string stays as the button tooltip
+  /// (accessibility) even though no visible label is shown.
+  Widget _buildBiometricButton(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Column(
-      children: [
-        IconButton(
+    return BlocBuilder<UnlockCubit, UnlockState>(
+      builder: (context, state) {
+        final isLoading = state is UnlockLoading;
+        return IconButton(
           onPressed: isLoading ? null : _tryBiometrics,
           iconSize: 40,
           tooltip: l10n.unlockBiometricHint,
@@ -199,13 +212,8 @@ class _UnlockViewState extends State<_UnlockView> {
             color: AppColors.brandRed,
             size: 40,
           ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          l10n.unlockBiometricHint,
-          style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
-        ),
-      ],
+        );
+      },
     );
   }
 

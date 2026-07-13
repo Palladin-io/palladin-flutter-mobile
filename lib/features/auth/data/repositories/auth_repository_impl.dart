@@ -138,12 +138,20 @@ class AuthRepositoryImpl implements AuthRepository {
     AppLogger.d('Auth', 'Starting logout');
     final currentRefreshToken = await tokenStorage.refreshToken;
 
-    // Revoke the native provider before removing the authenticated session.
-    // AutoFillCacheService serializes this behind any active replacement, so a
-    // successful logout can never leave a late-written credential cache.
-    await autoFillCacheInvalidator.clear();
+    // Best-effort native AutoFill revocation, attempted first so its queued
+    // clear runs before any in-flight replacement. The cache holds only
+    // ciphertext encrypted with a dedicated key (never MK/VK) and is retried on
+    // the AuthUnauthenticated transition, so a hard native failure (e.g. a
+    // simulator without a provisioned credential provider) must never abort
+    // logout and strand the user in a locked session. Time-boxed like the other
+    // best-effort steps below.
+    try {
+      await autoFillCacheInvalidator.clear().timeout(const Duration(seconds: 4));
+    } catch (e) {
+      AppLogger.w('Auth', 'AutoFill revocation failed (best-effort): $e');
+    }
 
-    // Clear local auth state before best-effort network operations so backend
+    // Critical local security cleanup — must always run so backend/native
     // availability can never keep a valid local session alive.
     await tokenStorage.clearAll();
     await BiometricKeyStorage.clear(secureStorage);

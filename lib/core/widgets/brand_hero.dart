@@ -11,11 +11,20 @@ import '../theme/app_spacing.dart';
 /// welcome, unlock's "enter master password" hint) — the hero owns only the
 /// logo + wordmark.
 class BrandHero extends StatelessWidget {
-  const BrandHero({super.key, required this.textColor});
+  const BrandHero({
+    super.key,
+    required this.textColor,
+    this.wordmarkFontSize = 52,
+  });
 
   /// Color for the "Palladin" portion of the wordmark. Use [textColorFor] to
   /// derive it from the current [Brightness] consistently across screens.
   final Color textColor;
+
+  /// Font size of the "Palladin.io" wordmark. Defaults to the hero size used on
+  /// the login/verify screens; the unlock screen passes a smaller value so the
+  /// wordmark doesn't dominate its denser layout.
+  final double wordmarkFontSize;
 
   /// The wordmark text color for a given [brightness] — pure white on dark,
   /// the dark background tone on light. Centralised so both screens stay in
@@ -35,8 +44,8 @@ class BrandHero extends StatelessWidget {
         RichText(
           textAlign: TextAlign.center,
           text: TextSpan(
-            style: const TextStyle(
-              fontSize: 52,
+            style: TextStyle(
+              fontSize: wordmarkFontSize,
               fontWeight: FontWeight.w900,
               height: 1.0,
               letterSpacing: -1.5,
