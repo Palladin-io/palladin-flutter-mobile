@@ -1,6 +1,6 @@
 # Pull Request Reviewers
 
-The web panel supports Claude Code and Codex as independent pull request reviewers. Claude remains the default reviewer and the existing Claude implementation is also used by `fix-pr.yml`.
+The mobile app supports Claude Code and Codex as independent pull request reviewers. Claude remains the default reviewer and the existing Claude implementation is also used by `fix-pr.yml`.
 
 ## Automatic flow
 
@@ -16,7 +16,7 @@ Draft pull requests, titles starting with `WIP`, and pull requests created by `g
 
 The Codex authorization job refuses runs triggered by users without write access to the repository. Review external-contributor pull requests with Claude or dispatch Codex only after a maintainer has validated the diff.
 
-Manual runs use the reviewer-specific workflow: `pr-review.yml` for Claude or `codex-pr-review.yml` for Codex. The manual selection does not change the repository default.
+Manual runs use the reviewer-specific workflow from `main`: `pr-review.yml` for Claude or `codex-pr-review.yml` for Codex. The manual selection does not change the repository default.
 
 ## Results and failure isolation
 
