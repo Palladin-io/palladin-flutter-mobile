@@ -10,10 +10,16 @@ import 'analytics_service.dart';
 /// Headers produced:
 /// - `x-session-id` -- PostHog session ID (when available)
 /// - `x-user-agent` -- `Palladin/mobile ({os} {osVersion})`
+/// - `x-platform` -- `mobile` (analytics platform, read by the backend)
 /// - `x-app-version` -- semantic version from pubspec
 /// - `x-app-build-number` -- build number from pubspec
 class AnalyticsHeadersService {
   AnalyticsHeadersService._();
+
+  /// Analytics platform tag. The backend reads this from the `x-platform`
+  /// transport header (web sends `web`) to attribute events; it replaces the
+  /// former `platform` field in the auth request body.
+  static const String _platform = 'mobile';
 
   static final AnalyticsHeadersService _instance =
       AnalyticsHeadersService._();
@@ -35,6 +41,8 @@ class AnalyticsHeadersService {
 
     headers['x-user-agent'] =
         'Palladin/mobile (${Platform.operatingSystem} ${Platform.operatingSystemVersion})';
+
+    headers['x-platform'] = _platform;
 
     if (_packageInfo != null) {
       headers['x-app-version'] = _packageInfo!.version;
