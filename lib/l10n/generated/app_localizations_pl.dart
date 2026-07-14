@@ -33,11 +33,28 @@ class AppLocalizationsPl extends AppLocalizations {
   String get continueWithApple => 'Kontynuuj z Apple';
 
   @override
-  String get continueWithX => 'Kontynuuj z X';
+  String get continueWithX => 'Zaloguj się przez X';
 
   @override
-  String get legalFooter =>
-      'Kontynuując, akceptujesz nasze Warunki i Politykę prywatności';
+  String get continueWithEmail => 'Kontynuuj przez e-mail';
+
+  @override
+  String get authOtherSignInOptions => 'Inne opcje logowania';
+
+  @override
+  String get legalFooterPrefix => 'Kontynuując, akceptujesz nasze ';
+
+  @override
+  String get legalTermsLink => 'Warunki';
+
+  @override
+  String get legalFooterSeparator => ' i ';
+
+  @override
+  String get legalPrivacyLink => 'Politykę prywatności';
+
+  @override
+  String get legalLinkOpenError => 'Nie można otworzyć tego linku.';
 
   @override
   String providerComingSoon(String provider) {
@@ -3000,6 +3017,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get authSignUpLink => 'Zarejestruj się';
 
   @override
+  String get authRegisterButton => 'Zarejestruj się';
+
+  @override
   String get authOrDivider => 'lub';
 
   @override
@@ -3023,14 +3043,21 @@ class AppLocalizationsPl extends AppLocalizations {
       'Konto z tym adresem e-mail już istnieje.';
 
   @override
-  String get authPasswordChecking => 'Sprawdzanie hasła…';
+  String get authPasswordChecking => 'Sprawdzanie Twojego hasła...';
 
   @override
-  String get authPasswordBreachedTitle => 'HASŁO Z WYCIEKU';
+  String get authPasswordSecure => 'Bezpieczne!';
+
+  @override
+  String get authPasswordImprove => 'Użyj dłuższego hasła z różnymi znakami.';
+
+  @override
+  String get authPasswordCheckUnavailable =>
+      'Nie udało się sprawdzić wycieków - użyj unikalnego hasła.';
 
   @override
   String get authPasswordBreached =>
-      'To hasło pojawiło się w znanym wycieku danych. Wybierz inne.';
+      'Hasło znaleziono w wycieku - wybierz inne.';
 
   @override
   String get authRecoveryWarningTitle => 'ZAPISZ KLUCZ ODZYSKIWANIA';
@@ -3040,12 +3067,15 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String authVerifyGateSubtitle(String email) {
-    return 'Wysłaliśmy link weryfikacyjny na adres $email. Otwórz go, aby aktywować konto.';
+    return 'Wysłaliśmy link weryfikacyjny na adres $email.';
   }
 
   @override
   String get authVerifyGateSubtitleNoEmail =>
-      'Wysłaliśmy Ci link weryfikacyjny. Otwórz go, aby aktywować konto.';
+      'Wysłaliśmy Ci link weryfikacyjny.';
+
+  @override
+  String get authVerifyGateInstruction => 'Otwórz go, aby aktywować konto.';
 
   @override
   String get authVerifyResendButton => 'Wyślij ponownie';

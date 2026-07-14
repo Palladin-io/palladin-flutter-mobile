@@ -299,11 +299,12 @@ class OnboardingTextField extends StatelessWidget {
         // [Padding] to control the gap between icon and text.
         prefixIconConstraints: const BoxConstraints(),
         suffixIcon: suffixIcon,
-        // Same treatment as the prefix — strip the default 48px min so a plain
-        // suffix glyph (e.g. the date picker's calendar) doesn't inflate the
-        // field above the app's ~44px input height. Buttons supplied as a
-        // suffix (e.g. the password eye IconButton) keep their own min size.
-        suffixIconConstraints: const BoxConstraints(),
+        // Keep suffix buttons inside the shared 44px control height so a
+        // password visibility toggle cannot make the field taller than email.
+        suffixIconConstraints: const BoxConstraints.tightFor(
+          width: AppSpacing.controlHeight,
+          height: AppSpacing.controlHeight,
+        ),
       ),
     );
 

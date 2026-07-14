@@ -192,6 +192,8 @@ lib/
 | `AppDropdownField` | `lib/core/widgets/app_dropdown_field.dart` | 44px bordered dropdown matching input height, generic `<T>`. Params: `label`, `value`, `items`, `onChanged`, `hint`, `enabled`, `filled` |
 | `AppAutocompleteField` | `lib/core/widgets/app_autocomplete_field.dart` | Type-to-search autocomplete backed by `OnboardingTextField`, generic `<T extends Object>`. Params: `label`, `initialText`, `options`, `displayString`, `onSelected`, `onTextChanged` |
 | `BrandHero` | `lib/core/widgets/brand_hero.dart` | Logo + "Palladin.io" wordmark (`.io` always brandRed). Param: `textColor`; static `BrandHero.textColorFor(brightness)` |
+| `AuthBrandBackground` + `AuthContentWidth` | `lib/core/widgets/auth_brand_layout.dart` | Shared auth/confirmation frame: regular background plus brand glow, and centered 320px content width after the minimum screen gutters. Use with `AuthBrandHeader` so auth screens do not drift |
+| `AuthLegalFooter` | `lib/core/widgets/auth_legal_footer.dart` | Localized Terms + Privacy footer for login and registration; opens the matching EN/PL palladin.io pages |
 | `IconColorBrowserSheet` | `lib/core/widgets/icon_color_browser_sheet.dart` | Full icon + color picker bottom sheet. Params: `icons`, `colorOptions`, `initialIconKey`, `initialColor`, `title`, `confirmLabel`, `leadingTile`, `onPickCustom` |
 | `IconPickerGrid` | `lib/core/widgets/icon_picker_grid.dart` | Grid of selectable icon tiles (used inside `IconColorBrowserSheet` and vault/entry icon pickers) |
 | `MultiSelectDropdown` | `lib/core/widgets/multi_select_dropdown.dart` | Multi-select with chips, generic `<T>` (used in audit filter sheets) |
@@ -205,6 +207,7 @@ These belong conceptually to `core` but currently sit in a feature folder. Reuse
 |--------|------|---------------------|
 | `OnboardingTextField` + `FieldFeedbackSlot` | `lib/features/onboarding/presentation/widgets/onboarding_text_field.dart` | Primary 44px text input with label, border, and animated feedback slot below the input. Used by every feature with a form field (auth, onboarding, vault settings, recovery) |
 | `PrimaryButton` | `lib/features/onboarding/presentation/widgets/primary_button.dart` | Brand-red full-width 44px CTA with loading state. Used in 14 files across 6 features — **should move to `lib/core/widgets/`** |
+| `PasswordSecurityCheckController` + `resolvePasswordSecurityFeedback` + `PasswordSecurityStatusLine` | `lib/features/auth/presentation/widgets/password_security_status.dart` | Shared debounced HIBP state, presentation resolver, and compact one-line renderer. Registration reuses the resolver in its pinned copy; master-password screens use the line widget. Never duplicate breach-check state or message precedence |
 | `AppBottomNav` | `lib/features/shell/presentation/widgets/app_bottom_nav.dart` | 5-slot bottom navigation bar with badge counts (used by `AppShell`) |
 | `AgentAvatar` | `lib/features/agents/presentation/widgets/agent_avatar.dart` | Agent icon circle (tinted initials fallback or custom icon/color). Reused by grants (`OrgGrantCard`) + notifications (`NotificationCard`) |
 | `AgentStatusBadge` | `lib/features/agents/presentation/widgets/agent_status_badge.dart` | Rounded status pill (pending/active/deactivated). Used by `AgentCard`, `AgentDetailBody` |

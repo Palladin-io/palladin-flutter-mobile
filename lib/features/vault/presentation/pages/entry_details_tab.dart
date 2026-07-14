@@ -598,7 +598,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
           extraTrailing: EntrySmallIconButton(
             icon: Icons.open_in_new,
             tooltip: l10n.vaultOpenLink,
-            // url_launcher is not a dependency — degrade "open" to copy.
+            // This surface intentionally keeps its existing copy behavior.
             onPressed: () => _copy(url, l10n.entryUrlLabel),
           ),
         ),

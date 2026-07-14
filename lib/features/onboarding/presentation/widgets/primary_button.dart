@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 
 /// Primary button used across onboarding screens.
 ///
@@ -12,18 +13,20 @@ class PrimaryButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.isLoading = false,
+    this.leading,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool isLoading;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !isLoading;
     return SizedBox(
       width: double.infinity,
-      height: 44,
+      height: AppSpacing.controlHeight,
       child: ElevatedButton(
         onPressed: enabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
@@ -45,14 +48,23 @@ class PrimaryButton extends StatelessWidget {
                   color: AppColors.onBrandRed,
                 ),
               )
-            : Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+            : leading == null
+            ? _label()
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  Align(alignment: Alignment.centerLeft, child: leading),
+                  Center(child: _label()),
+                ],
               ),
       ),
+    );
+  }
+
+  Widget _label() {
+    return Text(
+      label,
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
     );
   }
 }

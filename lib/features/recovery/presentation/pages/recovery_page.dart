@@ -11,7 +11,12 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/secure_clipboard.dart';
+import '../../../../core/widgets/auth_brand_layout.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../auth/data/services/hibp_service.dart';
+import '../../../auth/presentation/widgets/auth_brand_header.dart';
+import '../../../auth/presentation/widgets/password_security_status.dart';
+import '../../../onboarding/domain/password_strength.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../domain/recovery_exceptions.dart';
@@ -80,6 +85,7 @@ class _RecoveryViewState extends State<_RecoveryView> {
 
   bool _passwordVisible = false;
   bool _confirmVisible = false;
+  late final PasswordSecurityCheckController _passwordSecurity;
 
   /// Local validation error on step 2 — shown when the two password
   /// fields disagree. Kept out of cubit state since it's purely a UI
@@ -97,17 +103,22 @@ class _RecoveryViewState extends State<_RecoveryView> {
   @override
   void initState() {
     super.initState();
+    _passwordSecurity = PasswordSecurityCheckController(
+      check: getIt<HibpService>().check,
+    );
     AnalyticsService.instance.capture('recovery', 'page-viewed');
     _mnemonicController.addListener(_onTextChanged);
-    _passwordController.addListener(_onTextChanged);
+    _passwordController.addListener(_onPasswordChanged);
     _confirmPasswordController.addListener(_onTextChanged);
+    _passwordSecurity.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
     _mnemonicController.removeListener(_onTextChanged);
-    _passwordController.removeListener(_onTextChanged);
+    _passwordController.removeListener(_onPasswordChanged);
     _confirmPasswordController.removeListener(_onTextChanged);
+    _passwordSecurity.dispose();
     _mnemonicController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -126,26 +137,30 @@ class _RecoveryViewState extends State<_RecoveryView> {
     });
   }
 
+  void _onPasswordChanged() {
+    _passwordSecurity.checkPassword(_passwordController.text);
+  }
+
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
+    final usesAuthBrandLayout = _step == _RecoveryStep.newPassword;
     return BlocListener<RecoveryCubit, RecoveryState>(
       listener: _handleStateChange,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: AppColors.backgroundGradient(brightness),
-          ),
+        body: _RecoveryBackground(
+          usesAuthBrandLayout: usesAuthBrandLayout,
+          brightness: brightness,
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(
+              padding: EdgeInsets.fromLTRB(
                 AppSpacing.screenH,
-                AppSpacing.headerGap,
+                usesAuthBrandLayout ? 0 : AppSpacing.headerGap,
                 AppSpacing.screenH,
                 AppSpacing.xxl,
               ),
-              child: _buildStep(context),
+              child: AuthContentWidth(child: _buildStep(context)),
             ),
           ),
         ),
@@ -173,6 +188,7 @@ class _RecoveryViewState extends State<_RecoveryView> {
           onToggleConfirm: () =>
               setState(() => _confirmVisible = !_confirmVisible),
           passwordMismatch: _passwordMismatch,
+          passwordSecurity: _passwordSecurity,
           onBack: _goBackToEnterKey,
           onSubmit: _submitNewPassword,
         );
@@ -200,6 +216,10 @@ class _RecoveryViewState extends State<_RecoveryView> {
     final password = _passwordController.text;
     final confirm = _confirmPasswordController.text;
     if (password.isEmpty) return;
+    if (!evaluatePasswordStrength(password).isAcceptable ||
+        _passwordSecurity.blocksSubmission) {
+      return;
+    }
     if (password != confirm) {
       setState(() => _passwordMismatch = true);
       return;
@@ -302,6 +322,31 @@ class _RecoveryViewState extends State<_RecoveryView> {
         .map((t) => t.replaceFirst(RegExp(r'^\d+\.'), ''))
         .where((t) => t.isNotEmpty);
     return tokens.join(' ');
+  }
+}
+
+class _RecoveryBackground extends StatelessWidget {
+  const _RecoveryBackground({
+    required this.usesAuthBrandLayout,
+    required this.brightness,
+    required this.child,
+  });
+
+  final bool usesAuthBrandLayout;
+  final Brightness brightness;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (usesAuthBrandLayout) {
+      return AuthBrandBackground(child: child);
+    }
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: AppColors.backgroundGradient(brightness),
+      ),
+      child: child,
+    );
   }
 }
 
@@ -479,6 +524,7 @@ class _NewPasswordStep extends StatelessWidget {
     required this.onTogglePassword,
     required this.onToggleConfirm,
     required this.passwordMismatch,
+    required this.passwordSecurity,
     required this.onBack,
     required this.onSubmit,
   });
@@ -490,6 +536,7 @@ class _NewPasswordStep extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final VoidCallback onToggleConfirm;
   final bool passwordMismatch;
+  final PasswordSecurityCheckController passwordSecurity;
   final VoidCallback onBack;
   final VoidCallback onSubmit;
 
@@ -502,19 +549,57 @@ class _NewPasswordStep extends StatelessWidget {
         final hasServerError = state is RecoveryFailed;
         final password = passwordController.text;
         final confirm = confirmController.text;
+        final strength = evaluatePasswordStrength(password);
         final canSubmit = !isLoading &&
             password.isNotEmpty &&
-            confirm.isNotEmpty;
+            confirm.isNotEmpty &&
+            strength.isAcceptable &&
+            !passwordSecurity.blocksSubmission;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Header(
-              onBack: isLoading ? null : onBack,
-              title: l10n.recoveryNewPasswordTitle,
-              subtitle: l10n.recoveryNewPasswordSubtitle,
+            Stack(
+              children: [
+                const AuthBrandHeader(),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: IconButton(
+                    onPressed: isLoading ? null : onBack,
+                    icon: Icon(
+                      Icons.arrow_back_ios_new,
+                      color: AppColors.onSurfaceMuted(
+                        Theme.of(context).brightness,
+                      ),
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: AppSpacing.headerGap),
+            const SizedBox(height: AppSpacing.xl),
+            Text(
+              l10n.recoveryNewPasswordTitle,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.onSurface(Theme.of(context).brightness),
+                height: 1.2,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              l10n.recoveryNewPasswordSubtitle,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.onSurfaceSubtle(
+                  Theme.of(context).brightness,
+                ),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -546,15 +631,6 @@ class _NewPasswordStep extends StatelessWidget {
                       focusBorderColor: passwordMismatch
                           ? AppColors.brandRed
                           : null,
-                      feedbackVisible: passwordMismatch,
-                      feedbackReserveSpace: false,
-                      feedbackChild: Text(
-                        l10n.recoveryPasswordMismatch,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.brandRed,
-                        ),
-                      ),
                       suffixIcon: IconButton(
                         icon: Icon(
                           confirmVisible
@@ -566,16 +642,17 @@ class _NewPasswordStep extends StatelessWidget {
                         onPressed: onToggleConfirm,
                       ),
                     ),
-                    if (hasServerError) ...[
-                      const SizedBox(height: AppSpacing.fieldGap),
-                      Text(
-                        _errorMessage(context, state.error),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.brandRed,
-                        ),
-                      ),
-                    ],
+                    const SizedBox(height: AppSpacing.fieldGap),
+                    PasswordSecurityStatusLine(
+                      password: password,
+                      isAcceptable: strength.isAcceptable,
+                      controller: passwordSecurity,
+                      message: hasServerError
+                          ? _errorMessage(context, state.error)
+                          : passwordMismatch
+                              ? l10n.recoveryPasswordMismatch
+                              : null,
+                    ),
                   ],
                 ),
               ),

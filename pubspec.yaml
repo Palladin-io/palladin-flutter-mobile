@@ -25,6 +25,7 @@ dependencies:
 
   # Routing
   go_router: ^15.1.2
+  url_launcher: ^6.3.2
 
   # Networking
   dio: ^5.8.0+1

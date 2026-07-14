@@ -32,14 +32,23 @@
   "@continueWithApple": {
     "description": "Label for the Apple OAuth sign-in button"
   },
-  "continueWithX": "Continue with X",
+  "continueWithX": "Sign in with X",
   "@continueWithX": {
     "description": "Label for the X (formerly Twitter) OAuth sign-in button"
   },
-  "legalFooter": "By continuing, you agree to our Terms & Privacy Policy",
-  "@legalFooter": {
-    "description": "Legal consent text shown at the bottom of the login page"
+  "continueWithEmail": "Continue with Email",
+  "@continueWithEmail": {
+    "description": "Button that opens the email and master password sign-in form"
   },
+  "authOtherSignInOptions": "Other sign-in options",
+  "@authOtherSignInOptions": {
+    "description": "Button that returns from the email form to the sign-in method picker"
+  },
+  "legalFooterPrefix": "By continuing, you agree to our ",
+  "legalTermsLink": "Terms",
+  "legalFooterSeparator": " & ",
+  "legalPrivacyLink": "Privacy Policy",
+  "legalLinkOpenError": "Unable to open this link.",
   "providerComingSoon": "{provider} sign-in coming soon",
   "@providerComingSoon": {
     "description": "Snackbar message when a disabled OAuth provider is tapped",
@@ -1437,7 +1446,7 @@
   },
   "apiKeysConnectDocs": "Copy docs link",
   "@apiKeysConnectDocs": {
-    "description": "Label for the tap-to-copy documentation link in the connect section (url_launcher is not a dependency, so the link is copied, not opened)"
+    "description": "Label for the tap-to-copy documentation link in the connect section"
   },
   "apiKeysAgentMessageTitle": "Message for your agent",
   "@apiKeysAgentMessageTitle": {
@@ -2983,6 +2992,8 @@
   "@authNoAccountPrompt": { "description": "Prompt before the sign-up link on the login screen" },
   "authSignUpLink": "Sign up",
   "@authSignUpLink": { "description": "Sign-up link on the login screen" },
+  "authRegisterButton": "Sign Up",
+  "@authRegisterButton": { "description": "Primary registration button" },
   "authOrDivider": "or",
   "@authOrDivider": { "description": "Divider between password sign-in and OAuth providers" },
 
@@ -2998,24 +3009,30 @@
   "@authRegisterSignIn": { "description": "Sign-in link on the register screen" },
   "authRegisterEmailTaken": "An account with this email already exists.",
   "@authRegisterEmailTaken": { "description": "Register failure — email already registered" },
-  "authPasswordChecking": "Checking password…",
+  "authPasswordChecking": "Checking your password...",
   "@authPasswordChecking": { "description": "Shown while the HIBP breach check runs" },
-  "authPasswordBreachedTitle": "BREACHED PASSWORD",
-  "@authPasswordBreachedTitle": { "description": "Warning-zone title when the password is breached" },
-  "authPasswordBreached": "This password appeared in a known data breach. Choose a different one.",
+  "authPasswordSecure": "Secure!",
+  "@authPasswordSecure": { "description": "Compact positive password status after a successful breach check" },
+  "authPasswordImprove": "Use a longer password with mixed characters.",
+  "@authPasswordImprove": { "description": "Compact recommendation for a weak registration password" },
+  "authPasswordCheckUnavailable": "Couldn't check breaches - use a unique password.",
+  "@authPasswordCheckUnavailable": { "description": "Compact status when the optional breach check is unavailable" },
+  "authPasswordBreached": "Found in a data breach - choose another password.",
   "@authPasswordBreached": { "description": "HIBP breach warning message" },
   "authRecoveryWarningTitle": "SAVE YOUR RECOVERY KEY",
   "@authRecoveryWarningTitle": { "description": "Warning-zone title on the register recovery backup step" },
 
   "authVerifyGateTitle": "Verify your email",
   "@authVerifyGateTitle": { "description": "Headline of the verify-email gate" },
-  "authVerifyGateSubtitle": "We sent a verification link to {email}. Open it to activate your account.",
+  "authVerifyGateSubtitle": "We sent a verification link to {email}.",
   "@authVerifyGateSubtitle": {
     "description": "Verify-email gate body with the user's email",
     "placeholders": { "email": { "type": "String" } }
   },
-  "authVerifyGateSubtitleNoEmail": "We sent you a verification link. Open it to activate your account.",
+  "authVerifyGateSubtitleNoEmail": "We sent you a verification link.",
   "@authVerifyGateSubtitleNoEmail": { "description": "Verify-email gate body when the email is unknown" },
+  "authVerifyGateInstruction": "Open it to activate your account.",
+  "@authVerifyGateInstruction": { "description": "Instruction shown below the verification-email delivery message" },
   "authVerifyResendButton": "Resend email",
   "@authVerifyResendButton": { "description": "Resend the verification email" },
   "authVerifyResendSent": "Verification email sent.",

@@ -12,6 +12,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/widgets/app_screen.dart';
+import '../../../../core/widgets/auth_legal_footer.dart';
+import '../../../../core/widgets/brand_hero.dart';
 import '../../../../core/widgets/mnemonic_word_grid.dart';
 import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -19,12 +21,13 @@ import '../../../onboarding/domain/mnemonic.dart';
 import '../../../onboarding/domain/password_strength.dart';
 import '../../../onboarding/presentation/widgets/onboarding_scaffold.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
-import '../../../onboarding/presentation/widgets/password_strength_bar.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../data/services/hibp_service.dart';
 import '../../domain/password_auth_exceptions.dart';
 import '../bloc/auth_bloc.dart';
 import '../cubit/register_cubit.dart';
+import '../widgets/auth_brand_header.dart';
+import '../widgets/password_security_status.dart';
 
 /// Registration wizard (CVT-271): email + master password + recovery
 /// mnemonic backup + confirmation, then `POST /api/auth/register`.
@@ -55,10 +58,12 @@ class _RegisterView extends StatelessWidget {
       listener: (context, state) {
         final keys = state.unlockKeys;
         if (keys != null) {
-          context.read<AuthBloc>().add(PasswordSessionEstablished(
-                masterKey: keys.masterKey,
-                privateKey: keys.privateKey,
-              ));
+          context.read<AuthBloc>().add(
+            PasswordSessionEstablished(
+              masterKey: keys.masterKey,
+              privateKey: keys.privateKey,
+            ),
+          );
           context.read<RegisterCubit>().clearUnlockKeys();
         }
       },
@@ -73,18 +78,8 @@ class _RegisterView extends StatelessWidget {
             },
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
-              transitionBuilder: (child, animation) {
-                final offset = Tween<Offset>(
-                  begin: const Offset(0.04, 0),
-                  end: Offset.zero,
-                ).animate(
-                  CurvedAnimation(parent: animation, curve: Curves.easeOut),
-                );
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(position: offset, child: child),
-                );
-              },
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
               child: KeyedSubtree(
                 key: ValueKey(
                   state.step == RegisterStep.submitting
@@ -132,17 +127,21 @@ class _CredentialsStepState extends State<_CredentialsStep> {
   final _confirmController = TextEditingController();
   bool _passwordVisible = false;
   bool _confirmVisible = false;
+  bool _showEmailError = false;
 
-  final HibpService _hibp = getIt<HibpService>();
-  Timer? _hibpDebounce;
-  HibpResult _hibpResult = HibpResult.unknown;
-  bool _hibpChecking = false;
+  Timer? _emailValidationTimer;
+
+  late final PasswordSecurityCheckController _passwordSecurity;
 
   static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+  static const _emailValidationDelay = Duration(milliseconds: 500);
 
   @override
   void initState() {
     super.initState();
+    _passwordSecurity = PasswordSecurityCheckController(
+      check: getIt<HibpService>().check,
+    );
     final cubit = context.read<RegisterCubit>();
     if (cubit.state.email.isNotEmpty) _emailController.text = cubit.state.email;
     // Password draft lives on the cubit (never in observable state); pre-fill
@@ -151,15 +150,18 @@ class _CredentialsStepState extends State<_CredentialsStep> {
     if (passwordDraft.isNotEmpty) {
       _passwordController.text = passwordDraft;
       _confirmController.text = passwordDraft;
+      _passwordSecurity.checkPassword(passwordDraft);
     }
-    _emailController.addListener(_onChanged);
+    _passwordSecurity.addListener(_onChanged);
+    _emailController.addListener(_onEmailChanged);
     _passwordController.addListener(_onPasswordChanged);
     _confirmController.addListener(_onChanged);
   }
 
   @override
   void dispose() {
-    _hibpDebounce?.cancel();
+    _emailValidationTimer?.cancel();
+    _passwordSecurity.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
@@ -168,26 +170,20 @@ class _CredentialsStepState extends State<_CredentialsStep> {
 
   void _onChanged() => setState(() {});
 
+  void _onEmailChanged() {
+    _emailValidationTimer?.cancel();
+    final email = _emailController.text.trim();
+    setState(() => _showEmailError = false);
+    if (email.isEmpty) return;
+
+    _emailValidationTimer = Timer(_emailValidationDelay, () {
+      if (!mounted || _emailController.text.trim() != email) return;
+      setState(() => _showEmailError = !_emailPattern.hasMatch(email));
+    });
+  }
+
   void _onPasswordChanged() {
-    setState(() {
-      // A password edit invalidates the previous breach signal.
-      _hibpResult = HibpResult.unknown;
-    });
-    _hibpDebounce?.cancel();
-    final password = _passwordController.text;
-    if (password.length < 8) {
-      setState(() => _hibpChecking = false);
-      return;
-    }
-    setState(() => _hibpChecking = true);
-    _hibpDebounce = Timer(const Duration(milliseconds: 500), () async {
-      final result = await _hibp.check(password);
-      if (!mounted || _passwordController.text != password) return;
-      setState(() {
-        _hibpResult = result;
-        _hibpChecking = false;
-      });
-    });
+    _passwordSecurity.checkPassword(_passwordController.text);
   }
 
   @override
@@ -197,31 +193,49 @@ class _CredentialsStepState extends State<_CredentialsStep> {
     final password = _passwordController.text;
     final confirm = _confirmController.text;
     final emailValid = _emailPattern.hasMatch(email);
+    final emailInvalid = _showEmailError && email.isNotEmpty && !emailValid;
     final strength = evaluatePasswordStrength(password);
     final passwordsMatch = password.isNotEmpty && password == confirm;
-    final breached = _hibpResult == HibpResult.pwned;
-    final canSubmit = emailValid &&
+    final formError = emailInvalid
+        ? l10n.authEmailInvalid
+        : confirm.isNotEmpty && !passwordsMatch
+        ? l10n.onboardingPasswordsDoNotMatch
+        : null;
+    final passwordFeedback = resolvePasswordSecurityFeedback(
+      l10n: l10n,
+      password: password,
+      isAcceptable: strength.isAcceptable,
+      controller: _passwordSecurity,
+      message: formError,
+      secureMessage: '',
+    );
+    final supportingText = passwordFeedback.text.isEmpty
+        ? l10n.authRegisterSubtitle
+        : passwordFeedback.text;
+    final supportingColor = passwordFeedback.text.isEmpty
+        ? AppColors.onSurfaceSubtle(Theme.of(context).brightness)
+        : passwordFeedback.color;
+    final canSubmit =
+        emailValid &&
         strength.isAcceptable &&
         passwordsMatch &&
-        !breached &&
-        !_hibpChecking;
+        !_passwordSecurity.blocksSubmission;
 
     return OnboardingScaffold(
       currentStep: 0,
-      title: l10n.authRegisterTitle,
-      subtitle: l10n.authRegisterSubtitle,
-      footer: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PrimaryButton(
-            label: l10n.onboardingContinue,
-            onPressed: canSubmit ? _submit : null,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _signInRow(context, l10n),
-        ],
+      title: '',
+      subtitle: '',
+      useAuthBrandLayout: true,
+      header: const AuthBrandHeader(),
+      contentTopSpacing: AuthBrandHeader.denseFormTopSpacing,
+      showTitleBlock: false,
+      centerFooterInRemainingSpace: true,
+      footer: _registrationMessage(
+        message: supportingText,
+        messageColor: supportingColor,
+        emphasized: passwordFeedback.text.isNotEmpty,
       ),
+      bottom: const AuthLegalFooter(),
       children: [
         OnboardingTextField(
           label: l10n.authEmailLabel,
@@ -229,18 +243,8 @@ class _CredentialsStepState extends State<_CredentialsStep> {
           hintText: l10n.authEmailHint,
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
-          borderColor: (email.isNotEmpty && !emailValid)
-              ? AppColors.brandRed
-              : null,
-          focusBorderColor: (email.isNotEmpty && !emailValid)
-              ? AppColors.brandRed
-              : null,
-          feedbackVisible: email.isNotEmpty && !emailValid,
-          feedbackReserveSpace: false,
-          feedbackChild: Text(
-            l10n.authEmailInvalid,
-            style: const TextStyle(fontSize: 12, color: AppColors.brandRed),
-          ),
+          borderColor: emailInvalid ? AppColors.brandRed : null,
+          focusBorderColor: emailInvalid ? AppColors.brandRed : null,
         ),
         const SizedBox(height: AppSpacing.fieldGap),
         OnboardingTextField(
@@ -251,28 +255,8 @@ class _CredentialsStepState extends State<_CredentialsStep> {
             _passwordVisible,
             () => setState(() => _passwordVisible = !_passwordVisible),
           ),
-          feedbackVisible: password.isNotEmpty,
-          feedbackReserveSpace: false,
-          feedbackChild: Text(
-            _strengthLabel(l10n, strength),
-            style: TextStyle(
-              fontSize: 12,
-              color: _strengthColor(strength),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
         ),
-        SizedBox(
-          height: AppSpacing.fieldGap,
-          child: AnimatedOpacity(
-            opacity: password.isNotEmpty ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 180),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-              child: PasswordStrengthBar(strength: strength),
-            ),
-          ),
-        ),
+        const SizedBox(height: AppSpacing.fieldGap),
         OnboardingTextField(
           label: l10n.authRegisterConfirmLabel,
           controller: _confirmController,
@@ -283,26 +267,51 @@ class _CredentialsStepState extends State<_CredentialsStep> {
           focusBorderColor: (confirm.isNotEmpty && !passwordsMatch)
               ? AppColors.brandRed
               : null,
-          feedbackVisible: confirm.isNotEmpty && !passwordsMatch,
-          feedbackReserveSpace: false,
-          feedbackChild: Text(
-            l10n.onboardingPasswordsDoNotMatch,
-            style: const TextStyle(fontSize: 12, color: AppColors.brandRed),
-          ),
           suffixIcon: _visibilityToggle(
             _confirmVisible,
             () => setState(() => _confirmVisible = !_confirmVisible),
           ),
         ),
+        const SizedBox(height: AppSpacing.section),
+        PrimaryButton(
+          label: l10n.authRegisterButton,
+          onPressed: canSubmit ? _submit : null,
+        ),
         const SizedBox(height: AppSpacing.fieldGap),
-        if (breached)
-          WarningZone(
-            title: l10n.authPasswordBreachedTitle,
-            message: l10n.authPasswordBreached,
-          )
-        else if (_hibpChecking)
-          _CheckingRow(label: l10n.authPasswordChecking),
+        _signInRow(context, l10n),
       ],
+    );
+  }
+
+  Widget _registrationMessage({
+    required String message,
+    required Color messageColor,
+    required bool emphasized,
+  }) {
+    return SizedBox(
+      height: AppSpacing.xxxl + AppSpacing.xs,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        layoutBuilder: (currentChild, previousChildren) => Stack(
+          alignment: Alignment.center,
+          children: [...previousChildren, ?currentChild],
+        ),
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+        child: Text(
+          message,
+          key: ValueKey(message),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: emphasized ? FontWeight.w500 : FontWeight.w400,
+            color: messageColor,
+            height: 1.4,
+          ),
+        ),
+      ),
     );
   }
 
@@ -323,10 +332,10 @@ class _CredentialsStepState extends State<_CredentialsStep> {
           onTap: () => context.go('/login'),
           child: Text(
             l10n.authRegisterSignIn,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: AppColors.brandRed,
+              color: BrandHero.textColorFor(brightness),
             ),
           ),
         ),
@@ -337,9 +346,9 @@ class _CredentialsStepState extends State<_CredentialsStep> {
   void _submit() {
     FocusScope.of(context).unfocus();
     context.read<RegisterCubit>().submitCredentials(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
   }
 
   Widget _visibilityToggle(bool visible, VoidCallback onToggle) {
@@ -351,55 +360,6 @@ class _CredentialsStepState extends State<_CredentialsStep> {
         color: AppColors.iconDefault(brightness),
       ),
       onPressed: onToggle,
-    );
-  }
-
-  String _strengthLabel(AppLocalizations l10n, PasswordStrength strength) {
-    return switch (strength) {
-      PasswordStrength.tooShort => l10n.onboardingPasswordStrengthTooShort,
-      PasswordStrength.weak => l10n.onboardingPasswordStrengthWeak,
-      PasswordStrength.fair => l10n.onboardingPasswordStrengthFair,
-      PasswordStrength.strong => l10n.onboardingPasswordStrengthStrong,
-      PasswordStrength.veryStrong => l10n.onboardingPasswordStrengthVeryStrong,
-    };
-  }
-
-  Color _strengthColor(PasswordStrength strength) {
-    return switch (strength) {
-      PasswordStrength.tooShort ||
-      PasswordStrength.weak =>
-        AppColors.brandRed,
-      PasswordStrength.fair => AppColors.strengthFair,
-      PasswordStrength.strong ||
-      PasswordStrength.veryStrong =>
-        AppColors.positiveAccent,
-    };
-  }
-}
-
-class _CheckingRow extends StatelessWidget {
-  const _CheckingRow({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const SizedBox(
-          width: 12,
-          height: 12,
-          child: CircularProgressIndicator(
-            strokeWidth: 1.6,
-            color: AppColors.textTertiary,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.innerGap),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
-        ),
-      ],
     );
   }
 }
@@ -482,8 +442,9 @@ class _RecoveryBackupStepState extends State<_RecoveryBackupStep> {
   Future<void> _export(List<String> words, AppLocalizations l10n) async {
     final box =
         _exportButtonKey.currentContext?.findRenderObject() as RenderBox?;
-    final origin =
-        box != null ? box.localToGlobal(Offset.zero) & box.size : Rect.zero;
+    final origin = box != null
+        ? box.localToGlobal(Offset.zero) & box.size
+        : Rect.zero;
     final content = words
         .asMap()
         .entries
@@ -519,8 +480,10 @@ class _RecoveryConfirmStepState extends State<_RecoveryConfirmStep> {
     super.initState();
     final mnemonic = context.read<RegisterCubit>().state.mnemonic;
     _indices = pickVerificationIndices(length: mnemonic.length);
-    _controllers =
-        List.generate(_indices.length, (_) => TextEditingController());
+    _controllers = List.generate(
+      _indices.length,
+      (_) => TextEditingController(),
+    );
     for (final c in _controllers) {
       c.addListener(() => setState(() {}));
     }
@@ -563,8 +526,7 @@ class _RecoveryConfirmStepState extends State<_RecoveryConfirmStep> {
               ? _WordCheckResult.correct
               : _WordCheckResult.incorrect;
         });
-        final allCorrect =
-            results.every((r) => r == _WordCheckResult.correct);
+        final allCorrect = results.every((r) => r == _WordCheckResult.correct);
 
         return OnboardingScaffold(
           currentStep: 2,
@@ -589,9 +551,10 @@ class _RecoveryConfirmStepState extends State<_RecoveryConfirmStep> {
               isLoading: isSubmitting,
               onPressed: allCorrect && !isSubmitting
                   ? () => context.read<RegisterCubit>().completeRegistration(
-                        preferredLanguage:
-                            Localizations.localeOf(context).languageCode,
-                      )
+                      preferredLanguage: Localizations.localeOf(
+                        context,
+                      ).languageCode,
+                    )
                   : null,
             ),
           ],
@@ -642,8 +605,9 @@ class _ConfirmationInput extends StatelessWidget {
       _WordCheckResult.correct => AppColors.positiveAccent,
       _WordCheckResult.incorrect => AppColors.brandRed,
     };
-    final focusBorderColor =
-        result == _WordCheckResult.empty ? AppColors.brandRed : borderColor;
+    final focusBorderColor = result == _WordCheckResult.empty
+        ? AppColors.brandRed
+        : borderColor;
     final isVisible = result != _WordCheckResult.empty;
     final isCorrect = result == _WordCheckResult.correct;
 
@@ -665,8 +629,9 @@ class _ConfirmationInput extends StatelessWidget {
               Icon(
                 isCorrect ? Icons.check_circle_outline : Icons.error_outline,
                 size: 14,
-                color:
-                    isCorrect ? AppColors.positiveAccent : AppColors.brandRed,
+                color: isCorrect
+                    ? AppColors.positiveAccent
+                    : AppColors.brandRed,
               ),
               const SizedBox(width: AppSpacing.innerGap),
               Text(
@@ -675,8 +640,9 @@ class _ConfirmationInput extends StatelessWidget {
                     : l10n.onboardingConfirmIncorrect,
                 style: TextStyle(
                   fontSize: 12,
-                  color:
-                      isCorrect ? AppColors.positiveAccent : AppColors.brandRed,
+                  color: isCorrect
+                      ? AppColors.positiveAccent
+                      : AppColors.brandRed,
                 ),
               ),
             ],
@@ -739,9 +705,7 @@ class _CompletedPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const AppScreen(
-      body: Center(
-        child: CircularProgressIndicator(color: AppColors.brandRed),
-      ),
+      body: Center(child: CircularProgressIndicator(color: AppColors.brandRed)),
     );
   }
 }
