@@ -34,7 +34,8 @@ class MainActivity : FlutterActivity() {
                         }
                         "replaceCache" -> {
                             val arguments = call.arguments as? Map<*, *>
-                            val generation = (arguments?.get("generation") as? Number)?.toLong()
+                                ?: throw IllegalArgumentException("Missing arguments")
+                            val generation = (arguments["generation"] as? Number)?.toLong()
                                 ?: throw IllegalArgumentException("Missing generation")
                             val records = arguments["records"] as? List<*>
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
