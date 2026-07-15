@@ -17,38 +17,30 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
                 let store = try AutoFillCacheStore()
                 switch call.method {
                 case "beginCacheSession":
-                    guard let arguments = call.arguments as? [String: Any],
-                          let generation = arguments["generation"] as? Int else {
-                        throw AutoFillCacheError.invalidRecords
-                    }
-                    store.beginSession(generation: generation)
-                    DispatchQueue.main.async { result(nil) }
+                    let sessionToken = store.beginSession()
+                    DispatchQueue.main.async { result(sessionToken) }
                 case "revokeCacheAccess":
                     // Key/file revocation is intentionally separate from the
                     // identity-store callback, which is not guaranteed to
                     // return on a broken provider host.
-                    guard let arguments = call.arguments as? [String: Any],
-                          let generation = arguments["generation"] as? Int else {
-                        throw AutoFillCacheError.invalidRecords
-                    }
-                    try store.revokeAccess(generation: generation)
+                    let cleanupToken = try store.revokeAccess()
                     AutoFillCacheStore.clearIdentities { _ in }
-                    DispatchQueue.main.async { result(nil) }
+                    DispatchQueue.main.async { result(cleanupToken) }
                 case "replaceCache":
                     guard let arguments = call.arguments as? [String: Any],
                           let records = arguments["records"] as? [[String: Any]],
-                          let generation = arguments["generation"] as? Int else {
+                          let sessionToken = arguments["sessionToken"] as? Int else {
                         throw AutoFillCacheError.invalidRecords
                     }
                     let validated = try store.replace(
                         records: records,
-                        generation: generation
+                        sessionToken: sessionToken
                     )
                     AutoFillCacheStore.replaceIdentities(for: validated) { error in
                         if error == nil {
                             DispatchQueue.main.async { result(nil) }
                         } else {
-                            try? store.clear(generation: generation)
+                            try? store.clear(sessionToken: sessionToken)
                             DispatchQueue.main.async {
                                 result(FlutterError(
                                     code: "AUTOFILL_IDENTITY_ERROR",
@@ -60,10 +52,10 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
                     }
                 case "clearCache":
                     guard let arguments = call.arguments as? [String: Any],
-                          let generation = arguments["generation"] as? Int else {
+                          let sessionToken = arguments["sessionToken"] as? Int else {
                         throw AutoFillCacheError.invalidRecords
                     }
-                    try store.clear(generation: generation)
+                    try store.clear(sessionToken: sessionToken)
                     AutoFillCacheStore.clearIdentities { error in
                         DispatchQueue.main.async {
                             if error == nil {

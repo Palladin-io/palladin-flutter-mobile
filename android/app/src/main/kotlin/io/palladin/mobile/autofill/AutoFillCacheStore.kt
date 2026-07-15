@@ -34,24 +34,17 @@ internal class AutoFillCacheStore(private val context: Context) {
 
     fun hasCache(): Boolean = cacheFile.isFile
 
-    fun beginSession(generation: Long) {
-        synchronized(MUTATION_LOCK) {
-            if (generation < latestMutationGeneration) return@synchronized
-            latestMutationGeneration = generation
-            accessRevoked = false
-        }
+    fun beginSession(): Long = synchronized(MUTATION_LOCK) {
+        currentSessionToken += 1
+        accessRevoked = false
+        currentSessionToken
     }
 
-    fun replace(rawRecords: List<*>?, generation: Long) {
+    fun replace(rawRecords: List<*>?, sessionToken: Long) {
         synchronized(MUTATION_LOCK) {
-            if (
-                accessRevoked ||
-                generation < latestMutationGeneration ||
-                generation <= revokedGeneration
-            ) {
+            if (accessRevoked || sessionToken != currentSessionToken) {
                 return@synchronized
             }
-            latestMutationGeneration = generation
             val records = rawRecords.orEmpty().mapNotNull(::validatedRecord)
             val plaintext = JSONArray().apply {
                 records.forEach { put(it) }
@@ -95,22 +88,18 @@ internal class AutoFillCacheStore(private val context: Context) {
         synchronized(MUTATION_LOCK) { clearLocked() }
     }
 
-    fun clear(generation: Long) {
+    fun clear(sessionToken: Long) {
         synchronized(MUTATION_LOCK) {
-            if (generation < latestMutationGeneration) return@synchronized
-            latestMutationGeneration = generation
+            if (sessionToken != currentSessionToken) return@synchronized
             clearLocked()
         }
     }
 
-    fun revokeAccess(generation: Long) {
-        synchronized(MUTATION_LOCK) {
-            if (generation < latestMutationGeneration) return@synchronized
-            latestMutationGeneration = generation
-            revokedGeneration = maxOf(revokedGeneration, generation)
-            accessRevoked = true
-            clearLocked()
-        }
+    fun revokeAccess(): Long = synchronized(MUTATION_LOCK) {
+        currentSessionToken += 1
+        accessRevoked = true
+        clearLocked()
+        currentSessionToken
     }
 
     private fun clearLocked() {
@@ -261,8 +250,7 @@ internal class AutoFillCacheStore(private val context: Context) {
     companion object {
         private val MUTATION_LOCK = Any()
         private var accessRevoked = true
-        private var revokedGeneration = 0L
-        private var latestMutationGeneration = 0L
+        private var currentSessionToken = 0L
 
         private const val ANDROID_KEY_STORE = "AndroidKeyStore"
         private const val KEY_ALIAS = "palladin_autofill_wrap_v1"

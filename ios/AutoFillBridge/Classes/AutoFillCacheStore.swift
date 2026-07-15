@@ -38,7 +38,7 @@ enum AutoFillCacheError: Error {
     case keychain(OSStatus)
     case cacheUnavailable
     case unsupportedVersion
-    case staleGeneration
+    case staleSession
 }
 
 final class AutoFillCacheStore {
@@ -48,8 +48,7 @@ final class AutoFillCacheStore {
     private static let keychainAccount = "cache-key-v1"
     private static let mutationLock = NSLock()
     private static var accessRevoked = true
-    private static var revokedGeneration = 0
-    private static var latestMutationGeneration = 0
+    private static var currentSessionToken = 0
 
     private let appGroupIdentifier: String
     private let cacheURL: URL
@@ -70,26 +69,24 @@ final class AutoFillCacheStore {
         cacheURL = container.appendingPathComponent(Self.cacheFileName, isDirectory: false)
     }
 
-    func beginSession(generation: Int) {
+    func beginSession() -> Int {
         Self.mutationLock.lock()
         defer { Self.mutationLock.unlock() }
-        guard generation >= Self.latestMutationGeneration else { return }
-        Self.latestMutationGeneration = generation
+        Self.currentSessionToken += 1
         Self.accessRevoked = false
+        return Self.currentSessionToken
     }
 
     func replace(
         records rawRecords: [[String: Any]],
-        generation: Int
+        sessionToken: Int
     ) throws -> [AutoFillCredentialRecord] {
         Self.mutationLock.lock()
         defer { Self.mutationLock.unlock() }
         guard !Self.accessRevoked,
-              generation >= Self.latestMutationGeneration,
-              generation > Self.revokedGeneration else {
-            throw AutoFillCacheError.staleGeneration
+              sessionToken == Self.currentSessionToken else {
+            throw AutoFillCacheError.staleSession
         }
-        Self.latestMutationGeneration = generation
         var serialized = try JSONSerialization.data(withJSONObject: rawRecords)
         defer { serialized.resetBytes(in: 0..<serialized.count) }
         let records = try JSONDecoder().decode([AutoFillCredentialRecord].self, from: serialized)
@@ -135,22 +132,20 @@ final class AutoFillCacheStore {
         try clearLocked()
     }
 
-    func clear(generation: Int) throws {
+    func clear(sessionToken: Int) throws {
         Self.mutationLock.lock()
         defer { Self.mutationLock.unlock() }
-        guard generation >= Self.latestMutationGeneration else { return }
-        Self.latestMutationGeneration = generation
+        guard sessionToken == Self.currentSessionToken else { return }
         try clearLocked()
     }
 
-    func revokeAccess(generation: Int) throws {
+    func revokeAccess() throws -> Int {
         Self.mutationLock.lock()
         defer { Self.mutationLock.unlock() }
-        guard generation >= Self.latestMutationGeneration else { return }
-        Self.latestMutationGeneration = generation
-        Self.revokedGeneration = max(Self.revokedGeneration, generation)
+        Self.currentSessionToken += 1
         Self.accessRevoked = true
         try clearLocked()
+        return Self.currentSessionToken
     }
 
     private func clearLocked() throws {

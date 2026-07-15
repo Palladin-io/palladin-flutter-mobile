@@ -3,16 +3,16 @@ import 'package:flutter/services.dart';
 import '../domain/autofill_record.dart';
 
 abstract interface class AutoFillCacheBridge {
-  Future<void> beginCacheSession({required int generation});
+  Future<int> beginCacheSession();
 
   Future<void> replaceCache(
     List<AutoFillRecord> records, {
-    required int generation,
+    required int sessionToken,
   });
 
-  Future<void> revokeCacheAccess({required int generation});
+  Future<int> revokeCacheAccess();
 
-  Future<void> clearCache({required int generation});
+  Future<void> clearCache({required int sessionToken});
 }
 
 class MethodChannelAutoFillCacheBridge implements AutoFillCacheBridge {
@@ -23,25 +23,31 @@ class MethodChannelAutoFillCacheBridge implements AutoFillCacheBridge {
   final MethodChannel _channel;
 
   @override
-  Future<void> beginCacheSession({required int generation}) => _channel
-      .invokeMethod<void>('beginCacheSession', {'generation': generation});
+  Future<int> beginCacheSession() async {
+    final token = await _channel.invokeMethod<int>('beginCacheSession');
+    if (token == null) throw const FormatException('Missing session token');
+    return token;
+  }
 
   @override
   Future<void> replaceCache(
     List<AutoFillRecord> records, {
-    required int generation,
+    required int sessionToken,
   }) => _channel.invokeMethod<void>('replaceCache', {
-    'generation': generation,
+    'sessionToken': sessionToken,
     'records': records
         .map((record) => record.toPlatformMap())
         .toList(growable: false),
   });
 
   @override
-  Future<void> revokeCacheAccess({required int generation}) => _channel
-      .invokeMethod<void>('revokeCacheAccess', {'generation': generation});
+  Future<int> revokeCacheAccess() async {
+    final token = await _channel.invokeMethod<int>('revokeCacheAccess');
+    if (token == null) throw const FormatException('Missing cleanup token');
+    return token;
+  }
 
   @override
-  Future<void> clearCache({required int generation}) =>
-      _channel.invokeMethod<void>('clearCache', {'generation': generation});
+  Future<void> clearCache({required int sessionToken}) =>
+      _channel.invokeMethod<void>('clearCache', {'sessionToken': sessionToken});
 }

@@ -27,41 +27,37 @@ class MainActivity : FlutterActivity() {
                 val outcome = runCatching {
                     when (call.method) {
                         "beginCacheSession" -> {
-                            val arguments = call.arguments as? Map<*, *>
-                            val generation = (arguments?.get("generation") as? Number)?.toLong()
-                                ?: throw IllegalArgumentException("Missing generation")
-                            cacheStore.beginSession(generation)
+                            cacheStore.beginSession()
                         }
                         "revokeCacheAccess" -> {
-                            val arguments = call.arguments as? Map<*, *>
-                            val generation = (arguments?.get("generation") as? Number)?.toLong()
-                                ?: throw IllegalArgumentException("Missing generation")
-                            cacheStore.revokeAccess(generation)
+                            cacheStore.revokeAccess()
                         }
                         "replaceCache" -> {
                             val arguments = call.arguments as? Map<*, *>
                                 ?: throw IllegalArgumentException("Missing arguments")
-                            val generation = (arguments["generation"] as? Number)?.toLong()
-                                ?: throw IllegalArgumentException("Missing generation")
+                            val sessionToken = (arguments["sessionToken"] as? Number)?.toLong()
+                                ?: throw IllegalArgumentException("Missing session token")
                             val records = arguments["records"] as? List<*>
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                cacheStore.replace(records, generation)
+                                cacheStore.replace(records, sessionToken)
                             } else {
-                                cacheStore.clear(generation)
+                                cacheStore.clear(sessionToken)
                             }
+                            null
                         }
                         "clearCache" -> {
                             val arguments = call.arguments as? Map<*, *>
-                            val generation = (arguments?.get("generation") as? Number)?.toLong()
-                                ?: throw IllegalArgumentException("Missing generation")
-                            cacheStore.clear(generation)
+                            val sessionToken = (arguments?.get("sessionToken") as? Number)?.toLong()
+                                ?: throw IllegalArgumentException("Missing session token")
+                            cacheStore.clear(sessionToken)
+                            null
                         }
                         else -> throw UnsupportedOperationException(call.method)
                     }
                 }
                 runOnUiThread {
                     outcome.fold(
-                        onSuccess = { result.success(null) },
+                        onSuccess = { value -> result.success(value) },
                         onFailure = { error ->
                             if (error is UnsupportedOperationException) {
                                 result.notImplemented()
