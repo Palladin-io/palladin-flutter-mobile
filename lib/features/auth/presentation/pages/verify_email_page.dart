@@ -12,6 +12,7 @@ import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../bloc/auth_bloc.dart';
 import '../cubit/verify_email_cubit.dart';
 import '../widgets/auth_brand_header.dart';
+import '../widgets/oauth_button.dart';
 
 /// Email-verification screen (CVT-261).
 ///
@@ -56,13 +57,23 @@ class _VerifyEmailViewState extends State<_VerifyEmailView> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<VerifyEmailCubit, VerifyEmailState>(
-      listenWhen: (p, c) => p.resend != c.resend,
+      listenWhen: (p, c) => p.resend != c.resend || p.check != c.check,
       listener: (context, state) {
         if (state.resend == ResendStatus.sent) {
-          AnalyticsService.instance.capture('auth', 'verification-email-resent');
+          AnalyticsService.instance.capture(
+            'auth',
+            'verification-email-resent',
+          );
           _snack(context, AppLocalizations.of(context)!.authVerifyResendSent);
         } else if (state.resend == ResendStatus.error) {
           _snack(context, AppLocalizations.of(context)!.authVerifyResendError);
+        }
+        if (state.check == VerificationCheckStatus.verified) {
+          context.read<AuthBloc>().add(const AuthEmailVerified());
+        } else if (state.check == VerificationCheckStatus.pending) {
+          _snack(context, AppLocalizations.of(context)!.authVerifyStillPending);
+        } else if (state.check == VerificationCheckStatus.error) {
+          _snack(context, AppLocalizations.of(context)!.authVerifyCheckError);
         }
       },
       child: Scaffold(
@@ -84,14 +95,14 @@ class _VerifyEmailViewState extends State<_VerifyEmailView> {
                       children: [
                         const AuthBrandHeader(),
                         Expanded(
-                          child: Center(
-                            child: SingleChildScrollView(
-                              child:
-                                  widget.token != null &&
-                                      widget.token!.isNotEmpty
-                                  ? _ResultBody(state: state)
-                                  : const _GateBody(),
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.only(
+                              top: AppSpacing.xxxl,
                             ),
+                            child:
+                                widget.token != null && widget.token!.isNotEmpty
+                                ? _ResultBody(state: state)
+                                : const _GateBody(),
                           ),
                         ),
                       ],
@@ -110,10 +121,7 @@ class _VerifyEmailViewState extends State<_VerifyEmailView> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-        ),
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
       );
   }
 }
@@ -194,8 +202,9 @@ class _GateBody extends StatelessWidget {
     return BlocBuilder<VerifyEmailCubit, VerifyEmailState>(
       builder: (context, state) {
         final sending = state.resend == ResendStatus.sending;
+        final checking = state.check == VerificationCheckStatus.checking;
         return _StatusColumn(
-          title: l10n.authVerifyGateTitle,
+          prominentMessage: true,
           message: email != null && email.isNotEmpty
               ? l10n.authVerifyGateSubtitle(email)
               : l10n.authVerifyGateSubtitleNoEmail,
@@ -211,9 +220,32 @@ class _GateBody extends StatelessWidget {
                     : () => context.read<VerifyEmailCubit>().resend(),
               ),
               const SizedBox(height: AppSpacing.sm),
+              OAuthButton(
+                label: l10n.authVerifyCheckAgain,
+                icon: checking
+                    ? const Padding(
+                        padding: EdgeInsets.all(AppSpacing.xs),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.brandRed,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.refresh,
+                        color: AppColors.brandRed,
+                        size: 20,
+                      ),
+                onPressed: sending || checking
+                    ? null
+                    : () => context.read<VerifyEmailCubit>().checkAgain(),
+              ),
+              const SizedBox(height: AppSpacing.sm),
               TextButton(
-                onPressed: () =>
-                    context.read<AuthBloc>().add(const AuthLogoutRequested()),
+                onPressed: checking
+                    ? null
+                    : () => context.read<AuthBloc>().add(
+                        const AuthLogoutRequested(),
+                      ),
                 child: Text(
                   l10n.authVerifyLogout,
                   style: const TextStyle(
@@ -284,17 +316,19 @@ class _StatusColumn extends StatelessWidget {
   const _StatusColumn({
     this.icon,
     this.iconColor,
-    required this.title,
+    this.title,
     required this.message,
     this.secondaryMessage,
+    this.prominentMessage = false,
     required this.action,
   });
 
   final IconData? icon;
   final Color? iconColor;
-  final String title;
+  final String? title;
   final String message;
   final String? secondaryMessage;
+  final bool prominentMessage;
   final Widget action;
 
   @override
@@ -307,22 +341,27 @@ class _StatusColumn extends StatelessWidget {
           Icon(icon, color: iconColor, size: 48),
           const SizedBox(height: AppSpacing.section),
         ],
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: AppColors.onSurface(brightness),
+        if (title != null) ...[
+          Text(
+            title!,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppColors.onSurface(brightness),
+            ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.sm),
+        ],
         Text(
           message,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 13,
-            color: AppColors.onSurfaceSubtle(brightness),
+            fontSize: prominentMessage ? 15 : 13,
+            fontWeight: prominentMessage ? FontWeight.w600 : FontWeight.w400,
+            color: prominentMessage
+                ? AppColors.onSurface(brightness)
+                : AppColors.onSurfaceSubtle(brightness),
             height: 1.4,
           ),
         ),

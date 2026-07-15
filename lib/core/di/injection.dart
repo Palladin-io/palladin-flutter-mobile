@@ -181,7 +181,10 @@ void configureDependencies(EnvConfig config) {
     ),
   );
   getIt.registerFactory<VerifyEmailCubit>(
-    () => VerifyEmailCubit(datasource: getIt<PasswordAuthRemoteDatasource>()),
+    () => VerifyEmailCubit(
+      datasource: getIt<PasswordAuthRemoteDatasource>(),
+      authRepository: getIt<AuthRepository>(),
+    ),
   );
   getIt.registerFactory<ChangePasswordCubit>(
     () => ChangePasswordCubit(

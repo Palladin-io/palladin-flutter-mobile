@@ -3063,9 +3063,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get authRecoveryWarningTitle => 'ZAPISZ KLUCZ ODZYSKIWANIA';
 
   @override
-  String get authVerifyGateTitle => 'Zweryfikuj e-mail';
-
-  @override
   String authVerifyGateSubtitle(String email) {
     return 'Wysłaliśmy link weryfikacyjny na adres $email.';
   }
@@ -3079,6 +3076,17 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get authVerifyResendButton => 'Wyślij ponownie';
+
+  @override
+  String get authVerifyCheckAgain => 'Sprawdź ponownie';
+
+  @override
+  String get authVerifyStillPending =>
+      'Twój e-mail nie został jeszcze zweryfikowany.';
+
+  @override
+  String get authVerifyCheckError =>
+      'Nie udało się sprawdzić e-maila. Spróbuj ponownie.';
 
   @override
   String get authVerifyResendSent => 'E-mail weryfikacyjny wysłany.';

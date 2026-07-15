@@ -278,7 +278,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
     try {
-      await authRepository.refreshToken();
+      final claimAlreadyUpdated = await authRepository.isEmailVerified();
+      if (!claimAlreadyUpdated) {
+        await authRepository.refreshToken();
+      }
     } catch (e) {
       // The verification already succeeded server-side; a failed refresh
       // only means the local token still carries the stale claim until the

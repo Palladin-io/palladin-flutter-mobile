@@ -3031,9 +3031,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authRecoveryWarningTitle => 'SAVE YOUR RECOVERY KEY';
 
   @override
-  String get authVerifyGateTitle => 'Verify your email';
-
-  @override
   String authVerifyGateSubtitle(String email) {
     return 'We sent a verification link to $email.';
   }
@@ -3047,6 +3044,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authVerifyResendButton => 'Resend email';
+
+  @override
+  String get authVerifyCheckAgain => 'Check again';
+
+  @override
+  String get authVerifyStillPending => 'Your email is not verified yet.';
+
+  @override
+  String get authVerifyCheckError =>
+      'Couldn\'t check your email. Please try again.';
 
   @override
   String get authVerifyResendSent => 'Verification email sent.';

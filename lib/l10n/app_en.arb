@@ -3022,8 +3022,6 @@
   "authRecoveryWarningTitle": "SAVE YOUR RECOVERY KEY",
   "@authRecoveryWarningTitle": { "description": "Warning-zone title on the register recovery backup step" },
 
-  "authVerifyGateTitle": "Verify your email",
-  "@authVerifyGateTitle": { "description": "Headline of the verify-email gate" },
   "authVerifyGateSubtitle": "We sent a verification link to {email}.",
   "@authVerifyGateSubtitle": {
     "description": "Verify-email gate body with the user's email",
@@ -3035,6 +3033,12 @@
   "@authVerifyGateInstruction": { "description": "Instruction shown below the verification-email delivery message" },
   "authVerifyResendButton": "Resend email",
   "@authVerifyResendButton": { "description": "Resend the verification email" },
+  "authVerifyCheckAgain": "Check again",
+  "@authVerifyCheckAgain": { "description": "Refresh the session to check whether the email is now verified" },
+  "authVerifyStillPending": "Your email is not verified yet.",
+  "@authVerifyStillPending": { "description": "Snackbar shown when verification is still pending" },
+  "authVerifyCheckError": "Couldn't check your email. Please try again.",
+  "@authVerifyCheckError": { "description": "Snackbar shown when checking verification status fails" },
   "authVerifyResendSent": "Verification email sent.",
   "@authVerifyResendSent": { "description": "Snackbar after a successful resend" },
   "authVerifyResendError": "Couldn't resend. Please try again.",

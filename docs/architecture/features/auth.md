@@ -34,6 +34,10 @@ OAuth 2.0 login (Google, Apple, X via `flutter_appauth`).
   so validation never moves the submit action. Registration, onboarding's `Set Your Master
   Password`, and recovery share the controller and presentation rules. Invalid
   e-mail feedback is debounced by 500 ms and clears while the user is typing.
+- **Email-verification gate:** the delivery message is the gate's single
+  heading. `Resend email` is the primary action, `Check again` refreshes the
+  session and reads the server-issued `email_verified` claim, and `Sign out`
+  remains tertiary. A failed status check never clears the current session.
 - **Layering:** full data / domain / presentation split.
 - **Role:** `AuthBloc` is a **singleton read by every other feature** to check authentication + vault-lock state and to extract the in-memory private key. It receives `AuthVaultUnlocked` from `unlock`.
 

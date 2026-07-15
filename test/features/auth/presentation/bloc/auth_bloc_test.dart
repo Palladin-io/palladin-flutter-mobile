@@ -173,6 +173,52 @@ void main() {
     );
 
     blocTest<AuthBloc, AuthState>(
+      'email verification skips a second refresh when the claim is current',
+      build: () => AuthBloc(authRepository: mockRepo),
+      seed: () => const AuthAuthenticated(
+        userId: 'user-789',
+        isOnboarded: true,
+        emailVerified: false,
+      ),
+      act: (bloc) => bloc.add(const AuthEmailVerified()),
+      expect: () => [
+        isA<AuthAuthenticated>().having(
+          (state) => state.emailVerified,
+          'emailVerified',
+          true,
+        ),
+      ],
+      verify: (_) {
+        verifyNever(() => mockRepo.refreshToken());
+      },
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'email verification refreshes a stale claim before continuing',
+      build: () {
+        when(() => mockRepo.isEmailVerified()).thenAnswer((_) async => false);
+        when(() => mockRepo.refreshToken()).thenAnswer((_) async => authResult);
+        return AuthBloc(authRepository: mockRepo);
+      },
+      seed: () => const AuthAuthenticated(
+        userId: 'user-789',
+        isOnboarded: true,
+        emailVerified: false,
+      ),
+      act: (bloc) => bloc.add(const AuthEmailVerified()),
+      expect: () => [
+        isA<AuthAuthenticated>().having(
+          (state) => state.emailVerified,
+          'emailVerified',
+          true,
+        ),
+      ],
+      verify: (_) {
+        verify(() => mockRepo.refreshToken()).called(1);
+      },
+    );
+
+    blocTest<AuthBloc, AuthState>(
       'AuthAuthenticated starts with isVaultLocked=true after login',
       build: () {
         when(
