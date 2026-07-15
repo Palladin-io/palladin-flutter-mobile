@@ -9,6 +9,7 @@ import 'package:mobile_palladin/features/auth/domain/repositories/auth_repositor
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/auth/presentation/cubit/verify_email_cubit.dart';
 import 'package:mobile_palladin/features/auth/presentation/pages/verify_email_page.dart';
+import 'package:mobile_palladin/features/auth/presentation/widgets/auth_brand_header.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 
 class MockPasswordAuthRemoteDatasource extends Mock
@@ -76,6 +77,14 @@ void main() {
       expect(
         find.text('We sent a verification link to test@example.com.'),
         findsOneWidget,
+      );
+      final message = find.text(
+        'We sent a verification link to test@example.com.',
+      );
+      final header = find.byType(AuthBrandHeader);
+      expect(
+        tester.getTopLeft(message).dy - tester.getBottomLeft(header).dy,
+        closeTo(AuthBrandHeader.formTopSpacing, 1),
       );
 
       final resend = find.text('Resend email');

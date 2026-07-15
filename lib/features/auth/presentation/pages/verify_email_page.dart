@@ -97,7 +97,7 @@ class _VerifyEmailViewState extends State<_VerifyEmailView> {
                         Expanded(
                           child: SingleChildScrollView(
                             padding: const EdgeInsets.only(
-                              top: AppSpacing.xxxl,
+                              top: AuthBrandHeader.formTopSpacing,
                             ),
                             child:
                                 widget.token != null && widget.token!.isNotEmpty

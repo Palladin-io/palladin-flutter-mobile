@@ -20,6 +20,8 @@ void main() {
     // the value but every successful auth path queries them. Override
     // per test when a specific bitmask or identity matters.
     when(() => mockRepo.getPermissions()).thenAnswer((_) async => 0);
+    when(() => mockRepo.getUserId()).thenAnswer((_) async => 'user-789');
+    when(() => mockRepo.isOnboarded()).thenAnswer((_) async => true);
     when(() => mockRepo.getEmail()).thenAnswer((_) async => null);
     when(() => mockRepo.isEmailVerified()).thenAnswer((_) async => true);
     when(() => mockRepo.getAuthProvider()).thenAnswer((_) async => null);
@@ -151,7 +153,7 @@ void main() {
     blocTest<AuthBloc, AuthState>(
       'emits [AuthAuthenticated] on successful token refresh',
       build: () {
-        when(() => mockRepo.refreshToken()).thenAnswer((_) async => authResult);
+        when(() => mockRepo.refreshToken()).thenAnswer((_) async {});
         return AuthBloc(authRepository: mockRepo);
       },
       act: (bloc) => bloc.add(const AuthRefreshRequested()),
@@ -197,7 +199,7 @@ void main() {
       'email verification refreshes a stale claim before continuing',
       build: () {
         when(() => mockRepo.isEmailVerified()).thenAnswer((_) async => false);
-        when(() => mockRepo.refreshToken()).thenAnswer((_) async => authResult);
+        when(() => mockRepo.refreshToken()).thenAnswer((_) async {});
         return AuthBloc(authRepository: mockRepo);
       },
       seed: () => const AuthAuthenticated(

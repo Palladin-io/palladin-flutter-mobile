@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:mobile_palladin/features/auth/data/datasources/password_auth_remote_datasource.dart';
-import 'package:mobile_palladin/features/auth/data/models/auth_result_model.dart';
 import 'package:mobile_palladin/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mobile_palladin/features/auth/presentation/cubit/verify_email_cubit.dart';
 
@@ -15,13 +14,6 @@ class MockAuthRepository extends Mock implements AuthRepository {}
 void main() {
   late MockPasswordAuthRemoteDatasource datasource;
   late MockAuthRepository authRepository;
-
-  const refreshedSession = AuthResultModel(
-    accessToken: 'access-token',
-    refreshToken: 'refresh-token',
-    userId: 'user-id',
-    isOnboarded: true,
-  );
 
   setUp(() {
     datasource = MockPasswordAuthRemoteDatasource();
@@ -35,9 +27,7 @@ void main() {
     blocTest<VerifyEmailCubit, VerifyEmailState>(
       'emits checking then verified when the refreshed claim is true',
       build: () {
-        when(
-          () => authRepository.refreshToken(),
-        ).thenAnswer((_) async => refreshedSession);
+        when(() => authRepository.refreshToken()).thenAnswer((_) async {});
         when(
           () => authRepository.isEmailVerified(),
         ).thenAnswer((_) async => true);
@@ -61,9 +51,7 @@ void main() {
     blocTest<VerifyEmailCubit, VerifyEmailState>(
       'emits checking then pending when verification is incomplete',
       build: () {
-        when(
-          () => authRepository.refreshToken(),
-        ).thenAnswer((_) async => refreshedSession);
+        when(() => authRepository.refreshToken()).thenAnswer((_) async {});
         when(
           () => authRepository.isEmailVerified(),
         ).thenAnswer((_) async => false);

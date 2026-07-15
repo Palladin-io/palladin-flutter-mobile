@@ -66,16 +66,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     AppLogger.d('AuthBloc', 'Token refresh requested');
     try {
-      final result = await authRepository.refreshToken();
+      await authRepository.refreshToken();
+      final userId = await authRepository.getUserId();
+      final isOnboarded = await authRepository.isOnboarded();
       final permissions = await authRepository.getPermissions();
       final email = await authRepository.getEmail();
       final emailVerified = await authRepository.isEmailVerified();
       final authProvider = await authRepository.getAuthProvider();
-      AppLogger.i('AuthBloc', 'Refresh successful: userId=${result.userId}');
+      if (userId == null) {
+        AppLogger.w('AuthBloc', 'Refresh succeeded without a stored userId');
+        emit(const AuthUnauthenticated());
+        return;
+      }
+      AppLogger.i('AuthBloc', 'Refresh successful: userId=$userId');
       emit(
         AuthAuthenticated(
-          userId: result.userId,
-          isOnboarded: result.isOnboarded,
+          userId: userId,
+          isOnboarded: isOnboarded,
           permissions: permissions,
           email: email,
           emailVerified: emailVerified,

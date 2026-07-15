@@ -9,9 +9,8 @@ abstract class AuthRepository {
   /// backend, and persists the resulting JWT credentials.
   Future<AuthResultModel> loginWithGoogle();
 
-  /// Attempts to refresh the current session using the stored refresh
-  /// token.
-  Future<AuthResultModel> refreshToken();
+  /// Refreshes the token pair while preserving stored session metadata.
+  Future<void> refreshToken();
 
   /// Logs out the current user — invalidates the refresh token on the
   /// backend and clears local storage.

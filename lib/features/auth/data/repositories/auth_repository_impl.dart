@@ -13,6 +13,7 @@ import '../../domain/auth_provider_id.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
 import '../models/auth_result_model.dart';
+import '../models/refresh_token_result_model.dart';
 
 /// Concrete implementation of [AuthRepository].
 ///
@@ -89,7 +90,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<AuthResultModel> refreshToken() async {
+  Future<void> refreshToken() async {
     AppLogger.d('Auth', 'Attempting token refresh');
     final currentRefreshToken = await tokenStorage.refreshToken;
     if (currentRefreshToken == null || currentRefreshToken.isEmpty) {
@@ -97,7 +98,7 @@ class AuthRepositoryImpl implements AuthRepository {
       throw AuthNoRefreshTokenException();
     }
 
-    final AuthResultModel result;
+    final RefreshTokenResultModel result;
     try {
       result = await remoteDatasource.refreshToken(currentRefreshToken);
     } on DioException catch (e, s) {
@@ -108,15 +109,12 @@ class AuthRepositoryImpl implements AuthRepository {
       throw AuthServerException(AuthServerErrorKind.invalidResponse);
     }
 
-    await tokenStorage.saveTokens(
+    await tokenStorage.updateTokens(
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
-      userId: result.userId,
-      isOnboarded: result.isOnboarded,
     );
 
     AppLogger.i('Auth', 'Token refresh successful');
-    return result;
   }
 
   /// Maps a [DioException] to a typed [AuthServerErrorKind].
