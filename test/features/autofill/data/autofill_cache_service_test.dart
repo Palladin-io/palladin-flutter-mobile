@@ -38,9 +38,15 @@ void main() {
       entryRepository: entryRepository,
       bridge: bridge,
     );
-    when(() => bridge.replaceCache(any())).thenAnswer((_) async {});
-    when(bridge.revokeCacheAccess).thenAnswer((_) async {});
-    when(bridge.clearCache).thenAnswer((_) async {});
+    when(
+      () => bridge.replaceCache(any(), generation: any(named: 'generation')),
+    ).thenAnswer((_) async {});
+    when(
+      () => bridge.revokeCacheAccess(generation: any(named: 'generation')),
+    ).thenAnswer((_) async {});
+    when(
+      () => bridge.clearCache(generation: any(named: 'generation')),
+    ).thenAnswer((_) async {});
   });
 
   test('normalizes URL hosts and rejects ambiguous identifiers', () {
@@ -82,7 +88,12 @@ void main() {
     await service.synchronize(privateKey: Uint8List(32));
 
     final records =
-        verify(() => bridge.replaceCache(captureAny())).captured.single
+        verify(
+              () => bridge.replaceCache(
+                captureAny(),
+                generation: any(named: 'generation'),
+              ),
+            ).captured.single
             as List<AutoFillRecord>;
     expect(records, hasLength(1));
     expect(records.single.id, entry.id);
@@ -96,7 +107,10 @@ void main() {
 
     await service.clearAndSynchronize(privateKey: Uint8List(32));
 
-    verifyInOrder([bridge.clearCache, () => bridge.replaceCache(any())]);
+    verifyInOrder([
+      () => bridge.clearCache(generation: any(named: 'generation')),
+      () => bridge.replaceCache(any(), generation: any(named: 'generation')),
+    ]);
   });
 
   test('logout invalidates an active synchronization before replace', () async {
@@ -114,8 +128,12 @@ void main() {
 
     await Future.wait([synchronization, logoutClear]);
 
-    verify(() => bridge.clearCache()).called(2);
-    verifyNever(() => bridge.replaceCache(any()));
+    verify(
+      () => bridge.clearCache(generation: any(named: 'generation')),
+    ).called(2);
+    verifyNever(
+      () => bridge.replaceCache(any(), generation: any(named: 'generation')),
+    );
   });
 
   test('access revocation bypasses the serialized identity queue', () async {
@@ -132,8 +150,12 @@ void main() {
     vaults.complete(const []);
     await synchronization;
 
-    verify(bridge.revokeCacheAccess).called(1);
-    verifyNever(() => bridge.replaceCache(any()));
+    verify(
+      () => bridge.revokeCacheAccess(generation: any(named: 'generation')),
+    ).called(1);
+    verifyNever(
+      () => bridge.replaceCache(any(), generation: any(named: 'generation')),
+    );
   });
 
   test(
@@ -142,7 +164,9 @@ void main() {
       final replaceStarted = Completer<void>();
       final allowReplace = Completer<void>();
       when(vaultRepository.listVaults).thenAnswer((_) async => const []);
-      when(() => bridge.replaceCache(any())).thenAnswer((_) async {
+      when(
+        () => bridge.replaceCache(any(), generation: any(named: 'generation')),
+      ).thenAnswer((_) async {
         replaceStarted.complete();
         await allowReplace.future;
       });
@@ -151,32 +175,95 @@ void main() {
       await replaceStarted.future;
       final logoutClear = service.clear();
 
-      verify(() => bridge.clearCache()).called(1);
+      verify(
+        () => bridge.clearCache(generation: any(named: 'generation')),
+      ).called(1);
       allowReplace.complete();
       await Future.wait([synchronization, logoutClear]);
 
-      verify(() => bridge.clearCache()).called(1);
+      verify(
+        () => bridge.clearCache(generation: any(named: 'generation')),
+      ).called(1);
     },
   );
 
+  test('revocation supersedes an already submitted replacement', () async {
+    final replaceStarted = Completer<void>();
+    final allowReplace = Completer<void>();
+    int? replaceGeneration;
+    int? revokeGeneration;
+    when(vaultRepository.listVaults).thenAnswer((_) async => const []);
+    when(
+      () => bridge.replaceCache(any(), generation: any(named: 'generation')),
+    ).thenAnswer((invocation) async {
+      replaceGeneration = invocation.namedArguments[#generation] as int;
+      replaceStarted.complete();
+      await allowReplace.future;
+    });
+    when(
+      () => bridge.revokeCacheAccess(generation: any(named: 'generation')),
+    ).thenAnswer((invocation) async {
+      revokeGeneration = invocation.namedArguments[#generation] as int;
+    });
+
+    final synchronization = service.synchronize(privateKey: Uint8List(32));
+    await replaceStarted.future;
+    await service.revokeAccess();
+
+    expect(revokeGeneration, greaterThan(replaceGeneration!));
+
+    allowReplace.complete();
+    await synchronization;
+  });
+
+  test('a new session is not blocked by the revoked queue', () async {
+    final firstReplaceStarted = Completer<void>();
+    final releaseFirstReplace = Completer<void>();
+    var replaceCalls = 0;
+    when(vaultRepository.listVaults).thenAnswer((_) async => const []);
+    when(
+      () => bridge.replaceCache(any(), generation: any(named: 'generation')),
+    ).thenAnswer((_) async {
+      replaceCalls += 1;
+      if (replaceCalls == 1) {
+        firstReplaceStarted.complete();
+        await releaseFirstReplace.future;
+      }
+    });
+
+    final previousSession = service.synchronize(privateKey: Uint8List(32));
+    await firstReplaceStarted.future;
+    await service.revokeAccess();
+
+    await service.synchronize(privateKey: Uint8List(32));
+    expect(replaceCalls, 2);
+
+    releaseFirstReplace.complete();
+    await previousSession;
+  });
+
   test('logout clear retries and propagates a native wipe failure', () async {
     when(
-      bridge.clearCache,
+      () => bridge.clearCache(generation: any(named: 'generation')),
     ).thenThrow(PlatformException(code: 'AUTOFILL_CACHE_ERROR'));
 
     await expectLater(service.clear(), throwsA(isA<PlatformException>()));
 
-    verify(() => bridge.clearCache()).called(3);
+    verify(
+      () => bridge.clearCache(generation: any(named: 'generation')),
+    ).called(3);
   });
 
   test('failed pre-sync clear never writes a replacement cache', () async {
     when(
-      bridge.clearCache,
+      () => bridge.clearCache(generation: any(named: 'generation')),
     ).thenThrow(PlatformException(code: 'AUTOFILL_CACHE_ERROR'));
 
     await service.synchronize(privateKey: Uint8List(32));
 
-    verifyNever(() => bridge.replaceCache(any()));
+    verifyNever(
+      () => bridge.replaceCache(any(), generation: any(named: 'generation')),
+    );
   });
 
   test('mutation notifier distinguishes invalidation from rebuild', () async {

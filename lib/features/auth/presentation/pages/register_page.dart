@@ -25,6 +25,7 @@ import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../data/services/hibp_service.dart';
 import '../../domain/password_auth_exceptions.dart';
 import '../bloc/auth_bloc.dart';
+import '../cubit/password_security_cubit.dart';
 import '../cubit/register_cubit.dart';
 import '../widgets/auth_brand_header.dart';
 import '../widgets/password_security_status.dart';
@@ -131,7 +132,7 @@ class _CredentialsStepState extends State<_CredentialsStep> {
 
   Timer? _emailValidationTimer;
 
-  late final PasswordSecurityCheckController _passwordSecurity;
+  late final PasswordSecurityCubit _passwordSecurity;
 
   static final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
   static const _emailValidationDelay = Duration(milliseconds: 500);
@@ -139,7 +140,7 @@ class _CredentialsStepState extends State<_CredentialsStep> {
   @override
   void initState() {
     super.initState();
-    _passwordSecurity = PasswordSecurityCheckController(
+    _passwordSecurity = PasswordSecurityCubit(
       check: getIt<HibpService>().check,
     );
     final cubit = context.read<RegisterCubit>();
@@ -152,7 +153,6 @@ class _CredentialsStepState extends State<_CredentialsStep> {
       _confirmController.text = passwordDraft;
       _passwordSecurity.checkPassword(passwordDraft);
     }
-    _passwordSecurity.addListener(_onChanged);
     _emailController.addListener(_onEmailChanged);
     _passwordController.addListener(_onPasswordChanged);
     _confirmController.addListener(_onChanged);
@@ -161,7 +161,7 @@ class _CredentialsStepState extends State<_CredentialsStep> {
   @override
   void dispose() {
     _emailValidationTimer?.cancel();
-    _passwordSecurity.dispose();
+    _passwordSecurity.close();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
@@ -188,6 +188,17 @@ class _CredentialsStepState extends State<_CredentialsStep> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocBuilder<PasswordSecurityCubit, PasswordSecurityState>(
+      bloc: _passwordSecurity,
+      builder: (context, securityState) =>
+          _buildCredentials(context, securityState),
+    );
+  }
+
+  Widget _buildCredentials(
+    BuildContext context,
+    PasswordSecurityState securityState,
+  ) {
     final l10n = AppLocalizations.of(context)!;
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -205,7 +216,7 @@ class _CredentialsStepState extends State<_CredentialsStep> {
       l10n: l10n,
       password: password,
       isAcceptable: strength.isAcceptable,
-      controller: _passwordSecurity,
+      securityState: securityState,
       message: formError,
       secureMessage: '',
     );
@@ -219,7 +230,7 @@ class _CredentialsStepState extends State<_CredentialsStep> {
         emailValid &&
         strength.isAcceptable &&
         passwordsMatch &&
-        !_passwordSecurity.blocksSubmission;
+        !securityState.blocksSubmission;
 
     return OnboardingScaffold(
       currentStep: 0,

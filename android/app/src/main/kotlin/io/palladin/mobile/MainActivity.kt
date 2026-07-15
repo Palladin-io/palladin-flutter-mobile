@@ -26,15 +26,29 @@ class MainActivity : FlutterActivity() {
             executor.execute {
                 val outcome = runCatching {
                     when (call.method) {
-                        "revokeCacheAccess" -> cacheStore.clear()
+                        "revokeCacheAccess" -> {
+                            val arguments = call.arguments as? Map<*, *>
+                            val generation = (arguments?.get("generation") as? Number)?.toLong()
+                                ?: throw IllegalArgumentException("Missing generation")
+                            cacheStore.revokeAccess(generation)
+                        }
                         "replaceCache" -> {
+                            val arguments = call.arguments as? Map<*, *>
+                            val generation = (arguments?.get("generation") as? Number)?.toLong()
+                                ?: throw IllegalArgumentException("Missing generation")
+                            val records = arguments["records"] as? List<*>
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                cacheStore.replace(call.arguments as? List<*>)
+                                cacheStore.replace(records, generation)
                             } else {
-                                cacheStore.clear()
+                                cacheStore.clear(generation)
                             }
                         }
-                        "clearCache" -> cacheStore.clear()
+                        "clearCache" -> {
+                            val arguments = call.arguments as? Map<*, *>
+                            val generation = (arguments?.get("generation") as? Number)?.toLong()
+                                ?: throw IllegalArgumentException("Missing generation")
+                            cacheStore.clear(generation)
+                        }
                         else -> throw UnsupportedOperationException(call.method)
                     }
                 }

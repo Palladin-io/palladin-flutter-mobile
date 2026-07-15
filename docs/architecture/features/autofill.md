@@ -50,12 +50,14 @@ Linear: CVT-276
    the native provider.
 4. Logout first bypasses Flutter's serialized synchronization queue and invokes
    a dedicated native revocation path. Native cache writes and revocation are
-   mutually exclusive, while the revocation call itself uses an independent
-   executor/queue so an earlier Flutter operation cannot prevent it from
-   clearing cache ciphertext and the dedicated platform key. Best-effort OS
-   identity cleanup follows. A critical revocation failure aborts logout before
-   local auth tokens are removed instead of reporting an unsafe successful
-   session transition.
+   mutually exclusive and carry monotonically increasing session generations.
+   Revocation records its generation before clearing the cache, and native code
+   rejects any delayed replacement from that or an older generation. The
+   revocation call itself uses an independent executor/queue so an earlier
+   Flutter operation cannot prevent it from clearing cache ciphertext and the
+   dedicated platform key. Best-effort OS identity cleanup follows. A critical
+   revocation failure aborts logout before local auth tokens are removed instead
+   of reporting an unsafe successful session transition.
 5. A biometric-set change invalidates the platform key. A failed read clears
    the unusable Android cache; iOS remains unavailable until the next unlocked
    synchronization replaces its cache and key.

@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../auth/presentation/widgets/auth_brand_header.dart';
 import '../../../auth/data/services/hibp_service.dart';
+import '../../../auth/presentation/cubit/password_security_cubit.dart';
 import '../../../auth/presentation/widgets/password_security_status.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/password_strength.dart';
@@ -33,12 +34,12 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
   final _confirmController = TextEditingController();
   bool _passwordVisible = false;
   bool _confirmVisible = false;
-  late final PasswordSecurityCheckController _passwordSecurity;
+  late final PasswordSecurityCubit _passwordSecurity;
 
   @override
   void initState() {
     super.initState();
-    _passwordSecurity = PasswordSecurityCheckController(
+    _passwordSecurity = PasswordSecurityCubit(
       check: getIt<HibpService>().check,
     );
     AnalyticsService.instance.capture('onboarding', 'setup-page-viewed');
@@ -52,7 +53,6 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
       _passwordSecurity.checkPassword(saved);
     }
 
-    _passwordSecurity.addListener(_onTextChanged);
     _passwordController.addListener(_onPasswordChanged);
     _confirmController.addListener(_onTextChanged);
   }
@@ -67,7 +67,7 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
 
   @override
   void dispose() {
-    _passwordSecurity.dispose();
+    _passwordSecurity.close();
     _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
@@ -75,6 +75,17 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocBuilder<PasswordSecurityCubit, PasswordSecurityState>(
+      bloc: _passwordSecurity,
+      builder: (context, securityState) =>
+          _buildMasterPassword(context, securityState),
+    );
+  }
+
+  Widget _buildMasterPassword(
+    BuildContext context,
+    PasswordSecurityState securityState,
+  ) {
     final l10n = AppLocalizations.of(context)!;
     final password = _passwordController.text;
     final confirm = _confirmController.text;
@@ -83,7 +94,7 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
     final canSubmit =
         strength.isAcceptable &&
         passwordsMatch &&
-        !_passwordSecurity.blocksSubmission;
+        !securityState.blocksSubmission;
 
     return OnboardingScaffold(
       currentStep: 0,
@@ -129,7 +140,7 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
         PasswordSecurityStatusLine(
           password: password,
           isAcceptable: strength.isAcceptable,
-          controller: _passwordSecurity,
+          securityState: securityState,
           message: confirm.isNotEmpty && !passwordsMatch
               ? l10n.onboardingPasswordsDoNotMatch
               : null,

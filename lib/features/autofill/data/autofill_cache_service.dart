@@ -33,7 +33,7 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
     final generation = ++_generation;
     return _bestEffort(
       _enqueue(() async {
-        await _clearNative();
+        await _clearNative(generation);
         if (generation != _generation) return;
         await _synchronizeOnce(privateKey, generation);
       }),
@@ -42,22 +42,26 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
 
   @override
   Future<void> revokeAccess() async {
-    ++_generation;
+    final generation = ++_generation;
     try {
       // Intentionally bypass [_pendingOperation]. Native code serializes this
       // key/file revocation against a replacement but does not wait for the
       // credential-identity API, which may never call back on a broken host.
-      await _bridge.revokeCacheAccess();
+      await _bridge.revokeCacheAccess(generation: generation);
     } on MissingPluginException {
       // Test hosts and unsupported platforms have no credential provider, so
       // there is no native cache or key left to revoke.
     }
+    // Detach future sessions from an identity-maintenance call that may still
+    // be waiting for an OS callback. Native generations make any late mutation
+    // from the previous queue stale and therefore harmless.
+    _pendingOperation = Future<void>.value();
   }
 
   @override
   Future<void> clear() {
-    ++_generation;
-    return _enqueue(_clearNative);
+    final generation = ++_generation;
+    return _enqueue(() => _clearNative(generation));
   }
 
   Future<void> clearAndSynchronize({required Uint8List privateKey}) {
@@ -65,19 +69,19 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
     final generation = ++_generation;
     return _bestEffort(
       _enqueue(() async {
-        await _clearNative();
+        await _clearNative(generation);
         if (generation != _generation) return;
         await _synchronizeOnce(privateKey, generation);
       }),
     );
   }
 
-  Future<void> _clearNative() async {
+  Future<void> _clearNative(int generation) async {
     Object? lastError;
     StackTrace? lastStackTrace;
     for (var attempt = 1; attempt <= _clearAttempts; attempt++) {
       try {
-        await _bridge.clearCache();
+        await _bridge.clearCache(generation: generation);
         return;
       } on MissingPluginException {
         // Unit/widget test hosts do not install the native bridge.
@@ -141,7 +145,7 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
         }
       }
       if (generation != _generation) return;
-      await _bridge.replaceCache(records);
+      await _bridge.replaceCache(records, generation: generation);
       AppLogger.i('AutoFill', 'Native cache synchronized');
     } on MissingPluginException {
       // Unit/widget test hosts do not install the native bridge.

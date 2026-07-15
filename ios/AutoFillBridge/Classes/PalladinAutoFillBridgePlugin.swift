@@ -20,18 +20,28 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
                     // Key/file revocation is intentionally separate from the
                     // identity-store callback, which is not guaranteed to
                     // return on a broken provider host.
-                    try store.clear()
-                    DispatchQueue.main.async { result(nil) }
-                case "replaceCache":
-                    guard let records = call.arguments as? [[String: Any]] else {
+                    guard let arguments = call.arguments as? [String: Any],
+                          let generation = arguments["generation"] as? Int else {
                         throw AutoFillCacheError.invalidRecords
                     }
-                    let validated = try store.replace(records: records)
+                    try store.revokeAccess(generation: generation)
+                    AutoFillCacheStore.clearIdentities { _ in }
+                    DispatchQueue.main.async { result(nil) }
+                case "replaceCache":
+                    guard let arguments = call.arguments as? [String: Any],
+                          let records = arguments["records"] as? [[String: Any]],
+                          let generation = arguments["generation"] as? Int else {
+                        throw AutoFillCacheError.invalidRecords
+                    }
+                    let validated = try store.replace(
+                        records: records,
+                        generation: generation
+                    )
                     AutoFillCacheStore.replaceIdentities(for: validated) { error in
                         if error == nil {
                             DispatchQueue.main.async { result(nil) }
                         } else {
-                            try? store.clear()
+                            try? store.clear(generation: generation)
                             DispatchQueue.main.async {
                                 result(FlutterError(
                                     code: "AUTOFILL_IDENTITY_ERROR",
@@ -42,7 +52,11 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
                         }
                     }
                 case "clearCache":
-                    try store.clear()
+                    guard let arguments = call.arguments as? [String: Any],
+                          let generation = arguments["generation"] as? Int else {
+                        throw AutoFillCacheError.invalidRecords
+                    }
+                    try store.clear(generation: generation)
                     AutoFillCacheStore.clearIdentities { error in
                         DispatchQueue.main.async {
                             if error == nil {

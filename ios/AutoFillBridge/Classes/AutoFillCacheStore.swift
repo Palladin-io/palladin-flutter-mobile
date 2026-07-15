@@ -38,6 +38,7 @@ enum AutoFillCacheError: Error {
     case keychain(OSStatus)
     case cacheUnavailable
     case unsupportedVersion
+    case staleGeneration
 }
 
 final class AutoFillCacheStore {
@@ -46,6 +47,8 @@ final class AutoFillCacheStore {
     private static let keychainService = "io.palladin.mobile.autofill.cache"
     private static let keychainAccount = "cache-key-v1"
     private static let mutationLock = NSLock()
+    private static var revokedGeneration = 0
+    private static var latestMutationGeneration = 0
 
     private let appGroupIdentifier: String
     private let cacheURL: URL
@@ -66,9 +69,17 @@ final class AutoFillCacheStore {
         cacheURL = container.appendingPathComponent(Self.cacheFileName, isDirectory: false)
     }
 
-    func replace(records rawRecords: [[String: Any]]) throws -> [AutoFillCredentialRecord] {
+    func replace(
+        records rawRecords: [[String: Any]],
+        generation: Int
+    ) throws -> [AutoFillCredentialRecord] {
         Self.mutationLock.lock()
         defer { Self.mutationLock.unlock() }
+        guard generation >= Self.latestMutationGeneration,
+              generation > Self.revokedGeneration else {
+            throw AutoFillCacheError.staleGeneration
+        }
+        Self.latestMutationGeneration = generation
         var serialized = try JSONSerialization.data(withJSONObject: rawRecords)
         defer { serialized.resetBytes(in: 0..<serialized.count) }
         let records = try JSONDecoder().decode([AutoFillCredentialRecord].self, from: serialized)
@@ -111,6 +122,27 @@ final class AutoFillCacheStore {
     func clear() throws {
         Self.mutationLock.lock()
         defer { Self.mutationLock.unlock() }
+        try clearLocked()
+    }
+
+    func clear(generation: Int) throws {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
+        guard generation >= Self.latestMutationGeneration else { return }
+        Self.latestMutationGeneration = generation
+        try clearLocked()
+    }
+
+    func revokeAccess(generation: Int) throws {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
+        guard generation >= Self.latestMutationGeneration else { return }
+        Self.latestMutationGeneration = generation
+        Self.revokedGeneration = max(Self.revokedGeneration, generation)
+        try clearLocked()
+    }
+
+    private func clearLocked() throws {
         var fileError: Error?
         do {
             try FileManager.default.removeItem(at: cacheURL)
