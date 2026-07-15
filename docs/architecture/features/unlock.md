@@ -3,7 +3,15 @@
 Master-password unlock with a biometric shortcut.
 
 - **Cubit:** `UnlockCubit`.
-- **Pages:** `UnlockPage`. **Widgets:** reuses `OnboardingTextField`, `PrimaryButton`.
+- **Pages:** `UnlockPage`. **Widgets:** reuses `AuthBrandBackground`,
+  `AuthContentWidth`, `AuthBrandHeader`, `OnboardingTextField`, and
+  `PrimaryButton`. Its glow, lockup height, 320px content cap, 20px minimum
+  gutters, and labelled-field start match the authentication entry screen.
+  The shared header keeps the persistent `Enter your master password` caption
+  instead of rotating the authentication-entry messages.
+  When available, the biometric action is a separate middle section with equal
+  flexible space between the Unlock action and the forgot-password controls.
+  The body remains scrollable on compact screens and when the keyboard opens.
 - **Layering:** full data / domain / presentation split. `UnlockCryptoService` (in `data/services/`) derives the vault key from the master password via libsodium — uses the `try/finally` zero-out pattern for key bytes.
 - **Flow:** on success posts `AuthVaultUnlocked` to `AuthBloc`.
 

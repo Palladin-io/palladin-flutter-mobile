@@ -48,10 +48,19 @@ Linear: CVT-276
 3. Ordinary vault lock keeps the encrypted cache so AutoFill can operate after
    a fresh OS biometric challenge. The Flutter private key is never copied into
    the native provider.
-4. Logout waits for any active cache replacement, retries native revocation,
-   and clears cache ciphertext, the dedicated platform key, and iOS credential
-   identities before local auth tokens are removed. A revocation failure aborts
-   logout instead of reporting an unsafe successful session transition.
+4. Logout first bypasses Flutter's serialized synchronization queue and invokes
+   a dedicated native revocation path. Native cache writes and revocation are
+   mutually exclusive and carry a token issued by the native cache store.
+   Revocation always rotates that token before clearing the cache, so native code
+   rejects every delayed replacement from the previous session. The token counter
+   remains native across Flutter engine recreation and does not depend on a Dart
+   counter restarting from zero. The revocation call itself uses an independent
+   executor/queue so an earlier Flutter operation cannot prevent it from clearing
+   cache ciphertext and the dedicated platform key. A revoked latch rejects every
+   later write until an unlocked, authenticated state explicitly obtains a new
+   native cache-session token. Best-effort OS identity cleanup follows. A critical
+   revocation failure aborts logout before local auth tokens are removed instead
+   of reporting an unsafe successful session transition.
 5. A biometric-set change invalidates the platform key. A failed read clears
    the unusable Android cache; iOS remains unavailable until the next unlocked
    synchronization replaces its cache and key.

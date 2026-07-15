@@ -6,12 +6,12 @@ import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/app_screen.dart';
-import '../../../../core/widgets/brand_hero.dart';
+import '../../../../core/widgets/auth_brand_layout.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../bloc/auth_bloc.dart';
 import '../cubit/verify_email_cubit.dart';
+import '../widgets/auth_brand_header.dart';
 
 /// Email-verification screen (CVT-261).
 ///
@@ -65,27 +65,41 @@ class _VerifyEmailViewState extends State<_VerifyEmailView> {
           _snack(context, AppLocalizations.of(context)!.authVerifyResendError);
         }
       },
-      child: AppScreen(
-        body: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.screenH,
-            vertical: AppSpacing.xxl,
-          ),
-          child: BlocBuilder<VerifyEmailCubit, VerifyEmailState>(
-            builder: (context, state) {
-              final brightness = Theme.of(context).brightness;
-              return Column(
-                children: [
-                  const Spacer(flex: 2),
-                  BrandHero(textColor: BrandHero.textColorFor(brightness)),
-                  const Spacer(flex: 1),
-                  widget.token != null && widget.token!.isNotEmpty
-                      ? _ResultBody(state: state)
-                      : const _GateBody(),
-                  const Spacer(flex: 2),
-                ],
-              );
-            },
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: AuthBrandBackground(
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenH,
+                0,
+                AppSpacing.screenH,
+                AppSpacing.xxl,
+              ),
+              child: AuthContentWidth(
+                child: BlocBuilder<VerifyEmailCubit, VerifyEmailState>(
+                  builder: (context, state) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const AuthBrandHeader(),
+                        Expanded(
+                          child: Center(
+                            child: SingleChildScrollView(
+                              child:
+                                  widget.token != null &&
+                                      widget.token!.isNotEmpty
+                                  ? _ResultBody(state: state)
+                                  : const _GateBody(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -181,12 +195,11 @@ class _GateBody extends StatelessWidget {
       builder: (context, state) {
         final sending = state.resend == ResendStatus.sending;
         return _StatusColumn(
-          icon: Icons.mark_email_unread_outlined,
-          iconColor: AppColors.brandRed,
           title: l10n.authVerifyGateTitle,
           message: email != null && email.isNotEmpty
               ? l10n.authVerifyGateSubtitle(email)
               : l10n.authVerifyGateSubtitleNoEmail,
+          secondaryMessage: l10n.authVerifyGateInstruction,
           action: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -269,17 +282,19 @@ class _ResendOrLoginAction extends StatelessWidget {
 
 class _StatusColumn extends StatelessWidget {
   const _StatusColumn({
-    required this.icon,
-    required this.iconColor,
+    this.icon,
+    this.iconColor,
     required this.title,
     required this.message,
+    this.secondaryMessage,
     required this.action,
   });
 
-  final IconData icon;
-  final Color iconColor;
+  final IconData? icon;
+  final Color? iconColor;
   final String title;
   final String message;
+  final String? secondaryMessage;
   final Widget action;
 
   @override
@@ -288,8 +303,10 @@ class _StatusColumn extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Icon(icon, color: iconColor, size: 48),
-        const SizedBox(height: AppSpacing.section),
+        if (icon != null) ...[
+          Icon(icon, color: iconColor, size: 48),
+          const SizedBox(height: AppSpacing.section),
+        ],
         Text(
           title,
           textAlign: TextAlign.center,
@@ -309,6 +326,18 @@ class _StatusColumn extends StatelessWidget {
             height: 1.4,
           ),
         ),
+        if (secondaryMessage != null) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            secondaryMessage!,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.onSurfaceSubtle(brightness),
+              height: 1.4,
+            ),
+          ),
+        ],
         const SizedBox(height: AppSpacing.xxl),
         action,
       ],

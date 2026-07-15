@@ -38,6 +38,7 @@ enum AutoFillCacheError: Error {
     case keychain(OSStatus)
     case cacheUnavailable
     case unsupportedVersion
+    case staleSession
 }
 
 final class AutoFillCacheStore {
@@ -45,6 +46,9 @@ final class AutoFillCacheStore {
     private static let cacheFileName = "palladin_autofill_cache_v1"
     private static let keychainService = "io.palladin.mobile.autofill.cache"
     private static let keychainAccount = "cache-key-v1"
+    private static let mutationLock = NSLock()
+    private static var accessRevoked = true
+    private static var currentSessionToken = 0
 
     private let appGroupIdentifier: String
     private let cacheURL: URL
@@ -65,7 +69,24 @@ final class AutoFillCacheStore {
         cacheURL = container.appendingPathComponent(Self.cacheFileName, isDirectory: false)
     }
 
-    func replace(records rawRecords: [[String: Any]]) throws -> [AutoFillCredentialRecord] {
+    func beginSession() -> Int {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
+        Self.currentSessionToken += 1
+        Self.accessRevoked = false
+        return Self.currentSessionToken
+    }
+
+    func replace(
+        records rawRecords: [[String: Any]],
+        sessionToken: Int
+    ) throws -> [AutoFillCredentialRecord] {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
+        guard !Self.accessRevoked,
+              sessionToken == Self.currentSessionToken else {
+            throw AutoFillCacheError.staleSession
+        }
         var serialized = try JSONSerialization.data(withJSONObject: rawRecords)
         defer { serialized.resetBytes(in: 0..<serialized.count) }
         let records = try JSONDecoder().decode([AutoFillCredentialRecord].self, from: serialized)
@@ -106,6 +127,28 @@ final class AutoFillCacheStore {
     }
 
     func clear() throws {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
+        try clearLocked()
+    }
+
+    func clear(sessionToken: Int) throws {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
+        guard sessionToken == Self.currentSessionToken else { return }
+        try clearLocked()
+    }
+
+    func revokeAccess() throws -> Int {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
+        Self.currentSessionToken += 1
+        Self.accessRevoked = true
+        try clearLocked()
+        return Self.currentSessionToken
+    }
+
+    private func clearLocked() throws {
         var fileError: Error?
         do {
             try FileManager.default.removeItem(at: cacheURL)

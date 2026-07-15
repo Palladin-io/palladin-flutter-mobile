@@ -7,9 +7,10 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/storage/biometric_key_store.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/brand_hero.dart';
+import '../../../../core/widgets/auth_brand_layout.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/widgets/auth_brand_header.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../domain/unlock_exceptions.dart';
@@ -79,59 +80,60 @@ class _UnlockViewState extends State<_UnlockView> {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
+    final l10n = AppLocalizations.of(context)!;
     return BlocListener<UnlockCubit, UnlockState>(
       listener: _handleStateChange,
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: AppColors.backgroundGradient(brightness),
-          ),
+        body: AuthBrandBackground(
           child: SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.screenH,
               ),
-              child: Column(
-                children: [
-                  const Spacer(flex: 3),
-                  _buildHero(context),
-                  const Spacer(flex: 1),
-                  _buildForm(context),
-                  const Spacer(flex: 2),
-                  _buildForgotPassword(context),
-                  _buildLogout(context),
-                  const SizedBox(height: AppSpacing.xxl),
-                ],
+              child: AuthContentWidth(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                AuthBrandHeader(caption: l10n.unlockTitle),
+                                const SizedBox(
+                                  height:
+                                      AuthBrandHeader.labelledFormTopSpacing,
+                                ),
+                                _buildForm(context),
+                              ],
+                            ),
+                            if (_biometricAvailable)
+                              Center(child: _buildBiometricButton(context)),
+                            Column(
+                              children: [
+                                _buildForgotPassword(context),
+                                _buildLogout(context),
+                                const SizedBox(height: AppSpacing.xxl),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildHero(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Shared brand lockup — identical logo + "Palladin.io" wordmark as the
-        // login screen (see BrandHero). Only the subtitle below differs.
-        BrandHero(textColor: BrandHero.textColorFor(brightness)),
-        const SizedBox(height: AppSpacing.section),
-        Text(
-          l10n.unlockTitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 13,
-            color: AppColors.onSurfaceSubtle(brightness),
-            height: 1.4,
-          ),
-        ),
-      ],
     );
   }
 
@@ -176,21 +178,21 @@ class _UnlockViewState extends State<_UnlockView> {
               isLoading: isLoading,
               onPressed: canSubmit ? _submit : null,
             ),
-            if (_biometricAvailable) ...[
-              const SizedBox(height: AppSpacing.xl),
-              _buildBiometricRow(context, isLoading),
-            ],
           ],
         );
       },
     );
   }
 
-  Widget _buildBiometricRow(BuildContext context, bool isLoading) {
+  /// Text-less biometric shortcut — just the fingerprint affordance. The
+  /// [AppLocalizations.unlockBiometricHint] string stays as the button tooltip
+  /// (accessibility) even though no visible label is shown.
+  Widget _buildBiometricButton(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Column(
-      children: [
-        IconButton(
+    return BlocBuilder<UnlockCubit, UnlockState>(
+      builder: (context, state) {
+        final isLoading = state is UnlockLoading;
+        return IconButton(
           onPressed: isLoading ? null : _tryBiometrics,
           iconSize: 40,
           tooltip: l10n.unlockBiometricHint,
@@ -199,13 +201,8 @@ class _UnlockViewState extends State<_UnlockView> {
             color: AppColors.brandRed,
             size: 40,
           ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          l10n.unlockBiometricHint,
-          style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -238,7 +235,8 @@ class _UnlockViewState extends State<_UnlockView> {
   /// Localized OS-prompt strings for the enclave-bound biometric store.
   /// Built here (where `AppLocalizations` is available) and threaded down —
   /// the data/core layer stays free of hardcoded user-facing text.
-  BiometricPromptCopy _biometricCopy(AppLocalizations l10n) => BiometricPromptCopy(
+  BiometricPromptCopy _biometricCopy(AppLocalizations l10n) =>
+      BiometricPromptCopy(
         promptTitle: l10n.unlockBiometricPromptTitle,
         enrollTitle: l10n.unlockBiometricEnrollPrompt,
         accessTitle: l10n.unlockBiometricPrompt,
@@ -249,17 +247,17 @@ class _UnlockViewState extends State<_UnlockView> {
     FocusScope.of(context).unfocus();
     final l10n = AppLocalizations.of(context)!;
     await context.read<UnlockCubit>().unlock(
-          _passwordController.text,
-          biometricCopy: _biometricCopy(l10n),
-        );
+      _passwordController.text,
+      biometricCopy: _biometricCopy(l10n),
+    );
   }
 
   Future<void> _tryBiometrics() async {
     FocusScope.of(context).unfocus();
     final l10n = AppLocalizations.of(context)!;
     await context.read<UnlockCubit>().unlockWithBiometrics(
-          copy: _biometricCopy(l10n),
-        );
+      copy: _biometricCopy(l10n),
+    );
   }
 
   void _handleStateChange(BuildContext context, UnlockState state) {

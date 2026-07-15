@@ -11,7 +11,13 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/secure_clipboard.dart';
+import '../../../../core/widgets/auth_brand_layout.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../auth/data/services/hibp_service.dart';
+import '../../../auth/presentation/cubit/password_security_cubit.dart';
+import '../../../auth/presentation/widgets/auth_brand_header.dart';
+import '../../../auth/presentation/widgets/password_security_status.dart';
+import '../../../onboarding/domain/password_strength.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../domain/recovery_exceptions.dart';
@@ -80,6 +86,7 @@ class _RecoveryViewState extends State<_RecoveryView> {
 
   bool _passwordVisible = false;
   bool _confirmVisible = false;
+  late final PasswordSecurityCubit _passwordSecurity;
 
   /// Local validation error on step 2 — shown when the two password
   /// fields disagree. Kept out of cubit state since it's purely a UI
@@ -97,17 +104,21 @@ class _RecoveryViewState extends State<_RecoveryView> {
   @override
   void initState() {
     super.initState();
+    _passwordSecurity = PasswordSecurityCubit(
+      check: getIt<HibpService>().check,
+    );
     AnalyticsService.instance.capture('recovery', 'page-viewed');
     _mnemonicController.addListener(_onTextChanged);
-    _passwordController.addListener(_onTextChanged);
+    _passwordController.addListener(_onPasswordChanged);
     _confirmPasswordController.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
     _mnemonicController.removeListener(_onTextChanged);
-    _passwordController.removeListener(_onTextChanged);
+    _passwordController.removeListener(_onPasswordChanged);
     _confirmPasswordController.removeListener(_onTextChanged);
+    _passwordSecurity.close();
     _mnemonicController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -126,34 +137,45 @@ class _RecoveryViewState extends State<_RecoveryView> {
     });
   }
 
+  void _onPasswordChanged() {
+    _passwordSecurity.checkPassword(_passwordController.text);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return BlocListener<RecoveryCubit, RecoveryState>(
-      listener: _handleStateChange,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: AppColors.backgroundGradient(brightness),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screenH,
-                AppSpacing.headerGap,
-                AppSpacing.screenH,
-                AppSpacing.xxl,
+    return BlocBuilder<PasswordSecurityCubit, PasswordSecurityState>(
+      bloc: _passwordSecurity,
+      builder: (context, securityState) {
+        final brightness = Theme.of(context).brightness;
+        final usesAuthBrandLayout = _step == _RecoveryStep.newPassword;
+        return BlocListener<RecoveryCubit, RecoveryState>(
+          listener: _handleStateChange,
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: _RecoveryBackground(
+              usesAuthBrandLayout: usesAuthBrandLayout,
+              brightness: brightness,
+              child: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.screenH,
+                    usesAuthBrandLayout ? 0 : AppSpacing.headerGap,
+                    AppSpacing.screenH,
+                    AppSpacing.xxl,
+                  ),
+                  child: AuthContentWidth(
+                    child: _buildStep(context, securityState),
+                  ),
+                ),
               ),
-              child: _buildStep(context),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildStep(BuildContext context) {
+  Widget _buildStep(BuildContext context, PasswordSecurityState securityState) {
     switch (_step) {
       case _RecoveryStep.enterKey:
         return _EnterKeyStep(
@@ -173,6 +195,7 @@ class _RecoveryViewState extends State<_RecoveryView> {
           onToggleConfirm: () =>
               setState(() => _confirmVisible = !_confirmVisible),
           passwordMismatch: _passwordMismatch,
+          securityState: securityState,
           onBack: _goBackToEnterKey,
           onSubmit: _submitNewPassword,
         );
@@ -200,6 +223,10 @@ class _RecoveryViewState extends State<_RecoveryView> {
     final password = _passwordController.text;
     final confirm = _confirmPasswordController.text;
     if (password.isEmpty) return;
+    if (!evaluatePasswordStrength(password).isAcceptable ||
+        _passwordSecurity.state.blocksSubmission) {
+      return;
+    }
     if (password != confirm) {
       setState(() => _passwordMismatch = true);
       return;
@@ -305,6 +332,31 @@ class _RecoveryViewState extends State<_RecoveryView> {
   }
 }
 
+class _RecoveryBackground extends StatelessWidget {
+  const _RecoveryBackground({
+    required this.usesAuthBrandLayout,
+    required this.brightness,
+    required this.child,
+  });
+
+  final bool usesAuthBrandLayout;
+  final Brightness brightness;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (usesAuthBrandLayout) {
+      return AuthBrandBackground(child: child);
+    }
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: AppColors.backgroundGradient(brightness),
+      ),
+      child: child,
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Step 1 — enter recovery key
 // ─────────────────────────────────────────────────────────────────────
@@ -401,8 +453,7 @@ class _EnterKeyStep extends StatelessWidget {
           l10n.errorServerNotResponding,
         RecoveryServerErrorKind.cannotConnect =>
           l10n.errorCannotConnectToServer,
-        RecoveryServerErrorKind.connectionFailed =>
-          l10n.errorConnectionFailed,
+        RecoveryServerErrorKind.connectionFailed => l10n.errorConnectionFailed,
         RecoveryServerErrorKind.invalidResponse =>
           l10n.errorInvalidServerResponse,
       };
@@ -426,8 +477,9 @@ class _MnemonicTextArea extends StatelessWidget {
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final focusColor = AppColors.brandRed;
-    final enabledBorderColor =
-        hasError ? AppColors.brandRed : AppColors.inputBorder(brightness);
+    final enabledBorderColor = hasError
+        ? AppColors.brandRed
+        : AppColors.inputBorder(brightness);
 
     return TextField(
       controller: controller,
@@ -447,8 +499,10 @@ class _MnemonicTextArea extends StatelessWidget {
         hintStyle: TextStyle(color: AppColors.inputHint(brightness)),
         filled: true,
         fillColor: AppColors.cardFill(brightness),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,
@@ -479,6 +533,7 @@ class _NewPasswordStep extends StatelessWidget {
     required this.onTogglePassword,
     required this.onToggleConfirm,
     required this.passwordMismatch,
+    required this.securityState,
     required this.onBack,
     required this.onSubmit,
   });
@@ -490,6 +545,7 @@ class _NewPasswordStep extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final VoidCallback onToggleConfirm;
   final bool passwordMismatch;
+  final PasswordSecurityState securityState;
   final VoidCallback onBack;
   final VoidCallback onSubmit;
 
@@ -502,19 +558,56 @@ class _NewPasswordStep extends StatelessWidget {
         final hasServerError = state is RecoveryFailed;
         final password = passwordController.text;
         final confirm = confirmController.text;
-        final canSubmit = !isLoading &&
+        final strength = evaluatePasswordStrength(password);
+        final canSubmit =
+            !isLoading &&
             password.isNotEmpty &&
-            confirm.isNotEmpty;
+            confirm.isNotEmpty &&
+            strength.isAcceptable &&
+            !securityState.blocksSubmission;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Header(
-              onBack: isLoading ? null : onBack,
-              title: l10n.recoveryNewPasswordTitle,
-              subtitle: l10n.recoveryNewPasswordSubtitle,
+            Stack(
+              children: [
+                const AuthBrandHeader(),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: IconButton(
+                    onPressed: isLoading ? null : onBack,
+                    icon: Icon(
+                      Icons.arrow_back_ios_new,
+                      color: AppColors.onSurfaceMuted(
+                        Theme.of(context).brightness,
+                      ),
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: AppSpacing.headerGap),
+            const SizedBox(height: AppSpacing.xl),
+            Text(
+              l10n.recoveryNewPasswordTitle,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.onSurface(Theme.of(context).brightness),
+                height: 1.2,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              l10n.recoveryNewPasswordSubtitle,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.onSurfaceSubtle(Theme.of(context).brightness),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -540,21 +633,10 @@ class _NewPasswordStep extends StatelessWidget {
                       label: l10n.recoveryConfirmPasswordLabel,
                       controller: confirmController,
                       obscureText: !confirmVisible,
-                      borderColor: passwordMismatch
-                          ? AppColors.brandRed
-                          : null,
+                      borderColor: passwordMismatch ? AppColors.brandRed : null,
                       focusBorderColor: passwordMismatch
                           ? AppColors.brandRed
                           : null,
-                      feedbackVisible: passwordMismatch,
-                      feedbackReserveSpace: false,
-                      feedbackChild: Text(
-                        l10n.recoveryPasswordMismatch,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.brandRed,
-                        ),
-                      ),
                       suffixIcon: IconButton(
                         icon: Icon(
                           confirmVisible
@@ -566,16 +648,17 @@ class _NewPasswordStep extends StatelessWidget {
                         onPressed: onToggleConfirm,
                       ),
                     ),
-                    if (hasServerError) ...[
-                      const SizedBox(height: AppSpacing.fieldGap),
-                      Text(
-                        _errorMessage(context, state.error),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.brandRed,
-                        ),
-                      ),
-                    ],
+                    const SizedBox(height: AppSpacing.fieldGap),
+                    PasswordSecurityStatusLine(
+                      password: password,
+                      isAcceptable: strength.isAcceptable,
+                      securityState: securityState,
+                      message: hasServerError
+                          ? _errorMessage(context, state.error)
+                          : passwordMismatch
+                          ? l10n.recoveryPasswordMismatch
+                          : null,
+                    ),
                   ],
                 ),
               ),
@@ -604,8 +687,7 @@ class _NewPasswordStep extends StatelessWidget {
           l10n.errorServerNotResponding,
         RecoveryServerErrorKind.cannotConnect =>
           l10n.errorCannotConnectToServer,
-        RecoveryServerErrorKind.connectionFailed =>
-          l10n.errorConnectionFailed,
+        RecoveryServerErrorKind.connectionFailed => l10n.errorConnectionFailed,
         RecoveryServerErrorKind.invalidResponse =>
           l10n.errorInvalidServerResponse,
       };
@@ -728,8 +810,9 @@ class _SaveNewKeyStep extends StatelessWidget {
     // centered zero-rect when the context doesn't expose one (phones
     // ignore the value).
     final box = context.findRenderObject() as RenderBox?;
-    final origin =
-        box != null ? box.localToGlobal(Offset.zero) & box.size : Rect.zero;
+    final origin = box != null
+        ? box.localToGlobal(Offset.zero) & box.size
+        : Rect.zero;
 
     await Share.shareXFiles(
       [XFile.fromData(bytes, mimeType: 'text/plain')],
@@ -871,8 +954,11 @@ class _WarningBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.warning_amber_rounded,
-              color: AppColors.brandRed, size: 18),
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: AppColors.brandRed,
+            size: 18,
+          ),
           const SizedBox(width: AppSpacing.innerGap),
           Expanded(
             child: Text(

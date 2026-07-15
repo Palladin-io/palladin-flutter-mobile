@@ -29,7 +29,7 @@ void main() {
     registerFallbackValue(Uint8List(0));
   });
 
-  setUp(() {
+  setUp(() async {
     vaultRepository = _MockVaultRepository();
     entryRepository = _MockEntryRepository();
     bridge = _MockBridge();
@@ -38,8 +38,16 @@ void main() {
       entryRepository: entryRepository,
       bridge: bridge,
     );
-    when(() => bridge.replaceCache(any())).thenAnswer((_) async {});
-    when(bridge.clearCache).thenAnswer((_) async {});
+    when(bridge.beginCacheSession).thenAnswer((_) async => 1);
+    when(
+      () =>
+          bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
+    ).thenAnswer((_) async {});
+    when(bridge.revokeCacheAccess).thenAnswer((_) async => 2);
+    when(
+      () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
+    ).thenAnswer((_) async {});
+    await service.beginSession();
   });
 
   test('normalizes URL hosts and rejects ambiguous identifiers', () {
@@ -81,7 +89,12 @@ void main() {
     await service.synchronize(privateKey: Uint8List(32));
 
     final records =
-        verify(() => bridge.replaceCache(captureAny())).captured.single
+        verify(
+              () => bridge.replaceCache(
+                captureAny(),
+                sessionToken: any(named: 'sessionToken'),
+              ),
+            ).captured.single
             as List<AutoFillRecord>;
     expect(records, hasLength(1));
     expect(records.single.id, entry.id);
@@ -95,7 +108,11 @@ void main() {
 
     await service.clearAndSynchronize(privateKey: Uint8List(32));
 
-    verifyInOrder([bridge.clearCache, () => bridge.replaceCache(any())]);
+    verifyInOrder([
+      () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
+      () =>
+          bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
+    ]);
   });
 
   test('logout invalidates an active synchronization before replace', () async {
@@ -113,8 +130,34 @@ void main() {
 
     await Future.wait([synchronization, logoutClear]);
 
-    verify(() => bridge.clearCache()).called(2);
-    verifyNever(() => bridge.replaceCache(any()));
+    verify(
+      () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
+    ).called(2);
+    verifyNever(
+      () =>
+          bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
+    );
+  });
+
+  test('access revocation bypasses the serialized identity queue', () async {
+    final listStarted = Completer<void>();
+    final vaults = Completer<List<VaultEntity>>();
+    when(vaultRepository.listVaults).thenAnswer((_) {
+      listStarted.complete();
+      return vaults.future;
+    });
+
+    final synchronization = service.synchronize(privateKey: Uint8List(32));
+    await listStarted.future;
+    await service.revokeAccess();
+    vaults.complete(const []);
+    await synchronization;
+
+    verify(bridge.revokeCacheAccess).called(1);
+    verifyNever(
+      () =>
+          bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
+    );
   });
 
   test(
@@ -123,7 +166,12 @@ void main() {
       final replaceStarted = Completer<void>();
       final allowReplace = Completer<void>();
       when(vaultRepository.listVaults).thenAnswer((_) async => const []);
-      when(() => bridge.replaceCache(any())).thenAnswer((_) async {
+      when(
+        () => bridge.replaceCache(
+          any(),
+          sessionToken: any(named: 'sessionToken'),
+        ),
+      ).thenAnswer((_) async {
         replaceStarted.complete();
         await allowReplace.future;
       });
@@ -132,32 +180,118 @@ void main() {
       await replaceStarted.future;
       final logoutClear = service.clear();
 
-      verify(() => bridge.clearCache()).called(1);
+      verify(
+        () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
+      ).called(1);
       allowReplace.complete();
       await Future.wait([synchronization, logoutClear]);
 
-      verify(() => bridge.clearCache()).called(1);
+      verify(
+        () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
+      ).called(1);
+    },
+  );
+
+  test('revocation supersedes an already submitted replacement', () async {
+    final replaceStarted = Completer<void>();
+    final allowReplace = Completer<void>();
+    int? replacementToken;
+    when(vaultRepository.listVaults).thenAnswer((_) async => const []);
+    when(
+      () =>
+          bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
+    ).thenAnswer((invocation) async {
+      replacementToken = invocation.namedArguments[#sessionToken] as int;
+      replaceStarted.complete();
+      await allowReplace.future;
+    });
+    when(bridge.revokeCacheAccess).thenAnswer((_) async => 2);
+
+    final synchronization = service.synchronize(privateKey: Uint8List(32));
+    await replaceStarted.future;
+    await service.revokeAccess();
+
+    expect(replacementToken, 1);
+    verify(bridge.revokeCacheAccess).called(1);
+
+    allowReplace.complete();
+    await synchronization;
+  });
+
+  test('revocation blocks writes until a new session begins', () async {
+    final firstReplaceStarted = Completer<void>();
+    final releaseFirstReplace = Completer<void>();
+    var replaceCalls = 0;
+    when(vaultRepository.listVaults).thenAnswer((_) async => const []);
+    when(
+      () =>
+          bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
+    ).thenAnswer((_) async {
+      replaceCalls += 1;
+      if (replaceCalls == 1) {
+        firstReplaceStarted.complete();
+        await releaseFirstReplace.future;
+      }
+    });
+
+    final previousSession = service.synchronize(privateKey: Uint8List(32));
+    await firstReplaceStarted.future;
+    await service.revokeAccess();
+
+    await service.synchronize(privateKey: Uint8List(32));
+    expect(replaceCalls, 1);
+
+    when(bridge.beginCacheSession).thenAnswer((_) async => 3);
+    await service.beginSession();
+    await service.synchronize(privateKey: Uint8List(32));
+    expect(replaceCalls, 2);
+
+    releaseFirstReplace.complete();
+    await previousSession;
+  });
+
+  test(
+    'a recreated Dart service obtains a fresh native session token',
+    () async {
+      await service.revokeAccess();
+      when(bridge.beginCacheSession).thenAnswer((_) async => 41);
+      when(vaultRepository.listVaults).thenAnswer((_) async => const []);
+      final recreated = AutoFillCacheService(
+        vaultRepository: vaultRepository,
+        entryRepository: entryRepository,
+        bridge: bridge,
+      );
+
+      await recreated.beginSession();
+      await recreated.synchronize(privateKey: Uint8List(32));
+
+      verify(() => bridge.replaceCache(any(), sessionToken: 41)).called(1);
     },
   );
 
   test('logout clear retries and propagates a native wipe failure', () async {
     when(
-      bridge.clearCache,
+      () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
     ).thenThrow(PlatformException(code: 'AUTOFILL_CACHE_ERROR'));
 
     await expectLater(service.clear(), throwsA(isA<PlatformException>()));
 
-    verify(() => bridge.clearCache()).called(3);
+    verify(
+      () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
+    ).called(3);
   });
 
   test('failed pre-sync clear never writes a replacement cache', () async {
     when(
-      bridge.clearCache,
+      () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
     ).thenThrow(PlatformException(code: 'AUTOFILL_CACHE_ERROR'));
 
     await service.synchronize(privateKey: Uint8List(32));
 
-    verifyNever(() => bridge.replaceCache(any()));
+    verifyNever(
+      () =>
+          bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
+    );
   });
 
   test('mutation notifier distinguishes invalidation from rebuild', () async {

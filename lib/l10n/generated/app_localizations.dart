@@ -149,14 +149,50 @@ abstract class AppLocalizations {
   /// Label for the X (formerly Twitter) OAuth sign-in button
   ///
   /// In en, this message translates to:
-  /// **'Continue with X'**
+  /// **'Sign in with X'**
   String get continueWithX;
 
-  /// Legal consent text shown at the bottom of the login page
+  /// Button that opens the email and master password sign-in form
   ///
   /// In en, this message translates to:
-  /// **'By continuing, you agree to our Terms & Privacy Policy'**
-  String get legalFooter;
+  /// **'Continue with Email'**
+  String get continueWithEmail;
+
+  /// Button that returns from the email form to the sign-in method picker
+  ///
+  /// In en, this message translates to:
+  /// **'Other sign-in options'**
+  String get authOtherSignInOptions;
+
+  /// No description provided for @legalFooterPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'By continuing, you agree to our '**
+  String get legalFooterPrefix;
+
+  /// No description provided for @legalTermsLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms'**
+  String get legalTermsLink;
+
+  /// No description provided for @legalFooterSeparator.
+  ///
+  /// In en, this message translates to:
+  /// **' & '**
+  String get legalFooterSeparator;
+
+  /// No description provided for @legalPrivacyLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get legalPrivacyLink;
+
+  /// No description provided for @legalLinkOpenError.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to open this link.'**
+  String get legalLinkOpenError;
 
   /// Snackbar message when a disabled OAuth provider is tapped
   ///
@@ -2078,7 +2114,7 @@ abstract class AppLocalizations {
   /// **'Don\'t have the CLI? Install it:'**
   String get apiKeysConnectInstall;
 
-  /// Label for the tap-to-copy documentation link in the connect section (url_launcher is not a dependency, so the link is copied, not opened)
+  /// Label for the tap-to-copy documentation link in the connect section
   ///
   /// In en, this message translates to:
   /// **'Copy docs link'**
@@ -5240,6 +5276,12 @@ abstract class AppLocalizations {
   /// **'Sign up'**
   String get authSignUpLink;
 
+  /// Primary registration button
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Up'**
+  String get authRegisterButton;
+
   /// Divider between password sign-in and OAuth providers
   ///
   /// In en, this message translates to:
@@ -5285,19 +5327,31 @@ abstract class AppLocalizations {
   /// Shown while the HIBP breach check runs
   ///
   /// In en, this message translates to:
-  /// **'Checking password…'**
+  /// **'Checking your password...'**
   String get authPasswordChecking;
 
-  /// Warning-zone title when the password is breached
+  /// Compact positive password status after a successful breach check
   ///
   /// In en, this message translates to:
-  /// **'BREACHED PASSWORD'**
-  String get authPasswordBreachedTitle;
+  /// **'Secure!'**
+  String get authPasswordSecure;
+
+  /// Compact recommendation for a weak registration password
+  ///
+  /// In en, this message translates to:
+  /// **'Use a longer password with mixed characters.'**
+  String get authPasswordImprove;
+
+  /// Compact status when the optional breach check is unavailable
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t check breaches - use a unique password.'**
+  String get authPasswordCheckUnavailable;
 
   /// HIBP breach warning message
   ///
   /// In en, this message translates to:
-  /// **'This password appeared in a known data breach. Choose a different one.'**
+  /// **'Found in a data breach - choose another password.'**
   String get authPasswordBreached;
 
   /// Warning-zone title on the register recovery backup step
@@ -5315,14 +5369,20 @@ abstract class AppLocalizations {
   /// Verify-email gate body with the user's email
   ///
   /// In en, this message translates to:
-  /// **'We sent a verification link to {email}. Open it to activate your account.'**
+  /// **'We sent a verification link to {email}.'**
   String authVerifyGateSubtitle(String email);
 
   /// Verify-email gate body when the email is unknown
   ///
   /// In en, this message translates to:
-  /// **'We sent you a verification link. Open it to activate your account.'**
+  /// **'We sent you a verification link.'**
   String get authVerifyGateSubtitleNoEmail;
+
+  /// Instruction shown below the verification-email delivery message
+  ///
+  /// In en, this message translates to:
+  /// **'Open it to activate your account.'**
+  String get authVerifyGateInstruction;
 
   /// Resend the verification email
   ///

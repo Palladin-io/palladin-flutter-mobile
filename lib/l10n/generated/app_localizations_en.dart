@@ -33,11 +33,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get continueWithApple => 'Continue with Apple';
 
   @override
-  String get continueWithX => 'Continue with X';
+  String get continueWithX => 'Sign in with X';
 
   @override
-  String get legalFooter =>
-      'By continuing, you agree to our Terms & Privacy Policy';
+  String get continueWithEmail => 'Continue with Email';
+
+  @override
+  String get authOtherSignInOptions => 'Other sign-in options';
+
+  @override
+  String get legalFooterPrefix => 'By continuing, you agree to our ';
+
+  @override
+  String get legalTermsLink => 'Terms';
+
+  @override
+  String get legalFooterSeparator => ' & ';
+
+  @override
+  String get legalPrivacyLink => 'Privacy Policy';
+
+  @override
+  String get legalLinkOpenError => 'Unable to open this link.';
 
   @override
   String providerComingSoon(String provider) {
@@ -2967,6 +2984,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authSignUpLink => 'Sign up';
 
   @override
+  String get authRegisterButton => 'Sign Up';
+
+  @override
   String get authOrDivider => 'or';
 
   @override
@@ -2990,14 +3010,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'An account with this email already exists.';
 
   @override
-  String get authPasswordChecking => 'Checking password…';
+  String get authPasswordChecking => 'Checking your password...';
 
   @override
-  String get authPasswordBreachedTitle => 'BREACHED PASSWORD';
+  String get authPasswordSecure => 'Secure!';
+
+  @override
+  String get authPasswordImprove =>
+      'Use a longer password with mixed characters.';
+
+  @override
+  String get authPasswordCheckUnavailable =>
+      'Couldn\'t check breaches - use a unique password.';
 
   @override
   String get authPasswordBreached =>
-      'This password appeared in a known data breach. Choose a different one.';
+      'Found in a data breach - choose another password.';
 
   @override
   String get authRecoveryWarningTitle => 'SAVE YOUR RECOVERY KEY';
@@ -3007,12 +3035,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String authVerifyGateSubtitle(String email) {
-    return 'We sent a verification link to $email. Open it to activate your account.';
+    return 'We sent a verification link to $email.';
   }
 
   @override
   String get authVerifyGateSubtitleNoEmail =>
-      'We sent you a verification link. Open it to activate your account.';
+      'We sent you a verification link.';
+
+  @override
+  String get authVerifyGateInstruction => 'Open it to activate your account.';
 
   @override
   String get authVerifyResendButton => 'Resend email';

@@ -34,46 +34,75 @@ internal class AutoFillCacheStore(private val context: Context) {
 
     fun hasCache(): Boolean = cacheFile.isFile
 
-    fun replace(rawRecords: List<*>?) {
-        val records = rawRecords.orEmpty().mapNotNull(::validatedRecord)
-        val plaintext = JSONArray().apply {
-            records.forEach { put(it) }
-        }.toString().toByteArray(Charsets.UTF_8)
-        val dataKey = ByteArray(DATA_KEY_BYTES).also(SecureRandom()::nextBytes)
+    fun beginSession(): Long = synchronized(MUTATION_LOCK) {
+        currentSessionToken += 1
+        accessRevoked = false
+        currentSessionToken
+    }
 
-        try {
-            val contentCipher = Cipher.getInstance(AES_TRANSFORMATION)
-            contentCipher.init(
-                Cipher.ENCRYPT_MODE,
-                SecretKeySpec(dataKey, KeyProperties.KEY_ALGORITHM_AES),
-            )
-            val ciphertext = contentCipher.doFinal(plaintext)
+    fun replace(rawRecords: List<*>?, sessionToken: Long) {
+        synchronized(MUTATION_LOCK) {
+            if (accessRevoked || sessionToken != currentSessionToken) {
+                return@synchronized
+            }
+            val records = rawRecords.orEmpty().mapNotNull(::validatedRecord)
+            val plaintext = JSONArray().apply {
+                records.forEach { put(it) }
+            }.toString().toByteArray(Charsets.UTF_8)
+            val dataKey = ByteArray(DATA_KEY_BYTES).also(SecureRandom()::nextBytes)
 
-            val wrapCipher = rsaCipher()
-            wrapCipher.init(
-                Cipher.ENCRYPT_MODE,
-                getOrCreateKeyPair().certificate.publicKey,
-                OAEP_PARAMETERS,
-            )
-            val wrappedKey = wrapCipher.doFinal(dataKey)
-            val envelope = JSONObject()
-                .put("version", CACHE_VERSION)
-                .put("wrappedKey", wrappedKey.toBase64())
-                .put("nonce", contentCipher.iv.toBase64())
-                .put("ciphertext", ciphertext.toBase64())
-                .toString()
-                .toByteArray(Charsets.UTF_8)
-            writeAtomically(envelope)
-            envelope.fill(0)
-            ciphertext.fill(0)
-            wrappedKey.fill(0)
-        } finally {
-            plaintext.fill(0)
-            dataKey.fill(0)
+            try {
+                val contentCipher = Cipher.getInstance(AES_TRANSFORMATION)
+                contentCipher.init(
+                    Cipher.ENCRYPT_MODE,
+                    SecretKeySpec(dataKey, KeyProperties.KEY_ALGORITHM_AES),
+                )
+                val ciphertext = contentCipher.doFinal(plaintext)
+
+                val wrapCipher = rsaCipher()
+                wrapCipher.init(
+                    Cipher.ENCRYPT_MODE,
+                    getOrCreateKeyPair().certificate.publicKey,
+                    OAEP_PARAMETERS,
+                )
+                val wrappedKey = wrapCipher.doFinal(dataKey)
+                val envelope = JSONObject()
+                    .put("version", CACHE_VERSION)
+                    .put("wrappedKey", wrappedKey.toBase64())
+                    .put("nonce", contentCipher.iv.toBase64())
+                    .put("ciphertext", ciphertext.toBase64())
+                    .toString()
+                    .toByteArray(Charsets.UTF_8)
+                writeAtomically(envelope)
+                envelope.fill(0)
+                ciphertext.fill(0)
+                wrappedKey.fill(0)
+            } finally {
+                plaintext.fill(0)
+                dataKey.fill(0)
+            }
         }
     }
 
     fun clear() {
+        synchronized(MUTATION_LOCK) { clearLocked() }
+    }
+
+    fun clear(sessionToken: Long) {
+        synchronized(MUTATION_LOCK) {
+            if (sessionToken != currentSessionToken) return@synchronized
+            clearLocked()
+        }
+    }
+
+    fun revokeAccess(): Long = synchronized(MUTATION_LOCK) {
+        currentSessionToken += 1
+        accessRevoked = true
+        clearLocked()
+        currentSessionToken
+    }
+
+    private fun clearLocked() {
         val files = listOf(
             cacheFile,
             File(cacheFile.parentFile, "$CACHE_FILE_NAME.tmp"),
@@ -219,6 +248,10 @@ internal class AutoFillCacheStore(private val context: Context) {
     private fun rsaCipher(): Cipher = Cipher.getInstance(RSA_TRANSFORMATION)
 
     companion object {
+        private val MUTATION_LOCK = Any()
+        private var accessRevoked = true
+        private var currentSessionToken = 0L
+
         private const val ANDROID_KEY_STORE = "AndroidKeyStore"
         private const val KEY_ALIAS = "palladin_autofill_wrap_v1"
         private const val CACHE_FILE_NAME = "palladin_autofill_cache_v1"

@@ -9,6 +9,7 @@ import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val cacheExecutor = Executors.newSingleThreadExecutor()
+    private val revocationExecutor = Executors.newSingleThreadExecutor()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -17,23 +18,46 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             AUTOFILL_CHANNEL,
         ).setMethodCallHandler { call, result ->
-            cacheExecutor.execute {
+            val executor = if (call.method == "revokeCacheAccess") {
+                revocationExecutor
+            } else {
+                cacheExecutor
+            }
+            executor.execute {
                 val outcome = runCatching {
                     when (call.method) {
-                        "replaceCache" -> {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                cacheStore.replace(call.arguments as? List<*>)
-                            } else {
-                                cacheStore.clear()
-                            }
+                        "beginCacheSession" -> {
+                            cacheStore.beginSession()
                         }
-                        "clearCache" -> cacheStore.clear()
+                        "revokeCacheAccess" -> {
+                            cacheStore.revokeAccess()
+                        }
+                        "replaceCache" -> {
+                            val arguments = call.arguments as? Map<*, *>
+                                ?: throw IllegalArgumentException("Missing arguments")
+                            val sessionToken = (arguments["sessionToken"] as? Number)?.toLong()
+                                ?: throw IllegalArgumentException("Missing session token")
+                            val records = arguments["records"] as? List<*>
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                cacheStore.replace(records, sessionToken)
+                            } else {
+                                cacheStore.clear(sessionToken)
+                            }
+                            null
+                        }
+                        "clearCache" -> {
+                            val arguments = call.arguments as? Map<*, *>
+                            val sessionToken = (arguments?.get("sessionToken") as? Number)?.toLong()
+                                ?: throw IllegalArgumentException("Missing session token")
+                            cacheStore.clear(sessionToken)
+                            null
+                        }
                         else -> throw UnsupportedOperationException(call.method)
                     }
                 }
                 runOnUiThread {
                     outcome.fold(
-                        onSuccess = { result.success(null) },
+                        onSuccess = { value -> result.success(value) },
                         onFailure = { error ->
                             if (error is UnsupportedOperationException) {
                                 result.notImplemented()
@@ -48,6 +72,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        revocationExecutor.shutdownNow()
         cacheExecutor.shutdownNow()
         super.onDestroy()
     }

@@ -492,10 +492,9 @@ class _MonospaceBox extends StatelessWidget {
   }
 }
 
-/// Brand-red tap-to-copy affordance for a URL. `url_launcher` is not a
-/// dependency, so tapping copies the link to the clipboard rather than
-/// opening it — the leading copy glyph makes that unambiguous (no "→" that
-/// would read like a browser link).
+/// Brand-red tap-to-copy affordance for a URL. This surface intentionally
+/// copies the link rather than opening it; the leading copy glyph makes that
+/// unambiguous.
 class _LinkText extends StatelessWidget {
   const _LinkText({required this.label, required this.onTap});
 

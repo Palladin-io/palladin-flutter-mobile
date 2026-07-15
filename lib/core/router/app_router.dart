@@ -39,6 +39,28 @@ abstract final class AppRoutes {
   static String vaultDetail(String vaultId) => '/vaults/$vaultId';
 }
 
+CustomTransitionPage<void> _authFadePage(
+  BuildContext context,
+  GoRouterState state,
+  Widget child,
+) {
+  final duration = MediaQuery.disableAnimationsOf(context)
+      ? Duration.zero
+      : const Duration(milliseconds: 220);
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    transitionDuration: duration,
+    reverseTransitionDuration: duration,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+        child: child,
+      );
+    },
+  );
+}
+
 /// Creates the app-level [GoRouter] with auth-aware redirects.
 ///
 /// Redirect rules, in order:
@@ -66,16 +88,24 @@ GoRouter createRouter(
       final isOnLoginPage = location == '/login';
       final isOnRegisterPage = location == '/register';
       final isOnVerifyEmailPage = location == '/verify-email';
+      final isVerificationDeepLink =
+          isOnVerifyEmailPage &&
+          (state.uri.queryParameters['token']?.isNotEmpty ?? false);
       final isOnOnboardingPage = location == '/onboarding';
       final isOnUnlockPage = location == '/unlock';
       final isOnRecoveryPage = location == '/recovery';
 
       final isAuthenticated = authState is AuthAuthenticated;
 
+      // Keep the verification gate stable while logout cleanup is running.
+      // Its terminal unauthenticated state will then redirect to login.
+      if (authState is AuthLoading && isOnVerifyEmailPage) return null;
+
       if (!isAuthenticated) {
-        // Registration and the email-verification deep link are the only
-        // routes reachable without a session.
-        if (isOnLoginPage || isOnRegisterPage || isOnVerifyEmailPage) {
+        // Registration and a verification deep link carrying a token are the
+        // only routes reachable without a session. The token-less verify gate
+        // belongs to an authenticated account, so logout returns to login.
+        if (isOnLoginPage || isOnRegisterPage || isVerificationDeepLink) {
           return null;
         }
         return '/login';
@@ -112,8 +142,16 @@ GoRouter createRouter(
       return null;
     },
     routes: [
-      GoRoute(path: '/login', builder: (_, _) => const LoginPage()),
-      GoRoute(path: '/register', builder: (_, _) => const RegisterPage()),
+      GoRoute(
+        path: '/login',
+        pageBuilder: (context, state) =>
+            _authFadePage(context, state, const LoginPage()),
+      ),
+      GoRoute(
+        path: '/register',
+        pageBuilder: (context, state) =>
+            _authFadePage(context, state, const RegisterPage()),
+      ),
       GoRoute(
         // `?token=` present → verification-result mode (deep link); absent →
         // "please verify your email" gate with a resend action.
@@ -145,10 +183,7 @@ GoRouter createRouter(
           // Home — landing tab (CVT-114). Dashboard with onboarding
           // checklist, unknown-agent prompt, or normal empty state. Lives
           // at `/` so the post-unlock redirect lands here directly.
-          GoRoute(
-            path: '/',
-            builder: (_, _) => const DashboardPage(),
-          ),
+          GoRoute(path: '/', builder: (_, _) => const DashboardPage()),
           GoRoute(
             path: '/vaults',
             builder: (_, _) => const VaultListPage(),

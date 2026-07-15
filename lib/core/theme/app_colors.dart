@@ -98,19 +98,6 @@ abstract final class AppColors {
   /// Peach color for "done" progress step dots.
   static const Color doneDot = Color(0xFFFFAB87);
 
-  /// Background for disabled/secondary buttons (Apple, X).
-  static const Color disabledButtonBackground = Color(0xFF1A1A1A);
-
-  /// Google brand blue — used in the Google OAuth button icon.
-  static const Color googleBlue = Color(0xFF4285F4);
-
-  /// White background of the Google OAuth button (Google brand guideline:
-  /// the sign-in button sits on white). One brand-point for the button.
-  static const Color googleButtonBackground = Color(0xFFFFFFFF);
-
-  /// Near-black foreground text/icon on the white Google button.
-  static const Color googleButtonForeground = Color(0xDD000000);
-
   // === Onboarding / strength indicator ===
 
   /// Mid-strength color for the password strength meter — amber.
@@ -176,7 +163,6 @@ abstract final class AppColors {
   /// light-mode value that read muddy against the navy background.
   static const Color premiumAmber = Color(0xFFF0C040);
 
-
   // === Dark background gradient ===
   //
   // 160deg gradient used as the background on every screen in dark mode.
@@ -229,6 +215,18 @@ abstract final class AppColors {
   /// gradient based on the current theme.
   static LinearGradient backgroundGradient(Brightness b) =>
       b == Brightness.dark ? darkBackgroundGradient : lightBackgroundGradient;
+
+  /// Subtle, translucent light bloom behind the authentication brand lockup.
+  /// It overlays the regular screen gradient instead of introducing a
+  /// separate authentication background.
+  static RadialGradient authBrandGlow(Brightness b) => RadialGradient(
+    center: const Alignment(0, -0.2),
+    radius: 0.85,
+    colors: [
+      (b == Brightness.dark ? onBrandRed : lightSurface).withValues(alpha: 0.1),
+      Colors.transparent,
+    ],
+  );
 
   // ── Brightness-aware semantic colors ─────────────────────────────────
   //

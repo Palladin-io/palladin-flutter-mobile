@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/auth_brand_layout.dart';
+import '../../../../core/widgets/auth_legal_footer.dart';
 import '../../../../core/widgets/brand_hero.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -14,7 +16,10 @@ import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/password_auth_exceptions.dart';
 import '../bloc/auth_bloc.dart';
 import '../cubit/login_cubit.dart';
+import '../widgets/auth_brand_header.dart';
+import '../widgets/auth_provider_divider.dart';
 import '../widgets/oauth_button.dart';
+import '../widgets/oauth_provider_icons.dart';
 
 /// Sign-in screen (CVT-272) — email + master password, with the in-flow
 /// TOTP challenge (CVT-275) and the existing OAuth providers.
@@ -48,6 +53,7 @@ class _LoginViewState extends State<_LoginView> {
   final _codeController = TextEditingController();
   bool _passwordVisible = false;
   bool _useRecoveryCode = false;
+  bool _showEmailForm = false;
 
   @override
   void initState() {
@@ -69,7 +75,6 @@ class _LoginViewState extends State<_LoginView> {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
     return MultiBlocListener(
       listeners: [
         BlocListener<LoginCubit, LoginState>(listener: _handleLoginState),
@@ -77,32 +82,46 @@ class _LoginViewState extends State<_LoginView> {
       ],
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: AppColors.backgroundGradient(brightness),
-          ),
+        body: AuthBrandBackground(
           child: SafeArea(
-            child: BlocBuilder<LoginCubit, LoginState>(
-              builder: (context, state) {
-                final onTotp =
-                    state is LoginTotpChallenge || state is LoginTotpVerifying;
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.screenH,
-                    vertical: AppSpacing.xxl,
+            child: Column(
+              children: [
+                Expanded(
+                  child: BlocBuilder<LoginCubit, LoginState>(
+                    builder: (context, state) {
+                      final onTotp =
+                          state is LoginTotpChallenge ||
+                          state is LoginTotpVerifying;
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.screenH,
+                            ),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight,
+                              ),
+                              child: onTotp
+                                  ? _buildTotpChallenge(context, state)
+                                  : _buildLoginScreen(context, state),
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: MediaQuery.sizeOf(context).height -
-                          MediaQuery.paddingOf(context).vertical -
-                          AppSpacing.xxl * 2,
-                    ),
-                    child: onTotp
-                        ? _buildTotpChallenge(context, state)
-                        : _buildLoginForm(context, state),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.screenH,
+                    AppSpacing.md,
+                    AppSpacing.screenH,
+                    AppSpacing.xxl,
                   ),
-                );
-              },
+                  child: AuthContentWidth(child: AuthLegalFooter()),
+                ),
+              ],
             ),
           ),
         ),
@@ -112,72 +131,132 @@ class _LoginViewState extends State<_LoginView> {
 
   // ─── login form ──────────────────────────────────────────────────────
 
-  Widget _buildLoginForm(BuildContext context, LoginState state) {
+  Widget _buildLoginScreen(BuildContext context, LoginState state) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(
+          alignment: Alignment.topCenter,
+          children: [...previousChildren, ?currentChild],
+        );
+      },
+      child: _showEmailForm
+          ? _buildEmailLoginForm(context, state)
+          : _buildLoginOptions(context, state),
+    );
+  }
+
+  Widget _buildLoginOptions(BuildContext context, LoginState state) {
+    final l10n = AppLocalizations.of(context)!;
+    final isLoading = state is LoginLoading;
+    return Column(
+      key: const ValueKey('login-options'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const AuthBrandHeader(),
+        const SizedBox(height: AuthBrandHeader.formTopSpacing),
+        AuthContentWidth(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              PrimaryButton(
+                label: l10n.continueWithEmail,
+                leading: const Icon(
+                  Icons.mail_outline,
+                  color: AppColors.onBrandRed,
+                  size: 20,
+                ),
+                onPressed: isLoading
+                    ? null
+                    : () => setState(() => _showEmailForm = true),
+              ),
+              const SizedBox(height: AppSpacing.fieldGap),
+              const AuthProviderDivider(),
+              const SizedBox(height: AppSpacing.fieldGap),
+              ..._oauthButtons(context, l10n, isLoading),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmailLoginForm(BuildContext context, LoginState state) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     final isLoading = state is LoginLoading;
     final failure = state is LoginFailure ? state.error : null;
-    final canSubmit = !isLoading &&
+    final canSubmit =
+        !isLoading &&
         _emailController.text.trim().isNotEmpty &&
         _passwordController.text.isNotEmpty;
 
     return Column(
+      key: const ValueKey('email-login-form'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: AppSpacing.xxl),
-        Center(child: BrandHero(textColor: BrandHero.textColorFor(brightness))),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          l10n.authLoginSubtitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 13,
-            color: AppColors.onSurfaceSubtle(brightness),
-            height: 1.4,
+        const AuthBrandHeader(),
+        const SizedBox(height: AuthBrandHeader.labelledFormTopSpacing),
+        AuthContentWidth(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              OnboardingTextField(
+                label: l10n.authEmailLabel,
+                controller: _emailController,
+                hintText: l10n.authEmailHint,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: AppSpacing.fieldGap),
+              OnboardingTextField(
+                label: l10n.authPasswordLabel,
+                controller: _passwordController,
+                obscureText: !_passwordVisible,
+                textInputAction: TextInputAction.done,
+                onSubmitted: canSubmit ? (_) => _submitLogin() : null,
+                borderColor: failure != null ? AppColors.brandRed : null,
+                focusBorderColor: failure != null ? AppColors.brandRed : null,
+                feedbackVisible: failure != null,
+                feedbackReserveSpace: false,
+                feedbackChild: Text(
+                  failure != null ? _loginErrorMessage(context, failure) : '',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.brandRed,
+                  ),
+                ),
+                suffixIcon: _visibilityToggle(
+                  _passwordVisible,
+                  () => setState(() => _passwordVisible = !_passwordVisible),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.section),
+              PrimaryButton(
+                label: l10n.authLoginButton,
+                isLoading: isLoading,
+                onPressed: canSubmit ? _submitLogin : null,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              OAuthButton(
+                label: l10n.authOtherSignInOptions,
+                icon: const Icon(
+                  Icons.more_horiz,
+                  color: AppColors.onBrandRed,
+                  size: 20,
+                ),
+                onPressed: isLoading
+                    ? null
+                    : () {
+                        FocusScope.of(context).unfocus();
+                        setState(() => _showEmailForm = false);
+                      },
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _signUpRow(context, l10n, brightness),
+            ],
           ),
         ),
-        const SizedBox(height: AppSpacing.xxl),
-        OnboardingTextField(
-          label: l10n.authEmailLabel,
-          controller: _emailController,
-          hintText: l10n.authEmailHint,
-          keyboardType: TextInputType.emailAddress,
-          textInputAction: TextInputAction.next,
-        ),
-        const SizedBox(height: AppSpacing.fieldGap),
-        OnboardingTextField(
-          label: l10n.authPasswordLabel,
-          controller: _passwordController,
-          obscureText: !_passwordVisible,
-          textInputAction: TextInputAction.done,
-          onSubmitted: canSubmit ? (_) => _submitLogin() : null,
-          borderColor: failure != null ? AppColors.brandRed : null,
-          focusBorderColor: failure != null ? AppColors.brandRed : null,
-          feedbackVisible: failure != null,
-          feedbackReserveSpace: false,
-          feedbackChild: Text(
-            failure != null ? _loginErrorMessage(context, failure) : '',
-            style: const TextStyle(fontSize: 12, color: AppColors.brandRed),
-          ),
-          suffixIcon: _visibilityToggle(
-            _passwordVisible,
-            () => setState(() => _passwordVisible = !_passwordVisible),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.section),
-        PrimaryButton(
-          label: l10n.authLoginButton,
-          isLoading: isLoading,
-          onPressed: canSubmit ? _submitLogin : null,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        _signUpRow(context, l10n, brightness),
-        const SizedBox(height: AppSpacing.xl),
-        _orDivider(context, l10n, brightness),
-        const SizedBox(height: AppSpacing.xl),
-        _oauthButtons(context, l10n, isLoading),
-        const SizedBox(height: AppSpacing.section),
-        _legalFooter(context, l10n, brightness),
       ],
     );
   }
@@ -202,10 +281,10 @@ class _LoginViewState extends State<_LoginView> {
           onTap: () => context.go('/register'),
           child: Text(
             l10n.authSignUpLink,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: AppColors.brandRed,
+              color: BrandHero.textColorFor(brightness),
             ),
           ),
         ),
@@ -213,83 +292,32 @@ class _LoginViewState extends State<_LoginView> {
     );
   }
 
-  Widget _orDivider(
-    BuildContext context,
-    AppLocalizations l10n,
-    Brightness brightness,
-  ) {
-    final line = Expanded(
-      child: Divider(color: AppColors.cardBorder(brightness), height: 1),
-    );
-    return Row(
-      children: [
-        line,
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Text(
-            l10n.authOrDivider,
-            style: TextStyle(
-              fontSize: 11,
-              color: AppColors.onSurfaceSubtle(brightness),
-            ),
-          ),
-        ),
-        line,
-      ],
-    );
-  }
-
-  Widget _oauthButtons(
+  List<Widget> _oauthButtons(
     BuildContext context,
     AppLocalizations l10n,
     bool isLoading,
   ) {
-    return Column(
-      children: [
-        OAuthButton(
-          label: l10n.continueWithGoogle,
-          icon: _providerGlyph('G', AppColors.googleBlue),
-          backgroundColor: AppColors.googleButtonBackground,
-          foregroundColor: AppColors.googleButtonForeground,
-          onPressed: isLoading
-              ? null
-              : () => context.read<AuthBloc>().add(const AuthLoginWithGoogle()),
-        ),
-        const SizedBox(height: AppSpacing.fieldGap),
-        OAuthButton(
-          label: l10n.continueWithApple,
-          icon: const Icon(Icons.apple, color: AppColors.onBrandRed, size: 24),
-          backgroundColor: AppColors.disabledButtonBackground,
-          foregroundColor: AppColors.onBrandRed,
-          enabled: false,
-          onDisabledTap: () => _comingSoon(context, 'Apple'),
-        ),
-        const SizedBox(height: AppSpacing.fieldGap),
-        OAuthButton(
-          label: l10n.continueWithX,
-          icon: _providerGlyph('X', AppColors.onBrandRed),
-          backgroundColor: AppColors.disabledButtonBackground,
-          foregroundColor: AppColors.onBrandRed,
-          enabled: false,
-          onDisabledTap: () => _comingSoon(context, 'X'),
-        ),
-      ],
-    );
-  }
-
-  Widget _legalFooter(
-    BuildContext context,
-    AppLocalizations l10n,
-    Brightness brightness,
-  ) {
-    return Text(
-      l10n.legalFooter,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        fontSize: 12,
-        color: BrandHero.textColorFor(brightness).withValues(alpha: 0.4),
+    return [
+      OAuthButton(
+        label: l10n.continueWithGoogle,
+        icon: const GoogleProviderIcon(),
+        onPressed: isLoading
+            ? null
+            : () => context.read<AuthBloc>().add(const AuthLoginWithGoogle()),
       ),
-    );
+      const SizedBox(height: AppSpacing.fieldGap),
+      OAuthButton(
+        label: l10n.continueWithApple,
+        icon: const AppleProviderIcon(),
+        onPressed: isLoading ? null : () => _comingSoon(context, 'Apple'),
+      ),
+      const SizedBox(height: AppSpacing.fieldGap),
+      OAuthButton(
+        label: l10n.continueWithX,
+        icon: const XProviderIcon(),
+        onPressed: isLoading ? null : () => _comingSoon(context, 'X'),
+      ),
+    ];
   }
 
   // ─── TOTP challenge ───────────────────────────────────────────────────
@@ -305,71 +333,84 @@ class _LoginViewState extends State<_LoginView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const AuthBrandHeader(),
         const SizedBox(height: AppSpacing.xxl),
-        Center(child: BrandHero(textColor: BrandHero.textColorFor(brightness))),
-        const SizedBox(height: AppSpacing.xxl),
-        Text(
-          l10n.authTotpChallengeTitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: AppColors.onSurface(brightness),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          _useRecoveryCode
-              ? l10n.authTotpRecoverySubtitle
-              : l10n.authTotpChallengeSubtitle,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 13,
-            color: AppColors.onSurfaceSubtle(brightness),
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xxl),
-        OnboardingTextField(
-          label: _useRecoveryCode
-              ? l10n.authTotpRecoveryLabel
-              : l10n.authTotpCodeLabel,
-          controller: _codeController,
-          keyboardType:
-              _useRecoveryCode ? TextInputType.text : TextInputType.number,
-          inputFormatters: _useRecoveryCode
-              ? null
-              : [FilteringTextInputFormatter.digitsOnly],
-          textInputAction: TextInputAction.done,
-          onSubmitted: canSubmit ? (_) => _submitTotp() : null,
-          borderColor: hasError ? AppColors.brandRed : null,
-          focusBorderColor: hasError ? AppColors.brandRed : null,
-          feedbackVisible: hasError,
-          feedbackReserveSpace: false,
-          feedbackChild: Text(
-            l10n.authTotpInvalid,
-            style: const TextStyle(fontSize: 12, color: AppColors.brandRed),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.section),
-        PrimaryButton(
-          label: l10n.authTotpVerifyButton,
-          isLoading: isVerifying,
-          onPressed: canSubmit ? _submitTotp : null,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        TextButton(
-          onPressed: isVerifying
-              ? null
-              : () {
-                  _codeController.clear();
-                  setState(() => _useRecoveryCode = !_useRecoveryCode);
-                },
-          child: Text(
-            _useRecoveryCode
-                ? l10n.authTotpUseCode
-                : l10n.authTotpUseRecovery,
-            style: const TextStyle(fontSize: 13, color: AppColors.brandRed),
+        AuthContentWidth(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                l10n.authTotpChallengeTitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.onSurface(brightness),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                _useRecoveryCode
+                    ? l10n.authTotpRecoverySubtitle
+                    : l10n.authTotpChallengeSubtitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.onSurfaceSubtle(brightness),
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xxl),
+              OnboardingTextField(
+                label: _useRecoveryCode
+                    ? l10n.authTotpRecoveryLabel
+                    : l10n.authTotpCodeLabel,
+                controller: _codeController,
+                keyboardType: _useRecoveryCode
+                    ? TextInputType.text
+                    : TextInputType.number,
+                inputFormatters: _useRecoveryCode
+                    ? null
+                    : [FilteringTextInputFormatter.digitsOnly],
+                textInputAction: TextInputAction.done,
+                onSubmitted: canSubmit ? (_) => _submitTotp() : null,
+                borderColor: hasError ? AppColors.brandRed : null,
+                focusBorderColor: hasError ? AppColors.brandRed : null,
+                feedbackVisible: hasError,
+                feedbackReserveSpace: false,
+                feedbackChild: Text(
+                  l10n.authTotpInvalid,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.brandRed,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.section),
+              PrimaryButton(
+                label: l10n.authTotpVerifyButton,
+                isLoading: isVerifying,
+                onPressed: canSubmit ? _submitTotp : null,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextButton(
+                onPressed: isVerifying
+                    ? null
+                    : () {
+                        _codeController.clear();
+                        setState(() => _useRecoveryCode = !_useRecoveryCode);
+                      },
+                child: Text(
+                  _useRecoveryCode
+                      ? l10n.authTotpUseCode
+                      : l10n.authTotpUseRecovery,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.brandRed,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -381,9 +422,9 @@ class _LoginViewState extends State<_LoginView> {
   void _submitLogin() {
     FocusScope.of(context).unfocus();
     context.read<LoginCubit>().login(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
   }
 
   void _submitTotp() {
@@ -394,11 +435,11 @@ class _LoginViewState extends State<_LoginView> {
   void _handleLoginState(BuildContext context, LoginState state) {
     if (state is LoginSuccess) {
       context.read<AuthBloc>().add(
-            PasswordSessionEstablished(
-              masterKey: state.masterKey,
-              privateKey: state.privateKey,
-            ),
-          );
+        PasswordSessionEstablished(
+          masterKey: state.masterKey,
+          privateKey: state.privateKey,
+        ),
+      );
     }
   }
 
@@ -421,22 +462,11 @@ class _LoginViewState extends State<_LoginView> {
     );
   }
 
-  Widget _providerGlyph(String letter, Color color) {
-    return Center(
-      child: Text(
-        letter,
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
-      ),
-    );
-  }
-
   String _loginErrorMessage(BuildContext context, Object error) {
     final l10n = AppLocalizations.of(context)!;
-    if (error is InvalidCredentialsException) return l10n.authInvalidCredentials;
+    if (error is InvalidCredentialsException) {
+      return l10n.authInvalidCredentials;
+    }
     if (error is LoginRateLimitedException) return l10n.authRateLimited;
     if (error is PasswordAuthServerException) {
       return _serverErrorMessage(context, error.kind);
