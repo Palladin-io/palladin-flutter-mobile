@@ -7,6 +7,7 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:mobile_palladin/core/storage/biometric_key_store.dart';
 import 'package:mobile_palladin/features/unlock/data/datasources/account_remote_datasource.dart';
+import 'package:mobile_palladin/features/onboarding/data/services/default_vault_provisioner.dart';
 import 'package:mobile_palladin/features/unlock/data/models/account_response.dart';
 import 'package:mobile_palladin/features/unlock/data/services/unlock_crypto_service.dart';
 import 'package:mobile_palladin/features/unlock/domain/unlock_exceptions.dart';
@@ -18,10 +19,14 @@ class _MockCryptoService extends Mock implements UnlockCryptoService {}
 
 class _MockKeyStore extends Mock implements BiometricKeyStore {}
 
+class _MockDefaultVaultProvisioner extends Mock
+    implements DefaultVaultProvisioner {}
+
 void main() {
   late _MockAccountDatasource datasource;
   late _MockCryptoService crypto;
   late _MockKeyStore keyStore;
+  late _MockDefaultVaultProvisioner defaultVaultProvisioner;
 
   final masterKey = Uint8List.fromList(List.filled(32, 0xAA));
   final privateKey = Uint8List.fromList(List.filled(32, 0xBB));
@@ -45,6 +50,7 @@ void main() {
     datasource = _MockAccountDatasource();
     crypto = _MockCryptoService();
     keyStore = _MockKeyStore();
+    defaultVaultProvisioner = _MockDefaultVaultProvisioner();
     // Legacy-key purge runs on every password unlock — default it to a no-op.
     when(() => keyStore.purgeLegacyRawKey()).thenAnswer((_) async {});
   });
@@ -58,23 +64,26 @@ void main() {
   }
 
   void stubPasswordUnlockSuccess() {
-    when(() => datasource.getAccount())
-        .thenAnswer((_) async => accountResponse);
-    when(() => crypto.deriveAndDecrypt(
-          masterPassword: any(named: 'masterPassword'),
-          saltBase64: any(named: 'saltBase64'),
-          encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
-        )).thenAnswer((_) async => UnlockResult(
-          masterKey: masterKey,
-          privateKey: privateKey,
-        ));
+    when(
+      () => datasource.getAccount(),
+    ).thenAnswer((_) async => accountResponse);
+    when(
+      () => crypto.deriveAndDecrypt(
+        masterPassword: any(named: 'masterPassword'),
+        saltBase64: any(named: 'saltBase64'),
+        encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+      ),
+    ).thenAnswer(
+      (_) async => UnlockResult(masterKey: masterKey, privateKey: privateKey),
+    );
   }
 
   UnlockCubit buildCubit() => UnlockCubit(
-        datasource: datasource,
-        cryptoService: crypto,
-        keyStore: keyStore,
-      );
+    datasource: datasource,
+    cryptoService: crypto,
+    keyStore: keyStore,
+    defaultVaultProvisioner: defaultVaultProvisioner,
+  );
 
   group('UnlockCubit', () {
     test('initial state is UnlockInitial', () {
@@ -101,6 +110,73 @@ void main() {
       ],
       verify: (_) {
         verify(() => keyStore.enroll(masterKey, copy)).called(1);
+      },
+    );
+
+    blocTest<UnlockCubit, UnlockState>(
+      'unlock provisions a pending default vault before exposing keys',
+      build: () {
+        stubPasswordUnlockSuccess();
+        when(
+          () => defaultVaultProvisioner.isRequired,
+        ).thenAnswer((_) async => true);
+        when(
+          () => defaultVaultProvisioner.ensureFromPrivateKey(
+            privateKey: any(named: 'privateKey'),
+            name: any(named: 'name'),
+          ),
+        ).thenAnswer((_) async {});
+        return buildCubit();
+      },
+      act: (cubit) => cubit.unlock('pw', defaultVaultName: 'Personal'),
+      expect: () => [isA<UnlockLoading>(), isA<UnlockSuccess>()],
+      verify: (_) {
+        verify(
+          () => defaultVaultProvisioner.ensureFromPrivateKey(
+            privateKey: privateKey,
+            name: 'Personal',
+          ),
+        ).called(1);
+      },
+    );
+
+    test(
+      'unlock keeps a known pending vault retry and zeroes dropped keys',
+      () async {
+        final droppedMasterKey = Uint8List.fromList(List.filled(32, 0xCC));
+        final droppedPrivateKey = Uint8List.fromList(List.filled(32, 0xDD));
+        when(
+          () => datasource.getAccount(),
+        ).thenAnswer((_) async => accountResponse);
+        when(
+          () => crypto.deriveAndDecrypt(
+            masterPassword: any(named: 'masterPassword'),
+            saltBase64: any(named: 'saltBase64'),
+            encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+          ),
+        ).thenAnswer(
+          (_) async => UnlockResult(
+            masterKey: droppedMasterKey,
+            privateKey: droppedPrivateKey,
+          ),
+        );
+        when(
+          () => defaultVaultProvisioner.isRequired,
+        ).thenAnswer((_) async => true);
+        when(
+          () => defaultVaultProvisioner.ensureFromPrivateKey(
+            privateKey: any(named: 'privateKey'),
+            name: any(named: 'name'),
+          ),
+        ).thenThrow(Exception('backend unavailable'));
+        final cubit = buildCubit();
+
+        await cubit.unlock('pw', defaultVaultName: 'Personal');
+
+        expect(cubit.state, isA<UnlockFailed>());
+        expect(droppedMasterKey, everyElement(0));
+        expect(droppedPrivateKey, everyElement(0));
+        await cubit.close();
       },
     );
 
@@ -170,21 +246,26 @@ void main() {
     blocTest<UnlockCubit, UnlockState>(
       'unlock emits [Loading, Failed] on wrong master password',
       build: () {
-        when(() => datasource.getAccount())
-            .thenAnswer((_) async => accountResponse);
-        when(() => crypto.deriveAndDecrypt(
-              masterPassword: any(named: 'masterPassword'),
-              saltBase64: any(named: 'saltBase64'),
-              encryptedPrivateKeyBase64:
-                  any(named: 'encryptedPrivateKeyBase64'),
-            )).thenThrow(const WrongMasterPasswordException());
+        when(
+          () => datasource.getAccount(),
+        ).thenAnswer((_) async => accountResponse);
+        when(
+          () => crypto.deriveAndDecrypt(
+            masterPassword: any(named: 'masterPassword'),
+            saltBase64: any(named: 'saltBase64'),
+            encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+          ),
+        ).thenThrow(const WrongMasterPasswordException());
         return buildCubit();
       },
       act: (cubit) => cubit.unlock('wrong', biometricCopy: copy),
       expect: () => [
         isA<UnlockLoading>(),
-        isA<UnlockFailed>()
-            .having((s) => s.error, 'error', isA<WrongMasterPasswordException>()),
+        isA<UnlockFailed>().having(
+          (s) => s.error,
+          'error',
+          isA<WrongMasterPasswordException>(),
+        ),
       ],
       verify: (_) {
         verifyNever(() => keyStore.enroll(any(), any()));
@@ -208,8 +289,11 @@ void main() {
       act: (cubit) => cubit.unlock('pw', biometricCopy: copy),
       expect: () => [
         isA<UnlockLoading>(),
-        isA<UnlockFailed>()
-            .having((s) => s.error, 'error', isA<SessionExpiredException>()),
+        isA<UnlockFailed>().having(
+          (s) => s.error,
+          'error',
+          isA<SessionExpiredException>(),
+        ),
       ],
       verify: (_) {
         verifyNever(() => keyStore.enroll(any(), any()));
@@ -284,18 +368,21 @@ void main() {
     blocTest<UnlockCubit, UnlockState>(
       'unlockWithBiometrics emits Success with viaBiometrics=true on happy path',
       build: () {
-        when(() => keyStore.unlockKey(any()))
-            .thenAnswer((_) async => masterKey);
-        when(() => datasource.getAccount())
-            .thenAnswer((_) async => accountResponse);
-        when(() => crypto.decryptWithMasterKey(
-              masterKey: any(named: 'masterKey'),
-              encryptedPrivateKeyBase64:
-                  any(named: 'encryptedPrivateKeyBase64'),
-            )).thenAnswer((_) async => UnlockResult(
-              masterKey: masterKey,
-              privateKey: privateKey,
-            ));
+        when(
+          () => keyStore.unlockKey(any()),
+        ).thenAnswer((_) async => masterKey);
+        when(
+          () => datasource.getAccount(),
+        ).thenAnswer((_) async => accountResponse);
+        when(
+          () => crypto.decryptWithMasterKey(
+            masterKey: any(named: 'masterKey'),
+            encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+          ),
+        ).thenAnswer(
+          (_) async =>
+              UnlockResult(masterKey: masterKey, privateKey: privateKey),
+        );
         return buildCubit();
       },
       act: (cubit) => cubit.unlockWithBiometrics(copy: copy),

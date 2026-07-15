@@ -54,31 +54,32 @@ class RegisterCubit extends Cubit<RegisterState> {
     AppLogger.d('Register', 'Credentials submitted, generating mnemonic');
     _password = password;
     final phrase = mnemonic.generateRecoveryMnemonic();
-    emit(state.copyWith(
-      step: RegisterStep.recoveryKeyBackup,
-      email: email,
-      mnemonic: phrase,
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(
+        step: RegisterStep.recoveryKeyBackup,
+        email: email,
+        mnemonic: phrase,
+        clearError: true,
+      ),
+    );
   }
 
   /// Advances from the backup screen to the confirmation screen.
   void acknowledgeRecoveryBackup() {
-    emit(state.copyWith(
-      step: RegisterStep.recoveryKeyConfirm,
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(step: RegisterStep.recoveryKeyConfirm, clearError: true),
+    );
   }
 
   /// Runs the crypto pipeline and submits the registration.
   ///
   /// [preferredLanguage] is the current locale (`"pl"`/`"en"`) so the
   /// backend localizes the verification email.
-  Future<void> completeRegistration({
-    required String preferredLanguage,
-  }) async {
+  Future<void> completeRegistration({required String preferredLanguage}) async {
     final password = _password;
-    if (state.email.isEmpty || password == null || password.isEmpty ||
+    if (state.email.isEmpty ||
+        password == null ||
+        password.isEmpty ||
         state.mnemonic.isEmpty) {
       AppLogger.w('Register', 'Cannot complete — missing credentials/mnemonic');
       return;
@@ -114,6 +115,7 @@ class RegisterCubit extends Cubit<RegisterState> {
         isOnboarded: session.isOnboarded,
       );
       await tokenStorage.setAuthProvider(AuthProviderId.password);
+      await tokenStorage.setDefaultVaultProvisioned(false);
 
       if (state.step != RegisterStep.submitting) return;
       // Registration succeeded — the keys are derived and about to be handed
@@ -122,13 +124,15 @@ class RegisterCubit extends Cubit<RegisterState> {
       // step; the factory-scoped cubit closes when the page unmounts.)
       _clearPassword();
       AppLogger.i('Register', 'Registration complete');
-      emit(state.copyWith(
-        step: RegisterStep.completed,
-        unlockKeys: RegisterUnlockKeys(
-          masterKey: material.masterKey,
-          privateKey: material.privateKey,
+      emit(
+        state.copyWith(
+          step: RegisterStep.completed,
+          unlockKeys: RegisterUnlockKeys(
+            masterKey: material.masterKey,
+            privateKey: material.privateKey,
+          ),
         ),
-      ));
+      );
     } catch (e, s) {
       // On any failure the caller never receives the keys — zero the
       // retained copies before they are dropped.
@@ -154,10 +158,12 @@ class RegisterCubit extends Cubit<RegisterState> {
       case RegisterStep.recoveryKeyBackup:
         emit(state.copyWith(step: RegisterStep.credentials, clearError: true));
       case RegisterStep.recoveryKeyConfirm:
-        emit(state.copyWith(
-          step: RegisterStep.recoveryKeyBackup,
-          clearError: true,
-        ));
+        emit(
+          state.copyWith(
+            step: RegisterStep.recoveryKeyBackup,
+            clearError: true,
+          ),
+        );
       case RegisterStep.credentials:
       case RegisterStep.submitting:
       case RegisterStep.completed:

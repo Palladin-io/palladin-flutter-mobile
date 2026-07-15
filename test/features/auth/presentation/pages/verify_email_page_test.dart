@@ -10,6 +10,7 @@ import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/auth/presentation/cubit/verify_email_cubit.dart';
 import 'package:mobile_palladin/features/auth/presentation/pages/verify_email_page.dart';
 import 'package:mobile_palladin/features/auth/presentation/widgets/auth_brand_header.dart';
+import 'package:mobile_palladin/features/onboarding/data/services/default_vault_provisioner.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 
 class MockPasswordAuthRemoteDatasource extends Mock
@@ -17,15 +18,20 @@ class MockPasswordAuthRemoteDatasource extends Mock
 
 class MockAuthRepository extends Mock implements AuthRepository {}
 
+class MockDefaultVaultProvisioner extends Mock
+    implements DefaultVaultProvisioner {}
+
 void main() {
   late MockPasswordAuthRemoteDatasource datasource;
   late MockAuthRepository authRepository;
   late AuthBloc authBloc;
+  late MockDefaultVaultProvisioner defaultVaultProvisioner;
 
   setUp(() async {
     await getIt.reset();
     datasource = MockPasswordAuthRemoteDatasource();
     authRepository = MockAuthRepository();
+    defaultVaultProvisioner = MockDefaultVaultProvisioner();
     when(() => authRepository.isAuthenticated()).thenAnswer((_) async => true);
     when(() => authRepository.getUserId()).thenAnswer((_) async => 'user-id');
     when(() => authRepository.isOnboarded()).thenAnswer((_) async => true);
@@ -44,6 +50,7 @@ void main() {
       () => VerifyEmailCubit(
         datasource: datasource,
         authRepository: authRepository,
+        defaultVaultProvisioner: defaultVaultProvisioner,
       ),
     );
   });
@@ -88,7 +95,7 @@ void main() {
       );
 
       final resend = find.text('Resend email');
-      final checkAgain = find.text('Check again');
+      final checkAgain = find.text("I've verified my email");
       final signOut = find.text('Sign out');
       expect(resend, findsOneWidget);
       expect(checkAgain, findsOneWidget);

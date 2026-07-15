@@ -39,9 +39,11 @@ OAuth 2.0 login (Google, Apple, X via `flutter_appauth`).
   first action on the authentication entry screen. `Resend email` is the
   primary action, `Check again` refreshes the session and reads the
   server-issued `email_verified` claim, and `Sign out` remains tertiary. The
-  refresh endpoint returns only the new token pair; stored user/onboarding
-  metadata is preserved. A failed status check never clears the current
-  session.
+  confirmation action is labelled `I've verified my email`. Once the claim is
+  confirmed, the shared client-side provisioner creates the encrypted default
+  vault before the gate opens. The refresh endpoint returns only the new token
+  pair; stored user/onboarding metadata is preserved. A failed status check or
+  required provisioning attempt never clears the current session.
 - **Layering:** full data / domain / presentation split.
 - **Role:** `AuthBloc` is a **singleton read by every other feature** to check authentication + vault-lock state and to extract the in-memory private key. It receives `AuthVaultUnlocked` from `unlock`.
 

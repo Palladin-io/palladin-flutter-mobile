@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/storage/biometric_key_store.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../onboarding/data/services/default_vault_provisioner.dart';
 import '../../data/datasources/account_remote_datasource.dart';
 import '../../data/services/unlock_crypto_service.dart';
 import '../../domain/unlock_exceptions.dart';
@@ -36,11 +37,13 @@ class UnlockCubit extends Cubit<UnlockState> {
     required this.datasource,
     required this.cryptoService,
     required this.keyStore,
+    required this.defaultVaultProvisioner,
   }) : super(const UnlockInitial());
 
   final AccountRemoteDatasource datasource;
   final UnlockCryptoService cryptoService;
   final BiometricKeyStore keyStore;
+  final DefaultVaultProvisioner defaultVaultProvisioner;
 
   /// Runs the master-password unlock pipeline.
   ///
@@ -50,14 +53,17 @@ class UnlockCubit extends Cubit<UnlockState> {
   Future<void> unlock(
     String password, {
     BiometricPromptCopy? biometricCopy,
+    String? defaultVaultName,
   }) async {
     if (password.isEmpty) return;
     AppLogger.d('Unlock', 'Password unlock requested');
     emit(const UnlockLoading());
 
+    UnlockResult? result;
+    var keysHandedOff = false;
     try {
       final account = await datasource.getAccount();
-      final result = await cryptoService.deriveAndDecrypt(
+      result = await cryptoService.deriveAndDecrypt(
         masterPassword: password,
         saltBase64: account.salt,
         encryptedPrivateKeyBase64: account.encryptedPrivateKey,
@@ -67,11 +73,19 @@ class UnlockCubit extends Cubit<UnlockState> {
         await _maybeEnrollBiometric(result.masterKey, biometricCopy);
       }
 
-      AppLogger.i('Unlock', 'Password unlock succeeded');
-      emit(UnlockSuccess(
-        masterKey: result.masterKey,
+      await _provisionDefaultVault(
         privateKey: result.privateKey,
-      ));
+        name: defaultVaultName,
+      );
+
+      AppLogger.i('Unlock', 'Password unlock succeeded');
+      emit(
+        UnlockSuccess(
+          masterKey: result.masterKey,
+          privateKey: result.privateKey,
+        ),
+      );
+      keysHandedOff = true;
     } on WrongMasterPasswordException catch (e) {
       AppLogger.w('Unlock', 'Wrong master password');
       emit(UnlockFailed(e));
@@ -86,6 +100,11 @@ class UnlockCubit extends Cubit<UnlockState> {
     } catch (e, s) {
       AppLogger.e('Unlock', 'Unlock failed', error: e, stackTrace: s);
       emit(UnlockFailed(e));
+    } finally {
+      if (!keysHandedOff && result != null) {
+        result.masterKey.fillRange(0, result.masterKey.length, 0);
+        result.privateKey.fillRange(0, result.privateKey.length, 0);
+      }
     }
   }
 
@@ -127,10 +146,13 @@ class UnlockCubit extends Cubit<UnlockState> {
   /// field focused so the user can fall back to manual entry.
   Future<void> unlockWithBiometrics({
     required BiometricPromptCopy copy,
+    String? defaultVaultName,
   }) async {
     AppLogger.d('Unlock', 'Biometric unlock requested');
     emit(const UnlockLoading());
 
+    UnlockResult? result;
+    var keysHandedOff = false;
     try {
       final Uint8List? masterKey;
       try {
@@ -148,38 +170,70 @@ class UnlockCubit extends Cubit<UnlockState> {
       }
 
       final account = await datasource.getAccount();
-      final result = await cryptoService.decryptWithMasterKey(
+      result = await cryptoService.decryptWithMasterKey(
         masterKey: masterKey,
         encryptedPrivateKeyBase64: account.encryptedPrivateKey,
       );
 
-      AppLogger.i('Unlock', 'Biometric unlock succeeded');
-      emit(UnlockSuccess(
-        masterKey: result.masterKey,
+      await _provisionDefaultVault(
         privateKey: result.privateKey,
-        viaBiometrics: true,
-      ));
+        name: defaultVaultName,
+      );
+
+      AppLogger.i('Unlock', 'Biometric unlock succeeded');
+      emit(
+        UnlockSuccess(
+          masterKey: result.masterKey,
+          privateKey: result.privateKey,
+          viaBiometrics: true,
+        ),
+      );
+      keysHandedOff = true;
     } on DioException catch (e, s) {
       if (e.response?.statusCode == 401) {
         AppLogger.w('Unlock', 'Session expired — routing to sign-in');
         emit(const UnlockFailed(SessionExpiredException()));
         return;
       }
-      AppLogger.e('Unlock', 'Biometric unlock failed',
-          error: e, stackTrace: s);
+      AppLogger.e('Unlock', 'Biometric unlock failed', error: e, stackTrace: s);
       emit(UnlockFailed(e));
     } catch (e, s) {
-      AppLogger.e('Unlock', 'Biometric unlock failed',
-          error: e, stackTrace: s);
+      AppLogger.e('Unlock', 'Biometric unlock failed', error: e, stackTrace: s);
       emit(UnlockFailed(e));
+    } finally {
+      if (!keysHandedOff && result != null) {
+        result.masterKey.fillRange(0, result.masterKey.length, 0);
+        result.privateKey.fillRange(0, result.privateKey.length, 0);
+      }
+    }
+  }
+
+  Future<void> _provisionDefaultVault({
+    required Uint8List privateKey,
+    required String? name,
+  }) async {
+    if (name == null) return;
+
+    final required = await defaultVaultProvisioner.isRequired;
+    try {
+      await defaultVaultProvisioner.ensureFromPrivateKey(
+        privateKey: privateKey,
+        name: name,
+      );
+    } catch (error) {
+      if (required) rethrow;
+      AppLogger.w(
+        'Unlock',
+        'Default vault availability could not be confirmed: '
+            '${error.runtimeType}',
+      );
     }
   }
 
   Exception _mapBiometricFailure(BiometricAuthFailureReason reason) {
     return switch (reason) {
       BiometricAuthFailureReason.canceled ||
-      BiometricAuthFailureReason.failed =>
-        const BiometricAuthFailedException(),
+      BiometricAuthFailureReason.failed => const BiometricAuthFailedException(),
       BiometricAuthFailureReason.unavailable =>
         const BiometricKeyMissingException(),
     };
@@ -196,8 +250,10 @@ class UnlockCubit extends Cubit<UnlockState> {
       if (!await keyStore.isEnrolled()) return false;
       return await keyStore.canStore();
     } catch (e) {
-      AppLogger.w('Unlock',
-          'Biometric availability check failed: ${e.runtimeType}');
+      AppLogger.w(
+        'Unlock',
+        'Biometric availability check failed: ${e.runtimeType}',
+      );
       return false;
     }
   }

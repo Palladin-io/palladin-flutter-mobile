@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../onboarding/data/services/default_vault_provisioner.dart';
 import '../../data/datasources/password_auth_remote_datasource.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/password_auth_exceptions.dart';
@@ -20,11 +23,15 @@ export 'verify_email_state.dart';
 /// The verify endpoint is anonymous, so it works on a cold start even
 /// before the session is restored.
 class VerifyEmailCubit extends Cubit<VerifyEmailState> {
-  VerifyEmailCubit({required this.datasource, required this.authRepository})
-    : super(const VerifyEmailState());
+  VerifyEmailCubit({
+    required this.datasource,
+    required this.authRepository,
+    required this.defaultVaultProvisioner,
+  }) : super(const VerifyEmailState());
 
   final PasswordAuthRemoteDatasource datasource;
   final AuthRepository authRepository;
+  final DefaultVaultProvisioner defaultVaultProvisioner;
 
   /// Verifies [token]. Emits verified / expired / invalid / serverError.
   Future<void> verify(String token) async {
@@ -80,7 +87,10 @@ class VerifyEmailCubit extends Cubit<VerifyEmailState> {
 
   /// Refreshes the session and reads the server-issued verification claim.
   /// A network failure leaves the current authenticated session untouched.
-  Future<void> checkAgain() async {
+  Future<void> checkAgain({
+    required Uint8List? privateKey,
+    required String defaultVaultName,
+  }) async {
     if (state.check == VerificationCheckStatus.checking) return;
     AppLogger.d('VerifyEmail', 'Checking verification status');
     emit(state.copyWith(check: VerificationCheckStatus.checking));
@@ -88,6 +98,12 @@ class VerifyEmailCubit extends Cubit<VerifyEmailState> {
     try {
       await authRepository.refreshToken();
       final verified = await authRepository.isEmailVerified();
+      if (verified && privateKey != null) {
+        await defaultVaultProvisioner.ensureFromPrivateKey(
+          privateKey: privateKey,
+          name: defaultVaultName,
+        );
+      }
       emit(
         state.copyWith(
           check: verified

@@ -3046,14 +3046,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authVerifyResendButton => 'Resend email';
 
   @override
-  String get authVerifyCheckAgain => 'Check again';
+  String get authVerifyCheckAgain => 'I\'ve verified my email';
 
   @override
-  String get authVerifyStillPending => 'Your email is not verified yet.';
+  String get authVerifyStillPending =>
+      'We couldn\'t confirm it yet. Open the verification link and try again.';
 
   @override
   String get authVerifyCheckError =>
-      'Couldn\'t check your email. Please try again.';
+      'We couldn\'t finish setting up your account. Try again.';
 
   @override
   String get authVerifyResendSent => 'Verification email sent.';

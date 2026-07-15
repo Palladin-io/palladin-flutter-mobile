@@ -5384,22 +5384,22 @@ abstract class AppLocalizations {
   /// **'Resend email'**
   String get authVerifyResendButton;
 
-  /// Refresh the session to check whether the email is now verified
+  /// Confirms that the user has opened the email verification link
   ///
   /// In en, this message translates to:
-  /// **'Check again'**
+  /// **'I\'ve verified my email'**
   String get authVerifyCheckAgain;
 
   /// Snackbar shown when verification is still pending
   ///
   /// In en, this message translates to:
-  /// **'Your email is not verified yet.'**
+  /// **'We couldn\'t confirm it yet. Open the verification link and try again.'**
   String get authVerifyStillPending;
 
-  /// Snackbar shown when checking verification status fails
+  /// Snackbar shown when verification or default vault provisioning fails
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t check your email. Please try again.'**
+  /// **'We couldn\'t finish setting up your account. Try again.'**
   String get authVerifyCheckError;
 
   /// Snackbar after a successful resend

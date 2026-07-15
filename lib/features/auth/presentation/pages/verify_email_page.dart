@@ -231,13 +231,20 @@ class _GateBody extends StatelessWidget {
                         ),
                       )
                     : const Icon(
-                        Icons.refresh,
+                        Icons.mark_email_read_outlined,
                         color: AppColors.brandRed,
                         size: 20,
                       ),
                 onPressed: sending || checking
                     ? null
-                    : () => context.read<VerifyEmailCubit>().checkAgain(),
+                    : () {
+                        final authState = context.read<AuthBloc>().state;
+                        if (authState is! AuthAuthenticated) return;
+                        context.read<VerifyEmailCubit>().checkAgain(
+                          privateKey: authState.privateKey,
+                          defaultVaultName: l10n.defaultVaultName,
+                        );
+                      },
               ),
               const SizedBox(height: AppSpacing.sm),
               TextButton(
@@ -276,7 +283,10 @@ class _ContinueButton extends StatelessWidget {
       onPressed: () {
         final authState = context.read<AuthBloc>().state;
         if (authState is AuthAuthenticated) {
-          context.read<AuthBloc>().add(const AuthEmailVerified());
+          context.read<VerifyEmailCubit>().checkAgain(
+            privateKey: authState.privateKey,
+            defaultVaultName: AppLocalizations.of(context)!.defaultVaultName,
+          );
         } else {
           context.go('/login');
         }

@@ -1,16 +1,13 @@
 import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:dio/dio.dart';
 
 import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/app_logger.dart';
-import '../../../vault/data/services/vault_crypto_service.dart';
 import '../../domain/mnemonic.dart' as mnemonic;
 import '../../domain/repositories/onboarding_repository.dart';
 import '../datasources/onboarding_remote_datasource.dart';
 import '../models/account_setup_request.dart';
-import '../models/default_vault_request.dart';
+import '../services/default_vault_provisioner.dart';
 import '../services/onboarding_crypto_service.dart';
 
 /// Concrete implementation of [OnboardingRepository].
@@ -26,13 +23,13 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
   OnboardingRepositoryImpl({
     required this.remoteDatasource,
     required this.cryptoService,
-    required this.vaultCryptoService,
+    required this.defaultVaultProvisioner,
     required this.tokenStorage,
   });
 
   final OnboardingRemoteDatasource remoteDatasource;
   final OnboardingCryptoService cryptoService;
-  final VaultCryptoService vaultCryptoService;
+  final DefaultVaultProvisioner defaultVaultProvisioner;
   final SecureTokenStorage tokenStorage;
 
   @override
@@ -87,10 +84,19 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
       // payload. Fire-and-forget: 409 means the default vault already
       // exists (safe to swallow); any other transient error is logged and
       // suppressed so it never blocks the user from proceeding.
-      await _createDefaultVaultOrIgnore(
-        publicKey: payload.publicKey,
-        name: defaultVaultName,
-      );
+      try {
+        await defaultVaultProvisioner.ensureFromPublicKey(
+          publicKey: payload.publicKey,
+          name: defaultVaultName,
+        );
+      } catch (error, stackTrace) {
+        AppLogger.e(
+          'Onboarding',
+          'Default vault creation failed (non-blocking)',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
 
       // NOTE: the master key is intentionally NOT persisted here. Biometric
       // unlock is enrolled — into the enclave-bound, biometric-gated store —
@@ -107,46 +113,6 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
       result.masterKey.fillRange(0, result.masterKey.length, 0);
       result.privateKey.fillRange(0, result.privateKey.length, 0);
       rethrow;
-    }
-  }
-
-
-  /// Wraps a fresh VK for [publicKey] and submits it to
-  /// `POST /api/account/default-vault`. 409 (already exists) and any
-  /// transient error are swallowed — the caller must never surface them.
-  Future<void> _createDefaultVaultOrIgnore({
-    required Uint8List publicKey,
-    required String name,
-  }) async {
-    try {
-      AppLogger.d('Onboarding', 'Generating wrapped VK for default vault');
-      final wrappedVK = await vaultCryptoService.generateWrappedVKFromPublicKey(
-        publicKey,
-      );
-      AppLogger.d('Onboarding', 'POST /api/account/default-vault');
-      await remoteDatasource.createDefaultVault(
-        DefaultVaultRequest(name: name, wrappedVK: wrappedVK),
-      );
-      AppLogger.i('Onboarding', 'Default vault created');
-    } on DioException catch (e, s) {
-      if (e.response?.statusCode == 409) {
-        // Default vault already exists — idempotent, nothing to do.
-        AppLogger.i('Onboarding', 'Default vault already exists (409) — skipping');
-        return;
-      }
-      AppLogger.e(
-        'Onboarding',
-        'Default vault creation failed (non-blocking)',
-        error: e,
-        stackTrace: s,
-      );
-    } catch (e, s) {
-      AppLogger.e(
-        'Onboarding',
-        'Default vault creation failed unexpectedly (non-blocking)',
-        error: e,
-        stackTrace: s,
-      );
     }
   }
 

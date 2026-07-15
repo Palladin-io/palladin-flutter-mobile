@@ -3078,15 +3078,15 @@ class AppLocalizationsPl extends AppLocalizations {
   String get authVerifyResendButton => 'Wyślij ponownie';
 
   @override
-  String get authVerifyCheckAgain => 'Sprawdź ponownie';
+  String get authVerifyCheckAgain => 'E-mail został zweryfikowany';
 
   @override
   String get authVerifyStillPending =>
-      'Twój e-mail nie został jeszcze zweryfikowany.';
+      'Nie udało się jeszcze potwierdzić weryfikacji. Otwórz link i spróbuj ponownie.';
 
   @override
   String get authVerifyCheckError =>
-      'Nie udało się sprawdzić e-maila. Spróbuj ponownie.';
+      'Nie udało się dokończyć konfiguracji konta. Spróbuj ponownie.';
 
   @override
   String get authVerifyResendSent => 'E-mail weryfikacyjny wysłany.';
