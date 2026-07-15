@@ -8,6 +8,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
 import 'package:mobile_palladin/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:mobile_palladin/features/auth/data/models/auth_result_model.dart';
+import 'package:mobile_palladin/features/auth/data/models/refresh_token_result_model.dart';
 import 'package:mobile_palladin/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:mobile_palladin/features/auth/domain/auth_provider_id.dart';
 import 'package:mobile_palladin/features/autofill/domain/autofill_cache_invalidator.dart';
@@ -41,6 +42,10 @@ void main() {
     refreshToken: 'refresh-456',
     userId: 'user-789',
     isOnboarded: true,
+  );
+  const refreshResult = RefreshTokenResultModel(
+    accessToken: 'access-123',
+    refreshToken: 'refresh-456',
   );
 
   setUp(() {
@@ -262,26 +267,21 @@ void main() {
       ).thenAnswer((_) async => 'old-refresh');
       when(
         () => mockDatasource.refreshToken('old-refresh'),
-      ).thenAnswer((_) async => authResult);
+      ).thenAnswer((_) async => refreshResult);
       when(
-        () => mockStorage.saveTokens(
+        () => mockStorage.updateTokens(
           accessToken: any(named: 'accessToken'),
           refreshToken: any(named: 'refreshToken'),
-          userId: any(named: 'userId'),
-          isOnboarded: any(named: 'isOnboarded'),
         ),
       ).thenAnswer((_) async {});
 
-      final result = await repository.refreshToken();
+      await repository.refreshToken();
 
-      expect(result.accessToken, 'access-123');
       verify(() => mockDatasource.refreshToken('old-refresh')).called(1);
       verify(
-        () => mockStorage.saveTokens(
+        () => mockStorage.updateTokens(
           accessToken: 'access-123',
           refreshToken: 'refresh-456',
-          userId: 'user-789',
-          isOnboarded: true,
         ),
       ).called(1);
     });

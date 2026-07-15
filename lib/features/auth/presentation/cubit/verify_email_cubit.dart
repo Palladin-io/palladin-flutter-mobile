@@ -1,7 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../onboarding/data/services/default_vault_provisioner.dart';
 import '../../data/datasources/password_auth_remote_datasource.dart';
+import '../../domain/repositories/auth_repository.dart';
 import '../../domain/password_auth_exceptions.dart';
 import 'verify_email_state.dart';
 
@@ -19,19 +23,26 @@ export 'verify_email_state.dart';
 /// The verify endpoint is anonymous, so it works on a cold start even
 /// before the session is restored.
 class VerifyEmailCubit extends Cubit<VerifyEmailState> {
-  VerifyEmailCubit({required this.datasource})
-      : super(const VerifyEmailState());
+  VerifyEmailCubit({
+    required this.datasource,
+    required this.authRepository,
+    required this.defaultVaultProvisioner,
+  }) : super(const VerifyEmailState());
 
   final PasswordAuthRemoteDatasource datasource;
+  final AuthRepository authRepository;
+  final DefaultVaultProvisioner defaultVaultProvisioner;
 
   /// Verifies [token]. Emits verified / expired / invalid / serverError.
   Future<void> verify(String token) async {
     if (token.isEmpty) return;
     AppLogger.d('VerifyEmail', 'Verifying token');
-    emit(state.copyWith(
-      verification: VerificationStatus.verifying,
-      clearServerError: true,
-    ));
+    emit(
+      state.copyWith(
+        verification: VerificationStatus.verifying,
+        clearServerError: true,
+      ),
+    );
 
     try {
       await datasource.verifyEmail(token);
@@ -39,17 +50,21 @@ class VerifyEmailCubit extends Cubit<VerifyEmailState> {
       emit(state.copyWith(verification: VerificationStatus.verified));
     } on VerificationTokenException catch (e) {
       AppLogger.w('VerifyEmail', 'Token rejected: ${e.kind.name}');
-      emit(state.copyWith(
-        verification: e.kind == VerificationTokenErrorKind.expired
-            ? VerificationStatus.expired
-            : VerificationStatus.invalid,
-      ));
+      emit(
+        state.copyWith(
+          verification: e.kind == VerificationTokenErrorKind.expired
+              ? VerificationStatus.expired
+              : VerificationStatus.invalid,
+        ),
+      );
     } on PasswordAuthServerException catch (e) {
       AppLogger.w('VerifyEmail', 'Verify failed: ${e.kind.name}');
-      emit(state.copyWith(
-        verification: VerificationStatus.serverError,
-        serverErrorKind: e.kind,
-      ));
+      emit(
+        state.copyWith(
+          verification: VerificationStatus.serverError,
+          serverErrorKind: e.kind,
+        ),
+      );
     }
   }
 
@@ -67,6 +82,41 @@ class VerifyEmailCubit extends Cubit<VerifyEmailState> {
     } on PasswordAuthServerException catch (e) {
       AppLogger.w('VerifyEmail', 'Resend failed: ${e.kind.name}');
       emit(state.copyWith(resend: ResendStatus.error));
+    }
+  }
+
+  /// Refreshes the session and reads the server-issued verification claim.
+  /// A network failure leaves the current authenticated session untouched.
+  Future<void> checkAgain({
+    required Uint8List? privateKey,
+    required String defaultVaultName,
+  }) async {
+    if (state.check == VerificationCheckStatus.checking) return;
+    AppLogger.d('VerifyEmail', 'Checking verification status');
+    emit(state.copyWith(check: VerificationCheckStatus.checking));
+
+    try {
+      await authRepository.refreshToken();
+      final verified = await authRepository.isEmailVerified();
+      if (verified && privateKey != null) {
+        await defaultVaultProvisioner.ensureFromPrivateKey(
+          privateKey: privateKey,
+          name: defaultVaultName,
+        );
+      }
+      emit(
+        state.copyWith(
+          check: verified
+              ? VerificationCheckStatus.verified
+              : VerificationCheckStatus.pending,
+        ),
+      );
+    } catch (e) {
+      AppLogger.w(
+        'VerifyEmail',
+        'Verification status check failed: ${e.runtimeType}',
+      );
+      emit(state.copyWith(check: VerificationCheckStatus.error));
     }
   }
 }

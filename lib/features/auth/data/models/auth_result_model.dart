@@ -1,5 +1,4 @@
-/// DTO returned by the backend after a successful OAuth exchange or
-/// token refresh.
+/// DTO returned by the backend after a successful OAuth exchange.
 ///
 /// Maps the camelCase JSON from the .NET API to typed Dart fields.
 class AuthResultModel {

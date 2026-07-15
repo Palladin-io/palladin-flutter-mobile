@@ -21,6 +21,7 @@ import '../../features/autofill/data/autofill_mutation_notifier.dart';
 import '../../features/autofill/domain/autofill_cache_invalidator.dart';
 import '../../features/onboarding/data/datasources/onboarding_remote_datasource.dart';
 import '../../features/onboarding/data/repositories/onboarding_repository_impl.dart';
+import '../../features/onboarding/data/services/default_vault_provisioner.dart';
 import '../../features/onboarding/data/services/onboarding_crypto_service.dart';
 import '../../features/onboarding/domain/repositories/onboarding_repository.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
@@ -181,7 +182,11 @@ void configureDependencies(EnvConfig config) {
     ),
   );
   getIt.registerFactory<VerifyEmailCubit>(
-    () => VerifyEmailCubit(datasource: getIt<PasswordAuthRemoteDatasource>()),
+    () => VerifyEmailCubit(
+      datasource: getIt<PasswordAuthRemoteDatasource>(),
+      authRepository: getIt<AuthRepository>(),
+      defaultVaultProvisioner: getIt<DefaultVaultProvisioner>(),
+    ),
   );
   getIt.registerFactory<ChangePasswordCubit>(
     () => ChangePasswordCubit(
@@ -207,6 +212,13 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<OnboardingCryptoService>(
     () => OnboardingCryptoService(),
   );
+  getIt.registerLazySingleton<DefaultVaultProvisioner>(
+    () => DefaultVaultProvisioner(
+      remoteDatasource: getIt<OnboardingRemoteDatasource>(),
+      vaultCryptoService: getIt<VaultCryptoService>(),
+      tokenStorage: getIt<SecureTokenStorage>(),
+    ),
+  );
   getIt.registerLazySingleton<OnboardingRepository>(
     () => OnboardingRepositoryImpl(
       remoteDatasource: getIt<OnboardingRemoteDatasource>(),
@@ -215,7 +227,7 @@ void configureDependencies(EnvConfig config) {
       // default vault during onboarding, before the private key is cached
       // in auth state. Registered after the vault section below; get_it
       // resolves lazily so ordering in this file does not matter.
-      vaultCryptoService: getIt<VaultCryptoService>(),
+      defaultVaultProvisioner: getIt<DefaultVaultProvisioner>(),
       tokenStorage: getIt<SecureTokenStorage>(),
     ),
   );
@@ -239,6 +251,7 @@ void configureDependencies(EnvConfig config) {
       datasource: getIt<AccountRemoteDatasource>(),
       cryptoService: getIt<UnlockCryptoService>(),
       keyStore: getIt<BiometricKeyStore>(),
+      defaultVaultProvisioner: getIt<DefaultVaultProvisioner>(),
     ),
   );
 

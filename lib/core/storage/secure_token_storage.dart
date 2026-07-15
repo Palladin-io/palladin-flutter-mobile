@@ -12,6 +12,7 @@ class SecureTokenStorage {
   static const _userIdKey = 'user_id';
   static const _isOnboardedKey = 'is_onboarded';
   static const _authProviderKey = 'auth_provider';
+  static const _defaultVaultProvisionedKey = 'default_vault_provisioned';
 
   /// Persists all auth-related tokens and metadata after a successful login
   /// or token refresh.
@@ -74,6 +75,27 @@ class SecureTokenStorage {
   /// Returns the stored auth-provider label, or `null` when unknown (e.g. a
   /// session established before this marker existed).
   Future<String?> get authProvider => _storage.read(key: _authProviderKey);
+
+  /// Whether this account's encrypted default vault has been provisioned.
+  ///
+  /// `null` means the session predates this marker. The value contains no key
+  /// material - it only makes the idempotent provisioning retry survive an
+  /// application restart.
+  Future<bool?> get defaultVaultProvisioned async {
+    final value = await _storage.read(key: _defaultVaultProvisionedKey);
+    return switch (value) {
+      'true' => true,
+      'false' => false,
+      _ => null,
+    };
+  }
+
+  Future<void> setDefaultVaultProvisioned(bool value) {
+    return _storage.write(
+      key: _defaultVaultProvisionedKey,
+      value: value.toString(),
+    );
+  }
 
   /// Removes all stored tokens and metadata. Used on logout.
   Future<void> clearAll() => _storage.deleteAll();

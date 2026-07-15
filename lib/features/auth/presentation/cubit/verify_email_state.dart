@@ -36,17 +36,22 @@ enum ResendStatus {
   error,
 }
 
+/// Outcome of refreshing the session to check the current verification claim.
+enum VerificationCheckStatus { idle, checking, pending, verified, error }
+
 /// State for the verify-email screen. Combines the token-result flow
 /// (deep link) and the resend flow (gate) into one immutable value.
 class VerifyEmailState {
   const VerifyEmailState({
     this.verification = VerificationStatus.idle,
     this.resend = ResendStatus.idle,
+    this.check = VerificationCheckStatus.idle,
     this.serverErrorKind,
   });
 
   final VerificationStatus verification;
   final ResendStatus resend;
+  final VerificationCheckStatus check;
 
   /// Populated when [verification] is [VerificationStatus.serverError] so
   /// the page can localize the specific network failure.
@@ -55,14 +60,17 @@ class VerifyEmailState {
   VerifyEmailState copyWith({
     VerificationStatus? verification,
     ResendStatus? resend,
+    VerificationCheckStatus? check,
     PasswordAuthServerErrorKind? serverErrorKind,
     bool clearServerError = false,
   }) {
     return VerifyEmailState(
       verification: verification ?? this.verification,
       resend: resend ?? this.resend,
-      serverErrorKind:
-          clearServerError ? null : (serverErrorKind ?? this.serverErrorKind),
+      check: check ?? this.check,
+      serverErrorKind: clearServerError
+          ? null
+          : (serverErrorKind ?? this.serverErrorKind),
     );
   }
 }

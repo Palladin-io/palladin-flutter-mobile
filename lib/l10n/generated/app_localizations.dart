@@ -5360,12 +5360,6 @@ abstract class AppLocalizations {
   /// **'SAVE YOUR RECOVERY KEY'**
   String get authRecoveryWarningTitle;
 
-  /// Headline of the verify-email gate
-  ///
-  /// In en, this message translates to:
-  /// **'Verify your email'**
-  String get authVerifyGateTitle;
-
   /// Verify-email gate body with the user's email
   ///
   /// In en, this message translates to:
@@ -5389,6 +5383,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Resend email'**
   String get authVerifyResendButton;
+
+  /// Confirms that the user has opened the email verification link
+  ///
+  /// In en, this message translates to:
+  /// **'I\'ve verified my email'**
+  String get authVerifyCheckAgain;
+
+  /// Snackbar shown when verification is still pending
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t confirm it yet. Open the verification link and try again.'**
+  String get authVerifyStillPending;
+
+  /// Snackbar shown when verification or default vault provisioning fails
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t finish setting up your account. Try again.'**
+  String get authVerifyCheckError;
 
   /// Snackbar after a successful resend
   ///
