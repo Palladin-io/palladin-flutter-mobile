@@ -29,7 +29,7 @@ void main() {
     registerFallbackValue(Uint8List(0));
   });
 
-  setUp(() {
+  setUp(() async {
     vaultRepository = _MockVaultRepository();
     entryRepository = _MockEntryRepository();
     bridge = _MockBridge();
@@ -39,6 +39,9 @@ void main() {
       bridge: bridge,
     );
     when(
+      () => bridge.beginCacheSession(generation: any(named: 'generation')),
+    ).thenAnswer((_) async {});
+    when(
       () => bridge.replaceCache(any(), generation: any(named: 'generation')),
     ).thenAnswer((_) async {});
     when(
@@ -47,6 +50,7 @@ void main() {
     when(
       () => bridge.clearCache(generation: any(named: 'generation')),
     ).thenAnswer((_) async {});
+    await service.beginSession();
   });
 
   test('normalizes URL hosts and rejects ambiguous identifiers', () {
@@ -216,7 +220,7 @@ void main() {
     await synchronization;
   });
 
-  test('a new session is not blocked by the revoked queue', () async {
+  test('revocation blocks writes until a new session begins', () async {
     final firstReplaceStarted = Completer<void>();
     final releaseFirstReplace = Completer<void>();
     var replaceCalls = 0;
@@ -235,6 +239,10 @@ void main() {
     await firstReplaceStarted.future;
     await service.revokeAccess();
 
+    await service.synchronize(privateKey: Uint8List(32));
+    expect(replaceCalls, 1);
+
+    await service.beginSession();
     await service.synchronize(privateKey: Uint8List(32));
     expect(replaceCalls, 2);
 

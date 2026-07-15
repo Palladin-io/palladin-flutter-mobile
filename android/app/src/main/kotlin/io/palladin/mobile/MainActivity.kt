@@ -26,6 +26,12 @@ class MainActivity : FlutterActivity() {
             executor.execute {
                 val outcome = runCatching {
                     when (call.method) {
+                        "beginCacheSession" -> {
+                            val arguments = call.arguments as? Map<*, *>
+                            val generation = (arguments?.get("generation") as? Number)?.toLong()
+                                ?: throw IllegalArgumentException("Missing generation")
+                            cacheStore.beginSession(generation)
+                        }
                         "revokeCacheAccess" -> {
                             val arguments = call.arguments as? Map<*, *>
                             val generation = (arguments?.get("generation") as? Number)?.toLong()

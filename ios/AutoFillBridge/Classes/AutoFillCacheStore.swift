@@ -47,6 +47,7 @@ final class AutoFillCacheStore {
     private static let keychainService = "io.palladin.mobile.autofill.cache"
     private static let keychainAccount = "cache-key-v1"
     private static let mutationLock = NSLock()
+    private static var accessRevoked = true
     private static var revokedGeneration = 0
     private static var latestMutationGeneration = 0
 
@@ -69,13 +70,22 @@ final class AutoFillCacheStore {
         cacheURL = container.appendingPathComponent(Self.cacheFileName, isDirectory: false)
     }
 
+    func beginSession(generation: Int) {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
+        guard generation >= Self.latestMutationGeneration else { return }
+        Self.latestMutationGeneration = generation
+        Self.accessRevoked = false
+    }
+
     func replace(
         records rawRecords: [[String: Any]],
         generation: Int
     ) throws -> [AutoFillCredentialRecord] {
         Self.mutationLock.lock()
         defer { Self.mutationLock.unlock() }
-        guard generation >= Self.latestMutationGeneration,
+        guard !Self.accessRevoked,
+              generation >= Self.latestMutationGeneration,
               generation > Self.revokedGeneration else {
             throw AutoFillCacheError.staleGeneration
         }
@@ -139,6 +149,7 @@ final class AutoFillCacheStore {
         guard generation >= Self.latestMutationGeneration else { return }
         Self.latestMutationGeneration = generation
         Self.revokedGeneration = max(Self.revokedGeneration, generation)
+        Self.accessRevoked = true
         try clearLocked()
     }
 

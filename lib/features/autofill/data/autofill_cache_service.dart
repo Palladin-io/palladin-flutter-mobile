@@ -26,15 +26,28 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
   final AutoFillCacheBridge _bridge;
 
   Future<void> _pendingOperation = Future<void>.value();
+  Future<void> _sessionActivation = Future<void>.value();
   int _generation = 0;
+  bool _accessRevoked = true;
+
+  Future<void> beginSession() {
+    final generation = ++_generation;
+    _accessRevoked = false;
+    final activation = _activateSession(generation);
+    _sessionActivation = activation;
+    return _bestEffort(activation);
+  }
 
   Future<void> synchronize({required Uint8List privateKey}) {
-    if (privateKey.isEmpty) return Future<void>.value();
+    if (privateKey.isEmpty || _accessRevoked) return Future<void>.value();
     final generation = ++_generation;
+    final activation = _sessionActivation;
     return _bestEffort(
       _enqueue(() async {
+        await activation;
+        if (_accessRevoked || generation != _generation) return;
         await _clearNative(generation);
-        if (generation != _generation) return;
+        if (_accessRevoked || generation != _generation) return;
         await _synchronizeOnce(privateKey, generation);
       }),
     );
@@ -43,6 +56,8 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
   @override
   Future<void> revokeAccess() async {
     final generation = ++_generation;
+    _accessRevoked = true;
+    _sessionActivation = Future<void>.value();
     try {
       // Intentionally bypass [_pendingOperation]. Native code serializes this
       // key/file revocation against a replacement but does not wait for the
@@ -66,14 +81,29 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
 
   Future<void> clearAndSynchronize({required Uint8List privateKey}) {
     if (privateKey.isEmpty) return clear();
+    if (_accessRevoked) return Future<void>.value();
     final generation = ++_generation;
+    final activation = _sessionActivation;
     return _bestEffort(
       _enqueue(() async {
+        await activation;
+        if (_accessRevoked || generation != _generation) return;
         await _clearNative(generation);
-        if (generation != _generation) return;
+        if (_accessRevoked || generation != _generation) return;
         await _synchronizeOnce(privateKey, generation);
       }),
     );
+  }
+
+  Future<void> _activateSession(int generation) async {
+    try {
+      await _bridge.beginCacheSession(generation: generation);
+    } on MissingPluginException {
+      return;
+    } catch (_) {
+      if (generation == _generation) _accessRevoked = true;
+      rethrow;
+    }
   }
 
   Future<void> _clearNative(int generation) async {
@@ -123,7 +153,7 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
       final records = <AutoFillRecord>[];
       final vaults = await _vaultRepository.listVaults();
       for (final vault in vaults) {
-        if (generation != _generation) return;
+        if (_accessRevoked || generation != _generation) return;
         final revealed = await _entryRepository.revealAutoFillCredentials(
           vaultId: vault.id,
           privateKey: privateKey,
@@ -144,7 +174,7 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
           );
         }
       }
-      if (generation != _generation) return;
+      if (_accessRevoked || generation != _generation) return;
       await _bridge.replaceCache(records, generation: generation);
       AppLogger.i('AutoFill', 'Native cache synchronized');
     } on MissingPluginException {

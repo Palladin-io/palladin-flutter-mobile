@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -225,9 +226,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
             listener: (_, state) {
               final authenticated = state as AuthAuthenticated;
               unawaited(
-                _autoFillCache.synchronize(
-                  privateKey: authenticated.privateKey!,
-                ),
+                _startAutoFillSession(privateKey: authenticated.privateKey!),
               );
             },
           ),
@@ -307,7 +306,20 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _startAutoFillSession({required Uint8List privateKey}) async {
+    await _autoFillCache.beginSession();
+    await _autoFillCache.synchronize(privateKey: privateKey);
+  }
+
   Future<void> _clearAutoFillAfterSessionLoss() async {
+    try {
+      await _autoFillCache.revokeAccess();
+    } catch (error) {
+      AppLogger.w(
+        'AutoFill',
+        'Session-loss access revocation failed: ${error.runtimeType}',
+      );
+    }
     try {
       await _autoFillCache.clear();
     } catch (error) {

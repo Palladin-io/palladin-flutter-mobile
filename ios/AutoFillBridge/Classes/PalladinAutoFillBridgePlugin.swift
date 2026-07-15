@@ -16,6 +16,13 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
             do {
                 let store = try AutoFillCacheStore()
                 switch call.method {
+                case "beginCacheSession":
+                    guard let arguments = call.arguments as? [String: Any],
+                          let generation = arguments["generation"] as? Int else {
+                        throw AutoFillCacheError.invalidRecords
+                    }
+                    store.beginSession(generation: generation)
+                    DispatchQueue.main.async { result(nil) }
                 case "revokeCacheAccess":
                     // Key/file revocation is intentionally separate from the
                     // identity-store callback, which is not guaranteed to

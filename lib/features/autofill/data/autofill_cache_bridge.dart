@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import '../domain/autofill_record.dart';
 
 abstract interface class AutoFillCacheBridge {
+  Future<void> beginCacheSession({required int generation});
+
   Future<void> replaceCache(
     List<AutoFillRecord> records, {
     required int generation,
@@ -19,6 +21,10 @@ class MethodChannelAutoFillCacheBridge implements AutoFillCacheBridge {
 
   static const _channelName = 'io.palladin.mobile/autofill';
   final MethodChannel _channel;
+
+  @override
+  Future<void> beginCacheSession({required int generation}) => _channel
+      .invokeMethod<void>('beginCacheSession', {'generation': generation});
 
   @override
   Future<void> replaceCache(

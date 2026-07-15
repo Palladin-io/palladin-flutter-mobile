@@ -55,9 +55,11 @@ Linear: CVT-276
    rejects any delayed replacement from that or an older generation. The
    revocation call itself uses an independent executor/queue so an earlier
    Flutter operation cannot prevent it from clearing cache ciphertext and the
-   dedicated platform key. Best-effort OS identity cleanup follows. A critical
-   revocation failure aborts logout before local auth tokens are removed instead
-   of reporting an unsafe successful session transition.
+   dedicated platform key. A revoked latch rejects every later write regardless
+   of its operation generation until an unlocked, authenticated state explicitly
+   begins a new native cache session. Best-effort OS identity cleanup follows. A
+   critical revocation failure aborts logout before local auth tokens are removed
+   instead of reporting an unsafe successful session transition.
 5. A biometric-set change invalidates the platform key. A failed read clears
    the unusable Android cache; iOS remains unavailable until the next unlocked
    synchronization replaces its cache and key.

@@ -34,9 +34,21 @@ internal class AutoFillCacheStore(private val context: Context) {
 
     fun hasCache(): Boolean = cacheFile.isFile
 
+    fun beginSession(generation: Long) {
+        synchronized(MUTATION_LOCK) {
+            if (generation < latestMutationGeneration) return@synchronized
+            latestMutationGeneration = generation
+            accessRevoked = false
+        }
+    }
+
     fun replace(rawRecords: List<*>?, generation: Long) {
         synchronized(MUTATION_LOCK) {
-            if (generation < latestMutationGeneration || generation <= revokedGeneration) {
+            if (
+                accessRevoked ||
+                generation < latestMutationGeneration ||
+                generation <= revokedGeneration
+            ) {
                 return@synchronized
             }
             latestMutationGeneration = generation
@@ -96,6 +108,7 @@ internal class AutoFillCacheStore(private val context: Context) {
             if (generation < latestMutationGeneration) return@synchronized
             latestMutationGeneration = generation
             revokedGeneration = maxOf(revokedGeneration, generation)
+            accessRevoked = true
             clearLocked()
         }
     }
@@ -247,6 +260,7 @@ internal class AutoFillCacheStore(private val context: Context) {
 
     companion object {
         private val MUTATION_LOCK = Any()
+        private var accessRevoked = true
         private var revokedGeneration = 0L
         private var latestMutationGeneration = 0L
 
