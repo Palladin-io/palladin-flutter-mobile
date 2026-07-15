@@ -53,16 +53,25 @@ class AppleProviderIcon extends StatelessWidget {
 class XProviderIcon extends StatelessWidget {
   const XProviderIcon({super.key});
 
+  static Color colorFor(Brightness brightness) =>
+      AppColors.onSurface(brightness);
+
   @override
   Widget build(BuildContext context) {
-    return const ExcludeSemantics(
-      child: CustomPaint(size: Size(19.6, 20), painter: _XLogoPainter()),
+    final color = colorFor(Theme.of(context).brightness);
+    return ExcludeSemantics(
+      child: CustomPaint(
+        size: const Size(19.6, 20),
+        painter: _XLogoPainter(color),
+      ),
     );
   }
 }
 
 class _XLogoPainter extends CustomPainter {
-  const _XLogoPainter();
+  const _XLogoPainter(this.color);
+
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -95,10 +104,10 @@ class _XLogoPainter extends CustomPainter {
     canvas
       ..save()
       ..scale(size.width / 1200, size.height / 1226.37)
-      ..drawPath(path, Paint()..color = AppColors.onBrandRed)
+      ..drawPath(path, Paint()..color = color)
       ..restore();
   }
 
   @override
-  bool shouldRepaint(_XLogoPainter oldDelegate) => false;
+  bool shouldRepaint(_XLogoPainter oldDelegate) => color != oldDelegate.color;
 }

@@ -55,6 +55,17 @@ void main() {
     expect(find.text('X'), findsNothing);
   });
 
+  test('X artwork keeps semantic contrast in both themes', () {
+    expect(
+      XProviderIcon.colorFor(Brightness.light),
+      AppColors.onSurface(Brightness.light),
+    );
+    expect(
+      XProviderIcon.colorFor(Brightness.dark),
+      AppColors.onSurface(Brightness.dark),
+    );
+  });
+
   testWidgets('every provider label uses the primary button typography', (
     tester,
   ) async {

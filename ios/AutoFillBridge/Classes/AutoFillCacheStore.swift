@@ -45,6 +45,7 @@ final class AutoFillCacheStore {
     private static let cacheFileName = "palladin_autofill_cache_v1"
     private static let keychainService = "io.palladin.mobile.autofill.cache"
     private static let keychainAccount = "cache-key-v1"
+    private static let mutationLock = NSLock()
 
     private let appGroupIdentifier: String
     private let cacheURL: URL
@@ -66,6 +67,8 @@ final class AutoFillCacheStore {
     }
 
     func replace(records rawRecords: [[String: Any]]) throws -> [AutoFillCredentialRecord] {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
         var serialized = try JSONSerialization.data(withJSONObject: rawRecords)
         defer { serialized.resetBytes(in: 0..<serialized.count) }
         let records = try JSONDecoder().decode([AutoFillCredentialRecord].self, from: serialized)
@@ -106,6 +109,8 @@ final class AutoFillCacheStore {
     }
 
     func clear() throws {
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
         var fileError: Error?
         do {
             try FileManager.default.removeItem(at: cacheURL)

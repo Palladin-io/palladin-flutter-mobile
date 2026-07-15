@@ -98,9 +98,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       await authRepository.logout();
     } catch (e) {
-      // Local security cleanup (including native AutoFill revocation) is a
-      // prerequisite for logout. Remote failures are already swallowed by the
-      // repository, so reaching this branch means the session must stay active.
+      // Security-critical local revocation/storage cleanup failed. We cannot
+      // claim the session ended until AutoFill access, tokens, and the
+      // biometric key are reliably unavailable; remote failures are swallowed
+      // by the repository before they reach this branch.
       AppLogger.w('AuthBloc', 'Logout aborted: ${e.runtimeType}');
       emit(stateBeforeLogout);
       return;

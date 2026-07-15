@@ -9,6 +9,7 @@ import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val cacheExecutor = Executors.newSingleThreadExecutor()
+    private val revocationExecutor = Executors.newSingleThreadExecutor()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -17,9 +18,15 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             AUTOFILL_CHANNEL,
         ).setMethodCallHandler { call, result ->
-            cacheExecutor.execute {
+            val executor = if (call.method == "revokeCacheAccess") {
+                revocationExecutor
+            } else {
+                cacheExecutor
+            }
+            executor.execute {
                 val outcome = runCatching {
                     when (call.method) {
+                        "revokeCacheAccess" -> cacheStore.clear()
                         "replaceCache" -> {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                 cacheStore.replace(call.arguments as? List<*>)
@@ -48,6 +55,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        revocationExecutor.shutdownNow()
         cacheExecutor.shutdownNow()
         super.onDestroy()
     }

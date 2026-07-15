@@ -34,6 +34,7 @@ internal class AutoFillCacheStore(private val context: Context) {
 
     fun hasCache(): Boolean = cacheFile.isFile
 
+    @Synchronized
     fun replace(rawRecords: List<*>?) {
         val records = rawRecords.orEmpty().mapNotNull(::validatedRecord)
         val plaintext = JSONArray().apply {
@@ -73,6 +74,7 @@ internal class AutoFillCacheStore(private val context: Context) {
         }
     }
 
+    @Synchronized
     fun clear() {
         val files = listOf(
             cacheFile,

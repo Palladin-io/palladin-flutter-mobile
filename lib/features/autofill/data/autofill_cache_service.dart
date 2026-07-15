@@ -41,6 +41,20 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
   }
 
   @override
+  Future<void> revokeAccess() async {
+    ++_generation;
+    try {
+      // Intentionally bypass [_pendingOperation]. Native code serializes this
+      // key/file revocation against a replacement but does not wait for the
+      // credential-identity API, which may never call back on a broken host.
+      await _bridge.revokeCacheAccess();
+    } on MissingPluginException {
+      // Test hosts and unsupported platforms have no credential provider, so
+      // there is no native cache or key left to revoke.
+    }
+  }
+
+  @override
   Future<void> clear() {
     ++_generation;
     return _enqueue(_clearNative);

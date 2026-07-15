@@ -39,6 +39,7 @@ void main() {
       bridge: bridge,
     );
     when(() => bridge.replaceCache(any())).thenAnswer((_) async {});
+    when(bridge.revokeCacheAccess).thenAnswer((_) async {});
     when(bridge.clearCache).thenAnswer((_) async {});
   });
 
@@ -114,6 +115,24 @@ void main() {
     await Future.wait([synchronization, logoutClear]);
 
     verify(() => bridge.clearCache()).called(2);
+    verifyNever(() => bridge.replaceCache(any()));
+  });
+
+  test('access revocation bypasses the serialized identity queue', () async {
+    final listStarted = Completer<void>();
+    final vaults = Completer<List<VaultEntity>>();
+    when(vaultRepository.listVaults).thenAnswer((_) {
+      listStarted.complete();
+      return vaults.future;
+    });
+
+    final synchronization = service.synchronize(privateKey: Uint8List(32));
+    await listStarted.future;
+    await service.revokeAccess();
+    vaults.complete(const []);
+    await synchronization;
+
+    verify(bridge.revokeCacheAccess).called(1);
     verifyNever(() => bridge.replaceCache(any()));
   });
 

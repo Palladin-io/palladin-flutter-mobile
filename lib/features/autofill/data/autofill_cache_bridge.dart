@@ -5,6 +5,8 @@ import '../domain/autofill_record.dart';
 abstract interface class AutoFillCacheBridge {
   Future<void> replaceCache(List<AutoFillRecord> records);
 
+  Future<void> revokeCacheAccess();
+
   Future<void> clearCache();
 }
 
@@ -21,6 +23,10 @@ class MethodChannelAutoFillCacheBridge implements AutoFillCacheBridge {
         'replaceCache',
         records.map((record) => record.toPlatformMap()).toList(growable: false),
       );
+
+  @override
+  Future<void> revokeCacheAccess() =>
+      _channel.invokeMethod<void>('revokeCacheAccess');
 
   @override
   Future<void> clearCache() => _channel.invokeMethod<void>('clearCache');

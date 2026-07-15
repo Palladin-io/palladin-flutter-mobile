@@ -6,9 +6,14 @@ import '../../l10n/generated/app_localizations.dart';
 import '../theme/app_colors.dart';
 import 'brand_hero.dart';
 
+typedef AuthLegalLinkLauncher =
+    Future<bool> Function(Uri uri, {required LaunchMode mode});
+
 /// Shared Terms and Privacy footer for unauthenticated account screens.
 class AuthLegalFooter extends StatefulWidget {
-  const AuthLegalFooter({super.key});
+  const AuthLegalFooter({super.key, this.launcher = launchUrl});
+
+  final AuthLegalLinkLauncher launcher;
 
   @override
   State<AuthLegalFooter> createState() => _AuthLegalFooterState();
@@ -84,7 +89,13 @@ class _AuthLegalFooterState extends State<AuthLegalFooter> {
       (false, false) => _termsUri,
       (false, true) => _privacyUri,
     };
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    var opened = false;
+    try {
+      opened = await widget.launcher(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // Platform channels can throw instead of returning false. Both outcomes
+      // use the same localized, non-sensitive user-facing failure path.
+    }
     if (!opened && mounted) {
       final messenger = ScaffoldMessenger.of(context);
       messenger

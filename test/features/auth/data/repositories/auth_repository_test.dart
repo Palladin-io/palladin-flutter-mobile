@@ -49,6 +49,9 @@ void main() {
     mockGoogleSignIn = MockGoogleSignIn();
     mockSecureStorage = MockFlutterSecureStorage();
     mockAutoFillCacheInvalidator = MockAutoFillCacheInvalidator();
+    when(
+      () => mockAutoFillCacheInvalidator.revokeAccess(),
+    ).thenAnswer((_) async {});
     when(() => mockAutoFillCacheInvalidator.clear()).thenAnswer((_) async {});
     when(
       () => mockSecureStorage.delete(
@@ -64,6 +67,7 @@ void main() {
       autoFillCacheInvalidator: mockAutoFillCacheInvalidator,
       googleServerClientId: 'test-server-client-id',
       googleSignIn: mockGoogleSignIn,
+      operationTimeout: const Duration(milliseconds: 20),
     );
   });
 
@@ -89,8 +93,7 @@ void main() {
           isOnboarded: any(named: 'isOnboarded'),
         ),
       ).thenAnswer((_) async {});
-      when(() => mockStorage.setAuthProvider(any()))
-          .thenAnswer((_) async {});
+      when(() => mockStorage.setAuthProvider(any())).thenAnswer((_) async {});
 
       final result = await repository.loginWithGoogle();
 
@@ -108,8 +111,9 @@ void main() {
       ).called(1);
       // The OAuth-gating safety valve depends on this marker being written —
       // without it, password-only account actions would leak to Google users.
-      verify(() => mockStorage.setAuthProvider(AuthProviderId.google))
-          .called(1);
+      verify(
+        () => mockStorage.setAuthProvider(AuthProviderId.google),
+      ).called(1);
     });
 
     test('throws AuthCancelledException when user cancels', () async {
@@ -153,6 +157,7 @@ void main() {
       verify(() => mockDatasource.logout('refresh-456')).called(1);
       verify(() => mockGoogleSignIn.signOut()).called(1);
       verify(() => mockStorage.clearAll()).called(1);
+      verify(() => mockAutoFillCacheInvalidator.revokeAccess()).called(1);
       verify(() => mockAutoFillCacheInvalidator.clear()).called(1);
     });
 
@@ -171,46 +176,61 @@ void main() {
       verify(() => mockStorage.clearAll()).called(1);
     });
 
+    test('attempts AutoFill revocation before clearing auth storage', () async {
+      final clearStarted = Completer<void>();
+      final allowClear = Completer<void>();
+      when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
+      when(() => mockAutoFillCacheInvalidator.revokeAccess()).thenAnswer((
+        _,
+      ) async {
+        clearStarted.complete();
+        await allowClear.future;
+      });
+      when(() => mockStorage.clearAll()).thenAnswer((_) async {});
+      when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
+
+      final logout = repository.logout();
+      await clearStarted.future;
+
+      verifyNever(() => mockStorage.clearAll());
+      allowClear.complete();
+      await logout;
+
+      verify(() => mockStorage.clearAll()).called(1);
+    });
+
     test(
-      'attempts AutoFill revocation before clearing auth storage',
+      'still clears auth storage when AutoFill identity cleanup hangs',
       () async {
-        final clearStarted = Completer<void>();
-        final allowClear = Completer<void>();
         when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
-        when(() => mockAutoFillCacheInvalidator.clear()).thenAnswer((_) async {
-          clearStarted.complete();
-          await allowClear.future;
-        });
+        final identityCleanup = Completer<void>();
+        when(
+          () => mockAutoFillCacheInvalidator.clear(),
+        ).thenAnswer((_) => identityCleanup.future);
         when(() => mockStorage.clearAll()).thenAnswer((_) async {});
         when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
 
-        final logout = repository.logout();
-        await clearStarted.future;
+        // Access revocation already succeeded, so a provider-identity callback
+        // that never returns must not strand the authenticated session.
+        await repository.logout();
 
-        verifyNever(() => mockStorage.clearAll());
-        allowClear.complete();
-        await logout;
-
+        verify(() => mockAutoFillCacheInvalidator.revokeAccess()).called(1);
         verify(() => mockStorage.clearAll()).called(1);
       },
     );
 
     test(
-      'still clears auth storage when AutoFill revocation fails (best-effort)',
+      'keeps the session active when AutoFill access revocation fails',
       () async {
         when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
         when(
-          () => mockAutoFillCacheInvalidator.clear(),
-        ).thenThrow(Exception('native wipe failed'));
-        when(() => mockStorage.clearAll()).thenAnswer((_) async {});
-        when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
+          () => mockAutoFillCacheInvalidator.revokeAccess(),
+        ).thenThrow(Exception('native key revocation failed'));
 
-        // A native AutoFill failure must never abort logout — the critical
-        // token/key cleanup has to run so the user can always sign out.
-        await repository.logout();
+        await expectLater(repository.logout(), throwsException);
 
-        verify(() => mockAutoFillCacheInvalidator.clear()).called(1);
-        verify(() => mockStorage.clearAll()).called(1);
+        verifyNever(() => mockStorage.clearAll());
+        verifyNever(() => mockAutoFillCacheInvalidator.clear());
       },
     );
   });

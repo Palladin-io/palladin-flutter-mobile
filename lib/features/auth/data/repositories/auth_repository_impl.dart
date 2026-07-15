@@ -26,6 +26,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required this.autoFillCacheInvalidator,
     required String googleServerClientId,
     GoogleSignIn? googleSignIn,
+    this.operationTimeout = const Duration(seconds: 4),
   }) : _googleSignIn =
            googleSignIn ??
            GoogleSignIn(
@@ -42,6 +43,7 @@ class AuthRepositoryImpl implements AuthRepository {
   final FlutterSecureStorage secureStorage;
   final AutoFillCacheInvalidator autoFillCacheInvalidator;
   final GoogleSignIn _googleSignIn;
+  final Duration operationTimeout;
 
   @override
   Future<AuthResultModel> loginWithGoogle() async {
@@ -138,17 +140,18 @@ class AuthRepositoryImpl implements AuthRepository {
     AppLogger.d('Auth', 'Starting logout');
     final currentRefreshToken = await tokenStorage.refreshToken;
 
-    // Best-effort native AutoFill revocation, attempted first so its queued
-    // clear runs before any in-flight replacement. The cache holds only
-    // ciphertext encrypted with a dedicated key (never MK/VK) and is retried on
-    // the AuthUnauthenticated transition, so a hard native failure (e.g. a
-    // simulator without a provisioned credential provider) must never abort
-    // logout and strand the user in a locked session. Time-boxed like the other
-    // best-effort steps below.
+    // Security-critical native AutoFill revocation bypasses the serialized
+    // identity-maintenance queue. It removes the ciphertext and its dedicated
+    // platform key before local auth tokens are cleared, so a wedged provider
+    // callback cannot leave credentials accessible after logout.
+    await autoFillCacheInvalidator.revokeAccess().timeout(operationTimeout);
+
+    // Removing provider identities is best-effort. Access is already revoked
+    // above, so stale identity metadata cannot release cached credentials.
     try {
-      await autoFillCacheInvalidator.clear().timeout(const Duration(seconds: 4));
+      await autoFillCacheInvalidator.clear().timeout(operationTimeout);
     } catch (e) {
-      AppLogger.w('Auth', 'AutoFill revocation failed (best-effort): $e');
+      AppLogger.w('Auth', 'AutoFill identity cleanup failed (best-effort): $e');
     }
 
     // Critical local security cleanup — must always run so backend/native
@@ -162,14 +165,14 @@ class AuthRepositoryImpl implements AuthRepository {
       try {
         await remoteDatasource
             .logout(currentRefreshToken)
-            .timeout(const Duration(seconds: 4));
+            .timeout(operationTimeout);
       } catch (e) {
         AppLogger.w('Auth', 'Backend logout failed (best-effort): $e');
       }
     }
 
     try {
-      await _googleSignIn.signOut().timeout(const Duration(seconds: 4));
+      await _googleSignIn.signOut().timeout(operationTimeout);
     } catch (e) {
       AppLogger.w('Auth', 'Google sign-out failed (best-effort): $e');
     }
