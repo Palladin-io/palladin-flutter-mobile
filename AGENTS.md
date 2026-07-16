@@ -395,7 +395,7 @@ Mobile tracks **UI-only** events — page views, biometric usage, push taps. Bus
 
 ## Maintaining this file
 
-Pull-request review and remediation automation is Codex-only. Keep review skills under `.agents/` and Codex workflow configuration under `.github/codex/`; do not add Claude Code PR workflows or `.claude/skills/pr-review` / `.claude/skills/fix-pr` adapters.
+Pull-request review automation is Codex-only. Keep the workflow at `.github/workflows/codex-pr-review.yml`, its support files under `.github/codex/`, and review skills under `.agents/`; do not add Claude Code PR workflows or `.claude/skills/pr-review` / `.claude/skills/fix-pr` adapters.
 
 This file is **always loaded** into context, so keep it lean. Only guidance useful in **every** iteration belongs here — the shared widget catalog, tokens (`AppColors`/`AppSpacing`), screen/skeleton/error conventions, the reuse rules.
 
