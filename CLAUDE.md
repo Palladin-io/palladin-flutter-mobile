@@ -395,6 +395,8 @@ Mobile tracks **UI-only** events — page views, biometric usage, push taps. Bus
 
 ## Maintaining this file
 
+Pull-request review automation is Codex-only. Keep the workflow at `.github/workflows/codex-pr-review.yml`, its support files under `.github/codex/`, and review skills under `.agents/`; do not add Claude Code PR workflows or `.claude/skills/pr-review` / `.claude/skills/fix-pr` adapters.
+
 This file is **always loaded** into context, so keep it lean. Only guidance useful in **every** iteration belongs here — the shared widget catalog, tokens (`AppColors`/`AppSpacing`), screen/skeleton/error conventions, the reuse rules.
 
 - **Deep or concern-specific guidance** (per-feature structure, cubits, cross-feature deps, architecture smells) lives in `docs/architecture/` — the per-feature docs under `docs/architecture/features/`. Add a **one-line pointer** from this file rather than inlining the detail.
