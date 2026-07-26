@@ -27,6 +27,7 @@ import 'features/notifications/data/services/push_notification_service.dart';
 import 'features/notifications/domain/entities/push_message.dart';
 import 'features/notifications/presentation/cubit/notification_center_cubit.dart';
 import 'features/notifications/presentation/cubit/push_navigation_cubit.dart';
+import 'features/vault/data/services/member_sync_service.dart';
 
 class PalladinApp extends StatefulWidget {
   const PalladinApp({
@@ -62,6 +63,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final PushNavigationCubit _pushNavigationCubit = getIt<PushNavigationCubit>();
   final PushNotificationService _pushService = getIt<PushNotificationService>();
   final AutoFillCacheService _autoFillCache = getIt<AutoFillCacheService>();
+  final MemberSyncService _memberSync = getIt<MemberSyncService>();
   late final StreamSubscription<AutoFillMutationAction>
   _autoFillMutationSubscription;
 
@@ -229,6 +231,13 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
                 _startAutoFillSession(privateKey: authenticated.privateKey!),
               );
             },
+          ),
+          BlocListener<AuthBloc, AuthState>(
+            listenWhen: (previous, current) =>
+                previous is AuthAuthenticated &&
+                !previous.isVaultLocked &&
+                (current is! AuthAuthenticated || current.isVaultLocked),
+            listener: (_, _) => _memberSync.lock(),
           ),
           // Deep-link: navigate when a tapped notification resolves to a
           // route, then clear the cubit so the next tap re-fires.

@@ -13,6 +13,13 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 - Native fixture tests consume the minimal byte-identical snapshot in `test/fixtures/vault_protocol_2/`, pinned to root commit `b370b56e4f65ecf5350bc4f9203fee6429572955` and verified against the manifest's SHA-256 list. `PALLADIN_VAULT_V2_FIXTURES` may override it locally to compare directly with a root checkout; update steps and provenance live beside the snapshot.
 - All structural aliases, unsupported versions/suites, wrong scopes, stale Member generations, oversize payloads, malformed canonical encodings and authentication failures fail closed before plaintext reaches presentation state. Service-owned key/plaintext copies are disposed or zeroed in `finally` paths.
 
+### Encrypted Member sync and local search (CVT-439)
+
+- `MemberSyncService` consumes protocol-2 snapshot/delta pages with the frozen protocol/policy headers. Snapshot pages are streamed through a staging SQLite namespace and promoted atomically only after every page authenticates and decrypts; an interruption preserves the last complete cache. Delta items and their applied-through sequence commit in one SQLite transaction, and `resetRequired` starts a new snapshot.
+- The SQLite cache contains only structural cursors plus serialized opaque `VaultEntryKey` and `MemberIndex` envelopes. It never stores a decrypted label, search term, Entry DEK, VK, or other key. Reads use entry-id keyset pages of 100 instead of materializing the cache at once.
+- Entry-key unwrap and MemberIndex decrypt stay in `data/services/vault_protocol/`. Decrypt concurrency defaults to two, response pages are capped at the backend's 200-item limit, and the runtime index fails closed above 20,000 entries. Authenticated context is independently rebound to the requested Vault, Entry id, current key version, projection revision, and minimum Member generation.
+- Search operates only on the unlocked in-memory index. `PalladinApp` clears all decrypted indexes on every unlocked-to-locked or session-loss transition; the ciphertext cache remains available to rebuild offline after the next unlock.
+
 ### Import / Export (CVT-37 / CVT-235)
 
 - **Import engine** — `data/import/` is pure, testable Dart: `import_engine.dart` (structure-based format detection: ZIP → JSON → XML → CSV, never by extension), `import_csv.dart` (declarative `CsvProfile`s — add a format by appending a profile), `import_json.dart` (Bitwarden / Keeper / Proton / 1Password / Enpass / Palladin), `import_xml.dart` (KeePass), `import_normalizer.dart` (TOTP→`otpauth://`, URL→host, name-from-host, trim), `import_models.dart`. Unrecognised CSVs fall back to a manual column mapper.

@@ -18,7 +18,17 @@ final class VaultEnvelopeExpectations {
 }
 
 /// Dedicated Vault protocol 2 AEAD and sealed-package service.
-final class VaultProtocolEnvelopeService {
+abstract interface class VaultEnvelopeCryptography {
+  Future<Uint8List> decrypt({
+    required VaultAadProfile profile,
+    required Map<String, Object?> envelope,
+    required Uint8List key,
+    required VaultEnvelopeExpectations expected,
+  });
+}
+
+/// Sodium implementation of [VaultEnvelopeCryptography].
+final class VaultProtocolEnvelopeService implements VaultEnvelopeCryptography {
   VaultProtocolEnvelopeService({Future<SodiumSumo> Function()? sodiumLoader})
     : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
@@ -37,6 +47,7 @@ final class VaultProtocolEnvelopeService {
     VaultAadProfile.grantPayload: 262144,
   };
 
+  @override
   Future<Uint8List> decrypt({
     required VaultAadProfile profile,
     required Map<String, Object?> envelope,

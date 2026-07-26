@@ -75,13 +75,17 @@ import '../../features/unlock/data/datasources/account_remote_datasource.dart';
 import '../../features/unlock/data/services/unlock_crypto_service.dart';
 import '../../features/unlock/presentation/cubit/unlock_cubit.dart';
 import '../../features/vault/data/datasources/entry_remote_datasource.dart';
+import '../../features/vault/data/datasources/member_sync_remote_datasource.dart';
 import '../../features/vault/data/datasources/vault_remote_datasource.dart';
 import '../../features/vault/data/repositories/entry_repository_impl.dart';
 import '../../features/vault/data/repositories/vault_repository_impl.dart';
 import '../../features/vault/data/export/export_sharer.dart';
 import '../../features/vault/data/services/entry_crypto_service.dart';
+import '../../features/vault/data/services/member_sync_cache.dart';
+import '../../features/vault/data/services/member_sync_service.dart';
 import '../../features/vault/data/services/totp_service.dart';
 import '../../features/vault/data/services/vault_crypto_service.dart';
+import '../../features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
 import '../../features/vault/domain/repositories/entry_repository.dart';
 import '../../features/vault/domain/repositories/vault_repository.dart';
 import '../../features/vault/presentation/cubit/create_entry_cubit.dart';
@@ -280,6 +284,20 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<VaultCryptoService>(() => VaultCryptoService());
   getIt.registerLazySingleton<VaultRemoteDatasource>(
     () => VaultRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<MemberSyncRemoteDatasource>(
+    () => MemberSyncRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<MemberSyncCache>(() => SqliteMemberSyncCache());
+  getIt.registerLazySingleton<VaultProtocolEnvelopeService>(
+    () => VaultProtocolEnvelopeService(),
+  );
+  getIt.registerLazySingleton<MemberSyncService>(
+    () => MemberSyncService(
+      remote: getIt<MemberSyncRemoteDatasource>(),
+      cache: getIt<MemberSyncCache>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+    ),
   );
   getIt.registerLazySingleton<VaultRepository>(
     () => VaultRepositoryImpl(
