@@ -56,6 +56,7 @@ final class MemberSyncService implements MemberIndexReader {
 
   final Map<String, Map<String, MemberIndexEntry>> _indexes = {};
   final Map<String, Future<MemberSyncResult>> _running = {};
+  int _lockGeneration = 0;
 
   /// Synchronizes one Vault. Concurrent callers for the same Vault share work.
   Future<MemberSyncResult> synchronize({
@@ -68,17 +69,37 @@ final class MemberSyncService implements MemberIndexReader {
         const FormatException('Vault key must be exactly 32 bytes'),
       );
     }
-    return _running.putIfAbsent(vaultId, () async {
+    final active = _running[vaultId];
+    if (active != null) return active;
+    final generation = _lockGeneration;
+    late final Future<MemberSyncResult> operation;
+    operation = (() async {
       try {
         final sequence = await _cache.sequence(vaultId);
+        _requireCurrent(generation);
         if (sequence == null) {
-          return _snapshot(vaultId, vaultKey, minimumMemberKeyGeneration);
+          return _snapshot(
+            vaultId,
+            vaultKey,
+            minimumMemberKeyGeneration,
+            generation,
+          );
         }
-        return _delta(vaultId, sequence, vaultKey, minimumMemberKeyGeneration);
+        return _delta(
+          vaultId,
+          sequence,
+          vaultKey,
+          minimumMemberKeyGeneration,
+          generation,
+        );
       } finally {
-        _running.remove(vaultId);
+        if (identical(_running[vaultId], operation)) {
+          _running.remove(vaultId);
+        }
       }
-    });
+    })();
+    _running[vaultId] = operation;
+    return operation;
   }
 
   /// Rebuilds the runtime index from the last complete ciphertext snapshot.
@@ -86,15 +107,29 @@ final class MemberSyncService implements MemberIndexReader {
     required String vaultId,
     required Uint8List vaultKey,
     required int minimumMemberKeyGeneration,
+  }) => _unlockCached(
+    vaultId: vaultId,
+    vaultKey: vaultKey,
+    minimumMemberKeyGeneration: minimumMemberKeyGeneration,
+    generation: _lockGeneration,
+  );
+
+  Future<void> _unlockCached({
+    required String vaultId,
+    required Uint8List vaultKey,
+    required int minimumMemberKeyGeneration,
+    required int generation,
   }) async {
     final rebuilt = <String, MemberIndexEntry>{};
     await for (final page in _chunk(_cache.readHeads(vaultId), 100)) {
+      _requireCurrent(generation);
       final decrypted = await _decryptPage(
         page,
         vaultId,
         vaultKey,
         minimumMemberKeyGeneration,
       );
+      _requireCurrent(generation);
       for (final entry in decrypted) {
         rebuilt[entry.entryId] = entry;
         if (rebuilt.length > maximumIndexedEntries) {
@@ -102,6 +137,7 @@ final class MemberSyncService implements MemberIndexReader {
         }
       }
     }
+    _requireCurrent(generation);
     _indexes[vaultId] = rebuilt;
   }
 
@@ -136,21 +172,28 @@ final class MemberSyncService implements MemberIndexReader {
       List.unmodifiable(_indexes[vaultId]?.values ?? const []);
 
   /// Drops every decrypted projection immediately on lock/session loss.
-  void lock() => _indexes.clear();
+  void lock() {
+    _lockGeneration++;
+    _running.clear();
+    _indexes.clear();
+  }
 
   Future<MemberSyncResult> _snapshot(
     String vaultId,
     Uint8List vaultKey,
     int minimumGeneration,
+    int generation,
   ) async {
     final stagedIndex = <String, MemberIndexEntry>{};
     final firstPage = await _remote.snapshot(vaultId: vaultId);
+    _requireCurrent(generation);
     _validatePageCount(firstPage.items);
     final baseSequence = firstPage.snapshotBaseSequence;
 
     Stream<MemberSyncItemModel> pages() async* {
       var page = firstPage;
       while (true) {
+        _requireCurrent(generation);
         if (baseSequence != page.snapshotBaseSequence ||
             page.items.any((item) => item.isTombstone)) {
           throw const FormatException('Inconsistent Member snapshot');
@@ -161,6 +204,7 @@ final class MemberSyncService implements MemberIndexReader {
           vaultKey,
           minimumGeneration,
         );
+        _requireCurrent(generation);
         for (final entry in decrypted) {
           stagedIndex[entry.entryId] = entry;
           if (stagedIndex.length > maximumIndexedEntries) {
@@ -173,11 +217,13 @@ final class MemberSyncService implements MemberIndexReader {
         final cursor = page.nextCursor;
         if (cursor == null) return;
         page = await _remote.snapshot(vaultId: vaultId, cursor: cursor);
+        _requireCurrent(generation);
         _validatePageCount(page.items);
       }
     }
 
     await _cache.replaceSnapshot(vaultId, baseSequence, pages());
+    _requireCurrent(generation);
     _indexes[vaultId] = stagedIndex;
     return MemberSyncResult(
       sequence: baseSequence,
@@ -191,13 +237,16 @@ final class MemberSyncService implements MemberIndexReader {
     String afterSequence,
     Uint8List vaultKey,
     int minimumGeneration,
+    int generation,
   ) async {
     if (!_indexes.containsKey(vaultId)) {
-      await unlockCached(
+      await _unlockCached(
         vaultId: vaultId,
         vaultKey: vaultKey,
         minimumMemberKeyGeneration: minimumGeneration,
+        generation: generation,
       );
+      _requireCurrent(generation);
     }
     String? continuation;
     var applied = afterSequence;
@@ -207,8 +256,9 @@ final class MemberSyncService implements MemberIndexReader {
         afterSequence: continuation == null ? applied : null,
         continuationCursor: continuation,
       );
+      _requireCurrent(generation);
       if (result is MemberDeltaResetRequired) {
-        return _snapshot(vaultId, vaultKey, minimumGeneration);
+        return _snapshot(vaultId, vaultKey, minimumGeneration, generation);
       }
       final page = (result as MemberDeltaSuccess).page;
       _validatePageCount(page.items);
@@ -224,7 +274,9 @@ final class MemberSyncService implements MemberIndexReader {
         vaultKey,
         minimumGeneration,
       );
+      _requireCurrent(generation);
       await _cache.applyDelta(vaultId, page.appliedThroughSequence, page.items);
+      _requireCurrent(generation);
       final index = _indexes[vaultId]!;
       for (final item in page.items.where((item) => item.isTombstone)) {
         index.remove(item.entryId);
@@ -250,6 +302,12 @@ final class MemberSyncService implements MemberIndexReader {
   void _validatePageCount(List<MemberSyncItemModel> items) {
     if (items.length > VaultPerformanceBudget.maximumMemberSyncPageItems) {
       throw const FormatException('Member sync page exceeds item limit');
+    }
+  }
+
+  void _requireCurrent(int generation) {
+    if (generation != _lockGeneration) {
+      throw const _MemberSyncInvalidated();
     }
   }
 
@@ -436,4 +494,8 @@ final class MemberSyncService implements MemberIndexReader {
     }
     if (page.isNotEmpty) yield page;
   }
+}
+
+final class _MemberSyncInvalidated implements Exception {
+  const _MemberSyncInvalidated();
 }

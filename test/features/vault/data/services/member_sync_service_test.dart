@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -70,6 +71,13 @@ class _MemoryCache implements MemberSyncCache {
 
   @override
   Future<String?> sequence(String vaultId) async => appliedSequence;
+}
+
+class _BlockingReadCache extends _MemoryCache {
+  final controller = StreamController<MemberSyncItemModel>();
+
+  @override
+  Stream<MemberSyncItemModel> readHeads(String vaultId) => controller.stream;
 }
 
 void main() {
@@ -164,6 +172,56 @@ void main() {
       expect(service.search('postgres', vaultId: 'vault'), isEmpty);
     },
   );
+
+  test(
+    'lock invalidates an in-flight snapshot before plaintext install',
+    () async {
+      final pending = Completer<MemberSnapshotPage>();
+      when(
+        () => remote.snapshot(
+          vaultId: 'vault',
+          cursor: any(named: 'cursor'),
+          pageSize: any(named: 'pageSize'),
+        ),
+      ).thenAnswer((_) => pending.future);
+
+      final sync = service.synchronize(
+        vaultId: 'vault',
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: 1,
+      );
+      service.lock();
+      pending.complete(
+        MemberSnapshotPage(snapshotBaseSequence: '1', items: [_head(_firstId)]),
+      );
+
+      await expectLater(sync, throwsA(isA<Exception>()));
+      expect(service.entries('vault'), isEmpty);
+      expect(service.search('database', vaultId: 'vault'), isEmpty);
+    },
+  );
+
+  test('lock invalidates an in-flight cached-index rebuild', () async {
+    final blockingCache = _BlockingReadCache();
+    final guarded = MemberSyncService(
+      remote: remote,
+      cache: blockingCache,
+      envelopes: envelopes,
+    );
+    final rebuild = guarded.unlockCached(
+      vaultId: 'vault',
+      vaultKey: Uint8List(32),
+      minimumMemberKeyGeneration: 1,
+    );
+    final invalidated = expectLater(rebuild, throwsA(isA<Exception>()));
+
+    guarded.lock();
+    blockingCache.controller.add(_head(_firstId));
+    await blockingCache.controller.close();
+
+    await invalidated;
+    expect(guarded.entries('vault'), isEmpty);
+  });
 
   test(
     'resetRequired discards incremental path and installs a snapshot',

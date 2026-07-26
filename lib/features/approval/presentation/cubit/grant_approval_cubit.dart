@@ -60,9 +60,11 @@ class GrantApprovalCubit extends Cubit<GrantApprovalState> {
   final ApprovalRepository repository;
   final GrantApprovalReviewer? reviewService;
   final PendingGrant grant;
+  int _reviewGeneration = 0;
 
   Future<void> loadReview(Uint8List privateKey) async {
     clearReview();
+    final generation = _reviewGeneration;
     emit(
       state.copyWith(status: GrantApprovalStatus.reviewing, clearError: true),
     );
@@ -74,8 +76,13 @@ class GrantApprovalCubit extends Cubit<GrantApprovalState> {
         grant: grant,
         memberPrivateKey: keyCopy,
       );
+      if (generation != _reviewGeneration || isClosed) {
+        review.clear();
+        return;
+      }
       emit(state.copyWith(status: GrantApprovalStatus.ready, review: review));
     } catch (_) {
+      if (generation != _reviewGeneration || isClosed) return;
       clearReview();
       emit(
         state.copyWith(
@@ -89,8 +96,13 @@ class GrantApprovalCubit extends Cubit<GrantApprovalState> {
   }
 
   void clearReview() {
+    _reviewGeneration++;
     state.review?.clear();
-    if (state.review != null) emit(state.copyWith(clearReview: true));
+    if (state.review != null ||
+        state.status == GrantApprovalStatus.reviewing ||
+        state.status == GrantApprovalStatus.ready) {
+      emit(state.copyWith(status: GrantApprovalStatus.idle, clearReview: true));
+    }
   }
 
   /// Approves the grant with the chosen [limit] (exactly one of
@@ -180,6 +192,7 @@ class GrantApprovalCubit extends Cubit<GrantApprovalState> {
 
   @override
   Future<void> close() {
+    _reviewGeneration++;
     state.review?.clear();
     return super.close();
   }

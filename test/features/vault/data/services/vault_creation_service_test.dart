@@ -66,7 +66,9 @@ void main() {
               if (options.path == '/api/vaults') {
                 requests.add(Map<String, dynamic>.from(options.data as Map));
                 createAttempts++;
-                if (createAttempts == 1) {
+                if (createAttempts == 1 ||
+                    createAttempts == 3 ||
+                    createAttempts == 5) {
                   handler.reject(
                     DioException.connectionError(
                       requestOptions: options,
@@ -160,6 +162,40 @@ void main() {
       expect(serialized, isNot(contains('Confidential description')));
       expect(serialized, isNot(contains('#123456')));
       expect(serialized, isNot(contains('shield')));
+
+      await expectLater(create(), throwsA(isA<DioException>()));
+      final changed = await service.create(
+        name: 'Changed Vault',
+        description: 'Different input',
+        icon: 'key',
+        color: '#654321',
+        memberPrivateKey: memberPrivateKey,
+      );
+      expect(changed.name, 'Changed Vault');
+      expect(requests, hasLength(4));
+      expect(
+        requests[3],
+        isNot(equals(requests[2])),
+        reason: 'changed input must not replay the previous pending payload',
+      );
+
+      await expectLater(create(), throwsA(isA<DioException>()));
+      final changedMemberKey = Uint8List.fromList(
+        List<int>.generate(32, (index) => index + 2),
+      );
+      await service.create(
+        name: 'Highly Secret Vault',
+        description: 'Confidential description',
+        icon: 'shield',
+        color: '#123456',
+        memberPrivateKey: changedMemberKey,
+      );
+      expect(requests, hasLength(6));
+      expect(
+        requests[5],
+        isNot(equals(requests[4])),
+        reason: 'a changed Member key must rebuild the pending payload',
+      );
     },
   );
 }

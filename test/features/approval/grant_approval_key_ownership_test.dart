@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -132,6 +133,45 @@ void main() {
     expect(key, [1, 2, 3, 4]);
     await cubit.close();
   });
+
+  test(
+    'lifecycle cleanup discards and wipes a late decrypted review',
+    () async {
+      final repository = _Repository();
+      final reviewer = _Reviewer();
+      final grant = _grant();
+      final pending = Completer<GrantApprovalReview>();
+      final review = GrantApprovalReview(
+        reason: 'late plaintext',
+        entryLabel: 'Production',
+        entryRevision: '7',
+        agentName: 'Agent',
+        fields: const [],
+      );
+      registerFallbackValue(Uint8List(0));
+      when(
+        () => reviewer.open(
+          grant: grant,
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((_) => pending.future);
+      final cubit = GrantApprovalCubit(
+        repository: repository,
+        reviewService: reviewer,
+        grant: grant,
+      );
+
+      final load = cubit.loadReview(Uint8List(32));
+      cubit.clearReview();
+      pending.complete(review);
+      await load;
+
+      expect(cubit.state.status, GrantApprovalStatus.idle);
+      expect(cubit.state.review, isNull);
+      expect(review.reason, isEmpty);
+      await cubit.close();
+    },
+  );
 }
 
 PendingGrant _grant() => PendingGrant(

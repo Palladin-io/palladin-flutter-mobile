@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
@@ -18,9 +19,25 @@ import 'vault_protocol/vault_protocol_signature_service.dart';
 import 'vault_rotation_crypto_service.dart';
 
 final class _PendingVaultCreation {
-  _PendingVaultCreation({required this.payload, required this.display});
+  _PendingVaultCreation({
+    required this.payload,
+    required this.display,
+    required this.memberPublicKeyFingerprint,
+  });
   final Map<String, dynamic> payload;
   final VaultEntity display;
+  final String memberPublicKeyFingerprint;
+
+  bool matchesDisplay({
+    required String name,
+    String? description,
+    String? icon,
+    String? color,
+  }) =>
+      display.name == name &&
+      display.description == description &&
+      display.icon == icon &&
+      display.color == color;
 }
 
 /// Builds one complete Vault v2 creation transaction entirely on-device.
@@ -66,6 +83,17 @@ class VaultCreationService implements VaultCreator {
     String? color,
     required Uint8List memberPrivateKey,
   }) async {
+    final existing = _pending;
+    if (existing != null &&
+        (!existing.matchesDisplay(
+              name: name,
+              description: description,
+              icon: icon,
+              color: color,
+            ) ||
+            !await _matchesMemberKey(existing, memberPrivateKey))) {
+      _pending = null;
+    }
     _pending ??= await _prepare(
       name: name,
       description: description,
@@ -74,7 +102,16 @@ class VaultCreationService implements VaultCreator {
       memberPrivateKey: memberPrivateKey,
     );
     final pending = _pending!;
-    final response = await _remote.createEncryptedVault(pending.payload);
+    final Map<String, dynamic> response;
+    try {
+      response = await _remote.createEncryptedVault(pending.payload);
+    } on DioException catch (error) {
+      final status = error.response?.statusCode;
+      if (status != null && status >= 400 && status < 500) {
+        _pending = null;
+      }
+      rethrow;
+    }
     final result = VaultEntity(
       id: response['id'] as String,
       name: pending.display.name,
@@ -246,12 +283,41 @@ class VaultCreationService implements VaultCreator {
           activeGrantCount: 0,
           memberCount: 1,
         ),
+        memberPublicKeyFingerprint: VaultProtocolBytes.base64UrlEncode(
+          vaultPublicKeyFingerprint(
+            VaultPublicKeyKind.memberX25519,
+            memberPublicKey,
+          ),
+        ),
       );
     } finally {
       keys.dispose();
       memberPublicKey?.fillRange(0, memberPublicKey.length, 0);
       metadataBytes?.fillRange(0, metadataBytes.length, 0);
       metadataKey?.fillRange(0, metadataKey.length, 0);
+    }
+  }
+
+  Future<bool> _matchesMemberKey(
+    _PendingVaultCreation pending,
+    Uint8List memberPrivateKey,
+  ) async {
+    if (memberPrivateKey.length != 32) return false;
+    Uint8List? publicKey;
+    try {
+      final sodium = await _sodiumLoader();
+      final secret = SecureKey.fromList(sodium, memberPrivateKey);
+      try {
+        publicKey = sodium.crypto.scalarmult.base(n: secret);
+      } finally {
+        secret.dispose();
+      }
+      final fingerprint = VaultProtocolBytes.base64UrlEncode(
+        vaultPublicKeyFingerprint(VaultPublicKeyKind.memberX25519, publicKey),
+      );
+      return fingerprint == pending.memberPublicKeyFingerprint;
+    } finally {
+      publicKey?.fillRange(0, publicKey.length, 0);
     }
   }
 

@@ -28,6 +28,7 @@ class VaultListCubit extends Cubit<VaultListState> {
 
   final VaultRepository repository;
   final VaultListCryptoService listService;
+  int _loadGeneration = 0;
 
   Future<void> loadIfNeeded(Uint8List? privateKey) async {
     if (state is VaultListLoaded) return;
@@ -60,6 +61,7 @@ class VaultListCubit extends Cubit<VaultListState> {
   }
 
   Future<void> loadVaults(Uint8List? privateKey) async {
+    final generation = ++_loadGeneration;
     if (privateKey == null) {
       emit(const VaultListLocked());
       return;
@@ -68,12 +70,15 @@ class VaultListCubit extends Cubit<VaultListState> {
     emit(const VaultListLoading());
     try {
       final result = await listService.load(privateKey);
+      if (generation != _loadGeneration || isClosed) return;
       AppLogger.i('Vault', 'Loaded ${result.vaults.length} Vault projections');
       emit(VaultListLoaded(result.vaults, corruptVaultIds: result.corruptIds));
     } on VaultException catch (e) {
+      if (generation != _loadGeneration || isClosed) return;
       AppLogger.w('Vault', 'Vault list load failed: ${e.kind.name}');
       emit(VaultListError(e.kind));
     } catch (e, s) {
+      if (generation != _loadGeneration || isClosed) return;
       AppLogger.e(
         'Vault',
         'Vault list load failed unexpectedly',
@@ -85,7 +90,10 @@ class VaultListCubit extends Cubit<VaultListState> {
   }
 
   /// Drops every decrypted display value as soon as the screen locks.
-  void lock() => emit(const VaultListLocked());
+  void lock() {
+    _loadGeneration++;
+    emit(const VaultListLocked());
+  }
 
   Future<void> deleteVault(String id) async {
     AppLogger.d('Vault', 'Deleting vault id=$id');

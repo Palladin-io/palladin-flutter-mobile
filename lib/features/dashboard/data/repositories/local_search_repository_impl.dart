@@ -1,5 +1,6 @@
 import '../../../vault/data/services/member_sync_service.dart';
 import '../../../vault/domain/entities/member_index_entry.dart';
+import '../../../vault/domain/entities/vault_performance_budget.dart';
 import '../../../vault/presentation/cubit/vault_list_cubit.dart';
 import '../../domain/entities/recent_entry_entity.dart';
 import '../../domain/entities/search_result_entity.dart';
@@ -10,7 +11,7 @@ final class LocalSearchRepositoryImpl implements LocalSearchRepository {
   LocalSearchRepositoryImpl({
     required VaultListCubit vaults,
     required MemberIndexReader memberIndex,
-    this.maximumCandidates = 5000,
+    this.maximumCandidates = VaultPerformanceBudget.maximumIndexedEntries,
   }) : _vaults = vaults,
        _memberIndex = memberIndex;
 
@@ -28,9 +29,8 @@ final class LocalSearchRepositoryImpl implements LocalSearchRepository {
 
     final vaultHits = <({int rank, VaultSearchResult result})>[];
     final entryHits = <({int rank, EntrySearchResult result})>[];
-    var candidates = 0;
+    var entryCandidates = 0;
     for (final vault in state.vaults) {
-      if (++candidates > maximumCandidates) break;
       final vaultRank = _rank(vault.name, normalized);
       if (vaultRank != null) {
         vaultHits.add((
@@ -43,7 +43,7 @@ final class LocalSearchRepositoryImpl implements LocalSearchRepository {
         ));
       }
       for (final entry in _memberIndex.entries(vault.id)) {
-        if (++candidates > maximumCandidates) break;
+        if (++entryCandidates > maximumCandidates) break;
         if (entry.corrupt || entry.state != MemberEntryState.active) continue;
         final labelRank = _rank(entry.memberLabel, normalized);
         final fieldsMatch = entry.searchFields.any(
@@ -62,7 +62,7 @@ final class LocalSearchRepositoryImpl implements LocalSearchRepository {
           ),
         ));
       }
-      if (candidates > maximumCandidates) break;
+      if (entryCandidates > maximumCandidates) break;
     }
     int compare<T extends SearchResultEntity>(
       ({int rank, T result}) left,

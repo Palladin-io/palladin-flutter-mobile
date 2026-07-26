@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:bloc_test/bloc_test.dart';
@@ -77,6 +78,24 @@ void main() {
         ),
       ],
     );
+
+    test('lock invalidates a late decrypted vault-list result', () async {
+      final pending = Completer<DecryptedVaultList>();
+      when(
+        () => listService.load(privateKey),
+      ).thenAnswer((_) => pending.future);
+      final cubit = buildCubit();
+
+      final load = cubit.loadVaults(privateKey);
+      cubit.lock();
+      pending.complete(
+        DecryptedVaultList(vaults: sampleVaults, corruptIds: const []),
+      );
+      await load;
+
+      expect(cubit.state, isA<VaultListLocked>());
+      await cubit.close();
+    });
 
     blocTest<VaultListCubit, VaultListState>(
       'loadVaults emits Loading then Loaded(empty) when no vaults',

@@ -81,14 +81,7 @@ void main() {
       },
       act: (cubit) =>
           cubit.revealForEdit(entry: sampleEntry, privateKey: privateKey),
-      expect: () => [
-        isA<EditEntryRevealing>(),
-        isA<EditEntryReady>().having(
-          (state) => state.payload['value'],
-          'secret value',
-          'sk_live_xxx',
-        ),
-      ],
+      expect: () => [isA<EditEntryRevealing>(), isA<EditEntryReady>()],
       verify: (_) => verifyNever(
         () => repository.revealEntry(
           vaultId: any(named: 'vaultId'),
@@ -184,18 +177,18 @@ void main() {
         expect(cubit.hasCanonicalSnapshot, isFalse);
         verifyNever(
           () => repository.updateEntryEncrypted(
-          vaultId: any(named: 'vaultId'),
-          entryId: any(named: 'entryId'),
-          label: any(named: 'label'),
-          description: any(named: 'description'),
-          icon: any(named: 'icon'),
-          type: any(named: 'type'),
-          payload: any(named: 'payload'),
-          urlDomain: any(named: 'urlDomain'),
-          privateKey: any(named: 'privateKey'),
-          wrappedVK: any(named: 'wrappedVK'),
-          createdAt: any(named: 'createdAt'),
-          agentFields: any(named: 'agentFields'),
+            vaultId: any(named: 'vaultId'),
+            entryId: any(named: 'entryId'),
+            label: any(named: 'label'),
+            description: any(named: 'description'),
+            icon: any(named: 'icon'),
+            type: any(named: 'type'),
+            payload: any(named: 'payload'),
+            urlDomain: any(named: 'urlDomain'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+            createdAt: any(named: 'createdAt'),
+            agentFields: any(named: 'agentFields'),
           ),
         );
       },
@@ -262,6 +255,25 @@ void main() {
         await cubit.close();
       },
     );
+
+    test('close wipes the snapshot still referenced by Ready state', () async {
+      final revealed = snapshot();
+      when(
+        () => canonical.reveal(
+          expected: any(named: 'expected'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((_) async => revealed);
+      final cubit = buildCubit();
+      await cubit.revealForEdit(entry: sampleEntry, privateKey: privateKey);
+      final ready = cubit.state as EditEntryReady;
+
+      await cubit.close();
+
+      expect(ready.payload, isEmpty);
+      expect(revealed.entry, isEmpty);
+      expect(revealed.secret, isEmpty);
+    });
 
     blocTest<EditEntryCubit, EditEntryState>(
       'delete remains repository-backed and typed',

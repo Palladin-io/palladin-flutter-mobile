@@ -108,13 +108,36 @@ void main() {
         'e10',
         'e100',
         'e1000',
-        'e1001',
-        'e1002',
-        'e1003',
-        'e1004',
-        'e1005',
+        'e10000',
+        'e10001',
+        'e10002',
+        'e10003',
+        'e10004',
       ],
     );
+  });
+
+  test('search traverses the final entry in the supported 20k index', () {
+    when(() => index.entries('v1')).thenReturn(
+      List.generate(
+        20000,
+        (i) => MemberIndexEntry(
+          entryId: 'e$i',
+          entryType: 1,
+          memberLabel: i == 19999 ? 'last needle' : 'unrelated $i',
+          searchFields: const [],
+          revision: '$i',
+          state: MemberEntryState.active,
+        ),
+      ),
+    );
+
+    final results = LocalSearchRepositoryImpl(
+      vaults: vaults,
+      memberIndex: index,
+    ).search('needle', limit: 10);
+
+    expect(results.whereType<EntrySearchResult>().single.entryId, 'e19999');
   });
 
   test('locked Vault state exposes no local results or recents', () {

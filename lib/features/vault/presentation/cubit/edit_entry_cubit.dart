@@ -45,12 +45,16 @@ class EditEntryCubit extends Cubit<EditEntryState> {
 
   /// Drops every reference to decrypted canonical state on lock/background.
   void clearSensitiveState() {
+    _wipeSnapshot();
+    emit(const EditEntryInitial());
+  }
+
+  void _wipeSnapshot() {
     final snapshot = _snapshot;
     snapshot?.payload.clear();
     snapshot?.secret.clear();
     snapshot?.entry.clear();
     _snapshot = null;
-    emit(const EditEntryInitial());
   }
 
   /// Decrypts the entry payload so form fields can be pre-populated.
@@ -210,7 +214,7 @@ class EditEntryCubit extends Cubit<EditEntryState> {
 
   @override
   Future<void> close() {
-    _snapshot = null;
+    _wipeSnapshot();
     return super.close();
   }
 }
