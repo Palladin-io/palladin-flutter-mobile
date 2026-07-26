@@ -3380,6 +3380,36 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryArchiveSortType => 'Według typu';
 
   @override
+  String get entryDeletedTitle => 'Ostatnio usunięte';
+
+  @override
+  String get entryDeletedSubtitle => 'Wpisy oczekujące na trwałe usunięcie';
+
+  @override
+  String get entryDeletedSearchHint => 'Szukaj w ostatnio usuniętych';
+
+  @override
+  String get entryDeletedEmpty => 'Brak ostatnio usuniętych wpisów';
+
+  @override
+  String get entryDeletedRestore => 'Przywróć';
+
+  @override
+  String entryDeletedPurgeAt(String date) {
+    return 'Trwałe usunięcie po $date';
+  }
+
+  @override
+  String get entryDeletedPurgeTitle => 'Usunąć trwale?';
+
+  @override
+  String get entryDeletedPurgeWarning =>
+      'Ta operacja trwale usuwa całą zaszyfrowaną zawartość, klucze i historię. Nie można jej cofnąć.';
+
+  @override
+  String get entryDeletedPurgeConfirm => 'Usuń trwale';
+
+  @override
   String get vaultDiscoveryTitle => 'Wykrywanie agentów';
 
   @override

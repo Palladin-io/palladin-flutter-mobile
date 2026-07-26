@@ -5936,6 +5936,60 @@ abstract class AppLocalizations {
   /// **'By type'**
   String get entryArchiveSortType;
 
+  /// No description provided for @entryDeletedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently Deleted'**
+  String get entryDeletedTitle;
+
+  /// No description provided for @entryDeletedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recoverable items awaiting permanent deletion'**
+  String get entryDeletedSubtitle;
+
+  /// No description provided for @entryDeletedSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search recently deleted items'**
+  String get entryDeletedSearchHint;
+
+  /// No description provided for @entryDeletedEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No recently deleted items'**
+  String get entryDeletedEmpty;
+
+  /// No description provided for @entryDeletedRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get entryDeletedRestore;
+
+  /// No description provided for @entryDeletedPurgeAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently deleted after {date}'**
+  String entryDeletedPurgeAt(String date);
+
+  /// No description provided for @entryDeletedPurgeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete permanently?'**
+  String get entryDeletedPurgeTitle;
+
+  /// No description provided for @entryDeletedPurgeWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This permanently removes all encrypted content, keys and history. This cannot be undone.'**
+  String get entryDeletedPurgeWarning;
+
+  /// No description provided for @entryDeletedPurgeConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete permanently'**
+  String get entryDeletedPurgeConfirm;
+
   /// No description provided for @vaultDiscoveryTitle.
   ///
   /// In en, this message translates to:

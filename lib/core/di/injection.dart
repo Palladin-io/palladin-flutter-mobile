@@ -112,6 +112,7 @@ import '../../features/vault/presentation/cubit/edit_entry_cubit.dart';
 import '../../features/vault/presentation/cubit/entry_agents_cubit.dart';
 import '../../features/vault/presentation/cubit/entry_list_cubit.dart';
 import '../../features/vault/presentation/cubit/entry_archive_cubit.dart';
+import '../../features/vault/presentation/cubit/recently_deleted_cubit.dart';
 import '../../features/vault/presentation/cubit/agent_discovery_cubit.dart';
 import '../../features/vault/presentation/cubit/export_cubit.dart';
 import '../../features/vault/presentation/cubit/import_wizard_cubit.dart';
@@ -490,6 +491,15 @@ void configureDependencies(EnvConfig config) {
       index: getIt<MemberSyncService>(),
       sync: getIt<MemberEntryListService>(),
       restorer: getIt<CanonicalEntryDetailService>(),
+    ),
+  );
+  getIt.registerFactoryParam<RecentlyDeletedCubit, String, void>(
+    (vaultId, _) => RecentlyDeletedCubit(
+      vaultId: vaultId,
+      remote: getIt<EntryRemoteDatasource>(),
+      index: getIt<MemberSyncService>(),
+      sync: getIt<MemberEntryListService>(),
+      lifecycle: getIt<CanonicalEntryDetailService>(),
     ),
   );
   getIt.registerFactory<CreateEntryCubit>(

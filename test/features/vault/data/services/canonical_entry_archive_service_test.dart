@@ -98,6 +98,14 @@ void main() {
     revision: '7',
     state: MemberEntryState.archived,
   );
+  const deleted = MemberIndexEntry(
+    entryId: entryId,
+    entryType: 1,
+    memberLabel: 'Deleted login',
+    searchFields: ['member@example.test'],
+    revision: '7',
+    state: MemberEntryState.deleted,
+  );
 
   late _Entries entries;
   late _Vaults vaults;
@@ -286,4 +294,77 @@ void main() {
       () => entries.restoreCanonicalEntry(vaultId, entryId, any()),
     ).called(1);
   });
+
+  test(
+    'Deleted restore uses the same Restored pipeline and validates state',
+    () async {
+      when(
+        () => entries.getCanonicalEntry(vaultId, entryId),
+      ).thenAnswer((_) async => {...canonicalEntry(), 'state': 3});
+      when(
+        () => entries.restoreCanonicalEntry(vaultId, entryId, any()),
+      ).thenAnswer(
+        (_) async => Response<Map<String, dynamic>>(
+          requestOptions: RequestOptions(path: '/restore'),
+          statusCode: 200,
+        ),
+      );
+      await service.restoreRecoverable(
+        vaultId: vaultId,
+        entry: deleted,
+        memberPrivateKey: Uint8List(32),
+      );
+
+      when(
+        () => entries.getCanonicalEntry(vaultId, entryId),
+      ).thenAnswer((_) async => canonicalEntry());
+      await expectLater(
+        service.restoreRecoverable(
+          vaultId: vaultId,
+          entry: deleted,
+          memberPrivateKey: Uint8List(32),
+        ),
+        throwsA(
+          isA<CanonicalEntryDetailException>().having(
+            (error) => error.kind,
+            'kind',
+            CanonicalEntryDetailError.corrupt,
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'purge sends no secret, treats 404 as idempotent, and maps 409',
+    () async {
+      when(() => entries.destroyEntry(vaultId, entryId)).thenAnswer(
+        (_) async => Response<void>(
+          requestOptions: RequestOptions(path: '/destroy'),
+          statusCode: 404,
+        ),
+      );
+      await service.purgeDeleted(vaultId: vaultId, entryId: entryId);
+      verify(() => entries.destroyEntry(vaultId, entryId)).called(1);
+      verifyNever(() => entries.getCanonicalEntry(any(), any()));
+
+      reset(entries);
+      when(() => entries.destroyEntry(vaultId, entryId)).thenAnswer(
+        (_) async => Response<void>(
+          requestOptions: RequestOptions(path: '/destroy'),
+          statusCode: 409,
+        ),
+      );
+      await expectLater(
+        service.purgeDeleted(vaultId: vaultId, entryId: entryId),
+        throwsA(
+          isA<CanonicalEntryDetailException>().having(
+            (error) => error.kind,
+            'kind',
+            CanonicalEntryDetailError.conflict,
+          ),
+        ),
+      );
+    },
+  );
 }

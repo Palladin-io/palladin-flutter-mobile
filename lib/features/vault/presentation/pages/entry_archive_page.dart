@@ -16,6 +16,7 @@ import '../../domain/entities/member_index_entry.dart';
 import '../../data/services/canonical_entry_detail_service.dart';
 import '../cubit/entry_archive_cubit.dart';
 import '../widgets/vault_visuals.dart';
+import 'recently_deleted_page.dart';
 
 /// Dedicated runtime-only Archive surface for one Vault.
 class EntryArchivePage extends StatefulWidget {
@@ -82,6 +83,14 @@ class _EntryArchivePageState extends State<EntryArchivePage> {
             title: l10n.entryArchiveTitle,
             subtitle: l10n.entryArchiveSubtitle,
           ),
+          actions: [
+            IconButton(
+              tooltip: l10n.entryDeletedTitle,
+              onPressed: () =>
+                  RecentlyDeletedPage.push(context, widget.vaultId),
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ],
         ),
         body: BlocConsumer<EntryArchiveCubit, EntryArchiveState>(
           listenWhen: (previous, next) =>

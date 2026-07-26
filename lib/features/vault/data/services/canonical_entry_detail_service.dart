@@ -56,6 +56,14 @@ abstract interface class EntryArchiveRestorer {
     required MemberIndexEntry archived,
     required Uint8List memberPrivateKey,
   });
+
+  Future<void> restoreRecoverable({
+    required String vaultId,
+    required MemberIndexEntry entry,
+    required Uint8List memberPrivateKey,
+  });
+
+  Future<void> purgeDeleted({required String vaultId, required String entryId});
 }
 
 /// A locally authenticated historical MemberSecret snapshot.
@@ -593,12 +601,26 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     required String vaultId,
     required MemberIndexEntry archived,
     required Uint8List memberPrivateKey,
+  }) => restoreRecoverable(
+    vaultId: vaultId,
+    entry: archived,
+    memberPrivateKey: memberPrivateKey,
+  );
+
+  @override
+  Future<void> restoreRecoverable({
+    required String vaultId,
+    required MemberIndexEntry entry,
+    required Uint8List memberPrivateKey,
   }) async {
-    if (archived.state != MemberEntryState.archived || archived.corrupt) {
+    if ((entry.state != MemberEntryState.archived &&
+            entry.state != MemberEntryState.deleted) ||
+        entry.corrupt) {
       throw const CanonicalEntryDetailException(
         CanonicalEntryDetailError.corrupt,
       );
     }
+    final archived = entry;
     final expected = EntryEntity(
       id: archived.entryId,
       vaultId: vaultId,
@@ -621,10 +643,13 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         expected: expected,
         memberPrivateKey: memberPrivateKey,
       );
-      if (snapshot.entry['state'] != 2 &&
-          snapshot.entry['state'] != 'Archived' &&
-          snapshot.entry['state'] != 'archived') {
-        throw const FormatException('Entry is not Archived');
+      final expectedState = entry.state == MemberEntryState.archived ? 2 : 3;
+      final state = snapshot.entry['state'];
+      if (state != expectedState &&
+          state != entry.state.name &&
+          state !=
+              '${entry.state.name[0].toUpperCase()}${entry.state.name.substring(1)}') {
+        throw const FormatException('Entry lifecycle state mismatch');
       }
       final vault = await _vaults.getEncryptedVault(vaultId);
       final organizationId = snapshot.entry['organizationId'];
@@ -867,6 +892,31 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     } finally {
       snapshot?.clear();
       _wipe([vaultKey, discoveryKey, entryDek, ...derived, ...plaintexts]);
+    }
+  }
+
+  @override
+  Future<void> purgeDeleted({
+    required String vaultId,
+    required String entryId,
+  }) async {
+    for (var attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        final response = await _entries.destroyEntry(vaultId, entryId);
+        if (response.statusCode == 204 || response.statusCode == 404) return;
+        if (response.statusCode == 409) {
+          throw const CanonicalEntryDetailException(
+            CanonicalEntryDetailError.conflict,
+          );
+        }
+        throw const CanonicalEntryDetailException(
+          CanonicalEntryDetailError.corrupt,
+        );
+      } on DioException catch (error) {
+        if (attempt == 1 || error.response != null) {
+          throw CanonicalEntryDetailException(_classifyDio(error));
+        }
+      }
     }
   }
 

@@ -60,6 +60,29 @@ class EntryRemoteDatasource {
     ),
   );
 
+  Future<Map<String, dynamic>> listRecentlyDeleted(
+    String vaultId, {
+    String? cursor,
+    int pageSize = 100,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries/recently-deleted',
+      queryParameters: {'cursor': ?cursor, 'pageSize': pageSize},
+    );
+    return response.data ??
+        (throw const FormatException('Empty Recently Deleted response'));
+  }
+
+  /// Permanently destroys an already Deleted Entry without secret material.
+  Future<Response<void>> destroyEntry(String vaultId, String entryId) =>
+      _dio.post<void>(
+        '/api/vaults/$vaultId/entries/$entryId/destroy',
+        options: Options(
+          validateStatus: (status) =>
+              status == 204 || status == 404 || status == 409,
+        ),
+      );
+
   /// Loads one bounded page of immutable encrypted Entry versions.
   Future<Map<String, dynamic>> getEntryHistory(
     String vaultId,

@@ -3344,6 +3344,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryArchiveSortType => 'By type';
 
   @override
+  String get entryDeletedTitle => 'Recently Deleted';
+
+  @override
+  String get entryDeletedSubtitle =>
+      'Recoverable items awaiting permanent deletion';
+
+  @override
+  String get entryDeletedSearchHint => 'Search recently deleted items';
+
+  @override
+  String get entryDeletedEmpty => 'No recently deleted items';
+
+  @override
+  String get entryDeletedRestore => 'Restore';
+
+  @override
+  String entryDeletedPurgeAt(String date) {
+    return 'Permanently deleted after $date';
+  }
+
+  @override
+  String get entryDeletedPurgeTitle => 'Delete permanently?';
+
+  @override
+  String get entryDeletedPurgeWarning =>
+      'This permanently removes all encrypted content, keys and history. This cannot be undone.';
+
+  @override
+  String get entryDeletedPurgeConfirm => 'Delete permanently';
+
+  @override
   String get vaultDiscoveryTitle => 'Agent Discovery';
 
   @override

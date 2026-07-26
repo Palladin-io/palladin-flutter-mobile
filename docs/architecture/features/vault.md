@@ -151,6 +151,23 @@ permanent local head. Lock/session loss clears the view, corrupt rows fail
 closed, and lazy list rendering remains bounded by the 20,000-entry runtime
 index limit.
 
+### Recently Deleted Entry lifecycle (CVT-457)
+
+Recently Deleted is a separate surface from Archive. Structural lifecycle
+pages provide only opaque Entry ids, `DeletedAt` and authoritative
+`RetentionExpiresAt`; all
+labels and searchable presentation are joined locally from the unlocked
+`MemberIndex` with `state == Deleted`. Backend-supplied presentation fields are
+ignored. Missing, corrupt or already-purged projections render only a safe
+`prefix…suffix` identifier and cannot be restored.
+
+Restore reuses the canonical `Restored` transition from Archive and reconciles
+only after the next Member delta. Permanent purge requires an explicit warning
+and calls the body-less destroy endpoint without decrypting content. `204` and
+an already-purged `404` are idempotent success; `409` remains visible as an
+invalid-state conflict. Search is runtime-only and bounded to 10,000 structural
+rows; lock/session loss drops the joined plaintext view.
+
 **⚠ Architecture smells:**
 - `VaultListPage` builds a raw `Container(gradient) + Scaffold(transparent)` (~line 185) instead of `AppScreen.titled(...)` — the one inconsistent top-level tab.
 - `VaultDetailPage` / `EntryDetailPage` hand-roll `Container + DefaultTabController + Scaffold + AppBar` instead of `AppScreen.appBar(...)` (justified by the `PreferredSize` tab-bar height, but still skips the abstraction).
