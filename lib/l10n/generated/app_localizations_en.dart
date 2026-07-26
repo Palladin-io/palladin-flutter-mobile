@@ -3385,5 +3385,45 @@ class AppLocalizationsEn extends AppLocalizations {
       'Encrypted Vault settings could not be verified. No changes were saved.';
 
   @override
+  String get entryTabHistory => 'History';
+
+  @override
+  String get entryHistoryEmpty => 'No previous versions';
+
+  @override
+  String get entryHistoryLoadError =>
+      'Encrypted history could not be loaded or verified.';
+
+  @override
+  String entryHistoryVersion(String revision) {
+    return 'Version $revision';
+  }
+
+  @override
+  String entryHistoryActor(String actor, String time) {
+    return '$actor · $time';
+  }
+
+  @override
+  String get entryHistoryLoadMore => 'Load older versions';
+
+  @override
+  String get entryHistoryReveal => 'Decrypt this version';
+
+  @override
+  String get entryHistoryRestore => 'Restore as a new version';
+
+  @override
+  String get entryHistoryRestored =>
+      'Historical content restored as a new current version.';
+
+  @override
+  String get entryHistorySensitiveWarning =>
+      'Historical versions may contain previous passwords and TOTP seeds.';
+
+  @override
+  String get entryHistoryLocked => 'Unlock the app to decrypt this version.';
+
+  @override
   String get settingsTwoFactor => 'Two-factor authentication';
 }

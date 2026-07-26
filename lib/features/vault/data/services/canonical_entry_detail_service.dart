@@ -43,6 +43,19 @@ final class CanonicalEntrySnapshot {
   final Map<String, dynamic> secret;
 }
 
+/// A locally authenticated historical MemberSecret snapshot.
+final class CanonicalEntryHistorySnapshot {
+  CanonicalEntryHistorySnapshot({required this.secret, required this.payload});
+
+  final Map<String, dynamic> secret;
+  final Map<String, dynamic> payload;
+
+  void clear() {
+    payload.clear();
+    secret.clear();
+  }
+}
+
 /// Opens and replaces canonical Entry projections without a legacy fallback.
 ///
 /// Plaintext and key material exist only in method-local memory and are wiped
@@ -67,6 +80,95 @@ class CanonicalEntryDetailService {
   final VaultRotationCryptoService _keys;
   final VaultEnvelopeCryptography _envelopes;
   final GrantsRemoteDatasource _grants;
+
+  /// Authenticates and decrypts exactly one version selected by the user.
+  Future<CanonicalEntryHistorySnapshot> revealHistoryVersion({
+    required EntryEntity expected,
+    required Map<String, dynamic> historyItem,
+    required Uint8List memberPrivateKey,
+  }) async {
+    Uint8List? vaultKey;
+    Uint8List? entryDek;
+    Uint8List? secretKey;
+    Uint8List? plaintext;
+    try {
+      final vault = await _vaults.getEncryptedVault(expected.vaultId);
+      final entry = await _entries.getCanonicalEntry(
+        expected.vaultId,
+        expected.id,
+      );
+      _validateScope(entry, expected);
+      final secret = _map(historyItem, 'memberSecret');
+      final header = _map(secret, 'header');
+      if (secret['organizationId'] != entry['organizationId'] ||
+          secret['vaultId'] != expected.vaultId ||
+          secret['entryId'] != expected.id ||
+          secret['revision'] != historyItem['revision'] ||
+          header['keyVersion'] != historyItem['keyVersion']) {
+        throw const FormatException('History version scope mismatch');
+      }
+      final wrapper = _map(historyItem, 'entryKey');
+      if (wrapper['organizationId'] != entry['organizationId'] ||
+          wrapper['vaultId'] != expected.vaultId ||
+          wrapper['entryId'] != expected.id ||
+          wrapper['keyVersion'] != historyItem['keyVersion']) {
+        throw const FormatException('Historical Entry key scope mismatch');
+      }
+      final wrapperGeneration = _int(wrapper, 'memberKeyGeneration');
+      vaultKey = await _keys.openMemberVaultKey(
+        _map(vault, 'memberVaultKey'),
+        memberPrivateKey,
+      );
+      entryDek = await _envelopes.decrypt(
+        profile: VaultAadProfile.entryKeyWrapper,
+        envelope: wrapper,
+        key: vaultKey,
+        expected: VaultEnvelopeExpectations(
+          aadContext: wrapper,
+          minimumMemberKeyGeneration: wrapperGeneration,
+        ),
+      );
+      if (entryDek.length != 32) throw const FormatException('Invalid DEK');
+      secretKey = deriveVaultProjectionKey(
+        entryDek,
+        VaultKdfContext(
+          purpose: VaultKdfPurpose.memberSecret,
+          resourceKind: 2,
+          organizationId: entry['organizationId'] as String,
+          vaultId: expected.vaultId,
+          entryId: expected.id,
+          keyVersion: _int(header, 'keyVersion'),
+          memberKeyGeneration: _int(header, 'memberKeyGeneration'),
+        ),
+      );
+      plaintext = await _envelopes.decrypt(
+        profile: VaultAadProfile.memberSecret,
+        envelope: secret,
+        key: secretKey,
+        expected: VaultEnvelopeExpectations(
+          aadContext: secret,
+          minimumMemberKeyGeneration: _int(header, 'memberKeyGeneration'),
+        ),
+      );
+      final value = _decodeCanonicalObject(plaintext);
+      final content = value['content'];
+      if (value['schemaVersion'] != 1 || content is! Map) {
+        throw const FormatException('Malformed historical MemberSecret');
+      }
+      return CanonicalEntryHistorySnapshot(
+        secret: value,
+        payload: Map<String, dynamic>.from(content),
+      );
+    } on DioException catch (error) {
+      throw CanonicalEntryDetailException(_classifyDio(error));
+    } on FormatException {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.corrupt,
+      );
+    } finally {
+      _wipe([vaultKey, entryDek, secretKey, plaintext]);
+    }
+  }
 
   Future<CanonicalEntrySnapshot> reveal({
     required EntryEntity expected,

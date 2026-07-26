@@ -14,6 +14,7 @@ import '../../features/vault/data/services/vault_list_crypto_service.dart';
 import '../../features/vault/data/services/vault_creation_service.dart';
 import '../../features/vault/data/services/key_entry_creation_service.dart';
 import '../../features/vault/data/services/canonical_entry_detail_service.dart';
+import '../../features/vault/data/services/entry_history_service.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/cubit/change_password_cubit.dart';
@@ -75,6 +76,7 @@ import '../../features/settings/data/datasources/settings_remote_data_source.dar
 import '../../features/settings/data/repositories/settings_repository_impl.dart';
 import '../../features/settings/domain/repositories/settings_repository.dart';
 import '../../features/settings/presentation/bloc/settings_cubit.dart';
+import '../../features/vault/presentation/cubit/entry_history_cubit.dart';
 import '../../features/recovery/data/services/recovery_crypto_service.dart';
 import '../../features/recovery/presentation/cubit/recovery_cubit.dart';
 import '../../features/unlock/data/datasources/account_remote_datasource.dart';
@@ -387,6 +389,12 @@ void configureDependencies(EnvConfig config) {
       grants: getIt<GrantsRemoteDatasource>(),
     ),
   );
+  getIt.registerLazySingleton<EntryHistoryService>(
+    () => EntryHistoryService(
+      entries: getIt<EntryRemoteDatasource>(),
+      canonical: getIt<CanonicalEntryDetailService>(),
+    ),
+  );
   getIt.registerLazySingleton<VaultRepository>(
     () => VaultRepositoryImpl(
       getIt<VaultRemoteDatasource>(),
@@ -492,6 +500,9 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerFactory<EntryAgentsCubit>(
     () => EntryAgentsCubit(getIt<CanonicalEntryDetailService>()),
+  );
+  getIt.registerFactory<EntryHistoryCubit>(
+    () => EntryHistoryCubit(getIt<EntryHistoryService>()),
   );
 
   // Import wizard (CVT-37) — one cubit per wizard mount, scoped to the

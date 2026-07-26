@@ -5996,6 +5996,72 @@ abstract class AppLocalizations {
   /// **'Encrypted Vault settings could not be verified. No changes were saved.'**
   String get vaultMetadataCorrupt;
 
+  /// No description provided for @entryTabHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get entryTabHistory;
+
+  /// No description provided for @entryHistoryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No previous versions'**
+  String get entryHistoryEmpty;
+
+  /// No description provided for @entryHistoryLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted history could not be loaded or verified.'**
+  String get entryHistoryLoadError;
+
+  /// No description provided for @entryHistoryVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {revision}'**
+  String entryHistoryVersion(String revision);
+
+  /// No description provided for @entryHistoryActor.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} · {time}'**
+  String entryHistoryActor(String actor, String time);
+
+  /// No description provided for @entryHistoryLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load older versions'**
+  String get entryHistoryLoadMore;
+
+  /// No description provided for @entryHistoryReveal.
+  ///
+  /// In en, this message translates to:
+  /// **'Decrypt this version'**
+  String get entryHistoryReveal;
+
+  /// No description provided for @entryHistoryRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore as a new version'**
+  String get entryHistoryRestore;
+
+  /// No description provided for @entryHistoryRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'Historical content restored as a new current version.'**
+  String get entryHistoryRestored;
+
+  /// No description provided for @entryHistorySensitiveWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Historical versions may contain previous passwords and TOTP seeds.'**
+  String get entryHistorySensitiveWarning;
+
+  /// No description provided for @entryHistoryLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock the app to decrypt this version.'**
+  String get entryHistoryLocked;
+
   /// Settings drawer item — set up TOTP two-factor auth
   ///
   /// In en, this message translates to:

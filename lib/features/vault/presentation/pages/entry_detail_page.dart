@@ -14,8 +14,10 @@ import '../../../audit/presentation/widgets/entry_logs_tab.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../cubit/edit_entry_cubit.dart';
 import '../cubit/entry_agents_cubit.dart';
+import '../cubit/entry_history_cubit.dart';
 import 'entry_agents_tab.dart';
 import 'entry_details_tab.dart';
+import 'entry_history_tab.dart';
 
 /// Result of [EntryDetailPage.push].
 sealed class EntryDetailResult {}
@@ -40,6 +42,7 @@ class EntryDetailDeleted extends EntryDetailResult {
 ///                  that switches into the edit form on demand.
 /// Tab 1 — Agents.
 /// Tab 2 — Logs.
+/// Tab 3 — History (loaded only when selected).
 ///
 /// MemberIndex metadata renders immediately. MemberSecret is fetched and
 /// authenticated only after an explicit reveal/edit action.
@@ -69,6 +72,9 @@ class EntryDetailPage extends StatelessWidget {
         BlocProvider<EntryAgentsCubit>(
           create: (_) => getIt<EntryAgentsCubit>(),
         ),
+        BlocProvider<EntryHistoryCubit>(
+          create: (_) => getIt<EntryHistoryCubit>(),
+        ),
       ],
       child: Builder(
         builder: (context) => BlocListener<AuthBloc, AuthState>(
@@ -76,6 +82,7 @@ class EntryDetailPage extends StatelessWidget {
             if (state is! AuthAuthenticated || state.privateKey == null) {
               context.read<EditEntryCubit>().clearSensitiveState();
               context.read<EntryAgentsCubit>().clearSensitiveState();
+              context.read<EntryHistoryCubit>().clearSensitiveState();
             }
           },
           child: _EntryDetailView(entry: entry, wrappedVK: wrappedVK),
@@ -117,6 +124,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
   int _grantsRefresh = 0;
 
   static const int _agentsTabIndex = 1;
+  static const int _historyTabIndex = 3;
 
   // Last tab index reported to analytics — dedupes the multiple listener
   // callbacks a single switch fires during the indicator animation.
@@ -125,7 +133,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this)
+    _tabController = TabController(length: 4, vsync: this)
       // Rebuild so the FAB shows only on the Agents tab.
       ..addListener(_onTabChanged);
   }
@@ -135,7 +143,10 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     final index = _tabController.index;
     if (_tabController.indexIsChanging || index == _lastTrackedTab) return;
     _lastTrackedTab = index;
-    const tabNames = ['details', 'agents', 'logs'];
+    if (index == _historyTabIndex) {
+      context.read<EntryHistoryCubit>().open(_entry);
+    }
+    const tabNames = ['details', 'agents', 'logs', 'history'];
     AnalyticsService.instance.capture(
       'entry',
       'detail-tab-switched',
@@ -241,6 +252,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                     AppSpacing.listBottom,
                   ),
                 ),
+                EntryHistoryTab(entry: _entry, onUpdated: _onUpdated),
               ],
             ),
           ),
@@ -347,6 +359,7 @@ class _EntryDetailAppBar extends StatelessWidget
               Tab(text: l10n.entryTabDetails),
               Tab(text: l10n.vaultTabAgents),
               Tab(text: l10n.vaultTabLogs),
+              Tab(text: l10n.entryTabHistory),
             ],
           ),
         ),

@@ -42,6 +42,24 @@ class EntryRemoteDatasource {
     ),
   );
 
+  /// Loads one bounded page of immutable encrypted Entry versions.
+  Future<Map<String, dynamic>> getEntryHistory(
+    String vaultId,
+    String entryId, {
+    String? beforeRevision,
+    int pageSize = 20,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries/$entryId/history',
+      queryParameters: {
+        'beforeRevision': ?beforeRevision,
+        'pageSize': pageSize,
+      },
+    );
+    return response.data ??
+        (throw const FormatException('Empty Entry history response'));
+  }
+
   Future<String> issueCreationChallenge(String vaultId) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/vaults/$vaultId/entries/creation-challenges',

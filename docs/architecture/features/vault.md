@@ -116,6 +116,19 @@ type-specific(+URL / injected data) → 2FA → Additional fields → Notes.
 
 **Cross-feature deps:** `approval` (grant access sheets), `audit` (`VaultAuditLogTab` embedded in detail), `grants` (`ContextGrantsTab` in detail), `agents` (agent list in the Agents tab).
 
+### Entry version history (CVT-454)
+
+`EntryDetailPage` owns a fourth History tab backed by `EntryHistoryCubit`.
+Opening the tab is the only action that calls the bounded cursor endpoint;
+normal member sync never downloads immutable versions. Each row keeps its
+`MemberSecret` and matching historical `EntryKey` encrypted until explicitly
+selected. `EntryHistoryService` authenticates and decrypts only that row on
+device. Actor references use a `prefix…suffix` fallback when no display name
+exists. Restoring content re-reads the current canonical head and uses the
+existing optimistic atomic update, creating N+1 without modifying the source
+version. The selected plaintext and every borrowed private-key copy are wiped
+on success, error, lock/background, and disposal.
+
 **⚠ Architecture smells:**
 - `VaultListPage` builds a raw `Container(gradient) + Scaffold(transparent)` (~line 185) instead of `AppScreen.titled(...)` — the one inconsistent top-level tab.
 - `VaultDetailPage` / `EntryDetailPage` hand-roll `Container + DefaultTabController + Scaffold + AppBar` instead of `AppScreen.appBar(...)` (justified by the `PreferredSize` tab-bar height, but still skips the abstraction).

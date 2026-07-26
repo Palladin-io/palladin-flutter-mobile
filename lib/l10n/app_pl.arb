@@ -1008,5 +1008,16 @@
   "vaultMemberNetworkError": "Sprawdź połączenie i spróbuj ponownie.",
   "vaultMetadataConflict": "Ten sejf został zmieniony na innym urządzeniu. Sprawdź najnowsze wartości i spróbuj ponownie.",
   "vaultMetadataCorrupt": "Nie udało się zweryfikować zaszyfrowanych ustawień sejfu. Nie zapisano zmian.",
+  "entryTabHistory": "Historia",
+  "entryHistoryEmpty": "Brak poprzednich wersji",
+  "entryHistoryLoadError": "Nie udało się wczytać lub zweryfikować zaszyfrowanej historii.",
+  "entryHistoryVersion": "Wersja {revision}",
+  "entryHistoryActor": "{actor} · {time}",
+  "entryHistoryLoadMore": "Wczytaj starsze wersje",
+  "entryHistoryReveal": "Odszyfruj tę wersję",
+  "entryHistoryRestore": "Przywróć jako nową wersję",
+  "entryHistoryRestored": "Historyczna treść została przywrócona jako nowa aktualna wersja.",
+  "entryHistorySensitiveWarning": "Historyczne wersje mogą zawierać poprzednie hasła i nasiona TOTP.",
+  "entryHistoryLocked": "Odblokuj aplikację, aby odszyfrować tę wersję.",
   "settingsTwoFactor": "Uwierzytelnianie dwuskładnikowe"
 }

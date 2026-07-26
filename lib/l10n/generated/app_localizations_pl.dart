@@ -3424,5 +3424,46 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nie udało się zweryfikować zaszyfrowanych ustawień sejfu. Nie zapisano zmian.';
 
   @override
+  String get entryTabHistory => 'Historia';
+
+  @override
+  String get entryHistoryEmpty => 'Brak poprzednich wersji';
+
+  @override
+  String get entryHistoryLoadError =>
+      'Nie udało się wczytać lub zweryfikować zaszyfrowanej historii.';
+
+  @override
+  String entryHistoryVersion(String revision) {
+    return 'Wersja $revision';
+  }
+
+  @override
+  String entryHistoryActor(String actor, String time) {
+    return '$actor · $time';
+  }
+
+  @override
+  String get entryHistoryLoadMore => 'Wczytaj starsze wersje';
+
+  @override
+  String get entryHistoryReveal => 'Odszyfruj tę wersję';
+
+  @override
+  String get entryHistoryRestore => 'Przywróć jako nową wersję';
+
+  @override
+  String get entryHistoryRestored =>
+      'Historyczna treść została przywrócona jako nowa aktualna wersja.';
+
+  @override
+  String get entryHistorySensitiveWarning =>
+      'Historyczne wersje mogą zawierać poprzednie hasła i nasiona TOTP.';
+
+  @override
+  String get entryHistoryLocked =>
+      'Odblokuj aplikację, aby odszyfrować tę wersję.';
+
+  @override
   String get settingsTwoFactor => 'Uwierzytelnianie dwuskładnikowe';
 }
