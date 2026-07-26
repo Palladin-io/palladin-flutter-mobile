@@ -11,6 +11,7 @@ import '../../features/auth/data/services/password_auth_crypto_service.dart';
 import '../../features/unlock/data/services/identity_kdf_migration_service.dart';
 import '../../features/unlock/data/services/identity_kdf_service.dart';
 import '../../features/vault/data/services/vault_list_crypto_service.dart';
+import '../../features/vault/data/services/vault_creation_service.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/cubit/change_password_cubit.dart';
@@ -341,6 +342,15 @@ void configureDependencies(EnvConfig config) {
       envelopes: getIt<VaultProtocolEnvelopeService>(),
     ),
   );
+  getIt.registerLazySingleton<VaultCreationService>(
+    () => VaultCreationService(
+      remote: getIt<VaultRemoteDatasource>(),
+      accountRemote: getIt<AccountRemoteDatasource>(),
+      tokenStorage: getIt<SecureTokenStorage>(),
+      crypto: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+    ),
+  );
 
   // VaultListCubit is a singleton so cached vault data survives tab
   // switches. Use BlocProvider.value (never BlocProvider) to avoid
@@ -355,10 +365,7 @@ void configureDependencies(EnvConfig config) {
     () => VaultDetailCubit(repository: getIt<VaultRepository>()),
   );
   getIt.registerFactory<CreateVaultCubit>(
-    () => CreateVaultCubit(
-      repository: getIt<VaultRepository>(),
-      cryptoService: getIt<VaultCryptoService>(),
-    ),
+    () => CreateVaultCubit(creationService: getIt<VaultCreationService>()),
   );
 
   // Entry — data layer

@@ -49,6 +49,12 @@ abstract final class JwtClaims {
     return null;
   }
 
+  /// Reads the active tenant identifier used to bind Vault protocol AAD.
+  static String? organizationIdFrom(String token) {
+    final raw = decodePayload(token)['org_id'];
+    return raw is String && raw.isNotEmpty ? raw : null;
+  }
+
   /// Reads the `email_verified` claim emitted by the backend
   /// `TokenService`. Defaults to `true` when the claim is missing so an
   /// OAuth session (always verified) or a token issued before the claim

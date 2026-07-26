@@ -16,6 +16,7 @@ class AccountResponse {
     required this.salt,
     required this.encryptedPrivateKey,
     this.kdf,
+    this.memberKeyVersion,
     this.recoverySalt,
     this.encryptedPrivateKeyByRecovery,
   });
@@ -32,6 +33,7 @@ class AccountResponse {
   final String encryptedPrivateKey;
 
   final IdentityKdfMetadata? kdf;
+  final int? memberKeyVersion;
 
   /// 16-byte Argon2id salt for the recovery-mnemonic derivation.
   ///
@@ -55,6 +57,7 @@ class AccountResponse {
         final Map<String, dynamic> value => IdentityKdfMetadata.fromJson(value),
         _ => null,
       },
+      memberKeyVersion: json['memberKeyVersion'] as int?,
       recoverySalt: json['recoverySalt'] as String?,
       encryptedPrivateKeyByRecovery:
           json['encryptedPrivateKeyByRecovery'] as String?,

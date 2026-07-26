@@ -129,7 +129,9 @@ class _VaultListViewState extends State<_VaultListView> {
     );
     if (!mounted) return;
     if (created == null) return;
-    context.read<VaultListCubit>().appendVault(created);
+    final auth = context.read<AuthBloc>().state;
+    final privateKey = auth is AuthAuthenticated ? auth.privateKey : null;
+    await context.read<VaultListCubit>().loadVaults(privateKey);
     if (!mounted) return;
     context.push('/vaults/${created.id}');
   }

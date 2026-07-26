@@ -16,6 +16,23 @@ class VaultRemoteDatasource {
 
   final Dio _dio;
 
+  Future<Map<String, dynamic>> issueVaultCreationChallenge() async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/creation-challenges',
+    );
+    return response.data ?? (throw StateError('Empty Vault challenge'));
+  }
+
+  Future<Map<String, dynamic>> createEncryptedVault(
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults',
+      data: payload,
+    );
+    return response.data ?? (throw StateError('Empty Vault response'));
+  }
+
   /// Fetches one bounded page of opaque Vault v2 projections.
   Future<EncryptedVaultPage> listEncryptedVaults({
     required int offset,
