@@ -860,6 +860,10 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryDiscoverDomain => 'Pozwól agentom wykrywać domenę URL';
 
   @override
+  String get entryScriptVisibilityPolicy =>
+      'Widoczność dla agentów: interpreter jest wykrywalny. Treść skryptu i wskazane sekrety są dostępne wyłącznie podczas zatwierdzonego uruchomienia i nigdy nie trafiają do Discovery.';
+
+  @override
   String get entrySearchHint => 'Szukaj wpisów…';
 
   @override

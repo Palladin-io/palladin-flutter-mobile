@@ -989,6 +989,7 @@
   "entryCredentialVisibilityPolicy": "Agent visibility: username and URL domain can be discoverable. Password, notes and full URL require a grant; TOTP is derived-only and never disclosed as a seed.",
   "entryDiscoverUsername": "Let agents discover the username",
   "entryDiscoverDomain": "Let agents discover the URL domain",
+  "entryScriptVisibilityPolicy": "Agent visibility: interpreter is discoverable. Script body and referenced secrets are available only at approved runtime and are never included in Discovery.",
   "entrySearchHint": "Search entries…",
   "@entrySearchHint": {
     "description": "Placeholder for the search input on the Entries tab"

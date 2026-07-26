@@ -81,6 +81,15 @@ class CreateEntryCubit extends Cubit<CreateEntryState> {
               exposeUsername: exposeUsername,
               exposeDomain: exposeDomain,
             )
+          : type == EntryType.script && keyCreationService != null
+          ? await keyCreationService!.createScript(
+              vaultId: vaultId,
+              label: label.trim(),
+              description: _trimToNull(description) ?? '',
+              icon: _trimToNull(icon) ?? '',
+              content: payload,
+              memberPrivateKey: privateKey,
+            )
           : await repository.createEntryEncrypted(
               vaultId: vaultId,
               label: label.trim(),

@@ -243,4 +243,76 @@ void main() {
       verifyNever(() => entries.issueCreationChallenge(vaultId));
     },
   );
+
+  test('Script body and references remain runtime-only', () async {
+    final service = KeyEntryCreationService(
+      entries: entries,
+      vaults: vaults,
+      keys: keys,
+      envelopes: envelopes,
+      randomEntryKey: () async => generatedDek,
+    );
+    await service.createScript(
+      vaultId: vaultId,
+      label: 'Deploy',
+      description: '',
+      icon: 'terminal',
+      content: {
+        'v': 2,
+        'type': 'SCRIPT',
+        'script': 'curl -H secret',
+        'interpreter': 'bash',
+        'refs': [
+          {
+            'env': 'API_KEY',
+            'vaultId': vaultId,
+            'entryId': entryId,
+            'field': 'value',
+          },
+        ],
+      },
+      memberPrivateKey: Uint8List(32),
+    );
+    final discovery = openedPlaintexts[VaultAadProfile.agentDiscovery]!;
+    final secret = openedPlaintexts[VaultAadProfile.memberSecret]!;
+    expect(discovery, contains('bash'));
+    expect(discovery, isNot(contains('curl -H secret')));
+    expect(discovery, isNot(contains('API_KEY')));
+    expect(secret, contains('"script":"onGrantRuntime"'));
+    expect(secret, contains('"refs":"onGrantRuntime"'));
+  });
+
+  test('Script invalid scope fails closed before challenge issuance', () async {
+    final service = KeyEntryCreationService(
+      entries: entries,
+      vaults: vaults,
+      keys: keys,
+      envelopes: envelopes,
+      randomEntryKey: () async => generatedDek,
+    );
+    await expectLater(
+      service.createScript(
+        vaultId: vaultId,
+        label: 'Bad',
+        description: '',
+        icon: '',
+        content: {
+          'type': 'SCRIPT',
+          'script': 'echo x',
+          'interpreter': 'bash',
+          'refs': [
+            {
+              'env': 'TOKEN',
+              'vaultId': 'other-vault',
+              'entryId': entryId,
+              'field': 'value',
+            },
+          ],
+        },
+        memberPrivateKey: Uint8List(32),
+      ),
+      throwsFormatException,
+    );
+    verifyNever(() => entries.issueCreationChallenge(vaultId));
+  });
 }

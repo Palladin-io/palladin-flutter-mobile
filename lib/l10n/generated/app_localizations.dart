@@ -1460,6 +1460,12 @@ abstract class AppLocalizations {
   /// **'Let agents discover the URL domain'**
   String get entryDiscoverDomain;
 
+  /// No description provided for @entryScriptVisibilityPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent visibility: interpreter is discoverable. Script body and referenced secrets are available only at approved runtime and are never included in Discovery.'**
+  String get entryScriptVisibilityPolicy;
+
   /// Placeholder for the search input on the Entries tab
   ///
   /// In en, this message translates to:

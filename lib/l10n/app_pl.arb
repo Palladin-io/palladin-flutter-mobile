@@ -227,6 +227,7 @@
   "entryCredentialVisibilityPolicy": "Widoczność dla agentów: nazwa użytkownika i domena URL mogą być wykrywalne. Hasło, notatki i pełny URL wymagają grantu; TOTP jest wyłącznie wyliczany, a seed nigdy nie jest ujawniany.",
   "entryDiscoverUsername": "Pozwól agentom wykrywać nazwę użytkownika",
   "entryDiscoverDomain": "Pozwól agentom wykrywać domenę URL",
+  "entryScriptVisibilityPolicy": "Widoczność dla agentów: interpreter jest wykrywalny. Treść skryptu i wskazane sekrety są dostępne wyłącznie podczas zatwierdzonego uruchomienia i nigdy nie trafiają do Discovery.",
   "entrySearchHint": "Szukaj wpisów…",
   "entryEmpty": "Brak wpisów",
   "entryEmptyAdd": "Dodaj pierwsze dane, aby zacząć.",

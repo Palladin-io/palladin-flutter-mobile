@@ -78,6 +78,25 @@ final class KeyEntryCreationService {
     exposeDomain: exposeDomain,
   );
 
+  Future<EntryEntity> createScript({
+    required String vaultId,
+    required String label,
+    required String description,
+    required String icon,
+    required Map<String, dynamic> content,
+    required Uint8List memberPrivateKey,
+  }) => _create(
+    vaultId: vaultId,
+    label: label,
+    description: description,
+    icon: icon,
+    content: content,
+    memberPrivateKey: memberPrivateKey,
+    type: EntryType.script,
+    exposeUsername: false,
+    exposeDomain: false,
+  );
+
   Future<EntryEntity> _create({
     required String vaultId,
     required String label,
@@ -89,7 +108,7 @@ final class KeyEntryCreationService {
     required bool exposeUsername,
     required bool exposeDomain,
   }) async {
-    _validateContent(type, content);
+    _validateContent(type, content, vaultId);
     final vault = await _vaults.getEncryptedVault(vaultId);
     final entryId = await _entries.issueCreationChallenge(vaultId);
     final organizationId = vault['organizationId'] as String;
@@ -147,6 +166,11 @@ final class KeyEntryCreationService {
           'password': 'onGrantValue',
           'totp': 'onGrantDerived',
         },
+        if (type == EntryType.script) ...{
+          'interpreter': 'discovery',
+          'script': 'onGrantRuntime',
+          'refs': 'onGrantRuntime',
+        },
       };
       final policy = <String, dynamic>{
         'discoverable': true,
@@ -171,6 +195,9 @@ final class KeyEntryCreationService {
         final url = content['url'];
         final host = url is String ? _domain(url) : null;
         if (exposeDomain && host != null) discoveryFields['urlDomain'] = host;
+      }
+      if (type == EntryType.script) {
+        discoveryFields['interpreter'] = content['interpreter'] as String;
       }
       final discovery = <String, dynamic>{
         'schemaVersion': 1,
@@ -324,7 +351,11 @@ final class KeyEntryCreationService {
     }
   }
 
-  void _validateContent(EntryType type, Map<String, dynamic> content) {
+  void _validateContent(
+    EntryType type,
+    Map<String, dynamic> content,
+    String vaultId,
+  ) {
     final acceptedType = switch (type) {
       EntryType.key => const {0, 'KEY'},
       EntryType.credential => const {1, 'CREDENTIAL'},
@@ -336,6 +367,29 @@ final class KeyEntryCreationService {
     if (type == EntryType.credential &&
         (content['username'] is! String || content['password'] is! String)) {
       throw const FormatException('Malformed Credential content');
+    }
+    if (type == EntryType.script) {
+      if (content['script'] is! String ||
+          (content['script'] as String).trim().isEmpty ||
+          content['interpreter'] is! String ||
+          content['refs'] is! List) {
+        throw const FormatException('Malformed Script content');
+      }
+      final environments = <String>{};
+      for (final value in content['refs'] as List) {
+        if (value is! Map ||
+            value['env'] is! String ||
+            value['entryId'] is! String ||
+            value['field'] is! String ||
+            (value['vaultId'] != null && value['vaultId'] != vaultId)) {
+          throw const FormatException('Invalid Script reference scope');
+        }
+        final env = value['env'] as String;
+        if (!RegExp(r'^[A-Z_][A-Z0-9_]*$').hasMatch(env) ||
+            !environments.add(env)) {
+          throw const FormatException('Invalid Script reference');
+        }
+      }
     }
     final fields = content['fields'];
     if (fields is List) {

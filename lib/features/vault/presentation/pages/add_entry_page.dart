@@ -125,6 +125,11 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
   @override
   void dispose() {
+    _valueController.clear();
+    _usernameController.clear();
+    _passwordController.clear();
+    _notesController.clear();
+    _scriptController.clear();
     _labelController.dispose();
     _descriptionController.dispose();
     _valueController.dispose();
@@ -571,6 +576,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       ? l10n.entryKeyVisibilityPolicy
                       : _type == EntryType.credential
                       ? l10n.entryCredentialVisibilityPolicy
+                      : _type == EntryType.script
+                      ? l10n.entryScriptVisibilityPolicy
                       : l10n.entryEncryptionNotice,
                 ),
                 if (_type == EntryType.credential) ...[

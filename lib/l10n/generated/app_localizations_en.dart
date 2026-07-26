@@ -843,6 +843,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryDiscoverDomain => 'Let agents discover the URL domain';
 
   @override
+  String get entryScriptVisibilityPolicy =>
+      'Agent visibility: interpreter is discoverable. Script body and referenced secrets are available only at approved runtime and are never included in Discovery.';
+
+  @override
   String get entrySearchHint => 'Search entries…';
 
   @override
