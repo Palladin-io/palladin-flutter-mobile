@@ -3267,5 +3267,32 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nie udało się zweryfikować zaszyfrowanych metadanych';
 
   @override
+  String get vaultDiscoveryTitle => 'Wykrywanie agentów';
+
+  @override
+  String get vaultDiscoveryAccessDisclaimer =>
+      'Członkostwo w organizacji nie daje dostępu do sekretów. Dostęp zapewnia wyłącznie aktywne uprawnienie o określonym zakresie.';
+
+  @override
+  String get vaultDiscoveryNoActiveAgents =>
+      'Żaden aktywny agent organizacji nie wymaga provisioningu Discovery.';
+
+  @override
+  String get vaultDiscoveryCurrent => 'Aktualny';
+
+  @override
+  String get vaultDiscoveryPending => 'Oczekujący / nieaktualny';
+
+  @override
+  String vaultDiscoveryVdkVersion(int version) {
+    return 'Aktualna wersja klucza Discovery: v$version';
+  }
+
+  @override
+  String vaultDiscoveryKeyVersion(int version) {
+    return 'Klucz odbiorcy v$version';
+  }
+
+  @override
   String get settingsTwoFactor => 'Uwierzytelnianie dwuskładnikowe';
 }

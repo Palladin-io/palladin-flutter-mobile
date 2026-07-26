@@ -3147,6 +3147,15 @@
   "entryArchivedRecoverability": "Archived · can be restored",
   "entryDeletedRecoverability": "Recently deleted · recoverable during retention",
   "entryCorruptProjection": "Encrypted metadata could not be verified",
+  "vaultDiscoveryTitle": "Agent Discovery",
+  "vaultDiscoveryAccessDisclaimer": "Organization membership does not grant secret access. Only an active scoped grant authorizes retrieval.",
+  "vaultDiscoveryNoActiveAgents": "No active organization agents require Discovery provisioning.",
+  "vaultDiscoveryCurrent": "Current",
+  "vaultDiscoveryPending": "Pending / stale",
+  "vaultDiscoveryVdkVersion": "Current Discovery key version: v{version}",
+  "@vaultDiscoveryVdkVersion": { "placeholders": { "version": { "type": "int" } } },
+  "vaultDiscoveryKeyVersion": "Recipient key v{version}",
+  "@vaultDiscoveryKeyVersion": { "placeholders": { "version": { "type": "int" } } },
   "settingsTwoFactor": "Two-factor authentication",
   "@settingsTwoFactor": { "description": "Settings drawer item — set up TOTP two-factor auth" }
 }

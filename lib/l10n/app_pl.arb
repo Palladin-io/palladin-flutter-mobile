@@ -964,5 +964,12 @@
   "entryArchivedRecoverability": "Zarchiwizowany · można przywrócić",
   "entryDeletedRecoverability": "Ostatnio usunięty · możliwy do odzyskania w okresie retencji",
   "entryCorruptProjection": "Nie udało się zweryfikować zaszyfrowanych metadanych",
+  "vaultDiscoveryTitle": "Wykrywanie agentów",
+  "vaultDiscoveryAccessDisclaimer": "Członkostwo w organizacji nie daje dostępu do sekretów. Dostęp zapewnia wyłącznie aktywne uprawnienie o określonym zakresie.",
+  "vaultDiscoveryNoActiveAgents": "Żaden aktywny agent organizacji nie wymaga provisioningu Discovery.",
+  "vaultDiscoveryCurrent": "Aktualny",
+  "vaultDiscoveryPending": "Oczekujący / nieaktualny",
+  "vaultDiscoveryVdkVersion": "Aktualna wersja klucza Discovery: v{version}",
+  "vaultDiscoveryKeyVersion": "Klucz odbiorcy v{version}",
   "settingsTwoFactor": "Uwierzytelnianie dwuskładnikowe"
 }

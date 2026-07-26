@@ -3233,5 +3233,32 @@ class AppLocalizationsEn extends AppLocalizations {
       'Encrypted metadata could not be verified';
 
   @override
+  String get vaultDiscoveryTitle => 'Agent Discovery';
+
+  @override
+  String get vaultDiscoveryAccessDisclaimer =>
+      'Organization membership does not grant secret access. Only an active scoped grant authorizes retrieval.';
+
+  @override
+  String get vaultDiscoveryNoActiveAgents =>
+      'No active organization agents require Discovery provisioning.';
+
+  @override
+  String get vaultDiscoveryCurrent => 'Current';
+
+  @override
+  String get vaultDiscoveryPending => 'Pending / stale';
+
+  @override
+  String vaultDiscoveryVdkVersion(int version) {
+    return 'Current Discovery key version: v$version';
+  }
+
+  @override
+  String vaultDiscoveryKeyVersion(int version) {
+    return 'Recipient key v$version';
+  }
+
+  @override
   String get settingsTwoFactor => 'Two-factor authentication';
 }

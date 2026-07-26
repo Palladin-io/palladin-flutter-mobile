@@ -5732,6 +5732,48 @@ abstract class AppLocalizations {
   /// **'Encrypted metadata could not be verified'**
   String get entryCorruptProjection;
 
+  /// No description provided for @vaultDiscoveryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent Discovery'**
+  String get vaultDiscoveryTitle;
+
+  /// No description provided for @vaultDiscoveryAccessDisclaimer.
+  ///
+  /// In en, this message translates to:
+  /// **'Organization membership does not grant secret access. Only an active scoped grant authorizes retrieval.'**
+  String get vaultDiscoveryAccessDisclaimer;
+
+  /// No description provided for @vaultDiscoveryNoActiveAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'No active organization agents require Discovery provisioning.'**
+  String get vaultDiscoveryNoActiveAgents;
+
+  /// No description provided for @vaultDiscoveryCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Current'**
+  String get vaultDiscoveryCurrent;
+
+  /// No description provided for @vaultDiscoveryPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending / stale'**
+  String get vaultDiscoveryPending;
+
+  /// No description provided for @vaultDiscoveryVdkVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Discovery key version: v{version}'**
+  String vaultDiscoveryVdkVersion(int version);
+
+  /// No description provided for @vaultDiscoveryKeyVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Recipient key v{version}'**
+  String vaultDiscoveryKeyVersion(int version);
+
   /// Settings drawer item — set up TOTP two-factor auth
   ///
   /// In en, this message translates to:

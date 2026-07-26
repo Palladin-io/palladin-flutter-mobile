@@ -82,6 +82,7 @@ import '../../features/vault/data/datasources/entry_remote_datasource.dart';
 import '../../features/vault/data/datasources/member_sync_remote_datasource.dart';
 import '../../features/vault/data/datasources/vault_rotation_remote_datasource.dart';
 import '../../features/vault/data/datasources/vault_remote_datasource.dart';
+import '../../features/vault/data/datasources/agent_discovery_remote_datasource.dart';
 import '../../features/vault/data/repositories/entry_repository_impl.dart';
 import '../../features/vault/data/repositories/vault_repository_impl.dart';
 import '../../features/vault/data/export/export_sharer.dart';
@@ -100,6 +101,7 @@ import '../../features/vault/presentation/cubit/create_entry_cubit.dart';
 import '../../features/vault/presentation/cubit/create_vault_cubit.dart';
 import '../../features/vault/presentation/cubit/edit_entry_cubit.dart';
 import '../../features/vault/presentation/cubit/entry_list_cubit.dart';
+import '../../features/vault/presentation/cubit/agent_discovery_cubit.dart';
 import '../../features/vault/presentation/cubit/export_cubit.dart';
 import '../../features/vault/presentation/cubit/import_wizard_cubit.dart';
 import '../../features/vault/presentation/cubit/vault_detail_cubit.dart';
@@ -302,6 +304,9 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<VaultRemoteDatasource>(
     () => VaultRemoteDatasource(getIt<Dio>()),
   );
+  getIt.registerLazySingleton<AgentDiscoveryRemoteDatasource>(
+    () => AgentDiscoveryRemoteDatasource(getIt<Dio>()),
+  );
   getIt.registerLazySingleton<MemberSyncRemoteDatasource>(
     () => MemberSyncRemoteDatasource(getIt<Dio>()),
   );
@@ -418,6 +423,9 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerFactory<CreateEntryCubit>(
     () => CreateEntryCubit(repository: getIt<EntryRepository>()),
+  );
+  getIt.registerFactory<AgentDiscoveryCubit>(
+    () => AgentDiscoveryCubit(getIt<AgentDiscoveryRemoteDatasource>()),
   );
   getIt.registerFactory<EditEntryCubit>(
     () => EditEntryCubit(repository: getIt<EntryRepository>()),

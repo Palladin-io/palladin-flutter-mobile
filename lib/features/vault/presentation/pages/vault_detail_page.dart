@@ -20,10 +20,10 @@ import '../../domain/exceptions/vault_exceptions.dart';
 import '../cubit/entry_list_cubit.dart';
 import '../cubit/vault_detail_cubit.dart';
 import '../widgets/vault_entries_tab.dart';
+import '../widgets/vault_agents_tab.dart';
 import '../widgets/vault_form.dart';
 import '../../../approval/presentation/widgets/grant_access_sheet.dart';
 import '../../../audit/presentation/widgets/vault_audit_log_tab.dart';
-import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../widgets/export_sheet.dart';
 import '../widgets/vault_placeholder_tab.dart';
 import '../widgets/vault_settings_tab.dart';
@@ -613,7 +613,7 @@ class _LoadedBody extends StatelessWidget {
         children: [
           // Entries are sourced from `EntryListCubit` provided above.
           const VaultEntriesTab(),
-          _VaultAgentsTab(key: ValueKey(grantsRefresh), vaultId: vault.id),
+          VaultAgentsTab(key: ValueKey(grantsRefresh), vaultId: vault.id),
           // Logs tab (CVT-121) — vault-scoped audit feed. Horizontal padding
           // and the tab-bar → content gap are owned by the TabBarView wrapper.
           VaultAuditLogTab(
@@ -655,26 +655,6 @@ class _PlaceholderTabBuilder extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return VaultPlaceholderTab(icon: icon, message: messageKey(l10n));
-  }
-}
-
-/// Agents tab — the vault's grants list (filtered by vaultId), mirroring the web Vault→Agents tab.
-/// Horizontal padding is zeroed because the parent TabBarView is already padded.
-class _VaultAgentsTab extends StatelessWidget {
-  const _VaultAgentsTab({super.key, required this.vaultId});
-
-  final String vaultId;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return ContextGrantsTab(
-      vaultId: vaultId,
-      emptyTitle: l10n.vaultAgentsEmptyTitle,
-      emptyHint: l10n.vaultAgentsEmptyHint,
-      // Tab bar → content gap (fieldGap) is owned by the TabBarView wrapper.
-      contentPadding: const EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.listBottom),
-    );
   }
 }
 
