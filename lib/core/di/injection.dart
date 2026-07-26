@@ -485,6 +485,7 @@ void configureDependencies(EnvConfig config) {
       vaultRepository: getIt<VaultRepository>(),
       entryRepository: getIt<EntryRepository>(),
       bridge: getIt<AutoFillCacheBridge>(),
+      memberIndex: getIt<MemberSyncService>(),
     ),
   );
   getIt.registerLazySingleton<AutoFillCacheInvalidator>(

@@ -149,6 +149,7 @@ class CanonicalImportProjectionService {
             if (content['username'] is String) content['username'],
             if (content['url'] is String) content['url'],
           ],
+          if (content['url'] is String) 'autofillDomains': [content['url']],
         };
         const policy = <String, dynamic>{
           'discoverable': true,

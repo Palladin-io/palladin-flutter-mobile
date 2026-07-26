@@ -608,6 +608,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           if (type == EntryType.credential && content['url'] is String)
             content['url'],
         ],
+        if (type == EntryType.credential && content['url'] is String)
+          'autofillDomains': [content['url']],
         if (icon.isNotEmpty) 'iconReference': icon,
       };
       final discovery = AgentVisibilityProjector.discovery(
@@ -955,6 +957,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         'memberLabel': archived.memberLabel,
         'entryType': archived.entryType,
         'searchFields': List<String>.from(archived.searchFields),
+        if (archived.autofillDomains.isNotEmpty)
+          'autofillDomains': List<String>.from(archived.autofillDomains),
         'iconReference': ?archived.iconReference,
       };
       final common = <String, Object?>{

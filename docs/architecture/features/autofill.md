@@ -5,8 +5,10 @@ Linear: CVT-276
 ## Current state
 
 - Flutter rebuilds a dedicated native cache after vault unlock and after vault
-  or entry mutations. Only credential entries with a normalized web domain are
-  included. Logout and account removal clear the cache and its platform key.
+  or entry mutations. Vault v2 credentials are eligible only when the current
+  MemberIndex explicitly authorizes one or more exact AutoFill domains and its
+  revision matches the revealed member ciphertext. Logout and account removal
+  clear the cache and its platform key.
 - iOS embeds a signed `ASCredentialProviderExtension`, publishes credential
   identities to `ASCredentialIdentityStore`, and releases credentials only
   after Keychain biometric authorization.
@@ -36,11 +38,21 @@ Linear: CVT-276
 6. Plaintext exists only after successful provider authentication and only long
    enough to build the OS credential response. Temporary byte buffers are
    wiped where platform APIs expose mutable storage.
+7. Domain policy is exact-host only. HTTP(S) URLs may be projected to their
+   ASCII host, but userinfo, explicit ports, wildcards, Unicode/confusable
+   hosts, malformed labels, parent-domain inference, and `www` equivalence are
+   rejected. There is no eTLD, subdomain, or suffix matching.
+8. Cache records are bounded to 2,000 records and 16 domains per record; native
+   readers reject cache files over 16 MiB. Each authenticated record contains
+   only its id, display label, username, password, and authorized exact hosts.
 
 ## Cache lifecycle
 
 1. Unlock synchronizes eligible credentials from server ciphertext using the
-   in-memory private key already held by `AuthBloc`.
+   in-memory private key already held by `AuthBloc`. The cache builder reads the
+   local MemberIndex first, ignores corrupt/archived/deleted entries, and
+   rejects stale revealed revisions. Legacy entries without an explicit
+   `autofillDomains` MemberIndex policy remain unavailable until re-projected.
 2. Create, update, delete, vault create, and vault delete clear the old cache
    before rebuilding it. Multi-step import invalidates after its first
    successful write and rebuilds only after all completed writes are visible.
@@ -61,9 +73,9 @@ Linear: CVT-276
    native cache-session token. Best-effort OS identity cleanup follows. A critical
    revocation failure aborts logout before local auth tokens are removed instead
    of reporting an unsafe successful session transition.
-5. A biometric-set change invalidates the platform key. A failed read clears
-   the unusable Android cache; iOS remains unavailable until the next unlocked
-   synchronization replaces its cache and key.
+5. A biometric-set change invalidates the platform key. Any failed native read
+   clears the unusable cache (and iOS credential identities); the next unlocked
+   synchronization creates a fresh dedicated key and cache.
 
 ## Required device QA
 
@@ -73,6 +85,10 @@ Linear: CVT-276
   stale-cache mutation test, logout wipe, biometric enrollment change.
 - Native Android application forms return datasets only for exact hosts backed
   by an OS-verified App Link on Android 12+; unverified packages return none.
+- Automated Flutter/native tests and simulator builds do not replace physical
+  device QA. Record Chrome/Safari background and locked-app behavior,
+  biometric-set changes, corrupt-cache recovery, and Vault v2 delta refresh on
+  real Android and iOS devices before release sign-off.
 
 ## Native files
 

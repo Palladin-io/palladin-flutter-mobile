@@ -344,11 +344,13 @@ final class MemberSyncService implements MemberIndexReader {
       'iconReference',
       'memberLabel',
       'searchFields',
+      'autofillDomains',
     };
     if (json.keys.any((key) => !allowed.contains(key)) ||
         json['entryType'] is! int ||
         json['memberLabel'] is! String ||
         json['searchFields'] is! List ||
+        (json['autofillDomains'] != null && json['autofillDomains'] is! List) ||
         (json['iconReference'] != null && json['iconReference'] is! String)) {
       throw const FormatException('Malformed Member index payload');
     }
@@ -361,9 +363,19 @@ final class MemberSyncService implements MemberIndexReader {
           return value;
         })
         .toList(growable: false);
+    final autofillDomains = (json['autofillDomains'] as List? ?? const [])
+        .map((value) {
+          if (value is! String) {
+            throw const FormatException('AutoFill domain must be a string');
+          }
+          return value;
+        })
+        .toList(growable: false);
     if (label.length > 512 ||
         fields.length > 64 ||
-        fields.any((field) => field.length > 512)) {
+        fields.any((field) => field.length > 512) ||
+        autofillDomains.length > 16 ||
+        autofillDomains.any((domain) => domain.length > 2048)) {
       throw const FormatException('Member index exceeds local limits');
     }
     return MemberIndexEntry(
@@ -373,6 +385,7 @@ final class MemberSyncService implements MemberIndexReader {
       searchFields: fields,
       revision: item.memberIndexRevision!,
       state: _state(item.state),
+      autofillDomains: autofillDomains,
       iconReference: json['iconReference'] as String?,
     );
   }

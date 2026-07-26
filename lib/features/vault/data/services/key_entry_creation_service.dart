@@ -152,6 +152,8 @@ final class KeyEntryCreationService {
           if (type == EntryType.credential && content['url'] is String)
             content['url'],
         ],
+        if (type == EntryType.credential && content['url'] is String)
+          'autofillDomains': [content['url']],
         if (icon.isNotEmpty) 'iconReference': icon,
       };
       final policyFields = <String, String>{

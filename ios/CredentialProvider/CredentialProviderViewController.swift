@@ -109,13 +109,11 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
                     )
                 )
                 DispatchQueue.main.async { completion(records) }
-            } catch AutoFillCacheError.keychain(let status) where status == errSecItemNotFound {
+            } catch {
                 if let store = try? AutoFillCacheStore() {
                     try? store.clear()
                     AutoFillCacheStore.clearIdentities { _ in }
                 }
-                DispatchQueue.main.async { [weak self] in self?.showUnavailableMessage() }
-            } catch {
                 DispatchQueue.main.async { [weak self] in self?.showUnavailableMessage() }
             }
         }

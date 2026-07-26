@@ -9,6 +9,7 @@ final class MemberIndexEntry {
     required this.searchFields,
     required this.revision,
     required this.state,
+    this.autofillDomains = const [],
     this.iconReference,
     this.corrupt = false,
   });
@@ -19,6 +20,9 @@ final class MemberIndexEntry {
   final List<String> searchFields;
   final String revision;
   final MemberEntryState state;
+
+  /// Member-authorized origins eligible for exact-host system AutoFill.
+  final List<String> autofillDomains;
   final String? iconReference;
   final bool corrupt;
 }
