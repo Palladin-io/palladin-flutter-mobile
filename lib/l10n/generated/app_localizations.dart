@@ -5870,6 +5870,72 @@ abstract class AppLocalizations {
   /// **'Encrypted metadata could not be verified'**
   String get entryCorruptProjection;
 
+  /// No description provided for @entryArchiveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive'**
+  String get entryArchiveTitle;
+
+  /// No description provided for @entryArchiveSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Items kept outside your active vault'**
+  String get entryArchiveSubtitle;
+
+  /// No description provided for @entryArchiveSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search archived items'**
+  String get entryArchiveSearchHint;
+
+  /// No description provided for @entryArchiveEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No archived items'**
+  String get entryArchiveEmpty;
+
+  /// No description provided for @entryArchiveRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Unarchive'**
+  String get entryArchiveRestore;
+
+  /// No description provided for @entryArchiveRestoring.
+  ///
+  /// In en, this message translates to:
+  /// **'Restoring…'**
+  String get entryArchiveRestoring;
+
+  /// No description provided for @entryArchiveConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'This item changed on another device. Sync and try again.'**
+  String get entryArchiveConflict;
+
+  /// No description provided for @entryArchiveAllTypes.
+  ///
+  /// In en, this message translates to:
+  /// **'All types'**
+  String get entryArchiveAllTypes;
+
+  /// No description provided for @entryArchiveSortAscending.
+  ///
+  /// In en, this message translates to:
+  /// **'A–Z'**
+  String get entryArchiveSortAscending;
+
+  /// No description provided for @entryArchiveSortDescending.
+  ///
+  /// In en, this message translates to:
+  /// **'Z–A'**
+  String get entryArchiveSortDescending;
+
+  /// No description provided for @entryArchiveSortType.
+  ///
+  /// In en, this message translates to:
+  /// **'By type'**
+  String get entryArchiveSortType;
+
   /// No description provided for @vaultDiscoveryTitle.
   ///
   /// In en, this message translates to:

@@ -133,6 +133,24 @@ existing optimistic atomic update, creating N+1 without modifying the source
 version. The selected plaintext and every borrowed private-key copy are wiped
 on success, error, lock/background, and disposal.
 
+### Dedicated Entry Archive (CVT-456)
+
+The Entries tab is Active-only and links to a dedicated Archive page. Archive
+rows come exclusively from the decrypted, unlocked `MemberIndex` where
+`state == Archived`; `Deleted` remains a separate Recently Deleted concern.
+Search, type filters and deterministic sorting run only over the bounded
+runtime index. No label, search term or other decrypted field is sent to the
+backend, persisted, logged or tracked.
+
+Unarchive prepares one canonical `Restored` transition with the next
+`MemberSecret`, `MemberIndex` and `AgentDiscovery` revisions. An ambiguous
+transport retry reuses the byte-identical prepared envelope and `409` remains
+an explicit optimistic conflict. The UI keeps the authoritative Archived row
+until the subsequent Member delta reports the Active head; it never invents a
+permanent local head. Lock/session loss clears the view, corrupt rows fail
+closed, and lazy list rendering remains bounded by the 20,000-entry runtime
+index limit.
+
 **⚠ Architecture smells:**
 - `VaultListPage` builds a raw `Container(gradient) + Scaffold(transparent)` (~line 185) instead of `AppScreen.titled(...)` — the one inconsistent top-level tab.
 - `VaultDetailPage` / `EntryDetailPage` hand-roll `Container + DefaultTabController + Scaffold + AppBar` instead of `AppScreen.appBar(...)` (justified by the `PreferredSize` tab-bar height, but still skips the abstraction).

@@ -3310,6 +3310,40 @@ class AppLocalizationsEn extends AppLocalizations {
       'Encrypted metadata could not be verified';
 
   @override
+  String get entryArchiveTitle => 'Archive';
+
+  @override
+  String get entryArchiveSubtitle => 'Items kept outside your active vault';
+
+  @override
+  String get entryArchiveSearchHint => 'Search archived items';
+
+  @override
+  String get entryArchiveEmpty => 'No archived items';
+
+  @override
+  String get entryArchiveRestore => 'Unarchive';
+
+  @override
+  String get entryArchiveRestoring => 'Restoring…';
+
+  @override
+  String get entryArchiveConflict =>
+      'This item changed on another device. Sync and try again.';
+
+  @override
+  String get entryArchiveAllTypes => 'All types';
+
+  @override
+  String get entryArchiveSortAscending => 'A–Z';
+
+  @override
+  String get entryArchiveSortDescending => 'Z–A';
+
+  @override
+  String get entryArchiveSortType => 'By type';
+
+  @override
   String get vaultDiscoveryTitle => 'Agent Discovery';
 
   @override

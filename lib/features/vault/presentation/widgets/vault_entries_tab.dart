@@ -14,6 +14,7 @@ import '../../domain/entities/member_index_entry.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../cubit/entry_list_cubit.dart';
 import '../pages/entry_detail_page.dart';
+import '../pages/entry_archive_page.dart';
 import 'entry_field_row.dart';
 import 'vault_visuals.dart';
 
@@ -29,7 +30,11 @@ import 'vault_visuals.dart';
 /// on-device and stashed on the cubit's state until the user collapses
 /// the panel.
 class VaultEntriesTab extends StatefulWidget {
-  const VaultEntriesTab({super.key});
+  const VaultEntriesTab({super.key, this.openArchive});
+
+  /// Test seam for the pushed Archive route. Production uses
+  /// [EntryArchivePage.push].
+  final Future<void> Function(BuildContext context)? openArchive;
 
   @override
   State<VaultEntriesTab> createState() => _VaultEntriesTabState();
@@ -39,8 +44,6 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _expanded = <String>{};
   final Set<String> _revealedFields = <String>{}; // composite "$entryId:$field"
-  MemberEntryState _lifecycle = MemberEntryState.active;
-  bool _filtersVisible = false;
 
   @override
   void dispose() {
@@ -51,7 +54,7 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
   List<EntryEntity> _filter(List<EntryEntity> entries) {
     final query = _searchController.text.trim().toLowerCase();
     return entries
-        .where((e) => e.lifecycleState == _lifecycle)
+        .where((e) => e.lifecycleState == MemberEntryState.active)
         .where(
           (e) =>
               query.isEmpty ||
@@ -71,6 +74,19 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
         .read<EntryListCubit>()
         .loadIndexedEntries(keyCopy)
         .whenComplete(() => keyCopy.fillRange(0, keyCopy.length, 0));
+  }
+
+  Future<void> _openArchive() async {
+    final open = widget.openArchive;
+    if (open != null) {
+      await open(context);
+    } else {
+      await EntryArchivePage.push(
+        context,
+        context.read<EntryListCubit>().vaultId,
+      );
+    }
+    if (mounted) _retrySync();
   }
 
   void _onToggleReveal(EntryEntity entry) {
@@ -229,41 +245,25 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.fieldGap),
-                child: AppSearchField(
-                  controller: _searchController,
-                  hint: l10n.entrySearchHint,
-                  onChanged: (_) => setState(() {}),
-                  filterActive: _filtersVisible,
-                  onToggleFilter: () =>
-                      setState(() => _filtersVisible = !_filtersVisible),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: AppSearchField(
+                        controller: _searchController,
+                        hint: l10n.entrySearchHint,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.innerGap),
+                    IconButton(
+                      tooltip: l10n.entryArchiveTitle,
+                      onPressed: _openArchive,
+                      icon: const Icon(Icons.archive_outlined),
+                    ),
+                  ],
                 ),
               ),
             ),
-            if (_filtersVisible)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.fieldGap),
-                  child: Wrap(
-                    spacing: AppSpacing.chipGap,
-                    children: MemberEntryState.values
-                        .map(
-                          (value) => ChoiceChip(
-                            selected: _lifecycle == value,
-                            label: Text(switch (value) {
-                              MemberEntryState.active => l10n.entryStateActive,
-                              MemberEntryState.archived =>
-                                l10n.entryStateArchived,
-                              MemberEntryState.deleted =>
-                                l10n.entryStateDeleted,
-                            }),
-                            onSelected: (_) =>
-                                setState(() => _lifecycle = value),
-                          ),
-                        )
-                        .toList(growable: false),
-                  ),
-                ),
-              ),
             ...switch (state) {
               EntryListInitial() ||
               EntryListLoading() => const [_LoadingSliver()],

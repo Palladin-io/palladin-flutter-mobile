@@ -3346,6 +3346,40 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nie udało się zweryfikować zaszyfrowanych metadanych';
 
   @override
+  String get entryArchiveTitle => 'Archiwum';
+
+  @override
+  String get entryArchiveSubtitle => 'Wpisy poza aktywnym sejfem';
+
+  @override
+  String get entryArchiveSearchHint => 'Szukaj w archiwum';
+
+  @override
+  String get entryArchiveEmpty => 'Brak zarchiwizowanych wpisów';
+
+  @override
+  String get entryArchiveRestore => 'Przywróć';
+
+  @override
+  String get entryArchiveRestoring => 'Przywracanie…';
+
+  @override
+  String get entryArchiveConflict =>
+      'Ten wpis zmienił się na innym urządzeniu. Zsynchronizuj i spróbuj ponownie.';
+
+  @override
+  String get entryArchiveAllTypes => 'Wszystkie typy';
+
+  @override
+  String get entryArchiveSortAscending => 'A–Z';
+
+  @override
+  String get entryArchiveSortDescending => 'Z–A';
+
+  @override
+  String get entryArchiveSortType => 'Według typu';
+
+  @override
   String get vaultDiscoveryTitle => 'Wykrywanie agentów';
 
   @override

@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/agent_visibility_policy.dart';
+import '../../domain/entities/member_index_entry.dart';
 import '../../../grants/data/datasources/grants_remote_datasource.dart';
 import '../../../grants/data/models/grant_model.dart';
 import '../../../grants/domain/entities/grant.dart';
@@ -41,6 +42,20 @@ final class CanonicalEntrySnapshot {
   final Map<String, dynamic> entry;
   final Map<String, dynamic> payload;
   final Map<String, dynamic> secret;
+
+  void clear() {
+    entry.clear();
+    payload.clear();
+    secret.clear();
+  }
+}
+
+abstract interface class EntryArchiveRestorer {
+  Future<void> restoreArchived({
+    required String vaultId,
+    required MemberIndexEntry archived,
+    required Uint8List memberPrivateKey,
+  });
 }
 
 /// A locally authenticated historical MemberSecret snapshot.
@@ -62,7 +77,7 @@ final class CanonicalEntryHistorySnapshot {
 /// in `finally` paths. The update is one optimistic backend transaction: a
 /// new immutable MemberSecret revision and the matching MemberIndex and
 /// AgentDiscovery heads either all advance or none do.
-class CanonicalEntryDetailService {
+class CanonicalEntryDetailService implements EntryArchiveRestorer {
   CanonicalEntryDetailService({
     required EntryRemoteDatasource entries,
     required VaultRemoteDatasource vaults,
@@ -563,6 +578,294 @@ class CanonicalEntryDetailService {
         CanonicalEntryDetailError.corrupt,
       );
     } finally {
+      _wipe([vaultKey, discoveryKey, entryDek, ...derived, ...plaintexts]);
+    }
+  }
+
+  /// Restores one Archived Entry by appending an immutable Restored revision.
+  ///
+  /// The prepared encrypted request is retained for one transport retry so an
+  /// ambiguous connection failure repeats byte-identical envelopes. No local
+  /// MemberIndex head is fabricated; callers reconcile the committed head via
+  /// the subsequent member delta.
+  @override
+  Future<void> restoreArchived({
+    required String vaultId,
+    required MemberIndexEntry archived,
+    required Uint8List memberPrivateKey,
+  }) async {
+    if (archived.state != MemberEntryState.archived || archived.corrupt) {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.corrupt,
+      );
+    }
+    final expected = EntryEntity(
+      id: archived.entryId,
+      vaultId: vaultId,
+      label: archived.memberLabel,
+      icon: archived.iconReference,
+      type: EntryTypeExtension.fromWire(archived.entryType),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      lifecycleState: MemberEntryState.archived,
+      currentRevision: archived.revision,
+    );
+    CanonicalEntrySnapshot? snapshot;
+    Uint8List? vaultKey;
+    Uint8List? discoveryKey;
+    Uint8List? entryDek;
+    final derived = <Uint8List>[];
+    final plaintexts = <Uint8List>[];
+    try {
+      snapshot = await reveal(
+        expected: expected,
+        memberPrivateKey: memberPrivateKey,
+      );
+      if (snapshot.entry['state'] != 2 &&
+          snapshot.entry['state'] != 'Archived' &&
+          snapshot.entry['state'] != 'archived') {
+        throw const FormatException('Entry is not Archived');
+      }
+      final vault = await _vaults.getEncryptedVault(vaultId);
+      final organizationId = snapshot.entry['organizationId'];
+      if (organizationId is! String ||
+          vault['organizationId'] != organizationId) {
+        throw const FormatException('Vault organization mismatch');
+      }
+      final generation = _int(vault, 'memberKeyGeneration');
+      final epoch = _map(vault, 'currentKeyEpoch');
+      final vdkVersion = _int(epoch, 'vdkVersion');
+      final wrapper = _map(snapshot.entry, 'entryKey');
+      final wrapperGeneration = _int(wrapper, 'memberKeyGeneration');
+      if (wrapperGeneration > generation) {
+        throw const FormatException('Entry key generation is from the future');
+      }
+      vaultKey = await _keys.openMemberVaultKey(
+        _map(vault, 'memberVaultKey'),
+        memberPrivateKey,
+      );
+      discoveryKey = await _keys.openDiscoveryKey(
+        _map(vault, 'discoveryKey'),
+        vaultKey,
+      );
+      entryDek = await _envelopes.decrypt(
+        profile: VaultAadProfile.entryKeyWrapper,
+        envelope: wrapper,
+        key: vaultKey,
+        expected: VaultEnvelopeExpectations(
+          aadContext: wrapper,
+          minimumMemberKeyGeneration: wrapperGeneration,
+        ),
+      );
+      if (entryDek.length != 32) throw const FormatException('Invalid DEK');
+
+      var keyVersion = _int(snapshot.entry, 'currentKeyVersion');
+      Map<String, dynamic>? newEntryKey;
+      if (wrapperGeneration != generation) {
+        if (keyVersion >= 0xffffffff) {
+          throw const FormatException('Entry key version overflow');
+        }
+        keyVersion += 1;
+        final wrapperContext = <String, Object?>{
+          'organizationId': organizationId,
+          'vaultId': vaultId,
+          'entryId': archived.entryId,
+          'wrapperRevision': '1',
+          'keyVersion': keyVersion,
+          'memberKeyGeneration': generation,
+          'wrappingKeyVersion': _int(epoch, 'vaultKeyVersion'),
+          'header': {
+            'protocolVersion': 2,
+            'algorithmSuite': 1,
+            'resourceKind': 2,
+            'projectionKind': 8,
+            'resourceRevision': '1',
+            'keyVersion': keyVersion,
+            'memberKeyGeneration': generation,
+            'nonce': '',
+          },
+        };
+        final encrypted = await _envelopes.encrypt(
+          profile: VaultAadProfile.entryKeyWrapper,
+          context: wrapperContext,
+          plaintext: entryDek,
+          key: vaultKey,
+        );
+        newEntryKey = {
+          ...wrapperContext,
+          'header': {
+            ...wrapperContext['header']! as Map,
+            'nonce': encrypted['nonce'],
+          },
+          'wrappedEntryDekByVk': encrypted['ciphertext'],
+        };
+      }
+
+      final nextRevision = _increment(snapshot.entry, 'currentRevision');
+      final nextIndexRevision = _increment(
+        snapshot.entry,
+        'memberIndexRevision',
+      );
+      final nextDiscoveryRevision = _increment(
+        snapshot.entry,
+        'agentDiscoveryRevisionHighWatermark',
+      );
+      final secret = Map<String, dynamic>.from(snapshot.secret);
+      final policyValue = secret['agentVisibilityPolicy'];
+      if (policyValue is! Map) {
+        throw const FormatException('Missing Agent visibility policy');
+      }
+      final type = EntryTypeExtension.fromWire(archived.entryType);
+      final policy = AgentVisibilityPolicy.fromJson(
+        type,
+        Map<String, dynamic>.from(policyValue),
+        content: snapshot.payload,
+      );
+      final description = secret['description'] as String? ?? '';
+      final agentLabel =
+          secret['agentLabel'] as String? ?? archived.memberLabel;
+      final discovery = AgentVisibilityProjector.discovery(
+        type: type,
+        agentLabel: agentLabel,
+        description: description,
+        content: snapshot.payload,
+        policy: policy,
+      );
+      final memberIndex = <String, dynamic>{
+        'memberLabel': archived.memberLabel,
+        'entryType': archived.entryType,
+        'searchFields': List<String>.from(archived.searchFields),
+        'iconReference': ?archived.iconReference,
+      };
+      final common = <String, Object?>{
+        'organizationId': organizationId,
+        'vaultId': vaultId,
+        'entryId': archived.entryId,
+      };
+      Future<Map<String, dynamic>> projection({
+        required VaultAadProfile profile,
+        required VaultKdfPurpose purpose,
+        required Map<String, dynamic> value,
+        required Uint8List baseKey,
+        required int projectionKind,
+        required int projectionKeyVersion,
+        required String revisionName,
+        required String revision,
+      }) async {
+        final key = deriveVaultProjectionKey(
+          baseKey,
+          VaultKdfContext(
+            purpose: purpose,
+            resourceKind: 2,
+            organizationId: organizationId,
+            vaultId: vaultId,
+            entryId: archived.entryId,
+            keyVersion: projectionKeyVersion,
+            memberKeyGeneration: generation,
+          ),
+        );
+        derived.add(key);
+        final bytes = VaultProtocolBytes.utf8Encode(
+          canonicalizeVaultJson(value),
+        );
+        plaintexts.add(bytes);
+        final context = <String, Object?>{
+          ...common,
+          revisionName: revision,
+          if (profile == VaultAadProfile.memberSecret) 'operation': 4,
+          if (profile == VaultAadProfile.agentDiscovery)
+            'vdkVersion': vdkVersion,
+          'header': {
+            'protocolVersion': 2,
+            'algorithmSuite': 1,
+            'resourceKind': 2,
+            'projectionKind': projectionKind,
+            'resourceRevision': revision,
+            'keyVersion': projectionKeyVersion,
+            'memberKeyGeneration': generation,
+            'nonce': '',
+          },
+        };
+        final encrypted = await _envelopes.encrypt(
+          profile: profile,
+          context: context,
+          plaintext: bytes,
+          key: key,
+        );
+        return {
+          ...context,
+          'header': {...context['header']! as Map, 'nonce': encrypted['nonce']},
+          'ciphertext': encrypted['ciphertext'],
+        };
+      }
+
+      final request = <String, dynamic>{
+        'baseRevision': snapshot.entry['currentRevision'],
+        'newEntryKey': ?newEntryKey,
+        'memberSecret': await projection(
+          profile: VaultAadProfile.memberSecret,
+          purpose: VaultKdfPurpose.memberSecret,
+          value: secret,
+          baseKey: entryDek,
+          projectionKind: 3,
+          projectionKeyVersion: keyVersion,
+          revisionName: 'revision',
+          revision: nextRevision,
+        ),
+        'memberIndex': await projection(
+          profile: VaultAadProfile.memberIndex,
+          purpose: VaultKdfPurpose.memberIndex,
+          value: memberIndex,
+          baseKey: entryDek,
+          projectionKind: 2,
+          projectionKeyVersion: keyVersion,
+          revisionName: 'memberIndexRevision',
+          revision: nextIndexRevision,
+        ),
+        'agentDiscovery': await projection(
+          profile: VaultAadProfile.agentDiscovery,
+          purpose: VaultKdfPurpose.agentDiscovery,
+          value: discovery,
+          baseKey: discoveryKey,
+          projectionKind: 4,
+          projectionKeyVersion: vdkVersion,
+          revisionName: 'agentDiscoveryRevision',
+          revision: nextDiscoveryRevision,
+        ),
+      };
+      Response<Map<String, dynamic>>? response;
+      for (var attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          response = await _entries.restoreCanonicalEntry(
+            vaultId,
+            archived.entryId,
+            request,
+          );
+          break;
+        } on DioException catch (error) {
+          if (attempt == 1 || error.response != null) rethrow;
+        }
+      }
+      if (response?.statusCode == 409) {
+        throw const CanonicalEntryDetailException(
+          CanonicalEntryDetailError.conflict,
+        );
+      }
+      if (response?.statusCode != 200) {
+        throw const CanonicalEntryDetailException(
+          CanonicalEntryDetailError.corrupt,
+        );
+      }
+    } on CanonicalEntryDetailException {
+      rethrow;
+    } on DioException catch (error) {
+      throw CanonicalEntryDetailException(_classifyDio(error));
+    } on FormatException {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.corrupt,
+      );
+    } finally {
+      snapshot?.clear();
       _wipe([vaultKey, discoveryKey, entryDek, ...derived, ...plaintexts]);
     }
   }

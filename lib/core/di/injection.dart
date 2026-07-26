@@ -111,6 +111,7 @@ import '../../features/vault/presentation/cubit/create_vault_cubit.dart';
 import '../../features/vault/presentation/cubit/edit_entry_cubit.dart';
 import '../../features/vault/presentation/cubit/entry_agents_cubit.dart';
 import '../../features/vault/presentation/cubit/entry_list_cubit.dart';
+import '../../features/vault/presentation/cubit/entry_archive_cubit.dart';
 import '../../features/vault/presentation/cubit/agent_discovery_cubit.dart';
 import '../../features/vault/presentation/cubit/export_cubit.dart';
 import '../../features/vault/presentation/cubit/import_wizard_cubit.dart';
@@ -481,6 +482,14 @@ void configureDependencies(EnvConfig config) {
       vaultId: vaultId,
       wrappedVK: wrappedVK,
       indexLoader: getIt<MemberEntryListService>(),
+    ),
+  );
+  getIt.registerFactoryParam<EntryArchiveCubit, String, void>(
+    (vaultId, _) => EntryArchiveCubit(
+      vaultId: vaultId,
+      index: getIt<MemberSyncService>(),
+      sync: getIt<MemberEntryListService>(),
+      restorer: getIt<CanonicalEntryDetailService>(),
     ),
   );
   getIt.registerFactory<CreateEntryCubit>(

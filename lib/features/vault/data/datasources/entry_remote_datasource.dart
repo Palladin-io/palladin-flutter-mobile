@@ -42,6 +42,24 @@ class EntryRemoteDatasource {
     ),
   );
 
+  /// Restores an Archived Entry through one versioned lifecycle transition.
+  ///
+  /// The caller owns the encrypted projection payload. A transport retry must
+  /// reuse the exact same payload so the backend can recognize it as an
+  /// idempotent lifecycle retry.
+  Future<Response<Map<String, dynamic>>> restoreCanonicalEntry(
+    String vaultId,
+    String entryId,
+    Map<String, dynamic> payload,
+  ) => _dio.post<Map<String, dynamic>>(
+    '/api/vaults/$vaultId/entries/$entryId/restore',
+    data: payload,
+    options: Options(
+      validateStatus: (status) =>
+          status == 200 || status == 400 || status == 409,
+    ),
+  );
+
   /// Loads one bounded page of immutable encrypted Entry versions.
   Future<Map<String, dynamic>> getEntryHistory(
     String vaultId,
