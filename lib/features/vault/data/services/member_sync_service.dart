@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../domain/entities/member_index_entry.dart';
+import '../../domain/entities/vault_performance_budget.dart';
 import '../datasources/member_sync_remote_datasource.dart';
 import '../models/member_sync_models.dart';
 import 'member_sync_cache.dart';
@@ -36,8 +37,9 @@ final class MemberSyncService implements MemberIndexReader {
     required MemberSyncRemote remote,
     required MemberSyncCache cache,
     required VaultEnvelopeCryptography envelopes,
-    this.maximumIndexedEntries = 20000,
-    this.decryptConcurrency = 2,
+    this.maximumIndexedEntries = VaultPerformanceBudget.maximumIndexedEntries,
+    this.decryptConcurrency =
+        VaultPerformanceBudget.memberIndexDecryptConcurrency,
   }) : _remote = remote,
        _cache = cache,
        _envelopes = envelopes {
@@ -143,6 +145,7 @@ final class MemberSyncService implements MemberIndexReader {
   ) async {
     final stagedIndex = <String, MemberIndexEntry>{};
     final firstPage = await _remote.snapshot(vaultId: vaultId);
+    _validatePageCount(firstPage.items);
     final baseSequence = firstPage.snapshotBaseSequence;
 
     Stream<MemberSyncItemModel> pages() async* {
@@ -170,6 +173,7 @@ final class MemberSyncService implements MemberIndexReader {
         final cursor = page.nextCursor;
         if (cursor == null) return;
         page = await _remote.snapshot(vaultId: vaultId, cursor: cursor);
+        _validatePageCount(page.items);
       }
     }
 
@@ -207,6 +211,7 @@ final class MemberSyncService implements MemberIndexReader {
         return _snapshot(vaultId, vaultKey, minimumGeneration);
       }
       final page = (result as MemberDeltaSuccess).page;
+      _validatePageCount(page.items);
       if (BigInt.parse(page.appliedThroughSequence) < BigInt.parse(applied) ||
           BigInt.parse(page.appliedThroughSequence) >
               BigInt.parse(page.deltaUpperBound)) {
@@ -240,6 +245,12 @@ final class MemberSyncService implements MemberIndexReader {
       entryCount: _indexes[vaultId]!.length,
       usedSnapshot: false,
     );
+  }
+
+  void _validatePageCount(List<MemberSyncItemModel> items) {
+    if (items.length > VaultPerformanceBudget.maximumMemberSyncPageItems) {
+      throw const FormatException('Member sync page exceeds item limit');
+    }
   }
 
   Future<List<MemberIndexEntry>> _decryptPage(

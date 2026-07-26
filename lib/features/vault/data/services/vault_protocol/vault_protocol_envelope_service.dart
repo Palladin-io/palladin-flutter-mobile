@@ -61,6 +61,10 @@ final class VaultProtocolEnvelopeService implements VaultEnvelopeCryptography {
     VaultAadProfile.grantPayload: 262144,
   };
 
+  /// Returns the authenticated ciphertext ceiling for one projection.
+  static int maximumCiphertextBytes(VaultAadProfile profile) =>
+      _maximumCiphertextBytes[profile]!;
+
   @override
   Future<Uint8List> randomKey() async {
     final sodium = await _sodiumLoader();

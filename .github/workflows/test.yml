@@ -20,4 +20,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes libsodium-dev
       - run: flutter pub get
       - run: flutter analyze
+      - name: Enforce Vault v2 structural performance budgets
+        run: flutter test test/performance/vault_v2_mobile_structural_budget_test.dart
       - run: flutter test

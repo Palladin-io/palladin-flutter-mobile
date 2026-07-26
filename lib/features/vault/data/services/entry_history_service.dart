@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../../domain/entities/entry_entity.dart';
+import '../../domain/entities/vault_performance_budget.dart';
 import '../datasources/entry_remote_datasource.dart';
 import 'canonical_entry_detail_service.dart';
 
@@ -38,8 +39,9 @@ class EntryHistoryService {
   }) : _entries = entries,
        _canonical = canonical;
 
-  static const pageSize = 20;
-  static const maximumLoadedVersions = 100;
+  static const pageSize = VaultPerformanceBudget.historyPageItems;
+  static const maximumLoadedVersions =
+      VaultPerformanceBudget.maximumLoadedHistoryVersions;
 
   final EntryRemoteDatasource _entries;
   final CanonicalEntryDetailService _canonical;

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../models/member_sync_models.dart';
+import '../../domain/entities/vault_performance_budget.dart';
 
 /// Result of a delta request, including the protocol-defined reset outcome.
 sealed class MemberDeltaResult {
@@ -22,14 +23,14 @@ abstract interface class MemberSyncRemote {
   Future<MemberSnapshotPage> snapshot({
     required String vaultId,
     String? cursor,
-    int pageSize = 100,
+    int pageSize = VaultPerformanceBudget.memberSyncPageItems,
   });
 
   Future<MemberDeltaResult> delta({
     required String vaultId,
     String? afterSequence,
     String? continuationCursor,
-    int pageSize = 100,
+    int pageSize = VaultPerformanceBudget.memberSyncPageItems,
   });
 }
 
@@ -49,7 +50,7 @@ final class MemberSyncRemoteDatasource implements MemberSyncRemote {
   Future<MemberSnapshotPage> snapshot({
     required String vaultId,
     String? cursor,
-    int pageSize = 100,
+    int pageSize = VaultPerformanceBudget.memberSyncPageItems,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/vaults/$vaultId/sync/snapshot',
@@ -64,7 +65,7 @@ final class MemberSyncRemoteDatasource implements MemberSyncRemote {
     required String vaultId,
     String? afterSequence,
     String? continuationCursor,
-    int pageSize = 100,
+    int pageSize = VaultPerformanceBudget.memberSyncPageItems,
   }) async {
     if ((afterSequence == null) == (continuationCursor == null)) {
       throw ArgumentError(

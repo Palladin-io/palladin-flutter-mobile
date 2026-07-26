@@ -80,6 +80,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(VaultAadProfile.memberIndex);
     registerFallbackValue(
       const VaultEnvelopeExpectations(
         aadContext: <String, Object?>{},
@@ -253,7 +254,87 @@ void main() {
       expect(corrupt.memberLabel, '33333333…333339');
     },
   );
+
+  test('snapshot rejects a response above the protocol page ceiling', () async {
+    when(
+      () => remote.snapshot(
+        vaultId: 'vault',
+        cursor: any(named: 'cursor'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).thenAnswer(
+      (_) async => MemberSnapshotPage(
+        snapshotBaseSequence: '1',
+        items: List.generate(201, (index) => _head(_entryId(index))),
+      ),
+    );
+
+    await expectLater(
+      service.synchronize(
+        vaultId: 'vault',
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: 1,
+      ),
+      throwsA(isA<FormatException>()),
+    );
+    expect(cache.snapshotReplacements, 0);
+  });
+
+  test('snapshot decrypt work never exceeds configured concurrency', () async {
+    var activeDecrypts = 0;
+    var maximumActiveDecrypts = 0;
+    when(
+      () => envelopes.decrypt(
+        profile: any(named: 'profile'),
+        envelope: any(named: 'envelope'),
+        key: any(named: 'key'),
+        expected: any(named: 'expected'),
+      ),
+    ).thenAnswer((invocation) async {
+      activeDecrypts += 1;
+      if (activeDecrypts > maximumActiveDecrypts) {
+        maximumActiveDecrypts = activeDecrypts;
+      }
+      await Future<void>.delayed(Duration.zero);
+      activeDecrypts -= 1;
+      final profile = invocation.namedArguments[#profile] as VaultAadProfile;
+      if (profile == VaultAadProfile.entryKeyWrapper) return Uint8List(32);
+      final envelope = invocation.namedArguments[#envelope]! as Map;
+      return Uint8List.fromList(
+        utf8.encode(
+          jsonEncode({
+            'entryType': 1,
+            'memberLabel': 'Entry ${envelope['entryId']}',
+            'searchFields': const <String>[],
+          }),
+        ),
+      );
+    });
+    when(
+      () => remote.snapshot(
+        vaultId: 'vault',
+        cursor: any(named: 'cursor'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).thenAnswer(
+      (_) async => MemberSnapshotPage(
+        snapshotBaseSequence: '100',
+        items: List.generate(100, (index) => _head(_entryId(index))),
+      ),
+    );
+
+    await service.synchronize(
+      vaultId: 'vault',
+      vaultKey: Uint8List(32),
+      minimumMemberKeyGeneration: 1,
+    );
+
+    expect(maximumActiveDecrypts, 2);
+  });
 }
+
+String _entryId(int index) =>
+    '33333333-3333-4333-8333-${index.toString().padLeft(12, '0')}';
 
 MemberSyncItemModel _head(String id) {
   final header = {
