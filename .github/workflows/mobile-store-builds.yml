@@ -184,16 +184,18 @@ jobs:
         run: |
           set -euo pipefail
           release="$RUNNER_TEMP/android-release"
-          mkdir -p "$release"
+          sbom_input="$RUNNER_TEMP/android-sbom-input"
+          mkdir -p "$release" "$sbom_input"
           mapfile -t artifacts < <(find "build/app/outputs/bundle/${{ inputs.flavor }}Release" \
             -maxdepth 1 -type f -name '*.aab' -print)
           test "${#artifacts[@]}" -eq 1
           cp "${artifacts[0]}" "$release/"
+          cp pubspec.lock "$sbom_input/"
 
       - name: Generate the Android artifact SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
-          path: ${{ runner.temp }}/android-release
+          path: ${{ runner.temp }}/android-sbom-input
           format: spdx-json
           output-file: ${{ runner.temp }}/android-release/sbom-android.spdx.json
           upload-artifact: false
@@ -516,15 +518,18 @@ jobs:
         run: |
           set -euo pipefail
           release="$RUNNER_TEMP/ios-release"
-          mkdir -p "$release"
+          sbom_input="$RUNNER_TEMP/ios-sbom-input"
+          mkdir -p "$release" "$sbom_input/ios"
           artifacts=(build/ios/ipa/*.ipa)
           test "${#artifacts[@]}" -eq 1
           cp "${artifacts[0]}" "$release/"
+          cp pubspec.lock "$sbom_input/"
+          cp ios/Podfile.lock "$sbom_input/ios/"
 
       - name: Generate the iOS artifact SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
-          path: ${{ runner.temp }}/ios-release
+          path: ${{ runner.temp }}/ios-sbom-input
           format: spdx-json
           output-file: ${{ runner.temp }}/ios-release/sbom-ios.spdx.json
           upload-artifact: false
