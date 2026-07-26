@@ -845,6 +845,10 @@ class AppLocalizationsPl extends AppLocalizations {
       'Szyfrowane na urządzeniu (XSalsa20-Poly1305) przed wysłaniem';
 
   @override
+  String get entryKeyVisibilityPolicy =>
+      'Widoczność dla agentów: etykieta i typ są wykrywalne. Materiał klucza pozostaje zaszyfrowany i jest dostępny dopiero po zatwierdzeniu grantu.';
+
+  @override
   String get entrySearchHint => 'Szukaj wpisów…';
 
   @override

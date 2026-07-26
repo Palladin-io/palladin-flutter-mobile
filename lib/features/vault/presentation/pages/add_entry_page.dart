@@ -152,7 +152,9 @@ class _AddEntryViewState extends State<_AddEntryView> {
     if (_vaultEntries != null || _loadingEntries) return;
     setState(() => _loadingEntries = true);
     try {
-      final entries = await getIt<EntryRepository>().listEntries(widget.vaultId);
+      final entries = await getIt<EntryRepository>().listEntries(
+        widget.vaultId,
+      );
       if (!mounted) return;
       setState(() {
         _vaultEntries = entries
@@ -190,96 +192,94 @@ class _AddEntryViewState extends State<_AddEntryView> {
   );
 
   Widget _urlField(AppLocalizations l10n) => OnboardingTextField(
-        label: l10n.entryUrlLabel,
-        controller: _urlController,
-        textInputAction: TextInputAction.next,
-        borderColor: _urlError != null ? AppColors.brandRed : null,
-        focusBorderColor: _urlError != null ? AppColors.brandRed : null,
-        onChanged: (_) => _validateUrl(),
-        feedbackChild: Text(
-          _urlError ?? '',
-          style: const TextStyle(color: AppColors.brandRed, fontSize: 11),
-        ),
-        feedbackVisible: _urlError != null,
-        feedbackReserveSpace: false,
-      );
+    label: l10n.entryUrlLabel,
+    controller: _urlController,
+    textInputAction: TextInputAction.next,
+    borderColor: _urlError != null ? AppColors.brandRed : null,
+    focusBorderColor: _urlError != null ? AppColors.brandRed : null,
+    onChanged: (_) => _validateUrl(),
+    feedbackChild: Text(
+      _urlError ?? '',
+      style: const TextStyle(color: AppColors.brandRed, fontSize: 11),
+    ),
+    feedbackVisible: _urlError != null,
+    feedbackReserveSpace: false,
+  );
 
   /// Type-specific form fields for the currently-selected [_type]. Ends
   /// with the type's own trailing controls (URL / injected data).
   List<Widget> _typeFields(AppLocalizations l10n) {
     return switch (_type) {
       EntryType.key => [
-          OnboardingTextField(
-            label: l10n.entryValueLabel,
-            controller: _valueController,
-            obscureText: _valueObscured,
-            textInputAction: TextInputAction.next,
-            onChanged: (_) => setState(() {}),
-            suffixIcon: EntryObscureToggle(
-              obscured: _valueObscured,
-              onPressed: () =>
-                  setState(() => _valueObscured = !_valueObscured),
-            ),
+        OnboardingTextField(
+          label: l10n.entryValueLabel,
+          controller: _valueController,
+          obscureText: _valueObscured,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _valueObscured,
+            onPressed: () => setState(() => _valueObscured = !_valueObscured),
           ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          _urlField(l10n),
-        ],
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        _urlField(l10n),
+      ],
       EntryType.credential => [
-          OnboardingTextField(
-            label: l10n.entryUsernameLabel,
-            controller: _usernameController,
-            textInputAction: TextInputAction.next,
-            onChanged: (_) => setState(() {}),
+        OnboardingTextField(
+          label: l10n.entryUsernameLabel,
+          controller: _usernameController,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryPasswordLabel,
+          controller: _passwordController,
+          obscureText: _passwordObscured,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _passwordObscured,
+            onPressed: () =>
+                setState(() => _passwordObscured = !_passwordObscured),
           ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          OnboardingTextField(
-            label: l10n.entryPasswordLabel,
-            controller: _passwordController,
-            obscureText: _passwordObscured,
-            textInputAction: TextInputAction.next,
-            onChanged: (_) => setState(() {}),
-            suffixIcon: EntryObscureToggle(
-              obscured: _passwordObscured,
-              onPressed: () =>
-                  setState(() => _passwordObscured = !_passwordObscured),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          _urlField(l10n),
-        ],
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        _urlField(l10n),
+      ],
       EntryType.script => [
-          ScriptEditorField(
-            controller: _scriptController,
-            interpreter: _interpreter,
-            onInterpreterChanged: (next) =>
-                setState(() => _interpreter = next),
-            onChanged: () => setState(() {}),
-          ),
-          const SizedBox(height: AppSpacing.section),
-          EntrySectionHeader(label: l10n.entryInjectedDataLabel),
-          const SizedBox(height: AppSpacing.innerGap),
-          if (_loadingEntries && _vaultEntries == null)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.brandRed,
-                  ),
+        ScriptEditorField(
+          controller: _scriptController,
+          interpreter: _interpreter,
+          onInterpreterChanged: (next) => setState(() => _interpreter = next),
+          onChanged: () => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.section),
+        EntrySectionHeader(label: l10n.entryInjectedDataLabel),
+        const SizedBox(height: AppSpacing.innerGap),
+        if (_loadingEntries && _vaultEntries == null)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.brandRed,
                 ),
               ),
-            )
-          else
-            ScriptRefsEditor(
-              vaultId: widget.vaultId,
-              entries: _vaultEntries ?? const [],
-              initial: _refs,
-              onChanged: (refs) => setState(() => _refs = refs),
             ),
-        ],
+          )
+        else
+          ScriptRefsEditor(
+            vaultId: widget.vaultId,
+            entries: _vaultEntries ?? const [],
+            initial: _refs,
+            onChanged: (refs) => setState(() => _refs = refs),
+          ),
+      ],
     };
   }
 
@@ -543,8 +543,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                 if (_type != EntryType.script) ...[
                   TotpSection(
                     initial: _totpFields,
-                    onChanged: (fields) =>
-                        setState(() => _totpFields = fields),
+                    onChanged: (fields) => setState(() => _totpFields = fields),
                   ),
                   const SizedBox(height: AppSpacing.section),
                 ],
@@ -563,7 +562,11 @@ class _AddEntryViewState extends State<_AddEntryView> {
                   initiallyVisible: _notesController.text.trim().isNotEmpty,
                 ),
                 const SizedBox(height: AppSpacing.section),
-                EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
+                EntryEncryptionNotice(
+                  message: _type == EntryType.key
+                      ? l10n.entryKeyVisibilityPolicy
+                      : l10n.entryEncryptionNotice,
+                ),
                 if (state is CreateEntryError) ...[
                   const SizedBox(height: AppSpacing.fieldGap),
                   Text(

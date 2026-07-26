@@ -1436,6 +1436,12 @@ abstract class AppLocalizations {
   /// **'Encrypted on-device with XSalsa20-Poly1305 before upload'**
   String get entryEncryptionNotice;
 
+  /// Key Entry Agent Visibility Policy shown before encryption
+  ///
+  /// In en, this message translates to:
+  /// **'Agent visibility: label and type are discoverable. Key material remains encrypted and is available only after an approved grant.'**
+  String get entryKeyVisibilityPolicy;
+
   /// Placeholder for the search input on the Entries tab
   ///
   /// In en, this message translates to:

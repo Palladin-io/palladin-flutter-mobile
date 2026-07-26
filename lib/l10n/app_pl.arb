@@ -223,6 +223,7 @@
   "entryUrlInvalid": "Podaj prawidłowy URL (np. stripe.com lub https://stripe.com)",
   "entryNotesLabel": "Notatki",
   "entryEncryptionNotice": "Szyfrowane na urządzeniu (XSalsa20-Poly1305) przed wysłaniem",
+  "entryKeyVisibilityPolicy": "Widoczność dla agentów: etykieta i typ są wykrywalne. Materiał klucza pozostaje zaszyfrowany i jest dostępny dopiero po zatwierdzeniu grantu.",
   "entrySearchHint": "Szukaj wpisów…",
   "entryEmpty": "Brak wpisów",
   "entryEmptyAdd": "Dodaj pierwsze dane, aby zacząć.",

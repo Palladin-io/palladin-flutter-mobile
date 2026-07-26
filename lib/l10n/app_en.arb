@@ -982,6 +982,10 @@
   "@entryEncryptionNotice": {
     "description": "Reassurance shown above the save button on the Add Entry page"
   },
+  "entryKeyVisibilityPolicy": "Agent visibility: label and type are discoverable. Key material remains encrypted and is available only after an approved grant.",
+  "@entryKeyVisibilityPolicy": {
+    "description": "Key Entry Agent Visibility Policy shown before encryption"
+  },
   "entrySearchHint": "Search entries…",
   "@entrySearchHint": {
     "description": "Placeholder for the search input on the Entries tab"

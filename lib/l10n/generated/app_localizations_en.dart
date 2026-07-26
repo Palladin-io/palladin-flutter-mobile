@@ -829,6 +829,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Encrypted on-device with XSalsa20-Poly1305 before upload';
 
   @override
+  String get entryKeyVisibilityPolicy =>
+      'Agent visibility: label and type are discoverable. Key material remains encrypted and is available only after an approved grant.';
+
+  @override
   String get entrySearchHint => 'Search entries…';
 
   @override

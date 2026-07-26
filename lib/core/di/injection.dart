@@ -12,6 +12,7 @@ import '../../features/unlock/data/services/identity_kdf_migration_service.dart'
 import '../../features/unlock/data/services/identity_kdf_service.dart';
 import '../../features/vault/data/services/vault_list_crypto_service.dart';
 import '../../features/vault/data/services/vault_creation_service.dart';
+import '../../features/vault/data/services/key_entry_creation_service.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/cubit/change_password_cubit.dart';
@@ -367,6 +368,14 @@ void configureDependencies(EnvConfig config) {
       assets: getIt<EncryptedPresentationAssetService>(),
     ),
   );
+  getIt.registerLazySingleton<KeyEntryCreationService>(
+    () => KeyEntryCreationService(
+      entries: getIt<EntryRemoteDatasource>(),
+      vaults: getIt<VaultRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+    ),
+  );
   getIt.registerLazySingleton<VaultRepository>(
     () => VaultRepositoryImpl(
       getIt<VaultRemoteDatasource>(),
@@ -456,7 +465,10 @@ void configureDependencies(EnvConfig config) {
     ),
   );
   getIt.registerFactory<CreateEntryCubit>(
-    () => CreateEntryCubit(repository: getIt<EntryRepository>()),
+    () => CreateEntryCubit(
+      repository: getIt<EntryRepository>(),
+      keyCreationService: getIt<KeyEntryCreationService>(),
+    ),
   );
   getIt.registerFactory<AgentDiscoveryCubit>(
     () => AgentDiscoveryCubit(getIt<AgentDiscoveryRemoteDatasource>()),

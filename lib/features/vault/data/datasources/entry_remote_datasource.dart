@@ -18,6 +18,31 @@ class EntryRemoteDatasource {
 
   final Dio _dio;
 
+  Future<String> issueCreationChallenge(String vaultId) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries/creation-challenges',
+    );
+    final items = response.data?['items'];
+    if (items is! List || items.isEmpty || items.first is! Map) {
+      throw const FormatException('Malformed Entry creation challenge');
+    }
+    final entryId = (items.first as Map)['entryId'];
+    if (entryId is! String) throw const FormatException('Malformed entryId');
+    return entryId;
+  }
+
+  Future<Map<String, dynamic>> createCanonicalEntry(
+    String vaultId,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries',
+      data: payload,
+    );
+    return response.data ??
+        (throw const FormatException('Empty canonical Entry response'));
+  }
+
   /// `GET /api/vaults/{vaultId}/entries` → list of entry summaries
   /// (no encrypted payload).
   Future<List<EntryModel>> listEntries(String vaultId) async {
@@ -37,10 +62,12 @@ class EntryRemoteDatasource {
     // The list item shape (EntryListItem) omits vaultId — inject from URL.
     final raw = (data['items'] as List<dynamic>? ?? const <dynamic>[]);
     return raw
-        .map((e) => EntryModel.fromJson(
-              e as Map<String, dynamic>,
-              contextVaultId: vaultId,
-            ))
+        .map(
+          (e) => EntryModel.fromJson(
+            e as Map<String, dynamic>,
+            contextVaultId: vaultId,
+          ),
+        )
         .toList(growable: false);
   }
 
