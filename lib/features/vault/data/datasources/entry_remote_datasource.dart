@@ -102,16 +102,30 @@ class EntryRemoteDatasource {
   }
 
   Future<String> issueCreationChallenge(String vaultId) async {
+    final items = await issueCreationChallenges(vaultId, count: 1);
+    return items.single;
+  }
+
+  Future<List<String>> issueCreationChallenges(
+    String vaultId, {
+    required int count,
+  }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/vaults/$vaultId/entries/creation-challenges',
+      data: {'count': count},
     );
     final items = response.data?['items'];
-    if (items is! List || items.isEmpty || items.first is! Map) {
+    if (items is! List || items.length != count) {
       throw const FormatException('Malformed Entry creation challenge');
     }
-    final entryId = (items.first as Map)['entryId'];
-    if (entryId is! String) throw const FormatException('Malformed entryId');
-    return entryId;
+    return items
+        .map((item) {
+          if (item is! Map || item['entryId'] is! String) {
+            throw const FormatException('Malformed entryId');
+          }
+          return item['entryId']! as String;
+        })
+        .toList(growable: false);
   }
 
   Future<Map<String, dynamic>> createCanonicalEntry(

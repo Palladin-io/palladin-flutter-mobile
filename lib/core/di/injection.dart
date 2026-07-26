@@ -14,6 +14,7 @@ import '../../features/vault/data/services/vault_list_crypto_service.dart';
 import '../../features/vault/data/services/vault_creation_service.dart';
 import '../../features/vault/data/services/key_entry_creation_service.dart';
 import '../../features/vault/data/services/canonical_entry_detail_service.dart';
+import '../../features/vault/data/services/canonical_import_projection_service.dart';
 import '../../features/vault/data/services/entry_history_service.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
@@ -397,6 +398,13 @@ void configureDependencies(EnvConfig config) {
       grants: getIt<GrantsRemoteDatasource>(),
     ),
   );
+  getIt.registerLazySingleton<CanonicalImportProjectionService>(
+    () => CanonicalImportProjectionService(
+      vaults: getIt<VaultRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+    ),
+  );
   getIt.registerLazySingleton<EntryHistoryService>(
     () => EntryHistoryService(
       entries: getIt<EntryRemoteDatasource>(),
@@ -462,6 +470,7 @@ void configureDependencies(EnvConfig config) {
       entryDatasource: getIt<EntryRemoteDatasource>(),
       vaultDatasource: getIt<VaultRemoteDatasource>(),
       cryptoService: getIt<EntryCryptoService>(),
+      canonicalImport: getIt<CanonicalImportProjectionService>(),
       autoFillMutationNotifier: getIt<AutoFillMutationNotifier>(),
     ),
   );

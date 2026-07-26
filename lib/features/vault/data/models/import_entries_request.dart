@@ -22,14 +22,14 @@ class ImportEntryItem {
   final String? urlDomain;
 
   Map<String, dynamic> toJson() => {
-        'label': label,
-        if (description != null) 'description': description,
-        if (icon != null) 'icon': icon,
-        'type': type,
-        'content': content.toJson(),
-        if (urlDomain != null) 'urlDomain': urlDomain,
-        'grantEntries': const <dynamic>[],
-      };
+    'label': label,
+    if (description != null) 'description': description,
+    if (icon != null) 'icon': icon,
+    'type': type,
+    'content': content.toJson(),
+    if (urlDomain != null) 'urlDomain': urlDomain,
+    'grantEntries': const <dynamic>[],
+  };
 }
 
 /// Body for `POST /api/vaults/{vaultId}/entries/import`.
@@ -38,10 +38,12 @@ class ImportEntriesRequest {
 
   /// Stable format id (e.g. `bitwarden-json`) for backend audit/analytics.
   final String format;
-  final List<ImportEntryItem> entries;
+  final List<Object> entries;
 
   Map<String, dynamic> toJson() => {
-        'format': format,
-        'entries': entries.map((e) => e.toJson()).toList(),
-      };
+    'format': format,
+    'entries': entries
+        .map((e) => e is ImportEntryItem ? e.toJson() : e)
+        .toList(growable: false),
+  };
 }
