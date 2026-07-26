@@ -3,100 +3,59 @@ import 'package:mobile_palladin/features/notifications/domain/entities/push_mess
 
 void main() {
   group('PushNotificationType.fromRaw', () {
-    test('maps known backend type strings', () {
+    test('maps known values and rejects future values safely', () {
       expect(
         PushNotificationType.fromRaw('grant_pending'),
         PushNotificationType.grantPending,
-      );
-      expect(
-        PushNotificationType.fromRaw('grant_approved'),
-        PushNotificationType.grantApproved,
-      );
-      expect(
-        PushNotificationType.fromRaw('agent_pending'),
-        PushNotificationType.agentPending,
-      );
-      expect(
-        PushNotificationType.fromRaw('grant_revoked'),
-        PushNotificationType.grantRevoked,
       );
       expect(
         PushNotificationType.fromRaw('credential_stale'),
         PushNotificationType.credentialStale,
       );
       expect(
-        PushNotificationType.fromRaw('agent_approved'),
-        PushNotificationType.agentApproved,
-      );
-    });
-
-    test('wireValue round-trips for every known type', () {
-      for (final type in PushNotificationType.values) {
-        if (type == PushNotificationType.unknown) continue;
-        expect(PushNotificationType.fromRaw(type.wireValue), type);
-      }
-    });
-
-    test('falls back to unknown for null / unrecognized', () {
-      expect(PushNotificationType.fromRaw(null), PushNotificationType.unknown);
-      expect(
-        PushNotificationType.fromRaw('something_new'),
+        PushNotificationType.fromRaw('future_type'),
         PushNotificationType.unknown,
       );
     });
   });
 
-  group('PushMessage.fromData', () {
-    test('parses type and ids', () {
-      final message = PushMessage.fromData(
-        <String, dynamic>{
-          'type': 'grant_pending',
-          'notificationId': 'n-1',
-          'grantId': 'g-1',
-          'agentId': 'a-1',
-          'entryId': 'e-1',
-        },
-        title: 'New grant',
-        body: 'Agent wants access',
+  group('PushMessage structural contract', () {
+    const raw = <String, dynamic>{
+      'type': 'grant_pending',
+      'category': 'actionRequired',
+      'subjectId': '11111111-1111-4111-8111-111111111111',
+      'occurredAt': '2026-07-26T20:00:00Z',
+    };
+
+    test('parses and round-trips only the frozen generic fields', () {
+      final message = PushMessage.fromData(raw);
+
+      expect(message, isNotNull);
+      expect(message!.subjectId, raw['subjectId']);
+      expect(message.category, 'actionRequired');
+      expect(message.toRoutingData().keys.toSet(), {
+        'type',
+        'category',
+        'subjectId',
+        'occurredAt',
+      });
+      expect(
+        PushMessage.fromData(message.toRoutingData())!.subjectId,
+        message.subjectId,
       );
-
-      expect(message.type, PushNotificationType.grantPending);
-      expect(message.notificationId, 'n-1');
-      expect(message.grantId, 'g-1');
-      expect(message.agentId, 'a-1');
-      expect(message.entryId, 'e-1');
-      expect(message.title, 'New grant');
-      expect(message.body, 'Agent wants access');
     });
 
-    test('toRoutingData round-trips the notification id', () {
-      final message = PushMessage.fromData(<String, dynamic>{
-        'type': 'grant_pending',
-        'notificationId': 'n-1',
-        'grantId': 'g-1',
-      });
-      final round = PushMessage.fromData(message.toRoutingData());
-
-      expect(round.notificationId, 'n-1');
-      expect(round.grantId, 'g-1');
-      expect(round.type, PushNotificationType.grantPending);
-    });
-
-    test('treats empty-string ids as null', () {
-      final message = PushMessage.fromData(<String, dynamic>{
-        'type': 'agent_pending',
-        'agentId': '',
-      });
-
-      expect(message.type, PushNotificationType.agentPending);
-      expect(message.agentId, isNull);
-    });
-
-    test('never throws on a malformed / empty payload', () {
-      final message = PushMessage.fromData(const <String, dynamic>{});
-      expect(message.type, PushNotificationType.unknown);
-      expect(message.grantId, isNull);
-      expect(message.agentId, isNull);
+    test('fails closed for malformed or incomplete payloads', () {
+      for (final key in raw.keys) {
+        final malformed = Map<String, dynamic>.from(raw)..remove(key);
+        expect(PushMessage.fromData(malformed), isNull, reason: key);
+      }
+      expect(PushMessage.fromData({...raw, 'category': 'forged'}), isNull);
+      expect(
+        PushMessage.fromData({...raw, 'occurredAt': 'not-an-instant'}),
+        isNull,
+      );
+      expect(PushMessage.fromData({...raw, 'vaultId': 'forged'}), isNull);
     });
   });
 }

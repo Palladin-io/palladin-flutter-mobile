@@ -64,6 +64,7 @@ import '../../features/notifications/data/datasources/notification_center_remote
 import '../../features/notifications/data/datasources/push_token_remote_datasource.dart';
 import '../../features/notifications/data/repositories/notification_center_repository_impl.dart';
 import '../../features/notifications/data/services/notification_permission_service.dart';
+import '../../features/notifications/data/services/notification_presentation_resolver.dart';
 import '../../features/notifications/data/services/notification_signalr_service.dart';
 import '../../features/notifications/data/services/push_notification_service.dart';
 import '../../features/notifications/domain/repositories/notification_center_repository.dart';
@@ -601,11 +602,15 @@ void configureDependencies(EnvConfig config) {
       getIt<NotificationCenterRemoteDatasource>(),
     ),
   );
+  getIt.registerLazySingleton<NotificationPresentationResolver>(
+    () => NotificationPresentationResolver(index: getIt<MemberSyncService>()),
+  );
   // Singleton: the shell reads summary state for the Inbox badge while the
   // Inbox page owns the same cached list.
   getIt.registerLazySingleton<NotificationCenterCubit>(
     () => NotificationCenterCubit(
       repository: getIt<NotificationCenterRepository>(),
+      resolver: getIt<NotificationPresentationResolver>(),
     ),
   );
   // Factory: the preferences screen owns transient per-row saving state, so a
@@ -644,7 +649,10 @@ void configureDependencies(EnvConfig config) {
   // listener stays bound for the whole session; the push service feeds
   // tapped messages into it and the listener performs router.go(...).
   getIt.registerLazySingleton<PushNavigationCubit>(
-    () => PushNavigationCubit(analytics: getIt<AnalyticsService>()),
+    () => PushNavigationCubit(
+      analytics: getIt<AnalyticsService>(),
+      repository: getIt<NotificationCenterRepository>(),
+    ),
   );
 
   // In-app real-time channel (SignalR). Singleton: holds the live hub

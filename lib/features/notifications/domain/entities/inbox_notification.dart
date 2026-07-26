@@ -55,6 +55,7 @@ enum NotificationActionState {
 class InboxNotification {
   const InboxNotification({
     required this.id,
+    this.subjectId = '',
     required this.type,
     required this.category,
     required this.titleKey,
@@ -65,6 +66,7 @@ class InboxNotification {
   });
 
   final String id;
+  final String subjectId;
 
   /// Open string, e.g. `grant_pending`, `agent_pending`, `credential_stale`.
   final String type;
@@ -126,6 +128,7 @@ class InboxNotification {
   }) {
     return InboxNotification(
       id: id,
+      subjectId: subjectId,
       type: type,
       category: category,
       titleKey: titleKey,

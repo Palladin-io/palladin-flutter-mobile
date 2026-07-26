@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
+import '../../../../core/storage/secure_token_storage.dart';
+import '../../../../core/utils/jwt_claims.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_screen.dart';
@@ -20,6 +22,7 @@ import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
 import '../../../approval/presentation/widgets/approve_grant_sheet.dart';
 import '../../../approval/presentation/widgets/deny_grant_sheet.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../vault/presentation/cubit/vault_list_cubit.dart';
 import '../../domain/entities/inbox_notification.dart';
 import '../cubit/notification_center_cubit.dart';
 import '../widgets/notification_card.dart';
@@ -62,6 +65,7 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
   }
 
   Future<void> _bootstrap() async {
+    await _configureUnlockedResolution();
     if (_notifications.state.status == NotificationCenterStatus.initial) {
       await _notifications.load();
     } else {
@@ -70,6 +74,27 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
     if (_canManageGrants()) _pendingGrants.refresh();
     final focusId = widget.focusId;
     if (focusId != null) await _notifications.markRead(focusId);
+  }
+
+  Future<void> _configureUnlockedResolution() async {
+    final auth = context.read<AuthBloc>().state;
+    final vaults = getIt<VaultListCubit>().state;
+    if (auth is! AuthAuthenticated ||
+        auth.isVaultLocked ||
+        auth.privateKey == null ||
+        vaults is! VaultListLoaded) {
+      return;
+    }
+    final token = await getIt<SecureTokenStorage>().accessToken;
+    final organizationId = token == null
+        ? null
+        : JwtClaims.organizationIdFrom(token);
+    if (!mounted || organizationId == null) return;
+    _notifications.configureUnlockedResolution(
+      activeAccountId: auth.userId,
+      activeOrganizationId: organizationId,
+      activeVaults: vaults.vaults,
+    );
   }
 
   bool _canManageGrants() {
@@ -712,10 +737,7 @@ class _SegmentOverflowButton extends StatelessWidget {
           ),
           PopupMenuItem(
             value: _InboxMenuAction.preferences,
-            child: _MenuRow(
-              icon: Icons.tune,
-              label: l10n.inboxPreferencesMenu,
-            ),
+            child: _MenuRow(icon: Icons.tune, label: l10n.inboxPreferencesMenu),
           ),
         ],
       ),

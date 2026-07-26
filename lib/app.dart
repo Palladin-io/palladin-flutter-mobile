@@ -195,14 +195,9 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   /// refreshing the affected list.
   void _onSignalRNotification(PushMessage message) {
     _onForegroundPush(message);
-    if (_authBloc.state is! AuthAuthenticated) return;
-    // Pass the full routing data so a tap on the banner deep-links to the
-    // specific agent / grant (not just the list).
-    _pushService.showLocalNotification(
-      title: message.title,
-      body: message.body,
-      data: message.toRoutingData(),
-    );
+    // SignalR carries structural data only. The durable Inbox is refreshed;
+    // presentation is resolved there after unlock instead of trusting hub
+    // copy or exposing account resources on the lock screen.
   }
 
   @override

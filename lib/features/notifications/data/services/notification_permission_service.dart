@@ -38,12 +38,10 @@ class NotificationPermissionService {
     try {
       final settings = await _messaging.getNotificationSettings();
       return _toStatus(settings.authorizationStatus);
-    } catch (e, s) {
+    } catch (_) {
       AppLogger.e(
         'NotificationPermission',
         'checkStatus failed — treating as notDetermined',
-        error: e,
-        stackTrace: s,
       );
       return NotificationPermissionStatus.notDetermined;
     }
@@ -61,12 +59,10 @@ class NotificationPermissionService {
     try {
       final settings = await _messaging.requestPermission();
       return _toStatus(settings.authorizationStatus);
-    } catch (e, s) {
+    } catch (_) {
       AppLogger.e(
         'NotificationPermission',
         'requestPermission failed — treating as notDetermined',
-        error: e,
-        stackTrace: s,
       );
       return NotificationPermissionStatus.notDetermined;
     }
@@ -83,13 +79,8 @@ class NotificationPermissionService {
   Future<void> openSettings() async {
     try {
       await AppSettings.openAppSettings(type: AppSettingsType.notification);
-    } catch (e, s) {
-      AppLogger.e(
-        'NotificationPermission',
-        'openSettings failed',
-        error: e,
-        stackTrace: s,
-      );
+    } catch (_) {
+      AppLogger.e('NotificationPermission', 'openSettings failed');
     }
   }
 

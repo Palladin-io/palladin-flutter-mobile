@@ -66,54 +66,51 @@ enum PushNotificationType {
 class PushMessage {
   const PushMessage({
     required this.type,
-    this.title,
-    this.body,
-    this.notificationId,
-    this.grantId,
-    this.agentId,
-    this.entryId,
+    required this.category,
+    required this.subjectId,
+    required this.occurredAt,
   });
 
   final PushNotificationType type;
 
-  /// Inbox notification id (frozen contract: push carries `notificationId` +
-  /// `type`). Used to deep-link to `/inbox?focus=<id>` and mark it read.
-  final String? notificationId;
+  final String category;
+  final String subjectId;
+  final DateTime occurredAt;
 
-  /// Notification title (for the in-app foreground banner only — the OS
-  /// renders the background/terminated notification itself).
-  final String? title;
-
-  /// Notification body (foreground banner only).
-  final String? body;
-
-  final String? grantId;
-  final String? agentId;
-  final String? entryId;
+  String get deduplicationKey =>
+      '${type.wireValue}\u0000$category\u0000$subjectId\u0000${occurredAt.toUtc().toIso8601String()}';
 
   /// Builds a [PushMessage] from the FCM `notification` + `data` parts.
   ///
   /// [data] is the raw `RemoteMessage.data` map; [title]/[body] come from
   /// `RemoteMessage.notification`. Missing keys yield `null` — never
   /// throws, so a malformed payload degrades gracefully to [unknown].
-  factory PushMessage.fromData(
-    Map<String, dynamic> data, {
-    String? title,
-    String? body,
-  }) {
+  static PushMessage? fromData(Map<String, dynamic> data) {
+    const allowed = {'type', 'category', 'subjectId', 'occurredAt'};
+    if (data.length != allowed.length ||
+        data.keys.any((key) => !allowed.contains(key))) {
+      return null;
+    }
     String? str(String key) {
       final value = data[key];
       return value is String && value.isNotEmpty ? value : null;
     }
 
+    final type = str('type');
+    final category = str('category');
+    final subjectId = str('subjectId');
+    final occurredAt = DateTime.tryParse(str('occurredAt') ?? '');
+    if (type == null ||
+        (category != 'actionRequired' && category != 'update') ||
+        subjectId == null ||
+        occurredAt == null) {
+      return null;
+    }
     return PushMessage(
-      type: PushNotificationType.fromRaw(str('type')),
-      title: title,
-      body: body,
-      notificationId: str('notificationId'),
-      grantId: str('grantId'),
-      agentId: str('agentId'),
-      entryId: str('entryId'),
+      type: PushNotificationType.fromRaw(type),
+      category: category!,
+      subjectId: subjectId,
+      occurredAt: occurredAt.toUtc(),
     );
   }
 
@@ -123,10 +120,9 @@ class PushMessage {
   Map<String, dynamic> toRoutingData() {
     return <String, dynamic>{
       'type': type.wireValue,
-      if (notificationId != null) 'notificationId': notificationId,
-      if (grantId != null) 'grantId': grantId,
-      if (agentId != null) 'agentId': agentId,
-      if (entryId != null) 'entryId': entryId,
+      'category': category,
+      'subjectId': subjectId,
+      'occurredAt': occurredAt.toUtc().toIso8601String(),
     };
   }
 }
