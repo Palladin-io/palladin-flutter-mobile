@@ -4958,6 +4958,12 @@ abstract class AppLocalizations {
   /// **'Agent'**
   String get searchTypeBadgeAgent;
 
+  /// No description provided for @searchTypeBadgeMember.
+  ///
+  /// In en, this message translates to:
+  /// **'Member'**
+  String get searchTypeBadgeMember;
+
   /// Type badge label for vault search results
   ///
   /// In en, this message translates to:

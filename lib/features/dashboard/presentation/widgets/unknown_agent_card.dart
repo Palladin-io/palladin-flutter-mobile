@@ -171,8 +171,9 @@ class UnknownAgentCard extends StatelessWidget {
                     onPressed: onReject,
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.brandRed,
-                      backgroundColor:
-                          AppColors.brandRed.withValues(alpha: 0.1),
+                      backgroundColor: AppColors.brandRed.withValues(
+                        alpha: 0.1,
+                      ),
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.cardGap,
                       ),
@@ -218,9 +219,7 @@ class _DashedAgentIcon extends StatelessWidget {
       height: 32,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.brandRed.withValues(alpha: 0.4),
-        ),
+        border: Border.all(color: AppColors.brandRed.withValues(alpha: 0.4)),
       ),
       alignment: Alignment.center,
       child: const Icon(Icons.smart_toy, size: 14, color: AppColors.brandRed),

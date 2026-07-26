@@ -2770,6 +2770,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchTypeBadgeAgent => 'Agent';
 
   @override
+  String get searchTypeBadgeMember => 'Member';
+
+  @override
   String get searchTypeBadgeVault => 'Vault';
 
   @override

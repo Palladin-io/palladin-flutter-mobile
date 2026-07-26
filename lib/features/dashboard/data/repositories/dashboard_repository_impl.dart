@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../../domain/entities/onboarding_status.dart';
 import '../../domain/entities/recent_entry_entity.dart';
 import '../../domain/entities/search_result_entity.dart';
@@ -17,17 +19,19 @@ class DashboardRepositoryImpl implements DashboardRepository {
   }
 
   @override
-  Future<List<RecentEntryEntity>> getRecentEntries(int limit) async {
-    final models = await _datasource.getRecentEntries(limit);
-    return models.map((m) => m.toEntity()).toList(growable: false);
-  }
+  Future<List<RecentEntryEntity>> getRecentEntries(int limit) async => const [];
 
   @override
   Future<List<SearchResultEntity>> globalSearch(
     String q, {
     int limit = 10,
+    required CancelToken cancelToken,
   }) async {
-    final models = await _datasource.globalSearch(q, limit);
+    final models = await _datasource.globalSearch(
+      q,
+      limit,
+      cancelToken: cancelToken,
+    );
     return models.map((m) => m.toEntity()).toList(growable: false);
   }
 }

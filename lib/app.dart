@@ -28,11 +28,14 @@ import 'features/notifications/data/services/push_notification_service.dart';
 import 'features/notifications/domain/entities/push_message.dart';
 import 'features/notifications/presentation/cubit/notification_center_cubit.dart';
 import 'features/notifications/presentation/cubit/push_navigation_cubit.dart';
+import 'features/dashboard/presentation/cubit/search_session_controller.dart';
 import 'features/vault/data/services/member_sync_service.dart';
+import 'features/vault/data/services/member_entry_list_service.dart';
 import 'features/vault/data/services/encrypted_presentation_asset_service.dart';
 import 'features/vault/data/services/vault_rotation_service.dart';
 import 'features/vault/data/export/canonical_export_service.dart';
 import 'features/vault/data/export/protected_export_staging.dart';
+import 'features/vault/presentation/cubit/vault_list_cubit.dart';
 
 class PalladinApp extends StatefulWidget {
   const PalladinApp({
@@ -69,11 +72,16 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final PushNotificationService _pushService = getIt<PushNotificationService>();
   final AutoFillCacheService _autoFillCache = getIt<AutoFillCacheService>();
   final MemberSyncService _memberSync = getIt<MemberSyncService>();
+  final MemberEntryListService _memberEntryList =
+      getIt<MemberEntryListService>();
+  final VaultListCubit _vaultList = getIt<VaultListCubit>();
   final VaultRotationService _vaultRotation = getIt<VaultRotationService>();
   final CanonicalExportService _exportService = getIt<CanonicalExportService>();
   final ProtectedExportStaging _exportStaging = getIt<ProtectedExportStaging>();
   final EncryptedPresentationAssetService _presentationAssets =
       getIt<EncryptedPresentationAssetService>();
+  final SearchSessionController _searchSession =
+      getIt<SearchSessionController>();
   late final StreamSubscription<AutoFillMutationAction>
   _autoFillMutationSubscription;
 
@@ -142,6 +150,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
         // user's own screenshots.
         WidgetsBinding.instance.scheduleWarmUpFrame();
         _vaultRotation.pause();
+        _searchSession.lock();
       }
     }
 
@@ -247,6 +256,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               unawaited(
                 _startAutoFillSession(privateKey: authenticated.privateKey!),
               );
+              unawaited(_prepareLocalSearch(authenticated.privateKey!));
               unawaited(
                 _resumeVaultRotations(
                   memberId: authenticated.userId,
@@ -262,6 +272,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
                 (current is! AuthAuthenticated || current.isVaultLocked),
             listener: (_, _) {
               _memberSync.lock();
+              _vaultList.lock();
+              _searchSession.lock();
               _vaultRotation.pause();
               _exportService.cancel();
               _presentationAssets.lock();
@@ -313,6 +325,28 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
       await _exportStaging.sweepStaleExports();
     } catch (_) {
       // Cleanup is best effort; never log paths or platform error payloads.
+    }
+  }
+
+  Future<void> _prepareLocalSearch(Uint8List privateKey) async {
+    try {
+      await _vaultList.loadVaults(privateKey);
+      final state = _vaultList.state;
+      if (state is! VaultListLoaded) return;
+      for (final vault in state.vaults) {
+        final keyCopy = Uint8List.fromList(privateKey);
+        try {
+          await _memberEntryList.load(
+            vaultId: vault.id,
+            memberPrivateKey: keyCopy,
+          );
+        } finally {
+          keyCopy.fillRange(0, keyCopy.length, 0);
+        }
+      }
+    } catch (_) {
+      // Local search is best effort. Never log transport errors because they
+      // may retain the raw query or decrypted projection context.
     }
   }
 

@@ -11,6 +11,8 @@ import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
 import '../../../audit/domain/repositories/audit_repository.dart';
 import '../../../notifications/data/services/notification_permission_service.dart';
 import '../../domain/repositories/dashboard_repository.dart';
+import '../../domain/repositories/local_search_repository.dart';
+import '../../domain/entities/search_result_entity.dart';
 import 'dashboard_state.dart';
 
 export 'dashboard_state.dart';
@@ -28,7 +30,10 @@ class DashboardCubit extends Cubit<DashboardState> {
     required this.pendingGrantsCubit,
     required this.analytics,
     required this.notificationPermissionService,
-  }) : super(const DashboardInitial());
+    LocalSearchRepository? localSearchRepository,
+  }) : localSearchRepository =
+           localSearchRepository ?? const _EmptyLocalSearchRepository(),
+       super(const DashboardInitial());
 
   final DashboardRepository repository;
   final AuditRepository auditRepository;
@@ -36,6 +41,7 @@ class DashboardCubit extends Cubit<DashboardState> {
   final PendingGrantsCubit pendingGrantsCubit;
   final AnalyticsService analytics;
   final NotificationPermissionService notificationPermissionService;
+  final LocalSearchRepository localSearchRepository;
 
   /// How many recent audit-log rows the Home "Recent Activity" section shows.
   static const int _recentActivityLimit = 6;
@@ -107,7 +113,8 @@ class DashboardCubit extends Cubit<DashboardState> {
       final pendingCount = pendingGrantsCubit.state.grants.length;
 
       // No userId → no per-user key to read → never treat as skipped.
-      final skipped = userId != null &&
+      final skipped =
+          userId != null &&
           (prefs?.getBool(_scopedKey(_kOnboardingSkipped, userId)) ?? false);
       if (skipped) {
         emit(
@@ -145,7 +152,8 @@ class DashboardCubit extends Cubit<DashboardState> {
       }
 
       if (!status.isSetupComplete) {
-        final prefsDone = userId != null &&
+        final prefsDone =
+            userId != null &&
             (prefs?.getBool(_scopedKey(_kNotificationSkipped, userId)) ??
                 false);
 
@@ -153,8 +161,7 @@ class DashboardCubit extends Cubit<DashboardState> {
         // the app (e.g., via Settings). If already authorized the step is done
         // regardless of what the pref says. Errors in checkStatus() degrade
         // gracefully (returns notDetermined) so load() never throws.
-        final permStatus =
-            await notificationPermissionService.checkStatus();
+        final permStatus = await notificationPermissionService.checkStatus();
         final notificationDone =
             prefsDone || permStatus == NotificationPermissionStatus.authorized;
         final permissionDenied =
@@ -191,18 +198,9 @@ class DashboardCubit extends Cubit<DashboardState> {
   /// network hiccup never blanks the whole Home screen.
   Future<List<RecentEntryEntity>> _loadRecentEntriesOrEmpty() async {
     try {
-      return await repository.getRecentEntries(5);
-    } on DioException catch (e, s) {
-      AppLogger.e(
-        'Dashboard',
-        'recent entries unavailable (${e.response?.statusCode})',
-        error: e,
-        stackTrace: s,
-      );
-      return const [];
-    } catch (e, s) {
-      AppLogger.e('Dashboard', 'recent entries load failed',
-          error: e, stackTrace: s);
+      return localSearchRepository.recentEntries(limit: 5);
+    } catch (_) {
+      AppLogger.w('Dashboard', 'Local recent entries unavailable');
       return const [];
     }
   }
@@ -220,8 +218,9 @@ class DashboardCubit extends Cubit<DashboardState> {
   ) async {
     if (!canViewAudit) return const [];
     try {
-      final page =
-          await auditRepository.listOrgLogs(pageSize: _recentActivityLimit);
+      final page = await auditRepository.listOrgLogs(
+        pageSize: _recentActivityLimit,
+      );
       return page.entries;
     } on DioException catch (e, s) {
       AppLogger.e(
@@ -232,8 +231,12 @@ class DashboardCubit extends Cubit<DashboardState> {
       );
       return const [];
     } catch (e, s) {
-      AppLogger.e('Dashboard', 'recent activity load failed',
-          error: e, stackTrace: s);
+      AppLogger.e(
+        'Dashboard',
+        'recent activity load failed',
+        error: e,
+        stackTrace: s,
+      );
       return const [];
     }
   }
@@ -263,7 +266,12 @@ class DashboardCubit extends Cubit<DashboardState> {
     try {
       return await SharedPreferences.getInstance();
     } catch (e, s) {
-      AppLogger.e('Dashboard', 'SharedPreferences unavailable', error: e, stackTrace: s);
+      AppLogger.e(
+        'Dashboard',
+        'SharedPreferences unavailable',
+        error: e,
+        stackTrace: s,
+      );
       return null;
     }
   }
@@ -349,10 +357,7 @@ class DashboardCubit extends Cubit<DashboardState> {
     final current = state;
     if (current is DashboardOnboarding) {
       emit(
-        DashboardOnboarding(
-          status: current.status,
-          notificationStepDone: true,
-        ),
+        DashboardOnboarding(status: current.status, notificationStepDone: true),
       );
     }
   }
@@ -379,4 +384,14 @@ class DashboardCubit extends Cubit<DashboardState> {
     }
     return null;
   }
+}
+
+final class _EmptyLocalSearchRepository implements LocalSearchRepository {
+  const _EmptyLocalSearchRepository();
+
+  @override
+  List<SearchResultEntity> search(String query, {int limit = 10}) => const [];
+
+  @override
+  List<RecentEntryEntity> recentEntries({int limit = 5}) => const [];
 }

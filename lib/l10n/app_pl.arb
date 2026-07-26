@@ -825,6 +825,7 @@
   "searchResultsEmpty": "Brak wyników dla tego wyszukiwania",
   "searchResultsError": "Wyszukiwanie nie powiodło się. Spróbuj ponownie.",
   "searchTypeBadgeAgent": "Agent",
+  "searchTypeBadgeMember": "Członek",
   "searchTypeBadgeVault": "Vault",
   "searchTypeBadgeEntry": "Wpis",
 

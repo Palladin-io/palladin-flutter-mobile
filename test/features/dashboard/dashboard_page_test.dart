@@ -1,4 +1,5 @@
 import 'package:bloc_test/bloc_test.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -21,6 +22,7 @@ import 'package:mobile_palladin/features/dashboard/domain/entities/search_result
 import 'package:mobile_palladin/features/dashboard/domain/repositories/dashboard_repository.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_cubit.dart';
+import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_session_controller.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:mobile_palladin/features/notifications/data/services/notification_permission_service.dart';
 import 'package:mobile_palladin/features/shell/presentation/pages/app_shell.dart';
@@ -84,43 +86,52 @@ class _FakeDashboardCubit extends DashboardCubit {
 // ──────────────────────────────────────────────
 
 RecentEntryEntity _recent() => RecentEntryEntity(
-      id: 'e1',
-      label: 'GitHub token',
-      vaultId: 'v1',
-      vaultName: 'Personal',
-      typeWire: 1,
-      updatedAt: DateTime.utc(2026, 6, 30),
-      createdAt: DateTime.utc(2026, 6, 1),
-    );
+  id: 'e1',
+  label: 'GitHub token',
+  vaultId: 'v1',
+  vaultName: 'Personal',
+  typeWire: 1,
+  updatedAt: DateTime.utc(2026, 6, 30),
+  createdAt: DateTime.utc(2026, 6, 1),
+);
 
 PendingGrant _grant() => PendingGrant(
-      grantId: 'g1',
-      vaultId: 'v1',
-      agentId: 'ag1',
-      entryId: 'e1',
-      agentPublicKey: 'pk',
-      encryptedReason: const EncryptedReason(
-        organizationId: 'org', vaultId: 'v1', entryId: 'e1',
-        grantRequestId: 'g1', agentId: 'ag1', requestRevision: '1', header: {},
-        reasonKeyVersion: 1, agentMessageKeyVersion: 1,
-        recipientAgentMessageKeyFingerprint: 'fp', requestedMethods: 1,
-        ciphertext: 'ct', agentMessageWrappedReasonDek: 'dek', agentSignature: 'sig',
-      ),
-      agentName: 'Scraper Bot',
-      vaultName: 'Personal',
-      isAgentRegistered: false,
-      createdAt: DateTime.utc(2026, 6, 30),
-    );
+  grantId: 'g1',
+  vaultId: 'v1',
+  agentId: 'ag1',
+  entryId: 'e1',
+  agentPublicKey: 'pk',
+  encryptedReason: const EncryptedReason(
+    organizationId: 'org',
+    vaultId: 'v1',
+    entryId: 'e1',
+    grantRequestId: 'g1',
+    agentId: 'ag1',
+    requestRevision: '1',
+    header: {},
+    reasonKeyVersion: 1,
+    agentMessageKeyVersion: 1,
+    recipientAgentMessageKeyFingerprint: 'fp',
+    requestedMethods: 1,
+    ciphertext: 'ct',
+    agentMessageWrappedReasonDek: 'dek',
+    agentSignature: 'sig',
+  ),
+  agentName: 'Scraper Bot',
+  vaultName: 'Personal',
+  isAgentRegistered: false,
+  createdAt: DateTime.utc(2026, 6, 30),
+);
 
 AuditLogEntry _auditEntry() => AuditLogEntry(
-      id: 'a1',
-      eventType: AuditEventType.entryCreated,
-      rawEventType: 'entry.created',
-      actorType: AuditActorType.user,
-      actorName: 'Ada',
-      entryLabel: 'GitHub token',
-      createdAt: DateTime.utc(2026, 6, 30),
-    );
+  id: 'a1',
+  eventType: AuditEventType.entryCreated,
+  rawEventType: 'entry.created',
+  actorType: AuditActorType.user,
+  actorName: 'Ada',
+  entryLabel: 'GitHub token',
+  createdAt: DateTime.utc(2026, 6, 30),
+);
 
 void main() {
   late _MockDashboardRepository dashboardRepository;
@@ -139,6 +150,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(CancelToken());
     registerFallbackValue(_grant());
   });
 
@@ -154,15 +166,20 @@ void main() {
     entryRepository = _MockEntryRepository();
     lastDashboardCubit = null;
 
-    when(() => dashboardRepository.globalSearch(any(),
-        limit: any(named: 'limit'))).thenAnswer((_) async => const []);
+    when(
+      () => dashboardRepository.globalSearch(
+        any(),
+        limit: any(named: 'limit'),
+        cancelToken: any(named: 'cancelToken'),
+      ),
+    ).thenAnswer((_) async => const []);
 
     // SearchCubit is resolved per-mount from getIt (factory in real DI).
     getIt.registerFactory<SearchCubit>(
-      () => SearchCubit(
-        repository: dashboardRepository,
-        analytics: analytics,
-      ),
+      () => SearchCubit(repository: dashboardRepository, analytics: analytics),
+    );
+    getIt.registerLazySingleton<SearchSessionController>(
+      SearchSessionController.new,
     );
     // The dashboard resolves the entry repository lazily for the search-row
     // copy-secret action.
@@ -231,8 +248,9 @@ void main() {
   }
 
   group('Recently added / modified gating', () {
-    testWidgets('shows the section when the user has NO AuditView permission',
-        (tester) async {
+    testWidgets('shows the section when the user has NO AuditView permission', (
+      tester,
+    ) async {
       await pumpDashboard(
         tester,
         state: DashboardLoaded(recentEntries: [_recent()]),
@@ -243,8 +261,9 @@ void main() {
       expect(find.text('GitHub token'), findsOneWidget);
     });
 
-    testWidgets('hides the section when the user HAS AuditView permission',
-        (tester) async {
+    testWidgets('hides the section when the user HAS AuditView permission', (
+      tester,
+    ) async {
       await pumpDashboard(
         tester,
         state: DashboardLoaded(recentEntries: [_recent()]),
@@ -256,8 +275,7 @@ void main() {
   });
 
   group('Recent Activity gating', () {
-    testWidgets(
-        'with AuditView + seeded logs: renders AuditLogRow and hides '
+    testWidgets('with AuditView + seeded logs: renders AuditLogRow and hides '
         '"Recently added"', (tester) async {
       await pumpDashboard(
         tester,
@@ -273,8 +291,7 @@ void main() {
       expect(find.text('Recently added / modified'), findsNothing);
     });
 
-    testWidgets(
-        'without AuditView: hides "Recent Activity" and shows '
+    testWidgets('without AuditView: hides "Recent Activity" and shows '
         '"Recently added"', (tester) async {
       await pumpDashboard(
         tester,
@@ -315,26 +332,33 @@ void main() {
   });
 
   group('search result reveal + copy', () {
-    const entryHit = SearchResultEntity(
-      type: SearchResultType.entry,
-      id: 'e1',
-      name: 'Stripe',
+    const entryHit = EntrySearchResult(
+      entryId: 'e1',
+      displayName: 'Stripe',
       vaultId: 'v1',
       vaultName: 'Personal',
+      entryType: 1,
     );
 
     /// Stubs an entry search hit + its decrypt, pumps the dashboard, and
     /// drives the field into a live [SearchResults] state with the hit shown.
     Future<void> pumpWithEntryHit(WidgetTester tester) async {
-      when(() => dashboardRepository.globalSearch(any(),
-          limit: any(named: 'limit'))).thenAnswer((_) async => [entryHit]);
+      when(
+        () => dashboardRepository.globalSearch(
+          any(),
+          limit: any(named: 'limit'),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((_) async => [entryHit]);
 
-      when(() => entryRepository.revealEntry(
-            vaultId: any(named: 'vaultId'),
-            entryId: any(named: 'entryId'),
-            privateKey: any(named: 'privateKey'),
-            wrappedVK: any(named: 'wrappedVK'),
-          )).thenAnswer(
+      when(
+        () => entryRepository.revealEntry(
+          vaultId: any(named: 'vaultId'),
+          entryId: any(named: 'entryId'),
+          privateKey: any(named: 'privateKey'),
+          wrappedVK: any(named: 'wrappedVK'),
+        ),
+      ).thenAnswer(
         (_) async => RevealedEntry(
           entry: EntryEntity(
             id: 'e1',
@@ -364,43 +388,53 @@ void main() {
     }
 
     testWidgets(
-        "tapping an entry hit's copy action decrypts + copies the secret "
-        'without navigating', (tester) async {
-      final clipboardCalls = <MethodCall>[];
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        (call) async {
-          if (call.method == 'Clipboard.setData') clipboardCalls.add(call);
-          return null;
-        },
-      );
-      addTearDown(() => tester.binding.defaultBinaryMessenger
-          .setMockMethodCallHandler(SystemChannels.platform, null));
+      "tapping an entry hit's copy action decrypts + copies the secret "
+      'without navigating',
+      (tester) async {
+        final clipboardCalls = <MethodCall>[];
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async {
+            if (call.method == 'Clipboard.setData') clipboardCalls.add(call);
+            return null;
+          },
+        );
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          ),
+        );
 
-      await pumpWithEntryHit(tester);
+        await pumpWithEntryHit(tester);
 
-      // Tap the trailing copy action (not the row) — must not navigate.
-      await tester.tap(find.byIcon(Icons.content_copy));
-      await tester.pump(); // spinner
-      await tester.pump(); // revealEntry resolves + clipboard write
+        // Tap the trailing copy action (not the row) — must not navigate.
+        await tester.tap(find.byIcon(Icons.content_copy));
+        await tester.pump(); // spinner
+        await tester.pump(); // revealEntry resolves + clipboard write
 
-      verify(() => entryRepository.revealEntry(
+        verify(
+          () => entryRepository.revealEntry(
             vaultId: 'v1',
             entryId: 'e1',
             privateKey: any(named: 'privateKey'),
             wrappedVK: any(named: 'wrappedVK'),
-          )).called(1);
-      expect(clipboardCalls, hasLength(1));
-      expect((clipboardCalls.single.arguments as Map)['text'], 's3cr3t');
+          ),
+        ).called(1);
+        expect(clipboardCalls, hasLength(1));
+        expect((clipboardCalls.single.arguments as Map)['text'], 's3cr3t');
 
-      // Drain SecureClipboard's auto-clear timer so it isn't left pending.
-      await tester.pump(SecureClipboard.defaultClearAfter + const Duration(seconds: 1));
-    });
+        // Drain SecureClipboard's auto-clear timer so it isn't left pending.
+        await tester.pump(
+          SecureClipboard.defaultClearAfter + const Duration(seconds: 1),
+        );
+      },
+    );
 
-    testWidgets(
-        "tapping an entry hit's eye action expands a panel with the "
-        'decrypted secret (row unchanged); a second tap collapses it',
-        (tester) async {
+    testWidgets("tapping an entry hit's eye action expands a panel with the "
+        'decrypted secret (row unchanged); a second tap collapses it', (
+      tester,
+    ) async {
       await pumpWithEntryHit(tester);
 
       // Before reveal: no panel, the secret is not shown anywhere.
@@ -417,12 +451,14 @@ void main() {
       expect(find.text('Stripe'), findsOneWidget);
       expect(find.text('Personal'), findsOneWidget);
       expect(find.byIcon(Icons.visibility_off), findsOneWidget);
-      verify(() => entryRepository.revealEntry(
-            vaultId: 'v1',
-            entryId: 'e1',
-            privateKey: any(named: 'privateKey'),
-            wrappedVK: any(named: 'wrappedVK'),
-          )).called(1);
+      verify(
+        () => entryRepository.revealEntry(
+          vaultId: 'v1',
+          entryId: 'e1',
+          privateKey: any(named: 'privateKey'),
+          wrappedVK: any(named: 'wrappedVK'),
+        ),
+      ).called(1);
 
       // A second tap collapses the panel — the secret disappears.
       await tester.tap(find.byIcon(Icons.visibility_off));
@@ -433,8 +469,9 @@ void main() {
   });
 
   group('pending approvals badge', () {
-    testWidgets('shows the real pending count, not a hardcoded "1"',
-        (tester) async {
+    testWidgets('shows the real pending count, not a hardcoded "1"', (
+      tester,
+    ) async {
       await pumpDashboard(
         tester,
         state: DashboardUnknownAgent(grant: _grant(), pendingCount: 3),
@@ -449,37 +486,39 @@ void main() {
 
   group('reject unknown-agent request', () {
     testWidgets(
-        'tapping Reject opens the deny sheet; confirming calls denyGrant '
-        'and refreshes the dashboard', (tester) async {
-      when(() => approvalRepository.denyGrant(
-            grant: any(named: 'grant'),
-          )).thenAnswer((_) async {});
+      'tapping Reject opens the deny sheet; confirming calls denyGrant '
+      'and refreshes the dashboard',
+      (tester) async {
+        when(
+          () => approvalRepository.denyGrant(grant: any(named: 'grant')),
+        ).thenAnswer((_) async {});
 
-      await pumpDashboard(
-        tester,
-        state: DashboardUnknownAgent(grant: _grant(), pendingCount: 1),
-        permissions: 0,
-      );
-      // Mounted once → load() called a single time so far.
-      expect(lastDashboardCubit!.loadCount, 1);
+        await pumpDashboard(
+          tester,
+          state: DashboardUnknownAgent(grant: _grant(), pendingCount: 1),
+          permissions: 0,
+        );
+        // Mounted once → load() called a single time so far.
+        expect(lastDashboardCubit!.loadCount, 1);
 
-      // Tap the card's Reject CTA → the shared deny sheet opens.
-      await tester.tap(find.text('Reject'));
-      await tester.pumpAndSettle();
-      expect(find.text('Deny Scraper Bot?'), findsOneWidget);
-      expect(find.text('Reason (optional)'), findsNothing);
-      expect(find.text('Why are you denying this request?'), findsNothing);
+        // Tap the card's Reject CTA → the shared deny sheet opens.
+        await tester.tap(find.text('Reject'));
+        await tester.pumpAndSettle();
+        expect(find.text('Deny Scraper Bot?'), findsOneWidget);
+        expect(find.text('Reason (optional)'), findsNothing);
+        expect(find.text('Why are you denying this request?'), findsNothing);
 
-      // Confirm the denial.
-      await tester.tap(find.text('Deny'));
-      await tester.pumpAndSettle();
+        // Confirm the denial.
+        await tester.tap(find.text('Deny'));
+        await tester.pumpAndSettle();
 
-      verify(() => approvalRepository.denyGrant(
-            grant: any(named: 'grant'),
-          )).called(1);
-      // Confirmation snackbar + a refresh (load called again).
-      expect(find.text('Request rejected'), findsOneWidget);
-      expect(lastDashboardCubit!.loadCount, 2);
-    });
+        verify(
+          () => approvalRepository.denyGrant(grant: any(named: 'grant')),
+        ).called(1);
+        // Confirmation snackbar + a refresh (load called again).
+        expect(find.text('Request rejected'), findsOneWidget);
+        expect(lastDashboardCubit!.loadCount, 2);
+      },
+    );
   });
 }

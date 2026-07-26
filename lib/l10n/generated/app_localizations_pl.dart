@@ -2796,6 +2796,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get searchTypeBadgeAgent => 'Agent';
 
   @override
+  String get searchTypeBadgeMember => 'Członek';
+
+  @override
   String get searchTypeBadgeVault => 'Vault';
 
   @override

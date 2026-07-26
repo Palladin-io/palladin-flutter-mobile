@@ -1,55 +1,82 @@
 import '../../domain/entities/search_result_entity.dart';
 
-/// DTO for one item in the `GET /api/search` response.
-///
-/// Parses `{ "type", "id", "name", "vaultId"?, "vaultName"?, "icon"? }`. The
-/// backend emits `type` as one of `"agent" | "vault" | "entry"`; unknown
-/// values fall back to [SearchResultType.entry] so a forward-compatible
-/// backend change never crashes the client. `vaultId`/`vaultName` are present
-/// for entry hits only.
-class SearchResultModel {
-  const SearchResultModel({
-    required this.type,
-    required this.id,
-    required this.name,
-    this.vaultId,
-    this.vaultName,
-    this.icon,
-  });
-
-  final SearchResultType type;
-  final String id;
-  final String name;
-  final String? vaultId;
-  final String? vaultName;
-  final String? icon;
+/// Strict DTO for one authorization-scoped administrative search hit.
+sealed class SearchResultModel {
+  const SearchResultModel();
 
   factory SearchResultModel.fromJson(Map<String, dynamic> json) {
-    return SearchResultModel(
-      type: _parseType(json['type'] as String?),
-      id: json['id'] as String,
-      name: json['name'] as String,
-      vaultId: json['vaultId'] as String?,
-      vaultName: json['vaultName'] as String?,
-      icon: json['icon'] as String?,
-    );
-  }
-
-  static SearchResultType _parseType(String? raw) {
-    return switch (raw) {
-      'agent' => SearchResultType.agent,
-      'vault' => SearchResultType.vault,
-      'entry' => SearchResultType.entry,
-      _ => SearchResultType.entry,
+    final type = json['type'];
+    final organizationId = json['organizationId'];
+    final id = json['id'];
+    final name = json['name'];
+    final icon = json['icon'];
+    if (organizationId is! String ||
+        organizationId.isEmpty ||
+        id is! String ||
+        id.isEmpty ||
+        name is! String ||
+        name.isEmpty ||
+        (icon != null && icon is! String)) {
+      throw const FormatException('Malformed administrative search hit');
+    }
+    return switch (type) {
+      'agent' => AgentSearchResultModel(
+        organizationId: organizationId,
+        agentId: id,
+        name: name,
+        icon: icon as String?,
+      ),
+      'member' => MemberSearchResultModel(
+        organizationId: organizationId,
+        memberId: id,
+        name: name,
+        icon: icon as String?,
+      ),
+      _ => throw const FormatException('Unsupported remote search hit type'),
     };
   }
 
-  SearchResultEntity toEntity() => SearchResultEntity(
-        type: type,
-        id: id,
-        name: name,
-        vaultId: vaultId,
-        vaultName: vaultName,
-        icon: icon,
-      );
+  SearchResultEntity toEntity();
+}
+
+final class AgentSearchResultModel extends SearchResultModel {
+  const AgentSearchResultModel({
+    required this.organizationId,
+    required this.agentId,
+    required this.name,
+    this.icon,
+  });
+  final String organizationId;
+  final String agentId;
+  final String name;
+  final String? icon;
+
+  @override
+  AgentSearchResult toEntity() => AgentSearchResult(
+    organizationId: organizationId,
+    agentId: agentId,
+    displayName: name,
+    iconReference: icon,
+  );
+}
+
+final class MemberSearchResultModel extends SearchResultModel {
+  const MemberSearchResultModel({
+    required this.organizationId,
+    required this.memberId,
+    required this.name,
+    this.icon,
+  });
+  final String organizationId;
+  final String memberId;
+  final String name;
+  final String? icon;
+
+  @override
+  MemberSearchResult toEntity() => MemberSearchResult(
+    organizationId: organizationId,
+    memberId: memberId,
+    displayName: name,
+    iconReference: icon,
+  );
 }

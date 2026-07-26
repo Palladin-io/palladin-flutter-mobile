@@ -56,7 +56,8 @@ void main() {
           matching: find.byType(ElevatedButton),
         ),
       );
-      final screenWidth = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+      final screenWidth =
+          tester.view.physicalSize.width / tester.view.devicePixelRatio;
       expect(buttonSize.width, lessThan(screenWidth / 2));
     });
   });

@@ -20,6 +20,28 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 - Entry-key unwrap and MemberIndex decrypt stay in `data/services/vault_protocol/`. Decrypt concurrency defaults to two, response pages are capped at the backend's 200-item limit, and the runtime index fails closed above 20,000 entries. Authenticated context is independently rebound to the requested Vault, Entry id, current key version, projection revision, and minimum Member generation.
 - Search operates only on the unlocked in-memory index. `PalladinApp` clears all decrypted indexes on every unlocked-to-locked or session-loss transition; the ciphertext cache remains available to rebuild offline after the next unlock.
 
+### Dashboard global search (CVT-481)
+
+- Vault and Entry hits are derived only from the unlocked `VaultListCubit`
+  metadata and `MemberIndexReader`; recent Entry suggestions use the same
+  synchronized local index. No Vault/Entry label, search field, icon or query
+  projection is sent to backend Search or persisted by the search feature.
+- After the 250 ms debounce, bounded local search and the authorization-scoped
+  Agent/Member request start concurrently. Local results render immediately;
+  remote failure retains them. A `CancelToken` plus generation guard rejects
+  stale completions after a newer query or security transition.
+- The administrative query is ephemeral and sent only in the body of
+  `POST /api/search`. It never appears in URL parameters, logs, analytics,
+  crash breadcrumbs or a client cache. The response parser rejects Vault,
+  Entry, unknown and unscoped results.
+- Results are sealed Agent/Member/Vault/Entry identities. Ranking is
+  deterministic within local source groups, never compares local and remote
+  score scales, and deduplicates by scoped identity. Candidate traversal is
+  capped at 20,000; each source/result request is capped at 10.
+- Background, lock, logout, reset and page disposal cancel transport and drop
+  query intent/results. Corrupt, Archived and Deleted MemberIndex rows fail
+  closed.
+
 ### Resumable staged key rotation (CVT-441)
 
 - `VaultRotationService` starts after unlock, lists only server-owned pending work, claims a fenced lease, verifies that the claimed plan matches the listed immutable generations/epochs, and uploads pages of at most 100 prepared envelopes. It retries a dirty atomic commit at most three times.

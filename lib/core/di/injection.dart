@@ -54,9 +54,12 @@ import '../../features/audit/presentation/cubit/audit_log_cubit.dart';
 import '../../features/audit/presentation/cubit/entry_logs_cubit.dart';
 import '../../features/dashboard/data/datasources/dashboard_remote_datasource.dart';
 import '../../features/dashboard/data/repositories/dashboard_repository_impl.dart';
+import '../../features/dashboard/data/repositories/local_search_repository_impl.dart';
 import '../../features/dashboard/domain/repositories/dashboard_repository.dart';
+import '../../features/dashboard/domain/repositories/local_search_repository.dart';
 import '../../features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import '../../features/dashboard/presentation/cubit/search_cubit.dart';
+import '../../features/dashboard/presentation/cubit/search_session_controller.dart';
 import '../../features/grants/data/datasources/grants_remote_datasource.dart';
 import '../../features/grants/data/repositories/grants_repository_impl.dart';
 import '../../features/grants/domain/repositories/grants_repository.dart';
@@ -814,6 +817,15 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<DashboardRepository>(
     () => DashboardRepositoryImpl(getIt<DashboardRemoteDatasource>()),
   );
+  getIt.registerLazySingleton<LocalSearchRepository>(
+    () => LocalSearchRepositoryImpl(
+      vaults: getIt<VaultListCubit>(),
+      memberIndex: getIt<MemberSyncService>(),
+    ),
+  );
+  getIt.registerLazySingleton<SearchSessionController>(
+    SearchSessionController.new,
+  );
 
   // Dashboard — presentation. Singleton so the home tab keeps its
   // resolved state across shell tab switches; the page calls load() on
@@ -826,6 +838,7 @@ void configureDependencies(EnvConfig config) {
       pendingGrantsCubit: getIt<PendingGrantsCubit>(),
       analytics: getIt<AnalyticsService>(),
       notificationPermissionService: getIt<NotificationPermissionService>(),
+      localSearchRepository: getIt<LocalSearchRepository>(),
     ),
   );
 
@@ -835,7 +848,9 @@ void configureDependencies(EnvConfig config) {
   getIt.registerFactory<SearchCubit>(
     () => SearchCubit(
       repository: getIt<DashboardRepository>(),
+      localRepository: getIt<LocalSearchRepository>(),
       analytics: getIt<AnalyticsService>(),
+      sessionController: getIt<SearchSessionController>(),
     ),
   );
 }

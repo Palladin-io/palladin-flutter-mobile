@@ -3,79 +3,40 @@ import 'package:mobile_palladin/features/dashboard/data/models/search_result_mod
 import 'package:mobile_palladin/features/dashboard/domain/entities/search_result_entity.dart';
 
 void main() {
-  group('SearchResultModel.fromJson', () {
-    test('parses an entry hit with vaultId + vaultName', () {
-      final model = SearchResultModel.fromJson(const {
-        'type': 'entry',
-        'id': 'e1',
-        'name': 'Stripe API Key',
-        'vaultId': 'v1',
-        'vaultName': 'Production',
-        'icon': 'vpn_key',
-      });
-
-      expect(model.type, SearchResultType.entry);
-      expect(model.id, 'e1');
-      expect(model.name, 'Stripe API Key');
-      expect(model.vaultId, 'v1');
-      expect(model.vaultName, 'Production');
-      expect(model.icon, 'vpn_key');
-    });
-
-    test('leaves vaultId/vaultName null for a vault hit', () {
-      final model = SearchResultModel.fromJson(const {
-        'type': 'vault',
-        'id': 'v1',
-        'name': 'Production',
-      });
-
-      expect(model.type, SearchResultType.vault);
-      expect(model.vaultId, isNull);
-      expect(model.vaultName, isNull);
-      expect(model.icon, isNull);
-    });
-
-    test('leaves vaultId null for an agent hit', () {
-      final model = SearchResultModel.fromJson(const {
-        'type': 'agent',
-        'id': 'a1',
-        'name': 'Claude Code',
-      });
-
-      expect(model.type, SearchResultType.agent);
-      expect(model.vaultId, isNull);
-    });
-
-    test('unknown type falls back to entry (forward-compatible)', () {
-      final model = SearchResultModel.fromJson(const {
-        'type': 'something-new',
-        'id': 'x1',
-        'name': 'Mystery',
-      });
-
-      expect(model.type, SearchResultType.entry);
-    });
+  test('parses authorization-scoped Agent identity', () {
+    final entity = SearchResultModel.fromJson(const {
+      'type': 'agent',
+      'organizationId': 'o1',
+      'id': 'a1',
+      'name': 'Claude',
+      'icon': 'bot',
+    }).toEntity();
+    expect(entity, isA<AgentSearchResult>());
+    final agent = entity as AgentSearchResult;
+    expect(agent.organizationId, 'o1');
+    expect(agent.agentId, 'a1');
+    expect(agent.deduplicationKey, 'agent:o1:a1');
   });
 
-  group('SearchResultModel.toEntity', () {
-    test('carries vaultId through to the entity', () {
-      const model = SearchResultModel(
-        type: SearchResultType.entry,
-        id: 'e1',
-        name: 'Stripe API Key',
-        vaultId: 'v1',
-        vaultName: 'Production',
-        icon: 'vpn_key',
-      );
+  test('parses authorization-scoped Member identity', () {
+    final entity = SearchResultModel.fromJson(const {
+      'type': 'member',
+      'organizationId': 'o1',
+      'id': 'm1',
+      'name': 'Ada',
+    }).toEntity();
+    expect(entity, isA<MemberSearchResult>());
+    expect(entity.deduplicationKey, 'member:o1:m1');
+  });
 
-      final entity = model.toEntity();
-
-      expect(entity.type, SearchResultType.entry);
-      expect(entity.id, 'e1');
-      expect(entity.name, 'Stripe API Key');
-      expect(entity.vaultId, 'v1');
-      expect(entity.vaultName, 'Production');
-      expect(entity.icon, 'vpn_key');
-    });
+  test('rejects Vault, Entry, unknown and unscoped remote hits', () {
+    for (final json in <Map<String, dynamic>>[
+      {'type': 'vault', 'organizationId': 'o1', 'id': 'v1', 'name': 'Vault'},
+      {'type': 'entry', 'organizationId': 'o1', 'id': 'e1', 'name': 'Entry'},
+      {'type': 'future', 'organizationId': 'o1', 'id': 'x1', 'name': 'Future'},
+      {'type': 'agent', 'id': 'a1', 'name': 'Unscoped'},
+    ]) {
+      expect(() => SearchResultModel.fromJson(json), throwsFormatException);
+    }
   });
 }

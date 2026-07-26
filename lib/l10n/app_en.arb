@@ -2858,6 +2858,7 @@
   "searchResultsError": "Search failed. Please try again.",
   "@searchResultsError": { "description": "Error state for search results" },
   "searchTypeBadgeAgent": "Agent",
+  "searchTypeBadgeMember": "Member",
   "@searchTypeBadgeAgent": { "description": "Type badge label for agent search results" },
   "searchTypeBadgeVault": "Vault",
   "@searchTypeBadgeVault": { "description": "Type badge label for vault search results" },

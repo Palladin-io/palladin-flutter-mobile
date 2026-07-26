@@ -110,8 +110,9 @@ class OnboardingChecklist extends StatelessWidget {
                 done: dones[i],
                 activeIndex: activeIndex,
               ),
-              notificationPermissionDenied:
-                  i == 0 ? notificationPermissionDenied : false,
+              notificationPermissionDenied: i == 0
+                  ? notificationPermissionDenied
+                  : false,
               onEnableNotifications: onEnableNotifications,
               onSkipNotification: onSkipNotification,
             ),
@@ -199,10 +200,10 @@ class _ProgressCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: completed / 4,
               minHeight: 4,
-              backgroundColor:
-                  AppColors.textTertiary.withValues(alpha: 0.15),
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(AppColors.brandRed),
+              backgroundColor: AppColors.textTertiary.withValues(alpha: 0.15),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.brandRed,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.innerGap),
@@ -379,7 +380,9 @@ class _StepBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final color = isActive ? AppColors.onboardingStepAmber : AppColors.textTertiary;
+    final color = isActive
+        ? AppColors.onboardingStepAmber
+        : AppColors.textTertiary;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.chipGap,
@@ -436,8 +439,9 @@ class _NotificationActions extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.onSurfaceSubtle(brightness),
             side: BorderSide(
-              color: AppColors.onSurfaceSubtle(brightness)
-                  .withValues(alpha: 0.25),
+              color: AppColors.onSurfaceSubtle(
+                brightness,
+              ).withValues(alpha: 0.25),
             ),
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.fieldGap,
@@ -491,9 +495,7 @@ class _CompactButton extends StatelessWidget {
         ),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       child: Text(
         label,
