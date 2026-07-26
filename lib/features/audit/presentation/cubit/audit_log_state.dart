@@ -25,6 +25,7 @@ class AuditLogState {
     this.entries = const [],
     this.agentNames = const {},
     this.vaultNames = const {},
+    this.entryNames = const {},
     this.error,
     this.nextCursor,
     this.loadingMore = false,
@@ -49,6 +50,7 @@ class AuditLogState {
 
   /// Resolved vault id → name (org scope) for the dropdown and search.
   final Map<String, String> vaultNames;
+  final Map<String, String> entryNames;
 
   final AuditErrorKind? error;
 
@@ -190,21 +192,26 @@ class AuditLogState {
             agentName,
             e.entryLabel,
             vaultName,
-            e.agentReason,
+            e.agentId,
+            e.userId,
+            e.entryId,
+            e.vaultId,
             e.rawEventType,
           ].whereType<String>().any((v) => v.toLowerCase().contains(q));
         })
         .toList(growable: false);
   }
 
-  static String _shortId(String id) =>
-      id.length <= 8 ? id : '${id.substring(0, 8)}…';
+  static String _shortId(String id) => id.length <= 15
+      ? id
+      : '${id.substring(0, 8)}…${id.substring(id.length - 6)}';
 
   AuditLogState copyWith({
     AuditLogStatus? status,
     List<AuditLogEntry>? entries,
     Map<String, String>? agentNames,
     Map<String, String>? vaultNames,
+    Map<String, String>? entryNames,
     AuditErrorKind? error,
     bool clearError = false,
     String? nextCursor,
@@ -227,6 +234,7 @@ class AuditLogState {
       entries: entries ?? this.entries,
       agentNames: agentNames ?? this.agentNames,
       vaultNames: vaultNames ?? this.vaultNames,
+      entryNames: entryNames ?? this.entryNames,
       error: clearError ? null : (error ?? this.error),
       nextCursor: clearNextCursor ? null : (nextCursor ?? this.nextCursor),
       loadingMore: loadingMore ?? this.loadingMore,

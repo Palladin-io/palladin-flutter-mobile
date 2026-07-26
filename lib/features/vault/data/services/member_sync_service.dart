@@ -25,7 +25,13 @@ final class MemberSyncResult {
 
 /// Coordinates bounded network sync, ciphertext persistence, and the unlocked
 /// in-memory search index. Call [lock] whenever the Vault session is locked.
-final class MemberSyncService {
+abstract interface class MemberIndexReader {
+  Future<void> waitForCurrent(String vaultId);
+
+  List<MemberIndexEntry> entries(String vaultId);
+}
+
+final class MemberSyncService implements MemberIndexReader {
   MemberSyncService({
     required MemberSyncRemote remote,
     required MemberSyncCache cache,
@@ -116,6 +122,14 @@ final class MemberSyncService {
   }
 
   /// Returns one immutable runtime-only Vault index for local UI filtering.
+  @override
+  Future<void> waitForCurrent(String vaultId) async {
+    final running = _running[vaultId];
+    if (running != null) await running;
+  }
+
+  /// Returns one immutable runtime-only Vault index for local UI filtering.
+  @override
   List<MemberIndexEntry> entries(String vaultId) =>
       List.unmodifiable(_indexes[vaultId]?.values ?? const []);
 

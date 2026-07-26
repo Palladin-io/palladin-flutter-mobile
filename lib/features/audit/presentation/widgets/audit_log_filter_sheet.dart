@@ -11,7 +11,9 @@ import '../audit_log_format.dart';
 
 /// Shortened id (first 8 chars) for disambiguating unnamed options — mirrors
 /// the `_shortId` fallback used by `AuditLogState.vaultOptions`.
-String _shortId(String id) => id.length <= 8 ? id : '${id.substring(0, 8)}…';
+String _shortId(String id) => id.length <= 15
+    ? id
+    : '${id.substring(0, 8)}…${id.substring(id.length - 6)}';
 
 /// The single filter sheet for the vault- and org-scoped Logs surfaces:
 /// event-type group selection, an agent dropdown, an optional vault dropdown

@@ -150,18 +150,19 @@ String auditDate(DateTime dt, String localeName) {
 
 /// Resolves the display name of the actor behind an audit [entry].
 ///
-/// Prefers the names the backend denormalizes server-side ([AuditLogEntry.actorName]
-/// / [AuditLogEntry.agentName]); falls back to the client-side agent-name
-/// cache and finally a shortened id. This keeps the UI correct even before
-/// the agents cache resolves.
+/// Vault-scoped entries use only locally resolved names and safe opaque-id
+/// fallbacks; org-wide audit preserves its existing server presentation.
 String auditActorName(
   AppLocalizations l10n,
   AuditLogEntry entry,
   Map<String, String> agentNames,
 ) {
-  final serverName = entry.actorName?.trim();
-  if (serverName != null && serverName.isNotEmpty) return serverName;
-
+  final actorName = entry.actorName?.trim();
+  if (!entry.localPresentationOnly &&
+      actorName != null &&
+      actorName.isNotEmpty) {
+    return actorName;
+  }
   return switch (entry.actorType) {
     AuditActorType.agent => _agentName(l10n, entry, agentNames),
     AuditActorType.user => l10n.auditActorOwner,
@@ -174,15 +175,15 @@ String _agentName(
   AuditLogEntry entry,
   Map<String, String> agentNames,
 ) {
-  final serverAgentName = entry.agentName?.trim();
-  if (serverAgentName != null && serverAgentName.isNotEmpty) {
-    return serverAgentName;
+  final localAgentName = entry.agentName?.trim();
+  if (localAgentName != null && localAgentName.isNotEmpty) {
+    return localAgentName;
   }
   final agentId = entry.agentId;
   if (agentId == null) return l10n.auditActorAgent;
   final cached = agentNames[agentId];
   if (cached != null && cached.isNotEmpty) return cached;
-  return agentId.length <= 8 ? agentId : '${agentId.substring(0, 8)}…';
+  return _shortId(agentId);
 }
 
 /// A run of a composed audit sentence. [bold] marks a resolved name (actor
@@ -285,22 +286,27 @@ List<AuditSentenceSpan> _splitSentence(String raw) {
   return spans;
 }
 
-/// The acting party for a sentence: server `actorName`, else the agent name,
-/// else a localized "Unknown user" (never an id).
+/// The acting party for a sentence, resolved from local caches.
 String _sentenceActor(
   AppLocalizations l10n,
   AuditLogEntry entry,
   Map<String, String> agentNames,
 ) {
   final actorName = entry.actorName?.trim();
-  if (actorName != null && actorName.isNotEmpty) return actorName;
+  if (!entry.localPresentationOnly &&
+      actorName != null &&
+      actorName.isNotEmpty) {
+    return actorName;
+  }
   final agent = _sentenceAgentName(entry, agentNames);
   if (agent != null) return agent;
+  if (entry.userId case final id?) {
+    return _shortId(id);
+  }
   return l10n.auditUserUnknown;
 }
 
-/// The agent a sentence is about (server `agentName`, else cached name), or
-/// `null` when unknown.
+/// The agent a sentence is about, from local runtime resolution only.
 String? _sentenceAgentName(
   AuditLogEntry entry,
   Map<String, String> agentNames,
@@ -315,17 +321,25 @@ String? _sentenceAgentName(
   return null;
 }
 
-/// The object name a sentence acts on — entry label, else `metadata.name`
-/// (vault / org) or `metadata.keyName` (api key). `null` when none is known.
+/// The object name a sentence acts on, with an opaque fallback for purged ids.
 String? _objectName(AuditLogEntry entry) {
-  final label = entry.entryLabel?.trim();
-  if (label != null && label.isNotEmpty) return label;
-  final name = entry.metadata['name']?.trim();
-  if (name != null && name.isNotEmpty) return name;
-  final keyName = entry.metadata['keyName']?.trim();
-  if (keyName != null && keyName.isNotEmpty) return keyName;
-  return null;
+  final local = entry.resolvedObjectName?.trim();
+  if (local != null && local.isNotEmpty) return local;
+  if (!entry.localPresentationOnly) {
+    final label = entry.entryLabel?.trim();
+    if (label != null && label.isNotEmpty) return label;
+    final name = entry.metadata['name']?.trim();
+    if (name != null && name.isNotEmpty) return name;
+    final keyName = entry.metadata['keyName']?.trim();
+    if (keyName != null && keyName.isNotEmpty) return keyName;
+  }
+  final id = entry.entryId ?? entry.vaultId;
+  return entry.localPresentationOnly && id != null ? _shortId(id) : null;
 }
+
+String _shortId(String value) => value.length <= 15
+    ? value
+    : '${value.substring(0, 8)}…${value.substring(value.length - 6)}';
 
 /// Localized message for an [AuditErrorKind]. Keeps user-facing text out
 /// of the data/domain layers.

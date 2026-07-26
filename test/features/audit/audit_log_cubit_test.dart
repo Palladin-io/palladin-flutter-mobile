@@ -7,13 +7,17 @@ import 'package:mobile_palladin/features/audit/domain/exceptions/audit_exception
 import 'package:mobile_palladin/features/audit/domain/repositories/audit_repository.dart';
 import 'package:mobile_palladin/features/audit/presentation/cubit/audit_log_cubit.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/vault_repository.dart';
+import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 
 class _MockAuditRepository extends Mock implements AuditRepository {}
 
 class _MockAgentsRepository extends Mock implements AgentsRepository {}
 
 class _MockVaultRepository extends Mock implements VaultRepository {}
+
+class _MockMemberIndex extends Mock implements MemberIndexReader {}
 
 AuditLogEntry _entry(String id, {String? agentId, String? vaultId}) {
   return AuditLogEntry(
@@ -54,17 +58,23 @@ void main() {
   late AuditRepository audit;
   late AgentsRepository agents;
   late VaultRepository vaults;
+  late MemberIndexReader memberIndex;
 
   setUp(() {
     audit = _MockAuditRepository();
     agents = _MockAgentsRepository();
     vaults = _MockVaultRepository();
+    memberIndex = _MockMemberIndex();
+    when(() => memberIndex.waitForCurrent(any())).thenAnswer((_) async {});
+    when(() => memberIndex.entries(any())).thenReturn(const []);
+    when(() => vaults.listVaults()).thenAnswer((_) async => const []);
   });
 
   AuditLogCubit vaultCubit() => AuditLogCubit(
     auditRepository: audit,
     agentsRepository: agents,
     vaultRepository: vaults,
+    memberSync: memberIndex,
     scope: AuditLogScope.vault,
     vaultId: 'v-1',
   );
@@ -73,6 +83,7 @@ void main() {
     auditRepository: audit,
     agentsRepository: agents,
     vaultRepository: vaults,
+    memberSync: memberIndex,
     scope: AuditLogScope.org,
     vaultId: null,
   );
@@ -112,28 +123,65 @@ void main() {
       await cubit.close();
     });
 
-    test('load() does not resolve vault names in vault scope', () async {
-      when(() => agents.listAgents()).thenAnswer((_) async => []);
-      when(
-        () => audit.listVaultLogs(
-          'v-1',
-          actions: any(named: 'actions'),
-          agentId: any(named: 'agentId'),
-          userId: any(named: 'userId'),
-          entryId: any(named: 'entryId'),
-          from: any(named: 'from'),
-          to: any(named: 'to'),
-          cursor: any(named: 'cursor'),
-          pageSize: any(named: 'pageSize'),
-        ),
-      ).thenAnswer((_) async => const AuditLogPage(entries: []));
+    test(
+      'load() resolves Vault and Entry names only from local state',
+      () async {
+        when(() => agents.listAgents()).thenAnswer((_) async => []);
+        when(
+          () => vaults.listVaults(),
+        ).thenAnswer((_) async => [_vault('v-1', 'Production')]);
+        when(() => memberIndex.entries('v-1')).thenReturn(const [
+          MemberIndexEntry(
+            entryId: 'e-1',
+            entryType: 1,
+            memberLabel: 'Stripe Key',
+            searchFields: [],
+            revision: 'r-1',
+            state: MemberEntryState.active,
+          ),
+        ]);
+        when(
+          () => audit.listVaultLogs(
+            'v-1',
+            actions: any(named: 'actions'),
+            agentId: any(named: 'agentId'),
+            userId: any(named: 'userId'),
+            entryId: any(named: 'entryId'),
+            from: any(named: 'from'),
+            to: any(named: 'to'),
+            cursor: any(named: 'cursor'),
+            pageSize: any(named: 'pageSize'),
+          ),
+        ).thenAnswer(
+          (_) async => AuditLogPage(
+            entries: [
+              AuditLogEntry(
+                id: '1',
+                eventType: AuditEventType.entryUpdated,
+                rawEventType: 'entry.updated',
+                actorType: AuditActorType.user,
+                createdAt: DateTime(2026),
+                userId: 'user-opaque',
+                vaultId: 'v-1',
+                entryId: 'e-1',
+                actorName: 'Server User',
+                entryLabel: 'Server Entry',
+              ),
+            ],
+          ),
+        );
 
-      final cubit = vaultCubit();
-      await cubit.load();
+        final cubit = vaultCubit();
+        await cubit.load();
 
-      verifyNever(() => vaults.listVaults());
-      await cubit.close();
-    });
+        expect(cubit.state.entries.single.entryLabel, 'Stripe Key');
+        expect(cubit.state.entries.single.actorName, isNull);
+        expect(cubit.state.entries.single.resolvedObjectName, 'Stripe Key');
+        expect(cubit.state.entries.single.localPresentationOnly, isTrue);
+        verify(() => memberIndex.waitForCurrent('v-1')).called(1);
+        await cubit.close();
+      },
+    );
   });
 
   group('org scope', () {
