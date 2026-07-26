@@ -3,6 +3,9 @@
 /// Convention: `kRead{Resource}` / `kWrite{Resource}` — never per-action.
 /// Bits 256/512 are reserved for billing plan feature flags.
 abstract final class Permissions {
+  /// Manage organization membership and roles.
+  static const int organizationManagement = 2;
+
   /// Manage agents — approve, deactivate, reactivate and edit agents.
   static const int agentManage = 16;
 

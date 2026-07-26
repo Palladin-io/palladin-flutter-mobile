@@ -3294,5 +3294,51 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
+  String get vaultMemberYou => 'Ty';
+
+  @override
+  String get vaultMemberActive => 'Aktywny';
+
+  @override
+  String get vaultMemberPending => 'Usunięcie oczekuje';
+
+  @override
+  String get vaultMemberRotating =>
+      'Zabezpieczanie dostępu — sejf pozostaje dostępny';
+
+  @override
+  String get vaultMemberBlockedLast =>
+      'Zablokowane — ostatni uprawniony członek';
+
+  @override
+  String get vaultMemberRemove => 'Usuń';
+
+  @override
+  String get vaultMemberRemoveTitle => 'Usunąć członka organizacji?';
+
+  @override
+  String vaultMemberRemoveBody(String name) {
+    return 'Usunięcie użytkownika $name dotyczy wszystkich sejfów, do których ma dostęp. Dostęp pozostanie aktywny do zatwierdzenia wszystkich wymaganych rotacji kluczy.';
+  }
+
+  @override
+  String get vaultMemberRemovalStarted =>
+      'Rozpoczęto usuwanie. Sejf pozostaje dostępny podczas rotacji.';
+
+  @override
+  String get vaultMembersLoadError => 'Nie udało się wczytać stanu członków.';
+
+  @override
+  String get vaultMemberForbidden =>
+      'Nie masz uprawnień do zarządzania członkami organizacji.';
+
+  @override
+  String get vaultMemberProtected => 'Tego członka nie można usunąć.';
+
+  @override
+  String get vaultMemberNetworkError =>
+      'Sprawdź połączenie i spróbuj ponownie.';
+
+  @override
   String get settingsTwoFactor => 'Uwierzytelnianie dwuskładnikowe';
 }

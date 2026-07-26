@@ -5774,6 +5774,84 @@ abstract class AppLocalizations {
   /// **'Recipient key v{version}'**
   String vaultDiscoveryKeyVersion(int version);
 
+  /// No description provided for @vaultMemberYou.
+  ///
+  /// In en, this message translates to:
+  /// **'you'**
+  String get vaultMemberYou;
+
+  /// No description provided for @vaultMemberActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get vaultMemberActive;
+
+  /// No description provided for @vaultMemberPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Removal pending'**
+  String get vaultMemberPending;
+
+  /// No description provided for @vaultMemberRotating.
+  ///
+  /// In en, this message translates to:
+  /// **'Securing access — Vault remains available'**
+  String get vaultMemberRotating;
+
+  /// No description provided for @vaultMemberBlockedLast.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked — last capable Member'**
+  String get vaultMemberBlockedLast;
+
+  /// No description provided for @vaultMemberRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get vaultMemberRemove;
+
+  /// No description provided for @vaultMemberRemoveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove organization Member?'**
+  String get vaultMemberRemoveTitle;
+
+  /// No description provided for @vaultMemberRemoveBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Removing {name} affects every Vault they can access. Access remains active until all required key rotations commit.'**
+  String vaultMemberRemoveBody(String name);
+
+  /// No description provided for @vaultMemberRemovalStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Removal started. This Vault remains available while rotations finish.'**
+  String get vaultMemberRemovalStarted;
+
+  /// No description provided for @vaultMembersLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Member status could not be loaded.'**
+  String get vaultMembersLoadError;
+
+  /// No description provided for @vaultMemberForbidden.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to manage organization Members.'**
+  String get vaultMemberForbidden;
+
+  /// No description provided for @vaultMemberProtected.
+  ///
+  /// In en, this message translates to:
+  /// **'This Member cannot be removed.'**
+  String get vaultMemberProtected;
+
+  /// No description provided for @vaultMemberNetworkError.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your connection and try again.'**
+  String get vaultMemberNetworkError;
+
   /// Settings drawer item — set up TOTP two-factor auth
   ///
   /// In en, this message translates to:

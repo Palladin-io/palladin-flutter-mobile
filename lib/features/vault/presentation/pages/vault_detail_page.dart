@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../cubit/vault_list_cubit.dart';
+import '../cubit/vault_members_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_bar_title.dart';
@@ -22,10 +23,10 @@ import '../cubit/vault_detail_cubit.dart';
 import '../widgets/vault_entries_tab.dart';
 import '../widgets/vault_agents_tab.dart';
 import '../widgets/vault_form.dart';
+import '../widgets/vault_members_tab.dart';
 import '../../../approval/presentation/widgets/grant_access_sheet.dart';
 import '../../../audit/presentation/widgets/vault_audit_log_tab.dart';
 import '../widgets/export_sheet.dart';
-import '../widgets/vault_placeholder_tab.dart';
 import '../widgets/vault_settings_tab.dart';
 import '../widgets/vault_visuals.dart';
 import 'add_entry_page.dart';
@@ -82,6 +83,9 @@ class VaultDetailPage extends StatelessWidget {
             }
             return cubit;
           },
+        ),
+        BlocProvider<VaultMembersCubit>(
+          create: (_) => getIt<VaultMembersCubit>(param1: vaultId)..load(),
         ),
       ],
       child: _VaultDetailView(vaultId: vaultId),
@@ -625,10 +629,7 @@ class _LoadedBody extends StatelessWidget {
               AppSpacing.listBottom,
             ),
           ),
-          _PlaceholderTabBuilder(
-            messageKey: (l10n) => l10n.vaultMembersEmpty,
-            icon: Icons.group_outlined,
-          ),
+          const VaultMembersTab(),
           if (initialFormData != null)
             VaultSettingsTab(
               vaultId: vault.id,
@@ -642,19 +643,6 @@ class _LoadedBody extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _PlaceholderTabBuilder extends StatelessWidget {
-  const _PlaceholderTabBuilder({required this.messageKey, required this.icon});
-
-  final String Function(AppLocalizations) messageKey;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return VaultPlaceholderTab(icon: icon, message: messageKey(l10n));
   }
 }
 

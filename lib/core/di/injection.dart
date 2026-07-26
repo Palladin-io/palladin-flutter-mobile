@@ -82,9 +82,11 @@ import '../../features/vault/data/datasources/entry_remote_datasource.dart';
 import '../../features/vault/data/datasources/member_sync_remote_datasource.dart';
 import '../../features/vault/data/datasources/vault_rotation_remote_datasource.dart';
 import '../../features/vault/data/datasources/vault_remote_datasource.dart';
+import '../../features/vault/data/datasources/vault_members_remote_datasource.dart';
 import '../../features/vault/data/datasources/agent_discovery_remote_datasource.dart';
 import '../../features/vault/data/repositories/entry_repository_impl.dart';
 import '../../features/vault/data/repositories/vault_repository_impl.dart';
+import '../../features/vault/data/repositories/vault_members_repository_impl.dart';
 import '../../features/vault/data/export/export_sharer.dart';
 import '../../features/vault/data/services/entry_crypto_service.dart';
 import '../../features/vault/data/services/member_sync_cache.dart';
@@ -97,6 +99,7 @@ import '../../features/vault/data/services/vault_rotation_crypto_service.dart';
 import '../../features/vault/data/services/vault_rotation_service.dart';
 import '../../features/vault/domain/repositories/entry_repository.dart';
 import '../../features/vault/domain/repositories/vault_repository.dart';
+import '../../features/vault/domain/repositories/vault_members_repository.dart';
 import '../../features/vault/presentation/cubit/create_entry_cubit.dart';
 import '../../features/vault/presentation/cubit/create_vault_cubit.dart';
 import '../../features/vault/presentation/cubit/edit_entry_cubit.dart';
@@ -106,6 +109,7 @@ import '../../features/vault/presentation/cubit/export_cubit.dart';
 import '../../features/vault/presentation/cubit/import_wizard_cubit.dart';
 import '../../features/vault/presentation/cubit/vault_detail_cubit.dart';
 import '../../features/vault/presentation/cubit/vault_list_cubit.dart';
+import '../../features/vault/presentation/cubit/vault_members_cubit.dart';
 import '../network/api_client.dart';
 import '../storage/biometric_key_store.dart';
 import '../storage/biometric_storage_key_store.dart';
@@ -304,6 +308,12 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<VaultRemoteDatasource>(
     () => VaultRemoteDatasource(getIt<Dio>()),
   );
+  getIt.registerLazySingleton<VaultMembersRemoteDatasource>(
+    () => VaultMembersRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<VaultMembersRepository>(
+    () => VaultMembersRepositoryImpl(getIt<VaultMembersRemoteDatasource>()),
+  );
   getIt.registerLazySingleton<AgentDiscoveryRemoteDatasource>(
     () => AgentDiscoveryRemoteDatasource(getIt<Dio>()),
   );
@@ -376,6 +386,12 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerFactory<VaultDetailCubit>(
     () => VaultDetailCubit(repository: getIt<VaultRepository>()),
+  );
+  getIt.registerFactoryParam<VaultMembersCubit, String, void>(
+    (vaultId, _) => VaultMembersCubit(
+      repository: getIt<VaultMembersRepository>(),
+      vaultId: vaultId,
+    ),
   );
   getIt.registerFactory<CreateVaultCubit>(
     () => CreateVaultCubit(creationService: getIt<VaultCreationService>()),

@@ -971,5 +971,18 @@
   "vaultDiscoveryPending": "Oczekujący / nieaktualny",
   "vaultDiscoveryVdkVersion": "Aktualna wersja klucza Discovery: v{version}",
   "vaultDiscoveryKeyVersion": "Klucz odbiorcy v{version}",
+  "vaultMemberYou": "Ty",
+  "vaultMemberActive": "Aktywny",
+  "vaultMemberPending": "Usunięcie oczekuje",
+  "vaultMemberRotating": "Zabezpieczanie dostępu — sejf pozostaje dostępny",
+  "vaultMemberBlockedLast": "Zablokowane — ostatni uprawniony członek",
+  "vaultMemberRemove": "Usuń",
+  "vaultMemberRemoveTitle": "Usunąć członka organizacji?",
+  "vaultMemberRemoveBody": "Usunięcie użytkownika {name} dotyczy wszystkich sejfów, do których ma dostęp. Dostęp pozostanie aktywny do zatwierdzenia wszystkich wymaganych rotacji kluczy.",
+  "vaultMemberRemovalStarted": "Rozpoczęto usuwanie. Sejf pozostaje dostępny podczas rotacji.",
+  "vaultMembersLoadError": "Nie udało się wczytać stanu członków.",
+  "vaultMemberForbidden": "Nie masz uprawnień do zarządzania członkami organizacji.",
+  "vaultMemberProtected": "Tego członka nie można usunąć.",
+  "vaultMemberNetworkError": "Sprawdź połączenie i spróbuj ponownie.",
   "settingsTwoFactor": "Uwierzytelnianie dwuskładnikowe"
 }

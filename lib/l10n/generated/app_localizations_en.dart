@@ -3260,5 +3260,48 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get vaultMemberYou => 'you';
+
+  @override
+  String get vaultMemberActive => 'Active';
+
+  @override
+  String get vaultMemberPending => 'Removal pending';
+
+  @override
+  String get vaultMemberRotating => 'Securing access — Vault remains available';
+
+  @override
+  String get vaultMemberBlockedLast => 'Blocked — last capable Member';
+
+  @override
+  String get vaultMemberRemove => 'Remove';
+
+  @override
+  String get vaultMemberRemoveTitle => 'Remove organization Member?';
+
+  @override
+  String vaultMemberRemoveBody(String name) {
+    return 'Removing $name affects every Vault they can access. Access remains active until all required key rotations commit.';
+  }
+
+  @override
+  String get vaultMemberRemovalStarted =>
+      'Removal started. This Vault remains available while rotations finish.';
+
+  @override
+  String get vaultMembersLoadError => 'Member status could not be loaded.';
+
+  @override
+  String get vaultMemberForbidden =>
+      'You do not have permission to manage organization Members.';
+
+  @override
+  String get vaultMemberProtected => 'This Member cannot be removed.';
+
+  @override
+  String get vaultMemberNetworkError => 'Check your connection and try again.';
+
+  @override
   String get settingsTwoFactor => 'Two-factor authentication';
 }
