@@ -40,6 +40,7 @@ import '../../features/agents/presentation/bloc/agents_cubit.dart';
 import '../../features/approval/data/datasources/approval_remote_datasource.dart';
 import '../../features/approval/data/repositories/approval_repository_impl.dart';
 import '../../features/approval/data/services/grant_crypto_service.dart';
+import '../../features/approval/data/services/grant_approval_review_service.dart';
 import '../../features/approval/domain/repositories/approval_repository.dart';
 import '../../features/approval/presentation/cubit/grant_access_cubit.dart';
 import '../../features/approval/presentation/cubit/grant_approval_cubit.dart';
@@ -100,6 +101,7 @@ import '../../features/vault/data/services/member_entry_list_service.dart';
 import '../../features/vault/data/services/totp_service.dart';
 import '../../features/vault/data/services/vault_crypto_service.dart';
 import '../../features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
+import '../../features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
 import '../../features/vault/data/services/vault_rotation_crypto_service.dart';
 import '../../features/vault/data/services/vault_rotation_service.dart';
 import '../../features/vault/data/services/vault_settings_service.dart';
@@ -332,6 +334,9 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<MemberSyncCache>(() => SqliteMemberSyncCache());
   getIt.registerLazySingleton<VaultProtocolEnvelopeService>(
     () => VaultProtocolEnvelopeService(),
+  );
+  getIt.registerLazySingleton<VaultProtocolSignatureService>(
+    () => VaultProtocolSignatureService(),
   );
   getIt.registerLazySingleton<MemberSyncService>(
     () => MemberSyncService(
@@ -709,12 +714,25 @@ void configureDependencies(EnvConfig config) {
   // GrantCryptoService produces the zero-knowledge approval envelope
   // on-device. Stateless — safe as a lazy singleton.
   getIt.registerLazySingleton<GrantCryptoService>(() => GrantCryptoService());
+  getIt.registerLazySingleton<GrantApprovalReviewService>(
+    () => GrantApprovalReviewService(
+      vaults: getIt<VaultRemoteDatasource>(),
+      entries: getIt<CanonicalEntryDetailService>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      signatures: getIt<VaultProtocolSignatureService>(),
+      discovery: getIt<AgentDiscoveryRemoteDatasource>(),
+      approval: getIt<ApprovalRemoteDatasource>(),
+    ),
+  );
   getIt.registerLazySingleton<ApprovalRepository>(
     () => ApprovalRepositoryImpl(
       approvalDatasource: getIt<ApprovalRemoteDatasource>(),
       entryDatasource: getIt<EntryRemoteDatasource>(),
       vaultDatasource: getIt<VaultRemoteDatasource>(),
       cryptoService: getIt<GrantCryptoService>(),
+      canonicalEntries: getIt<CanonicalEntryDetailService>(),
+      discovery: getIt<AgentDiscoveryRemoteDatasource>(),
     ),
   );
 
@@ -732,6 +750,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerFactoryParam<GrantApprovalCubit, PendingGrant, void>(
     (grant, _) => GrantApprovalCubit(
       repository: getIt<ApprovalRepository>(),
+      reviewService: getIt<GrantApprovalReviewService>(),
       grant: grant,
     ),
   );

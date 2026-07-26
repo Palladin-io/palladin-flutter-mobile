@@ -6,6 +6,10 @@ import 'package:dio/dio.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../vault/data/datasources/entry_remote_datasource.dart';
 import '../../../vault/data/datasources/vault_remote_datasource.dart';
+import '../../../vault/data/services/canonical_entry_detail_service.dart';
+import '../../../vault/data/datasources/agent_discovery_remote_datasource.dart';
+import '../../../vault/domain/entities/agent_visibility_policy.dart';
+import '../../../vault/domain/entities/entry_entity.dart';
 import '../../../grants/domain/entities/grant_method.dart';
 import '../../domain/entities/pending_grant.dart';
 import '../../domain/exceptions/approval_exceptions.dart';
@@ -30,25 +34,43 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required EntryRemoteDatasource entryDatasource,
     required VaultRemoteDatasource vaultDatasource,
     required GrantCryptoService cryptoService,
-  })  : _approval = approvalDatasource,
-        _entries = entryDatasource,
-        _vaults = vaultDatasource,
-        _crypto = cryptoService;
+    required CanonicalEntryDetailService canonicalEntries,
+    required AgentDiscoveryRemote discovery,
+  }) : _approval = approvalDatasource,
+       _entries = entryDatasource,
+       _vaults = vaultDatasource,
+       _crypto = cryptoService,
+       _canonicalEntries = canonicalEntries,
+       _discovery = discovery;
 
   final ApprovalRemoteDatasource _approval;
   final EntryRemoteDatasource _entries;
   final VaultRemoteDatasource _vaults;
   final GrantCryptoService _crypto;
+  final CanonicalEntryDetailService _canonicalEntries;
+  final AgentDiscoveryRemote _discovery;
 
   @override
   Future<List<PendingGrant>> listPendingGrants() async {
     try {
       AppLogger.d('Approval', 'GET /api/dashboard/pending-grants');
-      final models = await _approval.listPendingGrants();
-      return models.map((m) => m.toEntity()).toList(growable: false);
-    } on DioException catch (e, s) {
-      AppLogger.e('Approval', 'listPendingGrants failed',
-          error: e, stackTrace: s);
+      final result = <PendingGrant>[];
+      final seen = <String>{};
+      String? cursor;
+      do {
+        final page = await _approval.listPendingGrants(cursor: cursor);
+        result.addAll(page.items.map((model) => model.toEntity()));
+        if (result.length > 2000) {
+          throw const FormatException('Pending grant list exceeds limit');
+        }
+        cursor = page.nextCursor;
+        if (cursor != null && !seen.add(cursor)) {
+          throw const FormatException('Pending grant cursor did not advance');
+        }
+      } while (cursor != null);
+      return List.unmodifiable(result);
+    } on DioException catch (e) {
+      AppLogger.w('Approval', 'pending grant list request failed');
       throw ApprovalException(_classifyError(e));
     }
   }
@@ -59,58 +81,116 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required Uint8List privateKey,
     required GrantLimit limit,
     required List<GrantMethod> methods,
+    required List<String> fieldIds,
+    required String reviewedEntryRevision,
   }) async {
-    // 1. + 2. Fetch the entry blob and the sealed VK (server round-trips).
-    final String wrappedVK;
-    final String entryBlob;
-    final String entryNonce;
+    CanonicalEntrySnapshot? snapshot;
     try {
-      AppLogger.d('Approval', 'Fetching entry + wrappedVK for approval');
-      final detail = await _entries.getEntry(grant.vaultId, grant.entryId);
-      wrappedVK = await _vaults.getVaultWrappedKey(grant.vaultId);
-      entryBlob = detail.content.encryptedBlob;
-      entryNonce = detail.content.nonce;
-    } on DioException catch (e, s) {
-      AppLogger.e('Approval', 'approve fetch failed', error: e, stackTrace: s);
-      throw ApprovalException(_classifyError(e));
-    }
-
-    // 3. Produce the envelope on-device (zero-knowledge).
-    final GrantEnvelope envelope;
-    try {
-      envelope = await _crypto.produceGrantEnvelope(
-        wrappedVK: wrappedVK,
-        privateKey: privateKey,
-        entryBlob: entryBlob,
-        entryNonce: entryNonce,
-        agentPublicKey: grant.agentPublicKey,
+      final freshGrant = (await _approval.getGrant(
+        grant.vaultId,
+        grant.grantId,
+      )).toEntity();
+      if (freshGrant.encryptedReason.requestRevision !=
+          grant.encryptedReason.requestRevision) {
+        throw const ApprovalException(ApprovalErrorKind.conflict);
+      }
+      snapshot = await _canonicalEntries.reveal(
+        expected: EntryEntity(
+          id: grant.entryId,
+          vaultId: grant.vaultId,
+          label: '',
+          type: EntryType.key,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+          updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+        ),
+        memberPrivateKey: privateKey,
       );
-    } on ApprovalException {
-      rethrow; // already typed (cryptoFailure)
-    } catch (e, s) {
-      AppLogger.e('Approval', 'envelope production failed',
-          error: e, stackTrace: s);
-      throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
-    }
-
-    // 4. Submit. The XOR mapping (expiresAt XOR queryLimit) lives in the
-    // tested GrantLimit.toWire() so the invariant is enforced in one place.
-    final wire = limit.toWire();
-    try {
+      if (snapshot.entry['currentRevision'] != reviewedEntryRevision) {
+        throw const ApprovalException(ApprovalErrorKind.conflict);
+      }
+      final vault = await _vaults.getEncryptedVault(grant.vaultId);
+      final candidates = (await _discovery.list(grant.vaultId))
+          .where((item) => item.agentId == grant.agentId && item.isCurrent)
+          .toList(growable: false);
+      if (candidates.length != 1) {
+        throw const FormatException('Agent identity unavailable');
+      }
+      final candidate = candidates.single;
+      final type = EntryTypeExtension.fromWire(
+        snapshot.secret['entryType'] as int,
+      );
+      final policy = AgentVisibilityPolicy.fromJson(
+        type,
+        Map<String, dynamic>.from(
+          snapshot.secret['agentVisibilityPolicy'] as Map,
+        ),
+        content: snapshot.payload,
+      );
+      final approvedMethods = _methodBits(methods);
+      final requestedMethods = grant.encryptedReason.requestedMethods;
+      if (approvedMethods == 0 ||
+          (approvedMethods & requestedMethods) != approvedMethods) {
+        throw const FormatException('Approval methods exceed request');
+      }
+      final wire = limit.toWire();
+      final grantEntry = await _crypto.produceProtocolEnvelope(
+        organizationId: snapshot.entry['organizationId'] as String,
+        vaultId: grant.vaultId,
+        grantId: grant.grantId,
+        agentId: grant.agentId,
+        entryId: grant.entryId,
+        entryRevision: reviewedEntryRevision,
+        memberKeyGeneration: vault['memberKeyGeneration'] as int,
+        recipientAgentKeyVersion: candidate.recipientKeyVersion,
+        agentPublicKey: candidate.x25519PublicKey,
+        approvedMethods: approvedMethods,
+        type: type,
+        agentLabel:
+            snapshot.secret['agentLabel'] as String? ??
+            snapshot.secret['memberLabel'] as String,
+        description: snapshot.secret['description'] as String? ?? '',
+        content: snapshot.payload,
+        policy: policy,
+        approvedFieldIds: fieldIds,
+        expiresAt: wire.expiresAt,
+        remainingUses: wire.queryLimit,
+      );
+      final latest = await _entries.getCanonicalEntry(
+        grant.vaultId,
+        grant.entryId,
+      );
+      if (latest['currentRevision'] != reviewedEntryRevision) {
+        throw const ApprovalException(ApprovalErrorKind.conflict);
+      }
       await _approval.approveGrant(
         vaultId: grant.vaultId,
         grantId: grant.grantId,
-        entryId: grant.entryId,
-        envelope: envelope,
+        grantEntry: grantEntry,
         expiresAt: wire.expiresAt,
         queryLimit: wire.queryLimit,
         methods: serializeGrantMethods(methods),
       );
-    } on DioException catch (e, s) {
-      AppLogger.e('Approval', 'approve submit failed', error: e, stackTrace: s);
+    } on DioException catch (e) {
       throw ApprovalException(_classifyError(e));
+    } on ApprovalException {
+      rethrow;
+    } catch (_) {
+      throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
+    } finally {
+      snapshot?.clear();
     }
   }
+
+  int _methodBits(Iterable<GrantMethod> methods) => methods.fold(
+    0,
+    (bits, method) =>
+        bits |
+        switch (method) {
+          GrantMethod.get => 1,
+          GrantMethod.exec => 2,
+          GrantMethod.inject => 4,
+        },
+  );
 
   @override
   Future<void> createGrant({
@@ -162,12 +242,20 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     } on ApprovalException {
       rethrow;
     } on DioException catch (e, s) {
-      AppLogger.e('Approval', 're-grant fetch entry failed',
-          error: e, stackTrace: s);
+      AppLogger.e(
+        'Approval',
+        're-grant fetch entry failed',
+        error: e,
+        stackTrace: s,
+      );
       throw ApprovalException(_classifyError(e));
     } catch (e, s) {
-      AppLogger.e('Approval', 're-grant envelope failed',
-          error: e, stackTrace: s);
+      AppLogger.e(
+        'Approval',
+        're-grant envelope failed',
+        error: e,
+        stackTrace: s,
+      );
       throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
     }
 
@@ -185,23 +273,21 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         methods: serializeGrantMethods(methods),
       );
     } on DioException catch (e, s) {
-      AppLogger.e('Approval', 're-grant submit failed', error: e, stackTrace: s);
+      AppLogger.e(
+        'Approval',
+        're-grant submit failed',
+        error: e,
+        stackTrace: s,
+      );
       throw ApprovalException(_classifyError(e));
     }
   }
 
   @override
-  Future<void> denyGrant({
-    required PendingGrant grant,
-    String? reason,
-  }) async {
+  Future<void> denyGrant({required PendingGrant grant}) async {
     try {
       AppLogger.d('Approval', 'PUT deny grantId=${grant.grantId}');
-      await _approval.denyGrant(
-        vaultId: grant.vaultId,
-        grantId: grant.grantId,
-        reason: reason,
-      );
+      await _approval.denyGrant(vaultId: grant.vaultId, grantId: grant.grantId);
     } on DioException catch (e, s) {
       AppLogger.e('Approval', 'deny failed', error: e, stackTrace: s);
       throw ApprovalException(_classifyError(e));
@@ -219,7 +305,8 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     return switch (e.response?.statusCode) {
       404 => ApprovalErrorKind.notFound,
       403 => ApprovalErrorKind.forbidden,
-      400 || 409 => ApprovalErrorKind.validation,
+      400 => ApprovalErrorKind.validation,
+      409 => ApprovalErrorKind.conflict,
       _ => ApprovalErrorKind.unknown,
     };
   }

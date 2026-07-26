@@ -16,6 +16,9 @@ enum ApprovalErrorKind {
   /// neither/both of expiry+limit supplied, …).
   validation,
 
+  /// 409 — the reviewed Entry/grant/Agent state changed; review must restart.
+  conflict,
+
   /// Connection / timeout / send-failure on the wire.
   networkError,
 

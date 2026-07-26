@@ -5,6 +5,14 @@ import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../vault/data/services/agent_visibility_projector.dart';
+import '../../../vault/data/services/vault_protocol/vault_protocol_aad.dart';
+import '../../../vault/data/services/vault_protocol/vault_protocol_bytes.dart';
+import '../../../vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
+import '../../../vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
+import '../../../vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
+import '../../../vault/domain/entities/agent_visibility_policy.dart';
+import '../../../vault/domain/entities/entry_entity.dart';
 import '../../domain/exceptions/approval_exceptions.dart';
 
 /// Zero-knowledge crypto pipeline for **producing a grant envelope** when
@@ -27,10 +35,128 @@ import '../../domain/exceptions/approval_exceptions.dart';
 /// Every secret buffer (VK, plaintext, DEK) is zeroed in a `finally`
 /// block before this method returns. No secret material is ever logged.
 class GrantCryptoService {
-  GrantCryptoService({Future<SodiumSumo> Function()? sodiumLoader})
-      : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
+  GrantCryptoService({
+    Future<SodiumSumo> Function()? sodiumLoader,
+    VaultProtocolEnvelopeService? envelopes,
+  }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance,
+       _envelopes = envelopes ?? VaultProtocolEnvelopeService();
 
   final Future<SodiumSumo> Function() _sodiumLoader;
+  final VaultProtocolEnvelopeService _envelopes;
+
+  Future<Map<String, dynamic>> produceProtocolEnvelope({
+    required String organizationId,
+    required String vaultId,
+    required String grantId,
+    required String agentId,
+    required String entryId,
+    required String entryRevision,
+    required int memberKeyGeneration,
+    required int recipientAgentKeyVersion,
+    required String agentPublicKey,
+    required int approvedMethods,
+    required EntryType type,
+    required String agentLabel,
+    required String description,
+    required Map<String, dynamic> content,
+    required AgentVisibilityPolicy policy,
+    required List<String> approvedFieldIds,
+    String? expiresAt,
+    int? remainingUses,
+  }) async {
+    Uint8List? grantKey;
+    Uint8List? recipientKey;
+    Uint8List? fingerprint;
+    Uint8List? plaintext;
+    Uint8List? wrappedKey;
+    try {
+      recipientKey = Uint8List.fromList(base64.decode(agentPublicKey));
+      if (recipientKey.length != 32 || approvedMethods == 0) {
+        throw const FormatException('Invalid grant recipient or methods');
+      }
+      fingerprint = vaultPublicKeyFingerprint(
+        VaultPublicKeyKind.agentX25519,
+        recipientKey,
+      );
+      final fingerprintWire = VaultProtocolBytes.base64UrlEncode(fingerprint);
+      final payload = AgentVisibilityProjector.grantPayload(
+        type: type,
+        agentLabel: agentLabel,
+        description: description,
+        content: content,
+        policy: policy,
+        approvedFieldIds: approvedFieldIds,
+      );
+      plaintext = VaultProtocolBytes.utf8Encode(canonicalizeVaultJson(payload));
+      grantKey = await _envelopes.randomKey();
+      final context = <String, Object?>{
+        'organizationId': organizationId,
+        'vaultId': vaultId,
+        'entryId': entryId,
+        'grantId': grantId,
+        'agentId': agentId,
+        'grantEnvelopeRevision': '1',
+        'entryRevision': entryRevision,
+        'grantKeyVersion': 1,
+        'approvedMethods': approvedMethods,
+        'expiresAt': ?expiresAt,
+        'useLimit': ?remainingUses,
+        'recipientAgentKeyVersion': recipientAgentKeyVersion,
+        'recipientAgentKeyFingerprint': fingerprintWire,
+        'header': {
+          'protocolVersion': 2,
+          'algorithmSuite': 1,
+          'resourceKind': 4,
+          'projectionKind': 6,
+          'resourceRevision': '1',
+          'keyVersion': 1,
+          'memberKeyGeneration': memberKeyGeneration,
+          'nonce': '',
+        },
+      };
+      final encrypted = await _envelopes.encrypt(
+        profile: VaultAadProfile.grantPayload,
+        context: context,
+        plaintext: plaintext,
+        key: grantKey,
+      );
+      wrappedKey = await _envelopes.sealPackage(
+        packageBytes: grantKey,
+        recipientPublicKey: recipientKey,
+      );
+      return {
+        'organizationId': organizationId,
+        'vaultId': vaultId,
+        'grantId': grantId,
+        'entryId': entryId,
+        'grantEnvelopeRevision': '1',
+        'entryRevision': entryRevision,
+        'protocolVersion': 2,
+        'algorithmSuite': 1,
+        'grantKeyVersion': 1,
+        'memberKeyGeneration': memberKeyGeneration,
+        'recipientAgentKeyVersion': recipientAgentKeyVersion,
+        'ciphertext': encrypted['ciphertext'],
+        'nonce': encrypted['nonce'],
+        'agentWrappedGrantDek': VaultProtocolBytes.base64UrlEncode(wrappedKey),
+        'agentWrapperSuite': 1,
+        'agentKeyFingerprint': fingerprintWire,
+        'fieldIds': [...approvedFieldIds]..sort(),
+        'expiresAt': ?expiresAt,
+        'remainingUses': ?remainingUses,
+      };
+    } finally {
+      for (final value in [
+        grantKey,
+        recipientKey,
+        fingerprint,
+        plaintext,
+        wrappedKey,
+      ]) {
+        value?.fillRange(0, value.length, 0);
+      }
+    }
+  }
 
   /// Produces the grant envelope for a single entry.
   ///
@@ -91,8 +217,12 @@ class GrantCryptoService {
         );
       } on SodiumException catch (e, s) {
         AppLogger.w('Approval', 'entry decrypt failed');
-        AppLogger.e('Approval', 'openEasy(entry) failed',
-            error: e, stackTrace: s);
+        AppLogger.e(
+          'Approval',
+          'openEasy(entry) failed',
+          error: e,
+          stackTrace: s,
+        );
         throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
       } finally {
         vkSecret.dispose();
@@ -103,8 +233,9 @@ class GrantCryptoService {
       dekKey = SecureKey.fromList(sodium, dek);
 
       // 4. Re-encrypt the plaintext with the DEK under a new nonce.
-      final newNonce =
-          sodium.randombytes.buf(sodium.crypto.secretBox.nonceBytes);
+      final newNonce = sodium.randombytes.buf(
+        sodium.crypto.secretBox.nonceBytes,
+      );
       final reBlob = sodium.crypto.secretBox.easy(
         message: plaintext,
         nonce: newNonce,

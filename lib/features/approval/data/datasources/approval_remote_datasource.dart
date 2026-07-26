@@ -19,16 +19,29 @@ class ApprovalRemoteDatasource {
 
   /// `GET /api/dashboard/pending-grants` → all pending grant requests for
   /// the user across every vault they manage.
-  Future<List<PendingGrantModel>> listPendingGrants() async {
+  Future<PendingGrantPage> listPendingGrants({String? cursor}) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/dashboard/pending-grants',
+      queryParameters: {'pageSize': 100, 'cursor': ?cursor},
     );
     final data = response.data;
     if (data == null) throw _emptyBody(response);
     final raw = (data['items'] as List<dynamic>? ?? const <dynamic>[]);
-    return raw
-        .map((e) => PendingGrantModel.fromJson(e as Map<String, dynamic>))
-        .toList(growable: false);
+    return PendingGrantPage(
+      items: raw
+          .map((e) => PendingGrantModel.fromJson(e as Map<String, dynamic>))
+          .toList(growable: false),
+      nextCursor: data['nextCursor'] as String?,
+    );
+  }
+
+  Future<PendingGrantModel> getGrant(String vaultId, String grantId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/grants/$grantId',
+    );
+    final data = response.data;
+    if (data == null) throw _emptyBody(response);
+    return PendingGrantModel.fromJson(data);
   }
 
   /// `POST /api/vaults/{vaultId}/grants` — proactively (re-)grant access.
@@ -81,19 +94,13 @@ class ApprovalRemoteDatasource {
   Future<void> approveGrant({
     required String vaultId,
     required String grantId,
-    required String entryId,
-    required GrantEnvelope envelope,
+    required Map<String, dynamic> grantEntry,
     String? expiresAt,
     int? queryLimit,
     String? methods,
   }) async {
     final body = <String, dynamic>{
-      'grantEntry': <String, dynamic>{
-        'entryId': entryId,
-        'reEncryptedBlob': envelope.reEncryptedBlob,
-        'nonce': envelope.nonce,
-        'agentWrappedDek': envelope.agentWrappedDek,
-      },
+      'grantEntry': grantEntry,
       'expiresAt': ?expiresAt,
       'queryLimit': ?queryLimit,
       'methods': ?methods,
@@ -108,19 +115,20 @@ class ApprovalRemoteDatasource {
   Future<void> denyGrant({
     required String vaultId,
     required String grantId,
-    String? reason,
   }) async {
-    final trimmed = reason?.trim();
-    await _dio.put<void>(
-      '/api/vaults/$vaultId/grants/$grantId/deny',
-      data: <String, dynamic>{'reason': ?trimmed},
-    );
+    await _dio.put<void>('/api/vaults/$vaultId/grants/$grantId/deny');
   }
 
   DioException _emptyBody(Response<dynamic> response) => DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        type: DioExceptionType.badResponse,
-        error: 'Empty response body',
-      );
+    requestOptions: response.requestOptions,
+    response: response,
+    type: DioExceptionType.badResponse,
+    error: 'Empty response body',
+  );
+}
+
+final class PendingGrantPage {
+  const PendingGrantPage({required this.items, this.nextCursor});
+  final List<PendingGrantModel> items;
+  final String? nextCursor;
 }

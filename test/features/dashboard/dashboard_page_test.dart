@@ -11,6 +11,7 @@ import 'package:mobile_palladin/core/permissions.dart';
 import 'package:mobile_palladin/core/utils/secure_clipboard.dart';
 import 'package:mobile_palladin/features/agents/domain/repositories/agents_repository.dart';
 import 'package:mobile_palladin/features/approval/domain/repositories/approval_repository.dart';
+import 'package:mobile_palladin/features/approval/domain/entities/encrypted_reason.dart';
 import 'package:mobile_palladin/features/approval/presentation/cubit/grant_approval_cubit.dart';
 import 'package:mobile_palladin/features/approval/presentation/cubit/pending_grants_cubit.dart';
 import 'package:mobile_palladin/features/audit/domain/repositories/audit_repository.dart';
@@ -98,6 +99,13 @@ PendingGrant _grant() => PendingGrant(
       agentId: 'ag1',
       entryId: 'e1',
       agentPublicKey: 'pk',
+      encryptedReason: const EncryptedReason(
+        organizationId: 'org', vaultId: 'v1', entryId: 'e1',
+        grantRequestId: 'g1', agentId: 'ag1', requestRevision: '1', header: {},
+        reasonKeyVersion: 1, agentMessageKeyVersion: 1,
+        recipientAgentMessageKeyFingerprint: 'fp', requestedMethods: 1,
+        ciphertext: 'ct', agentMessageWrappedReasonDek: 'dek', agentSignature: 'sig',
+      ),
       agentName: 'Scraper Bot',
       vaultName: 'Personal',
       isAgentRegistered: false,
@@ -445,7 +453,6 @@ void main() {
         'and refreshes the dashboard', (tester) async {
       when(() => approvalRepository.denyGrant(
             grant: any(named: 'grant'),
-            reason: any(named: 'reason'),
           )).thenAnswer((_) async {});
 
       await pumpDashboard(
@@ -460,6 +467,8 @@ void main() {
       await tester.tap(find.text('Reject'));
       await tester.pumpAndSettle();
       expect(find.text('Deny Scraper Bot?'), findsOneWidget);
+      expect(find.text('Reason (optional)'), findsNothing);
+      expect(find.text('Why are you denying this request?'), findsNothing);
 
       // Confirm the denial.
       await tester.tap(find.text('Deny'));
@@ -467,7 +476,6 @@ void main() {
 
       verify(() => approvalRepository.denyGrant(
             grant: any(named: 'grant'),
-            reason: any(named: 'reason'),
           )).called(1);
       // Confirmation snackbar + a refresh (load called again).
       expect(find.text('Request rejected'), findsOneWidget);
