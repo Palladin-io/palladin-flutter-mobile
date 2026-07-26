@@ -4,106 +4,117 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/vault/data/export/export_models.dart';
 import 'package:mobile_palladin/features/vault/data/export/export_serializers.dart';
-import 'package:mobile_palladin/features/vault/data/import/import_engine.dart';
-import 'package:mobile_palladin/features/vault/data/import/import_models.dart';
+import 'package:mobile_palladin/features/vault/data/export/protected_export_staging.dart';
 
 void main() {
-  group('toPalladinCsv', () {
-    test('writes the canonical header row', () {
-      final csv = ExportSerializer.toPalladinCsv(const []);
-      expect(csv.trim(), 'name,url,username,password,note,totp,folder');
-    });
-
-    test('escapes fields with commas, quotes and newlines (RFC 4180)', () {
-      final csv = ExportSerializer.toPalladinCsv([
-        const ExportRecord(
-          name: 'Acme, Inc',
-          username: 'a"b',
-          password: 'p',
-          notes: 'multi\nline',
-        ),
-      ]);
-      final lines = const LineSplitter().convert(csv);
-      expect(lines[1], contains('"Acme, Inc"'));
-      expect(lines[1], contains('"a""b"'));
-      expect(csv, contains('"multi\nline"'));
-    });
+  test('JSON streams format/lifecycle revisions and records', () async {
+    final staging = _MemoryStaging();
+    final writer = ProtectedExportWriter(
+      staging: staging,
+      format: ExportFormat.json,
+    );
+    await writer.start(vaultId: 'v-1', vaultName: 'Personal');
+    await writer.write(
+      ExportRecord(
+        entryId: 'e-1',
+        name: 'GitHub',
+        entryType: '1',
+        lifecycle: 'archived',
+        revision: '7',
+        historical: true,
+        payload: {'username': 'octocat', 'password': 'secret'},
+      ),
+    );
+    expect(await writer.finish(), '/protected/export.json');
+    final root = jsonDecode(staging.text) as Map<String, dynamic>;
+    expect(root['formatVersion'], 2);
+    expect(root['lifecycleSchemaVersion'], 1);
+    final record = (root['entries'] as List).single as Map<String, dynamic>;
+    expect(record['lifecycle'], 'archived');
+    expect(record['revision'], '7');
+    expect(record['historical'], isTrue);
+    expect(staging.appendSizes.length, greaterThan(2));
   });
 
-  group('toPalladinJson', () {
-    test('emits the v1 schema with a single vault', () {
-      final json = ExportSerializer.toPalladinJson(
-        [
-          const ExportRecord(
-            name: 'GitHub',
-            username: 'octocat',
-            password: 'S3cr3t!',
-            url: 'github.com',
-            totp: 'otpauth://totp/x?secret=ABC',
-          ),
-        ],
-        vaultName: 'Personal',
-        vaultId: 'v-1',
-        exportedAt: DateTime.utc(2026, 7, 4),
-      );
-      final root = jsonDecode(json) as Map<String, dynamic>;
-      expect(root['version'], 1);
-      expect(root['encrypted'], false);
-      expect(root['exportedAt'], '2026-07-04T00:00:00.000Z');
-      final vault = (root['vaults'] as List).single as Map<String, dynamic>;
-      expect(vault['name'], 'Personal');
-      final entry = (vault['entries'] as List).single as Map<String, dynamic>;
-      expect(entry['name'], 'GitHub');
-      expect(entry['totp'], 'otpauth://totp/x?secret=ABC');
-    });
+  test('CSV escapes payload and carries revision metadata', () async {
+    final staging = _MemoryStaging();
+    final writer = ProtectedExportWriter(
+      staging: staging,
+      format: ExportFormat.csv,
+    );
+    await writer.start(vaultId: 'v-1', vaultName: 'Personal');
+    await writer.write(
+      ExportRecord(
+        entryId: 'e-1',
+        name: 'Acme, Inc',
+        entryType: '0',
+        lifecycle: 'active',
+        revision: '1',
+        payload: {'value': 'a"b'},
+      ),
+    );
+    await writer.finish();
+    expect(staging.text, startsWith('entryId,name,type,lifecycle,revision'));
+    expect(staging.text, contains('"Acme, Inc"'));
+    expect(staging.appendSizes.every((size) => size < 256 * 1024), isTrue);
   });
 
-  group('round-trip', () {
-    test('Palladin JSON export re-imports through the wizard losslessly', () {
-      final json = ExportSerializer.toPalladinJson(
-        [
-          const ExportRecord(
-            name: 'GitHub',
-            username: 'octocat',
-            password: 'S3cr3t!',
-            url: 'github.com',
-            notes: 'a note',
-            totp: 'otpauth://totp/x?secret=ABC',
-          ),
-        ],
-        vaultName: 'Personal',
-      );
-      final outcome = ImportEngine.parse(_bytes(json));
-      expect(outcome, isA<ImportParsed>());
-      final entry = (outcome as ImportParsed).result.entries.single;
-      expect(entry.name, 'GitHub');
-      expect(entry.username, 'octocat');
-      expect(entry.password, 'S3cr3t!');
-      expect(entry.urlDomain, 'github.com');
-      expect(entry.notes, 'a note');
-      expect(entry.totp, 'otpauth://totp/x?secret=ABC');
-    });
-
-    test('Palladin CSV export re-imports through the wizard', () {
-      final csv = ExportSerializer.toPalladinCsv([
-        const ExportRecord(
-          name: 'GitHub',
-          username: 'octocat',
-          password: 'S3cr3t!',
-          url: 'github.com',
-          totp: 'otpauth://totp/x?secret=ABC',
-          folder: 'Personal',
+  test('aborts staging when byte limit is exceeded', () async {
+    final staging = _MemoryStaging();
+    final writer = ProtectedExportWriter(
+      staging: staging,
+      format: ExportFormat.json,
+      maximumBytes: 180,
+    );
+    await writer.start(vaultId: 'v', vaultName: 'v');
+    await expectLater(
+      writer.write(
+        ExportRecord(
+          entryId: 'e',
+          name: 'n',
+          entryType: '0',
+          lifecycle: 'active',
+          revision: '1',
+          payload: {'value': 'x' * 200},
         ),
-      ]);
-      final outcome = ImportEngine.parse(_bytes(csv));
-      expect(outcome, isA<ImportParsed>());
-      final result = (outcome as ImportParsed).result;
-      expect(result.format, ImportFormat.palladinCsv);
-      final entry = result.entries.single;
-      expect(entry.password, 'S3cr3t!');
-      expect(entry.totp, 'otpauth://totp/x?secret=ABC');
-    });
+      ),
+      throwsA(isA<ExportException>()),
+    );
+    await writer.abort();
+    expect(staging.sink.aborted, isTrue);
   });
 }
 
-Uint8List _bytes(String s) => Uint8List.fromList(utf8.encode(s));
+final class _MemoryStaging implements ProtectedExportStaging {
+  final _MemorySink sink = _MemorySink();
+  String get text => utf8.decode(sink.bytes);
+  List<int> get appendSizes => sink.appendSizes;
+  @override
+  Future<int> cleanupExports() async => 0;
+  @override
+  Future<ProtectedExportSink> create({required String fileExtension}) async =>
+      sink;
+  @override
+  Future<bool> delete(String path) async => true;
+  @override
+  Future<int> sweepStaleExports() async => 0;
+}
+
+final class _MemorySink implements ProtectedExportSink {
+  final List<int> bytes = [];
+  final List<int> appendSizes = [];
+  bool aborted = false;
+  @override
+  Future<void> append(Uint8List value) async {
+    appendSizes.add(value.length);
+    bytes.addAll(value);
+  }
+
+  @override
+  Future<void> abort() async {
+    aborted = true;
+  }
+
+  @override
+  Future<String> finish() async => '/protected/export.json';
+}

@@ -475,41 +475,6 @@ class EntryRepositoryImpl implements EntryRepository {
   }
 
   @override
-  Future<List<RevealedEntry>> revealAllEntries({
-    required String vaultId,
-    required Uint8List privateKey,
-    String? wrappedVK,
-  }) async {
-    AppLogger.d('Entry', 'Revealing all entries in $vaultId for export');
-    final summaries = await listEntries(vaultId);
-    final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
-
-    Uint8List? vaultKey;
-    try {
-      vaultKey = await cryptoService.unwrapVK(
-        wrappedVK: vk,
-        privateKey: privateKey,
-      );
-      final revealed = <RevealedEntry>[];
-      for (final summary in summaries) {
-        final detail = await _fetchDetail(vaultId, summary.id);
-        final payload = await cryptoService.decryptEntry(
-          content: detail.content,
-          vaultKey: vaultKey,
-        );
-        revealed.add(
-          RevealedEntry(entry: detail.summary.toEntity(), payload: payload),
-        );
-      }
-      return revealed;
-    } finally {
-      if (vaultKey != null) {
-        vaultKey.fillRange(0, vaultKey.length, 0);
-      }
-    }
-  }
-
-  @override
   Future<List<RevealedEntry>> revealAutoFillCredentials({
     required String vaultId,
     required Uint8List privateKey,
@@ -546,21 +511,6 @@ class EntryRepositoryImpl implements EntryRepository {
       return revealed;
     } finally {
       vaultKey?.fillRange(0, vaultKey.length, 0);
-    }
-  }
-
-  @override
-  Future<void> logExportAudit({
-    required String vaultId,
-    required String format,
-    required int entryCount,
-  }) async {
-    try {
-      await entryDatasource.logExportAudit(vaultId, format, entryCount);
-    } on DioException catch (e) {
-      // Best-effort — the export already succeeded, so a failed audit
-      // record must not surface to the user.
-      AppLogger.w('Entry', 'export-audit failed (non-fatal)', error: e);
     }
   }
 

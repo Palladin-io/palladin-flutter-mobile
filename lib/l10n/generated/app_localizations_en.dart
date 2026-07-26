@@ -3030,6 +3030,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exportErrorUnknown => 'Something went wrong. Please try again.';
 
   @override
+  String get exportIncludeArchived => 'Include archived entries';
+
+  @override
+  String get exportIncludeDeleted => 'Include recently deleted entries';
+
+  @override
+  String get exportIncludeHistory => 'Include previous revisions';
+
+  @override
+  String get exportDeletionDisclosure =>
+      'Palladin removes its temporary copy after sharing on a best-effort basis. Copies created by the selected app or cloud service are controlled by that recipient and may remain there.';
+
+  @override
+  String get exportErrorTooLarge =>
+      'This export exceeds the local safety limit. Export a smaller scope.';
+
+  @override
   String get authLoginSubtitle =>
       'Sign in with your email and master password.';
 

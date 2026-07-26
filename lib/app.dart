@@ -30,6 +30,8 @@ import 'features/notifications/presentation/cubit/notification_center_cubit.dart
 import 'features/notifications/presentation/cubit/push_navigation_cubit.dart';
 import 'features/vault/data/services/member_sync_service.dart';
 import 'features/vault/data/services/vault_rotation_service.dart';
+import 'features/vault/data/export/canonical_export_service.dart';
+import 'features/vault/data/export/protected_export_staging.dart';
 
 class PalladinApp extends StatefulWidget {
   const PalladinApp({
@@ -67,6 +69,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final AutoFillCacheService _autoFillCache = getIt<AutoFillCacheService>();
   final MemberSyncService _memberSync = getIt<MemberSyncService>();
   final VaultRotationService _vaultRotation = getIt<VaultRotationService>();
+  final CanonicalExportService _exportService = getIt<CanonicalExportService>();
+  final ProtectedExportStaging _exportStaging = getIt<ProtectedExportStaging>();
   late final StreamSubscription<AutoFillMutationAction>
   _autoFillMutationSubscription;
 
@@ -83,6 +87,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(_sweepExportStaging());
     // Forward tapped notifications (background / terminated / cold start)
     // into the navigation cubit, which the BlocListener below consumes.
     _pushService.onMessageTapped = _pushNavigationCubit.onNotificationTapped;
@@ -255,6 +260,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
             listener: (_, _) {
               _memberSync.lock();
               _vaultRotation.pause();
+              _exportService.cancel();
+              unawaited(_cleanupExportStaging());
             },
           ),
           // Deep-link: navigate when a tapped notification resolves to a
@@ -292,6 +299,22 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
         ),
       ),
     );
+  }
+
+  Future<void> _sweepExportStaging() async {
+    try {
+      await _exportStaging.sweepStaleExports();
+    } catch (_) {
+      // Cleanup is best effort; never log paths or platform error payloads.
+    }
+  }
+
+  Future<void> _cleanupExportStaging() async {
+    try {
+      await _exportStaging.cleanupExports();
+    } catch (_) {
+      // Cleanup is best effort; never log paths or platform error payloads.
+    }
   }
 
   void _onAuthStateChanged(BuildContext context, AuthState state) {

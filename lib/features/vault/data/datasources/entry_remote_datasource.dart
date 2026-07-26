@@ -252,20 +252,6 @@ class EntryRemoteDatasource {
     return (data['importedCount'] as int?) ?? request.entries.length;
   }
 
-  /// `POST /api/vaults/{vaultId}/export-audit` → records that a plaintext
-  /// export happened. Fire-and-forget from the caller's perspective — an
-  /// audit failure must not block the export UX.
-  Future<void> logExportAudit(
-    String vaultId,
-    String format,
-    int entryCount,
-  ) async {
-    await _dio.post<void>(
-      '/api/vaults/$vaultId/export-audit',
-      data: {'format': format, 'entryCount': entryCount},
-    );
-  }
-
   /// `PUT /api/vaults/{vaultId}/entries/{entryId}` → 204 No Content.
   ///
   /// Updates label, description, icon, type, content (re-encrypted),

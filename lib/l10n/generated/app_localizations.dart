@@ -5354,6 +5354,36 @@ abstract class AppLocalizations {
   /// **'Something went wrong. Please try again.'**
   String get exportErrorUnknown;
 
+  /// Export scope toggle for archived entries
+  ///
+  /// In en, this message translates to:
+  /// **'Include archived entries'**
+  String get exportIncludeArchived;
+
+  /// Export scope toggle for deleted entries
+  ///
+  /// In en, this message translates to:
+  /// **'Include recently deleted entries'**
+  String get exportIncludeDeleted;
+
+  /// Export scope toggle for entry history
+  ///
+  /// In en, this message translates to:
+  /// **'Include previous revisions'**
+  String get exportIncludeHistory;
+
+  /// Explains temporary-file deletion and share ownership
+  ///
+  /// In en, this message translates to:
+  /// **'Palladin removes its temporary copy after sharing on a best-effort basis. Copies created by the selected app or cloud service are controlled by that recipient and may remain there.'**
+  String get exportDeletionDisclosure;
+
+  /// Export exceeded bounded local limits
+  ///
+  /// In en, this message translates to:
+  /// **'This export exceeds the local safety limit. Export a smaller scope.'**
+  String get exportErrorTooLarge;
+
   /// Subtitle on the email + password sign-in screen
   ///
   /// In en, this message translates to:

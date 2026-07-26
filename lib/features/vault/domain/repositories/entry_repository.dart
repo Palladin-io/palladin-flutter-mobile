@@ -139,16 +139,6 @@ abstract interface class EntryRepository {
     void Function(int done, int total)? onProgress,
   });
 
-  /// Reveals every entry in [vaultId] for export — unwraps the VK once,
-  /// then fetches and decrypts each entry's payload. The plaintext VK is
-  /// zeroed in `finally`; the returned payloads are plaintext and must be
-  /// handled (and discarded) carefully by the caller.
-  Future<List<RevealedEntry>> revealAllEntries({
-    required String vaultId,
-    required Uint8List privateKey,
-    String? wrappedVK,
-  });
-
   /// Reveals only domain-addressable `CREDENTIAL` entries for the native
   /// system AutoFill cache. Entries without a usable domain and all KEY /
   /// SCRIPT payloads are skipped before their encrypted detail is fetched.
@@ -156,13 +146,5 @@ abstract interface class EntryRepository {
     required String vaultId,
     required Uint8List privateKey,
     String? wrappedVK,
-  });
-
-  /// Records a plaintext export in the backend audit log. Best-effort —
-  /// failures must not surface to the user (the export already succeeded).
-  Future<void> logExportAudit({
-    required String vaultId,
-    required String format,
-    required int entryCount,
   });
 }

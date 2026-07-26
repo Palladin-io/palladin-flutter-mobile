@@ -28,6 +28,164 @@ enum CanonicalEntryDetailError {
   network,
 }
 
+/// Sequential canonical decrypt session used only by local export.
+class CanonicalEntryExportSession {
+  CanonicalEntryExportSession._({
+    required CanonicalEntryDetailService owner,
+    required this.vaultId,
+    required this.organizationId,
+    required this.memberKeyGeneration,
+    required Uint8List vaultKey,
+  }) : _owner = owner,
+       _vaultKey = vaultKey;
+
+  final CanonicalEntryDetailService _owner;
+  final String vaultId;
+  final String organizationId;
+  final int memberKeyGeneration;
+  Uint8List? _vaultKey;
+
+  Future<CanonicalEntrySnapshot> revealCurrent(
+    MemberIndexEntry expected,
+  ) async {
+    final key = _vaultKey;
+    if (key == null) throw StateError('Export session is closed');
+    try {
+      final entry = await _owner._entries.getCanonicalEntry(
+        vaultId,
+        expected.entryId,
+      );
+      if (entry['id'] != expected.entryId ||
+          entry['vaultId'] != vaultId ||
+          entry['organizationId'] != organizationId ||
+          entry['currentRevision'] != expected.revision) {
+        throw const FormatException('Entry head scope mismatch');
+      }
+      return await _open(
+        entry: entry,
+        wrapper: _owner._map(entry, 'entryKey'),
+        secret: _owner._map(entry, 'memberSecret'),
+        revision: expected.revision,
+      );
+    } on DioException catch (error) {
+      throw CanonicalEntryDetailException(_owner._classifyDio(error));
+    } on FormatException {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.corrupt,
+      );
+    }
+  }
+
+  Future<CanonicalEntrySnapshot> revealHistory({
+    required MemberIndexEntry expected,
+    required Map<String, dynamic> historyItem,
+  }) async {
+    final key = _vaultKey;
+    if (key == null) throw StateError('Export session is closed');
+    try {
+      final revision = historyItem['revision'];
+      if (revision is! String) throw const FormatException('Missing revision');
+      final wrapper = _owner._map(historyItem, 'entryKey');
+      final secret = _owner._map(historyItem, 'memberSecret');
+      for (final value in [wrapper, secret]) {
+        if (value['organizationId'] != organizationId ||
+            value['vaultId'] != vaultId ||
+            value['entryId'] != expected.entryId) {
+          throw const FormatException('Historical scope mismatch');
+        }
+      }
+      return await _open(
+        entry: <String, dynamic>{
+          'id': expected.entryId,
+          'vaultId': vaultId,
+          'organizationId': organizationId,
+        },
+        wrapper: wrapper,
+        secret: secret,
+        revision: revision,
+      );
+    } on DioException catch (error) {
+      throw CanonicalEntryDetailException(_owner._classifyDio(error));
+    } on FormatException {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.corrupt,
+      );
+    }
+  }
+
+  Future<CanonicalEntrySnapshot> _open({
+    required Map<String, dynamic> entry,
+    required Map<String, dynamic> wrapper,
+    required Map<String, dynamic> secret,
+    required String revision,
+  }) async {
+    final vaultKey = _vaultKey!;
+    Uint8List? entryDek;
+    Uint8List? secretKey;
+    Uint8List? plaintext;
+    try {
+      final wrapperGeneration = _owner._int(wrapper, 'memberKeyGeneration');
+      if (wrapperGeneration > memberKeyGeneration) {
+        throw const FormatException('Entry key generation is from the future');
+      }
+      entryDek = await _owner._envelopes.decrypt(
+        profile: VaultAadProfile.entryKeyWrapper,
+        envelope: wrapper,
+        key: vaultKey,
+        expected: VaultEnvelopeExpectations(
+          aadContext: wrapper,
+          minimumMemberKeyGeneration: wrapperGeneration,
+        ),
+      );
+      if (entryDek.length != 32) throw const FormatException('Invalid DEK');
+      final header = _owner._map(secret, 'header');
+      if (secret['revision'] != revision ||
+          header['memberKeyGeneration'] != wrapperGeneration ||
+          header['keyVersion'] != wrapper['keyVersion']) {
+        throw const FormatException('MemberSecret revision mismatch');
+      }
+      secretKey = deriveVaultProjectionKey(
+        entryDek,
+        VaultKdfContext(
+          purpose: VaultKdfPurpose.memberSecret,
+          resourceKind: 2,
+          organizationId: organizationId,
+          vaultId: vaultId,
+          entryId: entry['id']! as String,
+          keyVersion: _owner._int(header, 'keyVersion'),
+          memberKeyGeneration: wrapperGeneration,
+        ),
+      );
+      plaintext = await _owner._envelopes.decrypt(
+        profile: VaultAadProfile.memberSecret,
+        envelope: secret,
+        key: secretKey,
+        expected: VaultEnvelopeExpectations(
+          aadContext: secret,
+          minimumMemberKeyGeneration: wrapperGeneration,
+        ),
+      );
+      final value = _owner._decodeCanonicalObject(plaintext);
+      final payload = value['content'];
+      if (value['schemaVersion'] != 1 || payload is! Map) {
+        throw const FormatException('Malformed MemberSecret');
+      }
+      return CanonicalEntrySnapshot(
+        entry: entry,
+        secret: value,
+        payload: Map<String, dynamic>.from(payload),
+      );
+    } finally {
+      _owner._wipe([entryDek, secretKey, plaintext]);
+    }
+  }
+
+  void close() {
+    _vaultKey?.fillRange(0, _vaultKey!.length, 0);
+    _vaultKey = null;
+  }
+}
+
 final class CanonicalEntryDetailException implements Exception {
   const CanonicalEntryDetailException(this.kind);
   final CanonicalEntryDetailError kind;
@@ -103,6 +261,43 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
   final VaultRotationCryptoService _keys;
   final VaultEnvelopeCryptography _envelopes;
   final GrantsRemoteDatasource _grants;
+
+  /// Opens the Vault key once for a bounded export. The returned session owns
+  /// that key and must be closed in `finally`.
+  Future<CanonicalEntryExportSession> beginExportSession({
+    required String vaultId,
+    required Uint8List memberPrivateKey,
+  }) async {
+    Uint8List? vaultKey;
+    try {
+      final vault = await _vaults.getEncryptedVault(vaultId);
+      final organizationId = vault['organizationId'];
+      if (organizationId is! String) {
+        throw const FormatException('Missing Vault organization');
+      }
+      vaultKey = await _keys.openMemberVaultKey(
+        _map(vault, 'memberVaultKey'),
+        memberPrivateKey,
+      );
+      final session = CanonicalEntryExportSession._(
+        owner: this,
+        vaultId: vaultId,
+        organizationId: organizationId,
+        memberKeyGeneration: _int(vault, 'memberKeyGeneration'),
+        vaultKey: vaultKey,
+      );
+      vaultKey = null;
+      return session;
+    } on DioException catch (error) {
+      throw CanonicalEntryDetailException(_classifyDio(error));
+    } on FormatException {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.corrupt,
+      );
+    } finally {
+      vaultKey?.fillRange(0, vaultKey.length, 0);
+    }
+  }
 
   /// Authenticates and decrypts exactly one version selected by the user.
   Future<CanonicalEntryHistorySnapshot> revealHistoryVersion({

@@ -894,6 +894,11 @@
   "exportErrorCrypto": "Nie udało się odszyfrować sejfu. Zablokuj i odblokuj, a następnie spróbuj ponownie.",
   "exportErrorNetwork": "Nie można połączyć się z serwerem. Sprawdź połączenie i spróbuj ponownie.",
   "exportErrorUnknown": "Coś poszło nie tak. Spróbuj ponownie.",
+  "exportIncludeArchived": "Uwzględnij zarchiwizowane wpisy",
+  "exportIncludeDeleted": "Uwzględnij ostatnio usunięte wpisy",
+  "exportIncludeHistory": "Uwzględnij poprzednie wersje",
+  "exportDeletionDisclosure": "Palladin usuwa swoją kopię tymczasową po udostępnieniu w miarę możliwości. Kopie utworzone przez wybraną aplikację lub usługę chmurową pozostają pod kontrolą odbiorcy i mogą nadal tam istnieć.",
+  "exportErrorTooLarge": "Eksport przekracza lokalny limit bezpieczeństwa. Wybierz mniejszy zakres.",
 
   "authLoginSubtitle": "Zaloguj się adresem e-mail i hasłem głównym.",
   "authEmailLabel": "E-mail",

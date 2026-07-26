@@ -1,80 +1,107 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'export_models.dart';
+import 'protected_export_staging.dart';
 
-/// Pure serializers for the two Palladin export formats. Both are
-/// client-side only — the plaintext file never touches the server.
-///
-/// * [toPalladinCsv] — `name,url,username,password,note,totp,folder`. The
-///   `name,url,username,password,note` prefix is importable 1:1 into
-///   Chrome / Bitwarden / generic; `totp,folder` are a safe superset
-///   ignored by importers that don't know them.
-/// * [toPalladinJson] — the native, lossless v1 schema (round-trips back
-///   through the import wizard).
-class ExportSerializer {
-  ExportSerializer._();
+/// Incremental serializer writing bounded UTF-8 chunks to protected staging.
+abstract interface class ExportWriter {
+  Future<void> start({required String vaultId, required String vaultName});
+  Future<void> write(ExportRecord record);
+  Future<String> finish();
+  Future<void> abort();
+  int get bytesWritten;
+}
 
-  static const List<String> csvHeaders = [
-    'name',
-    'url',
-    'username',
-    'password',
-    'note',
-    'totp',
-    'folder',
-  ];
+final class ProtectedExportWriter implements ExportWriter {
+  ProtectedExportWriter({
+    required ProtectedExportStaging staging,
+    required ExportFormat format,
+    this.maximumBytes = 50 * 1024 * 1024,
+  }) : _staging = staging,
+       _format = format;
 
-  /// Serializes [records] to RFC 4180 CSV. Fields containing a comma,
-  /// quote, or newline are double-quoted with embedded quotes doubled.
-  static String toPalladinCsv(List<ExportRecord> records) {
-    final buffer = StringBuffer();
-    buffer.writeln(csvHeaders.map(_escapeCsv).join(','));
-    for (final r in records) {
-      buffer.writeln([
-        r.name,
-        r.url ?? '',
-        r.username ?? '',
-        r.password ?? '',
-        r.notes ?? '',
-        r.totp ?? '',
-        r.folder ?? '',
-      ].map(_escapeCsv).join(','));
+  final ProtectedExportStaging _staging;
+  final ExportFormat _format;
+  final int maximumBytes;
+  ProtectedExportSink? _sink;
+  int _bytesWritten = 0;
+  int _records = 0;
+
+  @override
+  int get bytesWritten => _bytesWritten;
+
+  @override
+  Future<void> start({
+    required String vaultId,
+    required String vaultName,
+  }) async {
+    _sink = await _staging.create(fileExtension: _format.extension);
+    if (_format == ExportFormat.csv) {
+      await _append(
+        'entryId,name,type,lifecycle,revision,historical,payload\r\n',
+      );
+    } else {
+      await _append(
+        '{"format":"palladin","formatVersion":2,'
+        '"lifecycleSchemaVersion":1,"vault":${jsonEncode({'id': vaultId, 'name': vaultName})},'
+        '"entries":[',
+      );
     }
-    return buffer.toString();
   }
 
-  /// Serializes [records] to the Palladin JSON v1 schema. [vaultName]
-  /// groups the entries under a single vault object; [exportedAt] is
-  /// injectable for deterministic tests.
-  static String toPalladinJson(
-    List<ExportRecord> records, {
-    required String vaultName,
-    String vaultId = '',
-    DateTime? exportedAt,
-  }) {
-    final root = {
-      'version': 1,
-      'exportedAt': (exportedAt ?? DateTime.now().toUtc()).toIso8601String(),
-      'encrypted': false,
-      'vaults': [
-        {
-          'id': vaultId,
-          'name': vaultName,
-          'entries': [
-            for (final r in records)
-              {
-                'name': r.name,
-                if (r.username != null) 'username': r.username,
-                if (r.password != null) 'password': r.password,
-                if (r.url != null) 'urlDomain': r.url,
-                if (r.notes != null) 'notes': r.notes,
-                if (r.totp != null) 'totp': r.totp,
-              },
-          ],
-        },
-      ],
-    };
-    return const JsonEncoder.withIndent('  ').convert(root);
+  @override
+  Future<void> write(ExportRecord record) async {
+    if (_format == ExportFormat.csv) {
+      await _append(
+        [
+          record.entryId,
+          record.name,
+          record.entryType,
+          record.lifecycle,
+          record.revision,
+          record.historical.toString(),
+          jsonEncode(record.payload),
+        ].map(_escapeCsv).join(','),
+      );
+      await _append('\r\n');
+    } else {
+      if (_records > 0) await _append(',');
+      await _append(
+        jsonEncode({
+          'entryId': record.entryId,
+          'name': record.name,
+          'type': record.entryType,
+          'lifecycle': record.lifecycle,
+          'revision': record.revision,
+          'historical': record.historical,
+          'payload': record.payload,
+        }),
+      );
+    }
+    _records++;
+  }
+
+  @override
+  Future<String> finish() async {
+    if (_format == ExportFormat.json) await _append(']}');
+    return (_sink ?? (throw StateError('Writer not started'))).finish();
+  }
+
+  @override
+  Future<void> abort() async => _sink?.abort();
+
+  Future<void> _append(String value) async {
+    final bytes = Uint8List.fromList(utf8.encode(value));
+    try {
+      if (_bytesWritten + bytes.length > maximumBytes) {
+        throw const ExportException(ExportErrorKind.tooLarge);
+      }
+      await (_sink ?? (throw StateError('Writer not started'))).append(bytes);
+      _bytesWritten += bytes.length;
+    } finally {
+      bytes.fillRange(0, bytes.length, 0);
+    }
   }
 
   static String _escapeCsv(String value) {

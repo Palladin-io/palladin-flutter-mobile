@@ -228,7 +228,6 @@ class _VaultDetailViewState extends State<_VaultDetailView>
       context,
       vaultId: widget.vaultId,
       vaultName: vault.name,
-      wrappedVK: vault.wrappedVK,
     );
     if (imported == true) {
       final auth = authBloc.state;
@@ -252,7 +251,6 @@ class _VaultDetailViewState extends State<_VaultDetailView>
       context,
       vaultId: widget.vaultId,
       vaultName: vault.name,
-      wrappedVK: vault.wrappedVK,
     );
   }
 

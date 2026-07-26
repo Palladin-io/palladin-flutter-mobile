@@ -3065,6 +3065,23 @@ class AppLocalizationsPl extends AppLocalizations {
   String get exportErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
 
   @override
+  String get exportIncludeArchived => 'Uwzględnij zarchiwizowane wpisy';
+
+  @override
+  String get exportIncludeDeleted => 'Uwzględnij ostatnio usunięte wpisy';
+
+  @override
+  String get exportIncludeHistory => 'Uwzględnij poprzednie wersje';
+
+  @override
+  String get exportDeletionDisclosure =>
+      'Palladin usuwa swoją kopię tymczasową po udostępnieniu w miarę możliwości. Kopie utworzone przez wybraną aplikację lub usługę chmurową pozostają pod kontrolą odbiorcy i mogą nadal tam istnieć.';
+
+  @override
+  String get exportErrorTooLarge =>
+      'Eksport przekracza lokalny limit bezpieczeństwa. Wybierz mniejszy zakres.';
+
+  @override
   String get authLoginSubtitle =>
       'Zaloguj się adresem e-mail i hasłem głównym.';
 

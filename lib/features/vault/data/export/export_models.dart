@@ -1,29 +1,4 @@
-/// A single decrypted entry flattened for export. All secrets are in
-/// plaintext here — instances live only for the duration of a share and
-/// must never be logged.
-class ExportRecord {
-  const ExportRecord({
-    required this.name,
-    this.url,
-    this.username,
-    this.password,
-    this.notes,
-    this.totp,
-    this.folder,
-  });
-
-  final String name;
-  final String? url;
-  final String? username;
-  final String? password;
-  final String? notes;
-  final String? totp;
-
-  /// Owning vault name — becomes the `folder` column / JSON grouping.
-  final String? folder;
-}
-
-/// Export file format the user picks before sharing.
+/// Export file format selected by the user.
 enum ExportFormat {
   csv('csv', 'text/csv'),
   json('json', 'application/json');
@@ -32,4 +7,66 @@ enum ExportFormat {
 
   final String extension;
   final String mimeType;
+}
+
+/// Explicit scope of a local plaintext export.
+final class ExportOptions {
+  const ExportOptions({
+    required this.format,
+    this.includeArchived = false,
+    this.includeDeleted = false,
+    this.includeHistory = false,
+  });
+
+  final ExportFormat format;
+  final bool includeArchived;
+  final bool includeDeleted;
+  final bool includeHistory;
+}
+
+/// One short-lived plaintext record passed directly to a streaming writer.
+final class ExportRecord {
+  ExportRecord({
+    required this.entryId,
+    required this.name,
+    required this.entryType,
+    required this.lifecycle,
+    required this.revision,
+    required this.payload,
+    this.historical = false,
+  });
+
+  final String entryId;
+  final String name;
+  final String entryType;
+  final String lifecycle;
+  final String revision;
+  final Map<String, dynamic> payload;
+  final bool historical;
+
+  /// Drops references to decrypted fields immediately after the writer copies
+  /// the record. Dart strings cannot be reliably overwritten in managed memory.
+  void clear() => payload.clear();
+}
+
+final class ExportResult {
+  const ExportResult({required this.path, required this.entryCount});
+
+  final String path;
+  final int entryCount;
+}
+
+enum ExportErrorKind {
+  cancelled,
+  locked,
+  empty,
+  corrupt,
+  network,
+  tooLarge,
+  staging,
+}
+
+final class ExportException implements Exception {
+  const ExportException(this.kind);
+  final ExportErrorKind kind;
 }

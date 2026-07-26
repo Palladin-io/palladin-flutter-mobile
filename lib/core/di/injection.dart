@@ -95,6 +95,9 @@ import '../../features/vault/data/repositories/entry_repository_impl.dart';
 import '../../features/vault/data/repositories/vault_repository_impl.dart';
 import '../../features/vault/data/repositories/vault_members_repository_impl.dart';
 import '../../features/vault/data/export/export_sharer.dart';
+import '../../features/vault/data/export/protected_export_staging.dart';
+import '../../features/vault/data/export/export_serializers.dart';
+import '../../features/vault/data/export/canonical_export_service.dart';
 import '../../features/vault/data/services/entry_crypto_service.dart';
 import '../../features/vault/data/services/encrypted_presentation_asset_service.dart';
 import '../../features/vault/data/services/member_sync_cache.dart';
@@ -553,10 +556,25 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<ExportSharer>(
     () => const SharePlusExportSharer(),
   );
+  getIt.registerLazySingleton<ProtectedExportStaging>(
+    () => MethodChannelProtectedExportStaging(),
+  );
+  getIt.registerLazySingleton<CanonicalExportService>(
+    () => CanonicalExportService(
+      index: getIt<MemberEntryListService>(),
+      canonical: getIt<CanonicalEntryDetailService>(),
+      entries: getIt<EntryRemoteDatasource>(),
+      writerFactory: (format) => ProtectedExportWriter(
+        staging: getIt<ProtectedExportStaging>(),
+        format: format,
+      ),
+    ),
+  );
   getIt.registerFactory<ExportCubit>(
     () => ExportCubit(
-      repository: getIt<EntryRepository>(),
+      service: getIt<CanonicalExportService>(),
       sharer: getIt<ExportSharer>(),
+      staging: getIt<ProtectedExportStaging>(),
     ),
   );
 
