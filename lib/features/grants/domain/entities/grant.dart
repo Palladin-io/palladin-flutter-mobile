@@ -89,6 +89,8 @@ class Grant {
     this.agentName,
     this.agentIconKey,
     this.agentPublicKey,
+    this.recipientAgentKeyVersion,
+    this.entryScopes = const [],
     this.vaultName,
     this.entryId,
     this.entryLabel,
@@ -125,6 +127,12 @@ class Grant {
   /// Agent's base64 X25519 public key — needed to seal a DEK when re-granting
   /// ("Grant again"). Public by design (it can only seal *to* the agent).
   final String? agentPublicKey;
+
+  /// Current public recipient-key version used for a refreshed envelope.
+  final int? recipientAgentKeyVersion;
+
+  /// Durable field scope and current envelope counters. Contains no secrets.
+  final List<GrantEntryScope> entryScopes;
 
   /// Display name of the owning vault (org-wide listing only).
   final String? vaultName;
@@ -184,4 +192,27 @@ class Grant {
   /// action is wrongly offered (e.g. revoking an already-expired grant).
   final bool canRevoke;
   final bool canGrantAgain;
+}
+
+/// One Entry covered by a grant, with ciphertext-only refresh metadata.
+class GrantEntryScope {
+  const GrantEntryScope({
+    required this.entryId,
+    required this.fieldIds,
+    this.grantEnvelopeRevision,
+    this.entryRevision,
+    this.grantKeyVersion,
+    this.memberKeyGeneration,
+    this.recipientAgentKeyVersion,
+    this.agentKeyFingerprint,
+  });
+
+  final String entryId;
+  final List<String> fieldIds;
+  final String? grantEnvelopeRevision;
+  final String? entryRevision;
+  final int? grantKeyVersion;
+  final int? memberKeyGeneration;
+  final int? recipientAgentKeyVersion;
+  final String? agentKeyFingerprint;
 }

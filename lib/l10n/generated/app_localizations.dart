@@ -1346,6 +1346,90 @@ abstract class AppLocalizations {
   /// **'This entry changed while you were editing it. Reload it and try again.'**
   String get entryErrorConflict;
 
+  /// No description provided for @entryAgentsPolicyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent visibility'**
+  String get entryAgentsPolicyTitle;
+
+  /// No description provided for @entryAgentsPolicyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose what agents may discover and what can be released by an exact-revision grant.'**
+  String get entryAgentsPolicyHint;
+
+  /// No description provided for @entryAgentsDiscoverable.
+  ///
+  /// In en, this message translates to:
+  /// **'Discoverable by organization agents'**
+  String get entryAgentsDiscoverable;
+
+  /// No description provided for @entryAgentsAgentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent-facing label'**
+  String get entryAgentsAgentLabel;
+
+  /// No description provided for @entryAgentsDiscoveryPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Discovery preview'**
+  String get entryAgentsDiscoveryPreview;
+
+  /// No description provided for @entryAgentsDiscoveryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No values will be included in Discovery.'**
+  String get entryAgentsDiscoveryEmpty;
+
+  /// No description provided for @entryAgentsSavePolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Save visibility policy'**
+  String get entryAgentsSavePolicy;
+
+  /// No description provided for @entryAgentsSavingPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving policy…'**
+  String get entryAgentsSavingPolicy;
+
+  /// No description provided for @entryAgentsPolicyError.
+  ///
+  /// In en, this message translates to:
+  /// **'The encrypted policy could not be loaded or saved safely.'**
+  String get entryAgentsPolicyError;
+
+  /// No description provided for @entryAgentsAccessNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get entryAgentsAccessNever;
+
+  /// No description provided for @entryAgentsAccessDiscovery.
+  ///
+  /// In en, this message translates to:
+  /// **'Discovery'**
+  String get entryAgentsAccessDiscovery;
+
+  /// No description provided for @entryAgentsAccessGrantValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant: value'**
+  String get entryAgentsAccessGrantValue;
+
+  /// No description provided for @entryAgentsAccessGrantDerived.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant: derived only'**
+  String get entryAgentsAccessGrantDerived;
+
+  /// No description provided for @entryAgentsAccessGrantRuntime.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant: runtime only'**
+  String get entryAgentsAccessGrantRuntime;
+
   /// Section heading for the delete entry button at the bottom of the Details tab
   ///
   /// In en, this message translates to:

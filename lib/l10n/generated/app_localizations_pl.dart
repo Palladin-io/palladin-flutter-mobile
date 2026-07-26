@@ -799,6 +799,52 @@ class AppLocalizationsPl extends AppLocalizations {
       'Ten wpis zmienił się podczas edycji. Odśwież go i spróbuj ponownie.';
 
   @override
+  String get entryAgentsPolicyTitle => 'Widoczność dla agentów';
+
+  @override
+  String get entryAgentsPolicyHint =>
+      'Wybierz, co agenci mogą odkryć i co może udostępnić grant związany z dokładną rewizją.';
+
+  @override
+  String get entryAgentsDiscoverable => 'Widoczny dla agentów organizacji';
+
+  @override
+  String get entryAgentsAgentLabel => 'Etykieta widoczna dla agentów';
+
+  @override
+  String get entryAgentsDiscoveryPreview => 'Podgląd Discovery';
+
+  @override
+  String get entryAgentsDiscoveryEmpty =>
+      'Żadne wartości nie trafią do Discovery.';
+
+  @override
+  String get entryAgentsSavePolicy => 'Zapisz politykę widoczności';
+
+  @override
+  String get entryAgentsSavingPolicy => 'Zapisywanie polityki…';
+
+  @override
+  String get entryAgentsPolicyError =>
+      'Nie udało się bezpiecznie wczytać lub zapisać zaszyfrowanej polityki.';
+
+  @override
+  String get entryAgentsAccessNever => 'Nigdy';
+
+  @override
+  String get entryAgentsAccessDiscovery => 'Discovery';
+
+  @override
+  String get entryAgentsAccessGrantValue => 'Grant: wartość';
+
+  @override
+  String get entryAgentsAccessGrantDerived => 'Grant: tylko wynik pochodny';
+
+  @override
+  String get entryAgentsAccessGrantRuntime =>
+      'Grant: tylko środowisko wykonawcze';
+
+  @override
   String get entryDangerZone => 'Strefa niebezpieczna';
 
   @override

@@ -19,6 +19,13 @@ final class VaultEnvelopeExpectations {
 
 /// Dedicated Vault protocol 2 AEAD and sealed-package service.
 abstract interface class VaultEnvelopeCryptography {
+  Future<Uint8List> randomKey();
+
+  Future<Uint8List> sealPackage({
+    required Uint8List packageBytes,
+    required Uint8List recipientPublicKey,
+  });
+
   Future<Uint8List> decrypt({
     required VaultAadProfile profile,
     required Map<String, Object?> envelope,
@@ -53,6 +60,14 @@ final class VaultProtocolEnvelopeService implements VaultEnvelopeCryptography {
     VaultAadProfile.encryptedReason: 4096,
     VaultAadProfile.grantPayload: 262144,
   };
+
+  @override
+  Future<Uint8List> randomKey() async {
+    final sodium = await _sodiumLoader();
+    return sodium.randombytes.buf(
+      sodium.crypto.aeadXChaCha20Poly1305IETF.keyBytes,
+    );
+  }
 
   @override
   Future<Uint8List> decrypt({
@@ -154,6 +169,7 @@ final class VaultProtocolEnvelopeService implements VaultEnvelopeCryptography {
     }
   }
 
+  @override
   Future<Uint8List> sealPackage({
     required Uint8List packageBytes,
     required Uint8List recipientPublicKey,

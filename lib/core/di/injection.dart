@@ -107,6 +107,7 @@ import '../../features/vault/domain/repositories/vault_members_repository.dart';
 import '../../features/vault/presentation/cubit/create_entry_cubit.dart';
 import '../../features/vault/presentation/cubit/create_vault_cubit.dart';
 import '../../features/vault/presentation/cubit/edit_entry_cubit.dart';
+import '../../features/vault/presentation/cubit/entry_agents_cubit.dart';
 import '../../features/vault/presentation/cubit/entry_list_cubit.dart';
 import '../../features/vault/presentation/cubit/agent_discovery_cubit.dart';
 import '../../features/vault/presentation/cubit/export_cubit.dart';
@@ -383,6 +384,7 @@ void configureDependencies(EnvConfig config) {
       vaults: getIt<VaultRemoteDatasource>(),
       keys: getIt<VaultRotationCryptoService>(),
       envelopes: getIt<VaultProtocolEnvelopeService>(),
+      grants: getIt<GrantsRemoteDatasource>(),
     ),
   );
   getIt.registerLazySingleton<VaultRepository>(
@@ -487,6 +489,9 @@ void configureDependencies(EnvConfig config) {
       repository: getIt<EntryRepository>(),
       canonicalService: getIt<CanonicalEntryDetailService>(),
     ),
+  );
+  getIt.registerFactory<EntryAgentsCubit>(
+    () => EntryAgentsCubit(getIt<CanonicalEntryDetailService>()),
   );
 
   // Import wizard (CVT-37) — one cubit per wizard mount, scoped to the

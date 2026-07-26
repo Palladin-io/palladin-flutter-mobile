@@ -7,6 +7,9 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:mobile_palladin/features/vault/data/datasources/entry_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
+import 'package:mobile_palladin/features/grants/data/datasources/grants_remote_datasource.dart';
+import 'package:mobile_palladin/features/grants/data/models/grant_model.dart';
+import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
 import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_aad.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
@@ -16,9 +19,19 @@ import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart
 class _Entries extends Mock implements EntryRemoteDatasource {}
 class _Vaults extends Mock implements VaultRemoteDatasource {}
 class _Keys extends Mock implements VaultRotationCryptoService {}
+class _Grants extends Mock implements GrantsRemoteDatasource {}
 
 class _RecordingEnvelopes implements VaultEnvelopeCryptography {
   final encrypted = <({VaultAadProfile profile, Map<String, Object?> context, Uint8List plaintext})>[];
+
+  @override
+  Future<Uint8List> randomKey() async => Uint8List.fromList(List.filled(32, 7));
+
+  @override
+  Future<Uint8List> sealPackage({
+    required Uint8List packageBytes,
+    required Uint8List recipientPublicKey,
+  }) async => Uint8List.fromList(List.filled(80, 8));
 
   @override
   Future<Uint8List> decrypt({
@@ -64,6 +77,7 @@ void main() {
   late _Entries entries;
   late _Vaults vaults;
   late _Keys keys;
+  late _Grants grants;
   late _RecordingEnvelopes envelopes;
   late CanonicalEntryDetailService service;
 
@@ -130,6 +144,7 @@ void main() {
       'agentVisibilityPolicy': {
         'discoverable': true,
         'fields': {
+          'agentLabel': 'discovery',
           'username': 'discovery',
           'urlDomain': 'discovery',
           'password': 'onGrantValue',
@@ -147,13 +162,21 @@ void main() {
     entries = _Entries();
     vaults = _Vaults();
     keys = _Keys();
+    grants = _Grants();
     envelopes = _RecordingEnvelopes();
     service = CanonicalEntryDetailService(
       entries: entries,
       vaults: vaults,
       keys: keys,
       envelopes: envelopes,
+      grants: grants,
     );
+    when(() => grants.listGrants(
+      vaultId,
+      status: 'active',
+      cursor: any(named: 'cursor'),
+      pageSize: 100,
+    )).thenAnswer((_) async => const GrantPage(grants: []));
     when(() => vaults.getEncryptedVault(vaultId)).thenAnswer((_) async => vault());
     when(
       () => keys.openMemberVaultKey(any(), any()),
@@ -226,7 +249,8 @@ void main() {
       (value) => value.profile == VaultAadProfile.agentDiscovery,
     );
     final discoveryJson = jsonDecode(utf8.decode(discovery.plaintext)) as Map;
-    expect(discoveryJson['fields'], {
+      expect(discoveryJson['fields'], {
+        'agentLabel': 'Agent label',
       'urlDomain': 'example.com',
       'username': 'new@example.com',
     });
@@ -316,5 +340,78 @@ void main() {
       envelopes.encrypted.map((value) => value.profile),
       contains(VaultAadProfile.entryKeyWrapper),
     );
+  });
+
+  test('refreshes every active grant to the exact N+1 revision atomically', () async {
+    final activeGrant = GrantModel(
+      id: '44444444-4444-4444-8444-444444444444',
+      vaultId: vaultId,
+      agentId: '55555555-5555-4555-8555-555555555555',
+      status: 'active',
+      scope: 'granular',
+      createdAt: '2026-07-01T00:00:00Z',
+      agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+      recipientAgentKeyVersion: 3,
+      methods: 'Exec',
+      queryLimit: 10,
+      queryCount: 2,
+      entryScopes: const [GrantEntryScope(
+        entryId: entryId,
+        fieldIds: ['password'],
+        grantEnvelopeRevision: '4',
+        entryRevision: '7',
+        grantKeyVersion: 5,
+        memberKeyGeneration: 3,
+        recipientAgentKeyVersion: 3,
+        agentKeyFingerprint: 'ignored',
+      )],
+    );
+    when(() => grants.listGrants(
+      vaultId,
+      status: 'active',
+      cursor: any(named: 'cursor'),
+      pageSize: 100,
+    )).thenAnswer((_) async => GrantPage(grants: [activeGrant]));
+    Map<String, dynamic>? request;
+    when(() => entries.updateCanonicalEntry(vaultId, entryId, any()))
+        .thenAnswer((invocation) async {
+      request = invocation.positionalArguments[2] as Map<String, dynamic>;
+      return Response(
+        requestOptions: RequestOptions(path: '/entries'),
+        statusCode: 200,
+        data: {'currentRevision': '8'},
+      );
+    });
+
+    await service.update(
+      snapshot: snapshot(),
+      expected: entry,
+      label: 'New',
+      description: '',
+      icon: '',
+      type: EntryType.credential,
+      content: {
+        'username': 'old@example.com',
+        'password': 'new-secret',
+      },
+      memberPrivateKey: Uint8List.fromList(List<int>.filled(32, 3)),
+    );
+
+    final grantEnvelopes = request!['grantEnvelopes'] as List;
+    expect(grantEnvelopes, hasLength(1));
+    final envelope = grantEnvelopes.single as Map;
+    expect(envelope['entryRevision'], '8');
+    expect(envelope['grantEnvelopeRevision'], '5');
+    expect(envelope['grantKeyVersion'], 6);
+    expect(envelope['remainingUses'], 8);
+    expect(envelope['fieldIds'], ['password']);
+    final encryptedGrant = envelopes.encrypted.singleWhere(
+      (value) => value.profile == VaultAadProfile.grantPayload,
+    );
+    final payload = jsonDecode(utf8.decode(encryptedGrant.plaintext)) as Map;
+    expect((payload['fields'] as Map)['password'], {
+      'access': 'onGrantValue',
+      'value': 'new-secret',
+    });
   });
 }

@@ -783,6 +783,51 @@ class AppLocalizationsEn extends AppLocalizations {
       'This entry changed while you were editing it. Reload it and try again.';
 
   @override
+  String get entryAgentsPolicyTitle => 'Agent visibility';
+
+  @override
+  String get entryAgentsPolicyHint =>
+      'Choose what agents may discover and what can be released by an exact-revision grant.';
+
+  @override
+  String get entryAgentsDiscoverable => 'Discoverable by organization agents';
+
+  @override
+  String get entryAgentsAgentLabel => 'Agent-facing label';
+
+  @override
+  String get entryAgentsDiscoveryPreview => 'Discovery preview';
+
+  @override
+  String get entryAgentsDiscoveryEmpty =>
+      'No values will be included in Discovery.';
+
+  @override
+  String get entryAgentsSavePolicy => 'Save visibility policy';
+
+  @override
+  String get entryAgentsSavingPolicy => 'Saving policy…';
+
+  @override
+  String get entryAgentsPolicyError =>
+      'The encrypted policy could not be loaded or saved safely.';
+
+  @override
+  String get entryAgentsAccessNever => 'Never';
+
+  @override
+  String get entryAgentsAccessDiscovery => 'Discovery';
+
+  @override
+  String get entryAgentsAccessGrantValue => 'Grant: value';
+
+  @override
+  String get entryAgentsAccessGrantDerived => 'Grant: derived only';
+
+  @override
+  String get entryAgentsAccessGrantRuntime => 'Grant: runtime only';
+
+  @override
   String get entryDangerZone => 'Danger Zone';
 
   @override

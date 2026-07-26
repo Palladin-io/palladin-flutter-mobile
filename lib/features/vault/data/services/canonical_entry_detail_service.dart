@@ -4,14 +4,20 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../../domain/entities/entry_entity.dart';
+import '../../domain/entities/agent_visibility_policy.dart';
+import '../../../grants/data/datasources/grants_remote_datasource.dart';
+import '../../../grants/data/models/grant_model.dart';
+import '../../../grants/domain/entities/grant.dart';
 import '../datasources/entry_remote_datasource.dart';
 import '../datasources/vault_remote_datasource.dart';
 import 'vault_protocol/vault_protocol_aad.dart';
 import 'vault_protocol/vault_protocol_bytes.dart';
 import 'vault_protocol/vault_protocol_envelope_service.dart';
 import 'vault_protocol/vault_protocol_kdf.dart';
+import 'vault_protocol/vault_protocol_fingerprint.dart';
 import 'vault_protocol/vault_protocol_signature_service.dart';
 import 'vault_rotation_crypto_service.dart';
+import 'agent_visibility_projector.dart';
 
 enum CanonicalEntryDetailError {
   conflict,
@@ -49,15 +55,18 @@ class CanonicalEntryDetailService {
     required VaultRemoteDatasource vaults,
     required VaultRotationCryptoService keys,
     required VaultEnvelopeCryptography envelopes,
+    required GrantsRemoteDatasource grants,
   }) : _entries = entries,
        _vaults = vaults,
        _keys = keys,
-       _envelopes = envelopes;
+       _envelopes = envelopes,
+       _grants = grants;
 
   final EntryRemoteDatasource _entries;
   final VaultRemoteDatasource _vaults;
   final VaultRotationCryptoService _keys;
   final VaultEnvelopeCryptography _envelopes;
+  final GrantsRemoteDatasource _grants;
 
   Future<CanonicalEntrySnapshot> reveal({
     required EntryEntity expected,
@@ -152,6 +161,8 @@ class CanonicalEntryDetailService {
     required EntryType type,
     required Map<String, dynamic> content,
     required Uint8List memberPrivateKey,
+    AgentVisibilityPolicy? agentVisibilityPolicy,
+    String? agentLabel,
   }) async {
     Uint8List? vaultKey;
     Uint8List? discoveryKey;
@@ -196,10 +207,6 @@ class CanonicalEntryDetailService {
       final nextIndexRevision = _increment(
         snapshot.entry,
         'memberIndexRevision',
-      );
-      final nextDiscoveryRevision = _increment(
-        snapshot.entry,
-        'agentDiscoveryRevisionHighWatermark',
       );
       var keyVersion = _int(snapshot.entry, 'currentKeyVersion');
       Map<String, dynamic>? newEntryKey;
@@ -249,22 +256,26 @@ class CanonicalEntryDetailService {
       if (previousPolicy is! Map || previousPolicy['fields'] is! Map) {
         throw const FormatException('Missing Agent visibility policy');
       }
-      final policy = Map<String, dynamic>.from(previousPolicy);
-      final policyFields = Map<String, dynamic>.from(
-        previousPolicy['fields'] as Map,
+      final parsedPreviousPolicy = AgentVisibilityPolicy.fromJson(
+        type,
+        Map<String, dynamic>.from(previousPolicy),
+        content: snapshot.payload,
       );
-      policy['fields'] = policyFields;
+      final policy = agentVisibilityPolicy ?? parsedPreviousPolicy;
+      final policyJson = policy.toJson();
       final memberSecret = <String, dynamic>{
         'schemaVersion': 1,
         'memberLabel': label,
-        'agentLabel': snapshot.secret['agentLabel'] is String
-            ? snapshot.secret['agentLabel']
-            : label,
+        'agentLabel':
+            agentLabel ??
+            (snapshot.secret['agentLabel'] is String
+                ? snapshot.secret['agentLabel']
+                : label),
         if (description.isNotEmpty) 'description': description,
         if (icon.isNotEmpty) 'iconReference': icon,
         'entryType': wireType,
         'content': canonicalContent,
-        'agentVisibilityPolicy': policy,
+        'agentVisibilityPolicy': policyJson,
       };
       final memberIndex = <String, dynamic>{
         'memberLabel': label,
@@ -279,33 +290,23 @@ class CanonicalEntryDetailService {
         ],
         if (icon.isNotEmpty) 'iconReference': icon,
       };
-      final discoveryFields = <String, String>{};
-      if (type == EntryType.credential) {
-        final username = content['username'];
-        if (policyFields['username'] == 'discovery' &&
-            username is String &&
-            username.isNotEmpty) {
-          discoveryFields['username'] = username;
-        }
-        final url = content['url'];
-        if (policyFields['urlDomain'] == 'discovery' && url is String) {
-          final domain = _domain(url);
-          if (domain != null) discoveryFields['urlDomain'] = domain;
-        }
-      }
-      final interpreter = content['interpreter'];
-      if (type == EntryType.script &&
-          policyFields['interpreter'] == 'discovery' &&
-          interpreter is String) {
-        discoveryFields['interpreter'] = interpreter;
-      }
-      final discovery = <String, dynamic>{
-        'schemaVersion': 1,
-        'agentLabel': memberSecret['agentLabel'],
-        'entryType': wireType,
-        'capabilities': ['get', 'inject'],
-        'fields': discoveryFields,
-      };
+      final discovery = AgentVisibilityProjector.discovery(
+        type: type,
+        agentLabel: memberSecret['agentLabel'] as String,
+        description: description,
+        content: canonicalContent,
+        policy: policy,
+      );
+      final previousDiscovery = AgentVisibilityProjector.discovery(
+        type: type,
+        agentLabel: snapshot.secret['agentLabel'] as String? ?? label,
+        description: snapshot.secret['description'] as String? ?? '',
+        content: snapshot.payload,
+        policy: parsedPreviousPolicy,
+      );
+      final discoveryChanged =
+          canonicalizeVaultJson(discovery) !=
+          canonicalizeVaultJson(previousDiscovery);
       final common = <String, Object?>{
         'organizationId': organizationId,
         'vaultId': expected.vaultId,
@@ -393,15 +394,32 @@ class CanonicalEntryDetailService {
         revisionName: 'memberIndexRevision',
         revision: nextIndexRevision,
       );
-      final discoveryEnvelope = await projection(
-        profile: VaultAadProfile.agentDiscovery,
-        purpose: VaultKdfPurpose.agentDiscovery,
-        value: discovery,
-        baseKey: discoveryKey,
-        projectionKind: 4,
-        projectionKeyVersion: vdkVersion,
-        revisionName: 'agentDiscoveryRevision',
-        revision: nextDiscoveryRevision,
+      final discoveryEnvelope = discoveryChanged
+          ? await projection(
+              profile: VaultAadProfile.agentDiscovery,
+              purpose: VaultKdfPurpose.agentDiscovery,
+              value: discovery,
+              baseKey: discoveryKey,
+              projectionKind: 4,
+              projectionKeyVersion: vdkVersion,
+              revisionName: 'agentDiscoveryRevision',
+              revision: _increment(
+                snapshot.entry,
+                'agentDiscoveryRevisionHighWatermark',
+              ),
+            )
+          : null;
+      final grantEnvelopes = await _refreshActiveGrants(
+        organizationId: organizationId,
+        vaultId: expected.vaultId,
+        entryId: expected.id,
+        entryRevision: nextRevision,
+        memberKeyGeneration: generation,
+        type: type,
+        agentLabel: memberSecret['agentLabel'] as String,
+        description: description,
+        content: canonicalContent,
+        policy: policy,
       );
       final response = await _entries
           .updateCanonicalEntry(expected.vaultId, expected.id, {
@@ -409,9 +427,9 @@ class CanonicalEntryDetailService {
             'newEntryKey': ?newEntryKey,
             'memberSecret': secretEnvelope,
             'memberIndex': indexEnvelope,
-            'agentDiscoveryChanged': true,
-            'agentDiscovery': discoveryEnvelope,
-            'grantEnvelopes': <Object>[],
+            'agentDiscoveryChanged': discoveryChanged,
+            'agentDiscovery': ?discoveryEnvelope,
+            'grantEnvelopes': grantEnvelopes,
           });
       if (response.statusCode == 409) {
         throw const CanonicalEntryDetailException(
@@ -445,6 +463,227 @@ class CanonicalEntryDetailService {
     } finally {
       _wipe([vaultKey, discoveryKey, entryDek, ...derived, ...plaintexts]);
     }
+  }
+
+  Future<List<Map<String, dynamic>>> _refreshActiveGrants({
+    required String organizationId,
+    required String vaultId,
+    required String entryId,
+    required String entryRevision,
+    required int memberKeyGeneration,
+    required EntryType type,
+    required String agentLabel,
+    required String description,
+    required Map<String, dynamic> content,
+    required AgentVisibilityPolicy policy,
+  }) async {
+    final active = <GrantModel>[];
+    final seenCursors = <String>{};
+    String? cursor;
+    do {
+      final page = await _grants.listGrants(
+        vaultId,
+        status: 'active',
+        cursor: cursor,
+        pageSize: 100,
+      );
+      active.addAll(page.grants);
+      if (active.length > 1000) {
+        throw const FormatException('Active grant refresh exceeds limit');
+      }
+      cursor = page.nextCursor;
+      if (cursor != null && !seenCursors.add(cursor)) {
+        throw const FormatException('Repeated active grant cursor');
+      }
+    } while (cursor != null);
+
+    final result = <Map<String, dynamic>>[];
+    for (final model in active) {
+      final grant = model.toEntity();
+      final scopes = grant.entryScopes
+          .where((scope) => scope.entryId == entryId)
+          .toList(growable: false);
+      if (scopes.isEmpty) continue;
+      if (scopes.length != 1 ||
+          grant.agentPublicKey == null ||
+          grant.agentPublicKey!.isEmpty ||
+          grant.recipientAgentKeyVersion == null) {
+        throw const FormatException('Incomplete active grant metadata');
+      }
+      result.add(
+        await _refreshGrant(
+          organizationId: organizationId,
+          grant: grant,
+          scope: scopes.single,
+          entryRevision: entryRevision,
+          memberKeyGeneration: memberKeyGeneration,
+          type: type,
+          agentLabel: agentLabel,
+          description: description,
+          content: content,
+          policy: policy,
+        ),
+      );
+    }
+    return result;
+  }
+
+  Future<Map<String, dynamic>> _refreshGrant({
+    required String organizationId,
+    required Grant grant,
+    required GrantEntryScope scope,
+    required String entryRevision,
+    required int memberKeyGeneration,
+    required EntryType type,
+    required String agentLabel,
+    required String description,
+    required Map<String, dynamic> content,
+    required AgentVisibilityPolicy policy,
+  }) async {
+    Uint8List? grantKey;
+    Uint8List? recipientKey;
+    Uint8List? fingerprint;
+    Uint8List? plaintext;
+    Uint8List? wrappedKey;
+    try {
+      final envelopeRevision = _incrementValue(
+        scope.grantEnvelopeRevision,
+        'grantEnvelopeRevision',
+      );
+      final grantKeyVersion = _incrementInt(
+        scope.grantKeyVersion,
+        'grantKeyVersion',
+      );
+      final recipientKeyVersion = grant.recipientAgentKeyVersion!;
+      try {
+        recipientKey = Uint8List.fromList(base64.decode(grant.agentPublicKey!));
+      } on FormatException {
+        throw const FormatException('Invalid Agent public key');
+      }
+      if (recipientKey.length != 32) {
+        throw const FormatException('Invalid Agent public key');
+      }
+      fingerprint = vaultPublicKeyFingerprint(
+        VaultPublicKeyKind.agentX25519,
+        recipientKey,
+      );
+      final fingerprintWire = VaultProtocolBytes.base64UrlEncode(fingerprint);
+      final approvedMethods = _methodBits(grant.methods);
+      final remainingUses = grant.queryLimit == null
+          ? null
+          : grant.queryLimit! - (grant.queryCount ?? 0);
+      if (remainingUses != null && remainingUses <= 0) {
+        throw const FormatException('Active grant has no remaining uses');
+      }
+      final expiresAt = grant.expiresAt == null
+          ? null
+          : _canonicalInstant(grant.expiresAt!);
+      final payload = AgentVisibilityProjector.grantPayload(
+        type: type,
+        agentLabel: agentLabel,
+        description: description,
+        content: content,
+        policy: policy,
+        approvedFieldIds: scope.fieldIds,
+      );
+      plaintext = VaultProtocolBytes.utf8Encode(canonicalizeVaultJson(payload));
+      grantKey = await _envelopes.randomKey();
+      final context = <String, Object?>{
+        'organizationId': organizationId,
+        'vaultId': grant.vaultId,
+        'entryId': scope.entryId,
+        'grantId': grant.id,
+        'agentId': grant.agentId,
+        'grantEnvelopeRevision': envelopeRevision,
+        'entryRevision': entryRevision,
+        'grantKeyVersion': grantKeyVersion,
+        'approvedMethods': approvedMethods,
+        'expiresAt': ?expiresAt,
+        'useLimit': ?remainingUses,
+        'recipientAgentKeyVersion': recipientKeyVersion,
+        'recipientAgentKeyFingerprint': fingerprintWire,
+        'header': {
+          'protocolVersion': 2,
+          'algorithmSuite': 1,
+          'resourceKind': 4,
+          'projectionKind': 6,
+          'resourceRevision': envelopeRevision,
+          'keyVersion': grantKeyVersion,
+          'memberKeyGeneration': memberKeyGeneration,
+          'nonce': '',
+        },
+      };
+      final encrypted = await _envelopes.encrypt(
+        profile: VaultAadProfile.grantPayload,
+        context: context,
+        plaintext: plaintext,
+        key: grantKey,
+      );
+      wrappedKey = await _envelopes.sealPackage(
+        packageBytes: grantKey,
+        recipientPublicKey: recipientKey,
+      );
+      return {
+        'organizationId': organizationId,
+        'vaultId': grant.vaultId,
+        'grantId': grant.id,
+        'entryId': scope.entryId,
+        'grantEnvelopeRevision': envelopeRevision,
+        'entryRevision': entryRevision,
+        'protocolVersion': 2,
+        'algorithmSuite': 1,
+        'grantKeyVersion': grantKeyVersion,
+        'memberKeyGeneration': memberKeyGeneration,
+        'recipientAgentKeyVersion': recipientKeyVersion,
+        'ciphertext': encrypted['ciphertext'],
+        'nonce': encrypted['nonce'],
+        'agentWrappedGrantDek': VaultProtocolBytes.base64UrlEncode(wrappedKey),
+        'agentWrapperSuite': 1,
+        'agentKeyFingerprint': fingerprintWire,
+        'fieldIds': [...scope.fieldIds]..sort(),
+        'expiresAt': ?expiresAt,
+        'remainingUses': ?remainingUses,
+      };
+    } finally {
+      _wipe([grantKey, recipientKey, fingerprint, plaintext, wrappedKey]);
+    }
+  }
+
+  int _methodBits(List<GrantMethod> methods) {
+    var bits = 0;
+    for (final method in methods) {
+      bits |= switch (method) {
+        GrantMethod.get => 1,
+        GrantMethod.exec => 2,
+        GrantMethod.inject => 4,
+      };
+    }
+    if (bits == 0) throw const FormatException('Active grant has no methods');
+    return bits;
+  }
+
+  String _incrementValue(String? raw, String name) {
+    if (raw == null || !RegExp(r'^[1-9][0-9]*$').hasMatch(raw)) {
+      throw FormatException('$name invalid');
+    }
+    final value = BigInt.parse(raw);
+    if (value >= (BigInt.one << 64) - BigInt.one) {
+      throw FormatException('$name overflow');
+    }
+    return (value + BigInt.one).toString();
+  }
+
+  int _incrementInt(int? raw, String name) {
+    if (raw == null || raw < 1 || raw >= 0xffffffff) {
+      throw FormatException('$name invalid');
+    }
+    return raw + 1;
+  }
+
+  String _canonicalInstant(DateTime value) {
+    final wire = value.toUtc().toIso8601String();
+    final withoutZeros = wire.replaceFirst(RegExp(r'0+Z$'), 'Z');
+    return withoutZeros.replaceFirst('.Z', 'Z');
   }
 
   void _validateScope(Map<String, dynamic> value, EntryEntity expected) {
@@ -485,12 +724,6 @@ class CanonicalEntryDetailService {
     final nested = value[key];
     if (nested is! Map) throw FormatException('$key must be an object');
     return Map<String, dynamic>.from(nested);
-  }
-
-  String? _domain(String raw) {
-    final normalized = raw.contains('://') ? raw : 'https://$raw';
-    final host = Uri.tryParse(normalized)?.host.toLowerCase();
-    return host == null || host.isEmpty ? null : host;
   }
 
   CanonicalEntryDetailError _classifyDio(DioException error) {

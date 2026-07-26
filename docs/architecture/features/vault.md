@@ -33,6 +33,13 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 - A save emits exactly one optimistic backend transition: immutable MemberSecret revision `N+1`, the next MemberIndex head and the next AgentDiscovery high-watermark revision are encrypted locally and switched atomically. A stale Member generation also rewraps the Entry DEK as the next key version before binding all projections to it.
 - HTTP `409` is a dedicated edit-conflict state rather than a generic validation error. Lock, background and widget disposal drop decrypted Cubit state, controller values, reveal flags and TOTP state; keys and temporary plaintext byte buffers are wiped in `finally` paths.
 
+### Entry Agent policy and exact-revision grants (CVT-453)
+
+- The Entry Agents tab decrypts the authenticated canonical policy only while unlocked, validates one closed `AgentFieldAccess` value per schema field and renders only the resulting Discovery preview. TOTP source fields accept only `never`/`onGrantDerived`; Script source and refs accept only `never`/`onGrantRuntime`. VK, VDK, EntryDEK and source secrets never enter widget state or copy actions.
+- A policy save creates one immutable canonical revision. Discovery advances only when its effective projection changes; private-only policy changes do not leak through the Discovery cursor.
+- Before any grant encryption, the local projector proves every approved field is still within the Entry policy. Every active covering grant is fetched with bounded cursor pagination, refreshed to the exact new Entry revision with a fresh GrantDEK, and submitted in the same optimistic Entry transaction. Missing, extra, stale or widening scope fails closed and the backend commits all heads/envelopes or none.
+- Lock, background, conflict and successful save clear the decrypted snapshot. Member keys, GrantDEKs, plaintext payload bytes, recipient-key copies and sealed-package buffers are wiped in `finally` paths.
+
 ### Import / Export (CVT-37 / CVT-235)
 
 - **Import engine** — `data/import/` is pure, testable Dart: `import_engine.dart` (structure-based format detection: ZIP → JSON → XML → CSV, never by extension), `import_csv.dart` (declarative `CsvProfile`s — add a format by appending a profile), `import_json.dart` (Bitwarden / Keeper / Proton / 1Password / Enpass / Palladin), `import_xml.dart` (KeePass), `import_normalizer.dart` (TOTP→`otpauth://`, URL→host, name-from-host, trim), `import_models.dart`. Unrecognised CSVs fall back to a manual column mapper.

@@ -11,9 +11,10 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../approval/presentation/widgets/grant_access_sheet.dart';
 import '../../../audit/presentation/widgets/entry_logs_tab.dart';
-import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../cubit/edit_entry_cubit.dart';
+import '../cubit/entry_agents_cubit.dart';
+import 'entry_agents_tab.dart';
 import 'entry_details_tab.dart';
 
 /// Result of [EntryDetailPage.push].
@@ -43,11 +44,7 @@ class EntryDetailDeleted extends EntryDetailResult {
 /// MemberIndex metadata renders immediately. MemberSecret is fetched and
 /// authenticated only after an explicit reveal/edit action.
 class EntryDetailPage extends StatelessWidget {
-  const EntryDetailPage({
-    super.key,
-    required this.entry,
-    this.wrappedVK,
-  });
+  const EntryDetailPage({super.key, required this.entry, this.wrappedVK});
 
   final EntryEntity entry;
   final String? wrappedVK;
@@ -59,26 +56,26 @@ class EntryDetailPage extends StatelessWidget {
   }) {
     return Navigator.of(context, rootNavigator: true).push<EntryDetailResult>(
       MaterialPageRoute(
-        builder: (_) => EntryDetailPage(
-          entry: entry,
-          wrappedVK: wrappedVK,
-        ),
+        builder: (_) => EntryDetailPage(entry: entry, wrappedVK: wrappedVK),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<EditEntryCubit>(
-      create: (_) {
-        final cubit = getIt<EditEntryCubit>();
-        return cubit;
-      },
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<EditEntryCubit>(create: (_) => getIt<EditEntryCubit>()),
+        BlocProvider<EntryAgentsCubit>(
+          create: (_) => getIt<EntryAgentsCubit>(),
+        ),
+      ],
       child: Builder(
         builder: (context) => BlocListener<AuthBloc, AuthState>(
           listener: (context, state) {
             if (state is! AuthAuthenticated || state.privateKey == null) {
               context.read<EditEntryCubit>().clearSensitiveState();
+              context.read<EntryAgentsCubit>().clearSensitiveState();
             }
           },
           child: _EntryDetailView(entry: entry, wrappedVK: wrappedVK),
@@ -229,17 +226,10 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                   onUpdated: _onUpdated,
                   onDeleted: _onDeleted,
                 ),
-                ContextGrantsTab(
-                  key: ValueKey(_grantsRefresh),
-                  entryId: widget.entry.id,
-                  emptyTitle: l10n.entryAgentsEmptyTitle,
-                  emptyHint: l10n.entryAgentsEmptyHint,
-                  contentPadding: const EdgeInsets.fromLTRB(
-                    AppSpacing.screenH,
-                    AppSpacing.fieldGap,
-                    AppSpacing.screenH,
-                    AppSpacing.listBottom,
-                  ),
+                EntryAgentsTab(
+                  entry: _entry,
+                  grantsRefresh: _grantsRefresh,
+                  onUpdated: _onUpdated,
                 ),
                 EntryLogsTab(
                   vaultId: widget.entry.vaultId,
