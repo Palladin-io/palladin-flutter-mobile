@@ -41,6 +41,11 @@ final class EditEntryError extends EditEntryState {
   final EntryErrorKind kind;
 }
 
+/// Optimistic base revision or covering-grant set changed during the edit.
+final class EditEntryConflict extends EditEntryState {
+  const EditEntryConflict();
+}
+
 /// Entry was successfully deleted.
 final class EditEntryDeleted extends EditEntryState {
   const EditEntryDeleted(this.entryId);

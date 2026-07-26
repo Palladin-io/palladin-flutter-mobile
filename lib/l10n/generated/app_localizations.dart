@@ -1328,6 +1328,24 @@ abstract class AppLocalizations {
   /// **'Loading entry data…'**
   String get entryRevealingForEdit;
 
+  /// No description provided for @entryRevealDetailsAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Reveal entry details'**
+  String get entryRevealDetailsAction;
+
+  /// No description provided for @entryRevealDetailsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Sensitive fields are decrypted only after you request them.'**
+  String get entryRevealDetailsHint;
+
+  /// No description provided for @entryErrorConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'This entry changed while you were editing it. Reload it and try again.'**
+  String get entryErrorConflict;
+
   /// Section heading for the delete entry button at the bottom of the Details tab
   ///
   /// In en, this message translates to:

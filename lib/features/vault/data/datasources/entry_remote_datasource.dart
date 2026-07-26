@@ -18,6 +18,30 @@ class EntryRemoteDatasource {
 
   final Dio _dio;
 
+  Future<Map<String, dynamic>> getCanonicalEntry(
+    String vaultId,
+    String entryId,
+  ) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries/$entryId',
+    );
+    return response.data ??
+        (throw const FormatException('Empty canonical Entry'));
+  }
+
+  Future<Response<Map<String, dynamic>>> updateCanonicalEntry(
+    String vaultId,
+    String entryId,
+    Map<String, dynamic> payload,
+  ) => _dio.put<Map<String, dynamic>>(
+    '/api/vaults/$vaultId/entries/$entryId',
+    data: payload,
+    options: Options(
+      validateStatus: (status) =>
+          status == 200 || status == 400 || status == 409,
+    ),
+  );
+
   Future<String> issueCreationChallenge(String vaultId) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/vaults/$vaultId/entries/creation-challenges',

@@ -772,6 +772,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryRevealingForEdit => 'Loading entry data…';
 
   @override
+  String get entryRevealDetailsAction => 'Reveal entry details';
+
+  @override
+  String get entryRevealDetailsHint =>
+      'Sensitive fields are decrypted only after you request them.';
+
+  @override
+  String get entryErrorConflict =>
+      'This entry changed while you were editing it. Reload it and try again.';
+
+  @override
   String get entryDangerZone => 'Danger Zone';
 
   @override

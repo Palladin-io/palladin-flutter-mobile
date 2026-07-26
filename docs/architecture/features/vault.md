@@ -27,6 +27,12 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 - `VaultRotationCryptoService` is the sole rotation crypto boundary: it opens/seals scoped Member VK packages, rotates VK/VDK projections, rewraps Entry DEKs, generates Agent manifests, and signs them with the pending Ed25519 seed. All generated and opened keys are process memory only and are wiped on success, failure, cancellation, lock, or app background pause; progress persistence remains ciphertext-only on the backend.
 - `PalladinApp` resumes pending work when an authenticated Vault unlocks and cancels the active Dio token whenever that session locks or disappears. The current generation remains authoritative until the backend's atomic commit succeeds.
 
+### Canonical Entry detail and versioned edit (CVT-452)
+
+- Entry Detail renders the already-decrypted in-memory MemberIndex first and does not fetch MemberSecret until the user explicitly reveals details or enters edit mode. A canonical authentication failure never falls back to the legacy plaintext/blob repository path.
+- A save emits exactly one optimistic backend transition: immutable MemberSecret revision `N+1`, the next MemberIndex head and the next AgentDiscovery high-watermark revision are encrypted locally and switched atomically. A stale Member generation also rewraps the Entry DEK as the next key version before binding all projections to it.
+- HTTP `409` is a dedicated edit-conflict state rather than a generic validation error. Lock, background and widget disposal drop decrypted Cubit state, controller values, reveal flags and TOTP state; keys and temporary plaintext byte buffers are wiped in `finally` paths.
+
 ### Import / Export (CVT-37 / CVT-235)
 
 - **Import engine** — `data/import/` is pure, testable Dart: `import_engine.dart` (structure-based format detection: ZIP → JSON → XML → CSV, never by extension), `import_csv.dart` (declarative `CsvProfile`s — add a format by appending a profile), `import_json.dart` (Bitwarden / Keeper / Proton / 1Password / Enpass / Palladin), `import_xml.dart` (KeePass), `import_normalizer.dart` (TOTP→`otpauth://`, URL→host, name-from-host, trim), `import_models.dart`. Unrecognised CSVs fall back to a manual column mapper.

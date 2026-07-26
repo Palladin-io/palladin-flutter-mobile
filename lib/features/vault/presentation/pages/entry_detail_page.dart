@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -42,31 +40,27 @@ class EntryDetailDeleted extends EntryDetailResult {
 /// Tab 1 — Agents.
 /// Tab 2 — Logs.
 ///
-/// If [cachedPayload] is provided the reveal is skipped and the read-only
-/// view renders immediately. Otherwise the cubit decrypts the entry on open.
+/// MemberIndex metadata renders immediately. MemberSecret is fetched and
+/// authenticated only after an explicit reveal/edit action.
 class EntryDetailPage extends StatelessWidget {
   const EntryDetailPage({
     super.key,
     required this.entry,
-    this.cachedPayload,
     this.wrappedVK,
   });
 
   final EntryEntity entry;
-  final Map<String, dynamic>? cachedPayload;
   final String? wrappedVK;
 
   static Future<EntryDetailResult?> push(
     BuildContext context, {
     required EntryEntity entry,
-    Map<String, dynamic>? cachedPayload,
     String? wrappedVK,
   }) {
     return Navigator.of(context, rootNavigator: true).push<EntryDetailResult>(
       MaterialPageRoute(
         builder: (_) => EntryDetailPage(
           entry: entry,
-          cachedPayload: cachedPayload,
           wrappedVK: wrappedVK,
         ),
       ),
@@ -78,29 +72,18 @@ class EntryDetailPage extends StatelessWidget {
     return BlocProvider<EditEntryCubit>(
       create: (_) {
         final cubit = getIt<EditEntryCubit>();
-        if (cachedPayload != null) {
-          cubit.setReady(entry, cachedPayload!);
-        } else {
-          final auth = context.read<AuthBloc>().state;
-          if (auth is AuthAuthenticated && auth.privateKey != null) {
-            final keyCopy = Uint8List.fromList(auth.privateKey!);
-            cubit
-                .revealForEdit(
-                  entry: entry,
-                  privateKey: keyCopy,
-                  wrappedVK: wrappedVK,
-                )
-                .whenComplete(() => keyCopy.fillRange(0, keyCopy.length, 0));
-          } else {
-            // The vault is locked or the private key was wiped — without a
-            // private key we cannot decrypt anything, so surface a
-            // cryptoFailure instead of hanging on the reveal spinner.
-            cubit.markRevealUnavailable();
-          }
-        }
         return cubit;
       },
-      child: _EntryDetailView(entry: entry, wrappedVK: wrappedVK),
+      child: Builder(
+        builder: (context) => BlocListener<AuthBloc, AuthState>(
+          listener: (context, state) {
+            if (state is! AuthAuthenticated || state.privateKey == null) {
+              context.read<EditEntryCubit>().clearSensitiveState();
+            }
+          },
+          child: _EntryDetailView(entry: entry, wrappedVK: wrappedVK),
+        ),
+      ),
     );
   }
 }
@@ -196,9 +179,9 @@ class _EntryDetailViewState extends State<_EntryDetailView>
 
   /// Pops with the pending update (if any) so the parent list refreshes.
   void _handleBack() {
-    Navigator.of(context).pop(
-      _latestUpdate != null ? EntryDetailUpdated(_latestUpdate!) : null,
-    );
+    Navigator.of(
+      context,
+    ).pop(_latestUpdate != null ? EntryDetailUpdated(_latestUpdate!) : null);
   }
 
   @override

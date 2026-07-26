@@ -788,6 +788,17 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryRevealingForEdit => 'Ładowanie danych wpisu…';
 
   @override
+  String get entryRevealDetailsAction => 'Pokaż szczegóły wpisu';
+
+  @override
+  String get entryRevealDetailsHint =>
+      'Pola wrażliwe są odszyfrowywane dopiero na Twoje żądanie.';
+
+  @override
+  String get entryErrorConflict =>
+      'Ten wpis zmienił się podczas edycji. Odśwież go i spróbuj ponownie.';
+
+  @override
   String get entryDangerZone => 'Strefa niebezpieczna';
 
   @override

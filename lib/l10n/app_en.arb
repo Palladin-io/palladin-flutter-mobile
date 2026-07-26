@@ -907,6 +907,9 @@
     "description": "Details tab label on the Entry Detail page (contains the edit form)"
   },
   "entryRevealingForEdit": "Loading entry data…",
+  "entryRevealDetailsAction": "Reveal entry details",
+  "entryRevealDetailsHint": "Sensitive fields are decrypted only after you request them.",
+  "entryErrorConflict": "This entry changed while you were editing it. Reload it and try again.",
   "@entryRevealingForEdit": {
     "description": "Shown while the detail page is decrypting the entry payload before the form can be shown"
   },

@@ -13,6 +13,7 @@ import '../../features/unlock/data/services/identity_kdf_service.dart';
 import '../../features/vault/data/services/vault_list_crypto_service.dart';
 import '../../features/vault/data/services/vault_creation_service.dart';
 import '../../features/vault/data/services/key_entry_creation_service.dart';
+import '../../features/vault/data/services/canonical_entry_detail_service.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/cubit/change_password_cubit.dart';
@@ -376,6 +377,14 @@ void configureDependencies(EnvConfig config) {
       envelopes: getIt<VaultProtocolEnvelopeService>(),
     ),
   );
+  getIt.registerLazySingleton<CanonicalEntryDetailService>(
+    () => CanonicalEntryDetailService(
+      entries: getIt<EntryRemoteDatasource>(),
+      vaults: getIt<VaultRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+    ),
+  );
   getIt.registerLazySingleton<VaultRepository>(
     () => VaultRepositoryImpl(
       getIt<VaultRemoteDatasource>(),
@@ -474,7 +483,10 @@ void configureDependencies(EnvConfig config) {
     () => AgentDiscoveryCubit(getIt<AgentDiscoveryRemoteDatasource>()),
   );
   getIt.registerFactory<EditEntryCubit>(
-    () => EditEntryCubit(repository: getIt<EntryRepository>()),
+    () => EditEntryCubit(
+      repository: getIt<EntryRepository>(),
+      canonicalService: getIt<CanonicalEntryDetailService>(),
+    ),
   );
 
   // Import wizard (CVT-37) — one cubit per wizard mount, scoped to the

@@ -123,15 +123,11 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     });
   }
 
-  Future<void> _onEditEntry(
-    EntryEntity entry,
-    Map<String, dynamic>? cachedPayload,
-  ) async {
+  Future<void> _onEditEntry(EntryEntity entry) async {
     final cubit = context.read<EntryListCubit>();
     final result = await EntryDetailPage.push(
       context,
       entry: entry,
-      cachedPayload: cachedPayload,
       wrappedVK: cubit.wrappedVK,
     );
     if (!mounted) return;
@@ -179,7 +175,7 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
             onToggleFieldReveal: _toggleFieldReveal,
             onCopy: (value) => _copyToClipboard(value, l10n),
             onEdit: () =>
-                _onEditEntry(entries[i], revealedEntries[entries[i].id]),
+                _onEditEntry(entries[i]),
           ),
         ),
       ),
