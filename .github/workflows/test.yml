@@ -12,6 +12,8 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+      - name: Install libsodium for native protocol fixtures
+        run: sudo apt-get update && sudo apt-get install --yes libsodium-dev
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test

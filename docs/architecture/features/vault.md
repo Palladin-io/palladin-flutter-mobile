@@ -7,6 +7,12 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 - **Key widgets:** `VaultEntriesTab`, `CreateVaultSheet`, entry-type forms, icon picker (via `IconColorBrowserSheet`), `ExportSheet`, `ImportPreviewList`, `ImportColumnMapper`.
 - **Layering:** full data / domain / presentation split, with per-type crypto services in `data/services/` (zero-knowledge, `try/finally` zero-out).
 
+### Vault protocol 2 crypto foundation (CVT-438)
+
+- `data/services/vault_protocol/` owns the frozen protocol primitives: strict canonical bytes/base64url/UUID validation, binary TLV AAD profiles, HKDF-SHA-256 projection keys, XChaCha20-Poly1305 envelopes, bounded X25519 sealed packages and RFC 8785/Ed25519 signatures. Widgets, Cubits and remote datasources must not reproduce these operations.
+- Native fixture tests consume the minimal byte-identical snapshot in `test/fixtures/vault_protocol_2/`, pinned to root commit `b370b56e4f65ecf5350bc4f9203fee6429572955` and verified against the manifest's SHA-256 list. `PALLADIN_VAULT_V2_FIXTURES` may override it locally to compare directly with a root checkout; update steps and provenance live beside the snapshot.
+- All structural aliases, unsupported versions/suites, wrong scopes, stale Member generations, oversize payloads, malformed canonical encodings and authentication failures fail closed before plaintext reaches presentation state. Service-owned key/plaintext copies are disposed or zeroed in `finally` paths.
+
 ### Import / Export (CVT-37 / CVT-235)
 
 - **Import engine** — `data/import/` is pure, testable Dart: `import_engine.dart` (structure-based format detection: ZIP → JSON → XML → CSV, never by extension), `import_csv.dart` (declarative `CsvProfile`s — add a format by appending a profile), `import_json.dart` (Bitwarden / Keeper / Proton / 1Password / Enpass / Palladin), `import_xml.dart` (KeePass), `import_normalizer.dart` (TOTP→`otpauth://`, URL→host, name-from-host, trim), `import_models.dart`. Unrecognised CSVs fall back to a manual column mapper.
