@@ -17,6 +17,8 @@ import '../pages/entry_detail_page.dart';
 import '../pages/entry_archive_page.dart';
 import 'entry_field_row.dart';
 import 'vault_visuals.dart';
+import 'encrypted_asset_image.dart';
+import '../../data/services/encrypted_presentation_asset_service.dart';
 
 /// Entries tab on the vault detail page.
 ///
@@ -190,8 +192,7 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
             onToggleReveal: () => _onToggleReveal(entries[i]),
             onToggleFieldReveal: _toggleFieldReveal,
             onCopy: (value) => _copyToClipboard(value, l10n),
-            onEdit: () =>
-                _onEditEntry(entries[i]),
+            onEdit: () => _onEditEntry(entries[i]),
           ),
         ),
       ),
@@ -737,27 +738,29 @@ class _EntryIconWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final icon = entry.icon;
 
+    if (icon?.startsWith('asset:') ?? false) {
+      return SizedBox(
+        width: 40,
+        height: 40,
+        child: ClipOval(
+          child: EncryptedAssetImage(
+            reference: icon!,
+            target: PresentationAssetTarget.entry,
+            vaultId: entry.vaultId,
+            entryId: entry.id,
+            width: 40,
+            height: 40,
+            fallback: _presetIcon(null),
+          ),
+        ),
+      );
+    }
+
     if (!EntryVisuals.isCustomUrl(icon)) {
       return _presetIcon(icon);
     }
 
-    // Cache-bust on icon updates: `updatedAt` changes whenever the entry
-    // is patched (including after a new icon upload), so the `?v=` query
-    // forces Flutter's image cache to refetch the new bytes.
-    final url = '$icon?v=${entry.updatedAt.millisecondsSinceEpoch}';
-    return SizedBox(
-      width: 40,
-      height: 40,
-      child: ClipOval(
-        child: Image.network(
-          url,
-          width: 40,
-          height: 40,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _presetIcon(null),
-        ),
-      ),
-    );
+    return _presetIcon(null);
   }
 
   Widget _presetIcon(String? name) {

@@ -4,7 +4,6 @@ import '../models/create_entry_request.dart';
 import '../models/entry_model.dart';
 import '../models/import_entries_request.dart';
 import '../models/update_entry_request.dart';
-import 'vault_remote_datasource.dart' show PresignResponse;
 
 /// Remote data source for the per-vault entry endpoints.
 ///
@@ -264,45 +263,6 @@ class EntryRemoteDatasource {
     await _dio.put<void>(
       '/api/vaults/$vaultId/entries/$entryId',
       data: request.toJson(),
-    );
-  }
-
-  /// `POST /api/vaults/{vaultId}/entries/{entryId}/icon/presign` →
-  /// presigned S3 upload URL for an entry icon.
-  Future<PresignResponse> presignEntryIcon(
-    String vaultId,
-    String entryId,
-    String extension,
-  ) async {
-    final response = await _dio.post<Map<String, dynamic>>(
-      '/api/vaults/$vaultId/entries/$entryId/icon/presign',
-      data: {'vaultId': vaultId, 'entryId': entryId, 'extension': extension},
-    );
-    final data = response.data;
-    if (data == null) {
-      throw DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        type: DioExceptionType.badResponse,
-        error: 'Empty response body',
-      );
-    }
-    return PresignResponse(
-      uploadUrl: data['uploadUrl'] as String,
-      publicUrl: data['publicUrl'] as String,
-    );
-  }
-
-  /// `PUT /api/vaults/{vaultId}/entries/{entryId}` — updates only the
-  /// icon field (patch semantics on the backend).
-  Future<void> updateEntryIcon(
-    String vaultId,
-    String entryId,
-    String iconUrl,
-  ) async {
-    await _dio.put<void>(
-      '/api/vaults/$vaultId/entries/$entryId',
-      data: {'vaultId': vaultId, 'entryId': entryId, 'icon': iconUrl},
     );
   }
 }

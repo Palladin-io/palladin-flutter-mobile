@@ -13,10 +13,8 @@ import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
-import '../../data/datasources/entry_remote_datasource.dart';
-import '../../data/services/entry_icon_upload_service.dart';
-import '../../data/services/vault_icon_upload_service.dart'
-    show VaultIconUploadErrorKind, VaultIconUploadException;
+import '../../data/services/canonical_entry_detail_service.dart';
+import '../../data/services/encrypted_presentation_asset_service.dart';
 import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/repositories/entry_repository.dart';
@@ -367,7 +365,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
     }
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
-    final urlDomain = EntryFormUtils.extractDomain(_urlController.text);
     final hasCustomFile = _icon.startsWith('file://');
     // Send null icon when a custom file is pending — the preset icon will
     // be replaced by the S3 URL after the two-step upload.
@@ -380,7 +377,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
         icon: iconForApi,
         type: _type,
         payload: payload,
-        urlDomain: urlDomain,
         privateKey: keyCopy,
         wrappedVK: widget.wrappedVK,
         agentFields: CustomField.agentFieldsFrom(_allCustomFields),
@@ -398,32 +394,31 @@ class _AddEntryViewState extends State<_AddEntryView> {
     var entry = cubitState.entry;
     if (hasCustomFile) {
       setState(() => _uploadingIcon = true);
+      final assetKey = Uint8List.fromList(auth.privateKey!);
       try {
-        final service = EntryIconUploadService(getIt<EntryRemoteDatasource>());
-        final url = await service.uploadIcon(
-          widget.vaultId,
-          entry.id,
-          File(_icon.substring(7)),
-        );
-        entry = entry.copyWith(icon: url);
-      } on VaultIconUploadException catch (e) {
-        if (mounted) {
-          final l = AppLocalizations.of(context)!;
-          final msg = switch (e.kind) {
-            VaultIconUploadErrorKind.unsupportedFormat =>
-              l.vaultIconUploadFormatError,
-            VaultIconUploadErrorKind.fileTooLarge => l.vaultIconUploadSizeError,
-            _ => l.vaultIconUploadError,
-          };
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(
-                content: Text(msg),
-                duration: const Duration(seconds: 6),
-              ),
+        final reference = await getIt<EncryptedPresentationAssetService>()
+            .uploadFile(
+              target: PresentationAssetTarget.entry,
+              vaultId: widget.vaultId,
+              entryId: entry.id,
+              file: File(_icon.substring(7)),
+              memberPrivateKey: assetKey,
             );
-        }
+        final canonical = getIt<CanonicalEntryDetailService>();
+        final snapshot = await canonical.reveal(
+          expected: entry,
+          memberPrivateKey: assetKey,
+        );
+        entry = await canonical.update(
+          snapshot: snapshot,
+          expected: entry,
+          label: entry.label,
+          description: _descriptionController.text,
+          icon: reference,
+          type: _type,
+          content: payload,
+          memberPrivateKey: assetKey,
+        );
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context)
@@ -438,6 +433,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
             );
         }
       } finally {
+        assetKey.fillRange(0, assetKey.length, 0);
         if (mounted) setState(() => _uploadingIcon = false);
       }
     }

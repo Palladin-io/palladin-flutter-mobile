@@ -374,6 +374,9 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<EncryptedPresentationAssetService>(
     () => EncryptedPresentationAssetService(
       remote: getIt<VaultRemoteDatasource>(),
+      entries: getIt<EntryRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
     ),
   );
   getIt.registerLazySingleton<VaultSettingsService>(

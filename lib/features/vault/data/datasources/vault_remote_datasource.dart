@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../models/create_vault_request.dart';
@@ -12,9 +14,13 @@ import '../models/vault_model.dart';
 /// classify error semantics (404, 403/plan-limit, 403/full-mode-not-
 /// allowed, etc.) and translate them into typed `VaultException`s.
 class VaultRemoteDatasource {
-  VaultRemoteDatasource(this._dio);
+  VaultRemoteDatasource(this._dio, {Dio? opaqueAssetDio})
+    : _opaqueAssetDio = opaqueAssetDio ?? Dio();
 
   final Dio _dio;
+  // Deliberately interceptor-free: presigned object-store URLs must never
+  // receive the API bearer token, analytics headers or request logging.
+  final Dio _opaqueAssetDio;
 
   Future<Map<String, dynamic>> issueVaultCreationChallenge() async {
     final response = await _dio.post<Map<String, dynamic>>(
@@ -77,6 +83,54 @@ class VaultRemoteDatasource {
     String vaultId,
     Map<String, dynamic> payload,
   ) => _dio.post<void>('/api/vaults/$vaultId/assets', data: payload);
+
+  /// Fetches authenticated metadata for one opaque encrypted asset.
+  Future<EncryptedPresentationAssetMetadata> getEncryptedAsset(
+    String vaultId,
+    String assetId,
+  ) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/assets/$assetId',
+    );
+    final data = response.data;
+    if (data == null) {
+      throw const FormatException('Empty encrypted asset metadata');
+    }
+    return EncryptedPresentationAssetMetadata.fromJson(data);
+  }
+
+  /// Downloads opaque ciphertext without interpreting or logging it.
+  Future<Uint8List> downloadEncryptedAsset(
+    EncryptedPresentationAssetMetadata metadata,
+  ) async {
+    final uri = Uri.tryParse(metadata.downloadUrl);
+    if (uri == null ||
+        !uri.hasScheme ||
+        !{'http', 'https'}.contains(uri.scheme)) {
+      throw const FormatException('Invalid encrypted asset location');
+    }
+    final response = await _opaqueAssetDio.get<ResponseBody>(
+      metadata.downloadUrl,
+      options: Options(
+        responseType: ResponseType.stream,
+        receiveDataWhenStatusError: false,
+      ),
+    );
+    final body = response.data;
+    if (body == null) {
+      throw const FormatException('Empty encrypted asset');
+    }
+    final builder = BytesBuilder(copy: false);
+    var received = 0;
+    await for (final chunk in body.stream) {
+      received += chunk.length;
+      if (received > metadata.ciphertextLength) {
+        throw const FormatException('Encrypted asset exceeds declared size');
+      }
+      builder.add(chunk);
+    }
+    return builder.takeBytes();
+  }
 
   Future<void> deleteEncryptedAsset(String vaultId, String assetId) =>
       _dio.delete<void>('/api/vaults/$vaultId/assets/$assetId');
@@ -191,34 +245,37 @@ class VaultRemoteDatasource {
     }
     return data['wrappedVK'] as String;
   }
-
-  /// `POST /api/vaults/{id}/icon/presign` → presigned S3 upload URL.
-  Future<PresignResponse> presignVaultIcon(
-    String vaultId,
-    String extension,
-  ) async {
-    final response = await _dio.post<Map<String, dynamic>>(
-      '/api/vaults/$vaultId/icon/presign',
-      data: {'vaultId': vaultId, 'extension': extension},
-    );
-    final data = response.data;
-    if (data == null) {
-      throw DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        type: DioExceptionType.badResponse,
-        error: 'Empty response body',
-      );
-    }
-    return PresignResponse(
-      uploadUrl: data['uploadUrl'] as String,
-      publicUrl: data['publicUrl'] as String,
-    );
-  }
 }
 
-class PresignResponse {
-  const PresignResponse({required this.uploadUrl, required this.publicUrl});
-  final String uploadUrl;
-  final String publicUrl;
+/// Authenticated metadata describing an opaque encrypted asset.
+final class EncryptedPresentationAssetMetadata {
+  const EncryptedPresentationAssetMetadata({
+    required this.assetId,
+    required this.target,
+    required this.entryId,
+    required this.mediaType,
+    required this.ciphertextLength,
+    required this.ciphertextSha256,
+    required this.downloadUrl,
+  });
+
+  factory EncryptedPresentationAssetMetadata.fromJson(
+    Map<String, dynamic> json,
+  ) => EncryptedPresentationAssetMetadata(
+    assetId: json['assetId'] as String,
+    target: json['target'] as int,
+    entryId: json['entryId'] as String?,
+    mediaType: json['mediaType'] as String,
+    ciphertextLength: json['ciphertextLength'] as int,
+    ciphertextSha256: json['ciphertextSha256'] as String,
+    downloadUrl: json['downloadUrl'] as String,
+  );
+
+  final String assetId;
+  final int target;
+  final String? entryId;
+  final String mediaType;
+  final int ciphertextLength;
+  final String ciphertextSha256;
+  final String downloadUrl;
 }

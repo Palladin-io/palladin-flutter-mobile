@@ -168,6 +168,23 @@ an already-purged `404` are idempotent success; `409` remains visible as an
 invalid-state conflict. Search is runtime-only and bounded to 10,000 structural
 rows; lock/session loss drops the joined plaintext view.
 
+### Encrypted presentation assets (CVT-462)
+
+Vault and Entry icons share `EncryptedPresentationAssetService`. The picker
+provides local bytes only; the client validates a bounded JPEG, PNG or WebP by
+magic bytes and decoded dimensions before deriving a resource-scoped asset key
+from the Vault key or Entry DEK. A fresh XChaCha20-Poly1305 nonce and AAD bind
+the organization, Vault, asset id, target kind, optional Entry id, revision,
+media type, key version and member generation. The API receives only the
+opaque `PLDNV2AS` container and its SHA-256 digest—never a source URL, domain,
+file path or plaintext image.
+
+Rendering downloads authenticated opaque bytes, verifies length and digest,
+then decrypts locally through the same service. Decoded byte ownership is
+widget-scoped; disposal wipes the buffer, while lock/account switch wipes all
+owned buffers and clears Flutter's pending/live image cache. Legacy Vault and
+Entry presign/public-URL upload paths are intentionally absent.
+
 **⚠ Architecture smells:**
 - `VaultListPage` builds a raw `Container(gradient) + Scaffold(transparent)` (~line 185) instead of `AppScreen.titled(...)` — the one inconsistent top-level tab.
 - `VaultDetailPage` / `EntryDetailPage` hand-roll `Container + DefaultTabController + Scaffold + AppBar` instead of `AppScreen.appBar(...)` (justified by the `PreferredSize` tab-bar height, but still skips the abstraction).

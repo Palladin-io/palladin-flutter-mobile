@@ -72,6 +72,7 @@ void main() {
   late VaultSettingsService service;
 
   setUpAll(() {
+    registerFallbackValue(File('unused'));
     registerFallbackValue(Uint8List(0));
     registerFallbackValue(VaultAadProfile.memberVaultMetadata);
     registerFallbackValue(PresentationAssetMediaType.png);
@@ -239,16 +240,13 @@ void main() {
       });
       const assetId = '12345678-1234-4234-9234-123456789abc';
       when(
-        () => assets.encryptAndUpload(
-          organizationId: any(named: 'organizationId'),
+        () => assets.uploadFile(
+          target: PresentationAssetTarget.vault,
           vaultId: any(named: 'vaultId'),
-          vaultKey: any(named: 'vaultKey'),
-          plaintext: any(named: 'plaintext'),
-          mediaType: any(named: 'mediaType'),
-          keyVersion: any(named: 'keyVersion'),
-          memberKeyGeneration: any(named: 'memberKeyGeneration'),
+          file: any(named: 'file'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
         ),
-      ).thenAnswer((_) async => 'asset:$assetId');
+      ).thenAnswer((_) async => 'asset:$assetId:8');
       when(() => assets.delete(vaultId, assetId)).thenAnswer((_) async {});
       when(() => remote.replaceEncryptedMetadata(vaultId, any())).thenAnswer(
         (_) async => Response<void>(

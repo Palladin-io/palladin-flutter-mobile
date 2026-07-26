@@ -14,10 +14,8 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
-import '../../data/datasources/entry_remote_datasource.dart';
-import '../../data/services/entry_icon_upload_service.dart';
-import '../../data/services/vault_icon_upload_service.dart'
-    show VaultIconUploadErrorKind, VaultIconUploadException;
+import '../../data/services/canonical_entry_detail_service.dart';
+import '../../data/services/encrypted_presentation_asset_service.dart';
 import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/totp_config.dart';
@@ -310,8 +308,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   }
 
   void _enterEditMode() {
-    if (!_populated ||
-        !context.read<EditEntryCubit>().hasCanonicalSnapshot) {
+    if (!_populated || !context.read<EditEntryCubit>().hasCanonicalSnapshot) {
       setState(_clearPlaintextState);
       _requestReveal(editAfter: true);
       return;
@@ -458,7 +455,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     }
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
-    final urlDomain = EntryFormUtils.extractDomain(_urlController.text);
     final hasCustomFile = _icon.startsWith('file://');
     final iconForApi = hasCustomFile ? null : _icon;
     final cubit = context.read<EditEntryCubit>();
@@ -471,7 +467,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         icon: iconForApi,
         type: _type,
         payload: payload,
-        urlDomain: urlDomain,
         privateKey: keyCopy,
         wrappedVK: widget.wrappedVK,
         createdAt: _originalCreatedAt(cubit.state),
@@ -488,32 +483,38 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     var entry = cubitState.entry;
     if (hasCustomFile) {
       setState(() => _uploadingIcon = true);
+      final assetKey = Uint8List.fromList(auth.privateKey!);
       try {
-        final service = EntryIconUploadService(getIt<EntryRemoteDatasource>());
-        final url = await service.uploadIcon(
-          widget.entry.vaultId,
-          entry.id,
-          File(_icon.substring(7)),
+        final reference = await getIt<EncryptedPresentationAssetService>()
+            .uploadFile(
+              target: PresentationAssetTarget.entry,
+              vaultId: widget.entry.vaultId,
+              entryId: entry.id,
+              file: File(_icon.substring(7)),
+              memberPrivateKey: assetKey,
+            );
+        final canonical = getIt<CanonicalEntryDetailService>();
+        final snapshot = await canonical.reveal(
+          expected: entry,
+          memberPrivateKey: assetKey,
         );
-        entry = entry.copyWith(icon: url);
-      } on VaultIconUploadException catch (e) {
-        entry = entry.copyWith(icon: widget.entry.icon);
-        if (mounted) {
-          final l = AppLocalizations.of(context)!;
-          final msg = switch (e.kind) {
-            VaultIconUploadErrorKind.unsupportedFormat =>
-              l.vaultIconUploadFormatError,
-            VaultIconUploadErrorKind.fileTooLarge => l.vaultIconUploadSizeError,
-            _ => l.vaultIconUploadError,
-          };
-          _showSnackBar(msg);
-        }
+        entry = await canonical.update(
+          snapshot: snapshot,
+          expected: entry,
+          label: entry.label,
+          description: _descriptionController.text,
+          icon: reference,
+          type: _type,
+          content: payload,
+          memberPrivateKey: assetKey,
+        );
       } catch (_) {
         entry = entry.copyWith(icon: widget.entry.icon);
         if (mounted) {
           _showSnackBar(AppLocalizations.of(context)!.vaultIconUploadError);
         }
       } finally {
+        assetKey.fillRange(0, assetKey.length, 0);
         if (mounted) setState(() => _uploadingIcon = false);
       }
     }

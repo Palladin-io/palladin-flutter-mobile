@@ -29,6 +29,7 @@ import 'features/notifications/domain/entities/push_message.dart';
 import 'features/notifications/presentation/cubit/notification_center_cubit.dart';
 import 'features/notifications/presentation/cubit/push_navigation_cubit.dart';
 import 'features/vault/data/services/member_sync_service.dart';
+import 'features/vault/data/services/encrypted_presentation_asset_service.dart';
 import 'features/vault/data/services/vault_rotation_service.dart';
 import 'features/vault/data/export/canonical_export_service.dart';
 import 'features/vault/data/export/protected_export_staging.dart';
@@ -71,6 +72,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final VaultRotationService _vaultRotation = getIt<VaultRotationService>();
   final CanonicalExportService _exportService = getIt<CanonicalExportService>();
   final ProtectedExportStaging _exportStaging = getIt<ProtectedExportStaging>();
+  final EncryptedPresentationAssetService _presentationAssets =
+      getIt<EncryptedPresentationAssetService>();
   late final StreamSubscription<AutoFillMutationAction>
   _autoFillMutationSubscription;
 
@@ -261,6 +264,10 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               _memberSync.lock();
               _vaultRotation.pause();
               _exportService.cancel();
+              _presentationAssets.lock();
+              PaintingBinding.instance.imageCache
+                ..clear()
+                ..clearLiveImages();
               unawaited(_cleanupExportStaging());
             },
           ),

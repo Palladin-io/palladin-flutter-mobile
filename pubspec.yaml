@@ -63,6 +63,7 @@ dependencies:
 
   # Image picker for custom vault icon upload
   image_picker: ^1.1.2
+  image: ^4.3.0
 
   # Typography — Inter font (matches web prototype)
   google_fonts: ^6.2.1

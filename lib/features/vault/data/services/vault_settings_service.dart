@@ -101,22 +101,13 @@ class VaultSettingsService {
       var nextIcon = icon;
       if (localIconPath != null) {
         final file = File(localIconPath);
-        final bytes = await file.readAsBytes();
-        try {
-          final mediaType = _mediaType(localIconPath);
-          nextIcon = await _assets.encryptAndUpload(
-            organizationId: organizationId,
-            vaultId: expected.id,
-            vaultKey: vaultKey,
-            plaintext: bytes,
-            mediaType: mediaType,
-            keyVersion: keyVersion,
-            memberKeyGeneration: generation,
-          );
-          uploadedAssetId = _assetId(nextIcon);
-        } finally {
-          bytes.fillRange(0, bytes.length, 0);
-        }
+        nextIcon = await _assets.uploadFile(
+          target: PresentationAssetTarget.vault,
+          vaultId: expected.id,
+          file: file,
+          memberPrivateKey: memberPrivateKey,
+        );
+        uploadedAssetId = _assetId(nextIcon);
       }
       final next = <String, dynamic>{
         'name': name,
@@ -289,19 +280,9 @@ class VaultSettingsService {
   bool _sameMetadata(Map<String, dynamic> left, Map<String, dynamic> right) =>
       canonicalizeVaultJson(left) == canonicalizeVaultJson(right);
 
-  PresentationAssetMediaType _mediaType(String path) {
-    final lower = path.toLowerCase();
-    if (lower.endsWith('.png')) return PresentationAssetMediaType.png;
-    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
-      return PresentationAssetMediaType.jpeg;
-    }
-    if (lower.endsWith('.webp')) return PresentationAssetMediaType.webp;
-    throw const FormatException('Unsupported icon media type');
-  }
-
   String? _assetId(String? reference) {
     final match = RegExp(
-      r'^asset:([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$',
+      r'^asset:([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}):[0-9]+$',
     ).firstMatch(reference ?? '');
     return match?.group(1);
   }
