@@ -1,3 +1,5 @@
+enum MemberEntryState { active, archived, deleted }
+
 /// Decrypted, runtime-only projection used by local Vault search.
 final class MemberIndexEntry {
   const MemberIndexEntry({
@@ -6,7 +8,9 @@ final class MemberIndexEntry {
     required this.memberLabel,
     required this.searchFields,
     required this.revision,
+    required this.state,
     this.iconReference,
+    this.corrupt = false,
   });
 
   final String entryId;
@@ -14,5 +18,7 @@ final class MemberIndexEntry {
   final String memberLabel;
   final List<String> searchFields;
   final String revision;
+  final MemberEntryState state;
   final String? iconReference;
+  final bool corrupt;
 }

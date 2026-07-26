@@ -958,5 +958,11 @@
   "authChangePwSuccess": "Zmieniono hasło główne.",
 
   "settingsChangePassword": "Zmień hasło główne",
+  "entryStateActive": "Aktywne",
+  "entryStateArchived": "Archiwum",
+  "entryStateDeleted": "Ostatnio usunięte",
+  "entryArchivedRecoverability": "Zarchiwizowany · można przywrócić",
+  "entryDeletedRecoverability": "Ostatnio usunięty · możliwy do odzyskania w okresie retencji",
+  "entryCorruptProjection": "Nie udało się zweryfikować zaszyfrowanych metadanych",
   "settingsTwoFactor": "Uwierzytelnianie dwuskładnikowe"
 }

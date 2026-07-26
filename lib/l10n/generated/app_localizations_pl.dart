@@ -3247,5 +3247,25 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsChangePassword => 'Zmień hasło główne';
 
   @override
+  String get entryStateActive => 'Aktywne';
+
+  @override
+  String get entryStateArchived => 'Archiwum';
+
+  @override
+  String get entryStateDeleted => 'Ostatnio usunięte';
+
+  @override
+  String get entryArchivedRecoverability => 'Zarchiwizowany · można przywrócić';
+
+  @override
+  String get entryDeletedRecoverability =>
+      'Ostatnio usunięty · możliwy do odzyskania w okresie retencji';
+
+  @override
+  String get entryCorruptProjection =>
+      'Nie udało się zweryfikować zaszyfrowanych metadanych';
+
+  @override
   String get settingsTwoFactor => 'Uwierzytelnianie dwuskładnikowe';
 }

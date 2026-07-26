@@ -3141,6 +3141,12 @@
 
   "settingsChangePassword": "Change master password",
   "@settingsChangePassword": { "description": "Settings drawer item — change master password" },
+  "entryStateActive": "Active",
+  "entryStateArchived": "Archive",
+  "entryStateDeleted": "Recently deleted",
+  "entryArchivedRecoverability": "Archived · can be restored",
+  "entryDeletedRecoverability": "Recently deleted · recoverable during retention",
+  "entryCorruptProjection": "Encrypted metadata could not be verified",
   "settingsTwoFactor": "Two-factor authentication",
   "@settingsTwoFactor": { "description": "Settings drawer item — set up TOTP two-factor auth" }
 }

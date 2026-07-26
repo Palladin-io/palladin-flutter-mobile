@@ -22,13 +22,28 @@ final class MemberSyncItemModel {
     }
     final entryKey = json['entryKey'];
     final memberIndex = json['memberIndex'];
-    if (entryKey is! Map || memberIndex is! Map) {
+    final state = json['state'];
+    const validStates = {
+      'active',
+      'Active',
+      'archived',
+      'Archived',
+      'deleted',
+      'Deleted',
+      0,
+      1,
+      2,
+      3,
+    };
+    if (entryKey is! Map ||
+        memberIndex is! Map ||
+        !validStates.contains(state)) {
       throw const FormatException('Member head has no encrypted projection');
     }
     return MemberSyncItemModel(
       entryId: entryId,
       kind: kind as String,
-      state: json['state'],
+      state: state,
       currentRevision: _decimal(json['currentRevision'], 'currentRevision'),
       memberIndexRevision: _decimal(
         json['memberIndexRevision'],

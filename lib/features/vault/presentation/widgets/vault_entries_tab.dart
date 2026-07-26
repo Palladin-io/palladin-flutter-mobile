@@ -10,6 +10,7 @@ import '../../../../core/widgets/app_search_field.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../domain/entities/entry_entity.dart';
+import '../../domain/entities/member_index_entry.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../cubit/entry_list_cubit.dart';
 import '../pages/entry_detail_page.dart';
@@ -38,6 +39,8 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _expanded = <String>{};
   final Set<String> _revealedFields = <String>{}; // composite "$entryId:$field"
+  MemberEntryState _lifecycle = MemberEntryState.active;
+  bool _filtersVisible = false;
 
   @override
   void dispose() {
@@ -47,13 +50,27 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
 
   List<EntryEntity> _filter(List<EntryEntity> entries) {
     final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return entries;
     return entries
-        .where((e) =>
-            e.label.toLowerCase().contains(query) ||
-            (e.description?.toLowerCase().contains(query) ?? false) ||
-            (e.urlDomain?.toLowerCase().contains(query) ?? false))
-        .toList(growable: false);
+        .where((e) => e.lifecycleState == _lifecycle)
+        .where(
+          (e) =>
+              query.isEmpty ||
+              e.label.toLowerCase().contains(query) ||
+              (e.description?.toLowerCase().contains(query) ?? false) ||
+              (e.urlDomain?.toLowerCase().contains(query) ?? false),
+        )
+        .toList(growable: false)
+      ..sort((left, right) => left.label.compareTo(right.label));
+  }
+
+  void _retrySync() {
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated || auth.privateKey == null) return;
+    final keyCopy = Uint8List.fromList(auth.privateKey!);
+    context
+        .read<EntryListCubit>()
+        .loadIndexedEntries(keyCopy)
+        .whenComplete(() => keyCopy.fillRange(0, keyCopy.length, 0));
   }
 
   void _onToggleReveal(EntryEntity entry) {
@@ -75,9 +92,11 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(AppLocalizations.of(context)!.entryErrorCrypto),
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.entryErrorCrypto),
+          ),
+        );
       return;
     }
 
@@ -128,10 +147,12 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(l10n.vaultCopyValue),
-        duration: const Duration(seconds: 1),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.vaultCopyValue),
+          duration: const Duration(seconds: 1),
+        ),
+      );
   }
 
   List<Widget> _loadedSlivers({
@@ -140,9 +161,7 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     required AppLocalizations l10n,
   }) {
     if (entries.isEmpty) {
-      return [
-        SliverToBoxAdapter(child: _EmptyEntries(l10n: l10n)),
-      ];
+      return [SliverToBoxAdapter(child: _EmptyEntries(l10n: l10n))];
     }
     return [
       SliverPadding(
@@ -159,7 +178,8 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
             onToggleReveal: () => _onToggleReveal(entries[i]),
             onToggleFieldReveal: _toggleFieldReveal,
             onCopy: (value) => _copyToClipboard(value, l10n),
-            onEdit: () => _onEditEntry(entries[i], revealedEntries[entries[i].id]),
+            onEdit: () =>
+                _onEditEntry(entries[i], revealedEntries[entries[i].id]),
           ),
         ),
       ),
@@ -195,10 +215,12 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
         if (kind == null) return;
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(
-            content: Text(_errorMessage(kind, l10n)),
-            duration: const Duration(seconds: 3),
-          ));
+          ..showSnackBar(
+            SnackBar(
+              content: Text(_errorMessage(kind, l10n)),
+              duration: const Duration(seconds: 3),
+            ),
+          );
       },
       builder: (context, state) {
         // Search scrolls with the entries list (canonical Vaults pattern): it
@@ -215,17 +237,42 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
                   controller: _searchController,
                   hint: l10n.entrySearchHint,
                   onChanged: (_) => setState(() {}),
+                  filterActive: _filtersVisible,
+                  onToggleFilter: () =>
+                      setState(() => _filtersVisible = !_filtersVisible),
                 ),
               ),
             ),
+            if (_filtersVisible)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.fieldGap),
+                  child: Wrap(
+                    spacing: AppSpacing.chipGap,
+                    children: MemberEntryState.values
+                        .map(
+                          (value) => ChoiceChip(
+                            selected: _lifecycle == value,
+                            label: Text(switch (value) {
+                              MemberEntryState.active => l10n.entryStateActive,
+                              MemberEntryState.archived =>
+                                l10n.entryStateArchived,
+                              MemberEntryState.deleted =>
+                                l10n.entryStateDeleted,
+                            }),
+                            onSelected: (_) =>
+                                setState(() => _lifecycle = value),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                ),
+              ),
             ...switch (state) {
               EntryListInitial() ||
               EntryListLoading() => const [_LoadingSliver()],
               EntryListError(:final kind) => [
-                _ErrorSliver(
-                  kind: kind,
-                  onRetry: () => context.read<EntryListCubit>().loadEntries(),
-                ),
+                _ErrorSliver(kind: kind, onRetry: _retrySync),
               ],
               EntryListLoaded(:final entries, :final revealedEntries) =>
                 _loadedSlivers(
@@ -256,8 +303,11 @@ class _EmptyEntries extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(Icons.inbox_outlined,
-              size: 36, color: AppColors.onSurfaceSubtle(brightness)),
+          Icon(
+            Icons.inbox_outlined,
+            size: 36,
+            color: AppColors.onSurfaceSubtle(brightness),
+          ),
           const SizedBox(height: AppSpacing.md),
           Text(
             l10n.entryEmpty,
@@ -326,9 +376,10 @@ class _SkeletonRowState extends State<_SkeletonRow>
     Future.delayed(Duration(milliseconds: widget.delay), () {
       if (mounted) _ctrl.repeat(reverse: true);
     });
-    _anim = Tween<double>(begin: 0.4, end: 0.85).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
+    _anim = Tween<double>(
+      begin: 0.4,
+      end: 0.85,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
@@ -433,12 +484,21 @@ class _EntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    final meta = entry.urlDomain ?? entry.description ?? '';
+    final interactive =
+        entry.lifecycleState == MemberEntryState.active && !entry.corrupt;
+    final meta = entry.corrupt
+        ? l10n.entryCorruptProjection
+        : switch (entry.lifecycleState) {
+            MemberEntryState.active =>
+              entry.urlDomain ?? entry.description ?? '',
+            MemberEntryState.archived => l10n.entryArchivedRecoverability,
+            MemberEntryState.deleted => l10n.entryDeletedRecoverability,
+          };
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onEdit,
+        onTap: interactive ? onEdit : null,
         borderRadius: BorderRadius.circular(12),
         child: Ink(
           decoration: BoxDecoration(
@@ -498,19 +558,21 @@ class _EntryCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: AppSpacing.chipGap),
-                    EntrySmallIconButton(
-                      icon: isExpanded
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                      tooltip: l10n.vaultRevealEntry,
-                      onPressed: onToggleReveal,
-                    ),
-                    const SizedBox(width: AppSpacing.chipGap),
-                    EntrySmallIconButton(
-                      icon: Icons.arrow_forward,
-                      tooltip: l10n.vaultViewEntry,
-                      onPressed: onEdit,
-                    ),
+                    if (interactive) ...[
+                      EntrySmallIconButton(
+                        icon: isExpanded
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        tooltip: l10n.vaultRevealEntry,
+                        onPressed: onToggleReveal,
+                      ),
+                      const SizedBox(width: AppSpacing.chipGap),
+                      EntrySmallIconButton(
+                        icon: Icons.arrow_forward,
+                        tooltip: l10n.vaultViewEntry,
+                        onPressed: onEdit,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -524,9 +586,7 @@ class _EntryCard extends StatelessWidget {
                   opacity: isExpanded ? 1.0 : 0.0,
                   child: isExpanded
                       ? Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: AppSpacing.md,
-                          ),
+                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
                           child: payload == null
                               ? const Padding(
                                   padding: EdgeInsets.symmetric(
@@ -729,4 +789,3 @@ class _EntryIconWidget extends StatelessWidget {
     );
   }
 }
-

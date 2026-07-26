@@ -115,6 +115,10 @@ final class MemberSyncService {
         .toList(growable: false);
   }
 
+  /// Returns one immutable runtime-only Vault index for local UI filtering.
+  List<MemberIndexEntry> entries(String vaultId) =>
+      List.unmodifiable(_indexes[vaultId]?.values ?? const []);
+
   /// Drops every decrypted projection immediately on lock/session loss.
   void lock() => _indexes.clear();
 
@@ -235,11 +239,13 @@ final class MemberSyncService {
       final end = (offset + decryptConcurrency).clamp(0, items.length);
       output.addAll(
         await Future.wait(
-          items
-              .sublist(offset, end)
-              .map(
-                (item) => _decrypt(item, vaultId, vaultKey, minimumGeneration),
-              ),
+          items.sublist(offset, end).map((item) async {
+            try {
+              return await _decrypt(item, vaultId, vaultKey, minimumGeneration);
+            } on FormatException {
+              return _corrupt(item);
+            }
+          }),
         ),
       );
     }
@@ -352,9 +358,31 @@ final class MemberSyncService {
       memberLabel: label,
       searchFields: fields,
       revision: item.memberIndexRevision!,
+      state: _state(item.state),
       iconReference: json['iconReference'] as String?,
     );
   }
+
+  MemberIndexEntry _corrupt(MemberSyncItemModel item) => MemberIndexEntry(
+    entryId: item.entryId,
+    entryType: 1,
+    memberLabel: _shortId(item.entryId),
+    searchFields: const [],
+    revision: item.memberIndexRevision!,
+    state: _state(item.state),
+    corrupt: true,
+  );
+
+  MemberEntryState _state(Object? value) => switch (value) {
+    'active' || 'Active' || 0 || 1 => MemberEntryState.active,
+    'archived' || 'Archived' || 2 => MemberEntryState.archived,
+    'deleted' || 'Deleted' || 3 => MemberEntryState.deleted,
+    _ => throw const FormatException('Malformed Member Entry state'),
+  };
+
+  String _shortId(String value) => value.length <= 15
+      ? value
+      : '${value.substring(0, 8)}…${value.substring(value.length - 6)}';
 
   Stream<List<MemberSyncItemModel>> _chunk(
     Stream<MemberSyncItemModel> source,

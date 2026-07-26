@@ -209,7 +209,7 @@ void main() {
   );
 
   test(
-    'authentication failure never advances persistent delta state',
+    'corrupt projection is isolated while its ciphertext delta advances',
     () async {
       cache
         ..appliedSequence = '4'
@@ -239,16 +239,18 @@ void main() {
         ),
       ).thenThrow(const FormatException('authentication failed'));
 
-      await expectLater(
-        service.synchronize(
-          vaultId: 'vault',
-          vaultKey: Uint8List(32),
-          minimumMemberKeyGeneration: 1,
-        ),
-        throwsFormatException,
+      await service.synchronize(
+        vaultId: 'vault',
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: 1,
       );
-      expect(cache.appliedSequence, '4');
-      expect(cache.deltaApplications, 0);
+      expect(cache.appliedSequence, '5');
+      expect(cache.deltaApplications, 1);
+      final corrupt = service
+          .entries('vault')
+          .singleWhere((entry) => entry.entryId == _newId);
+      expect(corrupt.corrupt, isTrue);
+      expect(corrupt.memberLabel, '33333333…333339');
     },
   );
 }

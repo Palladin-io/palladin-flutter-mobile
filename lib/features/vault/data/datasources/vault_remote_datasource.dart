@@ -33,6 +33,25 @@ class VaultRemoteDatasource {
     return response.data ?? (throw StateError('Empty Vault response'));
   }
 
+  /// Fetches only the encrypted Member key context needed by local sync.
+  Future<Map<String, dynamic>> getMemberVaultKeyContext(String vaultId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults/$vaultId',
+    );
+    final data = response.data;
+    if (data == null ||
+        data['memberVaultKey'] is! Map ||
+        data['memberKeyGeneration'] is! int) {
+      throw const FormatException('Malformed encrypted Vault key context');
+    }
+    return {
+      'memberVaultKey': Map<String, dynamic>.from(
+        data['memberVaultKey'] as Map,
+      ),
+      'memberKeyGeneration': data['memberKeyGeneration'] as int,
+    };
+  }
+
   /// Fetches one bounded page of opaque Vault v2 projections.
   Future<EncryptedVaultPage> listEncryptedVaults({
     required int offset,

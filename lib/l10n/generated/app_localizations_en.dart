@@ -3213,5 +3213,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsChangePassword => 'Change master password';
 
   @override
+  String get entryStateActive => 'Active';
+
+  @override
+  String get entryStateArchived => 'Archive';
+
+  @override
+  String get entryStateDeleted => 'Recently deleted';
+
+  @override
+  String get entryArchivedRecoverability => 'Archived · can be restored';
+
+  @override
+  String get entryDeletedRecoverability =>
+      'Recently deleted · recoverable during retention';
+
+  @override
+  String get entryCorruptProjection =>
+      'Encrypted metadata could not be verified';
+
+  @override
   String get settingsTwoFactor => 'Two-factor authentication';
 }

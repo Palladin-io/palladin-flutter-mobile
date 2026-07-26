@@ -88,6 +88,7 @@ import '../../features/vault/data/export/export_sharer.dart';
 import '../../features/vault/data/services/entry_crypto_service.dart';
 import '../../features/vault/data/services/member_sync_cache.dart';
 import '../../features/vault/data/services/member_sync_service.dart';
+import '../../features/vault/data/services/member_entry_list_service.dart';
 import '../../features/vault/data/services/totp_service.dart';
 import '../../features/vault/data/services/vault_crypto_service.dart';
 import '../../features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
@@ -315,6 +316,13 @@ void configureDependencies(EnvConfig config) {
       envelopes: getIt<VaultProtocolEnvelopeService>(),
     ),
   );
+  getIt.registerLazySingleton<MemberEntryListService>(
+    () => MemberEntryListService(
+      vaults: getIt<VaultRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      sync: getIt<MemberSyncService>(),
+    ),
+  );
   getIt.registerLazySingleton<VaultRotationRemoteDatasource>(
     () => VaultRotationRemoteDatasource(getIt<Dio>()),
   );
@@ -405,6 +413,7 @@ void configureDependencies(EnvConfig config) {
       repository: getIt<EntryRepository>(),
       vaultId: vaultId,
       wrappedVK: wrappedVK,
+      indexLoader: getIt<MemberEntryListService>(),
     ),
   );
   getIt.registerFactory<CreateEntryCubit>(

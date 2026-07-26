@@ -5696,6 +5696,42 @@ abstract class AppLocalizations {
   /// **'Change master password'**
   String get settingsChangePassword;
 
+  /// No description provided for @entryStateActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get entryStateActive;
+
+  /// No description provided for @entryStateArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive'**
+  String get entryStateArchived;
+
+  /// No description provided for @entryStateDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently deleted'**
+  String get entryStateDeleted;
+
+  /// No description provided for @entryArchivedRecoverability.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived · can be restored'**
+  String get entryArchivedRecoverability;
+
+  /// No description provided for @entryDeletedRecoverability.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently deleted · recoverable during retention'**
+  String get entryDeletedRecoverability;
+
+  /// No description provided for @entryCorruptProjection.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted metadata could not be verified'**
+  String get entryCorruptProjection;
+
   /// Settings drawer item — set up TOTP two-factor auth
   ///
   /// In en, this message translates to:
