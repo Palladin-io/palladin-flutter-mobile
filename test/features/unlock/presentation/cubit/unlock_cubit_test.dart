@@ -31,6 +31,7 @@ void main() {
   final masterKey = Uint8List.fromList(List.filled(32, 0xAA));
   final privateKey = Uint8List.fromList(List.filled(32, 0xBB));
   final accountResponse = const AccountResponse(
+    userId: '00112233-4455-6677-8899-aabbccddeeff',
     salt: 'c2FsdC1pcy1zaXh0ZWVuISE=', // 16 bytes of arbitrary base64
     encryptedPrivateKey: 'ZW5jcnlwdGVk',
   );

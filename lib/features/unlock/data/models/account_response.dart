@@ -1,3 +1,5 @@
+import '../services/identity_kdf_service.dart';
+
 /// DTO returned by `GET /api/account`.
 ///
 /// Contains the persisted salt and the private-key ciphertext encrypted
@@ -9,11 +11,18 @@
 /// unwrap the user's private key via the 24-word mnemonic.
 class AccountResponse {
   const AccountResponse({
+    required this.userId,
+    this.email = '',
     required this.salt,
     required this.encryptedPrivateKey,
+    this.kdf,
     this.recoverySalt,
     this.encryptedPrivateKeyByRecovery,
   });
+
+  /// Immutable RFC 4122 account identifier used by the v2 KDF framing.
+  final String userId;
+  final String email;
 
   /// 16-byte Argon2id salt for the master-password derivation.
   final String salt;
@@ -21,6 +30,8 @@ class AccountResponse {
   /// Base64-encoded `nonce || ciphertext` blob — private key encrypted
   /// with the master key via `crypto_secretbox_easy`.
   final String encryptedPrivateKey;
+
+  final IdentityKdfMetadata? kdf;
 
   /// 16-byte Argon2id salt for the recovery-mnemonic derivation.
   ///
@@ -36,8 +47,14 @@ class AccountResponse {
 
   factory AccountResponse.fromJson(Map<String, dynamic> json) {
     return AccountResponse(
+      userId: json['userId'] as String,
+      email: json['email'] as String? ?? '',
       salt: json['salt'] as String,
       encryptedPrivateKey: json['encryptedPrivateKey'] as String,
+      kdf: switch (json['kdf']) {
+        final Map<String, dynamic> value => IdentityKdfMetadata.fromJson(value),
+        _ => null,
+      },
       recoverySalt: json['recoverySalt'] as String?,
       encryptedPrivateKeyByRecovery:
           json['encryptedPrivateKeyByRecovery'] as String?,
