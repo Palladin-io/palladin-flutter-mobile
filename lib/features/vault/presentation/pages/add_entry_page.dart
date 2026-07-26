@@ -102,6 +102,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
   bool _valueObscured = true;
   bool _passwordObscured = true;
+  bool _exposeUsername = true;
+  bool _exposeDomain = true;
   String? _urlError;
 
   /// Non-TOTP custom fields (managed by [CustomFieldsEditor]).
@@ -377,6 +379,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
         privateKey: keyCopy,
         wrappedVK: widget.wrappedVK,
         agentFields: CustomField.agentFieldsFrom(_allCustomFields),
+        exposeUsername: _exposeUsername,
+        exposeDomain: _exposeDomain,
       );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
@@ -565,8 +569,25 @@ class _AddEntryViewState extends State<_AddEntryView> {
                 EntryEncryptionNotice(
                   message: _type == EntryType.key
                       ? l10n.entryKeyVisibilityPolicy
+                      : _type == EntryType.credential
+                      ? l10n.entryCredentialVisibilityPolicy
                       : l10n.entryEncryptionNotice,
                 ),
+                if (_type == EntryType.credential) ...[
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l10n.entryDiscoverUsername),
+                    value: _exposeUsername,
+                    onChanged: (value) =>
+                        setState(() => _exposeUsername = value),
+                  ),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(l10n.entryDiscoverDomain),
+                    value: _exposeDomain,
+                    onChanged: (value) => setState(() => _exposeDomain = value),
+                  ),
+                ],
                 if (state is CreateEntryError) ...[
                   const SizedBox(height: AppSpacing.fieldGap),
                   Text(

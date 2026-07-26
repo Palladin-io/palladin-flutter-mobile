@@ -45,7 +45,51 @@ final class KeyEntryCreationService {
     required String icon,
     required Map<String, dynamic> content,
     required Uint8List memberPrivateKey,
+  }) => _create(
+    vaultId: vaultId,
+    label: label,
+    description: description,
+    icon: icon,
+    content: content,
+    memberPrivateKey: memberPrivateKey,
+    type: EntryType.key,
+    exposeUsername: false,
+    exposeDomain: false,
+  );
+
+  Future<EntryEntity> createCredential({
+    required String vaultId,
+    required String label,
+    required String description,
+    required String icon,
+    required Map<String, dynamic> content,
+    required Uint8List memberPrivateKey,
+    required bool exposeUsername,
+    required bool exposeDomain,
+  }) => _create(
+    vaultId: vaultId,
+    label: label,
+    description: description,
+    icon: icon,
+    content: content,
+    memberPrivateKey: memberPrivateKey,
+    type: EntryType.credential,
+    exposeUsername: exposeUsername,
+    exposeDomain: exposeDomain,
+  );
+
+  Future<EntryEntity> _create({
+    required String vaultId,
+    required String label,
+    required String description,
+    required String icon,
+    required Map<String, dynamic> content,
+    required Uint8List memberPrivateKey,
+    required EntryType type,
+    required bool exposeUsername,
+    required bool exposeDomain,
   }) async {
+    _validateContent(type, content);
     final vault = await _vaults.getEncryptedVault(vaultId);
     final entryId = await _entries.issueCreationChallenge(vaultId);
     final organizationId = vault['organizationId'] as String;
@@ -76,29 +120,64 @@ final class KeyEntryCreationService {
         'vaultId': vaultId,
         'entryId': entryId,
       };
+      final wireType = type.toWire();
+      final canonicalContent = <String, dynamic>{...content, 'type': wireType};
       final memberIndex = <String, dynamic>{
         'memberLabel': label,
-        'entryType': 'KEY',
-        'searchFields': [label, if (description.isNotEmpty) description],
+        'entryType': wireType,
+        'searchFields': [
+          label,
+          if (description.isNotEmpty) description,
+          if (type == EntryType.credential && content['username'] is String)
+            content['username'],
+          if (type == EntryType.credential && content['url'] is String)
+            content['url'],
+        ],
         if (icon.isNotEmpty) 'iconReference': icon,
       };
-      final policy = <String, dynamic>{'discoverable': true, 'fields': {}};
+      final policyFields = <String, String>{
+        'agentLabel': 'discovery',
+        'description': 'never',
+        'notes': 'onGrantValue',
+        if (type == EntryType.key) 'value': 'onGrantValue',
+        if (type == EntryType.credential) ...{
+          'username': exposeUsername ? 'discovery' : 'onGrantValue',
+          'urlDomain': exposeDomain ? 'discovery' : 'never',
+          'url': 'onGrantValue',
+          'password': 'onGrantValue',
+          'totp': 'onGrantDerived',
+        },
+      };
+      final policy = <String, dynamic>{
+        'discoverable': true,
+        'fields': policyFields,
+      };
       final memberSecret = <String, dynamic>{
         'schemaVersion': 1,
         'memberLabel': label,
         'agentLabel': label,
         if (description.isNotEmpty) 'description': description,
         if (icon.isNotEmpty) 'iconReference': icon,
-        'entryType': 'KEY',
-        'content': content,
+        'entryType': wireType,
+        'content': canonicalContent,
         'agentVisibilityPolicy': policy,
       };
+      final discoveryFields = <String, String>{};
+      if (type == EntryType.credential) {
+        final username = content['username'];
+        if (exposeUsername && username is String && username.isNotEmpty) {
+          discoveryFields['username'] = username;
+        }
+        final url = content['url'];
+        final host = url is String ? _domain(url) : null;
+        if (exposeDomain && host != null) discoveryFields['urlDomain'] = host;
+      }
       final discovery = <String, dynamic>{
         'schemaVersion': 1,
         'agentLabel': label,
-        'entryType': 'KEY',
+        'entryType': wireType,
         'capabilities': ['get', 'inject'],
-        'fields': <String, String>{},
+        'fields': discoveryFields,
       };
       Map<String, dynamic> header(int projection, int keyVersion) => {
         'protocolVersion': 2,
@@ -228,7 +307,7 @@ final class KeyEntryCreationService {
         label: label,
         description: description.isEmpty ? null : description,
         icon: icon.isEmpty ? null : icon,
-        type: EntryType.key,
+        type: type,
         createdAt: now,
         updatedAt: now,
       );
@@ -243,5 +322,38 @@ final class KeyEntryCreationService {
         value?.fillRange(0, value.length, 0);
       }
     }
+  }
+
+  void _validateContent(EntryType type, Map<String, dynamic> content) {
+    final acceptedType = switch (type) {
+      EntryType.key => const {0, 'KEY'},
+      EntryType.credential => const {1, 'CREDENTIAL'},
+      EntryType.script => const {2, 'SCRIPT'},
+    };
+    if (!acceptedType.contains(content['type'])) {
+      throw const FormatException('Entry content type mismatch');
+    }
+    if (type == EntryType.credential &&
+        (content['username'] is! String || content['password'] is! String)) {
+      throw const FormatException('Malformed Credential content');
+    }
+    final fields = content['fields'];
+    if (fields is List) {
+      for (final field in fields) {
+        if (field is! Map) throw const FormatException('Malformed field');
+        if (field['type'] == 'totp' && field['value'] is! String) {
+          throw const FormatException('Malformed TOTP');
+        }
+      }
+    } else if (fields != null) {
+      throw const FormatException('Malformed fields');
+    }
+  }
+
+  String? _domain(String raw) {
+    final normalized = raw.contains('://') ? raw : 'https://$raw';
+    final uri = Uri.tryParse(normalized);
+    final host = uri?.host.toLowerCase();
+    return host == null || host.isEmpty ? null : host;
   }
 }

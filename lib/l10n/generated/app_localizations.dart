@@ -1442,6 +1442,24 @@ abstract class AppLocalizations {
   /// **'Agent visibility: label and type are discoverable. Key material remains encrypted and is available only after an approved grant.'**
   String get entryKeyVisibilityPolicy;
 
+  /// No description provided for @entryCredentialVisibilityPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent visibility: username and URL domain can be discoverable. Password, notes and full URL require a grant; TOTP is derived-only and never disclosed as a seed.'**
+  String get entryCredentialVisibilityPolicy;
+
+  /// No description provided for @entryDiscoverUsername.
+  ///
+  /// In en, this message translates to:
+  /// **'Let agents discover the username'**
+  String get entryDiscoverUsername;
+
+  /// No description provided for @entryDiscoverDomain.
+  ///
+  /// In en, this message translates to:
+  /// **'Let agents discover the URL domain'**
+  String get entryDiscoverDomain;
+
   /// Placeholder for the search input on the Entries tab
   ///
   /// In en, this message translates to:

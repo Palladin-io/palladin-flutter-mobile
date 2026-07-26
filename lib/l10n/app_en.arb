@@ -986,6 +986,9 @@
   "@entryKeyVisibilityPolicy": {
     "description": "Key Entry Agent Visibility Policy shown before encryption"
   },
+  "entryCredentialVisibilityPolicy": "Agent visibility: username and URL domain can be discoverable. Password, notes and full URL require a grant; TOTP is derived-only and never disclosed as a seed.",
+  "entryDiscoverUsername": "Let agents discover the username",
+  "entryDiscoverDomain": "Let agents discover the URL domain",
   "entrySearchHint": "Search entries…",
   "@entrySearchHint": {
     "description": "Placeholder for the search input on the Entries tab"

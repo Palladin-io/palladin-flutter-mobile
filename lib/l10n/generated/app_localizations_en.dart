@@ -833,6 +833,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'Agent visibility: label and type are discoverable. Key material remains encrypted and is available only after an approved grant.';
 
   @override
+  String get entryCredentialVisibilityPolicy =>
+      'Agent visibility: username and URL domain can be discoverable. Password, notes and full URL require a grant; TOTP is derived-only and never disclosed as a seed.';
+
+  @override
+  String get entryDiscoverUsername => 'Let agents discover the username';
+
+  @override
+  String get entryDiscoverDomain => 'Let agents discover the URL domain';
+
+  @override
   String get entrySearchHint => 'Search entries…';
 
   @override

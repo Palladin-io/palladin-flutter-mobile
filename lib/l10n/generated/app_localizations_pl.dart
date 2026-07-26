@@ -849,6 +849,17 @@ class AppLocalizationsPl extends AppLocalizations {
       'Widoczność dla agentów: etykieta i typ są wykrywalne. Materiał klucza pozostaje zaszyfrowany i jest dostępny dopiero po zatwierdzeniu grantu.';
 
   @override
+  String get entryCredentialVisibilityPolicy =>
+      'Widoczność dla agentów: nazwa użytkownika i domena URL mogą być wykrywalne. Hasło, notatki i pełny URL wymagają grantu; TOTP jest wyłącznie wyliczany, a seed nigdy nie jest ujawniany.';
+
+  @override
+  String get entryDiscoverUsername =>
+      'Pozwól agentom wykrywać nazwę użytkownika';
+
+  @override
+  String get entryDiscoverDomain => 'Pozwól agentom wykrywać domenę URL';
+
+  @override
   String get entrySearchHint => 'Szukaj wpisów…';
 
   @override

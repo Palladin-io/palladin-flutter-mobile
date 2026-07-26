@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -26,6 +27,7 @@ void main() {
   late _Keys keys;
   late _Envelopes envelopes;
   late Uint8List generatedDek;
+  late Map<VaultAadProfile, String> openedPlaintexts;
 
   setUpAll(() {
     registerFallbackValue(VaultAadProfile.memberIndex);
@@ -38,6 +40,7 @@ void main() {
     keys = _Keys();
     envelopes = _Envelopes();
     generatedDek = Uint8List(32)..fillRange(0, 32, 7);
+    openedPlaintexts = {};
     when(() => vaults.getEncryptedVault(vaultId)).thenAnswer(
       (_) async => {
         'organizationId': '00112233-4455-4677-8899-aabbccddeeff',
@@ -63,12 +66,11 @@ void main() {
         plaintext: any(named: 'plaintext'),
         key: any(named: 'key'),
       ),
-    ).thenAnswer(
-      (invocation) async => {
-        'nonce': 'opaque-nonce',
-        'ciphertext': 'opaque-ciphertext',
-      },
-    );
+    ).thenAnswer((invocation) async {
+      openedPlaintexts[invocation.namedArguments[#profile] as VaultAadProfile] =
+          utf8.decode(invocation.namedArguments[#plaintext] as Uint8List);
+      return {'nonce': 'opaque-nonce', 'ciphertext': 'opaque-ciphertext'};
+    });
     when(
       () => entries.createCanonicalEntry(vaultId, any()),
     ).thenAnswer((_) async => {'id': entryId, 'currentRevision': '1'});
@@ -174,4 +176,71 @@ void main() {
     expect(identical(requests[0], requests[1]), isTrue);
     expect(requests[0]['entryId'], entryId);
   });
+
+  test(
+    'Credential policy keeps password and TOTP seed out of Discovery',
+    () async {
+      final service = KeyEntryCreationService(
+        entries: entries,
+        vaults: vaults,
+        keys: keys,
+        envelopes: envelopes,
+        randomEntryKey: () async => generatedDek,
+      );
+      await service.createCredential(
+        vaultId: vaultId,
+        label: 'Login',
+        description: 'private note',
+        icon: 'login',
+        content: {
+          'v': 2,
+          'type': 'CREDENTIAL',
+          'username': 'agent@example.com',
+          'password': 'do-not-disclose',
+          'url': 'https://Console.Example.com/path',
+          'fields': [
+            {'id': 'totp-1', 'type': 'totp', 'value': 'JBSWY3DPEHPK3PXP'},
+          ],
+        },
+        memberPrivateKey: Uint8List(32),
+        exposeUsername: false,
+        exposeDomain: true,
+      );
+      final discovery = openedPlaintexts[VaultAadProfile.agentDiscovery]!;
+      final secret = openedPlaintexts[VaultAadProfile.memberSecret]!;
+      expect(discovery, contains('console.example.com'));
+      expect(discovery, isNot(contains('agent@example.com')));
+      expect(discovery, isNot(contains('do-not-disclose')));
+      expect(discovery, isNot(contains('JBSWY3DPEHPK3PXP')));
+      expect(secret, contains('JBSWY3DPEHPK3PXP'));
+      expect(secret, contains('"totp":"onGrantDerived"'));
+    },
+  );
+
+  test(
+    'Credential validation fails closed before challenge issuance',
+    () async {
+      final service = KeyEntryCreationService(
+        entries: entries,
+        vaults: vaults,
+        keys: keys,
+        envelopes: envelopes,
+        randomEntryKey: () async => generatedDek,
+      );
+      await expectLater(
+        service.createCredential(
+          vaultId: vaultId,
+          label: 'Bad',
+          description: '',
+          icon: '',
+          content: {'type': 'CREDENTIAL', 'username': 'u'},
+          memberPrivateKey: Uint8List(32),
+          exposeUsername: true,
+          exposeDomain: true,
+        ),
+        throwsFormatException,
+      );
+      verifyNever(() => entries.issueCreationChallenge(vaultId));
+    },
+  );
 }
