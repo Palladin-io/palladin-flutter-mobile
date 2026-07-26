@@ -984,5 +984,7 @@
   "vaultMemberForbidden": "Nie masz uprawnień do zarządzania członkami organizacji.",
   "vaultMemberProtected": "Tego członka nie można usunąć.",
   "vaultMemberNetworkError": "Sprawdź połączenie i spróbuj ponownie.",
+  "vaultMetadataConflict": "Ten sejf został zmieniony na innym urządzeniu. Sprawdź najnowsze wartości i spróbuj ponownie.",
+  "vaultMetadataCorrupt": "Nie udało się zweryfikować zaszyfrowanych ustawień sejfu. Nie zapisano zmian.",
   "settingsTwoFactor": "Uwierzytelnianie dwuskładnikowe"
 }

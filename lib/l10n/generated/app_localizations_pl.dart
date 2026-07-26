@@ -3340,5 +3340,13 @@ class AppLocalizationsPl extends AppLocalizations {
       'Sprawdź połączenie i spróbuj ponownie.';
 
   @override
+  String get vaultMetadataConflict =>
+      'Ten sejf został zmieniony na innym urządzeniu. Sprawdź najnowsze wartości i spróbuj ponownie.';
+
+  @override
+  String get vaultMetadataCorrupt =>
+      'Nie udało się zweryfikować zaszyfrowanych ustawień sejfu. Nie zapisano zmian.';
+
+  @override
   String get settingsTwoFactor => 'Uwierzytelnianie dwuskładnikowe';
 }

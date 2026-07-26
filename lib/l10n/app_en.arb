@@ -3170,6 +3170,8 @@
   "vaultMemberForbidden": "You do not have permission to manage organization Members.",
   "vaultMemberProtected": "This Member cannot be removed.",
   "vaultMemberNetworkError": "Check your connection and try again.",
+  "vaultMetadataConflict": "This Vault changed on another device. Review the latest values and try again.",
+  "vaultMetadataCorrupt": "Encrypted Vault settings could not be verified. No changes were saved.",
   "settingsTwoFactor": "Two-factor authentication",
   "@settingsTwoFactor": { "description": "Settings drawer item — set up TOTP two-factor auth" }
 }

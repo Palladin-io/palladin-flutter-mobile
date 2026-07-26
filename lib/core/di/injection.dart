@@ -89,6 +89,7 @@ import '../../features/vault/data/repositories/vault_repository_impl.dart';
 import '../../features/vault/data/repositories/vault_members_repository_impl.dart';
 import '../../features/vault/data/export/export_sharer.dart';
 import '../../features/vault/data/services/entry_crypto_service.dart';
+import '../../features/vault/data/services/encrypted_presentation_asset_service.dart';
 import '../../features/vault/data/services/member_sync_cache.dart';
 import '../../features/vault/data/services/member_sync_service.dart';
 import '../../features/vault/data/services/member_entry_list_service.dart';
@@ -97,6 +98,7 @@ import '../../features/vault/data/services/vault_crypto_service.dart';
 import '../../features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
 import '../../features/vault/data/services/vault_rotation_crypto_service.dart';
 import '../../features/vault/data/services/vault_rotation_service.dart';
+import '../../features/vault/data/services/vault_settings_service.dart';
 import '../../features/vault/domain/repositories/entry_repository.dart';
 import '../../features/vault/domain/repositories/vault_repository.dart';
 import '../../features/vault/domain/repositories/vault_members_repository.dart';
@@ -352,6 +354,19 @@ void configureDependencies(EnvConfig config) {
       crypto: getIt<VaultRotationCryptoService>(),
     ),
   );
+  getIt.registerLazySingleton<EncryptedPresentationAssetService>(
+    () => EncryptedPresentationAssetService(
+      remote: getIt<VaultRemoteDatasource>(),
+    ),
+  );
+  getIt.registerLazySingleton<VaultSettingsService>(
+    () => VaultSettingsService(
+      remote: getIt<VaultRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      assets: getIt<EncryptedPresentationAssetService>(),
+    ),
+  );
   getIt.registerLazySingleton<VaultRepository>(
     () => VaultRepositoryImpl(
       getIt<VaultRemoteDatasource>(),
@@ -385,7 +400,10 @@ void configureDependencies(EnvConfig config) {
     ),
   );
   getIt.registerFactory<VaultDetailCubit>(
-    () => VaultDetailCubit(repository: getIt<VaultRepository>()),
+    () => VaultDetailCubit(
+      repository: getIt<VaultRepository>(),
+      settingsService: getIt<VaultSettingsService>(),
+    ),
   );
   getIt.registerFactoryParam<VaultMembersCubit, String, void>(
     (vaultId, _) => VaultMembersCubit(

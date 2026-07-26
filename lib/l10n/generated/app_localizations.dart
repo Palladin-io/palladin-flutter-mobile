@@ -5852,6 +5852,18 @@ abstract class AppLocalizations {
   /// **'Check your connection and try again.'**
   String get vaultMemberNetworkError;
 
+  /// No description provided for @vaultMetadataConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'This Vault changed on another device. Review the latest values and try again.'**
+  String get vaultMetadataConflict;
+
+  /// No description provided for @vaultMetadataCorrupt.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted Vault settings could not be verified. No changes were saved.'**
+  String get vaultMetadataCorrupt;
+
   /// Settings drawer item — set up TOTP two-factor auth
   ///
   /// In en, this message translates to:

@@ -52,6 +52,35 @@ class VaultRemoteDatasource {
     };
   }
 
+  /// Fetches the complete encrypted Vault v2 projection for local settings.
+  Future<Map<String, dynamic>> getEncryptedVault(String vaultId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults/$vaultId',
+    );
+    return response.data ?? (throw const FormatException('Empty Vault'));
+  }
+
+  /// Replaces only the authenticated encrypted Member metadata envelope.
+  Future<Response<void>> replaceEncryptedMetadata(
+    String vaultId,
+    Map<String, dynamic> envelope,
+  ) => _dio.put<void>(
+    '/api/vaults/$vaultId',
+    data: {'memberVaultMetadata': envelope},
+    options: Options(
+      validateStatus: (status) =>
+          status == 204 || status == 400 || status == 409,
+    ),
+  );
+
+  Future<void> uploadEncryptedAsset(
+    String vaultId,
+    Map<String, dynamic> payload,
+  ) => _dio.post<void>('/api/vaults/$vaultId/assets', data: payload);
+
+  Future<void> deleteEncryptedAsset(String vaultId, String assetId) =>
+      _dio.delete<void>('/api/vaults/$vaultId/assets/$assetId');
+
   /// Fetches one bounded page of opaque Vault v2 projections.
   Future<EncryptedVaultPage> listEncryptedVaults({
     required int offset,

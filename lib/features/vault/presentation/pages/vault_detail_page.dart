@@ -256,16 +256,28 @@ class _VaultDetailViewState extends State<_VaultDetailView>
     );
   }
 
-  void _saveSettings() {
+  Future<void> _saveSettings() async {
     final data = _currentFormData;
-    if (data == null) return;
-    context.read<VaultDetailCubit>().update(
-      widget.vaultId,
+    final detail = context.read<VaultDetailCubit>().state;
+    final auth = context.read<AuthBloc>().state;
+    if (data == null ||
+        detail is! VaultDetailLoaded ||
+        auth is! AuthAuthenticated ||
+        auth.privateKey == null) {
+      return;
+    }
+    final privateKey = Uint8List.fromList(auth.privateKey!);
+    final localIconPath = data.icon.startsWith('file:')
+        ? Uri.parse(data.icon).toFilePath()
+        : null;
+    await context.read<VaultDetailCubit>().updateEncrypted(
+      expected: detail.vault,
       name: data.name.trim(),
       description: data.description.trim(),
       icon: data.icon,
       color: data.color,
-      grantMode: data.grantMode,
+      memberPrivateKey: privateKey,
+      localIconPath: localIconPath,
     );
   }
 
@@ -679,6 +691,8 @@ class _ErrorView extends StatelessWidget {
             VaultErrorKind.fullModeNotAllowed =>
               l10n.vaultErrorFullModeNotAllowed,
             VaultErrorKind.networkError => l10n.errorCannotConnectToServer,
+            VaultErrorKind.conflict => l10n.vaultMetadataConflict,
+            VaultErrorKind.corrupt => l10n.vaultMetadataCorrupt,
             VaultErrorKind.unknown => l10n.vaultErrorUnknown,
           },
           textAlign: TextAlign.center,

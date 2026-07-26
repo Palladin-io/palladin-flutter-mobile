@@ -781,6 +781,8 @@ class _ErrorView extends StatelessWidget {
       VaultErrorKind.planLimitReached => l10n.vaultErrorPlanLimitReached,
       VaultErrorKind.fullModeNotAllowed => l10n.vaultErrorFullModeNotAllowed,
       VaultErrorKind.networkError => l10n.errorCannotConnectToServer,
+      VaultErrorKind.conflict => l10n.vaultMetadataConflict,
+      VaultErrorKind.corrupt => l10n.vaultMetadataCorrupt,
       VaultErrorKind.unknown => l10n.vaultErrorUnknown,
     };
   }

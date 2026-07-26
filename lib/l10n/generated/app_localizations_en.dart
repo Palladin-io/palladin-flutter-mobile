@@ -3303,5 +3303,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get vaultMemberNetworkError => 'Check your connection and try again.';
 
   @override
+  String get vaultMetadataConflict =>
+      'This Vault changed on another device. Review the latest values and try again.';
+
+  @override
+  String get vaultMetadataCorrupt =>
+      'Encrypted Vault settings could not be verified. No changes were saved.';
+
+  @override
   String get settingsTwoFactor => 'Two-factor authentication';
 }

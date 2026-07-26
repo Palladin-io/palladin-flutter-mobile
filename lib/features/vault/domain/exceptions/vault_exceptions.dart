@@ -27,6 +27,12 @@ enum VaultErrorKind {
   /// Connection / timeout / send-failure on the wire.
   networkError,
 
+  /// The authenticated metadata changed after the form was opened.
+  conflict,
+
+  /// The latest encrypted metadata or asset failed local verification.
+  corrupt,
+
   /// Any other unexpected failure (5xx, invalid response shape, etc.).
   unknown,
 }

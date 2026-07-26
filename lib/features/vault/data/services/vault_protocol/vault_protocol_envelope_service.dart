@@ -25,6 +25,13 @@ abstract interface class VaultEnvelopeCryptography {
     required Uint8List key,
     required VaultEnvelopeExpectations expected,
   });
+
+  Future<Map<String, String>> encrypt({
+    required VaultAadProfile profile,
+    required Map<String, Object?> context,
+    required Uint8List plaintext,
+    required Uint8List key,
+  });
 }
 
 /// Sodium implementation of [VaultEnvelopeCryptography].
@@ -107,6 +114,7 @@ final class VaultProtocolEnvelopeService implements VaultEnvelopeCryptography {
     }
   }
 
+  @override
   Future<Map<String, String>> encrypt({
     required VaultAadProfile profile,
     required Map<String, Object?> context,

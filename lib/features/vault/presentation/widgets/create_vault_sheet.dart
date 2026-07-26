@@ -102,9 +102,11 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(AppLocalizations.of(context)!.vaultErrorUnknown),
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.vaultErrorUnknown),
+          ),
+        );
       return;
     }
     // Defensive copy of the unlocked private key so the cubit can mutate
@@ -117,13 +119,13 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
       // Don't send file:// path to the API — icon upload happens after create.
       final iconForApi = _pendingIconFile != null ? null : _formData.icon;
       await context.read<CreateVaultCubit>().createVault(
-            name: _formData.name,
-            description: _formData.description,
-            icon: iconForApi,
-            color: _formData.color,
-            grantMode: _formData.grantMode,
-            privateKey: keyCopy,
-          );
+        name: _formData.name,
+        description: _formData.description,
+        icon: iconForApi,
+        color: _formData.color,
+        grantMode: _formData.grantMode,
+        privateKey: keyCopy,
+      );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
     }
@@ -136,15 +138,22 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
     if (_pendingIconFile != null) {
       try {
         final service = VaultIconUploadService(getIt<VaultRemoteDatasource>());
-        final url = await service.uploadIcon(vault.id, File(_pendingIconFile!.path));
+        final url = await service.uploadIcon(
+          vault.id,
+          File(_pendingIconFile!.path),
+        );
         vault = vault.copyWith(icon: url);
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(
-              content: Text(AppLocalizations.of(context)!.vaultIconUploadError),
-            ));
+            ..showSnackBar(
+              SnackBar(
+                content: Text(
+                  AppLocalizations.of(context)!.vaultIconUploadError,
+                ),
+              ),
+            );
         }
       }
     }
@@ -203,7 +212,9 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
                         child: VaultForm(
                           initial: _initialFormData,
                           onChanged: (data) => setState(() => _formData = data),
-                          onPickCustomIcon: isBusy ? () async => null : _pickIcon,
+                          onPickCustomIcon: isBusy
+                              ? () async => null
+                              : _pickIcon,
                         ),
                       ),
                     ),
@@ -251,6 +262,8 @@ class _CreateVaultSheetViewState extends State<_CreateVaultSheetView> {
       VaultErrorKind.planLimitReached => l10n.vaultErrorPlanLimitReached,
       VaultErrorKind.fullModeNotAllowed => l10n.vaultErrorFullModeNotAllowed,
       VaultErrorKind.networkError => l10n.errorCannotConnectToServer,
+      VaultErrorKind.conflict => l10n.vaultMetadataConflict,
+      VaultErrorKind.corrupt => l10n.vaultMetadataCorrupt,
       VaultErrorKind.unknown => l10n.vaultErrorUnknown,
     };
   }
