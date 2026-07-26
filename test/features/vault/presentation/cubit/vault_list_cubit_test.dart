@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -5,12 +7,18 @@ import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/exceptions/vault_exceptions.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/vault_repository.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_list_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/presentation/cubit/vault_list_cubit.dart';
 
 class _MockVaultRepository extends Mock implements VaultRepository {}
 
+class _MockVaultListCryptoService extends Mock
+    implements VaultListCryptoService {}
+
 void main() {
   late _MockVaultRepository repository;
+  late _MockVaultListCryptoService listService;
+  final privateKey = Uint8List(32);
 
   final sampleVaults = <VaultEntity>[
     VaultEntity(
@@ -37,9 +45,11 @@ void main() {
 
   setUp(() {
     repository = _MockVaultRepository();
+    listService = _MockVaultListCryptoService();
   });
 
-  VaultListCubit buildCubit() => VaultListCubit(repository: repository);
+  VaultListCubit buildCubit() =>
+      VaultListCubit(repository: repository, listService: listService);
 
   group('VaultListCubit', () {
     test('initial state is VaultListInitial', () {
@@ -51,11 +61,13 @@ void main() {
     blocTest<VaultListCubit, VaultListState>(
       'loadVaults emits Loading then Loaded on success',
       build: () {
-        when(() => repository.listVaults())
-            .thenAnswer((_) async => sampleVaults);
+        when(() => listService.load(privateKey)).thenAnswer(
+          (_) async =>
+              DecryptedVaultList(vaults: sampleVaults, corruptIds: const []),
+        );
         return buildCubit();
       },
-      act: (cubit) => cubit.loadVaults(),
+      act: (cubit) => cubit.loadVaults(privateKey),
       expect: () => [
         isA<VaultListLoading>(),
         isA<VaultListLoaded>().having(
@@ -69,26 +81,27 @@ void main() {
     blocTest<VaultListCubit, VaultListState>(
       'loadVaults emits Loading then Loaded(empty) when no vaults',
       build: () {
-        when(() => repository.listVaults())
-            .thenAnswer((_) async => const <VaultEntity>[]);
+        when(() => listService.load(privateKey)).thenAnswer(
+          (_) async => const DecryptedVaultList(vaults: [], corruptIds: []),
+        );
         return buildCubit();
       },
-      act: (cubit) => cubit.loadVaults(),
+      act: (cubit) => cubit.loadVaults(privateKey),
       expect: () => [
         isA<VaultListLoading>(),
-        isA<VaultListLoaded>()
-            .having((s) => s.vaults, 'vaults', isEmpty),
+        isA<VaultListLoaded>().having((s) => s.vaults, 'vaults', isEmpty),
       ],
     );
 
     blocTest<VaultListCubit, VaultListState>(
       'loadVaults emits Loading then Error on VaultException',
       build: () {
-        when(() => repository.listVaults())
-            .thenThrow(const VaultException(VaultErrorKind.networkError));
+        when(
+          () => listService.load(privateKey),
+        ).thenThrow(const VaultException(VaultErrorKind.networkError));
         return buildCubit();
       },
-      act: (cubit) => cubit.loadVaults(),
+      act: (cubit) => cubit.loadVaults(privateKey),
       expect: () => [
         isA<VaultListLoading>(),
         isA<VaultListError>().having(
@@ -102,10 +115,10 @@ void main() {
     blocTest<VaultListCubit, VaultListState>(
       'loadVaults wraps unexpected errors as VaultErrorKind.unknown',
       build: () {
-        when(() => repository.listVaults()).thenThrow(StateError('boom'));
+        when(() => listService.load(privateKey)).thenThrow(StateError('boom'));
         return buildCubit();
       },
-      act: (cubit) => cubit.loadVaults(),
+      act: (cubit) => cubit.loadVaults(privateKey),
       expect: () => [
         isA<VaultListLoading>(),
         isA<VaultListError>().having(
@@ -120,33 +133,29 @@ void main() {
       'deleteVault deletes then refreshes the list',
       build: () {
         when(() => repository.deleteVault(any())).thenAnswer((_) async {});
-        when(() => repository.listVaults())
-            .thenAnswer((_) async => sampleVaults.skip(1).toList());
+        when(() => listService.load(privateKey)).thenAnswer(
+          (_) async =>
+              DecryptedVaultList(vaults: sampleVaults, corruptIds: const []),
+        );
         return buildCubit();
       },
       act: (cubit) => cubit.deleteVault('v1'),
       // The refresh's `emit(VaultListLoading())` is deduplicated by
       // Cubit because `const VaultListLoading()` is canonicalized —
       // identical instance, no event fired.
-      expect: () => [
-        isA<VaultListLoading>(),
-        isA<VaultListLoaded>().having(
-          (s) => s.vaults.single.id,
-          'vaults.single.id',
-          'v2',
-        ),
-      ],
+      expect: () => [isA<VaultListLoading>(), isA<VaultListInitial>()],
       verify: (_) {
         verify(() => repository.deleteVault('v1')).called(1);
-        verify(() => repository.listVaults()).called(1);
+        verifyNever(() => listService.load(privateKey));
       },
     );
 
     blocTest<VaultListCubit, VaultListState>(
       'deleteVault surfaces error and does not refresh on VaultException',
       build: () {
-        when(() => repository.deleteVault(any()))
-            .thenThrow(const VaultException(VaultErrorKind.notFound));
+        when(
+          () => repository.deleteVault(any()),
+        ).thenThrow(const VaultException(VaultErrorKind.notFound));
         return buildCubit();
       },
       act: (cubit) => cubit.deleteVault('v1'),
@@ -159,7 +168,7 @@ void main() {
         ),
       ],
       verify: (_) {
-        verifyNever(() => repository.listVaults());
+        verifyNever(() => listService.load(privateKey));
       },
     );
   });

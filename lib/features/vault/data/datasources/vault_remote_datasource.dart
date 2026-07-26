@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../models/create_vault_request.dart';
+import '../models/encrypted_vault_summary_model.dart';
 import '../models/vault_model.dart';
 
 /// Remote data source for vault CRUD endpoints.
@@ -14,6 +15,36 @@ class VaultRemoteDatasource {
   VaultRemoteDatasource(this._dio);
 
   final Dio _dio;
+
+  /// Fetches one bounded page of opaque Vault v2 projections.
+  Future<EncryptedVaultPage> listEncryptedVaults({
+    required int offset,
+    int limit = 200,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults',
+      queryParameters: {'offset': offset, 'limit': limit},
+    );
+    final data = response.data;
+    if (data == null || data['vaults'] is! List || data['total'] is! int) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Malformed encrypted Vault list',
+      );
+    }
+    return EncryptedVaultPage(
+      vaults: (data['vaults'] as List)
+          .map(
+            (value) => EncryptedVaultSummaryModel.fromJson(
+              Map<String, dynamic>.from(value as Map),
+            ),
+          )
+          .toList(growable: false),
+      total: data['total'] as int,
+    );
+  }
 
   /// `GET /api/vaults` → list of vaults visible to the current user.
   Future<List<VaultModel>> listVaults() async {
@@ -35,8 +66,7 @@ class VaultRemoteDatasource {
 
   /// `GET /api/vaults/{id}` → a single vault.
   Future<VaultModel> getVault(String id) async {
-    final response =
-        await _dio.get<Map<String, dynamic>>('/api/vaults/$id');
+    final response = await _dio.get<Map<String, dynamic>>('/api/vaults/$id');
     final data = response.data;
     if (data == null) {
       throw DioException(
@@ -69,10 +99,7 @@ class VaultRemoteDatasource {
 
   /// `PUT /api/vaults/{id}` → 204 No Content (patch semantics).
   Future<void> updateVault(String id, UpdateVaultRequest request) async {
-    await _dio.put<void>(
-      '/api/vaults/$id',
-      data: request.toJson(),
-    );
+    await _dio.put<void>('/api/vaults/$id', data: request.toJson());
   }
 
   /// `DELETE /api/vaults/{id}` → 204 No Content.
@@ -101,7 +128,10 @@ class VaultRemoteDatasource {
   }
 
   /// `POST /api/vaults/{id}/icon/presign` → presigned S3 upload URL.
-  Future<PresignResponse> presignVaultIcon(String vaultId, String extension) async {
+  Future<PresignResponse> presignVaultIcon(
+    String vaultId,
+    String extension,
+  ) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/vaults/$vaultId/icon/presign',
       data: {'vaultId': vaultId, 'extension': extension},

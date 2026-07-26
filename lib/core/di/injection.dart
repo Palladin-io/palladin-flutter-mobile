@@ -10,6 +10,7 @@ import '../../features/auth/data/services/hibp_service.dart';
 import '../../features/auth/data/services/password_auth_crypto_service.dart';
 import '../../features/unlock/data/services/identity_kdf_migration_service.dart';
 import '../../features/unlock/data/services/identity_kdf_service.dart';
+import '../../features/vault/data/services/vault_list_crypto_service.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/cubit/change_password_cubit.dart';
@@ -333,12 +334,22 @@ void configureDependencies(EnvConfig config) {
       autoFillMutationNotifier: getIt<AutoFillMutationNotifier>(),
     ),
   );
+  getIt.registerLazySingleton<VaultListCryptoService>(
+    () => VaultListCryptoService(
+      remote: getIt<VaultRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+    ),
+  );
 
   // VaultListCubit is a singleton so cached vault data survives tab
   // switches. Use BlocProvider.value (never BlocProvider) to avoid
   // automatic close() on widget disposal.
   getIt.registerLazySingleton<VaultListCubit>(
-    () => VaultListCubit(repository: getIt<VaultRepository>()),
+    () => VaultListCubit(
+      repository: getIt<VaultRepository>(),
+      listService: getIt<VaultListCryptoService>(),
+    ),
   );
   getIt.registerFactory<VaultDetailCubit>(
     () => VaultDetailCubit(repository: getIt<VaultRepository>()),
