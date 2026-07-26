@@ -76,6 +76,7 @@ import '../../features/unlock/data/services/unlock_crypto_service.dart';
 import '../../features/unlock/presentation/cubit/unlock_cubit.dart';
 import '../../features/vault/data/datasources/entry_remote_datasource.dart';
 import '../../features/vault/data/datasources/member_sync_remote_datasource.dart';
+import '../../features/vault/data/datasources/vault_rotation_remote_datasource.dart';
 import '../../features/vault/data/datasources/vault_remote_datasource.dart';
 import '../../features/vault/data/repositories/entry_repository_impl.dart';
 import '../../features/vault/data/repositories/vault_repository_impl.dart';
@@ -86,6 +87,8 @@ import '../../features/vault/data/services/member_sync_service.dart';
 import '../../features/vault/data/services/totp_service.dart';
 import '../../features/vault/data/services/vault_crypto_service.dart';
 import '../../features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
+import '../../features/vault/data/services/vault_rotation_crypto_service.dart';
+import '../../features/vault/data/services/vault_rotation_service.dart';
 import '../../features/vault/domain/repositories/entry_repository.dart';
 import '../../features/vault/domain/repositories/vault_repository.dart';
 import '../../features/vault/presentation/cubit/create_entry_cubit.dart';
@@ -297,6 +300,20 @@ void configureDependencies(EnvConfig config) {
       remote: getIt<MemberSyncRemoteDatasource>(),
       cache: getIt<MemberSyncCache>(),
       envelopes: getIt<VaultProtocolEnvelopeService>(),
+    ),
+  );
+  getIt.registerLazySingleton<VaultRotationRemoteDatasource>(
+    () => VaultRotationRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<VaultRotationCryptoService>(
+    () => VaultRotationCryptoService(
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+    ),
+  );
+  getIt.registerLazySingleton<VaultRotationService>(
+    () => VaultRotationService(
+      remote: getIt<VaultRotationRemoteDatasource>(),
+      crypto: getIt<VaultRotationCryptoService>(),
     ),
   );
   getIt.registerLazySingleton<VaultRepository>(

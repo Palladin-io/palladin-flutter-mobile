@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -28,6 +29,7 @@ import 'features/notifications/domain/entities/push_message.dart';
 import 'features/notifications/presentation/cubit/notification_center_cubit.dart';
 import 'features/notifications/presentation/cubit/push_navigation_cubit.dart';
 import 'features/vault/data/services/member_sync_service.dart';
+import 'features/vault/data/services/vault_rotation_service.dart';
 
 class PalladinApp extends StatefulWidget {
   const PalladinApp({
@@ -64,6 +66,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final PushNotificationService _pushService = getIt<PushNotificationService>();
   final AutoFillCacheService _autoFillCache = getIt<AutoFillCacheService>();
   final MemberSyncService _memberSync = getIt<MemberSyncService>();
+  final VaultRotationService _vaultRotation = getIt<VaultRotationService>();
   late final StreamSubscription<AutoFillMutationAction>
   _autoFillMutationSubscription;
 
@@ -130,6 +133,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
         // app-switcher. No FLAG_SECURE by design — it would also block the
         // user's own screenshots.
         WidgetsBinding.instance.scheduleWarmUpFrame();
+        _vaultRotation.pause();
       }
     }
 
@@ -138,6 +142,16 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     // (and any events missed while the socket was suspended) shows up.
     if (state == AppLifecycleState.resumed) {
       if (_authBloc.state is AuthAuthenticated) _signalR.connect();
+      if (_authBloc.state case final AuthAuthenticated authenticated
+          when !authenticated.isVaultLocked &&
+              authenticated.privateKey != null) {
+        unawaited(
+          _resumeVaultRotations(
+            memberId: authenticated.userId,
+            privateKey: authenticated.privateKey!,
+          ),
+        );
+      }
       _refreshLiveData();
     }
   }
@@ -230,6 +244,12 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               unawaited(
                 _startAutoFillSession(privateKey: authenticated.privateKey!),
               );
+              unawaited(
+                _resumeVaultRotations(
+                  memberId: authenticated.userId,
+                  privateKey: authenticated.privateKey!,
+                ),
+              );
             },
           ),
           BlocListener<AuthBloc, AuthState>(
@@ -237,7 +257,10 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
                 previous is AuthAuthenticated &&
                 !previous.isVaultLocked &&
                 (current is! AuthAuthenticated || current.isVaultLocked),
-            listener: (_, _) => _memberSync.lock(),
+            listener: (_, _) {
+              _memberSync.lock();
+              _vaultRotation.pause();
+            },
           ),
           // Deep-link: navigate when a tapped notification resolves to a
           // route, then clear the cubit so the next tap re-fires.
@@ -318,6 +341,29 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   Future<void> _startAutoFillSession({required Uint8List privateKey}) async {
     await _autoFillCache.beginSession();
     await _autoFillCache.synchronize(privateKey: privateKey);
+  }
+
+  Future<void> _resumeVaultRotations({
+    required String memberId,
+    required Uint8List privateKey,
+  }) async {
+    try {
+      await _vaultRotation.resumeAfterUnlock(
+        memberId: memberId,
+        memberPrivateKey: privateKey,
+      );
+    } on DioException catch (error) {
+      if (CancelToken.isCancel(error)) return;
+      AppLogger.w(
+        'VaultRotation',
+        'Rotation paused after network failure: ${error.type}',
+      );
+    } catch (error) {
+      AppLogger.w(
+        'VaultRotation',
+        'Rotation requires retry: ${error.runtimeType}',
+      );
+    }
   }
 
   Future<void> _clearAutoFillAfterSessionLoss() async {

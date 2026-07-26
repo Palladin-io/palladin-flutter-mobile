@@ -20,6 +20,13 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 - Entry-key unwrap and MemberIndex decrypt stay in `data/services/vault_protocol/`. Decrypt concurrency defaults to two, response pages are capped at the backend's 200-item limit, and the runtime index fails closed above 20,000 entries. Authenticated context is independently rebound to the requested Vault, Entry id, current key version, projection revision, and minimum Member generation.
 - Search operates only on the unlocked in-memory index. `PalladinApp` clears all decrypted indexes on every unlocked-to-locked or session-loss transition; the ciphertext cache remains available to rebuild offline after the next unlock.
 
+### Resumable staged key rotation (CVT-441)
+
+- `VaultRotationService` starts after unlock, lists only server-owned pending work, claims a fenced lease, verifies that the claimed plan matches the listed immutable generations/epochs, and uploads pages of at most 100 prepared envelopes. It retries a dirty atomic commit at most three times.
+- Lease renewal receives a new fencing token and reopens the claimant's pending VK, VDK, and private-key envelopes. Every pending secret must match the process-local seed in constant time; a reset, changed plan, missing seed, or stale client fails closed instead of mixing generations.
+- `VaultRotationCryptoService` is the sole rotation crypto boundary: it opens/seals scoped Member VK packages, rotates VK/VDK projections, rewraps Entry DEKs, generates Agent manifests, and signs them with the pending Ed25519 seed. All generated and opened keys are process memory only and are wiped on success, failure, cancellation, lock, or app background pause; progress persistence remains ciphertext-only on the backend.
+- `PalladinApp` resumes pending work when an authenticated Vault unlocks and cancels the active Dio token whenever that session locks or disappears. The current generation remains authoritative until the backend's atomic commit succeeds.
+
 ### Import / Export (CVT-37 / CVT-235)
 
 - **Import engine** — `data/import/` is pure, testable Dart: `import_engine.dart` (structure-based format detection: ZIP → JSON → XML → CSV, never by extension), `import_csv.dart` (declarative `CsvProfile`s — add a format by appending a profile), `import_json.dart` (Bitwarden / Keeper / Proton / 1Password / Enpass / Palladin), `import_xml.dart` (KeePass), `import_normalizer.dart` (TOTP→`otpauth://`, URL→host, name-from-host, trim), `import_models.dart`. Unrecognised CSVs fall back to a manual column mapper.
