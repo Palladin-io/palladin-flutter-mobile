@@ -656,12 +656,14 @@ void configureDependencies(EnvConfig config) {
   );
 
   // EntryLogsCubit: factory per entry-detail Logs tab mount, scoped to a
-  // vault + entry (param1 = vaultId, param2 = entryId). Resolves agent
-  // names from the agents repository to label otherwise id-only rows.
+  // vault + entry (param1 = vaultId, param2 = entryId). Presentation names
+  // resolve only from unlocked local projections/repositories.
   getIt.registerFactoryParam<EntryLogsCubit, String, String>(
     (vaultId, entryId) => EntryLogsCubit(
       auditRepository: getIt<AuditRepository>(),
       agentsRepository: getIt<AgentsRepository>(),
+      vaultRepository: getIt<VaultRepository>(),
+      memberSync: getIt<MemberSyncService>(),
       vaultId: vaultId,
       entryId: entryId,
     ),

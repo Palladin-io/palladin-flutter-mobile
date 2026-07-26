@@ -703,6 +703,7 @@
   "auditFilterReset": "Wyczyść",
   "auditFilterApply": "Zastosuj",
   "auditDetailEntry": "Wpis",
+  "auditDetailVault": "Sejf",
   "auditDetailReason": "Powód",
   "auditDetailNone": "Brak dodatkowych szczegółów.",
   "auditActorOwner": "Właściciel",

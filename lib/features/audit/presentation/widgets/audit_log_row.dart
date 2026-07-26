@@ -158,6 +158,9 @@ class _ExpandedDetail extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
 
     final rows = <(String, String)>[
+      if (entry.resolvedVaultName != null &&
+          entry.resolvedVaultName!.isNotEmpty)
+        (l10n.auditDetailVault, entry.resolvedVaultName!),
       if (entry.entryLabel != null && entry.entryLabel!.isNotEmpty)
         (l10n.auditDetailEntry, entry.entryLabel!),
       if (entry.agentReason != null && entry.agentReason!.isNotEmpty)

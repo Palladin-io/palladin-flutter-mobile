@@ -124,6 +124,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
   int _grantsRefresh = 0;
 
   static const int _agentsTabIndex = 1;
+  static const int _logsTabIndex = 2;
   static const int _historyTabIndex = 3;
 
   // Last tab index reported to analytics — dedupes the multiple listener
@@ -245,6 +246,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                 EntryLogsTab(
                   vaultId: widget.entry.vaultId,
                   entryId: widget.entry.id,
+                  active: _tabController.index == _logsTabIndex,
                   contentPadding: const EdgeInsets.fromLTRB(
                     AppSpacing.screenH,
                     AppSpacing.fieldGap,

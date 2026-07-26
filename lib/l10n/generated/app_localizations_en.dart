@@ -2381,6 +2381,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditDetailEntry => 'Entry';
 
   @override
+  String get auditDetailVault => 'Vault';
+
+  @override
   String get auditDetailReason => 'Reason';
 
   @override

@@ -81,7 +81,7 @@ void main() {
   });
 
   group('color & icon families', () {
-    test('positive/success events are teal', () {
+    test('positive/success events use the canonical green', () {
       for (final type in [
         AuditEventType.credentialAccessed,
         AuditEventType.grantCreated,

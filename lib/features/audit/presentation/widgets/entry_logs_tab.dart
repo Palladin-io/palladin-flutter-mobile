@@ -23,6 +23,8 @@ class EntryLogsTab extends StatelessWidget {
     super.key,
     required this.vaultId,
     required this.entryId,
+    required this.active,
+    this.cubit,
     this.contentPadding = const EdgeInsets.fromLTRB(
       AppSpacing.screenH,
       AppSpacing.fieldGap,
@@ -33,22 +35,25 @@ class EntryLogsTab extends StatelessWidget {
 
   final String vaultId;
   final String entryId;
+  final bool active;
+  final EntryLogsCubit? cubit;
   final EdgeInsets contentPadding;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<EntryLogsCubit>(
       create: (_) =>
-          getIt<EntryLogsCubit>(param1: vaultId, param2: entryId)..load(),
-      child: _EntryLogsView(contentPadding: contentPadding),
+          cubit ?? getIt<EntryLogsCubit>(param1: vaultId, param2: entryId),
+      child: _EntryLogsView(contentPadding: contentPadding, active: active),
     );
   }
 }
 
 class _EntryLogsView extends StatefulWidget {
-  const _EntryLogsView({required this.contentPadding});
+  const _EntryLogsView({required this.contentPadding, required this.active});
 
   final EdgeInsets contentPadding;
+  final bool active;
 
   @override
   State<_EntryLogsView> createState() => _EntryLogsViewState();
@@ -56,6 +61,26 @@ class _EntryLogsView extends StatefulWidget {
 
 class _EntryLogsViewState extends State<_EntryLogsView> {
   final _searchController = TextEditingController();
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWhenActive();
+  }
+
+  @override
+  void didUpdateWidget(_EntryLogsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _loadWhenActive();
+  }
+
+  void _loadWhenActive() {
+    if (widget.active && !_loaded) {
+      _loaded = true;
+      context.read<EntryLogsCubit>().load();
+    }
+  }
 
   @override
   void dispose() {

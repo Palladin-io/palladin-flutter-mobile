@@ -52,13 +52,13 @@ String auditEventLabel(
 }
 
 /// Brand color for an audit [eventType] — the dot/accent shown on each row.
-/// Positive/success = teal, destructive/denied = red, **pending = peach (only
+/// Positive/success = green, destructive/denied = red, **pending = peach (only
 /// an outstanding access request)**, neutral lifecycle/creation = blue,
 /// terminal/inert (consumed/expired) = grey. Single source of truth, mirrored
 /// by the legend.
 Color auditEventColor(AuditEventType eventType) {
   return switch (eventType) {
-    // Positive / success — teal.
+    // Positive / success — green.
     AuditEventType.credentialAccessed ||
     AuditEventType.grantCreated ||
     AuditEventType.grantApproved ||
@@ -99,7 +99,7 @@ Color auditEventColor(AuditEventType eventType) {
 /// Representative color for an [AuditEventGroup] — drives the legend swatches
 /// and the in-sheet group chips. Each is the color of the group's primary
 /// (happy-path) event so the swatch reads consistently with the rows: access
-/// success (teal), grant success (teal), creation/lifecycle (blue).
+/// success (green), grant success (green), creation/lifecycle (blue).
 Color auditGroupColor(AuditEventGroup group) {
   return switch (group) {
     AuditEventGroup.credentialAccess => AppColors.positiveAccent,
@@ -165,7 +165,10 @@ String auditActorName(
   }
   return switch (entry.actorType) {
     AuditActorType.agent => _agentName(l10n, entry, agentNames),
-    AuditActorType.user => l10n.auditActorOwner,
+    AuditActorType.user =>
+      entry.localPresentationOnly && entry.userId != null
+          ? _shortId(entry.userId!)
+          : l10n.auditActorOwner,
     AuditActorType.system => l10n.auditActorSystem,
   };
 }

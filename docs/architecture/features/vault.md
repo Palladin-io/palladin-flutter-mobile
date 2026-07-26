@@ -116,6 +116,10 @@ type-specific(+URL / injected data) → 2FA → Additional fields → Notes.
 
 **Cross-feature deps:** `approval` (grant access sheets), `audit` (`VaultAuditLogTab` embedded in detail), `grants` (`ContextGrantsTab` in detail), `agents` (agent list in the Agents tab).
 
+The Entry Detail Logs tab delegates to Audit's opaque Entry-scoped feed. It is
+lazy-loaded on first selection and never downloads Vault-wide pages for local
+Entry filtering.
+
 ### Entry version history (CVT-454)
 
 `EntryDetailPage` owns a fourth History tab backed by `EntryHistoryCubit`.

@@ -2621,6 +2621,7 @@
   "auditFilterReset": "Reset",
   "auditFilterApply": "Apply",
   "auditDetailEntry": "Entry",
+  "auditDetailVault": "Vault",
   "auditDetailReason": "Reason",
   "auditDetailNone": "No additional details.",
   "auditActorOwner": "Owner",

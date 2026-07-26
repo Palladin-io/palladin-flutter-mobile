@@ -4280,6 +4280,12 @@ abstract class AppLocalizations {
   /// **'Entry'**
   String get auditDetailEntry;
 
+  /// No description provided for @auditDetailVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get auditDetailVault;
+
   /// No description provided for @auditDetailReason.
   ///
   /// In en, this message translates to:

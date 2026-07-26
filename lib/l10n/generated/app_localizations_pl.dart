@@ -2403,6 +2403,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get auditDetailEntry => 'Wpis';
 
   @override
+  String get auditDetailVault => 'Sejf';
+
+  @override
   String get auditDetailReason => 'Powód';
 
   @override

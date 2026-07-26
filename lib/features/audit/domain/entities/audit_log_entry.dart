@@ -153,6 +153,7 @@ class AuditLogEntry {
     this.entryLabel,
     this.agentReason,
     this.resolvedObjectName,
+    this.resolvedVaultName,
     this.localPresentationOnly = false,
     this.metadata = const {},
   });
@@ -199,6 +200,9 @@ class AuditLogEntry {
 
   /// Runtime-only display resolved from unlocked local projections.
   final String? resolvedObjectName;
+
+  /// Runtime-only Vault name resolved from unlocked local state.
+  final String? resolvedVaultName;
 
   /// Whether presentation fields must come exclusively from unlocked local
   /// projections. Vault-scoped logs set this to avoid trusting legacy server
