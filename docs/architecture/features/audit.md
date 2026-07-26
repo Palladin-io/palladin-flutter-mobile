@@ -15,5 +15,12 @@ Audit log viewer — a global page plus tabs embedded in vault/entry detail.
   state with `prefix…suffix` fallbacks. Legacy backend names, reasons, and
   metadata are discarded before rows reach presentation; local search never
   becomes an API query and never indexes Entry secret content.
+- **Global Audit Log (CVT-463):** resolves only identifiers present in each
+  fetched page through the current organization’s Agent/Vault directories and
+  each accessible Vault’s local MemberIndex/Member directory. Resolution maps
+  are retained only alongside the bounded 2,000-row feed; repeated cursors and
+  duplicate rows terminate safely. Server-supplied names, reasons, and metadata
+  are ignored, cross-organization Vault ids remain unresolved, and search plus
+  structural filters are strictly local after fetch.
 
 **Cross-feature deps:** embedded by `vault` (Logs tab). Filter/legend sheets inline the drag handle → extract `SheetDragHandle`.

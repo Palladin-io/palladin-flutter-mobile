@@ -739,6 +739,7 @@ void configureDependencies(EnvConfig config) {
       auditRepository: getIt<AuditRepository>(),
       agentsRepository: getIt<AgentsRepository>(),
       vaultRepository: getIt<VaultRepository>(),
+      vaultMembersRepository: getIt<VaultMembersRepository>(),
       memberSync: getIt<MemberSyncService>(),
       scope: vaultId == null ? AuditLogScope.org : AuditLogScope.vault,
       vaultId: vaultId,

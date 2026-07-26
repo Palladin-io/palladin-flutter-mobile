@@ -26,6 +26,7 @@ class AuditLogState {
     this.agentNames = const {},
     this.vaultNames = const {},
     this.entryNames = const {},
+    this.memberNames = const {},
     this.error,
     this.nextCursor,
     this.loadingMore = false,
@@ -51,6 +52,7 @@ class AuditLogState {
   /// Resolved vault id → name (org scope) for the dropdown and search.
   final Map<String, String> vaultNames;
   final Map<String, String> entryNames;
+  final Map<String, String> memberNames;
 
   final AuditErrorKind? error;
 
@@ -142,7 +144,7 @@ class AuditLogState {
       if (e.actorType != AuditActorType.user) continue;
       final id = e.userId;
       if (id == null) continue;
-      final name = e.actorName?.trim();
+      final name = memberNames[id]?.trim() ?? e.actorName?.trim();
       if (name != null && name.isNotEmpty) {
         // A resolved name always wins over a previously-seen unknown.
         names[id] = name;
@@ -212,6 +214,7 @@ class AuditLogState {
     Map<String, String>? agentNames,
     Map<String, String>? vaultNames,
     Map<String, String>? entryNames,
+    Map<String, String>? memberNames,
     AuditErrorKind? error,
     bool clearError = false,
     String? nextCursor,
@@ -235,6 +238,7 @@ class AuditLogState {
       agentNames: agentNames ?? this.agentNames,
       vaultNames: vaultNames ?? this.vaultNames,
       entryNames: entryNames ?? this.entryNames,
+      memberNames: memberNames ?? this.memberNames,
       error: clearError ? null : (error ?? this.error),
       nextCursor: clearNextCursor ? null : (nextCursor ?? this.nextCursor),
       loadingMore: loadingMore ?? this.loadingMore,
