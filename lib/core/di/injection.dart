@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../config/env_config.dart';
+import '../crypto/vault_session_store.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/datasources/password_auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
@@ -160,6 +161,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<AutoFillMutationNotifier>(
     AutoFillMutationNotifier.new,
   );
+  getIt.registerLazySingleton<VaultSessionStore>(VaultSessionStore.new);
   getIt.registerLazySingleton<AutoFillCacheBridge>(
     MethodChannelAutoFillCacheBridge.new,
   );
@@ -185,7 +187,10 @@ void configureDependencies(EnvConfig config) {
 
   // Auth — presentation layer (factory: new instance per provider)
   getIt.registerFactory<AuthBloc>(
-    () => AuthBloc(authRepository: getIt<AuthRepository>()),
+    () => AuthBloc(
+      authRepository: getIt<AuthRepository>(),
+      vaultSessionStore: getIt<VaultSessionStore>(),
+    ),
   );
 
   // Email + master-password auth (CVT-252) — data layer.

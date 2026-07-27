@@ -207,6 +207,7 @@ class VaultCryptoService {
     final memberSecret = SecureKey.fromList(sodium, memberPrivateKey);
     Uint8List? messagePrivate;
     Uint8List? signingPrivate;
+    Uint8List? metadataPlaintext;
     try {
       messagePrivate = messageKeys.secretKey.extractBytes();
       signingPrivate = signingKeys.secretKey.extractBytes();
@@ -235,10 +236,11 @@ class VaultCryptoService {
         color: color?.toUpperCase(),
         grantMode: grantMode == GrantMode.full ? 'full' : 'granular',
       );
+      metadataPlaintext = canonicalVaultJson(metadata.toJson());
       final metadataPayload = await suite.seal(
         descriptor: metadataDescriptor,
         rootKey: vk,
-        plaintext: canonicalVaultJson(metadata.toJson()),
+        plaintext: metadataPlaintext,
       );
 
       Future<VaultOpaqueEnvelopeModel> wrapByVk({
@@ -339,6 +341,7 @@ class VaultCryptoService {
       vdk.fillRange(0, vdk.length, 0);
       messagePrivate?.fillRange(0, messagePrivate.length, 0);
       signingPrivate?.fillRange(0, signingPrivate.length, 0);
+      metadataPlaintext?.fillRange(0, metadataPlaintext.length, 0);
       memberSecret.dispose();
       messageKeys.dispose();
       signingKeys.dispose();

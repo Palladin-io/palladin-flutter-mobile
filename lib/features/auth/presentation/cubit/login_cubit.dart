@@ -34,6 +34,9 @@ export 'login_state.dart';
 /// across the TOTP hop so the master key can be derived after the
 /// challenge. They are never persisted, logged, or placed in state.
 class LoginCubit extends Cubit<LoginState> {
+  static const _antiEnumerationAccountId =
+      '00000000-0000-4000-8000-000000000000';
+
   LoginCubit({
     required this.datasource,
     required this.identityKdfService,
@@ -67,10 +70,14 @@ class LoginCubit extends Cubit<LoginState> {
           bootstrap.securityVersion != IdentityKdfProfile.securityVersion ||
           bootstrap.memoryKiB != IdentityKdfProfile.memoryKiB ||
           bootstrap.iterations != IdentityKdfProfile.iterations ||
-          bootstrap.parallelism != IdentityKdfProfile.parallelism ||
-          bootstrap.accountId == null) {
+          bootstrap.parallelism != IdentityKdfProfile.parallelism) {
         throw const UnsupportedIdentityKdfException('unsupported-kdf-profile');
       }
+      // Unknown accounts receive a pseudo-bootstrap without an account ID.
+      // Derive against a syntactically valid, fixed UUID and still call login
+      // so account existence is not exposed through behavior or timing.
+      final derivationAccountId =
+          bootstrap.accountId ?? _antiEnumerationAccountId;
       final salt = Uint8List.fromList(
         base64Url.decode(base64Url.normalize(bootstrap.kdfSalt)),
       );
@@ -78,12 +85,13 @@ class LoginCubit extends Cubit<LoginState> {
       try {
         outputs = await identityKdfService.derive(
           password: password,
-          accountId: bootstrap.accountId!,
+          accountId: derivationAccountId,
           kdfSalt: salt,
         );
       } finally {
         salt.fillRange(0, salt.length, 0);
       }
+      _masterKey?.fillRange(0, _masterKey!.length, 0);
       _masterKey = outputs.masterKey;
       _accountId = bootstrap.accountId;
       final authCredential = base64Url
@@ -167,6 +175,12 @@ class LoginCubit extends Cubit<LoginState> {
     _accountId = null;
     _masterKey?.fillRange(0, _masterKey!.length, 0);
     _masterKey = null;
+  }
+
+  @override
+  Future<void> close() {
+    _clearSecrets();
+    return super.close();
   }
 
   /// Reduces a raw error to the typed exception the UI understands.
