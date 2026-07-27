@@ -188,7 +188,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
     value: _valueController.text,
     username: _usernameController.text,
     password: _passwordController.text,
-    url: _urlController.text,
+    url: _type == EntryType.key ? '' : _urlController.text,
     notes: _notesController.text,
     fields: _allCustomFields,
     script: _scriptController.text,
@@ -227,8 +227,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
             onPressed: () => setState(() => _valueObscured = !_valueObscured),
           ),
         ),
-        const SizedBox(height: AppSpacing.fieldGap),
-        _urlField(l10n),
       ],
       EntryType.credential => [
         OnboardingTextField(
@@ -342,7 +340,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
   }
 
   Future<void> _submit() async {
-    if (!_validateUrl()) return;
+    if (_type != EntryType.key && !_validateUrl()) return;
     final payload = _buildPayload();
     if (!EntryFormUtils.isPayloadWithinLimit(payload)) {
       ScaffoldMessenger.of(context)

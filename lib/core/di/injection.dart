@@ -404,6 +404,7 @@ void configureDependencies(EnvConfig config) {
       keys: getIt<VaultRotationCryptoService>(),
       envelopes: getIt<VaultProtocolEnvelopeService>(),
       grants: getIt<GrantsRemoteDatasource>(),
+      entryV2: getIt<EntryV2CryptoService>(),
     ),
   );
   getIt.registerLazySingleton<CanonicalImportProjectionService>(
@@ -428,8 +429,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<VaultListCryptoService>(
     () => VaultListCryptoService(
       remote: getIt<VaultRemoteDatasource>(),
-      keys: getIt<VaultRotationCryptoService>(),
-      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      crypto: getIt<VaultCryptoService>(),
     ),
   );
   getIt.registerLazySingleton<VaultCreationService>(

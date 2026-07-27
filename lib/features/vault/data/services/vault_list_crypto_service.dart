@@ -1,13 +1,10 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../domain/entities/vault_entity.dart';
+import '../../domain/entities/vault_plaintext.dart';
 import '../datasources/vault_remote_datasource.dart';
 import '../models/encrypted_vault_summary_model.dart';
-import 'vault_protocol/vault_protocol_aad.dart';
-import 'vault_protocol/vault_protocol_envelope_service.dart';
-import 'vault_protocol/vault_protocol_kdf.dart';
-import 'vault_rotation_crypto_service.dart';
+import 'vault_crypto_service.dart';
 
 final class DecryptedVaultList {
   const DecryptedVaultList({required this.vaults, required this.corruptIds});
@@ -19,16 +16,13 @@ final class DecryptedVaultList {
 class VaultListCryptoService {
   VaultListCryptoService({
     required VaultRemoteDatasource remote,
-    required VaultRotationCryptoService keys,
-    required VaultProtocolEnvelopeService envelopes,
+    required VaultCryptoService crypto,
     this.maximumVaults = 2000,
   }) : _remote = remote,
-       _keys = keys,
-       _envelopes = envelopes;
+       _crypto = crypto;
 
   final VaultRemoteDatasource _remote;
-  final VaultRotationCryptoService _keys;
-  final VaultProtocolEnvelopeService _envelopes;
+  final VaultCryptoService _crypto;
   final int maximumVaults;
 
   /// Downloads bounded ciphertext pages and isolates corrupt Vaults.
@@ -65,62 +59,36 @@ class VaultListCryptoService {
     EncryptedVaultSummaryModel summary,
     Uint8List memberPrivateKey,
   ) async {
-    Uint8List? vaultKey;
-    Uint8List? metadataKey;
-    Uint8List? plaintext;
+    final privateKeyCopy = Uint8List.fromList(memberPrivateKey);
+    OpenedVaultProjection? opened;
     try {
-      vaultKey = await _keys.openMemberVaultKey(
-        summary.memberVaultKey,
-        memberPrivateKey,
+      opened = await _crypto.openVaultProjection(
+        json: {
+          'id': summary.id,
+          'protocolVersion': summary.protocolVersion,
+          'memberKeyGeneration': summary.memberKeyGeneration,
+          'memberVaultMetadata': summary.memberVaultMetadata,
+          'memberVaultKey': summary.memberVaultKey,
+          'currentKeyEpoch': summary.currentKeyEpoch,
+          if (summary.discoveryKey != null)
+            'discoveryKey': summary.discoveryKey,
+        },
+        memberPrivateKey: privateKeyCopy,
       );
-      final envelope = summary.memberVaultMetadata;
-      final header = Map<String, dynamic>.from(envelope['header'] as Map);
-      metadataKey = deriveVaultProjectionKey(
-        vaultKey,
-        VaultKdfContext(
-          purpose: VaultKdfPurpose.memberVaultMetadata,
-          resourceKind: 1,
-          organizationId: envelope['organizationId'] as String,
-          vaultId: summary.id,
-          keyVersion: header['keyVersion'] as int,
-          memberKeyGeneration: header['memberKeyGeneration'] as int,
-        ),
-      );
-      plaintext = await _envelopes.decrypt(
-        profile: VaultAadProfile.memberVaultMetadata,
-        envelope: envelope,
-        key: metadataKey,
-        expected: VaultEnvelopeExpectations(
-          aadContext: envelope,
-          minimumMemberKeyGeneration: summary.memberKeyGeneration,
-        ),
-      );
-      final decoded = jsonDecode(utf8.decode(plaintext));
-      if (decoded is! Map) {
-        throw const FormatException('Vault metadata must be an object');
-      }
-      final metadata = Map<String, dynamic>.from(decoded);
-      const allowed = {'name', 'description', 'iconReference', 'color'};
-      if (metadata.keys.any((key) => !allowed.contains(key)) ||
-          metadata['name'] is! String ||
-          (metadata['description'] != null &&
-              metadata['description'] is! String) ||
-          (metadata['iconReference'] != null &&
-              metadata['iconReference'] is! String) ||
-          (metadata['color'] != null && metadata['color'] is! String)) {
-        throw const FormatException('Malformed Vault metadata');
-      }
-      final name = metadata['name'] as String;
-      if (name.isEmpty || name.length > 256) {
-        throw const FormatException('Invalid Vault name');
-      }
+      final metadata = opened.metadata;
       return VaultEntity(
         id: summary.id,
-        name: name,
-        description: metadata['description'] as String?,
-        icon: metadata['iconReference'] as String?,
-        color: metadata['color'] as String?,
-        grantMode: GrantMode.granular,
+        name: metadata.name,
+        description: metadata.description,
+        icon: switch (metadata.icon) {
+          GlyphVaultIcon(:final value) => value,
+          EncryptedAssetVaultIcon(:final assetId) => 'asset:$assetId',
+          null => null,
+        },
+        color: metadata.color,
+        grantMode: metadata.grantMode == 'full'
+            ? GrantMode.full
+            : GrantMode.granular,
         createdAt: summary.createdAt,
         updatedAt: summary.updatedAt,
         entryCount: summary.entryCount,
@@ -128,9 +96,13 @@ class VaultListCryptoService {
         memberCount: summary.memberCount,
       );
     } finally {
-      vaultKey?.fillRange(0, vaultKey.length, 0);
-      metadataKey?.fillRange(0, metadataKey.length, 0);
-      plaintext?.fillRange(0, plaintext.length, 0);
+      privateKeyCopy.fillRange(0, privateKeyCopy.length, 0);
+      opened?.vaultKey.fillRange(0, opened.vaultKey.length, 0);
+      opened?.vaultDiscoveryKey?.fillRange(
+        0,
+        opened.vaultDiscoveryKey!.length,
+        0,
+      );
     }
   }
 }

@@ -33,6 +33,8 @@ class EntryV2CryptoService {
     required int approvedMethods,
     required List<String> fieldIds,
     required Map<String, Object?> grantPayload,
+    int grantEnvelopeRevision = 1,
+    int grantKeyVersion = 1,
     DateTime? expiresAt,
     int? remainingUses,
   }) async {
@@ -60,8 +62,8 @@ class EntryV2CryptoService {
     final descriptor = EnvelopeDescriptor(
       purpose: EnvelopePurpose.grant,
       scope: scope,
-      resourceRevision: 1,
-      keyVersion: 1,
+      resourceRevision: grantEnvelopeRevision,
+      keyVersion: grantKeyVersion,
       memberKeyGeneration: memberKeyGeneration,
       purposeData: GrantPurposeData(
         entryRevision: entryRevision,
@@ -90,8 +92,8 @@ class EntryV2CryptoService {
       final wrapper = WrapperContext(
         purpose: WrapperPurpose.grantDek,
         scope: scope,
-        resourceRevision: 1,
-        wrappedKeyVersion: 1,
+        resourceRevision: grantEnvelopeRevision,
+        wrappedKeyVersion: grantKeyVersion,
         memberKeyGeneration: memberKeyGeneration,
         recipientKeyVersion: recipientKeyVersion,
         recipientFingerprint: fingerprint,
@@ -124,6 +126,10 @@ class EntryV2CryptoService {
     required String vaultId,
     required String entryId,
     required int revision,
+    int? entryKeyRevision,
+    int? memberIndexRevision,
+    int? agentDiscoveryRevision,
+    int entryKeyVersion = 1,
     required int vaultKeyVersion,
     required int vdkVersion,
     required int memberKeyGeneration,
@@ -131,9 +137,12 @@ class EntryV2CryptoService {
     required MemberSecret secret,
     required Uint8List vaultKey,
     required Uint8List vaultDiscoveryKey,
+    Uint8List? existingEntryDek,
   }) async {
     final sodium = await _sodiumLoader();
-    final entryDek = sodium.randombytes.buf(32);
+    final entryDek = existingEntryDek == null
+        ? sodium.randombytes.buf(32)
+        : Uint8List.fromList(existingEntryDek);
     final suite = XChaChaVaultEnvelopeSuite(sodiumLoader: _sodiumLoader);
     final scope = EnvelopeScope(
       organizationId: EnvelopeId.parse(organizationId),
@@ -143,8 +152,8 @@ class EntryV2CryptoService {
     final entryKeyDescriptor = EnvelopeDescriptor(
       purpose: EnvelopePurpose.entryDekByVk,
       scope: scope,
-      resourceRevision: revision,
-      keyVersion: 1,
+      resourceRevision: entryKeyRevision ?? revision,
+      keyVersion: entryKeyVersion,
       memberKeyGeneration: memberKeyGeneration,
       purposeData: WrappingPurposeData(
         wrappingVaultKeyVersion: vaultKeyVersion,
@@ -153,22 +162,22 @@ class EntryV2CryptoService {
     final indexDescriptor = EnvelopeDescriptor(
       purpose: EnvelopePurpose.memberIndex,
       scope: scope,
-      resourceRevision: revision,
-      keyVersion: vaultKeyVersion,
+      resourceRevision: memberIndexRevision ?? revision,
+      keyVersion: entryKeyVersion,
       memberKeyGeneration: memberKeyGeneration,
     );
     final secretDescriptor = EnvelopeDescriptor(
       purpose: EnvelopePurpose.memberSecret,
       scope: scope,
       resourceRevision: revision,
-      keyVersion: 1,
+      keyVersion: entryKeyVersion,
       memberKeyGeneration: memberKeyGeneration,
       purposeData: MemberSecretPurposeData(operation: operation),
     );
     final discoveryDescriptor = EnvelopeDescriptor(
       purpose: EnvelopePurpose.agentDiscovery,
       scope: scope,
-      resourceRevision: revision,
+      resourceRevision: agentDiscoveryRevision ?? revision,
       keyVersion: vdkVersion,
       memberKeyGeneration: memberKeyGeneration,
     );
@@ -234,6 +243,11 @@ class EntryV2CryptoService {
       dek.fillRange(0, dek.length, 0);
     }
   }
+
+  Future<Uint8List> openEntryDek({
+    required Map<String, dynamic> entryKey,
+    required Uint8List vaultKey,
+  }) => _open(entryKey, vaultKey, EnvelopePurpose.entryDekByVk);
 
   Future<Map<String, Object?>> _sealEnvelope(
     ClientEnvelopeSuite suite,

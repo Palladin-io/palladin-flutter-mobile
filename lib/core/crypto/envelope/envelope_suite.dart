@@ -162,9 +162,16 @@ final class XChaChaVaultEnvelopeSuite implements ClientEnvelopeSuite {
 
   Uint8List _hkdfSha256(Uint8List ikm, Uint8List info) {
     final zeroSalt = Uint8List(32);
-    final prk = Hmac(sha256, zeroSalt).convert(ikm).bytes;
-    final block = Hmac(sha256, prk).convert([...info, 1]).bytes;
-    return Uint8List.fromList(block.sublist(0, keyBytes));
+    final prk = Uint8List.fromList(Hmac(sha256, zeroSalt).convert(ikm).bytes);
+    Uint8List? block;
+    try {
+      block = Uint8List.fromList(Hmac(sha256, prk).convert([...info, 1]).bytes);
+      return Uint8List.fromList(block.sublist(0, keyBytes));
+    } finally {
+      zeroSalt.fillRange(0, zeroSalt.length, 0);
+      prk.fillRange(0, prk.length, 0);
+      block?.fillRange(0, block.length, 0);
+    }
   }
 }
 
