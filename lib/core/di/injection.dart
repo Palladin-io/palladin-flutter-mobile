@@ -3,12 +3,12 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../config/env_config.dart';
+import '../crypto/vault_session_store.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/datasources/password_auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/data/services/hibp_service.dart';
 import '../../features/auth/data/services/password_auth_crypto_service.dart';
-import '../../features/unlock/data/services/identity_kdf_migration_service.dart';
 import '../../features/unlock/data/services/identity_kdf_service.dart';
 import '../../features/vault/data/services/vault_list_crypto_service.dart';
 import '../../features/vault/data/services/vault_creation_service.dart';
@@ -40,7 +40,7 @@ import '../../features/agents/domain/repositories/agents_repository.dart';
 import '../../features/agents/presentation/bloc/agents_cubit.dart';
 import '../../features/approval/data/datasources/approval_remote_datasource.dart';
 import '../../features/approval/data/repositories/approval_repository_impl.dart';
-import '../../features/approval/data/services/grant_crypto_service.dart';
+import '../../features/vault/data/services/entry_v2_crypto_service.dart';
 import '../../features/approval/data/services/grant_approval_review_service.dart';
 import '../../features/approval/domain/repositories/approval_repository.dart';
 import '../../features/approval/presentation/cubit/grant_access_cubit.dart';
@@ -161,6 +161,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<AutoFillMutationNotifier>(
     AutoFillMutationNotifier.new,
   );
+  getIt.registerLazySingleton<VaultSessionStore>(VaultSessionStore.new);
   getIt.registerLazySingleton<AutoFillCacheBridge>(
     MethodChannelAutoFillCacheBridge.new,
   );
@@ -186,7 +187,10 @@ void configureDependencies(EnvConfig config) {
 
   // Auth — presentation layer (factory: new instance per provider)
   getIt.registerFactory<AuthBloc>(
-    () => AuthBloc(authRepository: getIt<AuthRepository>()),
+    () => AuthBloc(
+      authRepository: getIt<AuthRepository>(),
+      vaultSessionStore: getIt<VaultSessionStore>(),
+    ),
   );
 
   // Email + master-password auth (CVT-252) — data layer.
@@ -212,7 +216,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerFactory<LoginCubit>(
     () => LoginCubit(
       datasource: getIt<PasswordAuthRemoteDatasource>(),
-      cryptoService: getIt<PasswordAuthCryptoService>(),
+      identityKdfService: getIt<IdentityKdfService>(),
       accountDatasource: getIt<AccountRemoteDatasource>(),
       unlockCryptoService: getIt<UnlockCryptoService>(),
       tokenStorage: getIt<SecureTokenStorage>(),
@@ -281,14 +285,6 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerLazySingleton<UnlockCryptoService>(() => UnlockCryptoService());
   getIt.registerLazySingleton<IdentityKdfService>(IdentityKdfService.new);
-  getIt.registerLazySingleton<IdentityKdfMigrationService>(
-    () => IdentityKdfMigrationService(
-      accountDatasource: getIt<AccountRemoteDatasource>(),
-      passwordDatasource: getIt<PasswordAuthRemoteDatasource>(),
-      legacyCrypto: getIt<PasswordAuthCryptoService>(),
-      identityCrypto: getIt<IdentityKdfService>(),
-    ),
-  );
 
   // Unlock — presentation layer (factory: fresh cubit on each mount
   // so failed-password state doesn't leak between unlock sessions)
@@ -324,6 +320,9 @@ void configureDependencies(EnvConfig config) {
 
   // Vault — data layer
   getIt.registerLazySingleton<VaultCryptoService>(() => VaultCryptoService());
+  getIt.registerLazySingleton<EntryV2CryptoService>(
+    () => EntryV2CryptoService(),
+  );
   getIt.registerLazySingleton<VaultRemoteDatasource>(
     () => VaultRemoteDatasource(getIt<Dio>()),
   );
@@ -394,8 +393,8 @@ void configureDependencies(EnvConfig config) {
     () => KeyEntryCreationService(
       entries: getIt<EntryRemoteDatasource>(),
       vaults: getIt<VaultRemoteDatasource>(),
-      keys: getIt<VaultRotationCryptoService>(),
-      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      vaultCrypto: getIt<VaultCryptoService>(),
+      entryCrypto: getIt<EntryV2CryptoService>(),
     ),
   );
   getIt.registerLazySingleton<CanonicalEntryDetailService>(
@@ -405,6 +404,7 @@ void configureDependencies(EnvConfig config) {
       keys: getIt<VaultRotationCryptoService>(),
       envelopes: getIt<VaultProtocolEnvelopeService>(),
       grants: getIt<GrantsRemoteDatasource>(),
+      entryV2: getIt<EntryV2CryptoService>(),
     ),
   );
   getIt.registerLazySingleton<CanonicalImportProjectionService>(
@@ -429,8 +429,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<VaultListCryptoService>(
     () => VaultListCryptoService(
       remote: getIt<VaultRemoteDatasource>(),
-      keys: getIt<VaultRotationCryptoService>(),
-      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      crypto: getIt<VaultCryptoService>(),
     ),
   );
   getIt.registerLazySingleton<VaultCreationService>(
@@ -438,8 +437,7 @@ void configureDependencies(EnvConfig config) {
       remote: getIt<VaultRemoteDatasource>(),
       accountRemote: getIt<AccountRemoteDatasource>(),
       tokenStorage: getIt<SecureTokenStorage>(),
-      crypto: getIt<VaultRotationCryptoService>(),
-      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      crypto: getIt<VaultCryptoService>(),
     ),
   );
 
@@ -754,9 +752,6 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<ApprovalRemoteDatasource>(
     () => ApprovalRemoteDatasource(getIt<Dio>()),
   );
-  // GrantCryptoService produces the zero-knowledge approval envelope
-  // on-device. Stateless — safe as a lazy singleton.
-  getIt.registerLazySingleton<GrantCryptoService>(() => GrantCryptoService());
   getIt.registerLazySingleton<GrantApprovalReviewService>(
     () => GrantApprovalReviewService(
       vaults: getIt<VaultRemoteDatasource>(),
@@ -773,7 +768,7 @@ void configureDependencies(EnvConfig config) {
       approvalDatasource: getIt<ApprovalRemoteDatasource>(),
       entryDatasource: getIt<EntryRemoteDatasource>(),
       vaultDatasource: getIt<VaultRemoteDatasource>(),
-      cryptoService: getIt<GrantCryptoService>(),
+      cryptoService: getIt<EntryV2CryptoService>(),
       canonicalEntries: getIt<CanonicalEntryDetailService>(),
       discovery: getIt<AgentDiscoveryRemoteDatasource>(),
     ),

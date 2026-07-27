@@ -7,19 +7,19 @@ enum TotpAlgorithm {
 
   /// Wire token (`SHA1` / `SHA256` / `SHA512`).
   String get wireName => switch (this) {
-        TotpAlgorithm.sha1 => 'SHA1',
-        TotpAlgorithm.sha256 => 'SHA256',
-        TotpAlgorithm.sha512 => 'SHA512',
-      };
+    TotpAlgorithm.sha1 => 'SHA1',
+    TotpAlgorithm.sha256 => 'SHA256',
+    TotpAlgorithm.sha512 => 'SHA512',
+  };
 
   /// Parses an algorithm token (case-insensitive). Falls back to
   /// [TotpAlgorithm.sha1] — the RFC 6238 default — for missing or unknown
   /// input so an authenticator that omits the parameter still works.
   static TotpAlgorithm fromName(String? raw) => switch (raw?.toUpperCase()) {
-        'SHA256' => TotpAlgorithm.sha256,
-        'SHA512' => TotpAlgorithm.sha512,
-        _ => TotpAlgorithm.sha1,
-      };
+    'SHA256' => TotpAlgorithm.sha256,
+    'SHA512' => TotpAlgorithm.sha512,
+    _ => TotpAlgorithm.sha1,
+  };
 }
 
 /// Parsed configuration for a time-based one-time-password field.
@@ -62,33 +62,32 @@ class TotpConfig {
     int? period,
     String? issuer,
     String? account,
-  }) =>
-      TotpConfig(
-        secret: secret ?? this.secret,
-        algorithm: algorithm ?? this.algorithm,
-        digits: digits ?? this.digits,
-        period: period ?? this.period,
-        issuer: issuer ?? this.issuer,
-        account: account ?? this.account,
-      );
+  }) => TotpConfig(
+    secret: secret ?? this.secret,
+    algorithm: algorithm ?? this.algorithm,
+    digits: digits ?? this.digits,
+    period: period ?? this.period,
+    issuer: issuer ?? this.issuer,
+    account: account ?? this.account,
+  );
 
   Map<String, dynamic> toJson() => {
-        'secret': secret,
-        'algorithm': algorithm.wireName,
-        'digits': digits,
-        'period': period,
-        if (issuer != null && issuer!.isNotEmpty) 'issuer': issuer,
-        if (account != null && account!.isNotEmpty) 'account': account,
-      };
+    'secret': secret,
+    'algorithm': algorithm.wireName,
+    'digits': digits,
+    'period': period,
+    if (issuer != null && issuer!.isNotEmpty) 'issuer': issuer,
+    if (account != null && account!.isNotEmpty) 'account': account,
+  };
 
   factory TotpConfig.fromJson(Map<String, dynamic> json) => TotpConfig(
-        secret: normalizeSecret((json['secret'] as String?) ?? ''),
-        algorithm: TotpAlgorithm.fromName(json['algorithm'] as String?),
-        digits: _asPositiveInt(json['digits'], fallback: 6),
-        period: _asPositiveInt(json['period'], fallback: 30),
-        issuer: (json['issuer'] as String?)?.trim(),
-        account: (json['account'] as String?)?.trim(),
-      );
+    secret: normalizeSecret((json['secret'] as String?) ?? ''),
+    algorithm: TotpAlgorithm.fromName(json['algorithm'] as String?),
+    digits: _asPositiveInt(json['digits'], fallback: 6),
+    period: _asPositiveInt(json['period'], fallback: 30),
+    issuer: (json['issuer'] as String?)?.trim(),
+    account: (json['account'] as String?)?.trim(),
+  );
 
   /// Builds a config from a raw base32 [secret] using RFC 6238 defaults
   /// (SHA1 / 6 digits / 30 s). Returns null when the secret is not valid
@@ -148,8 +147,8 @@ class TotpConfig {
       issuer: (issuerParam != null && issuerParam.isNotEmpty)
           ? issuerParam
           : (labelIssuer != null && labelIssuer.isNotEmpty
-              ? labelIssuer
-              : null),
+                ? labelIssuer
+                : null),
       account: (account != null && account.isNotEmpty) ? account : null,
     );
   }

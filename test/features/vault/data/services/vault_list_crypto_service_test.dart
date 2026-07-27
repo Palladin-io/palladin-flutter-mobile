@@ -1,82 +1,104 @@
-import 'dart:convert';
-import 'dart:ffi';
-import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
+import 'package:mobile_palladin/features/vault/data/models/encrypted_vault_summary_model.dart';
+import 'package:mobile_palladin/features/vault/data/models/vault_v2_contracts.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_list_crypto_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_bytes.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
-import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
+import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
+
+class _Remote extends Mock implements VaultRemoteDatasource {}
+
+class _Crypto extends Mock implements VaultCryptoService {}
 
 void main() {
-  test('decrypts canonical metadata and isolates a corrupt Vault', () async {
-    final root =
-        jsonDecode(
-              File(
-                'test/fixtures/vault_protocol_2/vectors/envelopes.json',
-              ).readAsStringSync(),
-            )
-            as Map<String, dynamic>;
-    final metadata = (root['aeadVectors'] as List)
-        .cast<Map<String, dynamic>>()
-        .singleWhere((item) => item['id'] == 'member-vault-metadata');
-    final memberKey = (root['sealedBoxVectors'] as List)
-        .cast<Map<String, dynamic>>()
-        .singleWhere((item) => item['id'] == 'member-vault-key');
-    final good = <String, dynamic>{
+  late _Remote remote;
+  late _Crypto crypto;
+  late EncryptedVaultSummaryModel summary;
+  setUpAll(() => registerFallbackValue(Uint8List(0)));
+  setUp(() {
+    remote = _Remote();
+    crypto = _Crypto();
+    summary = EncryptedVaultSummaryModel.fromJson({
       'id': '22222222-2222-4222-8222-222222222222',
       'protocolVersion': 2,
       'memberKeyGeneration': 4,
-      'memberVaultMetadata': metadata['envelope'],
-      'memberVaultKey': memberKey['envelope'],
+      'memberVaultMetadata': {'descriptor': {}},
+      'memberVaultKey': {'wrappedVaultKey': {}},
+      'currentKeyEpoch': {
+        'vaultKeyVersion': 7,
+        'vdkVersion': 8,
+        'agentMessageKeyVersion': 9,
+        'manifestSigningKeyVersion': 10,
+      },
       'createdAt': '2026-07-16T10:00:00Z',
       'updatedAt': '2026-07-16T11:00:00Z',
       'memberCount': 2,
       'entryCount': 7,
       'activeGrantCount': 1,
-    };
-    final corrupt = Map<String, dynamic>.from(good)
-      ..['id'] = '33333333-3333-4333-8333-333333333333';
-    final dio = Dio(BaseOptions(baseUrl: 'https://example.invalid'))
-      ..interceptors.add(
-        InterceptorsWrapper(
-          onRequest: (options, handler) => handler.resolve(
-            Response<Map<String, dynamic>>(
-              requestOptions: options,
-              statusCode: 200,
-              data: {
-                'vaults': [good, corrupt],
-                'total': 2,
-              },
-            ),
-          ),
-        ),
-      );
-    final library = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    final sodium = await sodium_ffi.SodiumSumoInit.init(
-      () => DynamicLibrary.open(library ?? 'libsodium.so'),
-    );
-    Future<sodium_ffi.SodiumSumo> loader() async => sodium;
-    final envelopes = VaultProtocolEnvelopeService(sodiumLoader: loader);
-    final service = VaultListCryptoService(
-      remote: VaultRemoteDatasource(dio),
-      keys: VaultRotationCryptoService(
-        sodiumLoader: loader,
-        envelopes: envelopes,
+    });
+    when(
+      () => remote.listEncryptedVaults(offset: 0),
+    ).thenAnswer((_) async => EncryptedVaultPage(vaults: [summary], total: 1));
+    when(
+      () => crypto.openVaultProjection(
+        json: any(named: 'json'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
       ),
-      envelopes: envelopes,
+    ).thenAnswer(
+      (_) async => OpenedVaultProjection(
+        organizationId: '00112233-4455-4677-8899-aabbccddeeff',
+        vaultId: summary.id,
+        vaultKey: Uint8List(32),
+        vaultDiscoveryKey: null,
+        metadata: const MemberVaultMetadata(
+          name: 'Engineering',
+          description: 'Canonical',
+          icon: GlyphVaultIcon('shield'),
+          color: '#EB4747',
+          grantMode: 'full',
+        ),
+        epoch: const VaultKeyEpochModel(
+          vaultKeyVersion: 7,
+          vdkVersion: 8,
+          agentMessageKeyVersion: 9,
+          manifestSigningKeyVersion: 10,
+        ),
+        memberKeyGeneration: 4,
+        wrapper: const MemberVaultKeyWrapperMetadata(
+          wrapperSuiteId: 'suite',
+          wrappedKeyVersion: 7,
+          memberKeyGeneration: 4,
+          recipientKeyVersion: 1,
+          recipientFingerprint: 'fp',
+        ),
+      ),
     );
-
-    final result = await service.load(
-      VaultProtocolBytes.hex(memberKey['recipientPrivateKeyHex'] as String),
-    );
-
-    expect(result.vaults.single.name, 'Engineering Vault');
-    expect(result.vaults.single.description, 'Synthetic CVT-398 fixture');
-    expect(result.vaults.single.entryCount, 7);
-    expect(result.corruptIds, ['33333333-3333-4333-8333-333333333333']);
   });
+
+  test(
+    'reads list metadata only through canonical Vault projection opener',
+    () async {
+      final result = await VaultListCryptoService(
+        remote: remote,
+        crypto: crypto,
+      ).load(Uint8List(32));
+      expect(result.vaults.single.name, 'Engineering');
+      expect(result.vaults.single.icon, 'shield');
+      expect(result.vaults.single.grantMode.name, 'full');
+      final json =
+          verify(
+                () => crypto.openVaultProjection(
+                  json: captureAny(named: 'json'),
+                  memberPrivateKey: any(named: 'memberPrivateKey'),
+                ),
+              ).captured.single
+              as Map<String, dynamic>;
+      expect(json['memberVaultMetadata'], summary.memberVaultMetadata);
+      expect(json['currentKeyEpoch'], summary.currentKeyEpoch);
+    },
+  );
 }

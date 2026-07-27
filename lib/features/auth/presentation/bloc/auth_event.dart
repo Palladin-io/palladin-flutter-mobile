@@ -30,10 +30,7 @@ final class AuthCheckRequested extends AuthEvent {
 /// derived keys into [AuthAuthenticated] so downstream features can
 /// decrypt vault items without re-prompting the user.
 final class VaultUnlocked extends AuthEvent {
-  const VaultUnlocked({
-    required this.masterKey,
-    required this.privateKey,
-  });
+  const VaultUnlocked({required this.masterKey, required this.privateKey});
 
   final Uint8List masterKey;
   final Uint8List privateKey;

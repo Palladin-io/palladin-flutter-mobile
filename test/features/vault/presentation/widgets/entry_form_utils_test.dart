@@ -4,6 +4,17 @@ import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart
 import 'package:mobile_palladin/features/vault/presentation/widgets/entry_form_utils.dart';
 
 void main() {
+  test(
+    'Key payload never accepts a URL outside the frozen canonical schema',
+    () {
+      final payload = EntryFormUtils.buildPayload(
+        type: EntryType.key,
+        value: 'secret',
+        url: 'https://example.com',
+      );
+      expect(payload.containsKey('url'), isFalse);
+    },
+  );
   group('EntryFormUtils.isValidUrl', () {
     test('accepts empty input (URL is optional)', () {
       expect(EntryFormUtils.isValidUrl(''), isTrue);
@@ -42,10 +53,7 @@ void main() {
     });
 
     test('falls back to first path segment when no scheme', () {
-      expect(
-        EntryFormUtils.extractDomain('example.com/path'),
-        'example.com',
-      );
+      expect(EntryFormUtils.extractDomain('example.com/path'), 'example.com');
     });
   });
 
@@ -111,7 +119,7 @@ void main() {
   });
 
   group('EntryFormUtils.buildPayload', () {
-    test('key payload uses value + trimmed url/notes', () {
+    test('key payload uses value and notes but omits unsupported URL', () {
       final json = EntryFormUtils.buildPayload(
         type: EntryType.key,
         value: '  sk_live_x  ',
@@ -122,7 +130,7 @@ void main() {
       );
       expect(json['type'], 'KEY');
       expect(json['value'], 'sk_live_x');
-      expect(json['url'], 'https://stripe.com');
+      expect(json.containsKey('url'), isFalse);
       expect(json['notes'], 'remember to rotate');
     });
 

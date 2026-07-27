@@ -14,8 +14,8 @@ class RecoveryRemoteDatasource {
   RecoveryRemoteDatasource({
     required Dio dio,
     required AccountRemoteDatasource accountDatasource,
-  })  : _dio = dio,
-        _accountDatasource = accountDatasource;
+  }) : _dio = dio,
+       _accountDatasource = accountDatasource;
 
   final Dio _dio;
   final AccountRemoteDatasource _accountDatasource;
@@ -29,9 +29,6 @@ class RecoveryRemoteDatasource {
   /// Returns 204 No Content on success. DioException surfaces raw —
   /// the repository layer classifies network vs. protocol failures.
   Future<Response<dynamic>> recoverAccount(RecoverAccountRequest request) {
-    return _dio.put(
-      '/api/account/recovery',
-      data: request.toJson(),
-    );
+    return _dio.put('/api/account/recovery', data: request.toJson());
   }
 }

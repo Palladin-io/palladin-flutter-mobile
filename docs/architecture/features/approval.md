@@ -5,7 +5,7 @@ Zero-knowledge grant approval/denial — the crypto-sensitive heart of access co
 - **Cubits:** `PendingGrantsCubit`, `GrantApprovalCubit`, `GrantAccessCubit`, `RegrantCubit`.
 - **Pages:** none — **sheets only**, presented over other features.
 - **Widgets:** `ApproveGrantSheet`, `DenyGrantSheet`, `GrantAccessSheet`, `GrantLimitSelector`, `GrantMethodsSelector`, `RegrantSheet`.
-- **Layering:** full data / domain / presentation split. `GrantCryptoService` wraps/re-wraps the vault entry key per grant (reads the in-memory private key from `AuthBloc`, `try/finally` zero-out).
+- **Layering:** full data / domain / presentation split. `ApprovalRepositoryImpl` opens the canonical MemberSecret with the process-memory `VaultSessionStore`, projects the exact authorized field scope, and delegates protocol-v2 envelope sealing to `EntryV2CryptoService`. Agent recipient key versions and field scopes are authenticated in AAD; secret buffers are wiped in `finally`.
 
 ### Protocol-2 approval review (CVT-458)
 

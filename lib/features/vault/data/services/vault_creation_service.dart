@@ -9,14 +9,9 @@ import '../../../../core/utils/jwt_claims.dart';
 import '../../../unlock/data/datasources/account_remote_datasource.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../datasources/vault_remote_datasource.dart';
-import '../models/vault_rotation_models.dart';
-import 'vault_protocol/vault_protocol_aad.dart';
 import 'vault_protocol/vault_protocol_bytes.dart';
-import 'vault_protocol/vault_protocol_envelope_service.dart';
 import 'vault_protocol/vault_protocol_fingerprint.dart';
-import 'vault_protocol/vault_protocol_kdf.dart';
-import 'vault_protocol/vault_protocol_signature_service.dart';
-import 'vault_rotation_crypto_service.dart';
+import 'vault_crypto_service.dart';
 
 final class _PendingVaultCreation {
   _PendingVaultCreation({
@@ -56,21 +51,18 @@ class VaultCreationService implements VaultCreator {
     required VaultRemoteDatasource remote,
     required AccountRemoteDatasource accountRemote,
     required SecureTokenStorage tokenStorage,
-    required VaultRotationCryptoService crypto,
-    required VaultProtocolEnvelopeService envelopes,
+    required VaultCryptoService crypto,
     Future<SodiumSumo> Function()? sodiumLoader,
   }) : _remote = remote,
        _accountRemote = accountRemote,
        _tokenStorage = tokenStorage,
        _crypto = crypto,
-       _envelopes = envelopes,
        _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
   final VaultRemoteDatasource _remote;
   final AccountRemoteDatasource _accountRemote;
   final SecureTokenStorage _tokenStorage;
-  final VaultRotationCryptoService _crypto;
-  final VaultProtocolEnvelopeService _envelopes;
+  final VaultCryptoService _crypto;
   final Future<SodiumSumo> Function() _sodiumLoader;
   _PendingVaultCreation? _pending;
 
@@ -152,124 +144,22 @@ class VaultCreationService implements VaultCreator {
     }
     final challenge = await _remote.issueVaultCreationChallenge();
     final vaultId = challenge['vaultId'] as String;
-    final keys = await _crypto.generateKeys();
-    Uint8List? memberPublicKey;
-    Uint8List? metadataBytes;
-    Uint8List? metadataKey;
+    CreatedVaultBundle? bundle;
     try {
-      final sodium = await _sodiumLoader();
-      final secret = SecureKey.fromList(sodium, memberPrivateKey);
-      try {
-        memberPublicKey = sodium.crypto.scalarmult.base(n: secret);
-      } finally {
-        secret.dispose();
-      }
-      metadataBytes = VaultProtocolBytes.utf8Encode(
-        canonicalizeVaultJson({
-          'name': name,
-          'description': ?description,
-          'iconReference': ?icon,
-          'color': ?color,
-        }),
-      );
-      metadataKey = deriveVaultProjectionKey(
-        keys.vaultKey,
-        VaultKdfContext(
-          purpose: VaultKdfPurpose.memberVaultMetadata,
-          resourceKind: 1,
-          organizationId: organizationId,
-          vaultId: vaultId,
-          keyVersion: 1,
-          memberKeyGeneration: 1,
-        ),
-      );
-      final metadataContext = <String, Object?>{
-        'organizationId': organizationId,
-        'vaultId': vaultId,
-        'metadataRevision': '1',
-        'header': _header(1, 1, '1'),
-      };
-      final encryptedMetadata = await _envelopes.encrypt(
-        profile: VaultAadProfile.memberVaultMetadata,
-        context: metadataContext,
-        plaintext: metadataBytes,
-        key: metadataKey,
-      );
-      final recipient = RotationMemberRecipient(
-        memberId: account.userId,
-        recipientKeyVersion: memberKeyVersion,
-        recipientKeyFingerprint: VaultProtocolBytes.base64UrlEncode(
-          vaultPublicKeyFingerprint(
-            VaultPublicKeyKind.memberX25519,
-            memberPublicKey,
-          ),
-        ),
-        x25519PublicKey: VaultProtocolBytes.base64UrlEncode(memberPublicKey),
-      );
-      final creatorKey = await _crypto.sealMemberVaultKey(
-        recipient: recipient,
+      bundle = await _crypto.createVaultBundle(
         organizationId: organizationId,
+        memberId: account.userId,
+        memberKeyVersion: memberKeyVersion,
         vaultId: vaultId,
-        vkVersion: 1,
-        memberKeyGeneration: 1,
-        vaultKey: keys.vaultKey,
+        memberPrivateKey: memberPrivateKey,
+        name: name,
+        description: description,
+        icon: icon,
+        color: color,
+        grantMode: GrantMode.granular,
       );
-      final discovery = await _crypto.encryptKeyMaterial(
-        source: {
-          'organizationId': organizationId,
-          'vaultId': vaultId,
-          'discoveryKeyRevision': '0',
-        },
-        profile: VaultAadProfile.vaultDiscoveryKey,
-        plaintext: keys.vdk,
-        targetVaultKey: keys.vaultKey,
-        targetVersion: 1,
-        targetGeneration: 1,
-        targetVaultKeyVersion: 1,
-      );
-      final privateKeys = <Map<String, dynamic>>[];
-      for (final pair in [
-        (1, keys.agentMessagePrivateKey),
-        (2, keys.manifestSigningSeed),
-      ]) {
-        privateKeys.add(
-          await _crypto.encryptKeyMaterial(
-            source: {
-              'organizationId': organizationId,
-              'vaultId': vaultId,
-              'privateKeyKind': pair.$1,
-              'privateKeyRevision': '0',
-            },
-            profile: VaultAadProfile.vaultPrivateKey,
-            plaintext: pair.$2,
-            targetVaultKey: keys.vaultKey,
-            targetVersion: 1,
-            targetGeneration: 1,
-            targetVaultKeyVersion: 1,
-          ),
-        );
-      }
       return _PendingVaultCreation(
-        payload: {
-          'vaultId': vaultId,
-          'memberVaultMetadata': {
-            ...metadataContext,
-            'header': {
-              ...metadataContext['header']! as Map,
-              'nonce': encryptedMetadata['nonce'],
-            },
-            'ciphertext': encryptedMetadata['ciphertext'],
-          },
-          'currentKeyEpoch': {
-            'vaultKeyVersion': 1,
-            'vdkVersion': 1,
-            'agentMessageKeyVersion': 1,
-            'manifestSigningKeyVersion': 1,
-          },
-          'creatorVaultKey': creatorKey,
-          'discoveryKey': discovery,
-          'vaultPrivateKeys': privateKeys,
-        },
+        payload: Map<String, dynamic>.from(bundle.request.toJson()),
         display: VaultEntity(
           id: vaultId,
           name: name,
@@ -283,18 +173,15 @@ class VaultCreationService implements VaultCreator {
           activeGrantCount: 0,
           memberCount: 1,
         ),
-        memberPublicKeyFingerprint: VaultProtocolBytes.base64UrlEncode(
-          vaultPublicKeyFingerprint(
-            VaultPublicKeyKind.memberX25519,
-            memberPublicKey,
-          ),
-        ),
+        memberPublicKeyFingerprint: bundle.memberFingerprint,
       );
     } finally {
-      keys.dispose();
-      memberPublicKey?.fillRange(0, memberPublicKey.length, 0);
-      metadataBytes?.fillRange(0, metadataBytes.length, 0);
-      metadataKey?.fillRange(0, metadataKey.length, 0);
+      bundle?.vaultKey.fillRange(0, bundle.vaultKey.length, 0);
+      bundle?.vaultDiscoveryKey.fillRange(
+        0,
+        bundle.vaultDiscoveryKey.length,
+        0,
+      );
     }
   }
 
@@ -320,19 +207,4 @@ class VaultCreationService implements VaultCreator {
       publicKey?.fillRange(0, publicKey.length, 0);
     }
   }
-
-  Map<String, Object?> _header(
-    int resourceKind,
-    int projectionKind,
-    String revision,
-  ) => {
-    'protocolVersion': 2,
-    'algorithmSuite': 1,
-    'resourceKind': resourceKind,
-    'projectionKind': projectionKind,
-    'resourceRevision': revision,
-    'keyVersion': 1,
-    'memberKeyGeneration': 1,
-    'nonce': '',
-  };
 }

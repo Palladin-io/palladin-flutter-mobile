@@ -19,12 +19,12 @@ enum CustomFieldType {
   /// Parses a wire token. Anything the client does not recognize becomes
   /// [CustomFieldType.unknown] rather than throwing.
   static CustomFieldType fromWire(String? raw) => switch (raw) {
-        'text' => CustomFieldType.text,
-        'multiline' => CustomFieldType.multiline,
-        'concealed' => CustomFieldType.concealed,
-        'totp' => CustomFieldType.totp,
-        _ => CustomFieldType.unknown,
-      };
+    'text' => CustomFieldType.text,
+    'multiline' => CustomFieldType.multiline,
+    'concealed' => CustomFieldType.concealed,
+    'totp' => CustomFieldType.totp,
+    _ => CustomFieldType.unknown,
+  };
 
   /// Whether a field of this type may be marked visible to agents
   /// (CVT-204). Only non-secret helper text — never a concealed value or a
@@ -94,81 +94,76 @@ class CustomField {
     CustomFieldType? type,
     Object? value,
     bool? agentVisible,
-  }) =>
-      CustomField(
-        id: id,
-        label: label ?? this.label,
-        type: type ?? this.type,
-        rawType: type != null ? _wireFor(type) : rawType,
-        value: value ?? this.value,
-        agentVisible: agentVisible ?? this.agentVisible,
-      );
+  }) => CustomField(
+    id: id,
+    label: label ?? this.label,
+    type: type ?? this.type,
+    rawType: type != null ? _wireFor(type) : rawType,
+    value: value ?? this.value,
+    agentVisible: agentVisible ?? this.agentVisible,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'label': label,
-        'type': rawType,
-        'value': value,
-        // Emit only when true and the type actually supports it — a secret
-        // (concealed / totp) must never be flagged agent-visible.
-        if (agentVisible && type.canBeAgentVisible) 'agentVisible': true,
-      };
+    'id': id,
+    'label': label,
+    'type': rawType,
+    'value': value,
+    // Emit only when true and the type actually supports it — a secret
+    // (concealed / totp) must never be flagged agent-visible.
+    if (agentVisible && type.canBeAgentVisible) 'agentVisible': true,
+  };
 
   factory CustomField.text({
     required String id,
     required String label,
     required String value,
     bool agentVisible = false,
-  }) =>
-      CustomField(
-        id: id,
-        label: label,
-        type: CustomFieldType.text,
-        rawType: 'text',
-        value: value,
-        agentVisible: agentVisible,
-      );
+  }) => CustomField(
+    id: id,
+    label: label,
+    type: CustomFieldType.text,
+    rawType: 'text',
+    value: value,
+    agentVisible: agentVisible,
+  );
 
   factory CustomField.multiline({
     required String id,
     required String label,
     required String value,
     bool agentVisible = false,
-  }) =>
-      CustomField(
-        id: id,
-        label: label,
-        type: CustomFieldType.multiline,
-        rawType: 'multiline',
-        value: value,
-        agentVisible: agentVisible,
-      );
+  }) => CustomField(
+    id: id,
+    label: label,
+    type: CustomFieldType.multiline,
+    rawType: 'multiline',
+    value: value,
+    agentVisible: agentVisible,
+  );
 
   factory CustomField.concealed({
     required String id,
     required String label,
     required String value,
-  }) =>
-      CustomField(
-        id: id,
-        label: label,
-        type: CustomFieldType.concealed,
-        rawType: 'concealed',
-        value: value,
-      );
+  }) => CustomField(
+    id: id,
+    label: label,
+    type: CustomFieldType.concealed,
+    rawType: 'concealed',
+    value: value,
+  );
 
   factory CustomField.totpField({
     required String id,
     required String label,
     required TotpConfig config,
-  }) =>
-      CustomField(
-        id: id,
-        label: label,
-        type: CustomFieldType.totp,
-        rawType: 'totp',
-        value: config.toJson(),
-      );
+  }) => CustomField(
+    id: id,
+    label: label,
+    type: CustomFieldType.totp,
+    rawType: 'totp',
+    value: config.toJson(),
+  );
 
   factory CustomField.fromJson(Map<String, dynamic> json) {
     final rawType = (json['type'] as String?) ?? '';
@@ -218,12 +213,14 @@ class CustomField {
   }
 
   static String _wireFor(CustomFieldType type) => switch (type) {
-        CustomFieldType.text => 'text',
-        CustomFieldType.multiline => 'multiline',
-        CustomFieldType.concealed => 'concealed',
-        CustomFieldType.totp => 'totp',
-        CustomFieldType.unknown => 'text',
-      };
+    CustomFieldType.text => 'text',
+    CustomFieldType.multiline => 'multiline',
+    CustomFieldType.concealed => 'concealed',
+    CustomFieldType.totp => 'totp',
+    CustomFieldType.unknown => throw const FormatException(
+      'An unknown custom field cannot be rewritten after mutation.',
+    ),
+  };
 
   /// Backend limits (CVT-204) — mirrored client-side for early validation.
   static const int maxAgentFields = 20;

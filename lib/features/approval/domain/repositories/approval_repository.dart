@@ -88,6 +88,7 @@ abstract interface class ApprovalRepository {
     required String vaultId,
     required String agentId,
     required String agentPublicKey,
+    required int recipientKeyVersion,
     required bool isFull,
     String? entryId,
     required Uint8List privateKey,

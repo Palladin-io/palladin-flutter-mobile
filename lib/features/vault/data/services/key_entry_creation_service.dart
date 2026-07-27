@@ -2,41 +2,30 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
-import '../../../../core/crypto/sodium_provider.dart';
 import '../../domain/entities/entry_entity.dart';
+import '../../domain/entities/vault_plaintext.dart';
 import '../datasources/entry_remote_datasource.dart';
 import '../datasources/vault_remote_datasource.dart';
-import 'vault_protocol/vault_protocol_aad.dart';
-import 'vault_protocol/vault_protocol_bytes.dart';
-import 'vault_protocol/vault_protocol_envelope_service.dart';
-import 'vault_protocol/vault_protocol_kdf.dart';
-import 'vault_protocol/vault_protocol_signature_service.dart';
-import 'vault_rotation_crypto_service.dart';
+import '../models/entry_v2_contracts.dart';
+import 'entry_v2_crypto_service.dart';
+import 'vault_crypto_service.dart';
 
 /// Creates one canonical Key revision without exposing plaintext to the server.
 final class KeyEntryCreationService {
   KeyEntryCreationService({
     required EntryRemoteDatasource entries,
     required VaultRemoteDatasource vaults,
-    required VaultRotationCryptoService keys,
-    required VaultEnvelopeCryptography envelopes,
-    Future<Uint8List> Function()? randomEntryKey,
+    required VaultCryptoService vaultCrypto,
+    required EntryV2CryptoService entryCrypto,
   }) : _entries = entries,
        _vaults = vaults,
-       _keys = keys,
-       _envelopes = envelopes,
-       _randomEntryKey = randomEntryKey ?? _secureRandomEntryKey;
+       _vaultCrypto = vaultCrypto,
+       _entryCrypto = entryCrypto;
 
   final EntryRemoteDatasource _entries;
   final VaultRemoteDatasource _vaults;
-  final VaultRotationCryptoService _keys;
-  final VaultEnvelopeCryptography _envelopes;
-  final Future<Uint8List> Function() _randomEntryKey;
-
-  static Future<Uint8List> _secureRandomEntryKey() async {
-    final sodium = await SodiumProvider.instance();
-    return sodium.randombytes.buf(32);
-  }
+  final VaultCryptoService _vaultCrypto;
+  final EntryV2CryptoService _entryCrypto;
 
   Future<EntryEntity> create({
     required String vaultId,
@@ -111,216 +100,44 @@ final class KeyEntryCreationService {
     _validateContent(type, content, vaultId);
     final vault = await _vaults.getEncryptedVault(vaultId);
     final entryId = await _entries.issueCreationChallenge(vaultId);
-    final organizationId = vault['organizationId'] as String;
-    final generation = vault['memberKeyGeneration'] as int;
-    final epoch = Map<String, dynamic>.from(vault['currentKeyEpoch'] as Map);
-    final vkVersion = epoch['vaultKeyVersion'] as int;
-    final vdkVersion = epoch['vdkVersion'] as int;
-    Uint8List? vaultKey;
-    Uint8List? discoveryKey;
-    Uint8List? entryDek;
-    final derived = <Uint8List>[];
-    final plaintexts = <Uint8List>[];
+    final privateKeyCopy = Uint8List.fromList(memberPrivateKey);
+    OpenedVaultProjection? opened;
     try {
-      vaultKey = await _keys.openMemberVaultKey(
-        Map<String, dynamic>.from(vault['memberVaultKey'] as Map),
-        memberPrivateKey,
+      opened = await _vaultCrypto.openVaultProjection(
+        json: vault,
+        memberPrivateKey: privateKeyCopy,
       );
-      discoveryKey = await _keys.openDiscoveryKey(
-        Map<String, dynamic>.from(vault['discoveryKey'] as Map),
-        vaultKey,
-      );
-      entryDek = await _randomEntryKey();
-      if (entryDek.length != 32) {
-        throw const FormatException('Entry DEK must be 32 bytes');
+      final discoveryKey = opened.vaultDiscoveryKey;
+      if (discoveryKey == null) {
+        throw const FormatException('Vault discovery key is missing');
       }
-      final common = <String, Object?>{
-        'organizationId': organizationId,
-        'vaultId': vaultId,
-        'entryId': entryId,
-      };
-      final wireType = type.toWire();
-      final canonicalContent = <String, dynamic>{...content, 'type': wireType};
-      final memberIndex = <String, dynamic>{
-        'memberLabel': label,
-        'entryType': wireType,
-        'searchFields': [
-          label,
-          if (description.isNotEmpty) description,
-          if (type == EntryType.credential && content['username'] is String)
-            content['username'],
-          if (type == EntryType.credential && content['url'] is String)
-            content['url'],
-        ],
-        if (type == EntryType.credential && content['url'] is String)
-          'autofillDomains': [content['url']],
-        if (icon.isNotEmpty) 'iconReference': icon,
-      };
-      final policyFields = <String, String>{
-        'agentLabel': 'discovery',
-        'description': 'never',
-        'notes': 'onGrantValue',
-        if (type == EntryType.key) 'value': 'onGrantValue',
-        if (type == EntryType.credential) ...{
-          'username': exposeUsername ? 'discovery' : 'onGrantValue',
-          'urlDomain': exposeDomain ? 'discovery' : 'never',
-          'url': 'onGrantValue',
-          'password': 'onGrantValue',
-          'totp': 'onGrantDerived',
-        },
-        if (type == EntryType.script) ...{
-          'interpreter': 'discovery',
-          'script': 'onGrantRuntime',
-          'refs': 'onGrantRuntime',
-        },
-      };
-      final policy = <String, dynamic>{
-        'discoverable': true,
-        'fields': policyFields,
-      };
-      final memberSecret = <String, dynamic>{
-        'schemaVersion': 1,
-        'memberLabel': label,
-        'agentLabel': label,
-        if (description.isNotEmpty) 'description': description,
-        if (icon.isNotEmpty) 'iconReference': icon,
-        'entryType': wireType,
-        'content': canonicalContent,
-        'agentVisibilityPolicy': policy,
-      };
-      final discoveryFields = <String, String>{};
-      if (type == EntryType.credential) {
-        final username = content['username'];
-        if (exposeUsername && username is String && username.isNotEmpty) {
-          discoveryFields['username'] = username;
-        }
-        final url = content['url'];
-        final host = url is String ? _domain(url) : null;
-        if (exposeDomain && host != null) discoveryFields['urlDomain'] = host;
-      }
-      if (type == EntryType.script) {
-        discoveryFields['interpreter'] = content['interpreter'] as String;
-      }
-      final discovery = <String, dynamic>{
-        'schemaVersion': 1,
-        'agentLabel': label,
-        'entryType': wireType,
-        'capabilities': ['get', 'inject'],
-        'fields': discoveryFields,
-      };
-      Map<String, dynamic> header(int projection, int keyVersion) => {
-        'protocolVersion': 2,
-        'algorithmSuite': 1,
-        'resourceKind': 2,
-        'projectionKind': projection,
-        'resourceRevision': '1',
-        'keyVersion': keyVersion,
-        'memberKeyGeneration': generation,
-        'nonce': '',
-      };
-      Future<Map<String, dynamic>> projection(
-        VaultAadProfile profile,
-        VaultKdfPurpose purpose,
-        Map<String, dynamic> value,
-        Uint8List baseKey,
-        int projectionKind,
-        int keyVersion,
-        String revisionField,
-      ) async {
-        final key = deriveVaultProjectionKey(
-          baseKey,
-          VaultKdfContext(
-            purpose: purpose,
-            resourceKind: 2,
-            organizationId: organizationId,
-            vaultId: vaultId,
-            entryId: entryId,
-            keyVersion: keyVersion,
-            memberKeyGeneration: generation,
-          ),
-        );
-        derived.add(key);
-        final bytes = VaultProtocolBytes.utf8Encode(
-          canonicalizeVaultJson(value),
-        );
-        plaintexts.add(bytes);
-        final context = <String, Object?>{
-          ...common,
-          revisionField: '1',
-          if (profile == VaultAadProfile.memberSecret) 'operation': 1,
-          if (profile == VaultAadProfile.agentDiscovery)
-            'vdkVersion': vdkVersion,
-          'header': header(projectionKind, keyVersion),
-        };
-        final encrypted = await _envelopes.encrypt(
-          profile: profile,
-          context: context,
-          plaintext: bytes,
-          key: key,
-        );
-        return {
-          ...context,
-          'header': {...context['header']! as Map, 'nonce': encrypted['nonce']},
-          'ciphertext': encrypted['ciphertext'],
-        };
-      }
-
-      final wrapperContext = <String, Object?>{
-        ...common,
-        'wrapperRevision': '1',
-        'keyVersion': 1,
-        'memberKeyGeneration': generation,
-        'wrappingKeyVersion': vkVersion,
-        'header': header(8, 1),
-      };
-      final wrapped = await _envelopes.encrypt(
-        profile: VaultAadProfile.entryKeyWrapper,
-        context: wrapperContext,
-        plaintext: entryDek,
-        key: vaultKey,
+      final secret = _memberSecret(
+        type,
+        label,
+        description,
+        icon,
+        content,
+        exposeUsername: exposeUsername,
+        exposeDomain: exposeDomain,
       );
-      final indexEnvelope = await projection(
-        VaultAadProfile.memberIndex,
-        VaultKdfPurpose.memberIndex,
-        memberIndex,
-        entryDek,
-        2,
-        1,
-        'memberIndexRevision',
+      final envelopes = await _entryCrypto.seal(
+        organizationId: opened.organizationId,
+        vaultId: opened.vaultId,
+        entryId: entryId,
+        revision: 1,
+        vaultKeyVersion: opened.epoch.vaultKeyVersion,
+        vdkVersion: opened.epoch.vdkVersion,
+        memberKeyGeneration: opened.memberKeyGeneration,
+        operation: 1,
+        secret: secret,
+        vaultKey: opened.vaultKey,
+        vaultDiscoveryKey: discoveryKey,
       );
-      final secretEnvelope = await projection(
-        VaultAadProfile.memberSecret,
-        VaultKdfPurpose.memberSecret,
-        memberSecret,
-        entryDek,
-        3,
-        1,
-        'revision',
-      );
-      final discoveryEnvelope = await projection(
-        VaultAadProfile.agentDiscovery,
-        VaultKdfPurpose.agentDiscovery,
-        discovery,
-        discoveryKey,
-        4,
-        vdkVersion,
-        'agentDiscoveryRevision',
-      );
-      final request = <String, dynamic>{
-        'entryId': entryId,
-        'entryKey': {
-          ...wrapperContext,
-          'header': {
-            ...wrapperContext['header']! as Map,
-            'nonce': wrapped['nonce'],
-          },
-          'wrappedEntryDekByVk': wrapped['ciphertext'],
-        },
-        'memberIndex': indexEnvelope,
-        'memberSecret': secretEnvelope,
-        'agentDiscovery': discoveryEnvelope,
-        'grantEnvelopes': <Object>[],
-      };
+      final request = CreateEntryV2Request(
+        vaultId: vaultId,
+        entryId: entryId,
+        envelopes: envelopes,
+      ).toJson();
       try {
         await _entries.createCanonicalEntry(vaultId, request);
       } on DioException catch (error) {
@@ -341,16 +158,113 @@ final class KeyEntryCreationService {
         updatedAt: now,
       );
     } finally {
-      for (final value in [
-        vaultKey,
-        discoveryKey,
-        entryDek,
-        ...derived,
-        ...plaintexts,
-      ]) {
-        value?.fillRange(0, value.length, 0);
-      }
+      privateKeyCopy.fillRange(0, privateKeyCopy.length, 0);
+      opened?.vaultKey.fillRange(0, opened.vaultKey.length, 0);
+      opened?.vaultDiscoveryKey?.fillRange(
+        0,
+        opened.vaultDiscoveryKey!.length,
+        0,
+      );
     }
+  }
+
+  MemberSecret _memberSecret(
+    EntryType type,
+    String label,
+    String description,
+    String icon,
+    Map<String, dynamic> raw, {
+    required bool exposeUsername,
+    required bool exposeDomain,
+  }) {
+    final custom = (raw['fields'] as List? ?? const [])
+        .whereType<Map>()
+        .map(
+          (field) => VaultCustomField(
+            id: field['id'] as String,
+            label: field['label'] as String? ?? '',
+            kind: field['type'] as String,
+            value: field['value'],
+            includeInMemberIndex: field['agentVisible'] == true,
+          ),
+        )
+        .toList(growable: false);
+    final content = switch (type) {
+      EntryType.key => KeySecretContent(
+        value: raw['value'] as String,
+        notes: raw['notes'] as String?,
+        customFields: custom,
+      ),
+      EntryType.credential => CredentialSecretContent(
+        username: raw['username'] as String,
+        password: raw['password'] as String,
+        url: raw['url'] as String?,
+        urlDomain: _domain(raw['url'] as String? ?? ''),
+        totp: null,
+        notes: raw['notes'] as String?,
+        customFields: custom,
+      ),
+      EntryType.script => ScriptSecretContent(
+        source: raw['script'] as String,
+        interpreter: raw['interpreter'] as String,
+        refs: (raw['refs'] as List)
+            .map((value) => Map<String, Object?>.from(value as Map))
+            .toList(),
+        notes: raw['notes'] as String?,
+        customFields: custom,
+      ),
+    };
+    final fields = <String, AgentFieldAccess>{
+      'memberLabel': AgentFieldAccess.never,
+      'agentLabel': AgentFieldAccess.discovery,
+      'description': AgentFieldAccess.never,
+      'icon': AgentFieldAccess.never,
+      'color': AgentFieldAccess.never,
+      'entryType': AgentFieldAccess.discovery,
+      ...switch (type) {
+        EntryType.key => {
+          'key.value': AgentFieldAccess.onGrantValue,
+          'notes': AgentFieldAccess.onGrantValue,
+        },
+        EntryType.credential => {
+          'credential.username': exposeUsername
+              ? AgentFieldAccess.discovery
+              : AgentFieldAccess.onGrantValue,
+          'credential.password': AgentFieldAccess.onGrantValue,
+          'credential.url': AgentFieldAccess.onGrantValue,
+          'credential.urlDomain': exposeDomain
+              ? AgentFieldAccess.discovery
+              : AgentFieldAccess.never,
+          'credential.totp': AgentFieldAccess.onGrantDerived,
+          'notes': AgentFieldAccess.onGrantValue,
+        },
+        EntryType.script => {
+          'script.source': AgentFieldAccess.onGrantRuntime,
+          'script.interpreter': AgentFieldAccess.discovery,
+          'script.refs': AgentFieldAccess.onGrantRuntime,
+          'notes': AgentFieldAccess.onGrantValue,
+        },
+      },
+      for (final field in custom)
+        field.fieldId: field.kind == 'totp'
+            ? AgentFieldAccess.onGrantDerived
+            : field.includeInMemberIndex
+            ? AgentFieldAccess.discovery
+            : type == EntryType.script
+            ? AgentFieldAccess.onGrantRuntime
+            : AgentFieldAccess.onGrantValue,
+    };
+    return MemberSecret(
+      entryType: VaultEntryType.values[type.index],
+      memberLabel: label,
+      agentLabel: label,
+      description: description.isEmpty ? null : description,
+      icon: icon.isEmpty ? null : GlyphVaultIcon(icon),
+      color: null,
+      discoverable: true,
+      content: content,
+      agentFieldAccess: fields,
+    );
   }
 
   void _validateContent(

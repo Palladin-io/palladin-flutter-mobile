@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
@@ -10,6 +11,7 @@ import '../models/register_request.dart';
 import '../models/totp_enroll_model.dart';
 import '../services/password_auth_crypto_service.dart'
     show ChangePasswordWrongCurrentException;
+import '../../../unlock/data/services/identity_kdf_service.dart';
 
 /// Remote data source for the email + master-password auth endpoints on
 /// the .NET Identity module (`/api/auth/*`, `/api/account/*`).
@@ -26,7 +28,7 @@ class PasswordAuthRemoteDatasource {
   /// Fetches and preserves the complete versioned login bootstrap contract.
   Future<LoginKdfBootstrap> fetchLoginKdf(
     String email, {
-    String profileId = 'identity-argon2id-legacy-v1',
+    required String profileId,
   }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -56,28 +58,21 @@ class PasswordAuthRemoteDatasource {
     }
   }
 
-  /// `POST /api/auth/login/salt` — fetches the account's [authSalt] so the
-  /// client can derive its auth hash. Returns a deterministic pseudo-salt
-  /// for unknown emails (anti-enumeration), never a 404.
-  Future<String> fetchLoginSalt(String email) async {
-    return (await fetchLoginKdf(email)).kdfSalt;
-  }
-
   /// `POST /api/auth/login` — exchanges the auth hash for a session, or a
   /// TOTP challenge. Throws [InvalidCredentialsException] on 401 and
   /// [LoginRateLimitedException] on 429.
   Future<LoginResponse> login({
     required String email,
-    required String authHash,
+    required String authCredential,
   }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/auth/login',
         data: {
           'email': email,
-          'securityVersion': 1,
-          'kdfProfileId': 'identity-argon2id-legacy-v1',
-          'authCredential': _toBase64Url(authHash),
+          'securityVersion': IdentityKdfProfile.securityVersion,
+          'kdfProfileId': IdentityKdfProfile.id,
+          'authCredential': authCredential,
         },
       );
       return LoginResponse.fromJson(_requireBody(response));
@@ -178,21 +173,25 @@ class PasswordAuthRemoteDatasource {
   /// Throws [ChangePasswordWrongCurrentException] if the server rejects the
   /// current auth hash (HTTP 401 / 403).
   Future<void> changePassword({
-    required String currentAuthHash,
-    required String newAuthHash,
-    required String newAuthSaltBase64,
-    required String newSaltBase64,
-    required String newEncryptedPrivateKeyBase64,
+    required int baseCredentialRevision,
+    required int basePrivateKeyWrapRevision,
+    required Uint8List currentAuthCredential,
+    required Uint8List newAuthCredential,
+    required Uint8List newKdfSalt,
+    required Uint8List newEncryptedPrivateKey,
   }) async {
     try {
       await _dio.put<dynamic>(
         '/api/account/password',
         data: {
-          'currentAuthHash': currentAuthHash,
-          'newAuthHash': newAuthHash,
-          'newAuthSalt': newAuthSaltBase64,
-          'newSalt': newSaltBase64,
-          'newEncryptedPrivateKey': newEncryptedPrivateKeyBase64,
+          'securityVersion': IdentityKdfProfile.securityVersion,
+          'kdfProfileId': IdentityKdfProfile.id,
+          'baseCredentialRevision': baseCredentialRevision,
+          'basePrivateKeyWrapRevision': basePrivateKeyWrapRevision,
+          'currentAuthCredential': _encode(currentAuthCredential),
+          'newAuthCredential': _encode(newAuthCredential),
+          'newKdfSalt': _encode(newKdfSalt),
+          'newEncryptedPrivateKey': _encode(newEncryptedPrivateKey),
         },
       );
     } on DioException catch (e) {
@@ -204,6 +203,8 @@ class PasswordAuthRemoteDatasource {
     }
   }
 
+  String _encode(Uint8List value) => base64UrlEncode(value).replaceAll('=', '');
+
   Map<String, dynamic> _requireBody(Response<Map<String, dynamic>> response) {
     final data = response.data;
     if (data == null) {
@@ -212,11 +213,6 @@ class PasswordAuthRemoteDatasource {
       );
     }
     return data;
-  }
-
-  String _toBase64Url(String value) {
-    final bytes = base64.decode(value);
-    return base64Url.encode(bytes).replaceAll('=', '');
   }
 
   /// Inspects a verify-email error body for the backend's token error keys.
@@ -260,7 +256,6 @@ final class LoginKdfBootstrap {
     required this.memoryKiB,
     required this.iterations,
     required this.parallelism,
-    required this.accountSecretRequired,
   });
 
   final String? accountId;
@@ -270,7 +265,6 @@ final class LoginKdfBootstrap {
   final int memoryKiB;
   final int iterations;
   final int parallelism;
-  final bool accountSecretRequired;
 
   factory LoginKdfBootstrap.fromJson(Map<String, dynamic> json) =>
       LoginKdfBootstrap(
@@ -281,6 +275,5 @@ final class LoginKdfBootstrap {
         memoryKiB: json['memoryKiB'] as int,
         iterations: json['iterations'] as int,
         parallelism: json['parallelism'] as int,
-        accountSecretRequired: json['accountSecretRequired'] as bool,
       );
 }

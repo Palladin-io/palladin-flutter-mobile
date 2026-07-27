@@ -189,9 +189,11 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
         };
 
     final String agentPublicKey;
+    final int recipientKeyVersion;
     try {
       final agent = await getIt<AgentsRepository>().getAgent(r.agentId);
       agentPublicKey = agent.publicKey;
+      recipientKeyVersion = agent.recipientKeyVersion;
     } catch (_) {
       if (mounted) _snack(l10n.grantAccessError);
       return;
@@ -202,6 +204,7 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
       vaultId: r.vaultId,
       agentId: r.agentId,
       agentPublicKey: agentPublicKey,
+      recipientKeyVersion: recipientKeyVersion,
       isFull: r.isFull,
       entryId: r.entryId,
       privateKey: key,

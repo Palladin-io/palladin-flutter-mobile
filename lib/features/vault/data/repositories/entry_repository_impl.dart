@@ -59,8 +59,7 @@ class EntryRepositoryImpl implements EntryRepository {
     }
   }
 
-  @override
-  Future<EntryEntity> createEntry({
+  Future<EntryEntity> _createEntry({
     required String vaultId,
     required String label,
     String? description,
@@ -170,7 +169,7 @@ class EntryRepositoryImpl implements EntryRepository {
         payload: payload,
         vaultKey: vaultKey,
       );
-      return await createEntry(
+      return await _createEntry(
         vaultId: vaultId,
         label: label,
         description: description,

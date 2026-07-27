@@ -377,7 +377,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     value: _valueController.text,
     username: _usernameController.text,
     password: _passwordController.text,
-    url: _urlController.text,
+    url: _type == EntryType.key ? '' : _urlController.text,
     notes: _notesController.text,
     fields: _allCustomFields,
     script: _scriptController.text,
@@ -442,7 +442,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   };
 
   Future<void> _submit() async {
-    if (!_validateUrl()) return;
+    if (_type != EntryType.key && !_validateUrl()) return;
     final payload = _buildPayload();
     if (!EntryFormUtils.isPayloadWithinLimit(payload)) {
       _showSnackBar(AppLocalizations.of(context)!.entryTooLarge);
@@ -986,8 +986,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
             onPressed: () => setState(() => _valueObscured = !_valueObscured),
           ),
         ),
-        const SizedBox(height: AppSpacing.fieldGap),
-        _urlField(l10n),
       ],
       EntryType.credential => [
         OnboardingTextField(

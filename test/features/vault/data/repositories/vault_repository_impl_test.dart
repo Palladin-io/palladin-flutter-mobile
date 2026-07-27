@@ -7,12 +7,9 @@ import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/models/create_vault_request.dart';
 import 'package:mobile_palladin/features/vault/data/repositories/vault_repository_impl.dart';
-import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/exceptions/vault_exceptions.dart';
 
 class _MockDatasource extends Mock implements VaultRemoteDatasource {}
-
-class _FakeCreateVaultRequest extends Fake implements CreateVaultRequest {}
 
 class _FakeUpdateVaultRequest extends Fake implements UpdateVaultRequest {}
 
@@ -21,7 +18,6 @@ void main() {
   late VaultRepositoryImpl repository;
 
   setUpAll(() {
-    registerFallbackValue(_FakeCreateVaultRequest());
     registerFallbackValue(_FakeUpdateVaultRequest());
   });
 
@@ -62,18 +58,11 @@ void main() {
     });
 
     test('403 with plan-limit body → planLimitReached', () async {
-      when(() => datasource.createVault(any())).thenThrow(
-        dioError(
-          status: 403,
-          body: const {'errorCode': 'plan_limit_reached'},
-        ),
+      when(() => datasource.updateVault(any(), any())).thenThrow(
+        dioError(status: 403, body: const {'errorCode': 'plan_limit_reached'}),
       );
       try {
-        await repository.createVault(
-          name: 'New',
-          grantMode: GrantMode.granular,
-          wrappedVK: 'wrapped',
-        );
+        await repository.updateVault('v1', name: 'New');
         fail('expected VaultException');
       } on VaultException catch (e) {
         expect(e.kind, VaultErrorKind.planLimitReached);
@@ -81,18 +70,14 @@ void main() {
     });
 
     test('403 with full-mode body → fullModeNotAllowed', () async {
-      when(() => datasource.createVault(any())).thenThrow(
+      when(() => datasource.updateVault(any(), any())).thenThrow(
         dioError(
           status: 403,
           body: const {'errorCode': 'full_mode_not_allowed'},
         ),
       );
       try {
-        await repository.createVault(
-          name: 'New',
-          grantMode: GrantMode.full,
-          wrappedVK: 'wrapped',
-        );
+        await repository.updateVault('v1', name: 'New');
         fail('expected VaultException');
       } on VaultException catch (e) {
         expect(e.kind, VaultErrorKind.fullModeNotAllowed);
@@ -112,9 +97,9 @@ void main() {
     });
 
     test('connection timeout → networkError', () async {
-      when(() => datasource.listVaults()).thenThrow(
-        dioError(type: DioExceptionType.connectionTimeout),
-      );
+      when(
+        () => datasource.listVaults(),
+      ).thenThrow(dioError(type: DioExceptionType.connectionTimeout));
       try {
         await repository.listVaults();
         fail('expected VaultException');

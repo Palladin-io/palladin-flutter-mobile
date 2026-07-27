@@ -21,7 +21,7 @@ class AccountResponse {
     this.encryptedPrivateKeyByRecovery,
   });
 
-  /// Immutable RFC 4122 account identifier used by the v2 KDF framing.
+  /// Immutable RFC 4122 account identifier used by the Identity KDF.
   final String userId;
   final String email;
 

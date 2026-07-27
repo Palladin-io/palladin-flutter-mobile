@@ -27,7 +27,11 @@ final class TotpEnrollReady extends TotpEnrollState {
   /// Set when the last confirmation attempt was rejected.
   final Object? error;
 
-  TotpEnrollReady copyWith({bool? confirming, Object? error, bool clearError = false}) {
+  TotpEnrollReady copyWith({
+    bool? confirming,
+    Object? error,
+    bool clearError = false,
+  }) {
     return TotpEnrollReady(
       secret: secret,
       otpauthUri: otpauthUri,

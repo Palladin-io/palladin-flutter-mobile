@@ -10,9 +10,7 @@ import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
 import 'package:mobile_palladin/features/unlock/data/datasources/account_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_creation_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_crypto_service.dart';
 import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
 
 void main() {
@@ -20,9 +18,11 @@ void main() {
     'creates only encrypted material and retries the identical atomic payload',
     () async {
       final library = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-      final sodium = await sodium_ffi.SodiumSumoInit.init(
-        () => DynamicLibrary.open(library ?? 'libsodium.so'),
-      );
+      final sodium = await _loadSodium(library);
+      if (sodium == null) {
+        markTestSkipped('libsodium is unavailable on this test host');
+        return;
+      }
       const organizationId = '11111111-1111-4111-8111-111111111111';
       const userId = '22222222-2222-4222-8222-222222222222';
       const vaultId = '33333333-3333-4333-8333-333333333333';
@@ -94,21 +94,11 @@ void main() {
             },
           ),
         );
-      final envelopes = VaultProtocolEnvelopeService(
-        sodiumLoader: () async => sodium,
-      );
       final service = VaultCreationService(
         remote: VaultRemoteDatasource(dio),
         accountRemote: AccountRemoteDatasource(dio),
         tokenStorage: SecureTokenStorage(const FlutterSecureStorage()),
-        crypto: VaultRotationCryptoService(
-          sodiumLoader: () async => sodium,
-          envelopes: envelopes,
-          signatures: VaultProtocolSignatureService(
-            sodiumLoader: () async => sodium,
-          ),
-        ),
-        envelopes: envelopes,
+        crypto: VaultCryptoService(sodiumLoader: () async => sodium),
         sodiumLoader: () async => sodium,
       );
       final memberPrivateKey = Uint8List.fromList(
@@ -198,4 +188,14 @@ void main() {
       );
     },
   );
+}
+
+Future<sodium_ffi.SodiumSumo?> _loadSodium(String? library) async {
+  try {
+    return await sodium_ffi.SodiumSumoInit.init(
+      () => DynamicLibrary.open(library ?? 'libsodium.so'),
+    );
+  } on ArgumentError {
+    return null;
+  }
 }

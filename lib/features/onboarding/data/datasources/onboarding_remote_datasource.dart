@@ -16,10 +16,7 @@ class OnboardingRemoteDatasource {
   /// Returns 204 No Content on success, 409 Conflict if the account
   /// has already been set up.
   Future<Response<dynamic>> setupAccount(AccountSetupRequest request) {
-    return _dio.post(
-      '/api/account/setup',
-      data: request.toJson(),
-    );
+    return _dio.post('/api/account/setup', data: request.toJson());
   }
 
   /// Creates the user's default vault.
@@ -27,9 +24,6 @@ class OnboardingRemoteDatasource {
   /// Returns 201 Created on success, 409 Conflict when a default vault
   /// already exists (idempotent — safe to swallow on retry).
   Future<Response<dynamic>> createDefaultVault(DefaultVaultRequest request) {
-    return _dio.post(
-      '/api/account/default-vault',
-      data: request.toJson(),
-    );
+    return _dio.post('/api/account/default-vault', data: request.toJson());
   }
 }

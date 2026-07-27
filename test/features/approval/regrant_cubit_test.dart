@@ -16,6 +16,7 @@ void main() {
     vaultId: 'vault-1',
     agentId: 'agent-1',
     agentPublicKey: 'public-key',
+    recipientKeyVersion: 3,
     isFull: false,
     entryId: 'entry-1',
   );
@@ -41,6 +42,7 @@ void main() {
           vaultId: any(named: 'vaultId'),
           agentId: any(named: 'agentId'),
           agentPublicKey: any(named: 'agentPublicKey'),
+          recipientKeyVersion: any(named: 'recipientKeyVersion'),
           isFull: any(named: 'isFull'),
           entryId: any(named: 'entryId'),
           privateKey: any(named: 'privateKey'),
@@ -60,6 +62,7 @@ void main() {
           vaultId: 'vault-1',
           agentId: 'agent-1',
           agentPublicKey: 'public-key',
+          recipientKeyVersion: 3,
           isFull: false,
           entryId: 'entry-1',
           privateKey: any(named: 'privateKey'),

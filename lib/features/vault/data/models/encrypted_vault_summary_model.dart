@@ -6,6 +6,8 @@ final class EncryptedVaultSummaryModel {
     required this.memberKeyGeneration,
     required this.memberVaultMetadata,
     required this.memberVaultKey,
+    required this.currentKeyEpoch,
+    this.discoveryKey,
     required this.createdAt,
     required this.updatedAt,
     required this.memberCount,
@@ -27,6 +29,12 @@ final class EncryptedVaultSummaryModel {
         json['memberVaultMetadata'] as Map,
       ),
       memberVaultKey: Map<String, dynamic>.from(json['memberVaultKey'] as Map),
+      currentKeyEpoch: Map<String, dynamic>.from(
+        json['currentKeyEpoch'] as Map,
+      ),
+      discoveryKey: json['discoveryKey'] is Map
+          ? Map<String, dynamic>.from(json['discoveryKey'] as Map)
+          : null,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       memberCount: json['memberCount'] as int,
@@ -40,6 +48,8 @@ final class EncryptedVaultSummaryModel {
   final int memberKeyGeneration;
   final Map<String, dynamic> memberVaultMetadata;
   final Map<String, dynamic> memberVaultKey;
+  final Map<String, dynamic> currentKeyEpoch;
+  final Map<String, dynamic>? discoveryKey;
   final DateTime createdAt;
   final DateTime updatedAt;
   final int memberCount;

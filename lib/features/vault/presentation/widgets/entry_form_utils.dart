@@ -44,8 +44,10 @@ class EntryFormUtils {
     } on FormatException {
       // fall through to the scheme-strip fallback below
     }
-    final withoutScheme =
-        trimmed.replaceFirst(RegExp(r'^[a-zA-Z][a-zA-Z0-9+\-.]*://'), '');
+    final withoutScheme = trimmed.replaceFirst(
+      RegExp(r'^[a-zA-Z][a-zA-Z0-9+\-.]*://'),
+      '',
+    );
     final firstSegment = withoutScheme.split('/').first;
     return firstSegment.isEmpty ? null : firstSegment;
   }
@@ -76,26 +78,26 @@ class EntryFormUtils {
     final notesOrNull = notes.trim().isEmpty ? null : notes.trim();
     return switch (type) {
       EntryType.key => KeyPayload(
-          value: value.trim(),
-          url: urlOrNull,
-          notes: notesOrNull,
-          fields: fields,
-        ).toJson(),
+        value: value.trim(),
+        url: null,
+        notes: notesOrNull,
+        fields: fields,
+      ).toJson(),
       EntryType.credential => CredentialPayload(
-          username: username.trim(),
-          password: password.trim(),
-          url: urlOrNull,
-          notes: notesOrNull,
-          totp: credentialTotp,
-          fields: fields,
-        ).toJson(),
+        username: username.trim(),
+        password: password.trim(),
+        url: urlOrNull,
+        notes: notesOrNull,
+        totp: credentialTotp,
+        fields: fields,
+      ).toJson(),
       EntryType.script => ScriptPayload(
-          script: script.trim(),
-          interpreter: interpreter,
-          notes: notesOrNull,
-          refs: refs,
-          fields: fields,
-        ).toJson(),
+        script: script.trim(),
+        interpreter: interpreter,
+        notes: notesOrNull,
+        refs: refs,
+        fields: fields,
+      ).toJson(),
     };
   }
 
