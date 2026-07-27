@@ -40,7 +40,7 @@ import '../../features/agents/domain/repositories/agents_repository.dart';
 import '../../features/agents/presentation/bloc/agents_cubit.dart';
 import '../../features/approval/data/datasources/approval_remote_datasource.dart';
 import '../../features/approval/data/repositories/approval_repository_impl.dart';
-import '../../features/approval/data/services/grant_crypto_service.dart';
+import '../../features/vault/data/services/entry_v2_crypto_service.dart';
 import '../../features/approval/data/services/grant_approval_review_service.dart';
 import '../../features/approval/domain/repositories/approval_repository.dart';
 import '../../features/approval/presentation/cubit/grant_access_cubit.dart';
@@ -320,6 +320,9 @@ void configureDependencies(EnvConfig config) {
 
   // Vault — data layer
   getIt.registerLazySingleton<VaultCryptoService>(() => VaultCryptoService());
+  getIt.registerLazySingleton<EntryV2CryptoService>(
+    () => EntryV2CryptoService(),
+  );
   getIt.registerLazySingleton<VaultRemoteDatasource>(
     () => VaultRemoteDatasource(getIt<Dio>()),
   );
@@ -390,8 +393,8 @@ void configureDependencies(EnvConfig config) {
     () => KeyEntryCreationService(
       entries: getIt<EntryRemoteDatasource>(),
       vaults: getIt<VaultRemoteDatasource>(),
-      keys: getIt<VaultRotationCryptoService>(),
-      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      vaultCrypto: getIt<VaultCryptoService>(),
+      entryCrypto: getIt<EntryV2CryptoService>(),
     ),
   );
   getIt.registerLazySingleton<CanonicalEntryDetailService>(
@@ -434,8 +437,7 @@ void configureDependencies(EnvConfig config) {
       remote: getIt<VaultRemoteDatasource>(),
       accountRemote: getIt<AccountRemoteDatasource>(),
       tokenStorage: getIt<SecureTokenStorage>(),
-      crypto: getIt<VaultRotationCryptoService>(),
-      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      crypto: getIt<VaultCryptoService>(),
     ),
   );
 
@@ -750,9 +752,6 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<ApprovalRemoteDatasource>(
     () => ApprovalRemoteDatasource(getIt<Dio>()),
   );
-  // GrantCryptoService produces the zero-knowledge approval envelope
-  // on-device. Stateless — safe as a lazy singleton.
-  getIt.registerLazySingleton<GrantCryptoService>(() => GrantCryptoService());
   getIt.registerLazySingleton<GrantApprovalReviewService>(
     () => GrantApprovalReviewService(
       vaults: getIt<VaultRemoteDatasource>(),
@@ -769,7 +768,7 @@ void configureDependencies(EnvConfig config) {
       approvalDatasource: getIt<ApprovalRemoteDatasource>(),
       entryDatasource: getIt<EntryRemoteDatasource>(),
       vaultDatasource: getIt<VaultRemoteDatasource>(),
-      cryptoService: getIt<GrantCryptoService>(),
+      cryptoService: getIt<EntryV2CryptoService>(),
       canonicalEntries: getIt<CanonicalEntryDetailService>(),
       discovery: getIt<AgentDiscoveryRemoteDatasource>(),
     ),

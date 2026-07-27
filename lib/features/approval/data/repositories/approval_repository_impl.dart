@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -7,6 +9,8 @@ import '../../../../core/utils/app_logger.dart';
 import '../../../vault/data/datasources/entry_remote_datasource.dart';
 import '../../../vault/data/datasources/vault_remote_datasource.dart';
 import '../../../vault/data/services/canonical_entry_detail_service.dart';
+import '../../../vault/data/services/agent_visibility_projector.dart';
+import '../../../vault/data/services/entry_v2_crypto_service.dart';
 import '../../../vault/data/datasources/agent_discovery_remote_datasource.dart';
 import '../../../vault/domain/entities/agent_visibility_policy.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
@@ -15,7 +19,6 @@ import '../../domain/entities/pending_grant.dart';
 import '../../domain/exceptions/approval_exceptions.dart';
 import '../../domain/repositories/approval_repository.dart';
 import '../datasources/approval_remote_datasource.dart';
-import '../services/grant_crypto_service.dart';
 
 /// Concrete [ApprovalRepository].
 ///
@@ -33,7 +36,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required ApprovalRemoteDatasource approvalDatasource,
     required EntryRemoteDatasource entryDatasource,
     required VaultRemoteDatasource vaultDatasource,
-    required GrantCryptoService cryptoService,
+    required EntryV2CryptoService cryptoService,
     required CanonicalEntryDetailService canonicalEntries,
     required AgentDiscoveryRemote discovery,
   }) : _approval = approvalDatasource,
@@ -46,7 +49,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
   final ApprovalRemoteDatasource _approval;
   final EntryRemoteDatasource _entries;
   final VaultRemoteDatasource _vaults;
-  final GrantCryptoService _crypto;
+  final EntryV2CryptoService _crypto;
   final CanonicalEntryDetailService _canonicalEntries;
   final AgentDiscoveryRemote _discovery;
 
@@ -133,17 +136,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         throw const FormatException('Approval methods exceed request');
       }
       final wire = limit.toWire();
-      final grantEntry = await _crypto.produceProtocolEnvelope(
-        organizationId: snapshot.entry['organizationId'] as String,
-        vaultId: grant.vaultId,
-        grantId: grant.grantId,
-        agentId: grant.agentId,
-        entryId: grant.entryId,
-        entryRevision: reviewedEntryRevision,
-        memberKeyGeneration: vault['memberKeyGeneration'] as int,
-        recipientAgentKeyVersion: candidate.recipientKeyVersion,
-        agentPublicKey: candidate.x25519PublicKey,
-        approvedMethods: approvedMethods,
+      final grantPayload = AgentVisibilityProjector.grantPayload(
         type: type,
         agentLabel:
             snapshot.secret['agentLabel'] as String? ??
@@ -152,7 +145,24 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         content: snapshot.payload,
         policy: policy,
         approvedFieldIds: fieldIds,
-        expiresAt: wire.expiresAt,
+      );
+      final recipientKey = base64.decode(candidate.x25519PublicKey);
+      final grantEntry = await _crypto.sealGrant(
+        organizationId: snapshot.entry['organizationId'] as String,
+        vaultId: grant.vaultId,
+        grantId: grant.grantId,
+        agentId: grant.agentId,
+        entryId: grant.entryId,
+        entryRevision: int.parse(reviewedEntryRevision),
+        memberKeyGeneration: vault['memberKeyGeneration'] as int,
+        recipientKeyVersion: candidate.recipientKeyVersion,
+        agentPublicKey: Uint8List.fromList(recipientKey),
+        approvedMethods: approvedMethods,
+        fieldIds: fieldIds,
+        grantPayload: grantPayload,
+        expiresAt: wire.expiresAt == null
+            ? null
+            : DateTime.parse(wire.expiresAt!),
         remainingUses: wire.queryLimit,
       );
       final latest = await _entries.getCanonicalEntry(
@@ -204,13 +214,10 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required GrantLimit limit,
     required List<GrantMethod> methods,
   }) async {
-    // 1. Resolve which entries to wrap: every vault entry (full) or just one
-    //    (granular). Fetch the sealed VK once.
-    final String wrappedVK;
+    // Resolve every exact canonical Entry head covered by the new grant.
     final List<String> entryIds;
     try {
-      AppLogger.d('Approval', 'Fetching entries + wrappedVK for re-grant');
-      wrappedVK = await _vaults.getVaultWrappedKey(vaultId);
+      AppLogger.d('Approval', 'Fetching canonical entries for re-grant');
       if (isFull) {
         final entries = await _entries.listEntries(vaultId);
         entryIds = entries.map((e) => e.id).toList(growable: false);
@@ -227,18 +234,78 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     }
 
     // 2. Produce one envelope per entry on-device (zero-knowledge).
-    final wrapped = <({String entryId, GrantEnvelope envelope})>[];
+    final wrapped = <({String entryId, Map<String, dynamic> envelope})>[];
+    final grantId = _uuidV4();
+    final wire = limit.toWire();
+    final methodBits = _methodBits(methods);
+    if (methodBits == 0) {
+      throw const ApprovalException(ApprovalErrorKind.validation);
+    }
     try {
       for (final id in entryIds) {
-        final detail = await _entries.getEntry(vaultId, id);
-        final envelope = await _crypto.produceGrantEnvelope(
-          wrappedVK: wrappedVK,
-          privateKey: privateKey,
-          entryBlob: detail.content.encryptedBlob,
-          entryNonce: detail.content.nonce,
-          agentPublicKey: agentPublicKey,
+        final snapshot = await _canonicalEntries.reveal(
+          expected: EntryEntity(
+            id: id,
+            vaultId: vaultId,
+            label: '',
+            type: EntryType.key,
+            createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+            updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+          ),
+          memberPrivateKey: privateKey,
         );
-        wrapped.add((entryId: id, envelope: envelope));
+        try {
+          final type = EntryTypeExtension.fromWire(
+            snapshot.secret['entryType'] as int,
+          );
+          final policy = AgentVisibilityPolicy.fromJson(
+            type,
+            Map<String, dynamic>.from(
+              snapshot.secret['agentVisibilityPolicy'] as Map,
+            ),
+            content: snapshot.payload,
+          );
+          final approved = policy.fields.entries
+              .where((item) => item.value != AgentFieldAccess.never)
+              .map((item) => item.key)
+              .toList(growable: false);
+          final payload = AgentVisibilityProjector.grantPayload(
+            type: type,
+            agentLabel:
+                snapshot.secret['agentLabel'] as String? ??
+                snapshot.secret['memberLabel'] as String,
+            description: snapshot.secret['description'] as String? ?? '',
+            content: snapshot.payload,
+            policy: policy,
+            approvedFieldIds: approved,
+          );
+          final envelope = await _crypto.sealGrant(
+            organizationId: snapshot.entry['organizationId'] as String,
+            vaultId: vaultId,
+            entryId: id,
+            grantId: grantId,
+            agentId: agentId,
+            entryRevision: int.parse(
+              snapshot.entry['currentRevision'] as String,
+            ),
+            memberKeyGeneration: snapshot.entry['memberKeyGeneration'] as int,
+            agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
+            recipientKeyVersion: recipientKeyVersion,
+            approvedMethods: methodBits,
+            fieldIds: approved,
+            grantPayload: payload,
+            expiresAt: wire.expiresAt == null
+                ? null
+                : DateTime.parse(wire.expiresAt!),
+            remainingUses: wire.queryLimit,
+          );
+          wrapped.add((
+            entryId: id,
+            envelope: Map<String, dynamic>.from(envelope),
+          ));
+        } finally {
+          snapshot.clear();
+        }
       }
     } on ApprovalException {
       rethrow;
@@ -261,10 +328,10 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     }
 
     // 3. Submit the new grant.
-    final wire = limit.toWire();
     try {
       await _approval.createGrant(
         vaultId: vaultId,
+        grantId: grantId,
         agentId: agentId,
         type: isFull ? 'full' : 'granular',
         entryId: isFull ? null : entryId,
@@ -282,6 +349,20 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       );
       throw ApprovalException(_classifyError(e));
     }
+  }
+
+  String _uuidV4() {
+    final bytes = Uint8List.fromList(
+      List<int>.generate(16, (_) => Random.secure().nextInt(256)),
+    );
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    final hex = bytes
+        .map((value) => value.toRadixString(16).padLeft(2, '0'))
+        .join();
+    bytes.fillRange(0, bytes.length, 0);
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
   }
 
   @override

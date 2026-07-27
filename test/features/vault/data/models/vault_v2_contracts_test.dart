@@ -18,8 +18,8 @@ void main() {
       fingerprint: 'fingerprint',
     );
 
-    expect(messageKey.toJson()['keyKind'], 1);
-    expect(signingKey.toJson()['keyKind'], 2);
+    expect(messageKey.toJson()['keyKind'], 4);
+    expect(signingKey.toJson()['keyKind'], 3);
   });
 
   test('create request contains only canonical encrypted contract roots', () {

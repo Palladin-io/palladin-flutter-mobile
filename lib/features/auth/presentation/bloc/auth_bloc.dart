@@ -32,6 +32,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository authRepository;
   final VaultSessionStore? _vaultSessionStore;
 
+  void _emitUnauthenticated(Emitter<AuthState> emit) {
+    _vaultSessionStore?.clear();
+    emit(const AuthUnauthenticated());
+  }
+
   Future<void> _onLoginWithGoogle(
     AuthLoginWithGoogle event,
     Emitter<AuthState> emit,
@@ -57,7 +62,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
     } on AuthCancelledException {
       AppLogger.i('AuthBloc', 'Sign-in cancelled, returning unauthenticated');
-      emit(const AuthUnauthenticated());
+      _emitUnauthenticated(emit);
     } catch (e) {
       AppLogger.w('AuthBloc', 'Auth error: ${e.runtimeType}');
       emit(AuthError(e));
@@ -79,7 +84,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final authProvider = await authRepository.getAuthProvider();
       if (userId == null) {
         AppLogger.w('AuthBloc', 'Refresh succeeded without a stored userId');
-        emit(const AuthUnauthenticated());
+        _emitUnauthenticated(emit);
         return;
       }
       AppLogger.i('AuthBloc', 'Refresh successful: userId=$userId');
@@ -95,7 +100,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
     } catch (e) {
       AppLogger.w('AuthBloc', 'Refresh failed: ${e.runtimeType}');
-      emit(const AuthUnauthenticated());
+      _emitUnauthenticated(emit);
     }
   }
 
@@ -119,7 +124,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
     AppLogger.i('AuthBloc', 'Logout complete');
-    emit(const AuthUnauthenticated());
+    _emitUnauthenticated(emit);
   }
 
   Future<void> _onCheck(
@@ -130,7 +135,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final authenticated = await authRepository.isAuthenticated();
     if (!authenticated) {
       AppLogger.i('AuthBloc', 'No stored session, unauthenticated');
-      emit(const AuthUnauthenticated());
+      _emitUnauthenticated(emit);
       return;
     }
 
@@ -155,7 +160,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
     } else {
       AppLogger.w('AuthBloc', 'Token present but no userId, unauthenticated');
-      emit(const AuthUnauthenticated());
+      _emitUnauthenticated(emit);
     }
   }
 
@@ -210,7 +215,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final userId = await authRepository.getUserId();
     if (userId == null) {
       AppLogger.w('AuthBloc', 'OnboardingCompleted — no userId in storage');
-      emit(const AuthUnauthenticated());
+      _emitUnauthenticated(emit);
       return;
     }
     final permissions = await authRepository.getPermissions();
@@ -253,7 +258,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final userId = await authRepository.getUserId();
     if (userId == null) {
       AppLogger.w('AuthBloc', 'PasswordSession — no userId in storage');
-      emit(const AuthUnauthenticated());
+      _emitUnauthenticated(emit);
       return;
     }
     final permissions = await authRepository.getPermissions();

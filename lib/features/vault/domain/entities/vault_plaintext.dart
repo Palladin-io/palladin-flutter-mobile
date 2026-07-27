@@ -595,7 +595,8 @@ abstract final class VaultPlaintextProjector {
         'script.refs': content['refs'],
       },
       'notes': content['notes'],
-      for (final field in custom) field['id'] as String: field['value'],
+      for (final field in custom)
+        'custom:${field['id'] as String}': field['value'],
     };
     final fields =
         fieldIds.map((id) {
@@ -621,7 +622,9 @@ abstract final class VaultPlaintextProjector {
             'script.interpreter' => 'interpreter',
             'script.refs' => 'refs',
             _ when id.startsWith('custom:') =>
-              custom.singleWhere((field) => field['id'] == id)['kind']
+              custom.singleWhere(
+                    (field) => 'custom:${field['id'] as String}' == id,
+                  )['kind']
                   as String,
             _ => throw VaultPlaintextFormatException(
               'Unknown grant field $id.',

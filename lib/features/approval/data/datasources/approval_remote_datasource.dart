@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 
-import '../services/grant_crypto_service.dart';
 import '../models/pending_grant_model.dart';
 
 /// Remote data source for the approval flow.
@@ -53,27 +52,21 @@ class ApprovalRemoteDatasource {
   /// grant id.
   Future<String> createGrant({
     required String vaultId,
+    required String grantId,
     required String agentId,
     required String type,
     String? entryId,
-    required List<({String entryId, GrantEnvelope envelope})> entries,
+    required List<({String entryId, Map<String, dynamic> envelope})> entries,
     String? expiresAt,
     int? queryLimit,
     String? methods,
   }) async {
     final body = <String, dynamic>{
+      'grantId': grantId,
       'agentId': agentId,
       'type': type,
       'entryId': ?entryId,
-      'grantEntries': [
-        for (final e in entries)
-          <String, dynamic>{
-            'entryId': e.entryId,
-            'reEncryptedBlob': e.envelope.reEncryptedBlob,
-            'nonce': e.envelope.nonce,
-            'agentWrappedDek': e.envelope.agentWrappedDek,
-          },
-      ],
+      'grantEntries': [for (final e in entries) e.envelope],
       'expiresAt': ?expiresAt,
       'queryLimit': ?queryLimit,
       'methods': ?methods,

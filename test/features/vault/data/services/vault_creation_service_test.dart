@@ -10,9 +10,7 @@ import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
 import 'package:mobile_palladin/features/unlock/data/datasources/account_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_creation_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_crypto_service.dart';
 import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
 
 void main() {
@@ -96,21 +94,11 @@ void main() {
             },
           ),
         );
-      final envelopes = VaultProtocolEnvelopeService(
-        sodiumLoader: () async => sodium,
-      );
       final service = VaultCreationService(
         remote: VaultRemoteDatasource(dio),
         accountRemote: AccountRemoteDatasource(dio),
         tokenStorage: SecureTokenStorage(const FlutterSecureStorage()),
-        crypto: VaultRotationCryptoService(
-          sodiumLoader: () async => sodium,
-          envelopes: envelopes,
-          signatures: VaultProtocolSignatureService(
-            sodiumLoader: () async => sodium,
-          ),
-        ),
-        envelopes: envelopes,
+        crypto: VaultCryptoService(sodiumLoader: () async => sodium),
         sodiumLoader: () async => sodium,
       );
       final memberPrivateKey = Uint8List.fromList(

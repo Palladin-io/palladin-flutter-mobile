@@ -102,6 +102,7 @@ class RecoveryCryptoService {
 
     final recoveryKey = _deriveKey(sodium, recoveryMnemonic, recoverySalt);
     Uint8List? privateKey;
+    IdentityKdfOutputs? outputs;
     try {
       // Step 1: unwrap the private key with the user-supplied mnemonic.
       privateKey = _openPrivateKey(
@@ -112,7 +113,7 @@ class RecoveryCryptoService {
 
       // Step 2: re-wrap under a fresh MK derived from the new password.
       final newSalt = sodium.randombytes.buf(IdentityKdfProfile.saltBytes);
-      final outputs = await _identityKdfService.derive(
+      outputs = await _identityKdfService.derive(
         password: newPassword,
         accountId: accountId,
         kdfSalt: newSalt,
@@ -127,7 +128,6 @@ class RecoveryCryptoService {
         );
       } finally {
         newMasterKey.dispose();
-        outputs.masterKey.fillRange(0, outputs.masterKey.length, 0);
       }
 
       // Step 3: generate a new mnemonic and re-wrap under a fresh RK.
@@ -152,7 +152,6 @@ class RecoveryCryptoService {
       final newAuthCredential = baseCredentialRevision > 0
           ? Uint8List.fromList(outputs.authCredential)
           : null;
-      outputs.authCredential.fillRange(0, outputs.authCredential.length, 0);
       return RecoveryResult(
         request: RecoverAccountRequest(
           baseCredentialRevision: baseCredentialRevision,
@@ -171,6 +170,7 @@ class RecoveryCryptoService {
       if (privateKey != null) {
         privateKey.fillRange(0, privateKey.length, 0);
       }
+      outputs?.dispose();
       recoveryKey.dispose();
     }
   }
