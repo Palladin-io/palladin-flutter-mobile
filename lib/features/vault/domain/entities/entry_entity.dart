@@ -34,10 +34,7 @@ extension EntryTypeExtension on EntryType {
     0 => EntryType.key,
     1 => EntryType.credential,
     2 => EntryType.script,
-    // Default to credential for unknown wire values — surfaces the
-    // safer two-field reveal panel rather than the single-secret
-    // panel, matching the backend default.
-    _ => EntryType.credential,
+    _ => throw FormatException('Unsupported Entry type ordinal: $value'),
   };
 }
 
@@ -218,13 +215,13 @@ enum ScriptInterpreter {
 
   String get wireName => name;
 
-  /// Parses an interpreter token. Falls back to [ScriptInterpreter.bash]
-  /// for missing or unknown input.
+  /// Parses an exact canonical interpreter token and fails closed otherwise.
   static ScriptInterpreter fromName(String? raw) => switch (raw) {
+    'bash' => ScriptInterpreter.bash,
     'sh' => ScriptInterpreter.sh,
     'node' => ScriptInterpreter.node,
     'python' => ScriptInterpreter.python,
-    _ => ScriptInterpreter.bash,
+    _ => throw FormatException('Unsupported Script interpreter: $raw'),
   };
 }
 

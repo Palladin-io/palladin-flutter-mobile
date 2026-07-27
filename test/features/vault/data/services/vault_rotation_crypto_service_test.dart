@@ -14,9 +14,11 @@ import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
 void main() {
   test('opens the canonical pending Member Vault key package', () async {
     final library = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    final sodium = await sodium_ffi.SodiumSumoInit.init(
-      () => DynamicLibrary.open(library ?? 'libsodium.so'),
-    );
+    final sodium = await _loadSodium(library);
+    if (sodium == null) {
+      markTestSkipped('libsodium is unavailable on this test host');
+      return;
+    }
     final root =
         jsonDecode(
               File(
@@ -49,9 +51,11 @@ void main() {
 
   test('rewraps a canonical Entry DEK into the target generation', () async {
     final library = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
-    final sodium = await sodium_ffi.SodiumSumoInit.init(
-      () => DynamicLibrary.open(library ?? 'libsodium.so'),
-    );
+    final sodium = await _loadSodium(library);
+    if (sodium == null) {
+      markTestSkipped('libsodium is unavailable on this test host');
+      return;
+    }
     final envelopeService = VaultProtocolEnvelopeService(
       sodiumLoader: () async => sodium,
     );
@@ -96,4 +100,14 @@ void main() {
     opened.fillRange(0, opened.length, 0);
     targetKey.fillRange(0, targetKey.length, 0);
   });
+}
+
+Future<sodium_ffi.SodiumSumo?> _loadSodium(String? library) async {
+  try {
+    return await sodium_ffi.SodiumSumoInit.init(
+      () => DynamicLibrary.open(library ?? 'libsodium.so'),
+    );
+  } on ArgumentError {
+    return null;
+  }
 }

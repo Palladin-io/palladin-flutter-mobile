@@ -93,7 +93,7 @@ void main() {
       expect(EntryTypeExtension.fromWire(1), EntryType.credential);
     });
 
-    test('fromWire falls back to credential on unknown ordinal', () {
+    test('fromWire fails closed on an unknown ordinal', () {
       // Unknown wire values default to credential — surfaces the safer
       // two-field reveal panel rather than the single-secret panel.
       expect(() => EntryTypeExtension.fromWire(99), throwsFormatException);

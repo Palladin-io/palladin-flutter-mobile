@@ -14,7 +14,7 @@ void main() {
       expect(EntryTypeExtension.fromWire(2), EntryType.script);
     });
 
-    test('unknown ordinals still default to credential', () {
+    test('unknown ordinals fail closed', () {
       expect(() => EntryTypeExtension.fromWire(99), throwsFormatException);
     });
 
@@ -265,7 +265,7 @@ void main() {
       );
     });
 
-    test('interpreter falls back to bash for unknown tokens', () {
+    test('unknown or missing interpreter fails closed', () {
       expect(() => ScriptInterpreter.fromName('zsh'), throwsFormatException);
       expect(() => ScriptInterpreter.fromName(null), throwsFormatException);
     });
