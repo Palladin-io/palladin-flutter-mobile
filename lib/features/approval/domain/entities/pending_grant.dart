@@ -15,6 +15,8 @@ class PendingGrant {
     required this.agentId,
     required this.entryId,
     required this.agentPublicKey,
+    this.recipientAgentKeyVersion = 1,
+    this.fieldIds = const [],
     required this.createdAt,
     this.vaultName,
     this.agentName,
@@ -35,6 +37,12 @@ class PendingGrant {
   /// Base64 X25519 public key of the requesting agent. Used to seal the
   /// per-grant DEK on approval.
   final String agentPublicKey;
+
+  /// Version of the Agent X25519 recipient key authenticated by Grant AAD.
+  final int recipientAgentKeyVersion;
+
+  /// Exact requested field scope authenticated by the canonical Grant AAD.
+  final List<String> fieldIds;
 
   final String? vaultName;
   final String? agentName;

@@ -46,7 +46,7 @@ class GrantApprovalState {
 /// passed in at call time — the cubit never stores it.
 class GrantApprovalCubit extends Cubit<GrantApprovalState> {
   GrantApprovalCubit({required this.repository, required this.grant})
-      : super(const GrantApprovalState());
+    : super(const GrantApprovalState());
 
   final ApprovalRepository repository;
   final PendingGrant grant;
@@ -63,8 +63,9 @@ class GrantApprovalCubit extends Cubit<GrantApprovalState> {
     required GrantLimit limit,
     required List<GrantMethod> methods,
   }) async {
-    emit(state.copyWith(
-        status: GrantApprovalStatus.submitting, clearError: true));
+    emit(
+      state.copyWith(status: GrantApprovalStatus.submitting, clearError: true),
+    );
     try {
       await repository.approveGrant(
         grant: grant,
@@ -78,28 +79,37 @@ class GrantApprovalCubit extends Cubit<GrantApprovalState> {
       AppLogger.w('Approval', 'approve failed: ${e.kind.name}');
       emit(state.copyWith(status: GrantApprovalStatus.error, error: e.kind));
     } catch (e, s) {
-      AppLogger.e('Approval', 'approve failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        status: GrantApprovalStatus.error,
-        error: ApprovalErrorKind.unknown,
-      ));
+      AppLogger.e(
+        'Approval',
+        'approve failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          status: GrantApprovalStatus.error,
+          error: ApprovalErrorKind.unknown,
+        ),
+      );
     }
   }
 
   /// Reports that the vault is locked so the envelope cannot be produced —
   /// surfaces a typed error without attempting the call.
   void reportVaultLocked() {
-    emit(state.copyWith(
-      status: GrantApprovalStatus.error,
-      error: ApprovalErrorKind.vaultLocked,
-    ));
+    emit(
+      state.copyWith(
+        status: GrantApprovalStatus.error,
+        error: ApprovalErrorKind.vaultLocked,
+      ),
+    );
   }
 
   /// Denies the grant with an optional [reason].
   Future<void> deny({String? reason}) async {
-    emit(state.copyWith(
-        status: GrantApprovalStatus.submitting, clearError: true));
+    emit(
+      state.copyWith(status: GrantApprovalStatus.submitting, clearError: true),
+    );
     try {
       await repository.denyGrant(grant: grant, reason: reason);
       AppLogger.i('Approval', 'Grant denied: ${grant.grantId}');
@@ -108,12 +118,18 @@ class GrantApprovalCubit extends Cubit<GrantApprovalState> {
       AppLogger.w('Approval', 'deny failed: ${e.kind.name}');
       emit(state.copyWith(status: GrantApprovalStatus.error, error: e.kind));
     } catch (e, s) {
-      AppLogger.e('Approval', 'deny failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        status: GrantApprovalStatus.error,
-        error: ApprovalErrorKind.unknown,
-      ));
+      AppLogger.e(
+        'Approval',
+        'deny failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          status: GrantApprovalStatus.error,
+          error: ApprovalErrorKind.unknown,
+        ),
+      );
     }
   }
 

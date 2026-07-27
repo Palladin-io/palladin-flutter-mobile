@@ -23,10 +23,8 @@ export 'create_vault_state.dart';
 ///   2. POST `/api/vaults` with the sealed VK and metadata.
 ///   3. Emit [CreateVaultSuccess] with the created entity.
 class CreateVaultCubit extends Cubit<CreateVaultState> {
-  CreateVaultCubit({
-    required this.repository,
-    required this.cryptoService,
-  }) : super(const CreateVaultInitial());
+  CreateVaultCubit({required this.repository, required this.cryptoService})
+    : super(const CreateVaultInitial());
 
   final VaultRepository repository;
   final VaultCryptoService cryptoService;
@@ -53,14 +51,13 @@ class CreateVaultCubit extends Cubit<CreateVaultState> {
     AppLogger.d('Vault', 'Creating vault "$name"');
     emit(const CreateVaultLoading());
     try {
-      final wrappedVK = await cryptoService.generateWrappedVK(privateKey);
       final vault = await repository.createVault(
         name: name.trim(),
         description: _trimToNull(description),
         icon: _trimToNull(icon),
         color: _trimToNull(color),
         grantMode: grantMode,
-        wrappedVK: wrappedVK,
+        privateKey: privateKey,
       );
       AppLogger.i('Vault', 'Vault created: id=${vault.id}');
       emit(CreateVaultSuccess(vault));
@@ -68,8 +65,12 @@ class CreateVaultCubit extends Cubit<CreateVaultState> {
       AppLogger.w('Vault', 'Vault creation failed: ${e.kind.name}');
       emit(CreateVaultError(e.kind));
     } catch (e, s) {
-      AppLogger.e('Vault', 'Vault creation failed unexpectedly',
-          error: e, stackTrace: s);
+      AppLogger.e(
+        'Vault',
+        'Vault creation failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
       emit(const CreateVaultError(VaultErrorKind.unknown));
     }
   }

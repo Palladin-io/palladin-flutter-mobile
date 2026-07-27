@@ -13,6 +13,8 @@ class PendingGrantModel {
     required this.agentId,
     required this.entryId,
     required this.agentPublicKey,
+    this.recipientAgentKeyVersion = 1,
+    this.fieldIds = const [],
     required this.createdAt,
     this.vaultName,
     this.agentName,
@@ -27,6 +29,8 @@ class PendingGrantModel {
   final String agentId;
   final String entryId;
   final String agentPublicKey;
+  final int recipientAgentKeyVersion;
+  final List<String> fieldIds;
   final String createdAt;
   final String? vaultName;
   final String? agentName;
@@ -48,6 +52,17 @@ class PendingGrantModel {
       agentId: json['agentId'] as String,
       entryId: json['entryId'] as String,
       agentPublicKey: json['agentPublicKey'] as String,
+      recipientAgentKeyVersion: json['recipientAgentKeyVersion'] as int,
+      fieldIds:
+          ((json['entryScopes'] as List<dynamic>? ?? const [])
+              .whereType<Map>()
+              .expand(
+                (scope) => scope['fieldIds'] as List<dynamic>? ?? const [],
+              )
+              .whereType<String>()
+              .toSet()
+              .toList()
+            ..sort()),
       createdAt: json['createdAt'] as String,
       vaultName: json['vaultName'] as String?,
       agentName: json['agentName'] as String?,
@@ -65,6 +80,8 @@ class PendingGrantModel {
       agentId: agentId,
       entryId: entryId,
       agentPublicKey: agentPublicKey,
+      recipientAgentKeyVersion: recipientAgentKeyVersion,
+      fieldIds: fieldIds,
       vaultName: vaultName,
       agentName: agentName,
       entryLabel: entryLabel,

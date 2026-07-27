@@ -54,9 +54,9 @@ class _DenySheetBodyState extends State<_DenySheetBody> {
 
   void _onDeny() {
     final reason = _reasonController.text.trim();
-    context
-        .read<GrantApprovalCubit>()
-        .deny(reason: reason.isEmpty ? null : reason);
+    context.read<GrantApprovalCubit>().deny(
+      reason: reason.isEmpty ? null : reason,
+    );
   }
 
   @override
@@ -75,9 +75,9 @@ class _DenySheetBodyState extends State<_DenySheetBody> {
         } else if (state.status == GrantApprovalStatus.error) {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(
-              content: Text(approvalErrorMessage(l10n, state.error!)),
-            ));
+            ..showSnackBar(
+              SnackBar(content: Text(approvalErrorMessage(l10n, state.error!))),
+            );
           context.read<GrantApprovalCubit>().acknowledgeError();
         }
       },
@@ -115,7 +115,8 @@ class _DenySheetBodyState extends State<_DenySheetBody> {
                     const SizedBox(height: AppSpacing.headerGap),
                     Text(
                       l10n.approvalDenyTitle(
-                          pendingAgentDisplayName(l10n, widget.grant)),
+                        pendingAgentDisplayName(l10n, widget.grant),
+                      ),
                       style: TextStyle(
                         color: AppColors.onSurface(brightness),
                         fontSize: 16,
@@ -144,8 +145,9 @@ class _DenySheetBodyState extends State<_DenySheetBody> {
               SheetActionButtons(
                 onCancel: () => Navigator.of(context).pop(),
                 onConfirm: _onDeny,
-                confirmLabel:
-                    state.isSubmitting ? l10n.approvalDenying : l10n.approvalDeny,
+                confirmLabel: state.isSubmitting
+                    ? l10n.approvalDenying
+                    : l10n.approvalDeny,
                 confirmColor: AppColors.brandRed,
                 busy: state.isSubmitting,
               ),

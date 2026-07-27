@@ -52,7 +52,9 @@ class _ApproveSheetBody extends StatefulWidget {
 }
 
 class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
-  GrantLimit _limit = GrantExpiry(DateTime.now().add(const Duration(hours: 24)));
+  GrantLimit _limit = GrantExpiry(
+    DateTime.now().add(const Duration(hours: 24)),
+  );
 
   // Pre-select what the agent requested; fall back to the privacy-preserving
   // default when the request predates the methods feature.
@@ -62,7 +64,9 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
 
   Uint8List? _privateKey() {
     final auth = context.read<AuthBloc>().state;
-    if (auth is AuthAuthenticated && !auth.isVaultLocked) return auth.privateKey;
+    if (auth is AuthAuthenticated && !auth.isVaultLocked) {
+      return auth.privateKey;
+    }
     return null;
   }
 
@@ -75,14 +79,20 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
     if (_methods.isEmpty) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(AppLocalizations.of(context)!.approvalMethodNoneSelected),
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)!.approvalMethodNoneSelected,
+            ),
+          ),
+        );
       return;
     }
-    context
-        .read<GrantApprovalCubit>()
-        .approve(privateKey: key, limit: _limit, methods: _methods);
+    context.read<GrantApprovalCubit>().approve(
+      privateKey: key,
+      limit: _limit,
+      methods: _methods,
+    );
   }
 
   @override
@@ -102,9 +112,9 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
         } else if (state.status == GrantApprovalStatus.error) {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(
-              content: Text(approvalErrorMessage(l10n, state.error!)),
-            ));
+            ..showSnackBar(
+              SnackBar(content: Text(approvalErrorMessage(l10n, state.error!))),
+            );
           context.read<GrantApprovalCubit>().acknowledgeError();
         }
       },

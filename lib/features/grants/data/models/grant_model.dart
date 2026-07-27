@@ -16,6 +16,8 @@ class GrantModel {
     this.agentName,
     this.agentIconKey,
     this.agentPublicKey,
+    this.recipientAgentKeyVersion = 1,
+    this.fieldIds = const [],
     this.vaultName,
     this.entryId,
     this.entryLabel,
@@ -42,6 +44,8 @@ class GrantModel {
   final String? agentName;
   final String? agentIconKey;
   final String? agentPublicKey;
+  final int recipientAgentKeyVersion;
+  final List<String> fieldIds;
   final String? vaultName;
   final Object? status;
   final Object? scope;
@@ -75,6 +79,18 @@ class GrantModel {
       agentName: json['agentName'] as String?,
       agentIconKey: json['agentIconKey'] as String?,
       agentPublicKey: json['agentPublicKey'] as String?,
+      recipientAgentKeyVersion:
+          (json['recipientAgentKeyVersion'] as num?)?.toInt() ?? 1,
+      fieldIds:
+          ((json['entryScopes'] as List<dynamic>? ?? const [])
+              .whereType<Map>()
+              .expand(
+                (scope) => scope['fieldIds'] as List<dynamic>? ?? const [],
+              )
+              .whereType<String>()
+              .toSet()
+              .toList()
+            ..sort()),
       vaultName: json['vaultName'] as String?,
       status: json['status'],
       // Org listing returns `type` (full/granular); the per-vault list uses
@@ -112,6 +128,8 @@ class GrantModel {
       agentName: agentName,
       agentIconKey: agentIconKey,
       agentPublicKey: agentPublicKey,
+      recipientAgentKeyVersion: recipientAgentKeyVersion,
+      fieldIds: fieldIds,
       vaultName: vaultName,
       status: GrantStatus.fromWire(status),
       scope: GrantScope.fromWire(scope),

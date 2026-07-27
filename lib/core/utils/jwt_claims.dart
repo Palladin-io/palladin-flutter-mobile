@@ -39,6 +39,12 @@ abstract final class JwtClaims {
     return 0;
   }
 
+  /// Reads the active tenant scope emitted as `organization_id`.
+  static String? organizationIdFrom(String token) {
+    final raw = decodePayload(token)['organization_id'];
+    return raw is String && raw.isNotEmpty ? raw : null;
+  }
+
   /// Reads the `email` claim emitted by the backend `TokenService`
   /// (see `JwtClaimNames.Email = "email"`). Returns `null` when the
   /// claim is missing or empty.

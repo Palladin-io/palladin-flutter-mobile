@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
 
 import '../models/create_entry_request.dart';
+import '../models/creation_challenge_model.dart';
 import '../models/entry_model.dart';
+import '../models/entry_v2_contracts.dart';
 import '../models/import_entries_request.dart';
 import '../models/update_entry_request.dart';
 import 'vault_remote_datasource.dart' show PresignResponse;
@@ -17,6 +19,141 @@ class EntryRemoteDatasource {
   EntryRemoteDatasource(this._dio);
 
   final Dio _dio;
+
+  /// Returns opaque protocol-v2 list rows; projection decryption belongs to
+  /// the repository and never to transport code.
+  Future<List<Map<String, dynamic>>> listEntriesV2(String vaultId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries',
+    );
+    final data = response.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Empty response body',
+      );
+    }
+    return (data['items'] as List<dynamic>? ?? const [])
+        .map((item) => Map<String, dynamic>.from(item as Map))
+        .toList(growable: false);
+  }
+
+  /// Returns the opaque protocol-v2 detail bundle.
+  Future<Map<String, dynamic>> getEntryV2(
+    String vaultId,
+    String entryId,
+  ) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries/$entryId',
+    );
+    final data = response.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Empty response body',
+      );
+    }
+    return data;
+  }
+
+  /// Exhausts the active-grant cursor for atomic Entry refresh operations.
+  Future<List<Map<String, dynamic>>> listActiveGrants(String vaultId) async {
+    final grants = <Map<String, dynamic>>[];
+    String? cursor;
+    do {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/vaults/$vaultId/grants',
+        queryParameters: {
+          'status': 'active',
+          'pageSize': 100,
+          'cursor': ?cursor,
+        },
+      );
+      final data = response.data;
+      if (data == null) {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+          error: 'Empty response body',
+        );
+      }
+      grants.addAll(
+        (data['items'] as List<dynamic>? ?? const []).map(
+          (item) => Map<String, dynamic>.from(item as Map),
+        ),
+      );
+      cursor = data['nextCursor'] as String?;
+    } while (cursor != null && cursor.isNotEmpty);
+    return grants;
+  }
+
+  /// Persists one complete protocol-v2 Entry transition atomically.
+  Future<Map<String, dynamic>> createEntryV2(
+    String vaultId,
+    CreateEntryV2Request request,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries',
+      data: request.toJson(),
+    );
+    final data = response.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Empty response body',
+      );
+    }
+    return data;
+  }
+
+  /// Commits a complete optimistic protocol-v2 Entry revision.
+  Future<Map<String, dynamic>> updateEntryV2(
+    String vaultId,
+    String entryId,
+    UpdateEntryV2Request request,
+  ) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries/$entryId',
+      data: request.toJson(),
+    );
+    return response.data ?? const <String, dynamic>{};
+  }
+
+  /// Reserves opaque Entry IDs before their scoped envelope descriptors are
+  /// constructed. No plaintext Entry data is sent in this request.
+  Future<List<EntryCreationChallengeModel>> issueCreationChallenges(
+    String vaultId, {
+    int count = 1,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries/creation-challenges',
+      data: {'vaultId': vaultId, 'count': count},
+    );
+    final data = response.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Empty response body',
+      );
+    }
+    final items = data['items'] as List<dynamic>? ?? const [];
+    return items
+        .map(
+          (item) => EntryCreationChallengeModel.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .toList(growable: false);
+  }
 
   /// `GET /api/vaults/{vaultId}/entries` → list of entry summaries
   /// (no encrypted payload).
@@ -37,10 +174,12 @@ class EntryRemoteDatasource {
     // The list item shape (EntryListItem) omits vaultId — inject from URL.
     final raw = (data['items'] as List<dynamic>? ?? const <dynamic>[]);
     return raw
-        .map((e) => EntryModel.fromJson(
-              e as Map<String, dynamic>,
-              contextVaultId: vaultId,
-            ))
+        .map(
+          (e) => EntryModel.fromJson(
+            e as Map<String, dynamic>,
+            contextVaultId: vaultId,
+          ),
+        )
         .toList(growable: false);
   }
 
@@ -126,6 +265,19 @@ class EntryRemoteDatasource {
       );
     }
     return (data['importedCount'] as int?) ?? request.entries.length;
+  }
+
+  /// Bulk-creates canonical protocol-v2 Entry bundles.
+  Future<int> importEntriesV2(
+    String vaultId, {
+    required String format,
+    required List<Map<String, Object?>> entries,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries/import',
+      data: {'format': format, 'entries': entries},
+    );
+    return (response.data?['importedCount'] as int?) ?? entries.length;
   }
 
   /// `POST /api/vaults/{vaultId}/export-audit` → records that a plaintext

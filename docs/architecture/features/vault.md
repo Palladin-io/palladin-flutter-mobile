@@ -11,8 +11,8 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 
 - **Import engine** — `data/import/` is pure, testable Dart: `import_engine.dart` (structure-based format detection: ZIP → JSON → XML → CSV, never by extension), `import_csv.dart` (declarative `CsvProfile`s — add a format by appending a profile), `import_json.dart` (Bitwarden / Keeper / Proton / 1Password / Enpass / Palladin), `import_xml.dart` (KeePass), `import_normalizer.dart` (TOTP→`otpauth://`, URL→host, name-from-host, trim), `import_models.dart`. Unrecognised CSVs fall back to a manual column mapper.
 - **Export** — `data/export/`: `export_serializers.dart` (`toPalladinCsv` RFC 4180 / `toPalladinJson` v1, both pure), `export_sharer.dart` (`ExportSharer` interface; the concrete impl shares via `XFile.fromData` — no self-managed plaintext temp file, matching the recovery-key precedent).
-- **Repository** — `EntryRepositoryImpl.importEntriesEncrypted` unwraps the VK **once**, encrypts every draft, POSTs bulk creates in chunks of 500 + PUTs overwrites, streams progress, zeroes the VK in `finally`. `revealAllEntries` unwraps once for export. `logExportAudit` is best-effort.
-- **Backend contract (implemented in parallel — CVT-35/233):** `POST /api/vaults/{id}/entries/import` `{format, entries:[…, grantEntries:[]]}` → `{importedCount, entryIds}`; `POST /api/vaults/{id}/export-audit` `{format, entryCount}`. Mobile sends an empty `grantEntries` list (the create flow does not carry FULL-grant wrap material — the backend re-wraps).
+- **Repository** — `EntryRepositoryImpl.importEntriesEncrypted` copies the in-memory VK once, encrypts every draft, POSTs bulk creates in chunks of 500 + PUTs overwrites, streams progress, and zeroes key copies in `finally`. Before create/update it exhausts the active-grant cursor and refreshes every covering canonical Grant envelope atomically; an empty refresh list is valid only when no active grant covers the Entry. `revealAllEntries` reuses the canonical reveal path. `logExportAudit` is best-effort.
+- **Backend contract (CVT-35/233):** `POST /api/vaults/{id}/entries/import` accepts complete canonical Entry bundles plus `grantEnvelopes` for every active FULL grant and returns `{importedCount, entryIds}`; `POST /api/vaults/{id}/export-audit` accepts `{format, entryCount}`.
 - **Security:** all parsing on-device; secrets (`password`, `totp`) never logged; the column mapper never samples cell values (would leak a password); the export sheet gates behind a `WarningZone` plaintext warning.
 
 ### Entry richness — blob schema v2 + TOTP + Script (CVT-174/175/176/245/246)
@@ -46,6 +46,22 @@ unchanged** on save so an older client never drops a newer client's fields.
 - **Crypto is unchanged** — `fields` / `script` / `refs` live inside the same
   opaque `crypto_secretbox` blob, so the existing encrypt / edit / re-wrap path
   covers them with no new endpoints.
+
+### Canonical Vault protocol-v2 crypto cutover
+
+The shared client envelope primitives live under `lib/core/crypto/envelope/`.
+They implement the accepted pre-production protocol-v2 contract: a stable,
+purpose-validated `EnvelopeDescriptor`, canonical binary AAD and HKDF context,
+the compiled `palladin-vault-xchacha-v1` allowlist, and a bounded opaque suite
+payload (`nonce[24] || ciphertext+tag`, base64url without padding). X25519
+recipient wrappers and Ed25519 signing keys are separate types and cannot be
+substituted for one another.
+
+The layer is intentionally not adapted to the legacy Entry API shape
+(`encryptedBlob` + `nonce`). There is no dual-read or fallback. Feature
+repositories switch to this layer only when the backend exposes the matching
+protocol-v2 descriptor and opaque-payload contracts; the cutover then removes
+the legacy XSalsa path atomically.
 
 ### Add/Edit redesign + agent-visible fields (CVT-204, mockup parity)
 

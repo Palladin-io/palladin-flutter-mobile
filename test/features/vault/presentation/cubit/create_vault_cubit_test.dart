@@ -41,10 +41,8 @@ void main() {
     crypto = _MockCryptoService();
   });
 
-  CreateVaultCubit buildCubit() => CreateVaultCubit(
-        repository: repository,
-        cryptoService: crypto,
-      );
+  CreateVaultCubit buildCubit() =>
+      CreateVaultCubit(repository: repository, cryptoService: crypto);
 
   group('CreateVaultCubit', () {
     test('initial state is CreateVaultInitial', () {
@@ -70,11 +68,13 @@ void main() {
       ],
       verify: (_) {
         verifyNever(() => crypto.generateWrappedVK(any()));
-        verifyNever(() => repository.createVault(
-              name: any(named: 'name'),
-              grantMode: any(named: 'grantMode'),
-              wrappedVK: any(named: 'wrappedVK'),
-            ));
+        verifyNever(
+          () => repository.createVault(
+            name: any(named: 'name'),
+            grantMode: any(named: 'grantMode'),
+            privateKey: any(named: 'privateKey'),
+          ),
+        );
       },
     );
 
@@ -98,16 +98,19 @@ void main() {
     blocTest<CreateVaultCubit, CreateVaultState>(
       'createVault emits Loading then Success on happy path',
       build: () {
-        when(() => crypto.generateWrappedVK(any()))
-            .thenAnswer((_) async => 'wrapped-base64');
-        when(() => repository.createVault(
-              name: any(named: 'name'),
-              description: any(named: 'description'),
-              icon: any(named: 'icon'),
-              color: any(named: 'color'),
-              grantMode: any(named: 'grantMode'),
-              wrappedVK: any(named: 'wrappedVK'),
-            )).thenAnswer((_) async => fakeVault);
+        when(
+          () => crypto.generateWrappedVK(any()),
+        ).thenAnswer((_) async => 'wrapped-base64');
+        when(
+          () => repository.createVault(
+            name: any(named: 'name'),
+            description: any(named: 'description'),
+            icon: any(named: 'icon'),
+            color: any(named: 'color'),
+            grantMode: any(named: 'grantMode'),
+            privateKey: any(named: 'privateKey'),
+          ),
+        ).thenAnswer((_) async => fakeVault);
         return buildCubit();
       },
       act: (cubit) => cubit.createVault(
@@ -127,33 +130,35 @@ void main() {
         ),
       ],
       verify: (_) {
-        verify(() => crypto.generateWrappedVK(any())).called(1);
-        verify(() => repository.createVault(
-              name: 'Personal',
-              description: 'desc',
-              icon: '🔒',
-              color: '#48ECDF',
-              grantMode: GrantMode.granular,
-              wrappedVK: 'wrapped-base64',
-            )).called(1);
+        verify(
+          () => repository.createVault(
+            name: 'Personal',
+            description: 'desc',
+            icon: '🔒',
+            color: '#48ECDF',
+            grantMode: GrantMode.granular,
+            privateKey: privateKey,
+          ),
+        ).called(1);
       },
     );
 
     blocTest<CreateVaultCubit, CreateVaultState>(
       'createVault propagates VaultException kind into Error state',
       build: () {
-        when(() => crypto.generateWrappedVK(any()))
-            .thenAnswer((_) async => 'wrapped');
-        when(() => repository.createVault(
-              name: any(named: 'name'),
-              description: any(named: 'description'),
-              icon: any(named: 'icon'),
-              color: any(named: 'color'),
-              grantMode: any(named: 'grantMode'),
-              wrappedVK: any(named: 'wrappedVK'),
-            )).thenThrow(
-          const VaultException(VaultErrorKind.planLimitReached),
-        );
+        when(
+          () => crypto.generateWrappedVK(any()),
+        ).thenAnswer((_) async => 'wrapped');
+        when(
+          () => repository.createVault(
+            name: any(named: 'name'),
+            description: any(named: 'description'),
+            icon: any(named: 'icon'),
+            color: any(named: 'color'),
+            grantMode: any(named: 'grantMode'),
+            privateKey: any(named: 'privateKey'),
+          ),
+        ).thenThrow(const VaultException(VaultErrorKind.planLimitReached));
         return buildCubit();
       },
       act: (cubit) => cubit.createVault(
@@ -174,16 +179,19 @@ void main() {
     blocTest<CreateVaultCubit, CreateVaultState>(
       'reset returns to Initial only when state is non-initial',
       build: () {
-        when(() => crypto.generateWrappedVK(any()))
-            .thenAnswer((_) async => 'wrapped');
-        when(() => repository.createVault(
-              name: any(named: 'name'),
-              description: any(named: 'description'),
-              icon: any(named: 'icon'),
-              color: any(named: 'color'),
-              grantMode: any(named: 'grantMode'),
-              wrappedVK: any(named: 'wrappedVK'),
-            )).thenAnswer((_) async => fakeVault);
+        when(
+          () => crypto.generateWrappedVK(any()),
+        ).thenAnswer((_) async => 'wrapped');
+        when(
+          () => repository.createVault(
+            name: any(named: 'name'),
+            description: any(named: 'description'),
+            icon: any(named: 'icon'),
+            color: any(named: 'color'),
+            grantMode: any(named: 'grantMode'),
+            privateKey: any(named: 'privateKey'),
+          ),
+        ).thenAnswer((_) async => fakeVault);
         return buildCubit();
       },
       act: (cubit) async {

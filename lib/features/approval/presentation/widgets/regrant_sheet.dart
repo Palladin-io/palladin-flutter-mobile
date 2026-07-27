@@ -34,6 +34,7 @@ class RegrantSheet extends StatelessWidget {
       vaultId: grant.vaultId,
       agentId: grant.agentId,
       agentPublicKey: grant.agentPublicKey ?? '',
+      recipientKeyVersion: grant.recipientAgentKeyVersion,
       isFull: grant.scope == GrantScope.full,
       entryId: grant.entryId,
     );
@@ -73,7 +74,9 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
 
   Uint8List? _privateKey() {
     final auth = context.read<AuthBloc>().state;
-    if (auth is AuthAuthenticated && !auth.isVaultLocked) return auth.privateKey;
+    if (auth is AuthAuthenticated && !auth.isVaultLocked) {
+      return auth.privateKey;
+    }
     return null;
   }
 
@@ -86,14 +89,20 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
     if (_methods.isEmpty) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(AppLocalizations.of(context)!.approvalMethodNoneSelected),
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)!.approvalMethodNoneSelected,
+            ),
+          ),
+        );
       return;
     }
-    context
-        .read<RegrantCubit>()
-        .submit(privateKey: key, limit: _limit, methods: _methods);
+    context.read<RegrantCubit>().submit(
+      privateKey: key,
+      limit: _limit,
+      methods: _methods,
+    );
   }
 
   @override
@@ -111,9 +120,9 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
         } else if (state.status == RegrantStatus.error) {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(
-              content: Text(approvalErrorMessage(l10n, state.error!)),
-            ));
+            ..showSnackBar(
+              SnackBar(content: Text(approvalErrorMessage(l10n, state.error!))),
+            );
           context.read<RegrantCubit>().acknowledgeError();
         }
       },

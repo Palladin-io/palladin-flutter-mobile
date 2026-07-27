@@ -89,6 +89,8 @@ class Grant {
     this.agentName,
     this.agentIconKey,
     this.agentPublicKey,
+    this.recipientAgentKeyVersion = 1,
+    this.fieldIds = const [],
     this.vaultName,
     this.entryId,
     this.entryLabel,
@@ -125,6 +127,8 @@ class Grant {
   /// Agent's base64 X25519 public key — needed to seal a DEK when re-granting
   /// ("Grant again"). Public by design (it can only seal *to* the agent).
   final String? agentPublicKey;
+  final int recipientAgentKeyVersion;
+  final List<String> fieldIds;
 
   /// Display name of the owning vault (org-wide listing only).
   final String? vaultName;

@@ -39,7 +39,7 @@ class PendingGrantsState {
 /// inbox. Factory-scoped per page mount (see DI).
 class PendingGrantsCubit extends Cubit<PendingGrantsState> {
   PendingGrantsCubit({required this.repository})
-      : super(const PendingGrantsState());
+    : super(const PendingGrantsState());
 
   final ApprovalRepository repository;
 
@@ -48,20 +48,23 @@ class PendingGrantsCubit extends Cubit<PendingGrantsState> {
     try {
       final grants = await repository.listPendingGrants();
       AppLogger.i('Approval', 'Loaded ${grants.length} pending grants');
-      emit(state.copyWith(
-        status: PendingGrantsStatus.loaded,
-        grants: grants,
-      ));
+      emit(state.copyWith(status: PendingGrantsStatus.loaded, grants: grants));
     } on ApprovalException catch (e) {
       AppLogger.w('Approval', 'pending load failed: ${e.kind.name}');
       emit(state.copyWith(status: PendingGrantsStatus.error, error: e.kind));
     } catch (e, s) {
-      AppLogger.e('Approval', 'pending load failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        status: PendingGrantsStatus.error,
-        error: ApprovalErrorKind.unknown,
-      ));
+      AppLogger.e(
+        'Approval',
+        'pending load failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          status: PendingGrantsStatus.error,
+          error: ApprovalErrorKind.unknown,
+        ),
+      );
     }
   }
 
@@ -71,11 +74,13 @@ class PendingGrantsCubit extends Cubit<PendingGrantsState> {
   Future<void> refresh() async {
     try {
       final grants = await repository.listPendingGrants();
-      emit(state.copyWith(
-        status: PendingGrantsStatus.loaded,
-        grants: grants,
-        clearError: true,
-      ));
+      emit(
+        state.copyWith(
+          status: PendingGrantsStatus.loaded,
+          grants: grants,
+          clearError: true,
+        ),
+      );
     } catch (e) {
       AppLogger.w('Approval', 'pending refresh failed (quiet): $e');
     }
@@ -84,9 +89,12 @@ class PendingGrantsCubit extends Cubit<PendingGrantsState> {
   /// Removes a grant from the in-memory list after it was approved/denied
   /// so the inbox reflects the change without a full reload.
   void removeGrant(String grantId) {
-    emit(state.copyWith(
-      grants:
-          state.grants.where((g) => g.grantId != grantId).toList(growable: false),
-    ));
+    emit(
+      state.copyWith(
+        grants: state.grants
+            .where((g) => g.grantId != grantId)
+            .toList(growable: false),
+      ),
+    );
   }
 }

@@ -53,6 +53,7 @@ class Agent {
     this.iconColor,
     this.publicKeyPrefix = '',
     this.publicKey = '',
+    this.recipientKeyVersion = 1,
     this.enrolledAt,
     this.enrolledByName,
     this.deactivatedAt,
@@ -92,6 +93,9 @@ class Agent {
   /// Full public key of the agent. Public material — safe to display;
   /// never confused with private/secret key material.
   final String publicKey;
+
+  /// Version of the current Agent X25519 recipient key.
+  final int recipientKeyVersion;
 
   /// Short suffix of the agent's public key, shown in monospace so an
   /// operator can visually identify the enrolled key.

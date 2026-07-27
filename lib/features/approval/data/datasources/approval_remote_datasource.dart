@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 
-import '../services/grant_crypto_service.dart';
 import '../models/pending_grant_model.dart';
 
 /// Remote data source for the approval flow.
@@ -39,28 +38,22 @@ class ApprovalRemoteDatasource {
   /// [expiresAt] / [queryLimit] is sent (neither = lifetime). Returns the new
   /// grant id.
   Future<String> createGrant({
+    required String grantId,
     required String vaultId,
     required String agentId,
     required String type,
     String? entryId,
-    required List<({String entryId, GrantEnvelope envelope})> entries,
+    required List<Map<String, Object?>> entries,
     String? expiresAt,
     int? queryLimit,
     String? methods,
   }) async {
     final body = <String, dynamic>{
+      'grantId': grantId,
       'agentId': agentId,
       'type': type,
       'entryId': ?entryId,
-      'grantEntries': [
-        for (final e in entries)
-          <String, dynamic>{
-            'entryId': e.entryId,
-            'reEncryptedBlob': e.envelope.reEncryptedBlob,
-            'nonce': e.envelope.nonce,
-            'agentWrappedDek': e.envelope.agentWrappedDek,
-          },
-      ],
+      'grantEntries': entries,
       'expiresAt': ?expiresAt,
       'queryLimit': ?queryLimit,
       'methods': ?methods,
@@ -81,19 +74,13 @@ class ApprovalRemoteDatasource {
   Future<void> approveGrant({
     required String vaultId,
     required String grantId,
-    required String entryId,
-    required GrantEnvelope envelope,
+    required Map<String, Object?> grantEntry,
     String? expiresAt,
     int? queryLimit,
     String? methods,
   }) async {
     final body = <String, dynamic>{
-      'grantEntry': <String, dynamic>{
-        'entryId': entryId,
-        'reEncryptedBlob': envelope.reEncryptedBlob,
-        'nonce': envelope.nonce,
-        'agentWrappedDek': envelope.agentWrappedDek,
-      },
+      'grantEntry': grantEntry,
       'expiresAt': ?expiresAt,
       'queryLimit': ?queryLimit,
       'methods': ?methods,
@@ -118,9 +105,9 @@ class ApprovalRemoteDatasource {
   }
 
   DioException _emptyBody(Response<dynamic> response) => DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        type: DioExceptionType.badResponse,
-        error: 'Empty response body',
-      );
+    requestOptions: response.requestOptions,
+    response: response,
+    type: DioExceptionType.badResponse,
+    error: 'Empty response body',
+  );
 }

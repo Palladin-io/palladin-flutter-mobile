@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../config/env_config.dart';
+import '../crypto/vault_session_store.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/datasources/password_auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
@@ -32,7 +33,6 @@ import '../../features/agents/domain/repositories/agents_repository.dart';
 import '../../features/agents/presentation/bloc/agents_cubit.dart';
 import '../../features/approval/data/datasources/approval_remote_datasource.dart';
 import '../../features/approval/data/repositories/approval_repository_impl.dart';
-import '../../features/approval/data/services/grant_crypto_service.dart';
 import '../../features/approval/domain/repositories/approval_repository.dart';
 import '../../features/approval/presentation/cubit/grant_access_cubit.dart';
 import '../../features/approval/presentation/cubit/grant_approval_cubit.dart';
@@ -80,6 +80,7 @@ import '../../features/vault/data/repositories/entry_repository_impl.dart';
 import '../../features/vault/data/repositories/vault_repository_impl.dart';
 import '../../features/vault/data/export/export_sharer.dart';
 import '../../features/vault/data/services/entry_crypto_service.dart';
+import '../../features/vault/data/services/entry_v2_crypto_service.dart';
 import '../../features/vault/data/services/totp_service.dart';
 import '../../features/vault/data/services/vault_crypto_service.dart';
 import '../../features/vault/domain/repositories/entry_repository.dart';
@@ -147,9 +148,15 @@ void configureDependencies(EnvConfig config) {
     ),
   );
 
+  // Raw Vault keys are process-memory-only and are wiped on lock/logout.
+  getIt.registerLazySingleton<VaultSessionStore>(() => VaultSessionStore());
+
   // Auth — presentation layer (factory: new instance per provider)
   getIt.registerFactory<AuthBloc>(
-    () => AuthBloc(authRepository: getIt<AuthRepository>()),
+    () => AuthBloc(
+      authRepository: getIt<AuthRepository>(),
+      vaultSessionStore: getIt<VaultSessionStore>(),
+    ),
   );
 
   // Email + master-password auth (CVT-252) — data layer.
@@ -284,6 +291,10 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<VaultRepository>(
     () => VaultRepositoryImpl(
       getIt<VaultRemoteDatasource>(),
+      authRepository: getIt<AuthRepository>(),
+      accountDatasource: getIt<AccountRemoteDatasource>(),
+      cryptoService: getIt<VaultCryptoService>(),
+      sessionStore: getIt<VaultSessionStore>(),
       autoFillMutationNotifier: getIt<AutoFillMutationNotifier>(),
     ),
   );
@@ -306,6 +317,9 @@ void configureDependencies(EnvConfig config) {
 
   // Entry — data layer
   getIt.registerLazySingleton<EntryCryptoService>(() => EntryCryptoService());
+  getIt.registerLazySingleton<EntryV2CryptoService>(
+    () => EntryV2CryptoService(),
+  );
   getIt.registerLazySingleton<TotpService>(() => const TotpService());
   getIt.registerLazySingleton<EntryRemoteDatasource>(
     () => EntryRemoteDatasource(getIt<Dio>()),
@@ -315,6 +329,8 @@ void configureDependencies(EnvConfig config) {
       entryDatasource: getIt<EntryRemoteDatasource>(),
       vaultDatasource: getIt<VaultRemoteDatasource>(),
       cryptoService: getIt<EntryCryptoService>(),
+      entryV2CryptoService: getIt<EntryV2CryptoService>(),
+      sessionStore: getIt<VaultSessionStore>(),
       autoFillMutationNotifier: getIt<AutoFillMutationNotifier>(),
     ),
   );
@@ -529,15 +545,12 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<ApprovalRemoteDatasource>(
     () => ApprovalRemoteDatasource(getIt<Dio>()),
   );
-  // GrantCryptoService produces the zero-knowledge approval envelope
-  // on-device. Stateless — safe as a lazy singleton.
-  getIt.registerLazySingleton<GrantCryptoService>(() => GrantCryptoService());
   getIt.registerLazySingleton<ApprovalRepository>(
     () => ApprovalRepositoryImpl(
       approvalDatasource: getIt<ApprovalRemoteDatasource>(),
       entryDatasource: getIt<EntryRemoteDatasource>(),
-      vaultDatasource: getIt<VaultRemoteDatasource>(),
-      cryptoService: getIt<GrantCryptoService>(),
+      cryptoService: getIt<EntryV2CryptoService>(),
+      sessionStore: getIt<VaultSessionStore>(),
     ),
   );
 

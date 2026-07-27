@@ -24,13 +24,10 @@ sealed class GrantLimit {
   GrantLimitWire toWire() {
     return switch (this) {
       GrantExpiry(:final expiresAt) => (
-          expiresAt: expiresAt.toUtc().toIso8601String(),
-          queryLimit: null,
-        ),
-      GrantUseLimit(:final maxUses) => (
-          expiresAt: null,
-          queryLimit: maxUses,
-        ),
+        expiresAt: expiresAt.toUtc().toIso8601String(),
+        queryLimit: null,
+      ),
+      GrantUseLimit(:final maxUses) => (expiresAt: null, queryLimit: maxUses),
       GrantLifetime() => (expiresAt: null, queryLimit: null),
     };
   }
@@ -89,6 +86,7 @@ abstract interface class ApprovalRepository {
     required String vaultId,
     required String agentId,
     required String agentPublicKey,
+    required int recipientKeyVersion,
     required bool isFull,
     String? entryId,
     required Uint8List privateKey,

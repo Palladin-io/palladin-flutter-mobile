@@ -57,10 +57,7 @@ void main() {
 
   group('EntryContentModel', () {
     test('round-trips through JSON', () {
-      final json = {
-        'encryptedBlob': 'YmxvYg==',
-        'nonce': 'bm9uY2U=',
-      };
+      final json = {'encryptedBlob': 'YmxvYg==', 'nonce': 'bm9uY2U='};
       final parsed = EntryContentModel.fromJson(json);
       expect(parsed.encryptedBlob, 'YmxvYg==');
       expect(parsed.nonce, 'bm9uY2U=');
@@ -77,10 +74,7 @@ void main() {
         'type': 0, // EntryType.key
         'createdAt': '2026-04-25T00:00:00Z',
         'updatedAt': '2026-04-25T00:00:00Z',
-        'content': {
-          'encryptedBlob': 'YmxvYg==',
-          'nonce': 'bm9uY2U=',
-        },
+        'content': {'encryptedBlob': 'YmxvYg==', 'nonce': 'bm9uY2U='},
       };
 
       final detail = EntryDetailModel.fromJson(json);
@@ -102,8 +96,8 @@ void main() {
     test('fromWire falls back to credential on unknown ordinal', () {
       // Unknown wire values default to credential — surfaces the safer
       // two-field reveal panel rather than the single-secret panel.
-      expect(EntryTypeExtension.fromWire(99), EntryType.credential);
-      expect(EntryTypeExtension.fromWire(-1), EntryType.credential);
+      expect(() => EntryTypeExtension.fromWire(99), throwsFormatException);
+      expect(() => EntryTypeExtension.fromWire(-1), throwsFormatException);
     });
   });
 

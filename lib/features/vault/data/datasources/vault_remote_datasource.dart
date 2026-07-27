@@ -1,7 +1,8 @@
 import 'package:dio/dio.dart';
 
-import '../models/create_vault_request.dart';
-import '../models/vault_model.dart';
+import '../models/creation_challenge_model.dart';
+import '../models/create_vault_request.dart' show UpdateVaultRequest;
+import '../models/vault_v2_contracts.dart';
 
 /// Remote data source for vault CRUD endpoints.
 ///
@@ -15,8 +16,26 @@ class VaultRemoteDatasource {
 
   final Dio _dio;
 
+  /// Reserves the opaque Vault ID that must be authenticated by every
+  /// envelope in the subsequent atomic create request.
+  Future<VaultCreationChallengeModel> issueCreationChallenge() async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/creation-challenges',
+    );
+    final data = response.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: 'Empty response body',
+      );
+    }
+    return VaultCreationChallengeModel.fromJson(data);
+  }
+
   /// `GET /api/vaults` → list of vaults visible to the current user.
-  Future<List<VaultModel>> listVaults() async {
+  Future<List<Map<String, dynamic>>> listVaults() async {
     final response = await _dio.get<Map<String, dynamic>>('/api/vaults');
     final data = response.data;
     if (data == null) {
@@ -28,15 +47,12 @@ class VaultRemoteDatasource {
       );
     }
     final raw = (data['vaults'] as List<dynamic>? ?? const <dynamic>[]);
-    return raw
-        .map((e) => VaultModel.fromJson(e as Map<String, dynamic>))
-        .toList(growable: false);
+    return raw.map((e) => e as Map<String, dynamic>).toList(growable: false);
   }
 
   /// `GET /api/vaults/{id}` → a single vault.
-  Future<VaultModel> getVault(String id) async {
-    final response =
-        await _dio.get<Map<String, dynamic>>('/api/vaults/$id');
+  Future<Map<String, dynamic>> getVault(String id) async {
+    final response = await _dio.get<Map<String, dynamic>>('/api/vaults/$id');
     final data = response.data;
     if (data == null) {
       throw DioException(
@@ -46,11 +62,11 @@ class VaultRemoteDatasource {
         error: 'Empty response body',
       );
     }
-    return VaultModel.fromJson(data);
+    return data;
   }
 
   /// `POST /api/vaults` → 201 Created with the created vault payload.
-  Future<VaultModel> createVault(CreateVaultRequest request) async {
+  Future<Map<String, dynamic>> createVault(CreateVaultV2Request request) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/vaults',
       data: request.toJson(),
@@ -64,15 +80,12 @@ class VaultRemoteDatasource {
         error: 'Empty response body',
       );
     }
-    return VaultModel.fromJson(data);
+    return data;
   }
 
   /// `PUT /api/vaults/{id}` → 204 No Content (patch semantics).
   Future<void> updateVault(String id, UpdateVaultRequest request) async {
-    await _dio.put<void>(
-      '/api/vaults/$id',
-      data: request.toJson(),
-    );
+    await _dio.put<void>('/api/vaults/$id', data: request.toJson());
   }
 
   /// `DELETE /api/vaults/{id}` → 204 No Content.
@@ -101,7 +114,10 @@ class VaultRemoteDatasource {
   }
 
   /// `POST /api/vaults/{id}/icon/presign` → presigned S3 upload URL.
-  Future<PresignResponse> presignVaultIcon(String vaultId, String extension) async {
+  Future<PresignResponse> presignVaultIcon(
+    String vaultId,
+    String extension,
+  ) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/vaults/$vaultId/icon/presign',
       data: {'vaultId': vaultId, 'extension': extension},

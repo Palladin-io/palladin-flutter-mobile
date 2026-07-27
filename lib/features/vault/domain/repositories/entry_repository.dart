@@ -30,24 +30,6 @@ abstract interface class EntryRepository {
   /// Server-side ordering is preserved.
   Future<List<EntryEntity>> listEntries(String vaultId);
 
-  /// Creates a new entry inside [vaultId] with a pre-encrypted payload.
-  ///
-  /// [encryptedBlob] and [nonce] must already be base64-encoded — the
-  /// crypto step happens in `EntryCryptoService` and is the caller's
-  /// responsibility. The data layer wraps them in the polymorphic
-  /// `content` envelope expected by the .NET API.
-  Future<EntryEntity> createEntry({
-    required String vaultId,
-    required String label,
-    String? description,
-    String? icon,
-    required EntryType type,
-    required String encryptedBlob,
-    required String nonce,
-    String? urlDomain,
-    List<AgentField>? agentFields,
-  });
-
   /// Permanently deletes an entry.
   Future<void> deleteEntry({required String vaultId, required String entryId});
 

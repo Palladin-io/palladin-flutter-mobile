@@ -9,11 +9,19 @@
 /// unwrap the user's private key via the 24-word mnemonic.
 class AccountResponse {
   const AccountResponse({
+    this.userId,
+    this.memberKeyVersion,
     required this.salt,
     required this.encryptedPrivateKey,
     this.recoverySalt,
     this.encryptedPrivateKeyByRecovery,
   });
+
+  /// Member recipient identifier used in Vault-key wrapper scope.
+  final String? userId;
+
+  /// Current X25519 member recipient-key version.
+  final int? memberKeyVersion;
 
   /// 16-byte Argon2id salt for the master-password derivation.
   final String salt;
@@ -36,6 +44,8 @@ class AccountResponse {
 
   factory AccountResponse.fromJson(Map<String, dynamic> json) {
     return AccountResponse(
+      userId: json['userId'] as String?,
+      memberKeyVersion: json['memberKeyVersion'] as int?,
       salt: json['salt'] as String,
       encryptedPrivateKey: json['encryptedPrivateKey'] as String,
       recoverySalt: json['recoverySalt'] as String?,
