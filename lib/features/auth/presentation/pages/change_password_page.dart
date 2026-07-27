@@ -99,8 +99,9 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
     final isLoading = state is ChangePasswordLoading;
     final wrongCurrent =
         state is ChangePasswordFailure &&
-            state.error is ChangePasswordWrongCurrentException;
-    final serverError = state is ChangePasswordFailure &&
+        state.error is ChangePasswordWrongCurrentException;
+    final serverError =
+        state is ChangePasswordFailure &&
         state.error is! ChangePasswordWrongCurrentException;
 
     final current = _currentController.text;
@@ -109,7 +110,8 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
     final strength = evaluatePasswordStrength(newPw);
     final match = newPw.isNotEmpty && newPw == confirm;
     final differs = newPw.isNotEmpty && newPw != current;
-    final canSubmit = !isLoading &&
+    final canSubmit =
+        !isLoading &&
         current.isNotEmpty &&
         strength.isAcceptable &&
         match &&
@@ -188,10 +190,12 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
             label: l10n.authChangePwConfirmLabel,
             controller: _confirmController,
             obscureText: !_confirmVisible,
-            borderColor:
-                (confirm.isNotEmpty && !match) ? AppColors.brandRed : null,
-            focusBorderColor:
-                (confirm.isNotEmpty && !match) ? AppColors.brandRed : null,
+            borderColor: (confirm.isNotEmpty && !match)
+                ? AppColors.brandRed
+                : null,
+            focusBorderColor: (confirm.isNotEmpty && !match)
+                ? AppColors.brandRed
+                : null,
             feedbackVisible: confirm.isNotEmpty && !match,
             feedbackReserveSpace: false,
             feedbackChild: Text(
@@ -244,10 +248,10 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
       return;
     }
     context.read<ChangePasswordCubit>().changePassword(
-          email: email,
-          currentPassword: _currentController.text,
-          newPassword: _newController.text,
-        );
+      email: email,
+      currentPassword: _currentController.text,
+      newPassword: _newController.text,
+    );
   }
 
   void _handleState(BuildContext context, ChangePasswordState state) {
@@ -255,11 +259,8 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
       // Refresh the live session's in-memory master key (private key is
       // unchanged) so future re-locks derive against the new ciphertext.
       context.read<AuthBloc>().add(
-            VaultUnlocked(
-              masterKey: state.masterKey,
-              privateKey: state.privateKey,
-            ),
-          );
+        VaultUnlocked(masterKey: state.masterKey, privateKey: state.privateKey),
+      );
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -299,8 +300,7 @@ class _ChangePasswordViewState extends State<_ChangePasswordView> {
       PasswordStrength.tooShort || PasswordStrength.weak => AppColors.brandRed,
       PasswordStrength.fair => AppColors.strengthFair,
       PasswordStrength.strong ||
-      PasswordStrength.veryStrong =>
-        AppColors.positiveAccent,
+      PasswordStrength.veryStrong => AppColors.positiveAccent,
     };
   }
 

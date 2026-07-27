@@ -1,5 +1,13 @@
 # auth
 
+Identity password accounts use only the frozen password-only KDF profile
+`identity-argon2id-password-v1` (`securityVersion: 1`). The exact UTF-8
+password and random 16-byte account salt feed Argon2id (32 MiB, 2 iterations,
+parallelism 1) to produce AccountRoot; HKDF-SHA256 with the RFC 4122 account-id
+bytes as Extract salt derives separate AuthCredential and master-key outputs.
+Only AuthCredential crosses TLS. There is no Account Secret, legacy profile,
+migration endpoint, fallback, or persistent client KDF secret.
+
 OAuth 2.0 login (Google, Apple, X via `flutter_appauth`).
 
 - **BLoC:** `AuthBloc` / `AuthEvent` / `AuthState`.

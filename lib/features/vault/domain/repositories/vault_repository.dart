@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import '../entities/vault_entity.dart';
 
 /// Domain contract for vault CRUD operations.
@@ -30,7 +28,7 @@ abstract interface class VaultRepository {
     String? icon,
     String? color,
     required GrantMode grantMode,
-    required Uint8List privateKey,
+    required String wrappedVK,
   });
 
   /// Patch-updates a vault. Only the supplied (non-null) fields are

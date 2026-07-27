@@ -94,12 +94,12 @@ class RegisterCubit extends Cubit<RegisterState> {
 
     try {
       final request = RegisterRequest(
+        accountId: material.accountId,
         email: state.email,
         displayName: _displayNameFrom(state.email),
         preferredLanguage: preferredLanguage,
-        authHash: material.authHash,
-        authSalt: material.authSalt,
-        salt: material.encSalt,
+        authCredential: material.authCredential,
+        kdfSalt: material.kdfSalt,
         recoverySalt: material.recoverySalt,
         publicKey: material.publicKey,
         encryptedPrivateKey: material.encryptedPrivateKey,

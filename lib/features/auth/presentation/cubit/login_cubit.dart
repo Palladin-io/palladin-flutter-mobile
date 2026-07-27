@@ -1,13 +1,16 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../unlock/data/datasources/account_remote_datasource.dart';
 import '../../../unlock/data/services/unlock_crypto_service.dart';
+import '../../../unlock/data/services/identity_kdf_service.dart';
 import '../../data/datasources/password_auth_remote_datasource.dart';
 import '../../data/models/login_response.dart';
 import '../../data/models/password_session_model.dart';
-import '../../data/services/password_auth_crypto_service.dart';
 import '../../domain/auth_provider_id.dart';
 import '../../domain/password_auth_exceptions.dart';
 import 'login_state.dart';
@@ -33,35 +36,64 @@ export 'login_state.dart';
 class LoginCubit extends Cubit<LoginState> {
   LoginCubit({
     required this.datasource,
-    required this.cryptoService,
+    required this.identityKdfService,
     required this.accountDatasource,
     required this.unlockCryptoService,
     required this.tokenStorage,
   }) : super(const LoginInitial());
 
   final PasswordAuthRemoteDatasource datasource;
-  final PasswordAuthCryptoService cryptoService;
+  final IdentityKdfService identityKdfService;
   final AccountRemoteDatasource accountDatasource;
   final UnlockCryptoService unlockCryptoService;
   final SecureTokenStorage tokenStorage;
 
-  String? _password;
   String? _challengeToken;
+  Uint8List? _masterKey;
+  String? _accountId;
 
   /// Runs the salt → authHash → login pipeline.
   Future<void> login({required String email, required String password}) async {
     if (email.isEmpty || password.isEmpty) return;
     AppLogger.d('Login', 'Password login requested');
     emit(const LoginLoading());
-    _password = password;
 
     try {
-      final authSalt = await datasource.fetchLoginSalt(email);
-      final authHash = await cryptoService.deriveAuthHash(
-        password: password,
-        authSaltBase64: authSalt,
+      final bootstrap = await datasource.fetchLoginKdf(
+        email,
+        profileId: IdentityKdfProfile.id,
       );
-      final response = await datasource.login(email: email, authHash: authHash);
+      if (bootstrap.profileId != IdentityKdfProfile.id ||
+          bootstrap.securityVersion != IdentityKdfProfile.securityVersion ||
+          bootstrap.memoryKiB != IdentityKdfProfile.memoryKiB ||
+          bootstrap.iterations != IdentityKdfProfile.iterations ||
+          bootstrap.parallelism != IdentityKdfProfile.parallelism ||
+          bootstrap.accountId == null) {
+        throw const UnsupportedIdentityKdfException('unsupported-kdf-profile');
+      }
+      final salt = Uint8List.fromList(
+        base64Url.decode(base64Url.normalize(bootstrap.kdfSalt)),
+      );
+      final IdentityKdfOutputs outputs;
+      try {
+        outputs = await identityKdfService.derive(
+          password: password,
+          accountId: bootstrap.accountId!,
+          kdfSalt: salt,
+        );
+      } finally {
+        salt.fillRange(0, salt.length, 0);
+      }
+      _masterKey = outputs.masterKey;
+      _accountId = bootstrap.accountId;
+      final authCredential = base64Url
+          .encode(outputs.authCredential)
+          .replaceAll('=', '');
+      outputs.authCredential.fillRange(0, outputs.authCredential.length, 0);
+      final response = await datasource.login(
+        email: email,
+        authCredential: authCredential,
+      );
 
       switch (response) {
         case LoginSession(:final session):
@@ -113,24 +145,28 @@ class LoginCubit extends Cubit<LoginState> {
     await tokenStorage.setAuthProvider(AuthProviderId.password);
 
     final account = await accountDatasource.getAccount();
-    final result = await unlockCryptoService.deriveAndDecrypt(
-      masterPassword: _password!,
-      saltBase64: account.salt,
+    final masterKey = _masterKey;
+    if (masterKey == null || account.userId != _accountId) {
+      throw const UnsupportedIdentityKdfException('account-context-mismatch');
+    }
+    final result = await unlockCryptoService.decryptWithMasterKey(
+      masterKey: masterKey,
       encryptedPrivateKeyBase64: account.encryptedPrivateKey,
     );
     _clearSecrets();
     AppLogger.i('Login', 'Login succeeded, master key derived');
-    emit(LoginSuccess(
-      masterKey: result.masterKey,
-      privateKey: result.privateKey,
-    ));
+    emit(
+      LoginSuccess(masterKey: result.masterKey, privateKey: result.privateKey),
+    );
   }
 
   /// Drops the in-memory password / challenge token. Strings can't be
   /// zeroed, but dropping every reference lets them be collected.
   void _clearSecrets() {
-    _password = null;
     _challengeToken = null;
+    _accountId = null;
+    _masterKey?.fillRange(0, _masterKey!.length, 0);
+    _masterKey = null;
   }
 
   /// Reduces a raw error to the typed exception the UI understands.
@@ -143,7 +179,12 @@ class LoginCubit extends Cubit<LoginState> {
     }
     // Master-key derivation or an unexpected failure — surface as a
     // generic server error the page can localize.
-    AppLogger.e('Login', 'Unexpected login error', error: error, stackTrace: stack);
+    AppLogger.e(
+      'Login',
+      'Unexpected login error',
+      error: error,
+      stackTrace: stack,
+    );
     return const PasswordAuthServerException(
       PasswordAuthServerErrorKind.connectionFailed,
     );

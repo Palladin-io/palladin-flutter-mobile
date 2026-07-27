@@ -8,7 +8,6 @@ import '../../features/auth/data/datasources/password_auth_remote_datasource.dar
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/data/services/hibp_service.dart';
 import '../../features/auth/data/services/password_auth_crypto_service.dart';
-import '../../features/unlock/data/services/identity_kdf_migration_service.dart';
 import '../../features/unlock/data/services/identity_kdf_service.dart';
 import '../../features/vault/data/services/vault_list_crypto_service.dart';
 import '../../features/vault/data/services/vault_creation_service.dart';
@@ -212,7 +211,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerFactory<LoginCubit>(
     () => LoginCubit(
       datasource: getIt<PasswordAuthRemoteDatasource>(),
-      cryptoService: getIt<PasswordAuthCryptoService>(),
+      identityKdfService: getIt<IdentityKdfService>(),
       accountDatasource: getIt<AccountRemoteDatasource>(),
       unlockCryptoService: getIt<UnlockCryptoService>(),
       tokenStorage: getIt<SecureTokenStorage>(),
@@ -281,14 +280,6 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerLazySingleton<UnlockCryptoService>(() => UnlockCryptoService());
   getIt.registerLazySingleton<IdentityKdfService>(IdentityKdfService.new);
-  getIt.registerLazySingleton<IdentityKdfMigrationService>(
-    () => IdentityKdfMigrationService(
-      accountDatasource: getIt<AccountRemoteDatasource>(),
-      passwordDatasource: getIt<PasswordAuthRemoteDatasource>(),
-      legacyCrypto: getIt<PasswordAuthCryptoService>(),
-      identityCrypto: getIt<IdentityKdfService>(),
-    ),
-  );
 
   // Unlock — presentation layer (factory: fresh cubit on each mount
   // so failed-password state doesn't leak between unlock sessions)

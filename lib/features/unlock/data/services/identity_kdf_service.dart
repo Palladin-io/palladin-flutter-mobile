@@ -6,18 +6,18 @@ import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
 
-/// Frozen Identity KDF v2 profile from the shared protocol registry.
+/// Frozen password-only Identity KDF v1 profile.
 abstract final class IdentityKdfProfile {
-  static const securityVersion = 2;
-  static const id = 'identity-argon2id-account-secret-v2';
-  static const legacyId = 'identity-argon2id-legacy-v1';
+  static const securityVersion = 1;
+  static const id = 'identity-argon2id-password-v1';
   static const memoryKiB = 32768;
   static const iterations = 2;
   static const parallelism = 1;
   static const outputBytes = 32;
-  static const accountSecretBytes = 32;
   static const saltBytes = 16;
-  static const maximumPasswordUtf8Bytes = 1024;
+  static const authCredentialInfo =
+      'palladin/identity/password-v1/auth-credential';
+  static const masterKeyInfo = 'palladin/identity/password-v1/master-key';
 }
 
 /// Public metadata authenticated by the backend Identity state machine.
@@ -58,7 +58,7 @@ final class UnsupportedIdentityKdfException implements Exception {
   final String code;
 }
 
-/// Domain-separated outputs of the v2 Identity derivation.
+/// Domain-separated outputs of the v1 Identity derivation.
 final class IdentityKdfOutputs {
   const IdentityKdfOutputs({
     required this.authCredential,
@@ -96,37 +96,28 @@ class IdentityKdfService {
     ).fillRange(0, IdentityKdfProfile.saltBytes, 0);
   }
 
-  /// Generates the mandatory account-wide client secret.
-  Future<Uint8List> generateAccountSecret() async {
-    final sodium = await _sodiumLoader();
-    return sodium.randombytes.buf(IdentityKdfProfile.accountSecretBytes);
-  }
-
-  /// Generates a fresh v2 KDF salt.
+  /// Generates a fresh per-account v1 Argon2id salt.
   Future<Uint8List> generateKdfSalt() async {
     final sodium = await _sodiumLoader();
     return sodium.randombytes.buf(IdentityKdfProfile.saltBytes);
   }
 
-  /// Derives v2 outputs. Inputs are borrowed; the caller retains ownership.
+  /// Derives v1 outputs from the exact UTF-8 password bytes.
   Future<IdentityKdfOutputs> derive({
     required String password,
-    required Uint8List accountSecret,
     required String accountId,
     required Uint8List kdfSalt,
   }) async {
-    if (accountSecret.length != IdentityKdfProfile.accountSecretBytes ||
-        kdfSalt.length != IdentityKdfProfile.saltBytes) {
+    if (kdfSalt.length != IdentityKdfProfile.saltBytes) {
       throw const FormatException('Invalid Identity KDF input length');
     }
-    Uint8List? prehash;
+    final passwordBytes = Uint8List.fromList(utf8.encode(password));
     SecureKey? root;
     try {
-      prehash = derivePasswordPrehash(password, accountSecret);
       final sodium = await _sodiumLoader();
       root = sodium.crypto.pwhash.call(
         outLen: IdentityKdfProfile.outputBytes,
-        password: Int8List.fromList(prehash),
+        password: Int8List.sublistView(passwordBytes),
         salt: kdfSalt,
         opsLimit: IdentityKdfProfile.iterations,
         memLimit: IdentityKdfProfile.memoryKiB * 1024,
@@ -137,41 +128,13 @@ class IdentityKdfService {
         return deriveOutputsFromRoot(
           accountRoot: rootBytes,
           accountId: accountId,
-          kdfSalt: kdfSalt,
         );
       } finally {
         rootBytes.fillRange(0, rootBytes.length, 0);
       }
     } finally {
-      prehash?.fillRange(0, prehash.length, 0);
+      passwordBytes.fillRange(0, passwordBytes.length, 0);
       root?.dispose();
-    }
-  }
-
-  /// Applies the exact length-framed HMAC prehash from the shared registry.
-  /// The returned request-local buffer must be wiped by its caller.
-  Uint8List derivePasswordPrehash(String password, Uint8List accountSecret) {
-    if (accountSecret.length != IdentityKdfProfile.accountSecretBytes) {
-      throw const FormatException('Invalid Identity KDF input length');
-    }
-    final passwordBytes = Uint8List.fromList(utf8.encode(password));
-    if (passwordBytes.length > IdentityKdfProfile.maximumPasswordUtf8Bytes) {
-      passwordBytes.fillRange(0, passwordBytes.length, 0);
-      throw const FormatException('password-too-long');
-    }
-    final framed = _concat([
-      Uint8List.fromList(ascii.encode('PLDNID2PW')),
-      _u16(IdentityKdfProfile.securityVersion),
-      _u32(passwordBytes.length),
-      passwordBytes,
-    ]);
-    try {
-      return Uint8List.fromList(
-        Hmac(sha256, accountSecret).convert(framed).bytes,
-      );
-    } finally {
-      passwordBytes.fillRange(0, passwordBytes.length, 0);
-      framed.fillRange(0, framed.length, 0);
     }
   }
 
@@ -179,34 +142,25 @@ class IdentityKdfService {
   IdentityKdfOutputs deriveOutputsFromRoot({
     required Uint8List accountRoot,
     required String accountId,
-    required Uint8List kdfSalt,
   }) {
-    if (accountRoot.length != IdentityKdfProfile.outputBytes ||
-        kdfSalt.length != IdentityKdfProfile.saltBytes) {
+    if (accountRoot.length != IdentityKdfProfile.outputBytes) {
       throw const FormatException('Invalid Identity KDF input length');
     }
-    final saltInput = _concat([
-      Uint8List.fromList(ascii.encode('PLDNID2HK')),
-      _u16(IdentityKdfProfile.securityVersion),
-      _uuidBytes(accountId),
-      kdfSalt,
-    ]);
-    final outputSalt = Uint8List.fromList(sha256.convert(saltInput).bytes);
+    final outputSalt = _uuidBytes(accountId);
     try {
       return IdentityKdfOutputs(
         authCredential: _hkdf(
           accountRoot,
           outputSalt,
-          'palladin:identity:v2:auth-credential',
+          IdentityKdfProfile.authCredentialInfo,
         ),
         masterKey: _hkdf(
           accountRoot,
           outputSalt,
-          'palladin:identity:v2:master-key',
+          IdentityKdfProfile.masterKeyInfo,
         ),
       );
     } finally {
-      saltInput.fillRange(0, saltInput.length, 0);
       outputSalt.fillRange(0, outputSalt.length, 0);
     }
   }
@@ -249,10 +203,6 @@ class IdentityKdfService {
         int.parse(hex.substring(i, i + 2), radix: 16),
     ]);
   }
-
-  Uint8List _u16(int value) => Uint8List.fromList([value >> 8, value]);
-  Uint8List _u32(int value) =>
-      Uint8List.fromList([value >> 24, value >> 16, value >> 8, value]);
 
   Uint8List _concat(List<Uint8List> parts) {
     final builder = BytesBuilder(copy: false);

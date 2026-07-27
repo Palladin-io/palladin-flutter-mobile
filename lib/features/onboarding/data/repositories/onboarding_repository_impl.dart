@@ -9,6 +9,7 @@ import '../datasources/onboarding_remote_datasource.dart';
 import '../models/account_setup_request.dart';
 import '../services/default_vault_provisioner.dart';
 import '../services/onboarding_crypto_service.dart';
+import '../../../unlock/data/services/identity_kdf_service.dart';
 
 /// Concrete implementation of [OnboardingRepository].
 ///
@@ -44,14 +45,23 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
     required String defaultVaultName,
   }) async {
     AppLogger.d('Onboarding', 'Building setup payload');
+    final accountId = await tokenStorage.userId;
+    if (accountId == null || accountId.isEmpty) {
+      throw const OnboardingServerException(
+        OnboardingServerErrorKind.invalidResponse,
+      );
+    }
     final result = await cryptoService.buildSetupPayload(
       masterPassword: masterPassword,
       recoveryMnemonic: recoveryMnemonic,
+      accountId: accountId,
     );
     final payload = result.payload;
 
     try {
       final request = AccountSetupRequest(
+        securityVersion: IdentityKdfProfile.securityVersion,
+        kdfProfileId: IdentityKdfProfile.id,
         salt: payload.salt,
         recoverySalt: payload.recoverySalt,
         publicKey: payload.publicKey,
