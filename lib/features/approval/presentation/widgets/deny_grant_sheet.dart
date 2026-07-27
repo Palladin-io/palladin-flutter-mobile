@@ -6,12 +6,10 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../l10n/generated/app_localizations.dart';
-import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../cubit/grant_approval_cubit.dart';
 import 'approval_format.dart';
 
-/// Bottom sheet to deny a pending grant with an optional reason — the mobile
-/// counterpart of the web `DenyGrantDialog`. Resolves to `true` once denied.
+/// No-secret bottom sheet for denying a pending grant.
 class DenyGrantSheet extends StatelessWidget {
   const DenyGrantSheet({super.key, required this.grant});
 
@@ -44,20 +42,7 @@ class _DenySheetBody extends StatefulWidget {
 }
 
 class _DenySheetBodyState extends State<_DenySheetBody> {
-  final TextEditingController _reasonController = TextEditingController();
-
-  @override
-  void dispose() {
-    _reasonController.dispose();
-    super.dispose();
-  }
-
-  void _onDeny() {
-    final reason = _reasonController.text.trim();
-    context.read<GrantApprovalCubit>().deny(
-      reason: reason.isEmpty ? null : reason,
-    );
-  }
+  void _onDeny() => context.read<GrantApprovalCubit>().deny();
 
   @override
   Widget build(BuildContext context) {
@@ -131,13 +116,6 @@ class _DenySheetBodyState extends State<_DenySheetBody> {
                         fontSize: 12,
                         height: 1.45,
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.section),
-                    OnboardingTextField(
-                      controller: _reasonController,
-                      label: l10n.approvalDenyReasonLabel,
-                      hintText: l10n.approvalDenyReasonHint,
-                      textInputAction: TextInputAction.done,
                     ),
                   ],
                 ),

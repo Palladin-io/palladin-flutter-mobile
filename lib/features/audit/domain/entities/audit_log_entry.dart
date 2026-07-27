@@ -152,6 +152,9 @@ class AuditLogEntry {
     this.entryId,
     this.entryLabel,
     this.agentReason,
+    this.resolvedObjectName,
+    this.resolvedVaultName,
+    this.localPresentationOnly = false,
     this.metadata = const {},
   });
 
@@ -194,6 +197,17 @@ class AuditLogEntry {
 
   /// Free-text reason the agent supplied when requesting access.
   final String? agentReason;
+
+  /// Runtime-only display resolved from unlocked local projections.
+  final String? resolvedObjectName;
+
+  /// Runtime-only Vault name resolved from unlocked local state.
+  final String? resolvedVaultName;
+
+  /// Whether presentation fields must come exclusively from unlocked local
+  /// projections. Vault-scoped logs set this to avoid trusting legacy server
+  /// labels while org-wide audit keeps its existing non-secret presentation.
+  final bool localPresentationOnly;
 
   /// Non-sensitive contextual key/values (grant id, method, ip, device…).
   final Map<String, String> metadata;

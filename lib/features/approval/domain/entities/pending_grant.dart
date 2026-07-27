@@ -1,4 +1,5 @@
 import '../../../grants/domain/entities/grant_method.dart';
+import 'encrypted_reason.dart';
 
 /// Domain entity for a pending grant request awaiting the owner's
 /// approval, as surfaced by `GET /api/dashboard/pending-grants`
@@ -15,13 +16,12 @@ class PendingGrant {
     required this.agentId,
     required this.entryId,
     required this.agentPublicKey,
-    this.recipientAgentKeyVersion = 1,
-    this.fieldIds = const [],
     required this.createdAt,
     this.vaultName,
     this.agentName,
     this.entryLabel,
-    this.reason,
+    required this.encryptedReason,
+    this.recipientAgentKeyVersion,
     this.requestedMethods = const [],
     this.isAgentRegistered = true,
   });
@@ -38,18 +38,15 @@ class PendingGrant {
   /// per-grant DEK on approval.
   final String agentPublicKey;
 
-  /// Version of the Agent X25519 recipient key authenticated by Grant AAD.
-  final int recipientAgentKeyVersion;
-
-  /// Exact requested field scope authenticated by the canonical Grant AAD.
-  final List<String> fieldIds;
-
   final String? vaultName;
   final String? agentName;
   final String? entryLabel;
 
-  /// Agent-supplied justification — required by the security model.
-  final String? reason;
+  /// Ciphertext-only while listed/locked. Decrypted only in an ephemeral
+  /// approval review after explicit unlock.
+  final EncryptedReason encryptedReason;
+
+  final int? recipientAgentKeyVersion;
 
   /// Methods the agent requested (CVT-149) — used to pre-select the approval
   /// choices. Empty when the backend predates the methods feature.

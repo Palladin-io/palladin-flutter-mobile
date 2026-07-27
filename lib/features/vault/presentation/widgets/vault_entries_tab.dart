@@ -10,11 +10,15 @@ import '../../../../core/widgets/app_search_field.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../domain/entities/entry_entity.dart';
+import '../../domain/entities/member_index_entry.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../cubit/entry_list_cubit.dart';
 import '../pages/entry_detail_page.dart';
+import '../pages/entry_archive_page.dart';
 import 'entry_field_row.dart';
 import 'vault_visuals.dart';
+import 'encrypted_asset_image.dart';
+import '../../data/services/encrypted_presentation_asset_service.dart';
 
 /// Entries tab on the vault detail page.
 ///
@@ -28,7 +32,11 @@ import 'vault_visuals.dart';
 /// on-device and stashed on the cubit's state until the user collapses
 /// the panel.
 class VaultEntriesTab extends StatefulWidget {
-  const VaultEntriesTab({super.key});
+  const VaultEntriesTab({super.key, this.openArchive});
+
+  /// Test seam for the pushed Archive route. Production uses
+  /// [EntryArchivePage.push].
+  final Future<void> Function(BuildContext context)? openArchive;
 
   @override
   State<VaultEntriesTab> createState() => _VaultEntriesTabState();
@@ -47,13 +55,40 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
 
   List<EntryEntity> _filter(List<EntryEntity> entries) {
     final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return entries;
     return entries
-        .where((e) =>
-            e.label.toLowerCase().contains(query) ||
-            (e.description?.toLowerCase().contains(query) ?? false) ||
-            (e.urlDomain?.toLowerCase().contains(query) ?? false))
-        .toList(growable: false);
+        .where((e) => e.lifecycleState == MemberEntryState.active)
+        .where(
+          (e) =>
+              query.isEmpty ||
+              e.label.toLowerCase().contains(query) ||
+              (e.description?.toLowerCase().contains(query) ?? false) ||
+              (e.urlDomain?.toLowerCase().contains(query) ?? false),
+        )
+        .toList(growable: false)
+      ..sort((left, right) => left.label.compareTo(right.label));
+  }
+
+  void _retrySync() {
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated || auth.privateKey == null) return;
+    final keyCopy = Uint8List.fromList(auth.privateKey!);
+    context
+        .read<EntryListCubit>()
+        .loadIndexedEntries(keyCopy)
+        .whenComplete(() => keyCopy.fillRange(0, keyCopy.length, 0));
+  }
+
+  Future<void> _openArchive() async {
+    final open = widget.openArchive;
+    if (open != null) {
+      await open(context);
+    } else {
+      await EntryArchivePage.push(
+        context,
+        context.read<EntryListCubit>().vaultId,
+      );
+    }
+    if (mounted) _retrySync();
   }
 
   void _onToggleReveal(EntryEntity entry) {
@@ -75,9 +110,11 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(AppLocalizations.of(context)!.entryErrorCrypto),
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.entryErrorCrypto),
+          ),
+        );
       return;
     }
 
@@ -104,15 +141,11 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     });
   }
 
-  Future<void> _onEditEntry(
-    EntryEntity entry,
-    Map<String, dynamic>? cachedPayload,
-  ) async {
+  Future<void> _onEditEntry(EntryEntity entry) async {
     final cubit = context.read<EntryListCubit>();
     final result = await EntryDetailPage.push(
       context,
       entry: entry,
-      cachedPayload: cachedPayload,
       wrappedVK: cubit.wrappedVK,
     );
     if (!mounted) return;
@@ -128,10 +161,12 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(l10n.vaultCopyValue),
-        duration: const Duration(seconds: 1),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.vaultCopyValue),
+          duration: const Duration(seconds: 1),
+        ),
+      );
   }
 
   List<Widget> _loadedSlivers({
@@ -140,9 +175,7 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     required AppLocalizations l10n,
   }) {
     if (entries.isEmpty) {
-      return [
-        SliverToBoxAdapter(child: _EmptyEntries(l10n: l10n)),
-      ];
+      return [SliverToBoxAdapter(child: _EmptyEntries(l10n: l10n))];
     }
     return [
       SliverPadding(
@@ -159,7 +192,7 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
             onToggleReveal: () => _onToggleReveal(entries[i]),
             onToggleFieldReveal: _toggleFieldReveal,
             onCopy: (value) => _copyToClipboard(value, l10n),
-            onEdit: () => _onEditEntry(entries[i], revealedEntries[entries[i].id]),
+            onEdit: () => _onEditEntry(entries[i]),
           ),
         ),
       ),
@@ -195,10 +228,12 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
         if (kind == null) return;
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(
-            content: Text(_errorMessage(kind, l10n)),
-            duration: const Duration(seconds: 3),
-          ));
+          ..showSnackBar(
+            SnackBar(
+              content: Text(_errorMessage(kind, l10n)),
+              duration: const Duration(seconds: 3),
+            ),
+          );
       },
       builder: (context, state) {
         // Search scrolls with the entries list (canonical Vaults pattern): it
@@ -211,10 +246,22 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.fieldGap),
-                child: AppSearchField(
-                  controller: _searchController,
-                  hint: l10n.entrySearchHint,
-                  onChanged: (_) => setState(() {}),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: AppSearchField(
+                        controller: _searchController,
+                        hint: l10n.entrySearchHint,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.innerGap),
+                    IconButton(
+                      tooltip: l10n.entryArchiveTitle,
+                      onPressed: _openArchive,
+                      icon: const Icon(Icons.archive_outlined),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -222,10 +269,7 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
               EntryListInitial() ||
               EntryListLoading() => const [_LoadingSliver()],
               EntryListError(:final kind) => [
-                _ErrorSliver(
-                  kind: kind,
-                  onRetry: () => context.read<EntryListCubit>().loadEntries(),
-                ),
+                _ErrorSliver(kind: kind, onRetry: _retrySync),
               ],
               EntryListLoaded(:final entries, :final revealedEntries) =>
                 _loadedSlivers(
@@ -256,8 +300,11 @@ class _EmptyEntries extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(Icons.inbox_outlined,
-              size: 36, color: AppColors.onSurfaceSubtle(brightness)),
+          Icon(
+            Icons.inbox_outlined,
+            size: 36,
+            color: AppColors.onSurfaceSubtle(brightness),
+          ),
           const SizedBox(height: AppSpacing.md),
           Text(
             l10n.entryEmpty,
@@ -326,9 +373,10 @@ class _SkeletonRowState extends State<_SkeletonRow>
     Future.delayed(Duration(milliseconds: widget.delay), () {
       if (mounted) _ctrl.repeat(reverse: true);
     });
-    _anim = Tween<double>(begin: 0.4, end: 0.85).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
+    _anim = Tween<double>(
+      begin: 0.4,
+      end: 0.85,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
@@ -433,12 +481,21 @@ class _EntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    final meta = entry.urlDomain ?? entry.description ?? '';
+    final interactive =
+        entry.lifecycleState == MemberEntryState.active && !entry.corrupt;
+    final meta = entry.corrupt
+        ? l10n.entryCorruptProjection
+        : switch (entry.lifecycleState) {
+            MemberEntryState.active =>
+              entry.urlDomain ?? entry.description ?? '',
+            MemberEntryState.archived => l10n.entryArchivedRecoverability,
+            MemberEntryState.deleted => l10n.entryDeletedRecoverability,
+          };
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onEdit,
+        onTap: interactive ? onEdit : null,
         borderRadius: BorderRadius.circular(12),
         child: Ink(
           decoration: BoxDecoration(
@@ -498,19 +555,21 @@ class _EntryCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: AppSpacing.chipGap),
-                    EntrySmallIconButton(
-                      icon: isExpanded
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                      tooltip: l10n.vaultRevealEntry,
-                      onPressed: onToggleReveal,
-                    ),
-                    const SizedBox(width: AppSpacing.chipGap),
-                    EntrySmallIconButton(
-                      icon: Icons.arrow_forward,
-                      tooltip: l10n.vaultViewEntry,
-                      onPressed: onEdit,
-                    ),
+                    if (interactive) ...[
+                      EntrySmallIconButton(
+                        icon: isExpanded
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        tooltip: l10n.vaultRevealEntry,
+                        onPressed: onToggleReveal,
+                      ),
+                      const SizedBox(width: AppSpacing.chipGap),
+                      EntrySmallIconButton(
+                        icon: Icons.arrow_forward,
+                        tooltip: l10n.vaultViewEntry,
+                        onPressed: onEdit,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -524,9 +583,7 @@ class _EntryCard extends StatelessWidget {
                   opacity: isExpanded ? 1.0 : 0.0,
                   child: isExpanded
                       ? Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: AppSpacing.md,
-                          ),
+                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
                           child: payload == null
                               ? const Padding(
                                   padding: EdgeInsets.symmetric(
@@ -681,27 +738,29 @@ class _EntryIconWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final icon = entry.icon;
 
+    if (icon?.startsWith('asset:') ?? false) {
+      return SizedBox(
+        width: 40,
+        height: 40,
+        child: ClipOval(
+          child: EncryptedAssetImage(
+            reference: icon!,
+            target: PresentationAssetTarget.entry,
+            vaultId: entry.vaultId,
+            entryId: entry.id,
+            width: 40,
+            height: 40,
+            fallback: _presetIcon(null),
+          ),
+        ),
+      );
+    }
+
     if (!EntryVisuals.isCustomUrl(icon)) {
       return _presetIcon(icon);
     }
 
-    // Cache-bust on icon updates: `updatedAt` changes whenever the entry
-    // is patched (including after a new icon upload), so the `?v=` query
-    // forces Flutter's image cache to refetch the new bytes.
-    final url = '$icon?v=${entry.updatedAt.millisecondsSinceEpoch}';
-    return SizedBox(
-      width: 40,
-      height: 40,
-      child: ClipOval(
-        child: Image.network(
-          url,
-          width: 40,
-          height: 40,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _presetIcon(null),
-        ),
-      ),
-    );
+    return _presetIcon(null);
   }
 
   Widget _presetIcon(String? name) {
@@ -729,4 +788,3 @@ class _EntryIconWidget extends StatelessWidget {
     );
   }
 }
-

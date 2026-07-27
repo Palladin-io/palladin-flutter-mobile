@@ -2,8 +2,10 @@ import 'package:flutter/services.dart';
 
 import '../../../core/utils/app_logger.dart';
 import '../../vault/domain/entities/entry_entity.dart';
+import '../../vault/domain/entities/member_index_entry.dart';
 import '../../vault/domain/repositories/entry_repository.dart';
 import '../../vault/domain/repositories/vault_repository.dart';
+import '../../vault/data/services/member_sync_service.dart';
 import '../domain/autofill_cache_invalidator.dart';
 import '../domain/autofill_record.dart';
 import 'autofill_cache_bridge.dart';
@@ -17,13 +19,16 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
     required VaultRepository vaultRepository,
     required EntryRepository entryRepository,
     required AutoFillCacheBridge bridge,
+    required MemberIndexReader memberIndex,
   }) : _vaultRepository = vaultRepository,
        _entryRepository = entryRepository,
-       _bridge = bridge;
+       _bridge = bridge,
+       _memberIndex = memberIndex;
 
   final VaultRepository _vaultRepository;
   final EntryRepository _entryRepository;
   final AutoFillCacheBridge _bridge;
+  final MemberIndexReader _memberIndex;
 
   Future<void> _pendingOperation = Future<void>.value();
   Future<void> _sessionActivation = Future<void>.value();
@@ -174,19 +179,42 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
       final vaults = await _vaultRepository.listVaults();
       for (final vault in vaults) {
         if (_accessRevoked || generation != _generation) return;
+        await _memberIndex.waitForCurrent(vault.id);
+        final eligible = {
+          for (final entry in _memberIndex.entries(vault.id))
+            if (!entry.corrupt &&
+                entry.state == MemberEntryState.active &&
+                entry.entryType == EntryType.credential.toWire() &&
+                entry.autofillDomains.isNotEmpty)
+              entry.entryId: entry,
+        };
+        if (eligible.isEmpty) continue;
         final revealed = await _entryRepository.revealAutoFillCredentials(
           vaultId: vault.id,
           privateKey: privateKey,
           wrappedVK: vault.wrappedVK,
         );
         for (final item in revealed) {
+          final index = eligible[item.entry.id];
+          if (index == null || item.entry.currentRevision != index.revision) {
+            continue;
+          }
           final payload = CredentialPayload.fromJson(item.payload);
-          final domains = _domainsFor(item.entry, payload);
+          final domains =
+              index.autofillDomains
+                  .map(normalizeDomain)
+                  .whereType<String>()
+                  .toSet()
+                  .toList(growable: false)
+                ..sort();
           if (domains.isEmpty || payload.password.isEmpty) continue;
+          if (records.length >= maximumRecords) {
+            throw StateError('AutoFill cache exceeds the device budget');
+          }
           records.add(
             AutoFillRecord(
               id: item.entry.id,
-              label: item.entry.label,
+              label: index.memberLabel,
               username: payload.username,
               password: payload.password,
               domains: domains,
@@ -208,27 +236,43 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
     }
   }
 
-  List<String> _domainsFor(EntryEntity entry, CredentialPayload payload) {
-    final domains = <String>{};
-    for (final candidate in [entry.urlDomain, payload.url]) {
-      final normalized = normalizeDomain(candidate);
-      if (normalized != null) domains.add(normalized);
-    }
-    return domains.toList(growable: false)..sort();
-  }
-
   static String? normalizeDomain(String? raw) {
     if (raw == null) return null;
     final value = raw.trim();
     if (value.isEmpty) return null;
     try {
+      if (value.codeUnits.any((unit) => unit > 0x7f)) return null;
+      if (RegExp(
+        r'^[a-z][a-z0-9+.-]*://[^/?#]+:[0-9]+(?:[/?#]|$)',
+        caseSensitive: false,
+      ).hasMatch(value)) {
+        return null;
+      }
       final uri = Uri.parse(value.contains('://') ? value : 'https://$value');
+      if (uri.scheme != 'http' && uri.scheme != 'https') return null;
+      if (uri.userInfo.isNotEmpty ||
+          uri.hasPort ||
+          uri.authority.contains(':')) {
+        return null;
+      }
       var host = uri.host.toLowerCase();
       while (host.endsWith('.')) {
         host = host.substring(0, host.length - 1);
       }
-      if (host.startsWith('www.')) host = host.substring(4);
-      if (host.isEmpty || !host.contains('.') || host.contains('..')) {
+      if (host.isEmpty ||
+          !host.contains('.') ||
+          host.contains('..') ||
+          host.startsWith('.') ||
+          host
+              .split('.')
+              .any(
+                (label) =>
+                    label.isEmpty ||
+                    label.length > 63 ||
+                    label.startsWith('-') ||
+                    label.endsWith('-') ||
+                    !RegExp(r'^[a-z0-9-]+$').hasMatch(label),
+              )) {
         return null;
       }
       return host;
@@ -238,4 +282,5 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
   }
 
   static const _clearAttempts = 3;
+  static const maximumRecords = 2000;
 }

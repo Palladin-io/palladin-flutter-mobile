@@ -10,6 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../domain/entities/push_message.dart';
 import '../datasources/push_token_remote_datasource.dart';
+import 'push_event_deduplicator.dart';
 
 /// Android notification channel used for foreground heads-up banners.
 ///
@@ -33,8 +34,8 @@ const _androidChannel = AndroidNotificationChannel(
 /// [FirebaseMessaging.instance.getInitialMessage] when the app resumes.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // No secret material is ever logged — only the routing type.
-  AppLogger.d('Push', 'Background message: type=${message.data['type']}');
+  // No payload or exception detail is logged from the background isolate.
+  AppLogger.d('Push', 'Background notification received');
 }
 
 /// Owns the device's push-notification lifecycle: permission prompt,
@@ -52,18 +53,23 @@ class PushNotificationService {
     FirebaseMessaging? messaging,
     FlutterLocalNotificationsPlugin? localNotifications,
     DeviceInfoPlugin? deviceInfo,
-  })  : _datasource = datasource,
-        _secureStorage = secureStorage,
-        _messaging = messaging ?? FirebaseMessaging.instance,
-        _localNotifications =
-            localNotifications ?? FlutterLocalNotificationsPlugin(),
-        _deviceInfo = deviceInfo ?? DeviceInfoPlugin();
+    PushEventDeduplicator? deduplicator,
+  }) : _datasource = datasource,
+       _secureStorage = secureStorage,
+       _messaging = messaging ?? FirebaseMessaging.instance,
+       _localNotifications =
+           localNotifications ?? FlutterLocalNotificationsPlugin(),
+       _deviceInfo = deviceInfo ?? DeviceInfoPlugin(),
+       _receivedDeduplicator = deduplicator ?? PushEventDeduplicator(),
+       _tapDeduplicator = PushEventDeduplicator();
 
   final PushTokenRemoteDatasource _datasource;
   final FlutterSecureStorage _secureStorage;
   final FirebaseMessaging _messaging;
   final FlutterLocalNotificationsPlugin _localNotifications;
   final DeviceInfoPlugin _deviceInfo;
+  final PushEventDeduplicator _receivedDeduplicator;
+  final PushEventDeduplicator _tapDeduplicator;
 
   /// Monotonic counter for the local-notification id — id must fit a Java
   /// `int` (32-bit signed) on Android, and `Object.hash()` does not. A
@@ -108,8 +114,9 @@ class PushNotificationService {
     _foregroundSub = FirebaseMessaging.onMessage.listen(_onForegroundMessage);
 
     // App in background and brought to foreground by a notification tap.
-    _openedAppSub =
-        FirebaseMessaging.onMessageOpenedApp.listen(_onMessageOpened);
+    _openedAppSub = FirebaseMessaging.onMessageOpenedApp.listen(
+      _onMessageOpened,
+    );
 
     // iOS: show the banner while in foreground.
     await _messaging.setForegroundNotificationPresentationOptions(
@@ -158,8 +165,8 @@ class PushNotificationService {
     final String? token;
     try {
       token = await _messaging.getToken();
-    } catch (e) {
-      AppLogger.w('Push', 'getToken failed, skipping registration: $e');
+    } catch (_) {
+      AppLogger.w('Push', 'Push token unavailable; registration skipped');
       return;
     }
     if (token == null) {
@@ -182,8 +189,8 @@ class PushNotificationService {
     if (id != null && id.isNotEmpty) {
       try {
         await _datasource.deleteToken(id);
-      } catch (e) {
-        AppLogger.w('Push', 'Token delete failed (best-effort): $e');
+      } catch (_) {
+        AppLogger.w('Push', 'Token deletion failed (best-effort)');
       }
       await _secureStorage.delete(key: _tokenIdKey);
     }
@@ -193,8 +200,8 @@ class PushNotificationService {
 
     try {
       await _messaging.deleteToken();
-    } catch (e) {
-      AppLogger.w('Push', 'deleteToken failed (best-effort): $e');
+    } catch (_) {
+      AppLogger.w('Push', 'Device token deletion failed (best-effort)');
     }
     AppLogger.i('Push', 'Push unregistered');
   }
@@ -205,7 +212,8 @@ class PushNotificationService {
   Future<PushMessage?> initialMessage() async {
     final message = await _messaging.getInitialMessage();
     if (message == null) return null;
-    return _toPushMessage(message);
+    final parsed = _toPushMessage(message);
+    return parsed != null && _tapDeduplicator.accept(parsed) ? parsed : null;
   }
 
   /// Disposes all stream subscriptions. Call from app teardown / tests.
@@ -228,10 +236,10 @@ class PushNotificationService {
       );
       await _secureStorage.write(key: _tokenIdKey, value: id);
       AppLogger.i('Push', 'Token registered with backend');
-    } catch (e) {
+    } catch (_) {
       // Registration is non-fatal — the user can still use the app, they
       // just won't get pushes until the next refresh/login.
-      AppLogger.w('Push', 'Token registration failed: $e');
+      AppLogger.w('Push', 'Token registration failed');
     }
   }
 
@@ -251,15 +259,18 @@ class PushNotificationService {
 
     await _localNotifications
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(_androidChannel);
   }
 
   void _onForegroundMessage(RemoteMessage message) {
-    AppLogger.d('Push', 'Foreground message: type=${message.data['type']}');
+    final parsed = _toPushMessage(message);
+    if (parsed == null || !_receivedDeduplicator.accept(parsed)) return;
+    AppLogger.d('Push', 'Foreground notification received');
     // Refresh the relevant in-app list first (works for data-only messages
     // too) — mobile's equivalent of the web's live SignalR refresh.
-    onMessageReceived?.call(_toPushMessage(message));
+    onMessageReceived?.call(parsed);
 
     final notification = message.notification;
     if (notification == null) return;
@@ -326,16 +337,21 @@ class PushNotificationService {
   }
 
   void _onMessageOpened(RemoteMessage message) {
-    onMessageTapped?.call(_toPushMessage(message));
+    final parsed = _toPushMessage(message);
+    if (parsed != null && _tapDeduplicator.accept(parsed)) {
+      onMessageTapped?.call(parsed);
+    }
   }
 
   void _onLocalNotificationTapped(NotificationResponse response) {
-    // Foreground-banner tap: decode the JSON payload we wrote in
-    // [showLocalNotification] so the full data map (type + grantId /
-    // agentId) survives and the deep-link can land on the specific entity.
+    // Foreground-banner tap: decode only the frozen structural payload. The
+    // authoritative Inbox item is fetched before any route is emitted.
     final raw = response.payload;
     if (raw == null || raw.isEmpty) return;
-    onMessageTapped?.call(PushMessage.fromData(_decodePayload(raw)));
+    final parsed = PushMessage.fromData(_decodePayload(raw));
+    if (parsed != null && _tapDeduplicator.accept(parsed)) {
+      onMessageTapped?.call(parsed);
+    }
   }
 
   /// Decodes a local-notification payload back to a routing data map. Falls
@@ -353,13 +369,8 @@ class PushNotificationService {
     return <String, dynamic>{'type': raw};
   }
 
-  PushMessage _toPushMessage(RemoteMessage message) {
-    return PushMessage.fromData(
-      message.data,
-      title: message.notification?.title,
-      body: message.notification?.body,
-    );
-  }
+  PushMessage? _toPushMessage(RemoteMessage message) =>
+      PushMessage.fromData(message.data);
 
   Future<String?> _deviceName() async {
     // Use the real device identifier (e.g. "iPhone 15", "Pixel 8") so the
@@ -385,8 +396,8 @@ class PushNotificationService {
         if (model.isNotEmpty) return model;
         return 'Android device';
       }
-    } catch (e) {
-      AppLogger.w('Push', 'device_info lookup failed: $e');
+    } catch (_) {
+      AppLogger.w('Push', 'Device name lookup failed');
     }
     return null;
   }

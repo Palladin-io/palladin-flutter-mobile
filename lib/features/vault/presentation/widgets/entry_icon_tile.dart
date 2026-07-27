@@ -59,15 +59,6 @@ class EntryIconTile extends StatelessWidget {
         errorBuilder: (_, _, _) => _glyph(),
       );
     }
-    if (icon.startsWith('http://') || icon.startsWith('https://')) {
-      return Image.network(
-        icon,
-        width: _size,
-        height: _size,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _glyph(),
-      );
-    }
     return _glyph();
   }
 

@@ -21,9 +21,15 @@ final class SearchLoading extends SearchState {
 
 /// The query returned one or more hits.
 final class SearchResults extends SearchState {
-  const SearchResults(this.results);
+  const SearchResults(
+    this.results, {
+    this.remotePending = false,
+    this.remoteFailed = false,
+  });
 
   final List<SearchResultEntity> results;
+  final bool remotePending;
+  final bool remoteFailed;
 }
 
 /// The query completed with no hits.
@@ -33,7 +39,5 @@ final class SearchEmpty extends SearchState {
 
 /// The query failed (network / server error).
 final class SearchError extends SearchState {
-  const SearchError(this.error);
-
-  final Object error;
+  const SearchError();
 }

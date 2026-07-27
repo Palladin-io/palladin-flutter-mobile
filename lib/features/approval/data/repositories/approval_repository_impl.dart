@@ -1,53 +1,77 @@
-import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
-import '../../../../core/crypto/vault_session_store.dart';
 import '../../../../core/utils/app_logger.dart';
-import '../../../grants/domain/entities/grant_method.dart';
 import '../../../vault/data/datasources/entry_remote_datasource.dart';
-import '../../../vault/data/services/entry_v2_crypto_service.dart';
-import '../../../vault/domain/entities/vault_plaintext.dart';
+import '../../../vault/data/datasources/vault_remote_datasource.dart';
+import '../../../vault/data/services/canonical_entry_detail_service.dart';
+import '../../../vault/data/datasources/agent_discovery_remote_datasource.dart';
+import '../../../vault/domain/entities/agent_visibility_policy.dart';
+import '../../../vault/domain/entities/entry_entity.dart';
+import '../../../grants/domain/entities/grant_method.dart';
 import '../../domain/entities/pending_grant.dart';
 import '../../domain/exceptions/approval_exceptions.dart';
 import '../../domain/repositories/approval_repository.dart';
 import '../datasources/approval_remote_datasource.dart';
+import '../services/grant_crypto_service.dart';
 
-/// Canonical protocol-v2 Grant orchestration. Plaintext and Vault keys remain
-/// in process memory and every secret copy is wiped on all exit paths.
+/// Concrete [ApprovalRepository].
+///
+/// Orchestrates the GRANULAR approval pipeline:
+///   1. fetch the entry's encrypted blob (`GET .../entries/{id}`),
+///   2. fetch the vault's sealed VK (`GET /api/vaults/{id}`),
+///   3. produce the envelope on-device ([GrantCryptoService]),
+///   4. submit it (`PUT .../approve`).
+///
+/// Reuses the vault feature's entry + vault datasources rather than
+/// duplicating those routes. Translates wire / crypto failures into typed
+/// [ApprovalException]s. No secret material is logged.
 class ApprovalRepositoryImpl implements ApprovalRepository {
   ApprovalRepositoryImpl({
     required ApprovalRemoteDatasource approvalDatasource,
     required EntryRemoteDatasource entryDatasource,
-    required EntryV2CryptoService cryptoService,
-    required VaultSessionStore sessionStore,
+    required VaultRemoteDatasource vaultDatasource,
+    required GrantCryptoService cryptoService,
+    required CanonicalEntryDetailService canonicalEntries,
+    required AgentDiscoveryRemote discovery,
   }) : _approval = approvalDatasource,
        _entries = entryDatasource,
+       _vaults = vaultDatasource,
        _crypto = cryptoService,
-       _sessions = sessionStore;
+       _canonicalEntries = canonicalEntries,
+       _discovery = discovery;
 
   final ApprovalRemoteDatasource _approval;
   final EntryRemoteDatasource _entries;
-  final EntryV2CryptoService _crypto;
-  final VaultSessionStore _sessions;
+  final VaultRemoteDatasource _vaults;
+  final GrantCryptoService _crypto;
+  final CanonicalEntryDetailService _canonicalEntries;
+  final AgentDiscoveryRemote _discovery;
 
   @override
   Future<List<PendingGrant>> listPendingGrants() async {
     try {
-      return (await _approval.listPendingGrants())
-          .map((model) => model.toEntity())
-          .toList(growable: false);
-    } on DioException catch (error, stackTrace) {
-      AppLogger.e(
-        'Approval',
-        'listPendingGrants failed',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      throw ApprovalException(_classifyError(error));
+      AppLogger.d('Approval', 'GET /api/dashboard/pending-grants');
+      final result = <PendingGrant>[];
+      final seen = <String>{};
+      String? cursor;
+      do {
+        final page = await _approval.listPendingGrants(cursor: cursor);
+        result.addAll(page.items.map((model) => model.toEntity()));
+        if (result.length > 2000) {
+          throw const FormatException('Pending grant list exceeds limit');
+        }
+        cursor = page.nextCursor;
+        if (cursor != null && !seen.add(cursor)) {
+          throw const FormatException('Pending grant cursor did not advance');
+        }
+      } while (cursor != null);
+      return List.unmodifiable(result);
+    } on DioException catch (e) {
+      AppLogger.w('Approval', 'pending grant list request failed');
+      throw ApprovalException(_classifyError(e));
     }
   }
 
@@ -57,52 +81,116 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required Uint8List privateKey,
     required GrantLimit limit,
     required List<GrantMethod> methods,
+    required List<String> fieldIds,
+    required String reviewedEntryRevision,
   }) async {
-    final wire = limit.toWire();
+    CanonicalEntrySnapshot? snapshot;
     try {
-      final material = await _entryMaterial(grant.vaultId, grant.entryId);
-      final fieldIds = grant.fieldIds.isEmpty
-          ? _grantFieldIds(material.secret)
-          : grant.fieldIds;
-      final envelope = await _seal(
-        material: material,
+      final freshGrant = (await _approval.getGrant(
+        grant.vaultId,
+        grant.grantId,
+      )).toEntity();
+      if (freshGrant.encryptedReason.requestRevision !=
+          grant.encryptedReason.requestRevision) {
+        throw const ApprovalException(ApprovalErrorKind.conflict);
+      }
+      snapshot = await _canonicalEntries.reveal(
+        expected: EntryEntity(
+          id: grant.entryId,
+          vaultId: grant.vaultId,
+          label: '',
+          type: EntryType.key,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+          updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+        ),
+        memberPrivateKey: privateKey,
+      );
+      if (snapshot.entry['currentRevision'] != reviewedEntryRevision) {
+        throw const ApprovalException(ApprovalErrorKind.conflict);
+      }
+      final vault = await _vaults.getEncryptedVault(grant.vaultId);
+      final candidates = (await _discovery.list(grant.vaultId))
+          .where((item) => item.agentId == grant.agentId && item.isCurrent)
+          .toList(growable: false);
+      if (candidates.length != 1) {
+        throw const FormatException('Agent identity unavailable');
+      }
+      final candidate = candidates.single;
+      final type = EntryTypeExtension.fromWire(
+        snapshot.secret['entryType'] as int,
+      );
+      final policy = AgentVisibilityPolicy.fromJson(
+        type,
+        Map<String, dynamic>.from(
+          snapshot.secret['agentVisibilityPolicy'] as Map,
+        ),
+        content: snapshot.payload,
+      );
+      final approvedMethods = _methodBits(methods);
+      final requestedMethods = grant.encryptedReason.requestedMethods;
+      if (approvedMethods == 0 ||
+          (approvedMethods & requestedMethods) != approvedMethods) {
+        throw const FormatException('Approval methods exceed request');
+      }
+      final wire = limit.toWire();
+      final grantEntry = await _crypto.produceProtocolEnvelope(
+        organizationId: snapshot.entry['organizationId'] as String,
+        vaultId: grant.vaultId,
         grantId: grant.grantId,
         agentId: grant.agentId,
-        agentPublicKey: grant.agentPublicKey,
-        recipientKeyVersion: grant.recipientAgentKeyVersion,
-        methods: methods,
-        fieldIds: fieldIds,
+        entryId: grant.entryId,
+        entryRevision: reviewedEntryRevision,
+        memberKeyGeneration: vault['memberKeyGeneration'] as int,
+        recipientAgentKeyVersion: candidate.recipientKeyVersion,
+        agentPublicKey: candidate.x25519PublicKey,
+        approvedMethods: approvedMethods,
+        type: type,
+        agentLabel:
+            snapshot.secret['agentLabel'] as String? ??
+            snapshot.secret['memberLabel'] as String,
+        description: snapshot.secret['description'] as String? ?? '',
+        content: snapshot.payload,
+        policy: policy,
+        approvedFieldIds: fieldIds,
         expiresAt: wire.expiresAt,
         remainingUses: wire.queryLimit,
       );
+      final latest = await _entries.getCanonicalEntry(
+        grant.vaultId,
+        grant.entryId,
+      );
+      if (latest['currentRevision'] != reviewedEntryRevision) {
+        throw const ApprovalException(ApprovalErrorKind.conflict);
+      }
       await _approval.approveGrant(
         vaultId: grant.vaultId,
         grantId: grant.grantId,
-        grantEntry: envelope,
+        grantEntry: grantEntry,
         expiresAt: wire.expiresAt,
         queryLimit: wire.queryLimit,
         methods: serializeGrantMethods(methods),
       );
-    } on DioException catch (error, stackTrace) {
-      AppLogger.e(
-        'Approval',
-        'approve failed',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      throw ApprovalException(_classifyError(error));
+    } on DioException catch (e) {
+      throw ApprovalException(_classifyError(e));
     } on ApprovalException {
       rethrow;
-    } catch (error, stackTrace) {
-      AppLogger.e(
-        'Approval',
-        'canonical approval failed',
-        error: error,
-        stackTrace: stackTrace,
-      );
+    } catch (_) {
       throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
+    } finally {
+      snapshot?.clear();
     }
   }
+
+  int _methodBits(Iterable<GrantMethod> methods) => methods.fold(
+    0,
+    (bits, method) =>
+        bits |
+        switch (method) {
+          GrantMethod.get => 1,
+          GrantMethod.exec => 2,
+          GrantMethod.inject => 4,
+        },
+  );
 
   @override
   Future<void> createGrant({
@@ -116,208 +204,111 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required GrantLimit limit,
     required List<GrantMethod> methods,
   }) async {
-    if (!isFull && entryId == null) {
-      throw const ApprovalException(ApprovalErrorKind.validation);
+    // 1. Resolve which entries to wrap: every vault entry (full) or just one
+    //    (granular). Fetch the sealed VK once.
+    final String wrappedVK;
+    final List<String> entryIds;
+    try {
+      AppLogger.d('Approval', 'Fetching entries + wrappedVK for re-grant');
+      wrappedVK = await _vaults.getVaultWrappedKey(vaultId);
+      if (isFull) {
+        final entries = await _entries.listEntries(vaultId);
+        entryIds = entries.map((e) => e.id).toList(growable: false);
+      } else {
+        entryIds = [entryId!];
+      }
+    } on DioException catch (e, s) {
+      AppLogger.e('Approval', 're-grant fetch failed', error: e, stackTrace: s);
+      throw ApprovalException(_classifyError(e));
     }
-    final ids = isFull
-        ? (await _entries.listEntriesV2(
-            vaultId,
-          )).map((row) => row['id'] as String).toList(growable: false)
-        : <String>[entryId!];
-    if (ids.isEmpty) {
+
+    if (entryIds.isEmpty) {
       throw const ApprovalException(ApprovalErrorKind.validation);
     }
 
-    final grantId = _uuidV4();
+    // 2. Produce one envelope per entry on-device (zero-knowledge).
+    final wrapped = <({String entryId, GrantEnvelope envelope})>[];
+    try {
+      for (final id in entryIds) {
+        final detail = await _entries.getEntry(vaultId, id);
+        final envelope = await _crypto.produceGrantEnvelope(
+          wrappedVK: wrappedVK,
+          privateKey: privateKey,
+          entryBlob: detail.content.encryptedBlob,
+          entryNonce: detail.content.nonce,
+          agentPublicKey: agentPublicKey,
+        );
+        wrapped.add((entryId: id, envelope: envelope));
+      }
+    } on ApprovalException {
+      rethrow;
+    } on DioException catch (e, s) {
+      AppLogger.e(
+        'Approval',
+        're-grant fetch entry failed',
+        error: e,
+        stackTrace: s,
+      );
+      throw ApprovalException(_classifyError(e));
+    } catch (e, s) {
+      AppLogger.e(
+        'Approval',
+        're-grant envelope failed',
+        error: e,
+        stackTrace: s,
+      );
+      throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
+    }
+
+    // 3. Submit the new grant.
     final wire = limit.toWire();
     try {
-      final envelopes = <Map<String, Object?>>[];
-      for (final id in ids) {
-        final material = await _entryMaterial(vaultId, id);
-        final fieldIds = _grantFieldIds(material.secret);
-        envelopes.add(
-          await _seal(
-            material: material,
-            grantId: grantId,
-            agentId: agentId,
-            agentPublicKey: agentPublicKey,
-            recipientKeyVersion: recipientKeyVersion,
-            methods: methods,
-            fieldIds: fieldIds,
-            expiresAt: wire.expiresAt,
-            remainingUses: wire.queryLimit,
-          ),
-        );
-      }
       await _approval.createGrant(
-        grantId: grantId,
         vaultId: vaultId,
         agentId: agentId,
         type: isFull ? 'full' : 'granular',
         entryId: isFull ? null : entryId,
-        entries: envelopes,
+        entries: wrapped,
         expiresAt: wire.expiresAt,
         queryLimit: wire.queryLimit,
         methods: serializeGrantMethods(methods),
       );
-    } on DioException catch (error, stackTrace) {
+    } on DioException catch (e, s) {
       AppLogger.e(
         'Approval',
-        'create grant failed',
-        error: error,
-        stackTrace: stackTrace,
+        're-grant submit failed',
+        error: e,
+        stackTrace: s,
       );
-      throw ApprovalException(_classifyError(error));
-    } on ApprovalException {
-      rethrow;
-    } catch (error, stackTrace) {
-      AppLogger.e(
-        'Approval',
-        'canonical create grant failed',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
+      throw ApprovalException(_classifyError(e));
     }
   }
 
   @override
-  Future<void> denyGrant({required PendingGrant grant, String? reason}) async {
+  Future<void> denyGrant({required PendingGrant grant}) async {
     try {
-      await _approval.denyGrant(
-        vaultId: grant.vaultId,
-        grantId: grant.grantId,
-        reason: reason,
-      );
-    } on DioException catch (error) {
-      throw ApprovalException(_classifyError(error));
+      AppLogger.d('Approval', 'PUT deny grantId=${grant.grantId}');
+      await _approval.denyGrant(vaultId: grant.vaultId, grantId: grant.grantId);
+    } on DioException catch (e, s) {
+      AppLogger.e('Approval', 'deny failed', error: e, stackTrace: s);
+      throw ApprovalException(_classifyError(e));
     }
   }
 
-  Future<_EntryMaterial> _entryMaterial(String vaultId, String entryId) async {
-    final UnlockedVaultSession session;
-    try {
-      session = _sessions.session(vaultId);
-    } on StateError {
-      throw const ApprovalException(ApprovalErrorKind.vaultLocked);
-    }
-    final key = session.copyVaultKey();
-    try {
-      final detail = await _entries.getEntryV2(vaultId, entryId);
-      final secret = await _crypto.openMemberSecret(
-        entryKey: Map<String, dynamic>.from(detail['entryKey'] as Map),
-        memberSecret: Map<String, dynamic>.from(detail['memberSecret'] as Map),
-        vaultKey: key,
-      );
-      return _EntryMaterial(
-        organizationId: session.organizationId,
-        vaultId: vaultId,
-        entryId: entryId,
-        revision: int.parse(detail['currentRevision'] as String),
-        memberKeyGeneration: session.memberKeyGeneration,
-        secret: secret,
-      );
-    } finally {
-      key.fillRange(0, key.length, 0);
-    }
-  }
-
-  Future<Map<String, Object?>> _seal({
-    required _EntryMaterial material,
-    required String grantId,
-    required String agentId,
-    required String agentPublicKey,
-    required int recipientKeyVersion,
-    required List<GrantMethod> methods,
-    required List<String> fieldIds,
-    required String? expiresAt,
-    required int? remainingUses,
-  }) async {
-    if (fieldIds.isEmpty) {
-      throw const ApprovalException(ApprovalErrorKind.validation);
-    }
-    final publicKey = Uint8List.fromList(base64Decode(agentPublicKey));
-    try {
-      return await _crypto.sealGrant(
-        organizationId: material.organizationId,
-        vaultId: material.vaultId,
-        entryId: material.entryId,
-        grantId: grantId,
-        agentId: agentId,
-        entryRevision: material.revision,
-        memberKeyGeneration: material.memberKeyGeneration,
-        agentPublicKey: publicKey,
-        recipientKeyVersion: recipientKeyVersion,
-        approvedMethods: _methodBits(methods),
-        fieldIds: fieldIds,
-        grantPayload: VaultPlaintextProjector.grantPayloadFromJson(
-          material.secret,
-          fieldIds.toSet(),
-        ),
-        expiresAt: expiresAt == null ? null : DateTime.parse(expiresAt),
-        remainingUses: remainingUses,
-      );
-    } finally {
-      publicKey.fillRange(0, publicKey.length, 0);
-    }
-  }
-
-  List<String> _grantFieldIds(Map<String, dynamic> secret) =>
-      (Map<String, dynamic>.from(secret['agentFieldAccess'] as Map).entries
-          .where(
-            (entry) => const {
-              'onGrantValue',
-              'onGrantDerived',
-              'onGrantRuntime',
-            }.contains(entry.value),
-          )
-          .map((entry) => entry.key)
-          .toList()
-        ..sort());
-
-  int _methodBits(List<GrantMethod> methods) =>
-      methods.fold(0, (bits, method) => bits | (1 << method.index));
-
-  String _uuidV4() {
-    final bytes = List<int>.generate(16, (_) => Random.secure().nextInt(256));
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    final hex = bytes
-        .map((value) => value.toRadixString(16).padLeft(2, '0'))
-        .join();
-    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
-  }
-
-  ApprovalErrorKind _classifyError(DioException error) {
-    if (error.type == DioExceptionType.connectionTimeout ||
-        error.type == DioExceptionType.sendTimeout ||
-        error.type == DioExceptionType.receiveTimeout ||
-        error.type == DioExceptionType.connectionError ||
-        error.error is SocketException) {
+  ApprovalErrorKind _classifyError(DioException e) {
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.connectionError ||
+        e.error is SocketException) {
       return ApprovalErrorKind.networkError;
     }
-    return switch (error.response?.statusCode) {
+    return switch (e.response?.statusCode) {
       404 => ApprovalErrorKind.notFound,
       403 => ApprovalErrorKind.forbidden,
-      400 || 409 => ApprovalErrorKind.validation,
+      400 => ApprovalErrorKind.validation,
+      409 => ApprovalErrorKind.conflict,
       _ => ApprovalErrorKind.unknown,
     };
   }
-}
-
-final class _EntryMaterial {
-  const _EntryMaterial({
-    required this.organizationId,
-    required this.vaultId,
-    required this.entryId,
-    required this.revision,
-    required this.memberKeyGeneration,
-    required this.secret,
-  });
-  final String organizationId;
-  final String vaultId;
-  final String entryId;
-  final int revision;
-  final int memberKeyGeneration;
-  final Map<String, dynamic> secret;
 }

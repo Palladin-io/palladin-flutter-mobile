@@ -31,7 +31,7 @@ import '../../../onboarding/domain/crypto_params.dart';
 /// their lifetime.
 class PasswordAuthCryptoService {
   PasswordAuthCryptoService({Future<SodiumSumo> Function()? sodiumLoader})
-      : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
+    : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
   final Future<SodiumSumo> Function() _sodiumLoader;
 
@@ -47,12 +47,37 @@ class PasswordAuthCryptoService {
     required String authSaltBase64,
   }) async {
     final sodium = await _sodiumLoader();
-    final authSalt = base64.decode(authSaltBase64);
+    final authSalt = _decodeWireBytes(authSaltBase64);
     final authKey = _deriveKey(sodium, password, authSalt);
     try {
       return base64.encode(authKey.extractBytes());
     } finally {
+      authSalt.fillRange(0, authSalt.length, 0);
       authKey.dispose();
+    }
+  }
+
+  /// Legacy compatibility derivation as raw request-only bytes.
+  Future<Uint8List> deriveAuthCredentialBytes({
+    required String password,
+    required String authSaltBase64,
+  }) async {
+    final sodium = await _sodiumLoader();
+    final authSalt = _decodeWireBytes(authSaltBase64);
+    final authKey = _deriveKey(sodium, password, authSalt);
+    try {
+      return authKey.extractBytes();
+    } finally {
+      authSalt.fillRange(0, authSalt.length, 0);
+      authKey.dispose();
+    }
+  }
+
+  Uint8List _decodeWireBytes(String value) {
+    try {
+      return Uint8List.fromList(base64Url.decode(base64Url.normalize(value)));
+    } on FormatException {
+      return Uint8List.fromList(base64.decode(value));
     }
   }
 
@@ -159,7 +184,11 @@ class PasswordAuthCryptoService {
     final currentEncSalt = base64.decode(currentEncSaltBase64);
     final currentAuthSalt = base64.decode(currentAuthSaltBase64);
 
-    final currentMasterKey = _deriveKey(sodium, currentPassword, currentEncSalt);
+    final currentMasterKey = _deriveKey(
+      sodium,
+      currentPassword,
+      currentEncSalt,
+    );
     Uint8List? privateKeyBytes;
     try {
       privateKeyBytes = _openPrivateKey(
@@ -172,7 +201,11 @@ class PasswordAuthCryptoService {
       // server can verify knowledge of the current password constant-time
       // before overwriting key material — a stolen session alone must not
       // be able to rotate the credential.
-      final currentAuthKey = _deriveKey(sodium, currentPassword, currentAuthSalt);
+      final currentAuthKey = _deriveKey(
+        sodium,
+        currentPassword,
+        currentAuthSalt,
+      );
       final currentAuthHash = base64.encode(currentAuthKey.extractBytes());
       currentAuthKey.dispose();
 

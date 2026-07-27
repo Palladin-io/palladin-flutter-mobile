@@ -772,6 +772,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryRevealingForEdit => 'Loading entry data…';
 
   @override
+  String get entryRevealDetailsAction => 'Reveal entry details';
+
+  @override
+  String get entryRevealDetailsHint =>
+      'Sensitive fields are decrypted only after you request them.';
+
+  @override
+  String get entryErrorConflict =>
+      'This entry changed while you were editing it. Reload it and try again.';
+
+  @override
+  String get entryAgentsPolicyTitle => 'Agent visibility';
+
+  @override
+  String get entryAgentsPolicyHint =>
+      'Choose what agents may discover and what can be released by an exact-revision grant.';
+
+  @override
+  String get entryAgentsDiscoverable => 'Discoverable by organization agents';
+
+  @override
+  String get entryAgentsAgentLabel => 'Agent-facing label';
+
+  @override
+  String get entryAgentsDiscoveryPreview => 'Discovery preview';
+
+  @override
+  String get entryAgentsDiscoveryEmpty =>
+      'No values will be included in Discovery.';
+
+  @override
+  String get entryAgentsSavePolicy => 'Save visibility policy';
+
+  @override
+  String get entryAgentsSavingPolicy => 'Saving policy…';
+
+  @override
+  String get entryAgentsPolicyError =>
+      'The encrypted policy could not be loaded or saved safely.';
+
+  @override
+  String get entryAgentsAccessNever => 'Never';
+
+  @override
+  String get entryAgentsAccessDiscovery => 'Discovery';
+
+  @override
+  String get entryAgentsAccessGrantValue => 'Grant: value';
+
+  @override
+  String get entryAgentsAccessGrantDerived => 'Grant: derived only';
+
+  @override
+  String get entryAgentsAccessGrantRuntime => 'Grant: runtime only';
+
+  @override
   String get entryDangerZone => 'Danger Zone';
 
   @override
@@ -827,6 +883,24 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get entryEncryptionNotice =>
       'Encrypted on-device with XSalsa20-Poly1305 before upload';
+
+  @override
+  String get entryKeyVisibilityPolicy =>
+      'Agent visibility: label and type are discoverable. Key material remains encrypted and is available only after an approved grant.';
+
+  @override
+  String get entryCredentialVisibilityPolicy =>
+      'Agent visibility: username and URL domain can be discoverable. Password, notes and full URL require a grant; TOTP is derived-only and never disclosed as a seed.';
+
+  @override
+  String get entryDiscoverUsername => 'Let agents discover the username';
+
+  @override
+  String get entryDiscoverDomain => 'Let agents discover the URL domain';
+
+  @override
+  String get entryScriptVisibilityPolicy =>
+      'Agent visibility: interpreter is discoverable. Script body and referenced secrets are available only at approved runtime and are never included in Discovery.';
 
   @override
   String get entrySearchHint => 'Search entries…';
@@ -2307,6 +2381,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditDetailEntry => 'Entry';
 
   @override
+  String get auditDetailVault => 'Vault';
+
+  @override
   String get auditDetailReason => 'Reason';
 
   @override
@@ -2693,6 +2770,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchTypeBadgeAgent => 'Agent';
 
   @override
+  String get searchTypeBadgeMember => 'Member';
+
+  @override
   String get searchTypeBadgeVault => 'Vault';
 
   @override
@@ -2953,6 +3033,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exportErrorUnknown => 'Something went wrong. Please try again.';
 
   @override
+  String get exportIncludeArchived => 'Include archived entries';
+
+  @override
+  String get exportIncludeDeleted => 'Include recently deleted entries';
+
+  @override
+  String get exportIncludeHistory => 'Include previous revisions';
+
+  @override
+  String get exportDeletionDisclosure =>
+      'Palladin removes its temporary copy after sharing on a best-effort basis. Copies created by the selected app or cloud service are controlled by that recipient and may remain there.';
+
+  @override
+  String get exportErrorTooLarge =>
+      'This export exceeds the local safety limit. Export a smaller scope.';
+
+  @override
   String get authLoginSubtitle =>
       'Sign in with your email and master password.';
 
@@ -3211,6 +3308,209 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsChangePassword => 'Change master password';
+
+  @override
+  String get entryStateActive => 'Active';
+
+  @override
+  String get entryStateArchived => 'Archive';
+
+  @override
+  String get entryStateDeleted => 'Recently deleted';
+
+  @override
+  String get entryArchivedRecoverability => 'Archived · can be restored';
+
+  @override
+  String get entryDeletedRecoverability =>
+      'Recently deleted · recoverable during retention';
+
+  @override
+  String get entryCorruptProjection =>
+      'Encrypted metadata could not be verified';
+
+  @override
+  String get entryArchiveTitle => 'Archive';
+
+  @override
+  String get entryArchiveSubtitle => 'Items kept outside your active vault';
+
+  @override
+  String get entryArchiveSearchHint => 'Search archived items';
+
+  @override
+  String get entryArchiveEmpty => 'No archived items';
+
+  @override
+  String get entryArchiveRestore => 'Unarchive';
+
+  @override
+  String get entryArchiveRestoring => 'Restoring…';
+
+  @override
+  String get entryArchiveConflict =>
+      'This item changed on another device. Sync and try again.';
+
+  @override
+  String get entryArchiveAllTypes => 'All types';
+
+  @override
+  String get entryArchiveSortAscending => 'A–Z';
+
+  @override
+  String get entryArchiveSortDescending => 'Z–A';
+
+  @override
+  String get entryArchiveSortType => 'By type';
+
+  @override
+  String get entryDeletedTitle => 'Recently Deleted';
+
+  @override
+  String get entryDeletedSubtitle =>
+      'Recoverable items awaiting permanent deletion';
+
+  @override
+  String get entryDeletedSearchHint => 'Search recently deleted items';
+
+  @override
+  String get entryDeletedEmpty => 'No recently deleted items';
+
+  @override
+  String get entryDeletedRestore => 'Restore';
+
+  @override
+  String entryDeletedPurgeAt(String date) {
+    return 'Permanently deleted after $date';
+  }
+
+  @override
+  String get entryDeletedPurgeTitle => 'Delete permanently?';
+
+  @override
+  String get entryDeletedPurgeWarning =>
+      'This permanently removes all encrypted content, keys and history. This cannot be undone.';
+
+  @override
+  String get entryDeletedPurgeConfirm => 'Delete permanently';
+
+  @override
+  String get vaultDiscoveryTitle => 'Agent Discovery';
+
+  @override
+  String get vaultDiscoveryAccessDisclaimer =>
+      'Organization membership does not grant secret access. Only an active scoped grant authorizes retrieval.';
+
+  @override
+  String get vaultDiscoveryNoActiveAgents =>
+      'No active organization agents require Discovery provisioning.';
+
+  @override
+  String get vaultDiscoveryCurrent => 'Current';
+
+  @override
+  String get vaultDiscoveryPending => 'Pending / stale';
+
+  @override
+  String vaultDiscoveryVdkVersion(int version) {
+    return 'Current Discovery key version: v$version';
+  }
+
+  @override
+  String vaultDiscoveryKeyVersion(int version) {
+    return 'Recipient key v$version';
+  }
+
+  @override
+  String get vaultMemberYou => 'you';
+
+  @override
+  String get vaultMemberActive => 'Active';
+
+  @override
+  String get vaultMemberPending => 'Removal pending';
+
+  @override
+  String get vaultMemberRotating => 'Securing access — Vault remains available';
+
+  @override
+  String get vaultMemberBlockedLast => 'Blocked — last capable Member';
+
+  @override
+  String get vaultMemberRemove => 'Remove';
+
+  @override
+  String get vaultMemberRemoveTitle => 'Remove organization Member?';
+
+  @override
+  String vaultMemberRemoveBody(String name) {
+    return 'Removing $name affects every Vault they can access. Access remains active until all required key rotations commit.';
+  }
+
+  @override
+  String get vaultMemberRemovalStarted =>
+      'Removal started. This Vault remains available while rotations finish.';
+
+  @override
+  String get vaultMembersLoadError => 'Member status could not be loaded.';
+
+  @override
+  String get vaultMemberForbidden =>
+      'You do not have permission to manage organization Members.';
+
+  @override
+  String get vaultMemberProtected => 'This Member cannot be removed.';
+
+  @override
+  String get vaultMemberNetworkError => 'Check your connection and try again.';
+
+  @override
+  String get vaultMetadataConflict =>
+      'This Vault changed on another device. Review the latest values and try again.';
+
+  @override
+  String get vaultMetadataCorrupt =>
+      'Encrypted Vault settings could not be verified. No changes were saved.';
+
+  @override
+  String get entryTabHistory => 'History';
+
+  @override
+  String get entryHistoryEmpty => 'No previous versions';
+
+  @override
+  String get entryHistoryLoadError =>
+      'Encrypted history could not be loaded or verified.';
+
+  @override
+  String entryHistoryVersion(String revision) {
+    return 'Version $revision';
+  }
+
+  @override
+  String entryHistoryActor(String actor, String time) {
+    return '$actor · $time';
+  }
+
+  @override
+  String get entryHistoryLoadMore => 'Load older versions';
+
+  @override
+  String get entryHistoryReveal => 'Decrypt this version';
+
+  @override
+  String get entryHistoryRestore => 'Restore as a new version';
+
+  @override
+  String get entryHistoryRestored =>
+      'Historical content restored as a new current version.';
+
+  @override
+  String get entryHistorySensitiveWarning =>
+      'Historical versions may contain previous passwords and TOTP seeds.';
+
+  @override
+  String get entryHistoryLocked => 'Unlock the app to decrypt this version.';
 
   @override
   String get settingsTwoFactor => 'Two-factor authentication';

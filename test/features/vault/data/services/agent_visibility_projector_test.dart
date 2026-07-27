@@ -1,0 +1,103 @@
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:mobile_palladin/features/vault/data/services/agent_visibility_projector.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/agent_visibility_policy.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
+
+void main() {
+  test('TOTP can only be never or derived-only', () {
+    expect(
+      () => AgentVisibilityPolicy.fromJson(
+        EntryType.credential,
+        {
+          'discoverable': true,
+          'fields': {'agentLabel': 'discovery', 'totp': 'onGrantValue'},
+        },
+        content: {'totp': 'SEED'},
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test('Script source and refs can only be never or runtime-only', () {
+    for (final field in ['script', 'refs']) {
+      expect(
+        () => AgentVisibilityPolicy.fromJson(
+          EntryType.script,
+          {
+            'discoverable': true,
+            'fields': {'agentLabel': 'discovery', field: 'onGrantValue'},
+          },
+          content: {'script': 'secret script', 'refs': const []},
+        ),
+        throwsFormatException,
+      );
+    }
+  });
+
+  test('Discovery never contains TOTP seed or Script source', () {
+    final credential = AgentVisibilityPolicy.fromJson(
+      EntryType.credential,
+      {
+        'discoverable': true,
+        'fields': {
+          'agentLabel': 'discovery',
+          'username': 'discovery',
+          'totp': 'onGrantDerived',
+        },
+      },
+      content: {'username': 'agent-user', 'totp': 'TOPSECRET'},
+    );
+    final discovery = AgentVisibilityProjector.discovery(
+      type: EntryType.credential,
+      agentLabel: 'Agent account',
+      description: '',
+      content: {'username': 'agent-user', 'totp': 'TOPSECRET'},
+      policy: credential,
+    );
+    expect(discovery.toString(), isNot(contains('TOPSECRET')));
+
+    final script = AgentVisibilityPolicy.fromJson(
+      EntryType.script,
+      {
+        'discoverable': true,
+        'fields': {
+          'agentLabel': 'discovery',
+          'interpreter': 'discovery',
+          'script': 'onGrantRuntime',
+        },
+      },
+      content: {'interpreter': 'bash', 'script': 'secret script'},
+    );
+    final scriptDiscovery = AgentVisibilityProjector.discovery(
+      type: EntryType.script,
+      agentLabel: 'Deploy',
+      description: '',
+      content: {'interpreter': 'bash', 'script': 'secret script'},
+      policy: script,
+    );
+    expect(scriptDiscovery.toString(), isNot(contains('secret script')));
+  });
+
+  test('grant projector rejects a field outside policy before encryption', () {
+    final policy = AgentVisibilityPolicy.fromJson(
+      EntryType.credential,
+      {
+        'discoverable': true,
+        'fields': {'agentLabel': 'discovery', 'password': 'never'},
+      },
+      content: {'password': 'secret'},
+    );
+    expect(
+      () => AgentVisibilityProjector.grantPayload(
+        type: EntryType.credential,
+        agentLabel: 'Account',
+        description: '',
+        content: {'password': 'secret'},
+        policy: policy,
+        approvedFieldIds: const ['password'],
+      ),
+      throwsFormatException,
+    );
+  });
+}

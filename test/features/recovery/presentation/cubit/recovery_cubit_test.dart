@@ -26,6 +26,7 @@ void main() {
       'abandon abandon abandon abandon abandon abandon abandon art';
 
   final accountWithRecovery = const AccountResponse(
+    userId: '00112233-4455-6677-8899-aabbccddeeff',
     salt: 'c2FsdC1pcy1zaXh0ZWVuISE=',
     encryptedPrivateKey: 'ZW5jcnlwdGVk',
     recoverySalt: 'cmVjb3Zlcnktc2FsdC0xNiE=',
@@ -33,6 +34,7 @@ void main() {
   );
 
   final accountWithoutRecovery = const AccountResponse(
+    userId: '00112233-4455-6677-8899-aabbccddeeff',
     salt: 'c2FsdC1pcy1zaXh0ZWVuISE=',
     encryptedPrivateKey: 'ZW5jcnlwdGVk',
   );

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../models/account_response.dart';
+import '../models/identity_kdf_migration_request.dart';
 
 /// Remote data source for the unlock flow.
 ///
@@ -28,5 +29,14 @@ class AccountRemoteDatasource {
       );
     }
     return AccountResponse.fromJson(data);
+  }
+
+  /// Atomically commits a prepared KDF migration. A retry of the identical
+  /// request is safe because the backend keys it by [request.migrationId].
+  Future<void> migrateIdentityKdf(IdentityKdfMigrationRequest request) async {
+    await _dio.post<dynamic>(
+      '/api/account/kdf/migrations',
+      data: request.toJson(),
+    );
   }
 }

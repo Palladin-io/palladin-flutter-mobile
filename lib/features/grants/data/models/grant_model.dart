@@ -16,8 +16,8 @@ class GrantModel {
     this.agentName,
     this.agentIconKey,
     this.agentPublicKey,
-    this.recipientAgentKeyVersion = 1,
-    this.fieldIds = const [],
+    this.recipientAgentKeyVersion,
+    this.entryScopes = const [],
     this.vaultName,
     this.entryId,
     this.entryLabel,
@@ -44,8 +44,8 @@ class GrantModel {
   final String? agentName;
   final String? agentIconKey;
   final String? agentPublicKey;
-  final int recipientAgentKeyVersion;
-  final List<String> fieldIds;
+  final int? recipientAgentKeyVersion;
+  final List<GrantEntryScope> entryScopes;
   final String? vaultName;
   final Object? status;
   final Object? scope;
@@ -79,18 +79,25 @@ class GrantModel {
       agentName: json['agentName'] as String?,
       agentIconKey: json['agentIconKey'] as String?,
       agentPublicKey: json['agentPublicKey'] as String?,
-      recipientAgentKeyVersion:
-          (json['recipientAgentKeyVersion'] as num?)?.toInt() ?? 1,
-      fieldIds:
-          ((json['entryScopes'] as List<dynamic>? ?? const [])
-              .whereType<Map>()
-              .expand(
-                (scope) => scope['fieldIds'] as List<dynamic>? ?? const [],
-              )
-              .whereType<String>()
-              .toSet()
-              .toList()
-            ..sort()),
+      recipientAgentKeyVersion: json['recipientAgentKeyVersion'] as int?,
+      entryScopes: (json['entryScopes'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map(
+            (scope) => GrantEntryScope(
+              entryId: scope['entryId'] as String,
+              fieldIds: (scope['fieldIds'] as List<dynamic>? ?? const [])
+                  .whereType<String>()
+                  .toList(growable: false),
+              grantEnvelopeRevision: scope['grantEnvelopeRevision'] as String?,
+              entryRevision: scope['entryRevision'] as String?,
+              grantKeyVersion: scope['grantKeyVersion'] as int?,
+              memberKeyGeneration: scope['memberKeyGeneration'] as int?,
+              recipientAgentKeyVersion:
+                  scope['recipientAgentKeyVersion'] as int?,
+              agentKeyFingerprint: scope['agentKeyFingerprint'] as String?,
+            ),
+          )
+          .toList(growable: false),
       vaultName: json['vaultName'] as String?,
       status: json['status'],
       // Org listing returns `type` (full/granular); the per-vault list uses
@@ -129,7 +136,7 @@ class GrantModel {
       agentIconKey: agentIconKey,
       agentPublicKey: agentPublicKey,
       recipientAgentKeyVersion: recipientAgentKeyVersion,
-      fieldIds: fieldIds,
+      entryScopes: entryScopes,
       vaultName: vaultName,
       status: GrantStatus.fromWire(status),
       scope: GrantScope.fromWire(scope),

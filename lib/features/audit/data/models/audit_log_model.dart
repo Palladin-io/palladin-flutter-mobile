@@ -2,8 +2,8 @@ import '../../domain/entities/audit_log_entry.dart';
 
 /// Wire DTO for an audit log list item (`AuditLogListItem` on the backend).
 ///
-/// Carries non-sensitive context only — ids, the entry label, the agent's
-/// stated reason and a flat metadata map. Never any crypto material.
+/// Only structural fields cross this boundary. Server-provided presentation
+/// text is deliberately discarded and resolved from scoped local directories.
 class AuditLogModel {
   const AuditLogModel({
     required this.id,
@@ -36,7 +36,6 @@ class AuditLogModel {
   final Map<String, String> metadata;
 
   factory AuditLogModel.fromJson(Map<String, dynamic> json) {
-    final rawMeta = json['metadata'] as Map<String, dynamic>? ?? const {};
     return AuditLogModel(
       id: json['id'] as String,
       eventType: json['eventType'] as String? ?? '',
@@ -44,13 +43,13 @@ class AuditLogModel {
       createdAt: json['createdAt'] as String,
       userId: json['userId'] as String?,
       agentId: json['agentId'] as String?,
-      agentName: json['agentName'] as String?,
-      actorName: json['actorName'] as String?,
+      agentName: null,
+      actorName: null,
       vaultId: json['vaultId'] as String?,
       entryId: json['entryId'] as String?,
-      entryLabel: json['entryLabel'] as String?,
-      agentReason: json['agentReason'] as String?,
-      metadata: rawMeta.map((k, v) => MapEntry(k, v?.toString() ?? '')),
+      entryLabel: null,
+      agentReason: null,
+      metadata: const {},
     );
   }
 
@@ -66,13 +65,9 @@ class AuditLogModel {
       createdAt: DateTime.parse(createdAt).toLocal(),
       userId: userId,
       agentId: agentId,
-      agentName: agentName,
-      actorName: actorName,
       vaultId: vaultId,
       entryId: entryId,
-      entryLabel: entryLabel,
-      agentReason: agentReason,
-      metadata: metadata,
+      localPresentationOnly: true,
     );
   }
 }

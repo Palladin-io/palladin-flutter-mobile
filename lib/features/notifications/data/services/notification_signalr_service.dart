@@ -57,8 +57,8 @@ class NotificationSignalRService {
       // the early-return above would permanently block any reconnect attempt.
       _connection = connection;
       AppLogger.i('SignalR', 'Connected to $_hubUrl');
-    } catch (e) {
-      AppLogger.w('SignalR', 'Connect failed (best-effort): $e');
+    } catch (_) {
+      AppLogger.w('SignalR', 'Connect failed (best-effort)');
     }
   }
 
@@ -71,8 +71,8 @@ class NotificationSignalRService {
     try {
       await connection.stop();
       AppLogger.i('SignalR', 'Disconnected');
-    } catch (e) {
-      AppLogger.w('SignalR', 'Disconnect failed (best-effort): $e');
+    } catch (_) {
+      AppLogger.w('SignalR', 'Disconnect failed (best-effort)');
     }
   }
 
@@ -85,12 +85,8 @@ class NotificationSignalRService {
 
     final data = <String, dynamic>{};
     String? type = typeFromArg;
-    String? title;
-    String? body;
     if (payload is Map) {
       type ??= payload['type'] as String?;
-      title = payload['title'] as String?;
-      body = payload['body'] as String?;
       final rawData = payload['data'];
       if (rawData is Map) {
         rawData.forEach((key, value) {
@@ -104,12 +100,9 @@ class NotificationSignalRService {
     // fold it into the data map that PushMessage.fromData reads). Title/body
     // are carried through so the app can surface a visible in-app banner —
     // SignalR has no OS-level notification of its own (unlike FCM).
-    final message = PushMessage.fromData(
-      {...data, 'type': type},
-      title: title,
-      body: body,
-    );
-    AppLogger.d('SignalR', 'Notification: ${message.type.name}');
+    final message = PushMessage.fromData({...data, 'type': type});
+    if (message == null) return;
+    AppLogger.d('SignalR', 'Structural notification received');
     onNotification?.call(message);
   }
 }

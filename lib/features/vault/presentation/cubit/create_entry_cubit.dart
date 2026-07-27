@@ -7,6 +7,7 @@ import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../../domain/repositories/entry_repository.dart';
+import '../../data/services/key_entry_creation_service.dart';
 import 'create_entry_state.dart';
 
 export 'create_entry_state.dart';
@@ -26,10 +27,11 @@ export 'create_entry_state.dart';
 ///      `/api/vaults/{vaultId}/entries`.
 ///   4. [CreateEntrySuccess] is emitted with the newly-created entry.
 class CreateEntryCubit extends Cubit<CreateEntryState> {
-  CreateEntryCubit({required this.repository})
-      : super(const CreateEntryInitial());
+  CreateEntryCubit({required this.repository, this.keyCreationService})
+    : super(const CreateEntryInitial());
 
   final EntryRepository repository;
+  final KeyEntryCreationService? keyCreationService;
 
   /// Runs the full create-entry pipeline.
   ///
@@ -47,6 +49,8 @@ class CreateEntryCubit extends Cubit<CreateEntryState> {
     required Uint8List privateKey,
     String? wrappedVK,
     List<AgentField>? agentFields,
+    bool exposeUsername = true,
+    bool exposeDomain = true,
   }) async {
     if (label.trim().isEmpty || privateKey.isEmpty) {
       AppLogger.w('Entry', 'createEntry called with invalid input');
@@ -57,26 +61,59 @@ class CreateEntryCubit extends Cubit<CreateEntryState> {
     AppLogger.d('Entry', 'Creating entry "${type.name}" in vault $vaultId');
     emit(const CreateEntryLoading());
     try {
-      final entry = await repository.createEntryEncrypted(
-        vaultId: vaultId,
-        label: label.trim(),
-        description: _trimToNull(description),
-        icon: _trimToNull(icon),
-        type: type,
-        payload: payload,
-        urlDomain: _trimToNull(urlDomain),
-        privateKey: privateKey,
-        wrappedVK: wrappedVK,
-        agentFields: agentFields,
-      );
+      final entry = type == EntryType.key && keyCreationService != null
+          ? await keyCreationService!.create(
+              vaultId: vaultId,
+              label: label.trim(),
+              description: _trimToNull(description) ?? '',
+              icon: _trimToNull(icon) ?? '',
+              content: payload,
+              memberPrivateKey: privateKey,
+            )
+          : type == EntryType.credential && keyCreationService != null
+          ? await keyCreationService!.createCredential(
+              vaultId: vaultId,
+              label: label.trim(),
+              description: _trimToNull(description) ?? '',
+              icon: _trimToNull(icon) ?? '',
+              content: payload,
+              memberPrivateKey: privateKey,
+              exposeUsername: exposeUsername,
+              exposeDomain: exposeDomain,
+            )
+          : type == EntryType.script && keyCreationService != null
+          ? await keyCreationService!.createScript(
+              vaultId: vaultId,
+              label: label.trim(),
+              description: _trimToNull(description) ?? '',
+              icon: _trimToNull(icon) ?? '',
+              content: payload,
+              memberPrivateKey: privateKey,
+            )
+          : await repository.createEntryEncrypted(
+              vaultId: vaultId,
+              label: label.trim(),
+              description: _trimToNull(description),
+              icon: _trimToNull(icon),
+              type: type,
+              payload: payload,
+              urlDomain: _trimToNull(urlDomain),
+              privateKey: privateKey,
+              wrappedVK: wrappedVK,
+              agentFields: agentFields,
+            );
       AppLogger.i('Entry', 'Entry created: id=${entry.id}');
       emit(CreateEntrySuccess(entry));
     } on EntryException catch (e) {
       AppLogger.w('Entry', 'Entry creation failed: ${e.kind.name}');
       emit(CreateEntryError(e.kind));
     } catch (e, s) {
-      AppLogger.e('Entry', 'Entry creation failed unexpectedly',
-          error: e, stackTrace: s);
+      AppLogger.e(
+        'Entry',
+        'Entry creation failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
       emit(const CreateEntryError(EntryErrorKind.unknown));
     }
   }

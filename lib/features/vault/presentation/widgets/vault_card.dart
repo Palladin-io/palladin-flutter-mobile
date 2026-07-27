@@ -4,6 +4,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/vault_entity.dart';
+import '../../data/services/encrypted_presentation_asset_service.dart';
+import 'encrypted_asset_image.dart';
 import 'vault_visuals.dart';
 
 /// A single row in the vault list. Identity zone (icon + name + counts) over
@@ -20,11 +22,7 @@ import 'vault_visuals.dart';
 /// └──────────────────────────────────────────────┘
 /// ```
 class VaultCard extends StatelessWidget {
-  const VaultCard({
-    super.key,
-    required this.vault,
-    required this.onTap,
-  });
+  const VaultCard({super.key, required this.vault, required this.onTap});
 
   final VaultEntity vault;
   final VoidCallback onTap;
@@ -61,6 +59,7 @@ class VaultCard extends StatelessWidget {
                     entryCount: vault.entryCount,
                     icon: icon,
                     iconUrl: isUrl ? vault.icon : null,
+                    vaultId: vault.id,
                     accent: accent,
                     l10n: l10n,
                   ),
@@ -82,6 +81,7 @@ class _CardHeader extends StatelessWidget {
     required this.icon,
     required this.accent,
     required this.l10n,
+    required this.vaultId,
     this.iconUrl,
   });
 
@@ -89,6 +89,7 @@ class _CardHeader extends StatelessWidget {
   final int entryCount;
   final IconData icon;
   final String? iconUrl;
+  final String vaultId;
   final Color accent;
   final AppLocalizations l10n;
 
@@ -98,7 +99,12 @@ class _CardHeader extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _IconCircle(icon: icon, accent: accent, iconUrl: iconUrl),
+        _IconCircle(
+          icon: icon,
+          accent: accent,
+          iconUrl: iconUrl,
+          vaultId: vaultId,
+        ),
         const SizedBox(width: AppSpacing.innerGap),
         Expanded(
           child: Column(
@@ -134,7 +140,12 @@ class _CardHeader extends StatelessWidget {
 }
 
 class _IconCircle extends StatelessWidget {
-  const _IconCircle({required this.icon, required this.accent, this.iconUrl});
+  const _IconCircle({
+    required this.icon,
+    required this.accent,
+    required this.vaultId,
+    this.iconUrl,
+  });
 
   final IconData icon;
   final Color accent;
@@ -142,6 +153,7 @@ class _IconCircle extends StatelessWidget {
   /// When non-null, renders a network image inside the circle. Falls
   /// back to [icon] on load error.
   final String? iconUrl;
+  final String vaultId;
 
   @override
   Widget build(BuildContext context) {
@@ -153,15 +165,15 @@ class _IconCircle extends StatelessWidget {
         shape: BoxShape.circle,
         color: accent.withValues(alpha: 0.15),
       ),
-      child: iconUrl != null
+      child: iconUrl?.startsWith('asset:') ?? false
           ? ClipOval(
-              child: Image.network(
-                iconUrl!,
+              child: EncryptedAssetImage(
+                reference: iconUrl!,
+                target: PresentationAssetTarget.vault,
+                vaultId: vaultId,
                 width: 40,
                 height: 40,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stack) =>
-                    Icon(icon, color: accent, size: 20),
+                fallback: Icon(icon, color: accent, size: 20),
               ),
             )
           : Icon(icon, color: accent, size: 20),
@@ -170,10 +182,7 @@ class _IconCircle extends StatelessWidget {
 }
 
 class _CardFooter extends StatelessWidget {
-  const _CardFooter({
-    required this.lastUpdated,
-    required this.l10n,
-  });
+  const _CardFooter({required this.lastUpdated, required this.l10n});
 
   final DateTime lastUpdated;
   final AppLocalizations l10n;

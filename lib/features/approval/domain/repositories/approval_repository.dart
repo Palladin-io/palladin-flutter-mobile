@@ -70,10 +70,12 @@ abstract interface class ApprovalRepository {
     required Uint8List privateKey,
     required GrantLimit limit,
     required List<GrantMethod> methods,
+    required List<String> fieldIds,
+    required String reviewedEntryRevision,
   });
 
-  /// Denies [grant] with an optional [reason].
-  Future<void> denyGrant({required PendingGrant grant, String? reason});
+  /// Denies [grant] without any plaintext request or denial reason.
+  Future<void> denyGrant({required PendingGrant grant});
 
   /// Proactively (re-)grants an agent access — the "Grant again" / re-access
   /// flow. Produces the zero-knowledge envelope(s) on-device and POSTs a new

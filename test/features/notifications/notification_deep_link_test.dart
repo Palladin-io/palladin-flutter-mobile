@@ -21,12 +21,16 @@ void main() {
 
   group('notificationDeepLink', () {
     test('agent deep-link maps to agent detail', () {
-      final n = make('agent_approved', {'actionDeepLink': '/agents/a-1'});
+      final n = make('agent_approved', {
+        'agentId': 'a-1',
+        'actionDeepLink': '/agents/forged',
+      });
       expect(notificationDeepLink(n), '/agents/a-1');
     });
 
     test('grant deep-link collapses to its owning vault detail', () {
       final n = make('grant_approved', {
+        'vaultId': 'v-1',
         'actionDeepLink': '/vaults/v-1/grants/g-1',
       });
       expect(notificationDeepLink(n), '/vaults/v-1');
@@ -34,6 +38,7 @@ void main() {
 
     test('entry deep-link collapses to its owning vault detail', () {
       final n = make('credential_stale', {
+        'vaultId': 'v-2',
         'actionDeepLink': '/vaults/v-2/entries/e-1',
       });
       expect(notificationDeepLink(n), '/vaults/v-2');
@@ -53,28 +58,34 @@ void main() {
       expect(notificationDeepLink(make('future_unknown', const {})), isNull);
     });
 
-    test('historical grant_revoked renders without crashing and has no target',
-        () {
-      // Backend no longer emits grant_revoked, but a historical item must still
-      // resolve gracefully (no inline actions, deep-links to its vault).
-      final n = make('grant_revoked', {
-        'actionDeepLink': '/vaults/v-3/grants/g-3',
-      });
-      expect(notificationDeepLink(n), '/vaults/v-3');
-    });
+    test(
+      'historical grant_revoked renders without crashing and has no target',
+      () {
+        // Backend no longer emits grant_revoked, but a historical item must still
+        // resolve gracefully (no inline actions, deep-links to its vault).
+        final n = make('grant_revoked', {
+          'vaultId': 'v-3',
+          'actionDeepLink': '/vaults/v-3/grants/g-3',
+        });
+        expect(notificationDeepLink(n), '/vaults/v-3');
+      },
+    );
 
-    test('unknown deep-link prefix is ignored, falls through to metadata', () {
+    test('deep-link cannot widen an allowlisted type destination', () {
       final n = make('grant_approved', {
         'actionDeepLink': '/settings/something',
         'agentId': 'a-5',
       });
-      expect(notificationDeepLink(n), '/agents/a-5');
+      expect(notificationDeepLink(n), isNull);
     });
   });
 
   group('notificationViewTarget (contextual View label)', () {
     test('agent deep-link → agent target → "View Agent"', () {
-      final n = make('agent_approved', {'actionDeepLink': '/agents/a-1'});
+      final n = make('agent_approved', {
+        'agentId': 'a-1',
+        'actionDeepLink': '/agents/forged',
+      });
       expect(notificationViewTarget(n), NotificationViewTarget.agent);
       expect(
         notificationViewLabel(l10n, notificationViewTarget(n)!),

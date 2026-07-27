@@ -1,9 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
 import '../../domain/repositories/vault_repository.dart';
+import '../../data/services/vault_settings_service.dart';
 
 /// Base class for all states of the vault detail / settings screens.
 sealed class VaultDetailState {
@@ -44,10 +47,51 @@ final class VaultDetailError extends VaultDetailState {
 /// operations. Update preserves the loaded counters by re-fetching the
 /// vault after a successful PUT (the update endpoint returns 204).
 class VaultDetailCubit extends Cubit<VaultDetailState> {
-  VaultDetailCubit({required this.repository})
-      : super(const VaultDetailInitial());
+  VaultDetailCubit({required this.repository, this.settingsService})
+    : super(const VaultDetailInitial());
 
   final VaultRepository repository;
+  final VaultSettingsService? settingsService;
+
+  Future<void> updateEncrypted({
+    required VaultEntity expected,
+    required String name,
+    required String description,
+    required String icon,
+    required String color,
+    required Uint8List memberPrivateKey,
+    String? localIconPath,
+  }) async {
+    final service = settingsService;
+    if (service == null) {
+      memberPrivateKey.fillRange(0, memberPrivateKey.length, 0);
+      emit(const VaultDetailError(VaultErrorKind.unknown));
+      return;
+    }
+    emit(const VaultDetailLoading());
+    try {
+      final updated = await service.update(
+        expected: expected,
+        name: name,
+        description: description,
+        icon: icon,
+        color: color,
+        memberPrivateKey: memberPrivateKey,
+        localIconPath: localIconPath,
+      );
+      emit(VaultDetailLoaded(updated));
+    } on VaultSettingsException catch (error) {
+      final kind = switch (error.kind) {
+        VaultSettingsErrorKind.conflict => VaultErrorKind.conflict,
+        VaultSettingsErrorKind.corrupt => VaultErrorKind.corrupt,
+        VaultSettingsErrorKind.network => VaultErrorKind.networkError,
+        _ => VaultErrorKind.unknown,
+      };
+      emit(VaultDetailError(kind));
+    } finally {
+      memberPrivateKey.fillRange(0, memberPrivateKey.length, 0);
+    }
+  }
 
   Future<void> load(String id) async {
     AppLogger.d('Vault', 'Loading vault detail id=$id');
@@ -59,8 +103,12 @@ class VaultDetailCubit extends Cubit<VaultDetailState> {
       AppLogger.w('Vault', 'Detail load failed: ${e.kind.name}');
       emit(VaultDetailError(e.kind));
     } catch (e, s) {
-      AppLogger.e('Vault', 'Detail load failed unexpectedly',
-          error: e, stackTrace: s);
+      AppLogger.e(
+        'Vault',
+        'Detail load failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
       emit(const VaultDetailError(VaultErrorKind.unknown));
     }
   }
@@ -91,8 +139,12 @@ class VaultDetailCubit extends Cubit<VaultDetailState> {
       AppLogger.w('Vault', 'Update failed: ${e.kind.name}');
       emit(VaultDetailError(e.kind));
     } catch (e, s) {
-      AppLogger.e('Vault', 'Update failed unexpectedly',
-          error: e, stackTrace: s);
+      AppLogger.e(
+        'Vault',
+        'Update failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
       emit(const VaultDetailError(VaultErrorKind.unknown));
     }
   }
@@ -107,8 +159,12 @@ class VaultDetailCubit extends Cubit<VaultDetailState> {
       AppLogger.w('Vault', 'Delete failed: ${e.kind.name}');
       emit(VaultDetailError(e.kind));
     } catch (e, s) {
-      AppLogger.e('Vault', 'Delete failed unexpectedly',
-          error: e, stackTrace: s);
+      AppLogger.e(
+        'Vault',
+        'Delete failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
       emit(const VaultDetailError(VaultErrorKind.unknown));
     }
   }

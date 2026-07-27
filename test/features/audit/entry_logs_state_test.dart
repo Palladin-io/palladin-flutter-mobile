@@ -20,6 +20,25 @@ AuditLogEntry _entry({
 }
 
 void main() {
+  test('search never indexes backend entry labels or free-text reasons', () {
+    final state = EntryLogsState(
+      status: EntryLogsStatus.loaded,
+      entries: [
+        AuditLogEntry(
+          id: '1',
+          eventType: AuditEventType.credentialAccessed,
+          rawEventType: 'credential.accessed',
+          actorType: AuditActorType.agent,
+          createdAt: DateTime.utc(2026),
+          entryLabel: 'plaintext-label',
+          agentReason: 'plaintext-reason',
+        ),
+      ],
+      query: 'plaintext',
+    );
+
+    expect(state.filtered, isEmpty);
+  });
   group('EntryLogsState.filtered', () {
     final entries = [
       _entry(

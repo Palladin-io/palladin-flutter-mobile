@@ -81,7 +81,7 @@ void main() {
   });
 
   group('color & icon families', () {
-    test('positive/success events are teal', () {
+    test('positive/success events use the canonical green', () {
       for (final type in [
         AuditEventType.credentialAccessed,
         AuditEventType.grantCreated,
@@ -176,7 +176,7 @@ void main() {
   });
 
   group('server-denormalized name fields', () {
-    test('agentName / actorName are parsed from the wire DTO', () {
+    test('agentName / actorName are ignored at the wire boundary', () {
       final entity = AuditLogModel.fromJson(<String, dynamic>{
         'id': 'log-9',
         'eventType': 'apikey.created',
@@ -189,8 +189,9 @@ void main() {
       }).toEntity();
 
       expect(entity.eventType, AuditEventType.apikeyCreated);
-      expect(entity.actorName, 'Patryk');
-      expect(entity.agentName, 'claude-code-01');
+      expect(entity.actorName, isNull);
+      expect(entity.agentName, isNull);
+      expect(entity.localPresentationOnly, isTrue);
     });
   });
 }

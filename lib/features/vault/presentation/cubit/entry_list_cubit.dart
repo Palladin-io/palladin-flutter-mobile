@@ -6,6 +6,7 @@ import '../../../../core/utils/app_logger.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../../domain/repositories/entry_repository.dart';
+import '../../data/services/member_entry_list_service.dart';
 import 'entry_list_state.dart';
 
 export 'entry_list_state.dart';
@@ -30,11 +31,67 @@ class EntryListCubit extends Cubit<EntryListState> {
     required this.repository,
     required this.vaultId,
     String? wrappedVK,
-  })  : _wrappedVK = wrappedVK,
-        super(const EntryListInitial());
+    this.indexLoader,
+  }) : _wrappedVK = wrappedVK,
+       super(const EntryListInitial());
 
   final EntryRepository repository;
   final String vaultId;
+  final MemberEntryListLoader? indexLoader;
+
+  /// Synchronizes ciphertext, decrypts bounded MemberIndex projections, and
+  /// emits UI rows without using backend plaintext search or list DTOs.
+  Future<void> loadIndexedEntries(Uint8List memberPrivateKey) async {
+    final loader = indexLoader;
+    if (loader == null || memberPrivateKey.length != 32) {
+      emit(const EntryListError(EntryErrorKind.cryptoFailure));
+      return;
+    }
+    emit(const EntryListLoading());
+    try {
+      final indexed = await loader.load(
+        vaultId: vaultId,
+        memberPrivateKey: memberPrivateKey,
+      );
+      final epoch = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+      emit(
+        EntryListLoaded(
+          indexed
+              .map(
+                (entry) => EntryEntity(
+                  id: entry.entryId,
+                  vaultId: vaultId,
+                  label: entry.memberLabel,
+                  icon: entry.iconReference,
+                  type: EntryTypeExtension.fromWire(entry.entryType),
+                  urlDomain: entry.searchFields.firstOrNull,
+                  createdAt: epoch,
+                  updatedAt: epoch,
+                  lifecycleState: entry.state,
+                  currentRevision: entry.revision,
+                  corrupt: entry.corrupt,
+                ),
+              )
+              .toList(growable: false),
+        ),
+      );
+    } on EntryException catch (e) {
+      emit(EntryListError(e.kind));
+    } catch (e, s) {
+      AppLogger.e(
+        'Entry',
+        'Member index sync failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(const EntryListError(EntryErrorKind.unknown));
+    }
+  }
+
+  void lock() {
+    indexLoader?.lock();
+    emit(const EntryListInitial());
+  }
 
   /// Cached base64 sealed VK threaded down from the vault detail load.
   ///
@@ -64,8 +121,12 @@ class EntryListCubit extends Cubit<EntryListState> {
       AppLogger.w('Entry', 'Entry list load failed: ${e.kind.name}');
       emit(EntryListError(e.kind));
     } catch (e, s) {
-      AppLogger.e('Entry', 'Entry list load failed unexpectedly',
-          error: e, stackTrace: s);
+      AppLogger.e(
+        'Entry',
+        'Entry list load failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
       emit(const EntryListError(EntryErrorKind.unknown));
     }
   }
@@ -109,8 +170,12 @@ class EntryListCubit extends Cubit<EntryListState> {
       AppLogger.w('Entry', 'revealEntry failed: ${e.kind.name}');
       _emitTransientError(e.kind);
     } catch (e, s) {
-      AppLogger.e('Entry', 'revealEntry failed unexpectedly',
-          error: e, stackTrace: s);
+      AppLogger.e(
+        'Entry',
+        'revealEntry failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
       _emitTransientError(EntryErrorKind.unknown);
     }
   }
@@ -122,9 +187,8 @@ class EntryListCubit extends Cubit<EntryListState> {
     final current = state;
     if (current is! EntryListLoaded) return;
     if (!current.revealedEntries.containsKey(entryId)) return;
-    final next = Map<String, Map<String, dynamic>>.from(
-      current.revealedEntries,
-    )..remove(entryId);
+    final next = Map<String, Map<String, dynamic>>.from(current.revealedEntries)
+      ..remove(entryId);
     emit(current.copyWith(revealedEntries: next));
   }
 
@@ -138,8 +202,12 @@ class EntryListCubit extends Cubit<EntryListState> {
       AppLogger.w('Entry', 'Delete failed: ${e.kind.name}');
       _emitTransientError(e.kind);
     } catch (e, s) {
-      AppLogger.e('Entry', 'Delete failed unexpectedly',
-          error: e, stackTrace: s);
+      AppLogger.e(
+        'Entry',
+        'Delete failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
       _emitTransientError(EntryErrorKind.unknown);
     }
   }
@@ -152,10 +220,12 @@ class EntryListCubit extends Cubit<EntryListState> {
   void _emitTransientError(EntryErrorKind kind) {
     final current = state;
     if (current is EntryListLoaded) {
-      emit(current.copyWith(
-        transientErrorKind: kind,
-        transientErrorTick: current.transientErrorTick + 1,
-      ));
+      emit(
+        current.copyWith(
+          transientErrorKind: kind,
+          transientErrorTick: current.transientErrorTick + 1,
+        ),
+      );
     } else {
       emit(EntryListError(kind));
     }

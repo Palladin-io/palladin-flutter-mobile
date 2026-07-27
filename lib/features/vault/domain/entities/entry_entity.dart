@@ -1,4 +1,5 @@
 import 'custom_field.dart';
+import 'member_index_entry.dart';
 
 /// Type of vault entry — drives icon, payload schema, and reveal-panel
 /// layout.
@@ -33,7 +34,10 @@ extension EntryTypeExtension on EntryType {
     0 => EntryType.key,
     1 => EntryType.credential,
     2 => EntryType.script,
-    _ => throw FormatException('Unsupported EntryType: $value'),
+    // Default to credential for unknown wire values — surfaces the
+    // safer two-field reveal panel rather than the single-secret
+    // panel, matching the backend default.
+    _ => EntryType.credential,
   };
 }
 
@@ -55,6 +59,9 @@ class EntryEntity {
     required this.updatedAt,
     this.lastAccessedAt,
     this.accessCount = 0,
+    this.lifecycleState = MemberEntryState.active,
+    this.currentRevision = '0',
+    this.corrupt = false,
   });
 
   /// Stable, server-issued identifier.
@@ -89,6 +96,9 @@ class EntryEntity {
 
   /// Total number of reveals server-side.
   final int accessCount;
+  final MemberEntryState lifecycleState;
+  final String currentRevision;
+  final bool corrupt;
 
   EntryEntity copyWith({String? icon}) => EntryEntity(
     id: id,
@@ -102,6 +112,9 @@ class EntryEntity {
     updatedAt: updatedAt,
     lastAccessedAt: lastAccessedAt,
     accessCount: accessCount,
+    lifecycleState: lifecycleState,
+    currentRevision: currentRevision,
+    corrupt: corrupt,
   );
 }
 
@@ -205,13 +218,13 @@ enum ScriptInterpreter {
 
   String get wireName => name;
 
-  /// Parses an exact interpreter token and rejects unsupported values.
+  /// Parses an interpreter token. Falls back to [ScriptInterpreter.bash]
+  /// for missing or unknown input.
   static ScriptInterpreter fromName(String? raw) => switch (raw) {
-    'bash' => ScriptInterpreter.bash,
     'sh' => ScriptInterpreter.sh,
     'node' => ScriptInterpreter.node,
     'python' => ScriptInterpreter.python,
-    _ => throw FormatException('Unsupported script interpreter: $raw'),
+    _ => ScriptInterpreter.bash,
   };
 }
 

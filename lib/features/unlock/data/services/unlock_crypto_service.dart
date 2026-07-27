@@ -11,10 +11,7 @@ import '../../domain/unlock_exceptions.dart';
 /// key material that downstream features (vault decryption, grant
 /// approval, etc.) need in memory.
 class UnlockResult {
-  const UnlockResult({
-    required this.masterKey,
-    required this.privateKey,
-  });
+  const UnlockResult({required this.masterKey, required this.privateKey});
 
   /// 32-byte Argon2id-derived master key.
   final Uint8List masterKey;
@@ -37,7 +34,7 @@ class UnlockResult {
 /// distinguish between "wrong password" and "tampered ciphertext".
 class UnlockCryptoService {
   UnlockCryptoService({Future<SodiumSumo> Function()? sodiumLoader})
-      : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
+    : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
   final Future<SodiumSumo> Function() _sodiumLoader;
 
@@ -51,7 +48,7 @@ class UnlockCryptoService {
     required String encryptedPrivateKeyBase64,
   }) async {
     final sodium = await _sodiumLoader();
-    final salt = base64.decode(saltBase64);
+    final salt = _decodeWireBytes(saltBase64);
 
     final masterKey = _deriveKey(sodium, masterPassword, salt);
     try {
@@ -71,6 +68,7 @@ class UnlockCryptoService {
         privateKey: privateKeyBytes,
       );
     } finally {
+      salt.fillRange(0, salt.length, 0);
       masterKey.dispose();
     }
   }
@@ -110,7 +108,7 @@ class UnlockCryptoService {
     SecureKey key,
     String encryptedPrivateKeyBase64,
   ) {
-    final combined = base64.decode(encryptedPrivateKeyBase64);
+    final combined = _decodeWireBytes(encryptedPrivateKeyBase64);
     final nonceBytes = sodium.crypto.secretBox.nonceBytes;
 
     if (combined.length <= nonceBytes) {
@@ -131,6 +129,14 @@ class UnlockCryptoService {
       );
     } on SodiumException {
       throw const WrongMasterPasswordException();
+    }
+  }
+
+  Uint8List _decodeWireBytes(String value) {
+    try {
+      return Uint8List.fromList(base64Url.decode(base64Url.normalize(value)));
+    } on FormatException {
+      return Uint8List.fromList(base64.decode(value));
     }
   }
 

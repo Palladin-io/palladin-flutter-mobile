@@ -45,6 +45,7 @@ internal class AutoFillCacheStore(private val context: Context) {
             if (accessRevoked || sessionToken != currentSessionToken) {
                 return@synchronized
             }
+            require(rawRecords.orEmpty().size <= MAX_RECORDS)
             val records = rawRecords.orEmpty().mapNotNull(::validatedRecord)
             val plaintext = JSONArray().apply {
                 records.forEach { put(it) }
@@ -124,6 +125,7 @@ internal class AutoFillCacheStore(private val context: Context) {
     }
 
     fun decrypt(cipher: Cipher): MutableList<CachedCredential> {
+        require(cacheFile.length() in 1..MAX_CACHE_BYTES)
         val envelope = JSONObject(cacheFile.readText(Charsets.UTF_8))
         require(envelope.getInt("version") == CACHE_VERSION)
         val wrappedKey = envelope.getString("wrappedKey").fromBase64()
@@ -194,8 +196,10 @@ internal class AutoFillCacheStore(private val context: Context) {
         val label = (map["label"] as? String)?.takeIf(String::isNotBlank) ?: return null
         val username = map["username"] as? String ?: return null
         val password = (map["password"] as? String)?.takeIf(String::isNotEmpty) ?: return null
-        val domains = (map["domains"] as? List<*>)
+        val domains = ((map["domains"] as? List<*>)
             .orEmpty()
+            .takeIf { it.size <= MAX_DOMAINS_PER_RECORD }
+            ?: return null)
             .mapNotNull { normalizeDomain(it as? String) }
             .distinct()
         if (domains.isEmpty()) return null
@@ -259,6 +263,9 @@ internal class AutoFillCacheStore(private val context: Context) {
         private const val DATA_KEY_BYTES = 32
         private const val RSA_KEY_BITS = 2048
         private const val GCM_TAG_BITS = 128
+        private const val MAX_RECORDS = 2000
+        private const val MAX_DOMAINS_PER_RECORD = 16
+        private const val MAX_CACHE_BYTES = 16L * 1024 * 1024
         private const val AES_TRANSFORMATION = "AES/GCM/NoPadding"
         private const val RSA_TRANSFORMATION = "RSA/ECB/OAEPWithSHA-256AndMGF1Padding"
         private val OAEP_PARAMETERS = OAEPParameterSpec(
@@ -269,9 +276,22 @@ internal class AutoFillCacheStore(private val context: Context) {
         )
 
         fun normalizeDomain(raw: String?): String? {
-            var value = raw?.trim()?.lowercase()?.trimEnd('.') ?: return null
-            if (value.startsWith("www.")) value = value.removePrefix("www.")
-            if (value.isEmpty() || !value.contains('.') || value.contains("..")) return null
+            val value = raw?.trim()?.lowercase()?.trimEnd('.') ?: return null
+            if (value.isEmpty() ||
+                value.any { it.code > 0x7f } ||
+                value.contains("://") ||
+                value.contains('@') ||
+                value.contains(':') ||
+                !value.contains('.') ||
+                value.contains("..") ||
+                value.split('.').any { label ->
+                    label.isEmpty() || label.length > 63 ||
+                        label.startsWith('-') || label.endsWith('-') ||
+                        label.any { character ->
+                            !(character in 'a'..'z' || character in '0'..'9' || character == '-')
+                        }
+                }
+            ) return null
             return value
         }
 

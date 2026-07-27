@@ -3,12 +3,19 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../config/env_config.dart';
-import '../crypto/vault_session_store.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/datasources/password_auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/data/services/hibp_service.dart';
 import '../../features/auth/data/services/password_auth_crypto_service.dart';
+import '../../features/unlock/data/services/identity_kdf_migration_service.dart';
+import '../../features/unlock/data/services/identity_kdf_service.dart';
+import '../../features/vault/data/services/vault_list_crypto_service.dart';
+import '../../features/vault/data/services/vault_creation_service.dart';
+import '../../features/vault/data/services/key_entry_creation_service.dart';
+import '../../features/vault/data/services/canonical_entry_detail_service.dart';
+import '../../features/vault/data/services/canonical_import_projection_service.dart';
+import '../../features/vault/data/services/entry_history_service.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/cubit/change_password_cubit.dart';
@@ -33,6 +40,8 @@ import '../../features/agents/domain/repositories/agents_repository.dart';
 import '../../features/agents/presentation/bloc/agents_cubit.dart';
 import '../../features/approval/data/datasources/approval_remote_datasource.dart';
 import '../../features/approval/data/repositories/approval_repository_impl.dart';
+import '../../features/approval/data/services/grant_crypto_service.dart';
+import '../../features/approval/data/services/grant_approval_review_service.dart';
 import '../../features/approval/domain/repositories/approval_repository.dart';
 import '../../features/approval/presentation/cubit/grant_access_cubit.dart';
 import '../../features/approval/presentation/cubit/grant_approval_cubit.dart';
@@ -45,9 +54,12 @@ import '../../features/audit/presentation/cubit/audit_log_cubit.dart';
 import '../../features/audit/presentation/cubit/entry_logs_cubit.dart';
 import '../../features/dashboard/data/datasources/dashboard_remote_datasource.dart';
 import '../../features/dashboard/data/repositories/dashboard_repository_impl.dart';
+import '../../features/dashboard/data/repositories/local_search_repository_impl.dart';
 import '../../features/dashboard/domain/repositories/dashboard_repository.dart';
+import '../../features/dashboard/domain/repositories/local_search_repository.dart';
 import '../../features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import '../../features/dashboard/presentation/cubit/search_cubit.dart';
+import '../../features/dashboard/presentation/cubit/search_session_controller.dart';
 import '../../features/grants/data/datasources/grants_remote_datasource.dart';
 import '../../features/grants/data/repositories/grants_repository_impl.dart';
 import '../../features/grants/domain/repositories/grants_repository.dart';
@@ -56,6 +68,7 @@ import '../../features/notifications/data/datasources/notification_center_remote
 import '../../features/notifications/data/datasources/push_token_remote_datasource.dart';
 import '../../features/notifications/data/repositories/notification_center_repository_impl.dart';
 import '../../features/notifications/data/services/notification_permission_service.dart';
+import '../../features/notifications/data/services/notification_presentation_resolver.dart';
 import '../../features/notifications/data/services/notification_signalr_service.dart';
 import '../../features/notifications/data/services/push_notification_service.dart';
 import '../../features/notifications/domain/repositories/notification_center_repository.dart';
@@ -69,30 +82,53 @@ import '../../features/settings/data/datasources/settings_remote_data_source.dar
 import '../../features/settings/data/repositories/settings_repository_impl.dart';
 import '../../features/settings/domain/repositories/settings_repository.dart';
 import '../../features/settings/presentation/bloc/settings_cubit.dart';
+import '../../features/vault/presentation/cubit/entry_history_cubit.dart';
 import '../../features/recovery/data/services/recovery_crypto_service.dart';
 import '../../features/recovery/presentation/cubit/recovery_cubit.dart';
 import '../../features/unlock/data/datasources/account_remote_datasource.dart';
 import '../../features/unlock/data/services/unlock_crypto_service.dart';
 import '../../features/unlock/presentation/cubit/unlock_cubit.dart';
 import '../../features/vault/data/datasources/entry_remote_datasource.dart';
+import '../../features/vault/data/datasources/member_sync_remote_datasource.dart';
+import '../../features/vault/data/datasources/vault_rotation_remote_datasource.dart';
 import '../../features/vault/data/datasources/vault_remote_datasource.dart';
+import '../../features/vault/data/datasources/vault_members_remote_datasource.dart';
+import '../../features/vault/data/datasources/agent_discovery_remote_datasource.dart';
 import '../../features/vault/data/repositories/entry_repository_impl.dart';
 import '../../features/vault/data/repositories/vault_repository_impl.dart';
+import '../../features/vault/data/repositories/vault_members_repository_impl.dart';
 import '../../features/vault/data/export/export_sharer.dart';
+import '../../features/vault/data/export/protected_export_staging.dart';
+import '../../features/vault/data/export/export_serializers.dart';
+import '../../features/vault/data/export/canonical_export_service.dart';
 import '../../features/vault/data/services/entry_crypto_service.dart';
-import '../../features/vault/data/services/entry_v2_crypto_service.dart';
+import '../../features/vault/data/services/encrypted_presentation_asset_service.dart';
+import '../../features/vault/data/services/member_sync_cache.dart';
+import '../../features/vault/data/services/member_sync_service.dart';
+import '../../features/vault/data/services/member_entry_list_service.dart';
 import '../../features/vault/data/services/totp_service.dart';
 import '../../features/vault/data/services/vault_crypto_service.dart';
+import '../../features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
+import '../../features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
+import '../../features/vault/data/services/vault_rotation_crypto_service.dart';
+import '../../features/vault/data/services/vault_rotation_service.dart';
+import '../../features/vault/data/services/vault_settings_service.dart';
 import '../../features/vault/domain/repositories/entry_repository.dart';
 import '../../features/vault/domain/repositories/vault_repository.dart';
+import '../../features/vault/domain/repositories/vault_members_repository.dart';
 import '../../features/vault/presentation/cubit/create_entry_cubit.dart';
 import '../../features/vault/presentation/cubit/create_vault_cubit.dart';
 import '../../features/vault/presentation/cubit/edit_entry_cubit.dart';
+import '../../features/vault/presentation/cubit/entry_agents_cubit.dart';
 import '../../features/vault/presentation/cubit/entry_list_cubit.dart';
+import '../../features/vault/presentation/cubit/entry_archive_cubit.dart';
+import '../../features/vault/presentation/cubit/recently_deleted_cubit.dart';
+import '../../features/vault/presentation/cubit/agent_discovery_cubit.dart';
 import '../../features/vault/presentation/cubit/export_cubit.dart';
 import '../../features/vault/presentation/cubit/import_wizard_cubit.dart';
 import '../../features/vault/presentation/cubit/vault_detail_cubit.dart';
 import '../../features/vault/presentation/cubit/vault_list_cubit.dart';
+import '../../features/vault/presentation/cubit/vault_members_cubit.dart';
 import '../network/api_client.dart';
 import '../storage/biometric_key_store.dart';
 import '../storage/biometric_storage_key_store.dart';
@@ -148,15 +184,9 @@ void configureDependencies(EnvConfig config) {
     ),
   );
 
-  // Raw Vault keys are process-memory-only and are wiped on lock/logout.
-  getIt.registerLazySingleton<VaultSessionStore>(() => VaultSessionStore());
-
   // Auth — presentation layer (factory: new instance per provider)
   getIt.registerFactory<AuthBloc>(
-    () => AuthBloc(
-      authRepository: getIt<AuthRepository>(),
-      vaultSessionStore: getIt<VaultSessionStore>(),
-    ),
+    () => AuthBloc(authRepository: getIt<AuthRepository>()),
   );
 
   // Email + master-password auth (CVT-252) — data layer.
@@ -250,6 +280,15 @@ void configureDependencies(EnvConfig config) {
     () => AccountRemoteDatasource(getIt<Dio>()),
   );
   getIt.registerLazySingleton<UnlockCryptoService>(() => UnlockCryptoService());
+  getIt.registerLazySingleton<IdentityKdfService>(IdentityKdfService.new);
+  getIt.registerLazySingleton<IdentityKdfMigrationService>(
+    () => IdentityKdfMigrationService(
+      accountDatasource: getIt<AccountRemoteDatasource>(),
+      passwordDatasource: getIt<PasswordAuthRemoteDatasource>(),
+      legacyCrypto: getIt<PasswordAuthCryptoService>(),
+      identityCrypto: getIt<IdentityKdfService>(),
+    ),
+  );
 
   // Unlock — presentation layer (factory: fresh cubit on each mount
   // so failed-password state doesn't leak between unlock sessions)
@@ -288,14 +327,119 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<VaultRemoteDatasource>(
     () => VaultRemoteDatasource(getIt<Dio>()),
   );
+  getIt.registerLazySingleton<VaultMembersRemoteDatasource>(
+    () => VaultMembersRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<VaultMembersRepository>(
+    () => VaultMembersRepositoryImpl(getIt<VaultMembersRemoteDatasource>()),
+  );
+  getIt.registerLazySingleton<AgentDiscoveryRemoteDatasource>(
+    () => AgentDiscoveryRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<MemberSyncRemoteDatasource>(
+    () => MemberSyncRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<MemberSyncCache>(() => SqliteMemberSyncCache());
+  getIt.registerLazySingleton<VaultProtocolEnvelopeService>(
+    () => VaultProtocolEnvelopeService(),
+  );
+  getIt.registerLazySingleton<VaultProtocolSignatureService>(
+    () => VaultProtocolSignatureService(),
+  );
+  getIt.registerLazySingleton<MemberSyncService>(
+    () => MemberSyncService(
+      remote: getIt<MemberSyncRemoteDatasource>(),
+      cache: getIt<MemberSyncCache>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+    ),
+  );
+  getIt.registerLazySingleton<MemberEntryListService>(
+    () => MemberEntryListService(
+      vaults: getIt<VaultRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      sync: getIt<MemberSyncService>(),
+    ),
+  );
+  getIt.registerLazySingleton<VaultRotationRemoteDatasource>(
+    () => VaultRotationRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<VaultRotationCryptoService>(
+    () => VaultRotationCryptoService(
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+    ),
+  );
+  getIt.registerLazySingleton<VaultRotationService>(
+    () => VaultRotationService(
+      remote: getIt<VaultRotationRemoteDatasource>(),
+      crypto: getIt<VaultRotationCryptoService>(),
+    ),
+  );
+  getIt.registerLazySingleton<EncryptedPresentationAssetService>(
+    () => EncryptedPresentationAssetService(
+      remote: getIt<VaultRemoteDatasource>(),
+      entries: getIt<EntryRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+    ),
+  );
+  getIt.registerLazySingleton<VaultSettingsService>(
+    () => VaultSettingsService(
+      remote: getIt<VaultRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      assets: getIt<EncryptedPresentationAssetService>(),
+    ),
+  );
+  getIt.registerLazySingleton<KeyEntryCreationService>(
+    () => KeyEntryCreationService(
+      entries: getIt<EntryRemoteDatasource>(),
+      vaults: getIt<VaultRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+    ),
+  );
+  getIt.registerLazySingleton<CanonicalEntryDetailService>(
+    () => CanonicalEntryDetailService(
+      entries: getIt<EntryRemoteDatasource>(),
+      vaults: getIt<VaultRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      grants: getIt<GrantsRemoteDatasource>(),
+    ),
+  );
+  getIt.registerLazySingleton<CanonicalImportProjectionService>(
+    () => CanonicalImportProjectionService(
+      vaults: getIt<VaultRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+    ),
+  );
+  getIt.registerLazySingleton<EntryHistoryService>(
+    () => EntryHistoryService(
+      entries: getIt<EntryRemoteDatasource>(),
+      canonical: getIt<CanonicalEntryDetailService>(),
+    ),
+  );
   getIt.registerLazySingleton<VaultRepository>(
     () => VaultRepositoryImpl(
       getIt<VaultRemoteDatasource>(),
-      authRepository: getIt<AuthRepository>(),
-      accountDatasource: getIt<AccountRemoteDatasource>(),
-      cryptoService: getIt<VaultCryptoService>(),
-      sessionStore: getIt<VaultSessionStore>(),
       autoFillMutationNotifier: getIt<AutoFillMutationNotifier>(),
+    ),
+  );
+  getIt.registerLazySingleton<VaultListCryptoService>(
+    () => VaultListCryptoService(
+      remote: getIt<VaultRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+    ),
+  );
+  getIt.registerLazySingleton<VaultCreationService>(
+    () => VaultCreationService(
+      remote: getIt<VaultRemoteDatasource>(),
+      accountRemote: getIt<AccountRemoteDatasource>(),
+      tokenStorage: getIt<SecureTokenStorage>(),
+      crypto: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
     ),
   );
 
@@ -303,23 +447,29 @@ void configureDependencies(EnvConfig config) {
   // switches. Use BlocProvider.value (never BlocProvider) to avoid
   // automatic close() on widget disposal.
   getIt.registerLazySingleton<VaultListCubit>(
-    () => VaultListCubit(repository: getIt<VaultRepository>()),
+    () => VaultListCubit(
+      repository: getIt<VaultRepository>(),
+      listService: getIt<VaultListCryptoService>(),
+    ),
   );
   getIt.registerFactory<VaultDetailCubit>(
-    () => VaultDetailCubit(repository: getIt<VaultRepository>()),
+    () => VaultDetailCubit(
+      repository: getIt<VaultRepository>(),
+      settingsService: getIt<VaultSettingsService>(),
+    ),
+  );
+  getIt.registerFactoryParam<VaultMembersCubit, String, void>(
+    (vaultId, _) => VaultMembersCubit(
+      repository: getIt<VaultMembersRepository>(),
+      vaultId: vaultId,
+    ),
   );
   getIt.registerFactory<CreateVaultCubit>(
-    () => CreateVaultCubit(
-      repository: getIt<VaultRepository>(),
-      cryptoService: getIt<VaultCryptoService>(),
-    ),
+    () => CreateVaultCubit(creationService: getIt<VaultCreationService>()),
   );
 
   // Entry — data layer
   getIt.registerLazySingleton<EntryCryptoService>(() => EntryCryptoService());
-  getIt.registerLazySingleton<EntryV2CryptoService>(
-    () => EntryV2CryptoService(),
-  );
   getIt.registerLazySingleton<TotpService>(() => const TotpService());
   getIt.registerLazySingleton<EntryRemoteDatasource>(
     () => EntryRemoteDatasource(getIt<Dio>()),
@@ -329,8 +479,7 @@ void configureDependencies(EnvConfig config) {
       entryDatasource: getIt<EntryRemoteDatasource>(),
       vaultDatasource: getIt<VaultRemoteDatasource>(),
       cryptoService: getIt<EntryCryptoService>(),
-      entryV2CryptoService: getIt<EntryV2CryptoService>(),
-      sessionStore: getIt<VaultSessionStore>(),
+      canonicalImport: getIt<CanonicalImportProjectionService>(),
       autoFillMutationNotifier: getIt<AutoFillMutationNotifier>(),
     ),
   );
@@ -339,6 +488,7 @@ void configureDependencies(EnvConfig config) {
       vaultRepository: getIt<VaultRepository>(),
       entryRepository: getIt<EntryRepository>(),
       bridge: getIt<AutoFillCacheBridge>(),
+      memberIndex: getIt<MemberSyncService>(),
     ),
   );
   getIt.registerLazySingleton<AutoFillCacheInvalidator>(
@@ -357,13 +507,46 @@ void configureDependencies(EnvConfig config) {
       repository: getIt<EntryRepository>(),
       vaultId: vaultId,
       wrappedVK: wrappedVK,
+      indexLoader: getIt<MemberEntryListService>(),
+    ),
+  );
+  getIt.registerFactoryParam<EntryArchiveCubit, String, void>(
+    (vaultId, _) => EntryArchiveCubit(
+      vaultId: vaultId,
+      index: getIt<MemberSyncService>(),
+      sync: getIt<MemberEntryListService>(),
+      restorer: getIt<CanonicalEntryDetailService>(),
+    ),
+  );
+  getIt.registerFactoryParam<RecentlyDeletedCubit, String, void>(
+    (vaultId, _) => RecentlyDeletedCubit(
+      vaultId: vaultId,
+      remote: getIt<EntryRemoteDatasource>(),
+      index: getIt<MemberSyncService>(),
+      sync: getIt<MemberEntryListService>(),
+      lifecycle: getIt<CanonicalEntryDetailService>(),
     ),
   );
   getIt.registerFactory<CreateEntryCubit>(
-    () => CreateEntryCubit(repository: getIt<EntryRepository>()),
+    () => CreateEntryCubit(
+      repository: getIt<EntryRepository>(),
+      keyCreationService: getIt<KeyEntryCreationService>(),
+    ),
+  );
+  getIt.registerFactory<AgentDiscoveryCubit>(
+    () => AgentDiscoveryCubit(getIt<AgentDiscoveryRemoteDatasource>()),
   );
   getIt.registerFactory<EditEntryCubit>(
-    () => EditEntryCubit(repository: getIt<EntryRepository>()),
+    () => EditEntryCubit(
+      repository: getIt<EntryRepository>(),
+      canonicalService: getIt<CanonicalEntryDetailService>(),
+    ),
+  );
+  getIt.registerFactory<EntryAgentsCubit>(
+    () => EntryAgentsCubit(getIt<CanonicalEntryDetailService>()),
+  );
+  getIt.registerFactory<EntryHistoryCubit>(
+    () => EntryHistoryCubit(getIt<EntryHistoryService>()),
   );
 
   // Import wizard (CVT-37) — one cubit per wizard mount, scoped to the
@@ -380,10 +563,25 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<ExportSharer>(
     () => const SharePlusExportSharer(),
   );
+  getIt.registerLazySingleton<ProtectedExportStaging>(
+    () => MethodChannelProtectedExportStaging(),
+  );
+  getIt.registerLazySingleton<CanonicalExportService>(
+    () => CanonicalExportService(
+      index: getIt<MemberEntryListService>(),
+      canonical: getIt<CanonicalEntryDetailService>(),
+      entries: getIt<EntryRemoteDatasource>(),
+      writerFactory: (format) => ProtectedExportWriter(
+        staging: getIt<ProtectedExportStaging>(),
+        format: format,
+      ),
+    ),
+  );
   getIt.registerFactory<ExportCubit>(
     () => ExportCubit(
-      repository: getIt<EntryRepository>(),
+      service: getIt<CanonicalExportService>(),
       sharer: getIt<ExportSharer>(),
+      staging: getIt<ProtectedExportStaging>(),
     ),
   );
 
@@ -438,11 +636,15 @@ void configureDependencies(EnvConfig config) {
       getIt<NotificationCenterRemoteDatasource>(),
     ),
   );
+  getIt.registerLazySingleton<NotificationPresentationResolver>(
+    () => NotificationPresentationResolver(index: getIt<MemberSyncService>()),
+  );
   // Singleton: the shell reads summary state for the Inbox badge while the
   // Inbox page owns the same cached list.
   getIt.registerLazySingleton<NotificationCenterCubit>(
     () => NotificationCenterCubit(
       repository: getIt<NotificationCenterRepository>(),
+      resolver: getIt<NotificationPresentationResolver>(),
     ),
   );
   // Factory: the preferences screen owns transient per-row saving state, so a
@@ -481,7 +683,10 @@ void configureDependencies(EnvConfig config) {
   // listener stays bound for the whole session; the push service feeds
   // tapped messages into it and the listener performs router.go(...).
   getIt.registerLazySingleton<PushNavigationCubit>(
-    () => PushNavigationCubit(analytics: getIt<AnalyticsService>()),
+    () => PushNavigationCubit(
+      analytics: getIt<AnalyticsService>(),
+      repository: getIt<NotificationCenterRepository>(),
+    ),
   );
 
   // In-app real-time channel (SignalR). Singleton: holds the live hub
@@ -517,12 +722,14 @@ void configureDependencies(EnvConfig config) {
   );
 
   // EntryLogsCubit: factory per entry-detail Logs tab mount, scoped to a
-  // vault + entry (param1 = vaultId, param2 = entryId). Resolves agent
-  // names from the agents repository to label otherwise id-only rows.
+  // vault + entry (param1 = vaultId, param2 = entryId). Presentation names
+  // resolve only from unlocked local projections/repositories.
   getIt.registerFactoryParam<EntryLogsCubit, String, String>(
     (vaultId, entryId) => EntryLogsCubit(
       auditRepository: getIt<AuditRepository>(),
       agentsRepository: getIt<AgentsRepository>(),
+      vaultRepository: getIt<VaultRepository>(),
+      memberSync: getIt<MemberSyncService>(),
       vaultId: vaultId,
       entryId: entryId,
     ),
@@ -536,6 +743,8 @@ void configureDependencies(EnvConfig config) {
       auditRepository: getIt<AuditRepository>(),
       agentsRepository: getIt<AgentsRepository>(),
       vaultRepository: getIt<VaultRepository>(),
+      vaultMembersRepository: getIt<VaultMembersRepository>(),
+      memberSync: getIt<MemberSyncService>(),
       scope: vaultId == null ? AuditLogScope.org : AuditLogScope.vault,
       vaultId: vaultId,
     ),
@@ -545,12 +754,28 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<ApprovalRemoteDatasource>(
     () => ApprovalRemoteDatasource(getIt<Dio>()),
   );
+  // GrantCryptoService produces the zero-knowledge approval envelope
+  // on-device. Stateless — safe as a lazy singleton.
+  getIt.registerLazySingleton<GrantCryptoService>(() => GrantCryptoService());
+  getIt.registerLazySingleton<GrantApprovalReviewService>(
+    () => GrantApprovalReviewService(
+      vaults: getIt<VaultRemoteDatasource>(),
+      entries: getIt<CanonicalEntryDetailService>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      signatures: getIt<VaultProtocolSignatureService>(),
+      discovery: getIt<AgentDiscoveryRemoteDatasource>(),
+      approval: getIt<ApprovalRemoteDatasource>(),
+    ),
+  );
   getIt.registerLazySingleton<ApprovalRepository>(
     () => ApprovalRepositoryImpl(
       approvalDatasource: getIt<ApprovalRemoteDatasource>(),
       entryDatasource: getIt<EntryRemoteDatasource>(),
-      cryptoService: getIt<EntryV2CryptoService>(),
-      sessionStore: getIt<VaultSessionStore>(),
+      vaultDatasource: getIt<VaultRemoteDatasource>(),
+      cryptoService: getIt<GrantCryptoService>(),
+      canonicalEntries: getIt<CanonicalEntryDetailService>(),
+      discovery: getIt<AgentDiscoveryRemoteDatasource>(),
     ),
   );
 
@@ -568,6 +793,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerFactoryParam<GrantApprovalCubit, PendingGrant, void>(
     (grant, _) => GrantApprovalCubit(
       repository: getIt<ApprovalRepository>(),
+      reviewService: getIt<GrantApprovalReviewService>(),
       grant: grant,
     ),
   );
@@ -591,6 +817,15 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<DashboardRepository>(
     () => DashboardRepositoryImpl(getIt<DashboardRemoteDatasource>()),
   );
+  getIt.registerLazySingleton<LocalSearchRepository>(
+    () => LocalSearchRepositoryImpl(
+      vaults: getIt<VaultListCubit>(),
+      memberIndex: getIt<MemberSyncService>(),
+    ),
+  );
+  getIt.registerLazySingleton<SearchSessionController>(
+    SearchSessionController.new,
+  );
 
   // Dashboard — presentation. Singleton so the home tab keeps its
   // resolved state across shell tab switches; the page calls load() on
@@ -603,6 +838,7 @@ void configureDependencies(EnvConfig config) {
       pendingGrantsCubit: getIt<PendingGrantsCubit>(),
       analytics: getIt<AnalyticsService>(),
       notificationPermissionService: getIt<NotificationPermissionService>(),
+      localSearchRepository: getIt<LocalSearchRepository>(),
     ),
   );
 
@@ -612,7 +848,9 @@ void configureDependencies(EnvConfig config) {
   getIt.registerFactory<SearchCubit>(
     () => SearchCubit(
       repository: getIt<DashboardRepository>(),
+      localRepository: getIt<LocalSearchRepository>(),
       analytics: getIt<AnalyticsService>(),
+      sessionController: getIt<SearchSessionController>(),
     ),
   );
 }

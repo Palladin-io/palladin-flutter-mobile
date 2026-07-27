@@ -25,6 +25,8 @@ class AuditLogState {
     this.entries = const [],
     this.agentNames = const {},
     this.vaultNames = const {},
+    this.entryNames = const {},
+    this.memberNames = const {},
     this.error,
     this.nextCursor,
     this.loadingMore = false,
@@ -49,6 +51,8 @@ class AuditLogState {
 
   /// Resolved vault id → name (org scope) for the dropdown and search.
   final Map<String, String> vaultNames;
+  final Map<String, String> entryNames;
+  final Map<String, String> memberNames;
 
   final AuditErrorKind? error;
 
@@ -140,7 +144,7 @@ class AuditLogState {
       if (e.actorType != AuditActorType.user) continue;
       final id = e.userId;
       if (id == null) continue;
-      final name = e.actorName?.trim();
+      final name = memberNames[id]?.trim() ?? e.actorName?.trim();
       if (name != null && name.isNotEmpty) {
         // A resolved name always wins over a previously-seen unknown.
         names[id] = name;
@@ -190,21 +194,27 @@ class AuditLogState {
             agentName,
             e.entryLabel,
             vaultName,
-            e.agentReason,
+            e.agentId,
+            e.userId,
+            e.entryId,
+            e.vaultId,
             e.rawEventType,
           ].whereType<String>().any((v) => v.toLowerCase().contains(q));
         })
         .toList(growable: false);
   }
 
-  static String _shortId(String id) =>
-      id.length <= 8 ? id : '${id.substring(0, 8)}…';
+  static String _shortId(String id) => id.length <= 15
+      ? id
+      : '${id.substring(0, 8)}…${id.substring(id.length - 6)}';
 
   AuditLogState copyWith({
     AuditLogStatus? status,
     List<AuditLogEntry>? entries,
     Map<String, String>? agentNames,
     Map<String, String>? vaultNames,
+    Map<String, String>? entryNames,
+    Map<String, String>? memberNames,
     AuditErrorKind? error,
     bool clearError = false,
     String? nextCursor,
@@ -227,6 +237,8 @@ class AuditLogState {
       entries: entries ?? this.entries,
       agentNames: agentNames ?? this.agentNames,
       vaultNames: vaultNames ?? this.vaultNames,
+      entryNames: entryNames ?? this.entryNames,
+      memberNames: memberNames ?? this.memberNames,
       error: clearError ? null : (error ?? this.error),
       nextCursor: clearNextCursor ? null : (nextCursor ?? this.nextCursor),
       loadingMore: loadingMore ?? this.loadingMore,

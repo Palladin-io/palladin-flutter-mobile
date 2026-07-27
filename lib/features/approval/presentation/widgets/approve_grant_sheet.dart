@@ -51,7 +51,8 @@ class _ApproveSheetBody extends StatefulWidget {
   State<_ApproveSheetBody> createState() => _ApproveSheetBodyState();
 }
 
-class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
+class _ApproveSheetBodyState extends State<_ApproveSheetBody>
+    with WidgetsBindingObserver {
   GrantLimit _limit = GrantExpiry(
     DateTime.now().add(const Duration(hours: 24)),
   );
@@ -61,6 +62,37 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
   late List<GrantMethod> _methods = widget.grant.requestedMethods.isNotEmpty
       ? List.of(widget.grant.requestedMethods)
       : List.of(kDefaultGrantMethods);
+  final Set<String> _selectedFields = {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final key = _privateKey();
+      if (key == null) {
+        context.read<GrantApprovalCubit>().reportVaultLocked();
+      } else {
+        context.read<GrantApprovalCubit>().loadReview(key);
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed && mounted) {
+      context.read<GrantApprovalCubit>().clearReview();
+      _selectedFields.clear();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    context.read<GrantApprovalCubit>().clearReview();
+    super.dispose();
+  }
 
   Uint8List? _privateKey() {
     final auth = context.read<AuthBloc>().state;
@@ -71,12 +103,13 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
   }
 
   void _onApprove() {
+    final review = context.read<GrantApprovalCubit>().state.review;
     final key = _privateKey();
     if (key == null) {
       context.read<GrantApprovalCubit>().reportVaultLocked();
       return;
     }
-    if (_methods.isEmpty) {
+    if (_methods.isEmpty || review == null || _selectedFields.isEmpty) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -92,6 +125,8 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
       privateKey: key,
       limit: _limit,
       methods: _methods,
+      fieldIds: _selectedFields.toList(growable: false),
+      reviewedEntryRevision: review.entryRevision,
     );
   }
 
@@ -119,6 +154,10 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
         }
       },
       builder: (context, state) {
+        final review = state.review;
+        if (review != null && _selectedFields.isEmpty) {
+          _selectedFields.addAll(review.fields.map((field) => field.id));
+        }
         return Container(
           decoration: BoxDecoration(
             color: AppColors.modalBackground(brightness),
@@ -159,7 +198,53 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.innerGap),
-                    _Subtitle(grant: grant),
+                    _Subtitle(
+                      grant: grant,
+                      entryLabel: review?.entryLabel,
+                      agentName: review?.agentName,
+                    ),
+                    if (state.status == GrantApprovalStatus.reviewing) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      const Center(child: CircularProgressIndicator()),
+                    ],
+                    if (review != null) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      Text(
+                        l10n.approvalSummaryReason,
+                        style: TextStyle(
+                          color: AppColors.onSurfaceSubtle(brightness),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.innerGap),
+                      Text(review.reason),
+                      const SizedBox(height: AppSpacing.lg),
+                      Text(
+                        l10n.entryCustomFieldsLabel,
+                        style: TextStyle(
+                          color: AppColors.onSurfaceSubtle(brightness),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      for (final field in review.fields)
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          value: _selectedFields.contains(field.id),
+                          title: Text(field.label),
+                          onChanged: state.isSubmitting
+                              ? null
+                              : (selected) => setState(() {
+                                  if (selected ?? false) {
+                                    _selectedFields.add(field.id);
+                                  } else {
+                                    _selectedFields.remove(field.id);
+                                  }
+                                }),
+                        ),
+                    ],
                     const SizedBox(height: AppSpacing.lg),
                     Text(
                       l10n.approvalAccessType,
@@ -196,7 +281,7 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
               ),
               SheetActionButtons(
                 onCancel: () => Navigator.of(context).pop(),
-                onConfirm: _onApprove,
+                onConfirm: review == null ? null : _onApprove,
                 confirmLabel: state.isSubmitting
                     ? l10n.approvalApproving
                     : l10n.approvalApprove,
@@ -214,9 +299,11 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody> {
 /// "Grant {agent} access to {entry} in {vault}." with the names emphasised,
 /// mirroring the web approve dialog's subtitle.
 class _Subtitle extends StatelessWidget {
-  const _Subtitle({required this.grant});
+  const _Subtitle({required this.grant, this.entryLabel, this.agentName});
 
   final PendingGrant grant;
+  final String? entryLabel;
+  final String? agentName;
 
   @override
   Widget build(BuildContext context) {
@@ -237,9 +324,15 @@ class _Subtitle extends StatelessWidget {
       TextSpan(
         children: [
           TextSpan(text: '${l10n.approvalApproveSubGrant} ', style: base),
-          TextSpan(text: pendingAgentDisplayName(l10n, grant), style: strong),
+          TextSpan(
+            text: agentName ?? pendingAgentDisplayName(l10n, grant),
+            style: strong,
+          ),
           TextSpan(text: ' ${l10n.approvalApproveSubAccessTo} ', style: base),
-          TextSpan(text: pendingEntryLabel(l10n, grant), style: strong),
+          TextSpan(
+            text: entryLabel ?? pendingEntryLabel(l10n, grant),
+            style: strong,
+          ),
           TextSpan(text: ' ${l10n.approvalApproveSubIn} ', style: base),
           TextSpan(
             text: grant.vaultName ?? l10n.approvalVaultUnknown,

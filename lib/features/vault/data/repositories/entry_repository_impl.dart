@@ -1,11 +1,9 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
 import '../../../../core/utils/app_logger.dart';
-import '../../../../core/crypto/vault_session_store.dart';
 import '../../../autofill/data/autofill_mutation_notifier.dart';
 import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/entry_entity.dart';
@@ -14,10 +12,12 @@ import '../../domain/exceptions/entry_exceptions.dart';
 import '../../domain/repositories/entry_repository.dart';
 import '../datasources/entry_remote_datasource.dart';
 import '../datasources/vault_remote_datasource.dart';
-import '../models/entry_v2_contracts.dart';
+import '../models/create_entry_request.dart';
+import '../models/entry_model.dart';
+import '../models/import_entries_request.dart';
+import '../models/update_entry_request.dart';
 import '../services/entry_crypto_service.dart';
-import '../services/entry_v2_crypto_service.dart';
-import '../../domain/entities/vault_plaintext.dart';
+import '../services/canonical_import_projection_service.dart';
 
 /// Concrete implementation of [EntryRepository].
 ///
@@ -33,64 +33,66 @@ class EntryRepositoryImpl implements EntryRepository {
     required this.entryDatasource,
     required this.vaultDatasource,
     required this.cryptoService,
-    this.entryV2CryptoService,
-    this.sessionStore,
+    this.canonicalImport,
     this.autoFillMutationNotifier,
   });
 
   final EntryRemoteDatasource entryDatasource;
   final VaultRemoteDatasource vaultDatasource;
   final EntryCryptoService cryptoService;
-  final EntryV2CryptoService? entryV2CryptoService;
-  final VaultSessionStore? sessionStore;
+  final CanonicalImportProjectionService? canonicalImport;
   final AutoFillMutationNotifier? autoFillMutationNotifier;
+  final Map<String, _CanonicalImportProgress> _canonicalImports = {};
 
   @override
   Future<List<EntryEntity>> listEntries(String vaultId) async {
-    Uint8List? vaultKey;
     try {
       AppLogger.d('Entry', 'GET /api/vaults/$vaultId/entries');
-      final session = sessionStore?.session(vaultId);
-      final v2Crypto = entryV2CryptoService;
-      if (session == null || v2Crypto == null) {
-        throw const EntryException(EntryErrorKind.cryptoFailure);
+      final models = await entryDatasource.listEntries(vaultId);
+      for (final m in models) {
+        AppLogger.d('Entry', 'entry ${m.id} icon=${m.icon}');
       }
-      vaultKey = session.copyVaultKey();
-      final rows = await entryDatasource.listEntriesV2(vaultId);
-      final result = <EntryEntity>[];
-      for (final row in rows) {
-        final index = await v2Crypto.openMemberIndex(
-          envelope: Map<String, dynamic>.from(row['memberIndex'] as Map),
-          vaultKey: vaultKey,
-        );
-        final icon = index['icon'];
-        result.add(
-          EntryEntity(
-            id: row['id'] as String,
-            vaultId: vaultId,
-            label: index['memberLabel'] as String,
-            description: index['description'] as String?,
-            icon: icon is Map && icon['kind'] == 'glyph'
-                ? icon['value'] as String?
-                : null,
-            type: switch (index['entryType']) {
-              'key' => EntryType.key,
-              'credential' => EntryType.credential,
-              'script' => EntryType.script,
-              _ => throw const EntryException(EntryErrorKind.cryptoFailure),
-            },
-            urlDomain: index['urlDomain'] as String?,
-            createdAt: DateTime.parse(row['createdAt'] as String),
-            updatedAt: DateTime.parse(row['updatedAt'] as String),
-          ),
-        );
-      }
-      return result;
+      return models.map((m) => m.toEntity()).toList(growable: false);
     } on DioException catch (e, s) {
       AppLogger.e('Entry', 'listEntries failed', error: e, stackTrace: s);
       throw EntryException(_classifyError(e));
-    } finally {
-      vaultKey?.fillRange(0, vaultKey.length, 0);
+    }
+  }
+
+  @override
+  Future<EntryEntity> createEntry({
+    required String vaultId,
+    required String label,
+    String? description,
+    String? icon,
+    required EntryType type,
+    required String encryptedBlob,
+    required String nonce,
+    String? urlDomain,
+    List<AgentField>? agentFields,
+  }) async {
+    try {
+      AppLogger.d('Entry', 'POST /api/vaults/$vaultId/entries');
+      final model = await entryDatasource.createEntry(
+        vaultId,
+        CreateEntryRequest(
+          label: label,
+          description: description,
+          icon: icon,
+          type: type.toWire(),
+          content: EntryContentModel(
+            encryptedBlob: encryptedBlob,
+            nonce: nonce,
+          ),
+          urlDomain: urlDomain,
+          agentFields: agentFields,
+        ),
+      );
+      autoFillMutationNotifier?.notifyChanged();
+      return model.toEntity();
+    } on DioException catch (e, s) {
+      AppLogger.e('Entry', 'createEntry failed', error: e, stackTrace: s);
+      throw EntryException(_classifyError(e));
     }
   }
 
@@ -117,125 +119,29 @@ class EntryRepositoryImpl implements EntryRepository {
     String? wrappedVK,
   }) async {
     AppLogger.d('Entry', 'Revealing entry id=$entryId');
+    final detail = await _fetchDetail(vaultId, entryId);
+    // Prefer the wrappedVK threaded down from the vault detail load —
+    // falling back to a fetch keeps the call resilient when callers
+    // (tests, future flows) don't have it cached.
+    final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
+
     Uint8List? vaultKey;
     try {
-      final session = sessionStore?.session(vaultId);
-      final v2Crypto = entryV2CryptoService;
-      if (session == null || v2Crypto == null) {
-        throw const EntryException(EntryErrorKind.cryptoFailure);
-      }
-      vaultKey = session.copyVaultKey();
-      final detail = await entryDatasource.getEntryV2(vaultId, entryId);
-      final secret = await v2Crypto.openMemberSecret(
-        entryKey: Map<String, dynamic>.from(detail['entryKey'] as Map),
-        memberSecret: Map<String, dynamic>.from(detail['memberSecret'] as Map),
+      vaultKey = await cryptoService.unwrapVK(
+        wrappedVK: vk,
+        privateKey: privateKey,
+      );
+      final payload = await cryptoService.decryptEntry(
+        content: detail.content,
         vaultKey: vaultKey,
       );
-      return RevealedEntry(
-        entry: _entityFromSecret(
-          vaultId: vaultId,
-          detail: detail,
-          secret: secret,
-        ),
-        payload: _legacyPayload(secret),
-      );
+      return RevealedEntry(entry: detail.summary.toEntity(), payload: payload);
     } finally {
       if (vaultKey != null) {
         vaultKey.fillRange(0, vaultKey.length, 0);
       }
     }
   }
-
-  EntryEntity _entityFromSecret({
-    required String vaultId,
-    required Map<String, dynamic> detail,
-    required Map<String, dynamic> secret,
-  }) {
-    final type = _entryType(secret['entryType']);
-    final content = Map<String, dynamic>.from(secret['content'] as Map);
-    final icon = secret['icon'];
-    return EntryEntity(
-      id: detail['id'] as String,
-      vaultId: vaultId,
-      label: secret['memberLabel'] as String,
-      description: secret['description'] as String?,
-      icon: icon is Map && icon['kind'] == 'glyph'
-          ? icon['value'] as String?
-          : null,
-      type: type,
-      urlDomain: type == EntryType.credential
-          ? content['urlDomain'] as String?
-          : null,
-      createdAt: DateTime.parse(detail['createdAt'] as String),
-      updatedAt: DateTime.parse(detail['updatedAt'] as String),
-    );
-  }
-
-  Map<String, dynamic> _legacyPayload(Map<String, dynamic> secret) {
-    final type = _entryType(secret['entryType']);
-    final content = Map<String, dynamic>.from(secret['content'] as Map);
-    final fields = (content['customFields'] as List<dynamic>? ?? const [])
-        .whereType<Map>()
-        .map((raw) {
-          final field = Map<String, dynamic>.from(raw);
-          return <String, dynamic>{
-            'id': (field['id'] as String).replaceFirst('custom:', ''),
-            'label': field['label'],
-            'type': field['kind'],
-            'value': field['value'],
-          };
-        })
-        .toList(growable: false);
-    return switch (type) {
-      EntryType.key => {
-        'v': 2,
-        'type': 'KEY',
-        'value': content['value'],
-        'notes': content['notes'],
-        'fields': fields,
-      },
-      EntryType.credential => {
-        'v': 2,
-        'type': 'CREDENTIAL',
-        'username': content['username'],
-        'password': content['password'],
-        'url': content['url'],
-        'notes': content['notes'],
-        'totp': content['totp'] is String
-            ? content['totp']
-            : content['totp'] == null
-            ? null
-            : jsonEncode(content['totp']),
-        'fields': fields,
-      },
-      EntryType.script => {
-        'v': 2,
-        'type': 'SCRIPT',
-        'script': content['source'],
-        'interpreter': content['interpreter'],
-        'notes': content['notes'],
-        'refs': (content['refs'] as List<dynamic>? ?? const [])
-            .map((raw) {
-              final ref = Map<String, dynamic>.from(raw as Map);
-              return {
-                'env': ref['env'],
-                'vaultId': ref['vaultId'],
-                'entryId': ref['entryId'],
-                'field': ref['fieldId'],
-              };
-            })
-            .toList(growable: false),
-        'fields': fields,
-      },
-    };
-  }
-
-  EntryType _entryType(Object? value) => switch (value) {
-    'key' => EntryType.key,
-    'credential' => EntryType.credential,
-    'script' => EntryType.script,
-    _ => throw const EntryException(EntryErrorKind.cryptoFailure),
-  };
 
   @override
   Future<EntryEntity> createEntryEncrypted({
@@ -250,152 +156,36 @@ class EntryRepositoryImpl implements EntryRepository {
     String? wrappedVK,
     List<AgentField>? agentFields,
   }) async {
-    AppLogger.d('Entry', 'Creating protocol-v2 entry in vault $vaultId');
-    final session = sessionStore?.session(vaultId);
-    final v2Crypto = entryV2CryptoService;
-    if (session == null || v2Crypto == null) {
-      throw const EntryException(EntryErrorKind.cryptoFailure);
-    }
-    final vaultKey = session.copyVaultKey();
-    final discoveryKey = session.copyVaultDiscoveryKey();
+    AppLogger.d('Entry', 'Creating encrypted entry in vault $vaultId');
+    // See [revealEntry] — same fallback contract.
+    final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
+
+    Uint8List? vaultKey;
     try {
-      final challenges = await entryDatasource.issueCreationChallenges(vaultId);
-      if (challenges.length != 1) {
-        throw const EntryException(EntryErrorKind.cryptoFailure);
-      }
-      final challenge = challenges.single;
-      final secret = _memberSecret(
-        label: label,
-        description: description,
-        icon: icon,
-        type: type,
+      vaultKey = await cryptoService.unwrapVK(
+        wrappedVK: vk,
+        privateKey: privateKey,
+      );
+      final encrypted = await cryptoService.encryptEntry(
         payload: payload,
-        urlDomain: urlDomain,
-      );
-      final envelopes = await v2Crypto.seal(
-        organizationId: session.organizationId,
-        vaultId: vaultId,
-        entryId: challenge.entryId,
-        revision: 1,
-        vaultKeyVersion: session.epoch.vaultKeyVersion,
-        vdkVersion: session.epoch.vdkVersion,
-        memberKeyGeneration: session.memberKeyGeneration,
-        operation: 1,
-        secret: secret,
         vaultKey: vaultKey,
-        vaultDiscoveryKey: discoveryKey,
       );
-      final response = await entryDatasource.createEntryV2(
-        vaultId,
-        CreateEntryV2Request(
-          vaultId: vaultId,
-          entryId: challenge.entryId,
-          envelopes: envelopes,
-        ),
-      );
-      autoFillMutationNotifier?.notifyChanged();
-      final now = DateTime.now().toUtc();
-      return EntryEntity(
-        id: (response['id'] as String?) ?? challenge.entryId,
+      return await createEntry(
         vaultId: vaultId,
         label: label,
         description: description,
         icon: icon,
         type: type,
+        encryptedBlob: encrypted.encryptedBlob,
+        nonce: encrypted.nonce,
         urlDomain: urlDomain,
-        createdAt: now,
-        updatedAt: now,
+        agentFields: agentFields,
       );
     } finally {
-      vaultKey.fillRange(0, vaultKey.length, 0);
-      discoveryKey.fillRange(0, discoveryKey.length, 0);
+      if (vaultKey != null) {
+        vaultKey.fillRange(0, vaultKey.length, 0);
+      }
     }
-  }
-
-  MemberSecret _memberSecret({
-    required String label,
-    required String? description,
-    required String? icon,
-    required EntryType type,
-    required Map<String, dynamic> payload,
-    String? urlDomain,
-  }) {
-    final sourceFields = CustomField.listFromPayload(payload);
-    final fields = sourceFields
-        .map(
-          (field) => VaultCustomField(
-            id: field.id,
-            label: field.label,
-            kind: field.rawType,
-            value: field.value,
-          ),
-        )
-        .toList(growable: false);
-    final content = switch (type) {
-      EntryType.key => KeySecretContent(
-        value: (payload['value'] as String?) ?? '',
-        notes: payload['notes'] as String?,
-        customFields: fields,
-      ),
-      EntryType.credential => CredentialSecretContent(
-        username: (payload['username'] as String?) ?? '',
-        password: (payload['password'] as String?) ?? '',
-        url: payload['url'] as String?,
-        urlDomain: urlDomain ?? payload['urlDomain'] as String?,
-        totp: payload['totp'] is Map
-            ? Map<String, Object?>.from(payload['totp'] as Map)
-            : null,
-        notes: payload['notes'] as String?,
-        customFields: fields,
-      ),
-      EntryType.script => ScriptSecretContent(
-        source: (payload['source'] as String?) ?? '',
-        interpreter: (payload['interpreter'] as String?) ?? '',
-        refs: (payload['refs'] as List<dynamic>? ?? const [])
-            .whereType<Map>()
-            .map((value) => Map<String, Object?>.from(value))
-            .toList(growable: false),
-        notes: payload['notes'] as String?,
-        customFields: fields,
-      ),
-    };
-    final discoverable = sourceFields.any(
-      (field) => field.agentVisible && field.type.canBeAgentVisible,
-    );
-    final access = <String, AgentFieldAccess>{
-      'memberLabel': AgentFieldAccess.never,
-      'agentLabel': discoverable
-          ? AgentFieldAccess.discovery
-          : AgentFieldAccess.never,
-      'description': AgentFieldAccess.never,
-      'icon': AgentFieldAccess.never,
-      'color': AgentFieldAccess.never,
-      'entryType': discoverable
-          ? AgentFieldAccess.discovery
-          : AgentFieldAccess.never,
-      for (final id in content.fieldValues().keys) id: AgentFieldAccess.never,
-      for (var index = 0; index < fields.length; index++)
-        fields[index].fieldId:
-            sourceFields[index].agentVisible &&
-                sourceFields[index].type.canBeAgentVisible
-            ? AgentFieldAccess.discovery
-            : AgentFieldAccess.never,
-    };
-    return MemberSecret(
-      entryType: switch (type) {
-        EntryType.key => VaultEntryType.key,
-        EntryType.credential => VaultEntryType.credential,
-        EntryType.script => VaultEntryType.script,
-      },
-      memberLabel: label,
-      agentLabel: discoverable ? label : null,
-      description: description,
-      icon: icon == null ? null : GlyphVaultIcon(icon),
-      color: null,
-      discoverable: discoverable,
-      content: content,
-      agentFieldAccess: access,
-    );
   }
 
   @override
@@ -413,58 +203,34 @@ class EntryRepositoryImpl implements EntryRepository {
     required DateTime createdAt,
     List<AgentField>? agentFields,
   }) async {
-    AppLogger.d('Entry', 'Updating protocol-v2 entry id=$entryId');
+    AppLogger.d('Entry', 'Updating encrypted entry id=$entryId');
+    final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
+
     Uint8List? vaultKey;
-    Uint8List? discoveryKey;
     try {
-      final session = sessionStore?.session(vaultId);
-      final v2Crypto = entryV2CryptoService;
-      if (session == null || v2Crypto == null) {
-        throw const EntryException(EntryErrorKind.cryptoFailure);
-      }
-      vaultKey = session.copyVaultKey();
-      discoveryKey = session.copyVaultDiscoveryKey();
-      final current = await entryDatasource.getEntryV2(vaultId, entryId);
-      final baseRevision = current['currentRevision'] as String;
-      final nextRevision = int.parse(baseRevision) + 1;
-      final secret = _memberSecret(
-        label: label,
-        description: description,
-        icon: icon,
-        type: type,
+      vaultKey = await cryptoService.unwrapVK(
+        wrappedVK: vk,
+        privateKey: privateKey,
+      );
+      final encrypted = await cryptoService.encryptEntry(
         payload: payload,
-        urlDomain: urlDomain,
-      );
-      final envelopes = await v2Crypto.seal(
-        organizationId: session.organizationId,
-        vaultId: vaultId,
-        entryId: entryId,
-        revision: nextRevision,
-        vaultKeyVersion: session.epoch.vaultKeyVersion,
-        vdkVersion: session.epoch.vdkVersion,
-        memberKeyGeneration: session.memberKeyGeneration,
-        operation: 2,
-        secret: secret,
         vaultKey: vaultKey,
-        vaultDiscoveryKey: discoveryKey,
-      );
-      final grantEnvelopes = await _grantEnvelopes(
-        session: session,
-        entryId: entryId,
-        revision: nextRevision,
-        secret: secret.toJson(),
       );
       try {
-        await entryDatasource.updateEntryV2(
+        await entryDatasource.updateEntry(
           vaultId,
           entryId,
-          UpdateEntryV2Request(
-            vaultId: vaultId,
-            entryId: entryId,
-            baseRevision: baseRevision,
-            envelopes: envelopes,
-            agentDiscoveryChanged: true,
-            grantEnvelopes: grantEnvelopes,
+          UpdateEntryRequest(
+            label: label,
+            description: description,
+            icon: icon,
+            type: type.toWire(),
+            content: EntryContentModel(
+              encryptedBlob: encrypted.encryptedBlob,
+              nonce: encrypted.nonce,
+            ),
+            urlDomain: urlDomain,
+            agentFields: agentFields,
           ),
         );
         autoFillMutationNotifier?.notifyChanged();
@@ -493,7 +259,6 @@ class EntryRepositoryImpl implements EntryRepository {
       if (vaultKey != null) {
         vaultKey.fillRange(0, vaultKey.length, 0);
       }
-      discoveryKey?.fillRange(0, discoveryKey.length, 0);
     }
   }
 
@@ -508,10 +273,24 @@ class EntryRepositoryImpl implements EntryRepository {
     int chunkSize = 500,
     void Function(int done, int total)? onProgress,
   }) async {
+    final canonical = canonicalImport;
+    if (canonical != null) {
+      return _importCanonical(
+        canonical: canonical,
+        vaultId: vaultId,
+        format: format,
+        creates: creates,
+        overwrites: overwrites,
+        privateKey: privateKey,
+        chunkSize: chunkSize.clamp(1, 500),
+        onProgress: onProgress,
+      );
+    }
     AppLogger.d(
       'Entry',
       'Importing ${creates.length} new + ${overwrites.length} overwrites into $vaultId',
     );
+    final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
     final total = creates.length + overwrites.length;
     var done = 0;
     var mutated = false;
@@ -527,86 +306,37 @@ class EntryRepositoryImpl implements EntryRepository {
     }
 
     Uint8List? vaultKey;
-    Uint8List? discoveryKey;
     try {
-      final session = sessionStore?.session(vaultId);
-      final v2Crypto = entryV2CryptoService;
-      if (session == null || v2Crypto == null) {
-        throw const EntryException(EntryErrorKind.cryptoFailure);
-      }
-      vaultKey = session.copyVaultKey();
-      discoveryKey = session.copyVaultDiscoveryKey();
-
-      final activeFullGrants = creates.isEmpty
-          ? const <Map<String, dynamic>>[]
-          : (await entryDatasource.listActiveGrants(vaultId))
-              .where((grant) => (grant['type'] ?? grant['mode']) == 'full')
-              .toList(growable: false);
+      vaultKey = await cryptoService.unwrapVK(
+        wrappedVK: vk,
+        privateKey: privateKey,
+      );
 
       var createdCount = 0;
+      // Chunk the bulk creates to the backend's per-request limit.
       for (var start = 0; start < creates.length; start += chunkSize) {
         final end = (start + chunkSize).clamp(0, creates.length);
         final chunk = creates.sublist(start, end);
-        final challenges = await entryDatasource.issueCreationChallenges(
-          vaultId,
-          count: chunk.length,
-        );
-        if (challenges.length != chunk.length) {
-          throw const EntryException(EntryErrorKind.cryptoFailure);
-        }
-        final items = <Map<String, Object?>>[];
-        for (var index = 0; index < chunk.length; index++) {
-          final draft = chunk[index];
-          final entryId = challenges[index].entryId;
-          final envelopes = await v2Crypto.seal(
-            organizationId: session.organizationId,
-            vaultId: vaultId,
-            entryId: entryId,
-            revision: 1,
-            vaultKeyVersion: session.epoch.vaultKeyVersion,
-            vdkVersion: session.epoch.vdkVersion,
-            memberKeyGeneration: session.memberKeyGeneration,
-            operation: 1,
-            secret: _memberSecret(
+        final items = <ImportEntryItem>[];
+        for (final draft in chunk) {
+          final encrypted = await cryptoService.encryptEntry(
+            payload: draft.payload,
+            vaultKey: vaultKey,
+          );
+          items.add(
+            ImportEntryItem(
               label: draft.label,
               description: draft.description,
-              icon: null,
-              type: draft.type,
-              payload: draft.payload,
+              type: draft.type.toWire(),
+              content: encrypted,
               urlDomain: draft.urlDomain,
             ),
-            vaultKey: vaultKey,
-            vaultDiscoveryKey: discoveryKey,
           );
-          final secret = _memberSecret(
-            label: draft.label,
-            description: draft.description,
-            icon: null,
-            type: draft.type,
-            payload: draft.payload,
-            urlDomain: draft.urlDomain,
-          );
-          final grantEnvelopes = await _grantEnvelopes(
-            session: session,
-            entryId: entryId,
-            revision: 1,
-            secret: secret.toJson(),
-            grants: activeFullGrants,
-          );
-          items.add({
-            'entryId': entryId,
-            'entryKey': envelopes.entryKey,
-            'memberIndex': envelopes.memberIndex,
-            'memberSecret': envelopes.memberSecret,
-            'agentDiscovery': envelopes.agentDiscovery,
-            'grantEnvelopes': grantEnvelopes,
-          });
         }
         try {
-          createdCount += await entryDatasource.importEntriesV2(
+          createdCount += await entryDatasource.importEntries(
             vaultId,
-            format: format,
-            entries: items,
+            ImportEntriesRequest(format: format, entries: items),
           );
           markMutated();
         } on DioException catch (e, s) {
@@ -624,20 +354,24 @@ class EntryRepositoryImpl implements EntryRepository {
 
       var updatedCount = 0;
       for (final overwrite in overwrites) {
+        final encrypted = await cryptoService.encryptEntry(
+          payload: overwrite.payload,
+          vaultKey: vaultKey,
+        );
         try {
-          markMutated();
-          await updateEntryEncrypted(
-            vaultId: vaultId,
-            entryId: overwrite.entryId,
-            label: overwrite.label,
-            description: overwrite.description,
-            type: overwrite.type,
-            payload: overwrite.payload,
-            urlDomain: overwrite.urlDomain,
-            privateKey: privateKey,
-            createdAt: overwrite.createdAt,
+          await entryDatasource.updateEntry(
+            vaultId,
+            overwrite.entryId,
+            UpdateEntryRequest(
+              label: overwrite.label,
+              description: overwrite.description,
+              type: overwrite.type.toWire(),
+              content: encrypted,
+              urlDomain: overwrite.urlDomain,
+            ),
           );
           updatedCount++;
+          markMutated();
         } on DioException catch (e, s) {
           AppLogger.e(
             'Entry',
@@ -664,29 +398,80 @@ class EntryRepositoryImpl implements EntryRepository {
       if (vaultKey != null) {
         vaultKey.fillRange(0, vaultKey.length, 0);
       }
-      discoveryKey?.fillRange(0, discoveryKey.length, 0);
     }
   }
 
-  @override
-  Future<List<RevealedEntry>> revealAllEntries({
+  Future<ImportResult> _importCanonical({
+    required CanonicalImportProjectionService canonical,
     required String vaultId,
+    required String format,
+    required List<ImportEntryDraft> creates,
+    required List<ImportEntryOverwrite> overwrites,
     required Uint8List privateKey,
-    String? wrappedVK,
+    required int chunkSize,
+    void Function(int done, int total)? onProgress,
   }) async {
-    AppLogger.d('Entry', 'Revealing all entries in $vaultId for export');
-    final summaries = await listEntries(vaultId);
-    final revealed = <RevealedEntry>[];
-    for (final summary in summaries) {
-      revealed.add(
-        await revealEntry(
-          vaultId: vaultId,
-          entryId: summary.id,
-          privateKey: privateKey,
-        ),
-      );
+    if (overwrites.isNotEmpty) {
+      throw const EntryException(EntryErrorKind.validation);
     }
-    return revealed;
+    var progress = _canonicalImports[vaultId];
+    if (progress == null ||
+        progress.format != format ||
+        progress.total != creates.length) {
+      progress = _CanonicalImportProgress(format, creates.length);
+      _canonicalImports[vaultId] = progress;
+    }
+    var start = progress.committedRows;
+    onProgress?.call(start, creates.length);
+    try {
+      while (start < creates.length) {
+        final end = (start + chunkSize).clamp(0, creates.length);
+        var pending = progress.pending;
+        if (pending == null || pending.start != start || pending.end != end) {
+          final ids = await entryDatasource.issueCreationChallenges(
+            vaultId,
+            count: end - start,
+          );
+          final payloads = await canonical.prepareCredentialBatch(
+            vaultId: vaultId,
+            entryIds: ids,
+            drafts: creates.sublist(start, end),
+            memberPrivateKey: privateKey,
+          );
+          pending = _PendingCanonicalBatch(start, end, payloads);
+          progress.pending = pending;
+        }
+        final request = ImportEntriesRequest(
+          format: format,
+          entries: pending.entries,
+        );
+        try {
+          await entryDatasource.importEntries(vaultId, request);
+        } on DioException catch (error) {
+          if (error.response != null) {
+            throw EntryException(_classifyError(error));
+          }
+          // Lost response: retry the exact same ids, nonces and ciphertext.
+          try {
+            await entryDatasource.importEntries(vaultId, request);
+          } on DioException catch (retryError) {
+            throw EntryException(_classifyError(retryError));
+          }
+        }
+        progress.committedRows = end;
+        progress.pending = null;
+        start = end;
+        autoFillMutationNotifier?.notifyInvalidated();
+        onProgress?.call(start, creates.length);
+      }
+      _canonicalImports.remove(vaultId);
+      autoFillMutationNotifier?.notifyChanged();
+      return ImportResult(createdCount: creates.length, updatedCount: 0);
+    } catch (_) {
+      // Keep only the current unconfirmed ciphertext batch plus committed row
+      // count. A retry resumes without rebuilding successful transitions.
+      rethrow;
+    }
   }
 
   @override
@@ -705,129 +490,48 @@ class EntryRepositoryImpl implements EntryRepository {
         .toList(growable: false);
     if (candidates.isEmpty) return const [];
 
-    final revealed = <RevealedEntry>[];
-    for (final summary in candidates) {
-      revealed.add(
-        await revealEntry(
-          vaultId: vaultId,
-          entryId: summary.id,
-          privateKey: privateKey,
-        ),
-      );
-    }
-    return revealed;
-  }
-
-  @override
-  Future<void> logExportAudit({
-    required String vaultId,
-    required String format,
-    required int entryCount,
-  }) async {
+    final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
+    Uint8List? vaultKey;
     try {
-      await entryDatasource.logExportAudit(vaultId, format, entryCount);
-    } on DioException catch (e) {
-      // Best-effort — the export already succeeded, so a failed audit
-      // record must not surface to the user.
-      AppLogger.w('Entry', 'export-audit failed (non-fatal)', error: e);
+      vaultKey = await cryptoService.unwrapVK(
+        wrappedVK: vk,
+        privateKey: privateKey,
+      );
+      final revealed = <RevealedEntry>[];
+      for (final summary in candidates) {
+        final detail = await _fetchDetail(vaultId, summary.id);
+        final payload = await cryptoService.decryptEntry(
+          content: detail.content,
+          vaultKey: vaultKey,
+        );
+        revealed.add(
+          RevealedEntry(entry: detail.summary.toEntity(), payload: payload),
+        );
+      }
+      return revealed;
+    } finally {
+      vaultKey?.fillRange(0, vaultKey.length, 0);
     }
   }
 
-  Future<List<Map<String, Object?>>> _grantEnvelopes({
-    required UnlockedVaultSession session,
-    required String entryId,
-    required int revision,
-    required Map<String, dynamic> secret,
-    List<Map<String, dynamic>>? grants,
-  }) async {
-    final active =
-        grants ?? await entryDatasource.listActiveGrants(session.vaultId);
-    final covering = active.where((grant) {
-      final type = grant['type'] ?? grant['mode'];
-      return type == 'full' || grant['entryId'] == entryId;
-    });
-    final result = <Map<String, Object?>>[];
-    for (final grant in covering) {
-      final grantId = grant['id'] as String;
-      final agentId = grant['agentId'] as String?;
-      final publicKeyText = grant['agentPublicKey'] as String?;
-      final keyVersion = (grant['recipientAgentKeyVersion'] as num?)?.toInt();
-      if (agentId == null || publicKeyText == null || keyVersion == null) {
-        throw const EntryException(EntryErrorKind.cryptoFailure);
-      }
-      final scopes = (grant['entryScopes'] as List<dynamic>? ?? const [])
-          .whereType<Map>()
-          .where((scope) => scope['entryId'] == entryId)
-          .toList(growable: false);
-      final fieldIds =
-          scopes
-              .expand(
-                (scope) => scope['fieldIds'] as List<dynamic>? ?? const [],
-              )
-              .whereType<String>()
-              .toSet()
-              .toList()
-            ..sort();
-      if (fieldIds.isEmpty) {
-        fieldIds.addAll(
-          Map<String, dynamic>.from(secret['agentFieldAccess'] as Map).entries
-              .where(
-                (entry) => const {
-                  'onGrantValue',
-                  'onGrantDerived',
-                  'onGrantRuntime',
-                }.contains(entry.value),
-              )
-              .map((entry) => entry.key),
-        );
-        fieldIds.sort();
-      }
-      if (fieldIds.isEmpty) {
-        throw const EntryException(EntryErrorKind.cryptoFailure);
-      }
-      final publicKey = Uint8List.fromList(base64Decode(publicKeyText));
-      try {
-        final queryLimit = grant['queryLimit'] as int?;
-        final queryCount = grant['queryCount'] as int? ?? 0;
-        result.add(
-          await entryV2CryptoService!.sealGrant(
-            organizationId: session.organizationId,
-            vaultId: session.vaultId,
-            entryId: entryId,
-            grantId: grantId,
-            agentId: agentId,
-            entryRevision: revision,
-            memberKeyGeneration: session.memberKeyGeneration,
-            agentPublicKey: publicKey,
-            recipientKeyVersion: keyVersion,
-            approvedMethods: _grantMethodBits(grant['methods']),
-            fieldIds: fieldIds,
-            grantPayload: VaultPlaintextProjector.grantPayloadFromJson(
-              secret,
-              fieldIds.toSet(),
-            ),
-            expiresAt: grant['expiresAt'] == null
-                ? null
-                : DateTime.parse(grant['expiresAt'] as String),
-            remainingUses: queryLimit == null ? null : queryLimit - queryCount,
-          ),
-        );
-      } finally {
-        publicKey.fillRange(0, publicKey.length, 0);
-      }
+  /// Wraps the vault datasource's wrappedVK lookup with our typed error
+  /// classifier so the entry-level cubit only ever sees [EntryException]s.
+  Future<String> _fetchWrappedVK(String vaultId) async {
+    try {
+      return await vaultDatasource.getVaultWrappedKey(vaultId);
+    } on DioException catch (e, s) {
+      AppLogger.e('Entry', 'wrappedVK fetch failed', error: e, stackTrace: s);
+      throw EntryException(_classifyError(e));
     }
-    return result;
   }
 
-  int _grantMethodBits(Object? raw) {
-    if (raw is num) return raw.toInt();
-    final names = (raw as String? ?? '')
-        .split(',')
-        .map((value) => value.trim().toLowerCase())
-        .toSet();
-    return (names.contains('get') ? 1 : 0) |
-        (names.contains('exec') ? 2 : 0) |
-        (names.contains('inject') ? 4 : 0);
+  Future<EntryDetailModel> _fetchDetail(String vaultId, String entryId) async {
+    try {
+      return await entryDatasource.getEntry(vaultId, entryId);
+    } on DioException catch (e, s) {
+      AppLogger.e('Entry', 'getEntry failed', error: e, stackTrace: s);
+      throw EntryException(_classifyError(e));
+    }
   }
 
   /// Maps a [DioException] to a typed [EntryErrorKind].
@@ -848,4 +552,21 @@ class EntryRepositoryImpl implements EntryRepository {
       _ => EntryErrorKind.unknown,
     };
   }
+}
+
+final class _CanonicalImportProgress {
+  _CanonicalImportProgress(this.format, this.total);
+
+  final String format;
+  final int total;
+  int committedRows = 0;
+  _PendingCanonicalBatch? pending;
+}
+
+final class _PendingCanonicalBatch {
+  const _PendingCanonicalBatch(this.start, this.end, this.entries);
+
+  final int start;
+  final int end;
+  final List<Map<String, dynamic>> entries;
 }

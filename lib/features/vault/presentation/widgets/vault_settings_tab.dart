@@ -1,14 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
-import '../../data/datasources/vault_remote_datasource.dart';
-import '../../data/services/vault_icon_upload_service.dart';
 import 'vault_form.dart';
 
 /// Settings tab body — wraps [VaultForm] and adds a prominent Save
@@ -19,10 +14,8 @@ import 'vault_form.dart';
 /// a small TextButton affordance for the same action — both call
 /// [onSave].
 ///
-/// Custom icon upload is supported — tapping the upload affordance
-/// launches the system gallery picker, uploads via
-/// [VaultIconUploadService], and propagates the resulting URL through
-/// [onChanged] so the parent can detect the form as dirty.
+/// Custom icon bytes remain local until Save encrypts them with a Vault-
+/// derived key. The backend never receives plaintext image bytes or URLs.
 class VaultSettingsTab extends StatefulWidget {
   const VaultSettingsTab({
     super.key,
@@ -45,7 +38,6 @@ class VaultSettingsTab extends StatefulWidget {
 
 class _VaultSettingsTabState extends State<VaultSettingsTab> {
   bool _pickingIcon = false;
-  bool _uploadingIcon = false;
   late VaultFormData _currentData;
 
   @override
@@ -62,7 +54,7 @@ class _VaultSettingsTabState extends State<VaultSettingsTab> {
   }
 
   Future<String?> _pickAndUploadIcon() async {
-    if (_pickingIcon || _uploadingIcon) return null;
+    if (_pickingIcon) return null;
     setState(() => _pickingIcon = true);
     final XFile? file;
     try {
@@ -76,49 +68,9 @@ class _VaultSettingsTabState extends State<VaultSettingsTab> {
       if (mounted) setState(() => _pickingIcon = false);
     }
     if (file == null || !mounted) return null;
-
-    setState(() => _uploadingIcon = true);
-    try {
-      final service = VaultIconUploadService(getIt<VaultRemoteDatasource>());
-      final url = await service.uploadIcon(widget.vaultId, File(file.path));
-      if (!mounted) return null;
-      _onFormChanged(widget.initial.copyWith(icon: url));
-      return url;
-    } on VaultIconUploadException catch (e) {
-      if (!mounted) return null;
-      final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(_iconUploadErrorMessage(l10n, e.kind)),
-        ));
-      return null;
-    } catch (_) {
-      if (!mounted) return null;
-      final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l10n.vaultIconUploadError)));
-      return null;
-    } finally {
-      if (mounted) setState(() => _uploadingIcon = false);
-    }
-  }
-
-  /// Maps a typed [VaultIconUploadErrorKind] to the matching ARB string.
-  /// Centralising the switch here keeps the data layer free of locale
-  /// concerns (criteria 3 — no English in data/domain layer).
-  String _iconUploadErrorMessage(
-    AppLocalizations l10n,
-    VaultIconUploadErrorKind kind,
-  ) {
-    return switch (kind) {
-      VaultIconUploadErrorKind.unsupportedFormat =>
-        l10n.vaultIconUploadFormatError,
-      VaultIconUploadErrorKind.fileTooLarge => l10n.vaultIconUploadSizeError,
-      VaultIconUploadErrorKind.network => l10n.vaultIconUploadError,
-      VaultIconUploadErrorKind.unknown => l10n.vaultIconUploadError,
-    };
+    final localReference = Uri.file(file.path).toString();
+    _onFormChanged(widget.initial.copyWith(icon: localReference));
+    return localReference;
   }
 
   @override
@@ -135,10 +87,7 @@ class _VaultSettingsTabState extends State<VaultSettingsTab> {
             onPickCustomIcon: _pickAndUploadIcon,
           ),
           const SizedBox(height: AppSpacing.section),
-          _SaveButton(
-            onSave: _isDirty ? widget.onSave : null,
-            l10n: l10n,
-          ),
+          _SaveButton(onSave: _isDirty ? widget.onSave : null, l10n: l10n),
           const SizedBox(height: AppSpacing.section),
           _DangerZone(l10n: l10n, onDelete: widget.onDelete),
         ],
@@ -165,8 +114,7 @@ class _SaveButton extends StatelessWidget {
           backgroundColor: AppColors.brandRed,
           disabledBackgroundColor: AppColors.brandRed.withValues(alpha: 0.35),
           foregroundColor: AppColors.onBrandRed,
-          disabledForegroundColor:
-              AppColors.onBrandRed.withValues(alpha: 0.5),
+          disabledForegroundColor: AppColors.onBrandRed.withValues(alpha: 0.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
@@ -174,10 +122,7 @@ class _SaveButton extends StatelessWidget {
         ),
         child: Text(
           l10n.vaultSaveAction,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -215,7 +160,11 @@ class _DangerZone extends StatelessWidget {
             width: double.infinity,
             height: 44,
             child: TextButton.icon(
-              icon: const Icon(Icons.delete, size: 14, color: AppColors.brandRed),
+              icon: const Icon(
+                Icons.delete,
+                size: 14,
+                color: AppColors.brandRed,
+              ),
               label: Text(
                 l10n.vaultDeleteVault,
                 style: const TextStyle(

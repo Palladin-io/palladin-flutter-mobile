@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -27,6 +28,14 @@ import 'features/notifications/data/services/push_notification_service.dart';
 import 'features/notifications/domain/entities/push_message.dart';
 import 'features/notifications/presentation/cubit/notification_center_cubit.dart';
 import 'features/notifications/presentation/cubit/push_navigation_cubit.dart';
+import 'features/dashboard/presentation/cubit/search_session_controller.dart';
+import 'features/vault/data/services/member_sync_service.dart';
+import 'features/vault/data/services/member_entry_list_service.dart';
+import 'features/vault/data/services/encrypted_presentation_asset_service.dart';
+import 'features/vault/data/services/vault_rotation_service.dart';
+import 'features/vault/data/export/canonical_export_service.dart';
+import 'features/vault/data/export/protected_export_staging.dart';
+import 'features/vault/presentation/cubit/vault_list_cubit.dart';
 
 class PalladinApp extends StatefulWidget {
   const PalladinApp({
@@ -62,6 +71,17 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final PushNavigationCubit _pushNavigationCubit = getIt<PushNavigationCubit>();
   final PushNotificationService _pushService = getIt<PushNotificationService>();
   final AutoFillCacheService _autoFillCache = getIt<AutoFillCacheService>();
+  final MemberSyncService _memberSync = getIt<MemberSyncService>();
+  final MemberEntryListService _memberEntryList =
+      getIt<MemberEntryListService>();
+  final VaultListCubit _vaultList = getIt<VaultListCubit>();
+  final VaultRotationService _vaultRotation = getIt<VaultRotationService>();
+  final CanonicalExportService _exportService = getIt<CanonicalExportService>();
+  final ProtectedExportStaging _exportStaging = getIt<ProtectedExportStaging>();
+  final EncryptedPresentationAssetService _presentationAssets =
+      getIt<EncryptedPresentationAssetService>();
+  final SearchSessionController _searchSession =
+      getIt<SearchSessionController>();
   late final StreamSubscription<AutoFillMutationAction>
   _autoFillMutationSubscription;
 
@@ -78,6 +98,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(_sweepExportStaging());
     // Forward tapped notifications (background / terminated / cold start)
     // into the navigation cubit, which the BlocListener below consumes.
     _pushService.onMessageTapped = _pushNavigationCubit.onNotificationTapped;
@@ -128,6 +149,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
         // app-switcher. No FLAG_SECURE by design — it would also block the
         // user's own screenshots.
         WidgetsBinding.instance.scheduleWarmUpFrame();
+        _vaultRotation.pause();
+        _searchSession.lock();
       }
     }
 
@@ -136,6 +159,16 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     // (and any events missed while the socket was suspended) shows up.
     if (state == AppLifecycleState.resumed) {
       if (_authBloc.state is AuthAuthenticated) _signalR.connect();
+      if (_authBloc.state case final AuthAuthenticated authenticated
+          when !authenticated.isVaultLocked &&
+              authenticated.privateKey != null) {
+        unawaited(
+          _resumeVaultRotations(
+            memberId: authenticated.userId,
+            privateKey: authenticated.privateKey!,
+          ),
+        );
+      }
       _refreshLiveData();
     }
   }
@@ -179,14 +212,9 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   /// refreshing the affected list.
   void _onSignalRNotification(PushMessage message) {
     _onForegroundPush(message);
-    if (_authBloc.state is! AuthAuthenticated) return;
-    // Pass the full routing data so a tap on the banner deep-links to the
-    // specific agent / grant (not just the list).
-    _pushService.showLocalNotification(
-      title: message.title,
-      body: message.body,
-      data: message.toRoutingData(),
-    );
+    // SignalR carries structural data only. The durable Inbox is refreshed;
+    // presentation is resolved there after unlock instead of trusting hub
+    // copy or exposing account resources on the lock screen.
   }
 
   @override
@@ -228,6 +256,31 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               unawaited(
                 _startAutoFillSession(privateKey: authenticated.privateKey!),
               );
+              unawaited(_prepareLocalSearch(authenticated.privateKey!));
+              unawaited(
+                _resumeVaultRotations(
+                  memberId: authenticated.userId,
+                  privateKey: authenticated.privateKey!,
+                ),
+              );
+            },
+          ),
+          BlocListener<AuthBloc, AuthState>(
+            listenWhen: (previous, current) =>
+                previous is AuthAuthenticated &&
+                !previous.isVaultLocked &&
+                (current is! AuthAuthenticated || current.isVaultLocked),
+            listener: (_, _) {
+              _memberSync.lock();
+              _vaultList.lock();
+              _searchSession.lock();
+              _vaultRotation.pause();
+              _exportService.cancel();
+              _presentationAssets.lock();
+              PaintingBinding.instance.imageCache
+                ..clear()
+                ..clearLiveImages();
+              unawaited(_cleanupExportStaging());
             },
           ),
           // Deep-link: navigate when a tapped notification resolves to a
@@ -265,6 +318,44 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
         ),
       ),
     );
+  }
+
+  Future<void> _sweepExportStaging() async {
+    try {
+      await _exportStaging.sweepStaleExports();
+    } catch (_) {
+      // Cleanup is best effort; never log paths or platform error payloads.
+    }
+  }
+
+  Future<void> _prepareLocalSearch(Uint8List privateKey) async {
+    try {
+      await _vaultList.loadVaults(privateKey);
+      final state = _vaultList.state;
+      if (state is! VaultListLoaded) return;
+      for (final vault in state.vaults) {
+        final keyCopy = Uint8List.fromList(privateKey);
+        try {
+          await _memberEntryList.load(
+            vaultId: vault.id,
+            memberPrivateKey: keyCopy,
+          );
+        } finally {
+          keyCopy.fillRange(0, keyCopy.length, 0);
+        }
+      }
+    } catch (_) {
+      // Local search is best effort. Never log transport errors because they
+      // may retain the raw query or decrypted projection context.
+    }
+  }
+
+  Future<void> _cleanupExportStaging() async {
+    try {
+      await _exportStaging.cleanupExports();
+    } catch (_) {
+      // Cleanup is best effort; never log paths or platform error payloads.
+    }
   }
 
   void _onAuthStateChanged(BuildContext context, AuthState state) {
@@ -309,6 +400,29 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   Future<void> _startAutoFillSession({required Uint8List privateKey}) async {
     await _autoFillCache.beginSession();
     await _autoFillCache.synchronize(privateKey: privateKey);
+  }
+
+  Future<void> _resumeVaultRotations({
+    required String memberId,
+    required Uint8List privateKey,
+  }) async {
+    try {
+      await _vaultRotation.resumeAfterUnlock(
+        memberId: memberId,
+        memberPrivateKey: privateKey,
+      );
+    } on DioException catch (error) {
+      if (CancelToken.isCancel(error)) return;
+      AppLogger.w(
+        'VaultRotation',
+        'Rotation paused after network failure: ${error.type}',
+      );
+    } catch (error) {
+      AppLogger.w(
+        'VaultRotation',
+        'Rotation requires retry: ${error.runtimeType}',
+      );
+    }
   }
 
   Future<void> _clearAutoFillAfterSessionLoss() async {

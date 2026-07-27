@@ -4,7 +4,7 @@ import 'package:mobile_palladin/features/audit/domain/entities/audit_log_entry.d
 
 void main() {
   group('AuditLogModel.fromJson → toEntity', () {
-    test('maps a full credential-accessed item with metadata', () {
+    test('keeps structural fields and discards hostile presentation data', () {
       final entity = AuditLogModel.fromJson(<String, dynamic>{
         'id': 'log-1',
         'eventType': 'credential.accessed',
@@ -25,8 +25,10 @@ void main() {
       expect(entity.actorType, AuditActorType.agent);
       expect(entity.agentId, 'a-1');
       expect(entity.entryId, 'e-1');
-      expect(entity.entryLabel, 'Stripe API Key');
-      expect(entity.metadata['method'], 'Get');
+      expect(entity.entryLabel, isNull);
+      expect(entity.agentReason, isNull);
+      expect(entity.metadata, isEmpty);
+      expect(entity.localPresentationOnly, isTrue);
       expect(entity.createdAt.isUtc, isFalse); // normalized to local
     });
 
