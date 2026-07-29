@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../public_asset_catalog/presentation/widgets/public_asset_image.dart';
 import 'vault_visuals.dart';
 
 /// The entry icon shown inline beside the Label field (mockup parity),
@@ -50,6 +51,14 @@ class EntryIconTile extends StatelessWidget {
   }
 
   Widget _content(Brightness brightness) {
+    if (icon.startsWith('public-asset:')) {
+      return PublicAssetImage(
+        reference: icon,
+        width: _size,
+        height: _size,
+        fallback: _glyph(),
+      );
+    }
     if (icon.startsWith('file://')) {
       return Image.file(
         File(icon.substring(7)),

@@ -72,7 +72,9 @@ abstract final class VaultVisuals {
       (icon.startsWith('https://') ||
        icon.startsWith('http://') ||
        icon.startsWith('file://') ||
-       icon.startsWith('asset:'));
+       icon.startsWith('asset:') ||
+       icon.startsWith('vault-asset:') ||
+       icon.startsWith('public-asset:'));
 
   /// Resolve a stored icon name to its [IconData]. Falls back to
   /// [Icons.shield] when the name is missing or unknown — older vaults
@@ -168,6 +170,7 @@ abstract final class EntryVisuals {
 
   static IconData iconFor(String? name) {
     if (name == null || name.isEmpty) return Icons.vpn_key;
+    if (name.startsWith('builtin:')) name = name.substring(8);
     for (final choice in iconChoices) {
       if (choice.name == name) return choice.icon;
     }

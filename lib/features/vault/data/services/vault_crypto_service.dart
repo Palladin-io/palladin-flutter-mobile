@@ -13,6 +13,7 @@ import '../../../../core/crypto/vault_session_store.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../domain/entities/vault_plaintext.dart';
 import '../models/vault_v2_contracts.dart';
+import 'vault_protocol/vault_protocol_fingerprint.dart' as protocol;
 
 /// Zero-knowledge crypto pipeline for vault creation.
 ///
@@ -38,6 +39,10 @@ class VaultCryptoService {
     final wrappedRoot = json['memberVaultKey'] as Map<String, dynamic>;
     final wrapped = wrappedRoot['wrappedVaultKey'] as Map<String, dynamic>;
     final wrapperJson = wrapped['descriptor'] as Map<String, dynamic>;
+    final wrapperPurpose = WrapperPurpose.parseWire(wrapperJson['purpose']);
+    if (wrapperPurpose != WrapperPurpose.memberVaultKey) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
     final wrapperScope = wrapperJson['scope'] as Map<String, dynamic>;
     final scope = EnvelopeScope(
       organizationId: EnvelopeId.parse(
@@ -48,12 +53,14 @@ class VaultCryptoService {
     );
     final wrapper = WrapperContext(
       protocolVersion: wrapperJson['protocolVersion'] as int,
-      purpose: WrapperPurpose.memberVaultKey,
+      purpose: wrapperPurpose,
       scope: scope,
       resourceRevision: int.parse(wrapperJson['resourceRevision'] as String),
       wrappedKeyVersion: wrapperJson['wrappedKeyVersion'] as int,
       memberKeyGeneration: wrapperJson['memberKeyGeneration'] as int,
-      recipientKeyKind: wrapperJson['recipientKeyKind'] as int,
+      recipientKeyKind: protocol.VaultPublicKeyKind.parseWire(
+        wrapperJson['recipientKeyKind'],
+      ).id,
       recipientKeyVersion: wrapperJson['recipientKeyVersion'] as int,
       recipientFingerprint: _decode(
         wrapperJson['recipientFingerprint'] as String,
@@ -70,11 +77,17 @@ class VaultCryptoService {
     try {
       final metadataJson = json['memberVaultMetadata'] as Map<String, dynamic>;
       final descriptorJson = metadataJson['descriptor'] as Map<String, dynamic>;
+      final metadataPurpose = EnvelopePurpose.parseWire(
+        descriptorJson['purpose'],
+      );
+      if (metadataPurpose != EnvelopePurpose.memberVaultMetadata) {
+        throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+      }
       final descriptorScope = descriptorJson['scope'] as Map<String, dynamic>;
       final descriptor = EnvelopeDescriptor(
         protocolVersion: descriptorJson['protocolVersion'] as int,
         cryptoSuiteId: CryptoSuiteId.palladinVaultXChaChaV1,
-        purpose: EnvelopePurpose.memberVaultMetadata,
+        purpose: metadataPurpose,
         scope: EnvelopeScope(
           organizationId: EnvelopeId.parse(
             descriptorScope['organizationId'] as String,
@@ -155,7 +168,8 @@ class VaultCryptoService {
     required Uint8List vaultKey,
   }) async {
     final descriptorJson = json['descriptor'] as Map<String, dynamic>;
-    if (descriptorJson['purpose'] != expectedPurpose.id) {
+    final purpose = EnvelopePurpose.parseWire(descriptorJson['purpose']);
+    if (purpose != expectedPurpose) {
       throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
     }
     final scopeJson = descriptorJson['scope'] as Map<String, dynamic>;
@@ -163,7 +177,7 @@ class VaultCryptoService {
     final descriptor = EnvelopeDescriptor(
       protocolVersion: descriptorJson['protocolVersion'] as int,
       cryptoSuiteId: CryptoSuiteId.palladinVaultXChaChaV1,
-      purpose: expectedPurpose,
+      purpose: purpose,
       scope: EnvelopeScope(
         organizationId: EnvelopeId.parse(scopeJson['organizationId'] as String),
         vaultId: EnvelopeId.parse(scopeJson['vaultId'] as String),

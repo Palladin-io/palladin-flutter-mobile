@@ -25,6 +25,25 @@ enum WrapperPurpose {
 
   const WrapperPurpose(this.id);
   final int id;
+
+  static WrapperPurpose parseWire(Object? value) {
+    const names = <String, WrapperPurpose>{
+      'memberVaultKey': WrapperPurpose.memberVaultKey,
+      'agentDiscoveryVdk': WrapperPurpose.agentVdk,
+      'reasonDek': WrapperPurpose.reasonDek,
+      'grantDek': WrapperPurpose.grantDek,
+    };
+    if (value is String) {
+      final purpose = names[value];
+      if (purpose != null) return purpose;
+    }
+    if (value is int) {
+      for (final purpose in WrapperPurpose.values) {
+        if (purpose.id == value) return purpose;
+      }
+    }
+    throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+  }
 }
 
 /// Immutable authenticated context for one wrapped 32-byte key.

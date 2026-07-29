@@ -205,6 +205,7 @@ class _VaultFormState extends State<VaultForm> {
   }
 }
 
+
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel({required this.text});
 
@@ -222,4 +223,3 @@ class _SectionLabel extends StatelessWidget {
     );
   }
 }
-

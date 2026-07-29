@@ -329,6 +329,7 @@ class EntryRepositoryImpl implements EntryRepository {
               type: draft.type.toWire(),
               content: encrypted,
               urlDomain: draft.urlDomain,
+              icon: draft.icon,
             ),
           );
         }
@@ -367,6 +368,7 @@ class EntryRepositoryImpl implements EntryRepository {
               type: overwrite.type.toWire(),
               content: encrypted,
               urlDomain: overwrite.urlDomain,
+              icon: overwrite.icon,
             ),
           );
           updatedCount++;

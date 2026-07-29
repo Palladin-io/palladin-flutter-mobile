@@ -69,14 +69,6 @@ class _DiscoveryPanel extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              l10n.vaultDiscoveryAccessDisclaimer,
-              style: TextStyle(
-                color: AppColors.onSurfaceSubtle(brightness),
-                fontSize: 12,
-              ),
-            ),
             const SizedBox(height: AppSpacing.innerGap),
             BlocBuilder<AgentDiscoveryCubit, AgentDiscoveryState>(
               builder: (context, state) => switch (state) {

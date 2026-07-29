@@ -902,23 +902,11 @@ class AppLocalizationsPl extends AppLocalizations {
       'Szyfrowane na urządzeniu (XSalsa20-Poly1305) przed wysłaniem';
 
   @override
-  String get entryKeyVisibilityPolicy =>
-      'Widoczność dla agentów: etykieta i typ są wykrywalne. Materiał klucza pozostaje zaszyfrowany i jest dostępny dopiero po zatwierdzeniu grantu.';
-
-  @override
-  String get entryCredentialVisibilityPolicy =>
-      'Widoczność dla agentów: nazwa użytkownika i domena URL mogą być wykrywalne. Hasło, notatki i pełny URL wymagają grantu; TOTP jest wyłącznie wyliczany, a seed nigdy nie jest ujawniany.';
-
-  @override
   String get entryDiscoverUsername =>
       'Pozwól agentom wykrywać nazwę użytkownika';
 
   @override
   String get entryDiscoverDomain => 'Pozwól agentom wykrywać domenę URL';
-
-  @override
-  String get entryScriptVisibilityPolicy =>
-      'Widoczność dla agentów: interpreter jest wykrywalny. Treść skryptu i wskazane sekrety są dostępne wyłącznie podczas zatwierdzonego uruchomienia i nigdy nie trafiają do Discovery.';
 
   @override
   String get entrySearchHint => 'Szukaj wpisów…';
@@ -1632,6 +1620,15 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get agentIconChoose => 'Wybierz';
+
+  @override
+  String get publicAssetSearchTitle => 'Ikony witryn';
+
+  @override
+  String get publicAssetSearchHint => 'Szukaj marki lub domeny';
+
+  @override
+  String get publicAssetSearchAction => 'Szukaj ikon witryn';
 
   @override
   String get agentsTypeUnknown => 'Nieznany';
@@ -3431,10 +3428,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get vaultDiscoveryTitle => 'Wykrywanie agentów';
-
-  @override
-  String get vaultDiscoveryAccessDisclaimer =>
-      'Członkostwo w organizacji nie daje dostępu do sekretów. Dostęp zapewnia wyłącznie aktywne uprawnienie o określonym zakresie.';
 
   @override
   String get vaultDiscoveryNoActiveAgents =>

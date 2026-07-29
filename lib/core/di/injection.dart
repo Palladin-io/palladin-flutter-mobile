@@ -75,6 +75,10 @@ import '../../features/notifications/domain/repositories/notification_center_rep
 import '../../features/notifications/presentation/cubit/notification_center_cubit.dart';
 import '../../features/notifications/presentation/cubit/notification_preferences_cubit.dart';
 import '../../features/notifications/presentation/cubit/push_navigation_cubit.dart';
+import '../../features/public_asset_catalog/data/public_asset_remote_datasource.dart';
+import '../../features/public_asset_catalog/data/public_asset_repository_impl.dart';
+import '../../features/public_asset_catalog/domain/repositories/public_asset_repository.dart';
+import '../../features/public_asset_catalog/domain/services/website_icon_service.dart';
 import '../analytics/analytics_service.dart';
 import '../deep_link/deep_link_service.dart';
 import '../../features/recovery/data/datasources/recovery_remote_datasource.dart';
@@ -169,6 +173,15 @@ void configureDependencies(EnvConfig config) {
   // Network
   getIt.registerLazySingleton<Dio>(
     () => createDio(config, getIt<SecureTokenStorage>()),
+  );
+  getIt.registerLazySingleton<PublicAssetRemoteDatasource>(
+    () => PublicAssetRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<PublicAssetRepository>(
+    () => PublicAssetRepositoryImpl(getIt<PublicAssetRemoteDatasource>()),
+  );
+  getIt.registerLazySingleton<WebsiteIconService>(
+    () => WebsiteIconService(getIt<PublicAssetRepository>()),
   );
 
   // Auth — data layer
@@ -453,6 +466,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerFactory<VaultDetailCubit>(
     () => VaultDetailCubit(
       repository: getIt<VaultRepository>(),
+      listService: getIt<VaultListCryptoService>(),
       settingsService: getIt<VaultSettingsService>(),
     ),
   );

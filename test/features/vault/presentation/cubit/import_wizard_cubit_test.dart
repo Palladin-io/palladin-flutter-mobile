@@ -318,6 +318,10 @@ void main() {
         final creates = captured[0] as List<ImportEntryDraft>;
         final overwrites = captured[1] as List<ImportEntryOverwrite>;
         expect(creates, hasLength(2));
+        expect(creates.map((draft) => draft.icon), [
+          'website:github.com',
+          'website:gitlab.com',
+        ]);
         expect(overwrites, isEmpty);
       },
     );

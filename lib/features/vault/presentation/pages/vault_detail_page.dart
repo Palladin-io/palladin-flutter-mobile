@@ -49,7 +49,14 @@ class VaultDetailPage extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider<VaultDetailCubit>(
-          create: (_) => getIt<VaultDetailCubit>()..load(vaultId),
+          create: (ctx) {
+            final auth = ctx.read<AuthBloc>().state;
+            final privateKey =
+                auth is AuthAuthenticated && auth.privateKey != null
+                ? Uint8List.fromList(auth.privateKey!)
+                : null;
+            return getIt<VaultDetailCubit>()..load(vaultId, privateKey);
+          },
         ),
         // The entries cubit is parametrised on `vaultId` so the
         // datasource calls hit the right route. Loading is kicked off
@@ -239,7 +246,10 @@ class _VaultDetailViewState extends State<_VaultDetailView>
           keyCopy.fillRange(0, keyCopy.length, 0);
         }
       }
-      await detailCubit.load(widget.vaultId);
+      final privateKey = auth is AuthAuthenticated && auth.privateKey != null
+          ? Uint8List.fromList(auth.privateKey!)
+          : null;
+      await detailCubit.load(widget.vaultId, privateKey);
     }
   }
 

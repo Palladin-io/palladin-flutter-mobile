@@ -101,4 +101,32 @@ void main() {
       expect(json['currentKeyEpoch'], summary.currentKeyEpoch);
     },
   );
+
+  test('opens detail payload without legacy plaintext name', () async {
+    final detail = {
+      'id': summary.id,
+      'protocolVersion': summary.protocolVersion,
+      'memberKeyGeneration': summary.memberKeyGeneration,
+      'memberVaultMetadata': summary.memberVaultMetadata,
+      'memberVaultKey': summary.memberVaultKey,
+      'currentKeyEpoch': summary.currentKeyEpoch,
+      'createdAt': summary.createdAt.toIso8601String(),
+      'updatedAt': summary.updatedAt.toIso8601String(),
+      'memberCount': summary.memberCount,
+      'entryCount': summary.entryCount,
+      'activeGrantCount': summary.activeGrantCount,
+    };
+    when(
+      () => remote.getEncryptedVault(summary.id),
+    ).thenAnswer((_) async => detail);
+
+    final vault = await VaultListCryptoService(
+      remote: remote,
+      crypto: crypto,
+    ).loadOne(summary.id, Uint8List(32));
+
+    expect(detail.containsKey('name'), isFalse);
+    expect(vault.name, 'Engineering');
+    verify(() => remote.getEncryptedVault(summary.id)).called(1);
+  });
 }

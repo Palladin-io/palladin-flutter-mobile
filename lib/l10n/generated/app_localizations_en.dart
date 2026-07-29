@@ -885,22 +885,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Encrypted on-device with XSalsa20-Poly1305 before upload';
 
   @override
-  String get entryKeyVisibilityPolicy =>
-      'Agent visibility: label and type are discoverable. Key material remains encrypted and is available only after an approved grant.';
-
-  @override
-  String get entryCredentialVisibilityPolicy =>
-      'Agent visibility: username and URL domain can be discoverable. Password, notes and full URL require a grant; TOTP is derived-only and never disclosed as a seed.';
-
-  @override
   String get entryDiscoverUsername => 'Let agents discover the username';
 
   @override
   String get entryDiscoverDomain => 'Let agents discover the URL domain';
-
-  @override
-  String get entryScriptVisibilityPolicy =>
-      'Agent visibility: interpreter is discoverable. Script body and referenced secrets are available only at approved runtime and are never included in Discovery.';
 
   @override
   String get entrySearchHint => 'Search entries…';
@@ -1609,6 +1597,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agentIconChoose => 'Choose';
+
+  @override
+  String get publicAssetSearchTitle => 'Website icons';
+
+  @override
+  String get publicAssetSearchHint => 'Search brands or domains';
+
+  @override
+  String get publicAssetSearchAction => 'Search website icons';
 
   @override
   String get agentsTypeUnknown => 'Unknown';
@@ -3396,10 +3393,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get vaultDiscoveryTitle => 'Agent Discovery';
-
-  @override
-  String get vaultDiscoveryAccessDisclaimer =>
-      'Organization membership does not grant secret access. Only an active scoped grant authorizes retrieval.';
 
   @override
   String get vaultDiscoveryNoActiveAgents =>

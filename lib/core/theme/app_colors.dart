@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 /// All colors used across the app must reference this class.
 /// Never use inline color literals outside of this file.
 abstract final class AppColors {
+  static const Color transparent = Color(0x00000000);
   // === Backgrounds ===
 
   /// Dark theme scaffold background — deep graphite.

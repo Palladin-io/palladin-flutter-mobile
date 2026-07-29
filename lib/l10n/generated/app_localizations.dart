@@ -1538,18 +1538,6 @@ abstract class AppLocalizations {
   /// **'Encrypted on-device with XSalsa20-Poly1305 before upload'**
   String get entryEncryptionNotice;
 
-  /// Key Entry Agent Visibility Policy shown before encryption
-  ///
-  /// In en, this message translates to:
-  /// **'Agent visibility: label and type are discoverable. Key material remains encrypted and is available only after an approved grant.'**
-  String get entryKeyVisibilityPolicy;
-
-  /// No description provided for @entryCredentialVisibilityPolicy.
-  ///
-  /// In en, this message translates to:
-  /// **'Agent visibility: username and URL domain can be discoverable. Password, notes and full URL require a grant; TOTP is derived-only and never disclosed as a seed.'**
-  String get entryCredentialVisibilityPolicy;
-
   /// No description provided for @entryDiscoverUsername.
   ///
   /// In en, this message translates to:
@@ -1561,12 +1549,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Let agents discover the URL domain'**
   String get entryDiscoverDomain;
-
-  /// No description provided for @entryScriptVisibilityPolicy.
-  ///
-  /// In en, this message translates to:
-  /// **'Agent visibility: interpreter is discoverable. Script body and referenced secrets are available only at approved runtime and are never included in Discovery.'**
-  String get entryScriptVisibilityPolicy;
 
   /// Placeholder for the search input on the Entries tab
   ///
@@ -2881,6 +2863,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Choose'**
   String get agentIconChoose;
+
+  /// No description provided for @publicAssetSearchTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Website icons'**
+  String get publicAssetSearchTitle;
+
+  /// No description provided for @publicAssetSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search brands or domains'**
+  String get publicAssetSearchHint;
+
+  /// No description provided for @publicAssetSearchAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Search website icons'**
+  String get publicAssetSearchAction;
 
   /// Fallback type label on the agent card when no type is set
   ///
@@ -6031,12 +6031,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Agent Discovery'**
   String get vaultDiscoveryTitle;
-
-  /// No description provided for @vaultDiscoveryAccessDisclaimer.
-  ///
-  /// In en, this message translates to:
-  /// **'Organization membership does not grant secret access. Only an active scoped grant authorizes retrieval.'**
-  String get vaultDiscoveryAccessDisclaimer;
 
   /// No description provided for @vaultDiscoveryNoActiveAgents.
   ///

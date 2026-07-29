@@ -7,6 +7,7 @@ import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
 import '../../domain/repositories/vault_repository.dart';
 import '../../data/services/vault_settings_service.dart';
+import '../../data/services/vault_list_crypto_service.dart';
 
 /// Base class for all states of the vault detail / settings screens.
 sealed class VaultDetailState {
@@ -47,10 +48,14 @@ final class VaultDetailError extends VaultDetailState {
 /// operations. Update preserves the loaded counters by re-fetching the
 /// vault after a successful PUT (the update endpoint returns 204).
 class VaultDetailCubit extends Cubit<VaultDetailState> {
-  VaultDetailCubit({required this.repository, this.settingsService})
-    : super(const VaultDetailInitial());
+  VaultDetailCubit({
+    required this.repository,
+    required this.listService,
+    this.settingsService,
+  }) : super(const VaultDetailInitial());
 
   final VaultRepository repository;
+  final VaultListCryptoService listService;
   final VaultSettingsService? settingsService;
 
   Future<void> updateEncrypted({
@@ -93,11 +98,15 @@ class VaultDetailCubit extends Cubit<VaultDetailState> {
     }
   }
 
-  Future<void> load(String id) async {
+  Future<void> load(String id, Uint8List? memberPrivateKey) async {
     AppLogger.d('Vault', 'Loading vault detail id=$id');
     emit(const VaultDetailLoading());
+    if (memberPrivateKey == null || memberPrivateKey.length != 32) {
+      emit(const VaultDetailError(VaultErrorKind.unknown));
+      return;
+    }
     try {
-      final vault = await repository.getVault(id);
+      final vault = await listService.loadOne(id, memberPrivateKey);
       emit(VaultDetailLoaded(vault));
     } on VaultException catch (e) {
       AppLogger.w('Vault', 'Detail load failed: ${e.kind.name}');
@@ -110,6 +119,8 @@ class VaultDetailCubit extends Cubit<VaultDetailState> {
         stackTrace: s,
       );
       emit(const VaultDetailError(VaultErrorKind.unknown));
+    } finally {
+      memberPrivateKey.fillRange(0, memberPrivateKey.length, 0);
     }
   }
 
@@ -133,8 +144,7 @@ class VaultDetailCubit extends Cubit<VaultDetailState> {
         grantMode: grantMode,
       );
       // Backend returns 204 — re-fetch to refresh counters / timestamps.
-      final vault = await repository.getVault(id);
-      emit(VaultDetailLoaded(vault));
+      emit(const VaultDetailError(VaultErrorKind.unknown));
     } on VaultException catch (e) {
       AppLogger.w('Vault', 'Update failed: ${e.kind.name}');
       emit(VaultDetailError(e.kind));

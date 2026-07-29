@@ -7,6 +7,7 @@ import '../../../../core/storage/biometric_key_store.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../onboarding/data/services/default_vault_provisioner.dart';
 import '../../data/datasources/account_remote_datasource.dart';
+import '../../data/services/identity_kdf_service.dart';
 import '../../data/services/unlock_crypto_service.dart';
 import '../../domain/unlock_exceptions.dart';
 import 'unlock_state.dart';
@@ -63,9 +64,14 @@ class UnlockCubit extends Cubit<UnlockState> {
     var keysHandedOff = false;
     try {
       final account = await datasource.getAccount();
+      final kdf = account.kdf;
+      if (kdf == null) {
+        throw UnsupportedIdentityKdfException('missing-kdf-metadata');
+      }
       result = await cryptoService.deriveAndDecrypt(
         masterPassword: password,
-        saltBase64: account.salt,
+        accountId: account.userId,
+        kdf: kdf,
         encryptedPrivateKeyBase64: account.encryptedPrivateKey,
       );
 

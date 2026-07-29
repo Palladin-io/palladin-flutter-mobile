@@ -34,6 +34,31 @@ enum EnvelopePurpose {
 
   const EnvelopePurpose(this.id);
   final int id;
+
+  static EnvelopePurpose parseWire(Object? value) {
+    const names = <String, EnvelopePurpose>{
+      'memberVaultMetadata': EnvelopePurpose.memberVaultMetadata,
+      'vaultDiscoveryKey': EnvelopePurpose.vaultDiscoveryKeyByVk,
+      'vaultAgentMessagePrivateKey': EnvelopePurpose.agentMessagePrivateByVk,
+      'vaultManifestSigningPrivateKey': EnvelopePurpose.manifestPrivateByVk,
+      'memberIndex': EnvelopePurpose.memberIndex,
+      'memberSecret': EnvelopePurpose.memberSecret,
+      'agentDiscovery': EnvelopePurpose.agentDiscovery,
+      'entryDekByVaultKey': EnvelopePurpose.entryDekByVk,
+      'encryptedReason': EnvelopePurpose.reason,
+      'grantPayload': EnvelopePurpose.grant,
+    };
+    if (value is String) {
+      final purpose = names[value];
+      if (purpose != null) return purpose;
+    }
+    if (value is int) {
+      for (final purpose in EnvelopePurpose.values) {
+        if (purpose.id == value) return purpose;
+      }
+    }
+    throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+  }
 }
 
 /// The one allowlisted Vault suite at the protocol-v2 cutover.
