@@ -56,14 +56,12 @@ sealed class VaultPlaintextIcon {
   static VaultPlaintextIcon? parse(Object? value) {
     if (value == null) return null;
     final map = _object(value, 'icon');
-    _exactKeys(
-      map,
-      map['kind'] == 'encryptedAsset'
-          ? const {'kind', 'assetId'}
-          : const {'kind', 'value'},
-      'icon',
-    );
     final kind = _string(map['kind'], 'icon.kind', min: 1, max: 32);
+    _exactKeys(map, switch (kind) {
+      'encryptedAsset' || 'publicAsset' => const {'kind', 'assetId'},
+      'website' => const {'kind', 'hostname'},
+      _ => const {'kind', 'value'},
+    }, 'icon');
     return switch (kind) {
       'glyph' => GlyphVaultIcon(
         _string(map['value'], 'icon.value', min: 1, max: 200),
@@ -71,9 +69,31 @@ sealed class VaultPlaintextIcon {
       'encryptedAsset' => EncryptedAssetVaultIcon(
         _string(map['assetId'], 'icon.assetId', min: 1, max: 512),
       ),
+      'publicAsset' => PublicAssetVaultIcon(
+        _string(map['assetId'], 'icon.assetId', min: 1, max: 512),
+      ),
+      'website' => WebsiteVaultIcon(
+        _string(map['hostname'], 'icon.hostname', min: 1, max: 253),
+      ),
       _ => throw const VaultPlaintextFormatException('Unknown icon kind.'),
     };
   }
+}
+
+final class PublicAssetVaultIcon extends VaultPlaintextIcon {
+  const PublicAssetVaultIcon(this.assetId);
+  final String assetId;
+
+  @override
+  Map<String, Object> toJson() => {'kind': 'publicAsset', 'assetId': assetId};
+}
+
+final class WebsiteVaultIcon extends VaultPlaintextIcon {
+  const WebsiteVaultIcon(this.hostname);
+  final String hostname;
+
+  @override
+  Map<String, Object> toJson() => {'kind': 'website', 'hostname': hostname};
 }
 
 final class GlyphVaultIcon extends VaultPlaintextIcon {
@@ -194,6 +214,69 @@ final class MemberIndex {
     'urlDomain': urlDomain,
     'customIndex': customIndex.map((value) => value.toJson()).toList(),
   };
+
+  factory MemberIndex.fromJson(Map<String, Object?> json) {
+    _exactKeys(json, const {
+      'schema',
+      'entryType',
+      'memberLabel',
+      'description',
+      'icon',
+      'color',
+      'username',
+      'urlDomain',
+      'customIndex',
+    }, schema);
+    _schema(json, schema);
+    final rawCustom = _required(json, 'customIndex');
+    if (rawCustom is! List || rawCustom.length > 20) {
+      throw const VaultPlaintextFormatException('Invalid customIndex.');
+    }
+    final custom = rawCustom
+        .map((value) {
+          final item = _object(value, 'customIndex item');
+          _exactKeys(item, const {'id', 'label', 'value'}, 'customIndex item');
+          final id = _string(item['id'], 'customIndex.id', min: 43, max: 43);
+          if (!RegExp(
+            r'^custom:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+          ).hasMatch(id)) {
+            throw const VaultPlaintextFormatException(
+              'Invalid customIndex id.',
+            );
+          }
+          return MemberIndexCustomField(
+            id: id,
+            label: _string(
+              item['label'],
+              'customIndex.label',
+              min: 1,
+              max: 256,
+            ),
+            value: _string(
+              item['value'],
+              'customIndex.value',
+              min: 1,
+              max: 8192,
+            ),
+          );
+        })
+        .toList(growable: false);
+    return MemberIndex(
+      entryType: VaultEntryType.parse(json['entryType']),
+      memberLabel: _string(
+        json['memberLabel'],
+        'memberLabel',
+        min: 1,
+        max: 256,
+      ),
+      description: _nullableString(json, 'description', max: 2048),
+      icon: VaultPlaintextIcon.parse(_required(json, 'icon')),
+      color: _color(_required(json, 'color')),
+      username: _nullableString(json, 'username', max: 8192),
+      urlDomain: _nullableString(json, 'urlDomain', max: 253),
+      customIndex: custom,
+    );
+  }
 }
 
 /// A canonical custom field in MemberSecret.

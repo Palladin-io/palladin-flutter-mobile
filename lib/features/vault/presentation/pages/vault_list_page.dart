@@ -43,18 +43,23 @@ class VaultListPage extends StatefulWidget {
 
 class _VaultListPageState extends State<VaultListPage> {
   late final VaultListCubit _cubit;
+  late final AuthBloc _authBloc;
 
   @override
   void initState() {
     super.initState();
-    final auth = context.read<AuthBloc>().state;
+    // Cache the provider while this element is active. Vaults remains below a
+    // pushed Vault Detail route and can be deactivated before it is disposed;
+    // looking the provider up from dispose() is therefore unsafe.
+    _authBloc = context.read<AuthBloc>();
+    final auth = _authBloc.state;
     final privateKey = auth is AuthAuthenticated ? auth.privateKey : null;
     _cubit = getIt<VaultListCubit>()..loadIfNeeded(privateKey);
   }
 
   @override
   void dispose() {
-    final auth = context.read<AuthBloc>().state;
+    final auth = _authBloc.state;
     if (auth is! AuthAuthenticated || auth.isVaultLocked) _cubit.lock();
     super.dispose();
   }

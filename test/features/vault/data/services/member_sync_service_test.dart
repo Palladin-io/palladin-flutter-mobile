@@ -111,11 +111,7 @@ void main() {
     ).thenAnswer((invocation) async {
       final envelope = invocation.namedArguments[#envelope]! as Map;
       final scope = (envelope['descriptor'] as Map)['scope'] as Map;
-      return {
-        'entryType': 1,
-        'memberLabel': 'Database ${scope['entryId']}',
-        'searchFields': ['stage', 'postgres'],
-      };
+      return _memberIndex('Database ${scope['entryId']}');
     });
   });
 
@@ -152,6 +148,11 @@ void main() {
       expect(result.entryCount, 2);
       expect(result.usedSnapshot, isTrue);
       expect(service.search('postgres', vaultId: 'vault').length, 2);
+      final entries = service.entries('vault');
+      expect(entries, hasLength(2));
+      expect(entries.every((entry) => !entry.corrupt), isTrue);
+      expect(entries.first.memberLabel, startsWith('Database '));
+      expect(entries.first.iconReference, 'website:example.com');
       service.lock();
       expect(service.search('postgres', vaultId: 'vault'), isEmpty);
     },
@@ -351,11 +352,7 @@ void main() {
       activeDecrypts -= 1;
       final envelope = invocation.namedArguments[#envelope]! as Map;
       final scope = (envelope['descriptor'] as Map)['scope'] as Map;
-      return {
-        'entryType': 1,
-        'memberLabel': 'Entry ${scope['entryId']}',
-        'searchFields': const <String>[],
-      };
+      return _memberIndex('Entry ${scope['entryId']}');
     });
     when(
       () => remote.snapshot(
@@ -382,6 +379,18 @@ void main() {
 
 String _entryId(int index) =>
     '33333333-3333-4333-8333-${index.toString().padLeft(12, '0')}';
+
+Map<String, dynamic> _memberIndex(String label) => {
+  'schema': 'palladin.member-index.v1',
+  'entryType': 'credential',
+  'memberLabel': label,
+  'description': 'Postgres production database',
+  'icon': {'kind': 'website', 'hostname': 'example.com'},
+  'color': null,
+  'username': 'stage',
+  'urlDomain': 'example.com',
+  'customIndex': const <Object>[],
+};
 
 MemberSyncItemModel _head(String id) {
   Map<String, dynamic> descriptor(

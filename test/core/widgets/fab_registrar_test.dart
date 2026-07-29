@@ -83,7 +83,15 @@ void main() {
           key: hostKey,
           child: Scaffold(
             body: mounted
-                ? FabRegistrar(fab: tab == 0 ? const Icon(Icons.add) : null)
+                ? FabRegistrar(
+                    // Mirrors Vault Detail: Entries and Agents own a FAB;
+                    // Logs, Members and Settings explicitly suppress it.
+                    fab: switch (tab) {
+                      0 => const Icon(Icons.add),
+                      1 => const Icon(Icons.person_add_alt_1),
+                      _ => null,
+                    },
+                  )
                 : const SizedBox.shrink(),
           ),
         ),
@@ -92,10 +100,12 @@ void main() {
       await tester.pumpWidget(app(tab: 0, mounted: true));
       await tester.pump();
 
-      // Switching to a tab without a FAB and immediately removing the tab
-      // subtree exercises both deferred registration and disposal cleanup.
-      await tester.pumpWidget(app(tab: 1, mounted: true));
-      await tester.pumpWidget(app(tab: 1, mounted: false));
+      // Traverse all five Vault Detail tabs without settling their deferred
+      // registrations, then immediately remove the route subtree.
+      for (var tab = 1; tab < 5; tab++) {
+        await tester.pumpWidget(app(tab: tab, mounted: true));
+      }
+      await tester.pumpWidget(app(tab: 4, mounted: false));
       await tester.pump();
 
       expect(tester.takeException(), isNull);

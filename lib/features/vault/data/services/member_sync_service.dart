@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import '../../domain/entities/member_index_entry.dart';
 import '../../domain/entities/vault_performance_budget.dart';
+import '../../domain/entities/vault_plaintext.dart';
 import '../datasources/member_sync_remote_datasource.dart';
 import '../models/member_sync_models.dart';
 import 'entry_v2_crypto_service.dart';
@@ -404,54 +405,29 @@ final class MemberSyncService implements MemberIndexReader {
     MemberSyncItemModel item,
     Map<String, dynamic> json,
   ) {
-    const allowed = {
-      'entryType',
-      'iconReference',
-      'memberLabel',
-      'searchFields',
-      'autofillDomains',
-    };
-    if (json.keys.any((key) => !allowed.contains(key)) ||
-        json['entryType'] is! int ||
-        json['memberLabel'] is! String ||
-        json['searchFields'] is! List ||
-        (json['autofillDomains'] != null && json['autofillDomains'] is! List) ||
-        (json['iconReference'] != null && json['iconReference'] is! String)) {
-      throw const FormatException('Malformed Member index payload');
-    }
-    final label = json['memberLabel']! as String;
-    final fields = (json['searchFields']! as List)
-        .map((value) {
-          if (value is! String) {
-            throw const FormatException('Search field must be a string');
-          }
-          return value;
-        })
-        .toList(growable: false);
-    final autofillDomains = (json['autofillDomains'] as List? ?? const [])
-        .map((value) {
-          if (value is! String) {
-            throw const FormatException('AutoFill domain must be a string');
-          }
-          return value;
-        })
-        .toList(growable: false);
-    if (label.length > 512 ||
-        fields.length > 64 ||
-        fields.any((field) => field.length > 512) ||
-        autofillDomains.length > 16 ||
-        autofillDomains.any((domain) => domain.length > 2048)) {
-      throw const FormatException('Member index exceeds local limits');
-    }
+    final index = MemberIndex.fromJson(Map<String, Object?>.from(json));
+    final fields = <String>[
+      index.memberLabel,
+      ?index.description,
+      ?index.username,
+      ?index.urlDomain,
+      for (final field in index.customIndex) ...[field.label, field.value],
+    ];
     return MemberIndexEntry(
       entryId: item.entryId,
-      entryType: json['entryType']! as int,
-      memberLabel: label,
+      entryType: index.entryType.index,
+      memberLabel: index.memberLabel,
       searchFields: fields,
       revision: item.memberIndexRevision!,
       state: _state(item.state),
-      autofillDomains: autofillDomains,
-      iconReference: json['iconReference'] as String?,
+      autofillDomains: index.urlDomain == null ? const [] : [index.urlDomain!],
+      iconReference: switch (index.icon) {
+        GlyphVaultIcon(:final value) => 'builtin:$value',
+        EncryptedAssetVaultIcon(:final assetId) => 'asset:$assetId',
+        PublicAssetVaultIcon(:final assetId) => 'public-asset:$assetId',
+        WebsiteVaultIcon(:final hostname) => 'website:$hostname',
+        null => null,
+      },
     );
   }
 
