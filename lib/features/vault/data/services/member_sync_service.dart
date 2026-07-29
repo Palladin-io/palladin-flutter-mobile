@@ -1,15 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../domain/entities/member_index_entry.dart';
 import '../../domain/entities/vault_performance_budget.dart';
 import '../datasources/member_sync_remote_datasource.dart';
 import '../models/member_sync_models.dart';
+import 'entry_v2_crypto_service.dart';
 import 'member_sync_cache.dart';
-import 'vault_protocol/vault_protocol_aad.dart';
-import 'vault_protocol/vault_protocol_envelope_service.dart';
-import 'vault_protocol/vault_protocol_kdf.dart';
 
 /// Result of a completed ciphertext synchronization.
 final class MemberSyncResult {
@@ -36,13 +33,13 @@ final class MemberSyncService implements MemberIndexReader {
   MemberSyncService({
     required MemberSyncRemote remote,
     required MemberSyncCache cache,
-    required VaultEnvelopeCryptography envelopes,
+    required EntryV2CryptoService entryCrypto,
     this.maximumIndexedEntries = VaultPerformanceBudget.maximumIndexedEntries,
     this.decryptConcurrency =
         VaultPerformanceBudget.memberIndexDecryptConcurrency,
   }) : _remote = remote,
        _cache = cache,
-       _envelopes = envelopes {
+       _entryCrypto = entryCrypto {
     if (maximumIndexedEntries < 1 || decryptConcurrency < 1) {
       throw ArgumentError('Member sync budgets must be positive');
     }
@@ -50,7 +47,7 @@ final class MemberSyncService implements MemberIndexReader {
 
   final MemberSyncRemote _remote;
   final MemberSyncCache _cache;
-  final VaultEnvelopeCryptography _envelopes;
+  final EntryV2CryptoService _entryCrypto;
   final int maximumIndexedEntries;
   final int decryptConcurrency;
 
@@ -344,63 +341,62 @@ final class MemberSyncService implements MemberIndexReader {
     final entryKey = item.entryKey!;
     final memberIndex = item.memberIndex!;
     Uint8List? entryDek;
-    Uint8List? memberIndexKey;
-    Uint8List? plaintext;
     try {
-      final expectedEntryKey = Map<String, Object?>.from(entryKey)
-        ..['vaultId'] = vaultId
-        ..['entryId'] = item.entryId
-        ..['keyVersion'] = item.currentKeyVersion;
-      entryDek = await _envelopes.decrypt(
-        profile: VaultAadProfile.entryKeyWrapper,
-        envelope: entryKey,
-        key: vaultKey,
-        expected: VaultEnvelopeExpectations(
-          aadContext: expectedEntryKey,
-          minimumMemberKeyGeneration: minimumGeneration,
-        ),
+      _validateHeadCoordinates(
+        item,
+        vaultId,
+        entryKey,
+        memberIndex,
+        minimumGeneration,
+      );
+      entryDek = await _entryCrypto.openEntryDek(
+        entryKey: entryKey,
+        vaultKey: vaultKey,
       );
       if (entryDek.length != 32) {
         throw const FormatException('Unwrapped Entry DEK must be 32 bytes');
       }
-      final header = Map<String, dynamic>.from(memberIndex['header'] as Map);
-      final expectedMemberIndex = Map<String, Object?>.from(memberIndex)
-        ..['vaultId'] = vaultId
-        ..['entryId'] = item.entryId
-        ..['memberIndexRevision'] = item.memberIndexRevision;
-      memberIndexKey = deriveVaultProjectionKey(
-        entryDek,
-        VaultKdfContext(
-          purpose: VaultKdfPurpose.memberIndex,
-          resourceKind: 2,
-          organizationId: memberIndex['organizationId']! as String,
-          vaultId: memberIndex['vaultId']! as String,
-          entryId: item.entryId,
-          keyVersion: header['keyVersion']! as int,
-          memberKeyGeneration: header['memberKeyGeneration']! as int,
-        ),
-      );
-      plaintext = await _envelopes.decrypt(
-        profile: VaultAadProfile.memberIndex,
+      final decoded = await _entryCrypto.openMemberIndex(
         envelope: memberIndex,
-        key: memberIndexKey,
-        expected: VaultEnvelopeExpectations(
-          aadContext: expectedMemberIndex,
-          minimumMemberKeyGeneration: minimumGeneration,
-        ),
+        vaultKey: entryDek,
       );
-      if (plaintext.length > 32752) {
-        throw const FormatException('Member index plaintext exceeds limit');
-      }
-      final decoded = jsonDecode(utf8.decode(plaintext));
-      if (decoded is! Map) {
-        throw const FormatException('Member index payload must be an object');
-      }
-      return _parseIndex(item, Map<String, dynamic>.from(decoded));
+      return _parseIndex(item, decoded);
     } finally {
       entryDek?.fillRange(0, entryDek.length, 0);
-      memberIndexKey?.fillRange(0, memberIndexKey.length, 0);
-      plaintext?.fillRange(0, plaintext.length, 0);
+    }
+  }
+
+  void _validateHeadCoordinates(
+    MemberSyncItemModel item,
+    String vaultId,
+    Map<String, dynamic> entryKey,
+    Map<String, dynamic> memberIndex,
+    int minimumGeneration,
+  ) {
+    Map<String, dynamic> descriptor(Map<String, dynamic> envelope) {
+      final value = envelope['descriptor'];
+      if (value is! Map) throw const FormatException('Missing descriptor');
+      return Map<String, dynamic>.from(value);
+    }
+
+    final key = descriptor(entryKey);
+    final index = descriptor(memberIndex);
+    final keyScope = key['scope'];
+    final indexScope = index['scope'];
+    final generation = key['memberKeyGeneration'];
+    if (keyScope is! Map ||
+        indexScope is! Map ||
+        keyScope['vaultId'] != vaultId ||
+        indexScope['vaultId'] != vaultId ||
+        keyScope['entryId'] != item.entryId ||
+        indexScope['entryId'] != item.entryId ||
+        index['resourceRevision'] != item.memberIndexRevision ||
+        key['keyVersion'] != item.currentKeyVersion ||
+        index['keyVersion'] != item.currentKeyVersion ||
+        generation != index['memberKeyGeneration'] ||
+        generation is! int ||
+        generation < minimumGeneration) {
+      throw const FormatException('Member sync head binding mismatch');
     }
   }
 

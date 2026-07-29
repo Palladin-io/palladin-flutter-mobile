@@ -88,23 +88,37 @@ void main() {
       expect(bold(spans), ['Patryk', 'Stripe Key']);
     });
 
-    test('Vault log ignores server names and safely shortens purged ids', () {
+    test('Vault log uses locally resolved actor and Entry names', () {
       final spans = auditEventSentence(
         en,
         _entry(
           AuditEventType.entryDeleted,
-          actorName: 'Server User',
+          actorName: 'Patryk',
           userId: 'user-1234567890-opaque',
           entryId: 'entry-1234567890-purged',
-          entryLabel: 'Server Entry',
-          metadata: const {'name': 'Server Metadata'},
+          resolvedObjectName: 'Stripe Key',
+          localPresentationOnly: true,
+        ),
+        const {},
+      )!;
+
+      expect(plain(spans), 'Patryk deleted entry Stripe Key');
+      expect(bold(spans), ['Patryk', 'Stripe Key']);
+    });
+
+    test('Vault log safely shortens unresolved actor and object ids', () {
+      final spans = auditEventSentence(
+        en,
+        _entry(
+          AuditEventType.entryDeleted,
+          userId: 'user-1234567890-opaque',
+          entryId: 'entry-1234567890-purged',
           localPresentationOnly: true,
         ),
         const {},
       )!;
 
       expect(plain(spans), 'user-123…opaque deleted entry entry-12…purged');
-      expect(plain(spans), isNot(contains('Server')));
     });
 
     test('org.created reads from metadata.name', () {

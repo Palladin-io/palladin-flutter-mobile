@@ -158,9 +158,10 @@ String auditActorName(
   Map<String, String> agentNames,
 ) {
   final actorName = entry.actorName?.trim();
-  if (!entry.localPresentationOnly &&
-      actorName != null &&
-      actorName.isNotEmpty) {
+  // Wire DTOs discard server-provided presentation text before an entry
+  // reaches this layer. For local-only rows, `actorName` is therefore the
+  // trusted value resolved from the in-memory Vault member directory.
+  if (actorName != null && actorName.isNotEmpty) {
     return actorName;
   }
   return switch (entry.actorType) {
@@ -296,9 +297,9 @@ String _sentenceActor(
   Map<String, String> agentNames,
 ) {
   final actorName = entry.actorName?.trim();
-  if (!entry.localPresentationOnly &&
-      actorName != null &&
-      actorName.isNotEmpty) {
+  // See [auditActorName]: local-only rows receive this value exclusively from
+  // the unlocked, client-side member directory.
+  if (actorName != null && actorName.isNotEmpty) {
     return actorName;
   }
   final agent = _sentenceAgentName(entry, agentNames);

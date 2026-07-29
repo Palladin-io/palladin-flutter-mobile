@@ -362,7 +362,7 @@ void configureDependencies(EnvConfig config) {
     () => MemberSyncService(
       remote: getIt<MemberSyncRemoteDatasource>(),
       cache: getIt<MemberSyncCache>(),
-      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      entryCrypto: getIt<EntryV2CryptoService>(),
     ),
   );
   getIt.registerLazySingleton<MemberEntryListService>(

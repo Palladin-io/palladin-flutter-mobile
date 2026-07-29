@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -8,8 +7,7 @@ import 'package:mobile_palladin/features/vault/data/datasources/member_sync_remo
 import 'package:mobile_palladin/features/vault/data/models/member_sync_models.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_cache.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_aad.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_service.dart';
 
 const _oldId = '33333333-3333-4333-8333-333333333330';
 const _firstId = '33333333-3333-4333-8333-333333333331';
@@ -18,7 +16,7 @@ const _newId = '33333333-3333-4333-8333-333333333339';
 
 class _Remote extends Mock implements MemberSyncRemote {}
 
-class _Envelopes extends Mock implements VaultEnvelopeCryptography {}
+class _EntryCrypto extends Mock implements EntryV2CryptoService {}
 
 class _MemoryCache implements MemberSyncCache {
   String? appliedSequence;
@@ -82,56 +80,42 @@ class _BlockingReadCache extends _MemoryCache {
 
 void main() {
   late _Remote remote;
-  late _Envelopes envelopes;
+  late _EntryCrypto entryCrypto;
   late _MemoryCache cache;
   late MemberSyncService service;
 
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
-    registerFallbackValue(VaultAadProfile.memberIndex);
-    registerFallbackValue(
-      const VaultEnvelopeExpectations(
-        aadContext: <String, Object?>{},
-        minimumMemberKeyGeneration: 0,
-      ),
-    );
   });
 
   setUp(() {
     remote = _Remote();
-    envelopes = _Envelopes();
+    entryCrypto = _EntryCrypto();
     cache = _MemoryCache();
     service = MemberSyncService(
       remote: remote,
       cache: cache,
-      envelopes: envelopes,
+      entryCrypto: entryCrypto,
     );
     when(
-      () => envelopes.decrypt(
-        profile: VaultAadProfile.entryKeyWrapper,
-        envelope: any(named: 'envelope'),
-        key: any(named: 'key'),
-        expected: any(named: 'expected'),
+      () => entryCrypto.openEntryDek(
+        entryKey: any(named: 'entryKey'),
+        vaultKey: any(named: 'vaultKey'),
       ),
     ).thenAnswer((_) async => Uint8List(32));
     when(
-      () => envelopes.decrypt(
-        profile: VaultAadProfile.memberIndex,
+      () => entryCrypto.openMemberIndex(
         envelope: any(named: 'envelope'),
-        key: any(named: 'key'),
-        expected: any(named: 'expected'),
+        vaultKey: any(named: 'vaultKey'),
       ),
     ).thenAnswer((invocation) async {
       final envelope = invocation.namedArguments[#envelope]! as Map;
-      return Uint8List.fromList(
-        utf8.encode(
-          jsonEncode({
-            'entryType': 1,
-            'memberLabel': 'Database ${envelope['entryId']}',
-            'searchFields': ['stage', 'postgres'],
-          }),
-        ),
-      );
+      final scope = (envelope['descriptor'] as Map)['scope'] as Map;
+      return {
+        'entryType': 1,
+        'memberLabel': 'Database ${scope['entryId']}',
+        'searchFields': ['stage', 'postgres'],
+      };
     });
   });
 
@@ -206,7 +190,7 @@ void main() {
     final guarded = MemberSyncService(
       remote: remote,
       cache: blockingCache,
-      envelopes: envelopes,
+      entryCrypto: entryCrypto,
     );
     final rebuild = guarded.unlockCached(
       vaultId: 'vault',
@@ -290,11 +274,9 @@ void main() {
         ),
       );
       when(
-        () => envelopes.decrypt(
-          profile: VaultAadProfile.memberIndex,
+        () => entryCrypto.openMemberIndex(
           envelope: any(named: 'envelope'),
-          key: any(named: 'key'),
-          expected: any(named: 'expected'),
+          vaultKey: any(named: 'vaultKey'),
         ),
       ).thenThrow(const FormatException('authentication failed'));
 
@@ -342,11 +324,23 @@ void main() {
     var activeDecrypts = 0;
     var maximumActiveDecrypts = 0;
     when(
-      () => envelopes.decrypt(
-        profile: any(named: 'profile'),
+      () => entryCrypto.openEntryDek(
+        entryKey: any(named: 'entryKey'),
+        vaultKey: any(named: 'vaultKey'),
+      ),
+    ).thenAnswer((_) async {
+      activeDecrypts += 1;
+      if (activeDecrypts > maximumActiveDecrypts) {
+        maximumActiveDecrypts = activeDecrypts;
+      }
+      await Future<void>.delayed(Duration.zero);
+      activeDecrypts -= 1;
+      return Uint8List(32);
+    });
+    when(
+      () => entryCrypto.openMemberIndex(
         envelope: any(named: 'envelope'),
-        key: any(named: 'key'),
-        expected: any(named: 'expected'),
+        vaultKey: any(named: 'vaultKey'),
       ),
     ).thenAnswer((invocation) async {
       activeDecrypts += 1;
@@ -355,18 +349,13 @@ void main() {
       }
       await Future<void>.delayed(Duration.zero);
       activeDecrypts -= 1;
-      final profile = invocation.namedArguments[#profile] as VaultAadProfile;
-      if (profile == VaultAadProfile.entryKeyWrapper) return Uint8List(32);
       final envelope = invocation.namedArguments[#envelope]! as Map;
-      return Uint8List.fromList(
-        utf8.encode(
-          jsonEncode({
-            'entryType': 1,
-            'memberLabel': 'Entry ${envelope['entryId']}',
-            'searchFields': const <String>[],
-          }),
-        ),
-      );
+      final scope = (envelope['descriptor'] as Map)['scope'] as Map;
+      return {
+        'entryType': 1,
+        'memberLabel': 'Entry ${scope['entryId']}',
+        'searchFields': const <String>[],
+      };
     });
     when(
       () => remote.snapshot(
@@ -395,15 +384,25 @@ String _entryId(int index) =>
     '33333333-3333-4333-8333-${index.toString().padLeft(12, '0')}';
 
 MemberSyncItemModel _head(String id) {
-  final header = {
+  Map<String, dynamic> descriptor(
+    int purpose, {
+    Map<String, dynamic>? binding,
+  }) => {
     'protocolVersion': 2,
-    'algorithmSuite': 1,
-    'resourceKind': 2,
-    'projectionKind': 2,
+    'cryptoSuiteId': 'palladin-vault-xchacha-v1',
+    'purpose': purpose,
+    'scope': {
+      'organizationId': '11111111-1111-4111-8111-111111111111',
+      'vaultId': 'vault',
+      'entryId': id,
+      'grantOrRequestId': null,
+      'agentId': null,
+      'memberId': null,
+    },
     'resourceRevision': '1',
     'keyVersion': 1,
     'memberKeyGeneration': 1,
-    'nonce': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+    'binding': binding ?? <String, dynamic>{},
   };
   return MemberSyncItemModel(
     entryId: id,
@@ -413,23 +412,12 @@ MemberSyncItemModel _head(String id) {
     memberIndexRevision: '1',
     currentKeyVersion: 1,
     entryKey: {
-      'organizationId': '11111111-1111-4111-8111-111111111111',
-      'vaultId': '22222222-2222-4222-8222-222222222222',
-      'entryId': id,
-      'wrapperRevision': '1',
-      'keyVersion': 1,
-      'memberKeyGeneration': 1,
-      'wrappingKeyVersion': 1,
-      'header': header,
-      'wrappedEntryDekByVk': 'ciphertext',
+      'descriptor': descriptor(8, binding: {'wrappingVaultKeyVersion': 1}),
+      'encodedSuitePayload': 'ciphertext',
     },
     memberIndex: {
-      'organizationId': '11111111-1111-4111-8111-111111111111',
-      'vaultId': '22222222-2222-4222-8222-222222222222',
-      'entryId': id,
-      'memberIndexRevision': '1',
-      'header': header,
-      'ciphertext': 'ciphertext',
+      'descriptor': descriptor(5),
+      'encodedSuitePayload': 'ciphertext',
     },
   );
 }

@@ -44,20 +44,23 @@ class FabRegistrar extends StatefulWidget {
 }
 
 class _FabRegistrarState extends State<FabRegistrar> {
-  // Cached in didChangeDependencies so dispose() can drop our FAB
-  // without looking up an InheritedWidget — that lookup is illegal once
-  // the element is deactivated (throws "deactivated widget's ancestor").
+  // Cached in didChangeDependencies so no deferred lifecycle callback needs
+  // to look up an InheritedWidget. `mounted` remains true while an element is
+  // deactivated, so it is not sufficient protection for ancestor lookups.
+  SetFabCallback? _setFab;
   ClearFabCallback? _clearFab;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _clearFab = AppShellScope.of(context).clearFab;
+    final shell = AppShellScope.of(context);
+    _setFab = shell.setFab;
+    _clearFab = shell.clearFab;
     // Defer until after the current build so the InheritedWidget
     // lookup is safe and we don't mutate the shell's state during a
     // descendant's build. `this` is the stable ownership token.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) AppShellScope.of(context).setFab(widget.fab, this);
+      if (mounted) _setFab?.call(widget.fab, this);
     });
   }
 
@@ -66,7 +69,7 @@ class _FabRegistrarState extends State<FabRegistrar> {
     super.didUpdateWidget(oldWidget);
     if (widget.fab != oldWidget.fab) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) AppShellScope.of(context).setFab(widget.fab, this);
+        if (mounted) _setFab?.call(widget.fab, this);
       });
     }
   }
