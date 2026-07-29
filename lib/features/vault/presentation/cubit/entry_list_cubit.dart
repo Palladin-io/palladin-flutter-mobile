@@ -62,9 +62,11 @@ class EntryListCubit extends Cubit<EntryListState> {
                   id: entry.entryId,
                   vaultId: vaultId,
                   label: entry.memberLabel,
-                  icon: entry.iconReference,
+                  icon:
+                      entry.iconReference ??
+                      _websiteIconReference(entry.autofillDomains.firstOrNull),
                   type: EntryTypeExtension.fromWire(entry.entryType),
-                  urlDomain: entry.searchFields.firstOrNull,
+                  urlDomain: _hostname(entry.autofillDomains.firstOrNull),
                   createdAt: epoch,
                   updatedAt: epoch,
                   lifecycleState: entry.state,
@@ -86,6 +88,16 @@ class EntryListCubit extends Cubit<EntryListState> {
       );
       emit(const EntryListError(EntryErrorKind.unknown));
     }
+  }
+
+  static String? _websiteIconReference(String? url) {
+    final hostname = _hostname(url);
+    return hostname == null ? null : 'website:$hostname';
+  }
+
+  static String? _hostname(String? url) {
+    if (url == null || url.isEmpty) return null;
+    return Uri.tryParse(url.contains('://') ? url : 'https://$url')?.host;
   }
 
   void lock() {

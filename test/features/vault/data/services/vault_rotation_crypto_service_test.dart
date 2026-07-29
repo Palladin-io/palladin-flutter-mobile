@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_aad.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
@@ -12,6 +13,48 @@ import 'package:mobile_palladin/features/vault/data/services/vault_rotation_cryp
 import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
 
 void main() {
+  test('accepts only the canonical nested Member Vault key contract', () async {
+    final service = VaultRotationCryptoService(
+      sodiumLoader: () async => throw StateError('sodium-reached'),
+    );
+    final envelope = <String, dynamic>{
+      'wrappedVaultKey': {
+        'descriptor': {
+          'protocolVersion': 2,
+          'purpose': 'memberVaultKey',
+          'scope': {
+            'organizationId': '11111111-1111-4111-8111-111111111111',
+            'vaultId': '22222222-2222-4222-8222-222222222222',
+            'memberId': '44444444-4444-4444-8444-444444444444',
+          },
+          'resourceRevision': '1',
+          'wrappedKeyVersion': 4,
+          'memberKeyGeneration': 5,
+          'recipientKeyKind': 'memberX25519',
+          'recipientKeyVersion': 2,
+          'recipientFingerprint': VaultProtocolBytes.base64UrlEncode(
+            Uint8List.fromList(List<int>.generate(32, (index) => index + 1)),
+          ),
+          'wrapperSuiteId': 'palladin-x25519-sealed-box-v1',
+        },
+        'encodedSealedKeyPackage': VaultProtocolBytes.base64UrlEncode(
+          Uint8List(120),
+        ),
+      },
+    };
+
+    await expectLater(
+      service.openMemberVaultKey(envelope, Uint8List(32)),
+      throwsA(isA<StateError>()),
+    );
+    await expectLater(
+      service.openMemberVaultKey({
+        'sealedVaultKeyPackage': 'legacy',
+      }, Uint8List(32)),
+      throwsA(isA<EnvelopeException>()),
+    );
+  });
+
   test('opens the canonical pending Member Vault key package', () async {
     final library = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
     final sodium = await _loadSodium(library);

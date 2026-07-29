@@ -55,6 +55,55 @@ void main() {
 
   group('EntryListCubit', () {
     blocTest<EntryListCubit, EntryListState>(
+      'keeps a manual icon and falls back to website for an older index row',
+      build: () {
+        final loader = _MockIndexLoader();
+        when(
+          () => loader.load(
+            vaultId: 'v-1',
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).thenAnswer(
+          (_) async => const [
+            MemberIndexEntry(
+              entryId: 'manual',
+              entryType: 1,
+              memberLabel: 'Manual',
+              searchFields: [],
+              revision: '1',
+              state: MemberEntryState.active,
+              autofillDomains: ['https://discord.com/login'],
+              iconReference: 'public-asset:chosen-by-user',
+            ),
+            MemberIndexEntry(
+              entryId: 'legacy',
+              entryType: 1,
+              memberLabel: 'Legacy',
+              searchFields: [],
+              revision: '1',
+              state: MemberEntryState.active,
+              autofillDomains: ['https://www.binance.com/login'],
+            ),
+          ],
+        );
+        return EntryListCubit(
+          repository: repository,
+          vaultId: 'v-1',
+          indexLoader: loader,
+        );
+      },
+      act: (cubit) => cubit.loadIndexedEntries(privateKey),
+      expect: () => [
+        isA<EntryListLoading>(),
+        isA<EntryListLoaded>().having(
+          (state) => state.entries.map((entry) => entry.icon).toList(),
+          'icon references',
+          ['public-asset:chosen-by-user', 'website:www.binance.com'],
+        ),
+      ],
+    );
+
+    blocTest<EntryListCubit, EntryListState>(
       'maps lifecycle and corrupt flags from the local MemberIndex',
       build: () {
         final loader = _MockIndexLoader();

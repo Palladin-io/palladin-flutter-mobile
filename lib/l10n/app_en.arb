@@ -999,14 +999,8 @@
   "@entryEncryptionNotice": {
     "description": "Reassurance shown above the save button on the Add Entry page"
   },
-  "entryKeyVisibilityPolicy": "Agent visibility: label and type are discoverable. Key material remains encrypted and is available only after an approved grant.",
-  "@entryKeyVisibilityPolicy": {
-    "description": "Key Entry Agent Visibility Policy shown before encryption"
-  },
-  "entryCredentialVisibilityPolicy": "Agent visibility: username and URL domain can be discoverable. Password, notes and full URL require a grant; TOTP is derived-only and never disclosed as a seed.",
   "entryDiscoverUsername": "Let agents discover the username",
   "entryDiscoverDomain": "Let agents discover the URL domain",
-  "entryScriptVisibilityPolicy": "Agent visibility: interpreter is discoverable. Script body and referenced secrets are available only at approved runtime and are never included in Discovery.",
   "entrySearchHint": "Search entries…",
   "@entrySearchHint": {
     "description": "Placeholder for the search input on the Entries tab"
@@ -1937,6 +1931,9 @@
     "description": "Label above the color swatches in the icon browser modal"
   },
   "agentIconChoose": "Choose",
+  "publicAssetSearchTitle": "Website icons",
+  "publicAssetSearchHint": "Search brands or domains",
+  "publicAssetSearchAction": "Search website icons",
   "@agentIconChoose": {
     "description": "Confirm button label inside the icon browser modal"
   },
@@ -3206,7 +3203,6 @@
   "entryDeletedPurgeWarning": "This permanently removes all encrypted content, keys and history. This cannot be undone.",
   "entryDeletedPurgeConfirm": "Delete permanently",
   "vaultDiscoveryTitle": "Agent Discovery",
-  "vaultDiscoveryAccessDisclaimer": "Organization membership does not grant secret access. Only an active scoped grant authorizes retrieval.",
   "vaultDiscoveryNoActiveAgents": "No active organization agents require Discovery provisioning.",
   "vaultDiscoveryCurrent": "Current",
   "vaultDiscoveryPending": "Pending / stale",

@@ -13,6 +13,9 @@ import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
+import '../../../public_asset_catalog/domain/services/website_icon_service.dart';
+import '../../../public_asset_catalog/presentation/website_icon_auto_resolver.dart';
+import '../../../public_asset_catalog/presentation/widgets/public_asset_picker_sheet.dart';
 import '../../data/services/canonical_entry_detail_service.dart';
 import '../../data/services/encrypted_presentation_asset_service.dart';
 import '../../domain/entities/custom_field.dart';
@@ -32,13 +35,14 @@ import '../widgets/vault_visuals.dart';
 /// Full-screen Add Entry form.
 ///
 /// Field order: Label → Description → URL → Icon → Type → Type-specific
-/// fields → Notes → Encryption notice → Save button. The color picker
+/// fields → Notes → Save button. The color picker
 /// was dropped — `EntryEntity` has no color field on the backend, so the
 /// control silently discarded user input.
 ///
 /// Custom icon upload follows the two-step pattern: the entry is created
-/// first (with a preset icon name so the server gets a valid entry ID),
-/// then the image is uploaded to S3 and the entry is patched.
+/// first so the encrypted asset can be bound to its server-issued ID, then
+/// opaque authenticated ciphertext is uploaded and the entry is patched with
+/// the encrypted-asset reference. Plain image bytes never leave the client.
 class AddEntryPage extends StatelessWidget {
   const AddEntryPage({super.key, required this.vaultId, this.wrappedVK});
 
@@ -97,6 +101,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
   String _colorHex = EntryVisuals.defaultColorHex;
   bool _pickingIcon = false;
   bool _uploadingIcon = false;
+  late final WebsiteIconAutoResolver _websiteIconResolver;
 
   bool _valueObscured = true;
   bool _passwordObscured = true;
@@ -122,7 +127,28 @@ class _AddEntryViewState extends State<_AddEntryView> {
   bool _loadingEntries = false;
 
   @override
+  void initState() {
+    super.initState();
+    _websiteIconResolver = WebsiteIconAutoResolver(
+      service: getIt.isRegistered<WebsiteIconService>()
+          ? getIt<WebsiteIconService>()
+          : null,
+      onResolved: (reference) {
+        if (mounted) setState(() => _icon = reference);
+      },
+    );
+    _urlController.addListener(_resolveWebsiteIcon);
+  }
+
+  void _resolveWebsiteIcon() {
+    if (_type != EntryType.script) {
+      _websiteIconResolver.resolve(_urlController.text);
+    }
+  }
+
+  @override
   void dispose() {
+    _websiteIconResolver.dispose();
     _valueController.clear();
     _usernameController.clear();
     _passwordController.clear();
@@ -188,6 +214,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
     value: _valueController.text,
     username: _usernameController.text,
     password: _passwordController.text,
+    // KEY URL is used only as an ephemeral public-icon lookup hint. The
+    // frozen canonical KEY payload intentionally does not contain a URL.
     url: _type == EntryType.key ? '' : _urlController.text,
     notes: _notesController.text,
     fields: _allCustomFields,
@@ -227,6 +255,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
             onPressed: () => setState(() => _valueObscured = !_valueObscured),
           ),
         ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        _urlField(l10n),
       ],
       EntryType.credential => [
         OnboardingTextField(
@@ -326,6 +356,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
       title: l10n.agentIconBrowserTitle,
       confirmLabel: l10n.agentIconChoose,
       onPickCustom: _pickIconFile,
+      onPickPublicAsset: () => PublicAssetPickerSheet.show(context),
     );
     if (!mounted || result == null) return;
     final pickedColor = result.color;
@@ -334,13 +365,16 @@ class _AddEntryViewState extends State<_AddEntryView> {
       orElse: () => EntryVisuals.defaultColorHex,
     );
     setState(() {
-      if (result.iconKey != null) _icon = result.iconKey!;
+      if (result.iconKey != null) {
+        _websiteIconResolver.markManualSelection();
+        _icon = result.iconKey!;
+      }
       _colorHex = matchedHex;
     });
   }
 
   Future<void> _submit() async {
-    if (_type != EntryType.key && !_validateUrl()) return;
+    if (_type != EntryType.script && !_validateUrl()) return;
     final payload = _buildPayload();
     if (!EntryFormUtils.isPayloadWithinLimit(payload)) {
       ScaffoldMessenger.of(context)
@@ -364,8 +398,9 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
     final hasCustomFile = _icon.startsWith('file://');
-    // Send null icon when a custom file is pending — the preset icon will
-    // be replaced by the S3 URL after the two-step upload.
+    // Send null while a local file is pending. After creation the client can
+    // bind its encrypted asset to the server-issued Entry ID and patch only
+    // the opaque encrypted-asset reference into the canonical projection.
     final iconForApi = hasCustomFile ? null : _icon;
     try {
       await context.read<CreateEntryCubit>().createEntry(
@@ -563,16 +598,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
                 EntryNotesSection(
                   controller: _notesController,
                   initiallyVisible: _notesController.text.trim().isNotEmpty,
-                ),
-                const SizedBox(height: AppSpacing.section),
-                EntryEncryptionNotice(
-                  message: _type == EntryType.key
-                      ? l10n.entryKeyVisibilityPolicy
-                      : _type == EntryType.credential
-                      ? l10n.entryCredentialVisibilityPolicy
-                      : _type == EntryType.script
-                      ? l10n.entryScriptVisibilityPolicy
-                      : l10n.entryEncryptionNotice,
                 ),
                 if (_type == EntryType.credential) ...[
                   SwitchListTile.adaptive(

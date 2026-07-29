@@ -14,6 +14,26 @@ enum VaultPublicKeyKind {
 
   const VaultPublicKeyKind(this.id);
   final int id;
+
+  /// Parses the closed backend JSON enum contract while retaining support for
+  /// the numeric protocol representation used by native fixtures and AAD.
+  static VaultPublicKeyKind parseWire(Object? value) {
+    if (value is String) {
+      return VaultPublicKeyKind.values.firstWhere(
+        (kind) => kind.name == value,
+        orElse: () =>
+            throw const FormatException('Unsupported Vault public key kind'),
+      );
+    }
+    if (value is int) {
+      return VaultPublicKeyKind.values.firstWhere(
+        (kind) => kind.id == value,
+        orElse: () =>
+            throw const FormatException('Unsupported Vault public key kind'),
+      );
+    }
+    throw const FormatException('Malformed Vault public key kind');
+  }
 }
 
 /// Computes the domain-separated SHA-256 fingerprint of a raw public key.

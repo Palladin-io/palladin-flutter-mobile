@@ -301,4 +301,3 @@ class EntrySaveButton extends StatelessWidget {
     );
   }
 }
-

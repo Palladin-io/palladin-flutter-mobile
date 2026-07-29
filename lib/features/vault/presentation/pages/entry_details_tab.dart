@@ -14,6 +14,9 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../public_asset_catalog/domain/services/website_icon_service.dart';
+import '../../../public_asset_catalog/presentation/website_icon_auto_resolver.dart';
+import '../../../public_asset_catalog/presentation/widgets/public_asset_picker_sheet.dart';
 import '../../data/services/canonical_entry_detail_service.dart';
 import '../../data/services/encrypted_presentation_asset_service.dart';
 import '../../domain/entities/custom_field.dart';
@@ -89,6 +92,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   EntryType _type = EntryType.credential;
   ScriptInterpreter _interpreter = ScriptInterpreter.bash;
   String _icon = EntryVisuals.defaultIconName;
+  late final WebsiteIconAutoResolver _websiteIconResolver;
   String _colorHex = EntryVisuals.defaultColorHex;
   String? _urlError;
   bool _pickingIcon = false;
@@ -133,6 +137,18 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   @override
   void initState() {
     super.initState();
+    _websiteIconResolver = WebsiteIconAutoResolver(
+      service: getIt.isRegistered<WebsiteIconService>()
+          ? getIt<WebsiteIconService>()
+          : null,
+      onResolved: (reference) {
+        if (mounted && _editMode) setState(() => _icon = reference);
+      },
+    );
+    if (widget.entry.icon?.isNotEmpty == true) {
+      _websiteIconResolver.markManualSelection();
+    }
+    _urlController.addListener(_resolveWebsiteIcon);
     WidgetsBinding.instance.addObserver(this);
     widget.editController?.bindCancel(_cancelEdit);
     // Resolve reference target names for a Script entry's read-only view.
@@ -140,6 +156,12 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _ensureVaultEntriesLoaded(),
       );
+    }
+  }
+
+  void _resolveWebsiteIcon() {
+    if (_editMode && _type == EntryType.credential) {
+      _websiteIconResolver.resolve(_urlController.text);
     }
   }
 
@@ -172,6 +194,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
 
   @override
   void dispose() {
+    _websiteIconResolver.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _clearPlaintextState();
     _labelController.dispose();
@@ -420,6 +443,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       title: l10n.agentIconBrowserTitle,
       confirmLabel: l10n.agentIconChoose,
       onPickCustom: _pickIconFile,
+      onPickPublicAsset: () => PublicAssetPickerSheet.show(context),
     );
     if (!mounted || result == null) return;
     final pickedColor = result.color;
@@ -428,7 +452,10 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       orElse: () => EntryVisuals.defaultColorHex,
     );
     setState(() {
-      if (result.iconKey != null) _icon = result.iconKey!;
+      if (result.iconKey != null) {
+        _websiteIconResolver.markManualSelection();
+        _icon = result.iconKey!;
+      }
       _colorHex = matchedHex;
     });
   }

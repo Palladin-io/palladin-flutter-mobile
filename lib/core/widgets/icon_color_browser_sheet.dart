@@ -38,6 +38,7 @@ class IconColorBrowserSheet extends StatefulWidget {
     required this.confirmLabel,
     this.leadingTile,
     this.onPickCustom,
+    this.onPickPublicAsset,
   });
 
   /// Full set of glyphs to render in the browser grid.
@@ -69,6 +70,7 @@ class IconColorBrowserSheet extends StatefulWidget {
   /// can treat custom images the same as preset icon names. Returning
   /// `null` means the user cancelled the picker.
   final Future<String?> Function()? onPickCustom;
+  final Future<String?> Function()? onPickPublicAsset;
 
   /// Opens the sheet on the root navigator and returns the user's
   /// selection, or `null` on cancel / dismiss.
@@ -82,6 +84,7 @@ class IconColorBrowserSheet extends StatefulWidget {
     required String confirmLabel,
     Widget? leadingTile,
     Future<String?> Function()? onPickCustom,
+    Future<String?> Function()? onPickPublicAsset,
   }) {
     return showModalBottomSheet<IconColorBrowserResult>(
       context: context,
@@ -97,6 +100,7 @@ class IconColorBrowserSheet extends StatefulWidget {
         confirmLabel: confirmLabel,
         leadingTile: leadingTile,
         onPickCustom: onPickCustom,
+        onPickPublicAsset: onPickPublicAsset,
       ),
     );
   }
@@ -107,22 +111,24 @@ class IconColorBrowserSheet extends StatefulWidget {
 
 bool _isCustomUrl(String? s) =>
     s != null &&
-    (s.startsWith('https://') || s.startsWith('http://') || s.startsWith('file://'));
+    (s.startsWith('https://') ||
+        s.startsWith('http://') ||
+        s.startsWith('file://'));
 
 class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
   late String? _localIcon = widget.initialIconKey;
   late Color _localColor = widget.initialColor;
   bool _isLoadingCustom = false;
-  late String? _customImageUrl =
-      _isCustomUrl(widget.initialIconKey) ? widget.initialIconKey : null;
+  late String? _customImageUrl = _isCustomUrl(widget.initialIconKey)
+      ? widget.initialIconKey
+      : null;
 
   void _confirm() {
     final icon = _localIcon;
     if (icon == null) return;
-    Navigator.of(context).pop<IconColorBrowserResult>((
-      iconKey: icon,
-      color: _localColor,
-    ));
+    Navigator.of(
+      context,
+    ).pop<IconColorBrowserResult>((iconKey: icon, color: _localColor));
   }
 
   Future<void> _pickCustom() async {
@@ -146,6 +152,13 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
       }
     } finally {
       if (mounted) setState(() => _isLoadingCustom = false);
+    }
+  }
+
+  Future<void> _pickPublicAsset() async {
+    final reference = await widget.onPickPublicAsset?.call();
+    if (reference != null && mounted) {
+      setState(() => _localIcon = reference);
     }
   }
 
@@ -174,7 +187,8 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
       ),
       child: Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom +
+          bottom:
+              MediaQuery.viewInsetsOf(context).bottom +
               MediaQuery.viewPaddingOf(context).bottom,
         ),
         child: SingleChildScrollView(
@@ -231,6 +245,14 @@ class _IconColorBrowserSheetState extends State<IconColorBrowserSheet> {
                     accentColor: _localColor,
                     isLoading: _isLoadingCustom,
                     onTap: _isLoadingCustom ? null : _pickCustom,
+                  ),
+                ],
+                if (widget.onPickPublicAsset != null) ...[
+                  const SizedBox(height: AppSpacing.innerGap),
+                  OutlinedButton.icon(
+                    onPressed: _pickPublicAsset,
+                    icon: const Icon(Icons.language, size: 18),
+                    label: Text(l10n.publicAssetSearchAction),
                   ),
                 ],
                 const SizedBox(height: AppSpacing.md),
@@ -427,7 +449,6 @@ class _ColorPickerRow extends StatelessWidget {
     );
   }
 }
-
 
 class _SheetHandle extends StatelessWidget {
   const _SheetHandle();

@@ -9,6 +9,7 @@ class ImportEntryDraft {
     required this.type,
     required this.payload,
     this.urlDomain,
+    this.icon,
   });
 
   final String label;
@@ -16,6 +17,7 @@ class ImportEntryDraft {
   final EntryType type;
   final Map<String, dynamic> payload;
   final String? urlDomain;
+  final String? icon;
 }
 
 /// An existing entry to overwrite during an import (conflict resolved as
@@ -30,6 +32,7 @@ class ImportEntryOverwrite {
     required this.payload,
     this.urlDomain,
     required this.createdAt,
+    this.icon,
   });
 
   final String entryId;
@@ -39,6 +42,7 @@ class ImportEntryOverwrite {
   final Map<String, dynamic> payload;
   final String? urlDomain;
   final DateTime createdAt;
+  final String? icon;
 }
 
 /// Summary of a completed import.

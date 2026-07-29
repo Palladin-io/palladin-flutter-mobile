@@ -7,6 +7,7 @@ import '../../../../core/utils/app_logger.dart';
 import '../../../grants/domain/entities/grant.dart';
 import '../../../grants/domain/exceptions/grants_exceptions.dart';
 import '../../../grants/domain/repositories/grants_repository.dart';
+import '../../../public_asset_catalog/domain/services/public_hostname.dart';
 import '../../data/import/import_engine.dart';
 import '../../data/import/import_models.dart';
 import '../../domain/entities/entry_entity.dart';
@@ -159,7 +160,6 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     // Two source rows can collide with the same existing entry — only the
     // first may overwrite it, or the batch issues two PUTs to one entryId.
     final overwrittenIds = <String>{};
-
     for (final item in current.items) {
       if (!item.effectiveIncluded(current.conflictStrategy)) continue;
       final parsed = item.parsed;
@@ -176,6 +176,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
             payload: parsed.toPayload(),
             urlDomain: _clampOrNull(parsed.urlDomain, _maxUrlDomain),
             createdAt: item.conflict!.createdAt,
+            icon: _iconReference(parsed.urlDomain),
           ),
         );
       } else {
@@ -198,6 +199,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
             type: EntryType.credential,
             payload: parsed.toPayload(),
             urlDomain: _clampOrNull(parsed.urlDomain, _maxUrlDomain),
+            icon: _iconReference(parsed.urlDomain),
           ),
         );
       }
@@ -245,6 +247,11 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       _clearPlaintextCaches();
       emit(const ImportWizardFailure(ImportFailureReason.unknown));
     }
+  }
+
+  static String? _iconReference(String? domain) {
+    final normalized = PublicHostname.normalize(domain);
+    return normalized == null ? null : 'website:$normalized';
   }
 
   /// Pages through the vault's active grants looking for any FULL-scope

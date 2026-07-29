@@ -4,7 +4,9 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
+import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/crypto/sodium_provider.dart';
+import '../../../../core/crypto/x25519_key_wrapper.dart';
 import '../models/vault_rotation_models.dart';
 import 'vault_protocol/vault_protocol_aad.dart';
 import 'vault_protocol/vault_protocol_bytes.dart';
@@ -71,43 +73,59 @@ class VaultRotationCryptoService {
     Map<String, dynamic> envelope,
     Uint8List memberPrivateKey,
   ) async {
-    final sodium = await _sodiumLoader();
-    final secret = SecureKey.fromList(sodium, memberPrivateKey);
-    Uint8List? plaintext;
-    Uint8List? sealedPackage;
+    if (memberPrivateKey.length != 32 || envelope['wrappedVaultKey'] is! Map) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
+    final wrapped = Map<String, dynamic>.from(
+      envelope['wrappedVaultKey'] as Map,
+    );
+    if (wrapped['descriptor'] is! Map) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
+    final descriptor = Map<String, dynamic>.from(wrapped['descriptor'] as Map);
+    final purpose = WrapperPurpose.parseWire(descriptor['purpose']);
+    final scopeJson = descriptor['scope'];
+    if (purpose != WrapperPurpose.memberVaultKey ||
+        scopeJson is! Map ||
+        descriptor['wrapperSuiteId'] !=
+            RecipientWrapperSuiteId.x25519SealedBoxV1.wireValue) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
+    final scope = Map<String, dynamic>.from(scopeJson);
+    final fingerprint = VaultProtocolBytes.base64UrlDecode(
+      descriptor['recipientFingerprint'] as String,
+      maximumBytes: 32,
+    );
+    final sealedPackage = VaultProtocolBytes.base64UrlDecode(
+      wrapped['encodedSealedKeyPackage'] as String,
+      maximumBytes: 4096,
+    );
     try {
-      final publicKey = sodium.crypto.scalarmult.base(n: secret);
-      sealedPackage = VaultProtocolBytes.base64UrlDecode(
-        envelope['sealedVaultKeyPackage']! as String,
-        maximumBytes: 4096,
+      final context = WrapperContext(
+        protocolVersion: descriptor['protocolVersion'] as int,
+        purpose: purpose,
+        scope: EnvelopeScope(
+          organizationId: EnvelopeId.parse(scope['organizationId'] as String),
+          vaultId: EnvelopeId.parse(scope['vaultId'] as String),
+          memberId: EnvelopeId.parse(scope['memberId'] as String),
+        ),
+        resourceRevision: int.parse(descriptor['resourceRevision'] as String),
+        wrappedKeyVersion: descriptor['wrappedKeyVersion'] as int,
+        memberKeyGeneration: descriptor['memberKeyGeneration'] as int,
+        recipientKeyKind: VaultPublicKeyKind.parseWire(
+          descriptor['recipientKeyKind'],
+        ).id,
+        recipientKeyVersion: descriptor['recipientKeyVersion'] as int,
+        recipientFingerprint: fingerprint,
       );
-      plaintext = await _envelopes.openPackage(
-        ciphertext: sealedPackage,
-        recipientPublicKey: publicKey,
-        recipientPrivateKey: memberPrivateKey,
+      return await X25519SealedBoxKeyWrapper(sodiumLoader: _sodiumLoader).open(
+        wrapped: sealedPackage,
+        context: context,
+        recipientSecretKey: memberPrivateKey,
       );
-      final payload = jsonDecode(utf8.decode(plaintext));
-      if (payload is! Map ||
-          payload['protocolVersion'] != 2 ||
-          payload['organizationId'] != envelope['organizationId'] ||
-          payload['vaultId'] != envelope['vaultId'] ||
-          payload['memberId'] != envelope['memberId'] ||
-          payload['vkVersion'] != envelope['vkVersion'] ||
-          payload['memberKeyGeneration'] != envelope['memberKeyGeneration']) {
-        throw const FormatException('Member Vault key package scope mismatch');
-      }
-      final key = VaultProtocolBytes.base64UrlDecode(
-        payload['vaultKey']! as String,
-        maximumBytes: 32,
-      );
-      if (key.length != 32) {
-        throw const FormatException('Vault key must be 32 bytes');
-      }
-      return key;
     } finally {
-      secret.dispose();
-      sealedPackage?.fillRange(0, sealedPackage.length, 0);
-      plaintext?.fillRange(0, plaintext.length, 0);
+      fingerprint.fillRange(0, fingerprint.length, 0);
+      sealedPackage.fillRange(0, sealedPackage.length, 0);
     }
   }
 

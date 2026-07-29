@@ -11,6 +11,28 @@ import 'package:mobile_palladin/core/crypto/x25519_key_wrapper.dart';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 void main() {
+  test(
+    'parses the closed backend enum names and numeric protocol purposes',
+    () {
+      expect(
+        WrapperPurpose.parseWire('memberVaultKey'),
+        WrapperPurpose.memberVaultKey,
+      );
+      expect(
+        EnvelopePurpose.parseWire('vaultDiscoveryKey'),
+        EnvelopePurpose.vaultDiscoveryKeyByVk,
+      );
+      expect(
+        EnvelopePurpose.parseWire(2),
+        EnvelopePurpose.vaultDiscoveryKeyByVk,
+      );
+      expect(
+        () => EnvelopePurpose.parseWire('vaultDiscoveryKeyByVk'),
+        throwsA(isA<EnvelopeException>()),
+      );
+    },
+  );
+
   final scope = EnvelopeScope(
     organizationId: EnvelopeId.parse('11111111-1111-4111-8111-111111111111'),
     vaultId: EnvelopeId.parse('22222222-2222-4222-8222-222222222222'),

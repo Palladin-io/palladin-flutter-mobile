@@ -25,6 +25,21 @@ class VaultListCryptoService {
   final VaultCryptoService _crypto;
   final int maximumVaults;
 
+  /// Loads and opens one canonical encrypted Vault projection.
+  Future<VaultEntity> loadOne(
+    String vaultId,
+    Uint8List memberPrivateKey,
+  ) async {
+    if (memberPrivateKey.length != 32) {
+      throw const FormatException('Member private key must be 32 bytes');
+    }
+    final json = await _remote.getEncryptedVault(vaultId);
+    return _decrypt(
+      EncryptedVaultSummaryModel.fromJson(json),
+      memberPrivateKey,
+    );
+  }
+
   /// Downloads bounded ciphertext pages and isolates corrupt Vaults.
   Future<DecryptedVaultList> load(Uint8List memberPrivateKey) async {
     if (memberPrivateKey.length != 32) {

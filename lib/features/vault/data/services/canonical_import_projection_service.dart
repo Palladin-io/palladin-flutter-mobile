@@ -143,6 +143,7 @@ class CanonicalImportProjectionService {
         final memberIndex = <String, dynamic>{
           'memberLabel': draft.label,
           'entryType': 1,
+          if (draft.icon?.isNotEmpty == true) 'iconReference': draft.icon,
           'searchFields': [
             draft.label,
             if (draft.description?.isNotEmpty == true) draft.description,
@@ -171,6 +172,7 @@ class CanonicalImportProjectionService {
           if (draft.description?.isNotEmpty == true)
             'description': draft.description,
           'entryType': 1,
+          if (draft.icon?.isNotEmpty == true) 'iconReference': draft.icon,
           'content': content,
           'agentVisibilityPolicy': policy,
         };
