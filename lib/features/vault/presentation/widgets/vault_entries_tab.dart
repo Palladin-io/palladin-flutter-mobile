@@ -1,7 +1,7 @@
-import 'dart:typed_data';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -47,6 +47,19 @@ class VaultEntriesTab extends StatefulWidget {
   State<VaultEntriesTab> createState() => _VaultEntriesTabState();
 }
 
+@visibleForTesting
+List<String> websiteIconHostnames(Iterable<EntryEntity> entries) {
+  final hostnames = entries
+      .map((entry) => entry.icon)
+      .whereType<String>()
+      .where((reference) => reference.startsWith('website:'))
+      .map((reference) => reference.substring('website:'.length))
+      .toSet()
+      .toList(growable: false);
+  hostnames.sort();
+  return hostnames;
+}
+
 class _VaultEntriesTabState extends State<VaultEntriesTab> {
   static const _initialRenderLimit = 100;
   static const _renderIncrement = 100;
@@ -58,10 +71,13 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
   final Map<String, PublicAsset> _websiteAssets = <String, PublicAsset>{};
   Timer? _websiteAssetPoll;
   Timer? _searchDebounce;
-  String _websiteAssetKey = '';
+  Set<String> _scheduledWebsiteHostnames = const {};
   String _searchQuery = '';
   int _renderLimit = _initialRenderLimit;
   int _filteredCount = 0;
+  List<EntryEntity>? _filterSource;
+  String? _filterQuery;
+  List<EntryEntity> _filteredEntries = const [];
 
   @override
   void dispose() {
@@ -72,30 +88,22 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
   }
 
   void _scheduleWebsiteAssets(List<EntryEntity> entries) {
-    final hostnames =
-        entries
-            .map((entry) => entry.icon)
-            .whereType<String>()
-            .where((reference) => reference.startsWith('website:'))
-            .map((reference) => reference.substring('website:'.length))
-            .toSet()
-            .toList()
-          ..sort();
-    final key = hostnames.join(',');
-    if (key == _websiteAssetKey) return;
-    _websiteAssetKey = key;
+    final hostnames = websiteIconHostnames(entries);
+    final hostnameSet = hostnames.toSet();
+    if (setEquals(hostnameSet, _scheduledWebsiteHostnames)) return;
+    _scheduledWebsiteHostnames = hostnameSet;
     _websiteAssetPoll?.cancel();
     if (hostnames.isEmpty) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && key == _websiteAssetKey) {
-        _resolveWebsiteAssets(hostnames, key, 0);
+      if (mounted && setEquals(hostnameSet, _scheduledWebsiteHostnames)) {
+        _resolveWebsiteAssets(hostnames, hostnameSet, 0);
       }
     });
   }
 
   Future<void> _resolveWebsiteAssets(
     List<String> hostnames,
-    String key,
+    Set<String> scheduledHostnames,
     int attempt,
   ) async {
     if (!getIt.isRegistered<WebsiteIconService>()) return;
@@ -104,7 +112,10 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
         .toList(growable: false);
     if (unresolved.isEmpty) return;
     final resolved = await getIt<WebsiteIconService>().resolveBatch(unresolved);
-    if (!mounted || key != _websiteAssetKey) return;
+    if (!mounted ||
+        !setEquals(scheduledHostnames, _scheduledWebsiteHostnames)) {
+      return;
+    }
     if (resolved.isNotEmpty) {
       setState(() => _websiteAssets.addAll(resolved));
     }
@@ -114,23 +125,31 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     }
     _websiteAssetPoll = Timer(
       const Duration(seconds: 2),
-      () => _resolveWebsiteAssets(hostnames, key, attempt + 1),
+      () => _resolveWebsiteAssets(hostnames, scheduledHostnames, attempt + 1),
     );
   }
 
   List<EntryEntity> _filter(List<EntryEntity> entries) {
+    if (identical(entries, _filterSource) && _searchQuery == _filterQuery) {
+      return _filteredEntries;
+    }
     final query = _searchQuery;
-    return entries
-        .where((e) => e.lifecycleState == MemberEntryState.active)
-        .where(
-          (e) =>
-              query.isEmpty ||
-              e.label.toLowerCase().contains(query) ||
-              (e.description?.toLowerCase().contains(query) ?? false) ||
-              (e.urlDomain?.toLowerCase().contains(query) ?? false),
-        )
-        .toList(growable: false)
-      ..sort((left, right) => left.label.compareTo(right.label));
+    final filtered =
+        entries
+            .where((e) => e.lifecycleState == MemberEntryState.active)
+            .where(
+              (e) =>
+                  query.isEmpty ||
+                  e.label.toLowerCase().contains(query) ||
+                  (e.description?.toLowerCase().contains(query) ?? false) ||
+                  (e.urlDomain?.toLowerCase().contains(query) ?? false),
+            )
+            .toList(growable: false)
+          ..sort((left, right) => left.label.compareTo(right.label));
+    _filterSource = entries;
+    _filterQuery = query;
+    _filteredEntries = filtered;
+    return filtered;
   }
 
   void _onSearchChanged(String value) {
@@ -376,8 +395,12 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
   List<EntryEntity> _prepareEntries(List<EntryEntity> entries) {
     final filtered = _filter(entries);
     _filteredCount = filtered.length;
+    // Resolve every distinct hostname represented by the decrypted member
+    // index, not merely the first rendered window. Rendering stays bounded,
+    // while the repository pages catalog requests in backend-sized chunks.
+    // This makes icon coverage independent of entry count and scroll order.
+    _scheduleWebsiteAssets(filtered);
     final visible = filtered.take(_renderLimit).toList(growable: false);
-    _scheduleWebsiteAssets(visible);
     return visible;
   }
 }

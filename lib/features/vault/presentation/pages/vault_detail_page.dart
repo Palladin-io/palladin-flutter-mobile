@@ -117,6 +117,7 @@ class _VaultDetailView extends StatefulWidget {
 class _VaultDetailViewState extends State<_VaultDetailView>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  late EntryListCubit _entryListCubit;
   VaultFormData? _initialFormData;
   VaultFormData? _currentFormData;
 
@@ -132,8 +133,17 @@ class _VaultDetailViewState extends State<_VaultDetailView>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Resolve inherited dependencies while the element is active. Looking up
+    // a provider from dispose() is unsafe because the route may already have
+    // deactivated this element (most visible when backing out on iOS).
+    _entryListCubit = context.read<EntryListCubit>();
+  }
+
+  @override
   void dispose() {
-    context.read<EntryListCubit>().lock();
+    _entryListCubit.lock();
     _tabController.dispose();
     super.dispose();
   }
