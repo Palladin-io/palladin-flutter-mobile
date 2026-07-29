@@ -35,12 +35,18 @@ class ApiKeysCubit extends Cubit<ApiKeysState> {
       AppLogger.w('ApiKeys', 'API key load failed: ${e.kind.name}');
       emit(state.copyWith(status: ApiKeysStatus.error, error: e.kind));
     } catch (e, s) {
-      AppLogger.e('ApiKeys', 'API key load failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        status: ApiKeysStatus.error,
-        error: SettingsErrorKind.unknown,
-      ));
+      AppLogger.e(
+        'ApiKeys',
+        'API key load failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          status: ApiKeysStatus.error,
+          error: SettingsErrorKind.unknown,
+        ),
+      );
     }
   }
 
@@ -71,21 +77,29 @@ class ApiKeysCubit extends Cubit<ApiKeysState> {
     try {
       await repository.revokeApiKey(keyId);
       final keys = await repository.listApiKeys();
-      emit(state.copyWith(
-        status: ApiKeysStatus.loaded,
-        apiKeys: keys,
-        clearRevokingKeyId: true,
-      ));
+      emit(
+        state.copyWith(
+          status: ApiKeysStatus.loaded,
+          apiKeys: keys,
+          clearRevokingKeyId: true,
+        ),
+      );
     } on SettingsException catch (e) {
       AppLogger.w('ApiKeys', 'API key revoke failed: ${e.kind.name}');
       emit(state.copyWith(mutationError: e.kind, clearRevokingKeyId: true));
     } catch (e, s) {
-      AppLogger.e('ApiKeys', 'API key revoke failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        mutationError: SettingsErrorKind.unknown,
-        clearRevokingKeyId: true,
-      ));
+      AppLogger.e(
+        'ApiKeys',
+        'API key revoke failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          mutationError: SettingsErrorKind.unknown,
+          clearRevokingKeyId: true,
+        ),
+      );
     }
   }
 
@@ -99,21 +113,29 @@ class ApiKeysCubit extends Cubit<ApiKeysState> {
     try {
       await repository.activateApiKey(keyId);
       final keys = await repository.listApiKeys();
-      emit(state.copyWith(
-        status: ApiKeysStatus.loaded,
-        apiKeys: keys,
-        clearActivatingKeyId: true,
-      ));
+      emit(
+        state.copyWith(
+          status: ApiKeysStatus.loaded,
+          apiKeys: keys,
+          clearActivatingKeyId: true,
+        ),
+      );
     } on SettingsException catch (e) {
       AppLogger.w('ApiKeys', 'API key activate failed: ${e.kind.name}');
       emit(state.copyWith(mutationError: e.kind, clearActivatingKeyId: true));
     } catch (e, s) {
-      AppLogger.e('ApiKeys', 'API key activate failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        mutationError: SettingsErrorKind.unknown,
-        clearActivatingKeyId: true,
-      ));
+      AppLogger.e(
+        'ApiKeys',
+        'API key activate failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          mutationError: SettingsErrorKind.unknown,
+          clearActivatingKeyId: true,
+        ),
+      );
     }
   }
 
@@ -127,21 +149,29 @@ class ApiKeysCubit extends Cubit<ApiKeysState> {
     try {
       await repository.deleteApiKey(keyId);
       final keys = await repository.listApiKeys();
-      emit(state.copyWith(
-        status: ApiKeysStatus.loaded,
-        apiKeys: keys,
-        clearDeletingKeyId: true,
-      ));
+      emit(
+        state.copyWith(
+          status: ApiKeysStatus.loaded,
+          apiKeys: keys,
+          clearDeletingKeyId: true,
+        ),
+      );
     } on SettingsException catch (e) {
       AppLogger.w('ApiKeys', 'API key delete failed: ${e.kind.name}');
       emit(state.copyWith(mutationError: e.kind, clearDeletingKeyId: true));
     } catch (e, s) {
-      AppLogger.e('ApiKeys', 'API key delete failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        mutationError: SettingsErrorKind.unknown,
-        clearDeletingKeyId: true,
-      ));
+      AppLogger.e(
+        'ApiKeys',
+        'API key delete failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          mutationError: SettingsErrorKind.unknown,
+          clearDeletingKeyId: true,
+        ),
+      );
     }
   }
 

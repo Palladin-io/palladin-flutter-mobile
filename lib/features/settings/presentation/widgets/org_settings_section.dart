@@ -75,10 +75,7 @@ class _OrgSettingsSectionState extends State<OrgSettingsSection> {
           _showSnack(context, l10n.settingsOrgSaved);
           context.read<SettingsCubit>().acknowledgeOrgSaveResult();
         } else if (state.orgSaveError != null) {
-          _showSnack(
-            context,
-            settingsErrorMessage(l10n, state.orgSaveError!),
-          );
+          _showSnack(context, settingsErrorMessage(l10n, state.orgSaveError!));
           context.read<SettingsCubit>().acknowledgeOrgSaveResult();
         }
       },
@@ -90,13 +87,17 @@ class _OrgSettingsSectionState extends State<OrgSettingsSection> {
             const SizedBox(height: AppSpacing.md),
             switch (state.orgStatus) {
               SectionStatus.initial ||
-              SectionStatus.loading =>
-                const _OrgSkeleton(),
+              SectionStatus.loading => const _OrgSkeleton(),
               SectionStatus.error => _OrgError(
-                  message: settingsErrorMessage(l10n, state.orgError!),
-                  onRetry: () => context.read<SettingsCubit>().loadOrg(),
-                ),
-              SectionStatus.loaded => _buildLoaded(context, l10n, brightness, state),
+                message: settingsErrorMessage(l10n, state.orgError!),
+                onRetry: () => context.read<SettingsCubit>().loadOrg(),
+              ),
+              SectionStatus.loaded => _buildLoaded(
+                context,
+                l10n,
+                brightness,
+                state,
+              ),
             },
           ],
         );
@@ -222,9 +223,7 @@ class _OrgError extends StatelessWidget {
           const SizedBox(height: AppSpacing.innerGap),
           TextButton(
             onPressed: onRetry,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.brandRed,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.brandRed),
             child: Text(l10n.settingsRetry),
           ),
         ],

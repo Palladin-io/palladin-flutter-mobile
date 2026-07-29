@@ -17,6 +17,9 @@ enum AgentStatus {
   /// The agent is approved and can access organization vaults.
   active,
 
+  /// Access is denied and staged Vault rotations are still in progress.
+  deactivating,
+
   /// The agent has been deactivated and has lost all access. It can be
   /// re-activated later — agents are never permanently deleted.
   deactivated,
@@ -31,6 +34,8 @@ extension AgentStatusExtension on AgentStatus {
     return switch (value) {
       1 => AgentStatus.pending,
       2 => AgentStatus.active,
+      3 => AgentStatus.deactivated,
+      4 => AgentStatus.deactivating,
       _ => AgentStatus.deactivated,
     };
   }

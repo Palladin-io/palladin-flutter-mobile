@@ -24,7 +24,10 @@ void main() {
     crypto = _Crypto();
     summary = EncryptedVaultSummaryModel.fromJson({
       'id': '22222222-2222-4222-8222-222222222222',
+      'isDefault': false,
       'protocolVersion': 2,
+      'memberSequence': '11',
+      'discoverySequence': '12',
       'memberKeyGeneration': 4,
       'memberVaultMetadata': {'descriptor': {}},
       'memberVaultKey': {'wrappedVaultKey': {}},
@@ -34,6 +37,11 @@ void main() {
         'agentMessageKeyVersion': 9,
         'manifestSigningKeyVersion': 10,
       },
+      'discoveryKey': {'descriptor': {}},
+      'vaultPrivateKeys': [
+        {'descriptor': {}},
+        {'descriptor': {}},
+      ],
       'createdAt': '2026-07-16T10:00:00Z',
       'updatedAt': '2026-07-16T11:00:00Z',
       'memberCount': 2,
@@ -105,11 +113,16 @@ void main() {
   test('opens detail payload without legacy plaintext name', () async {
     final detail = {
       'id': summary.id,
+      'isDefault': summary.isDefault,
       'protocolVersion': summary.protocolVersion,
+      'memberSequence': summary.memberSequence,
+      'discoverySequence': summary.discoverySequence,
       'memberKeyGeneration': summary.memberKeyGeneration,
       'memberVaultMetadata': summary.memberVaultMetadata,
       'memberVaultKey': summary.memberVaultKey,
       'currentKeyEpoch': summary.currentKeyEpoch,
+      'discoveryKey': summary.discoveryKey,
+      'vaultPrivateKeys': summary.vaultPrivateKeys,
       'createdAt': summary.createdAt.toIso8601String(),
       'updatedAt': summary.updatedAt.toIso8601String(),
       'memberCount': summary.memberCount,

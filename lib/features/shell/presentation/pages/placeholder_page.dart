@@ -8,11 +8,7 @@ import '../../../../l10n/generated/app_localizations.dart';
 /// Generic "coming soon" placeholder used for tabs not yet implemented
 /// (Agents, Audit, Settings).
 class PlaceholderPage extends StatelessWidget {
-  const PlaceholderPage({
-    super.key,
-    required this.icon,
-    required this.title,
-  });
+  const PlaceholderPage({super.key, required this.icon, required this.title});
 
   final IconData icon;
   final String title;
@@ -41,7 +37,11 @@ class PlaceholderPage extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 48, color: AppColors.onSurfaceSubtle(brightness)),
+              Icon(
+                icon,
+                size: 48,
+                color: AppColors.onSurfaceSubtle(brightness),
+              ),
               const SizedBox(height: AppSpacing.md),
               Text(
                 l10n.placeholderComingSoon,

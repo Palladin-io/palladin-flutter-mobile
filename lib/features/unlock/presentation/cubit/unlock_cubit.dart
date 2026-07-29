@@ -65,14 +65,15 @@ class UnlockCubit extends Cubit<UnlockState> {
     try {
       final account = await datasource.getAccount();
       final kdf = account.kdf;
-      if (kdf == null) {
-        throw UnsupportedIdentityKdfException('missing-kdf-metadata');
+      final encryptedPrivateKey = account.encryptedPrivateKey;
+      if (kdf == null || encryptedPrivateKey == null) {
+        throw UnsupportedIdentityKdfException('missing-account-key-material');
       }
       result = await cryptoService.deriveAndDecrypt(
         masterPassword: password,
         accountId: account.userId,
         kdf: kdf,
-        encryptedPrivateKeyBase64: account.encryptedPrivateKey,
+        encryptedPrivateKeyBase64: encryptedPrivateKey,
       );
 
       if (biometricCopy != null) {
@@ -176,9 +177,13 @@ class UnlockCubit extends Cubit<UnlockState> {
       }
 
       final account = await datasource.getAccount();
+      final encryptedPrivateKey = account.encryptedPrivateKey;
+      if (encryptedPrivateKey == null) {
+        throw UnsupportedIdentityKdfException('missing-account-key-material');
+      }
       result = await cryptoService.decryptWithMasterKey(
         masterKey: masterKey,
-        encryptedPrivateKeyBase64: account.encryptedPrivateKey,
+        encryptedPrivateKeyBase64: encryptedPrivateKey,
       );
 
       await _provisionDefaultVault(

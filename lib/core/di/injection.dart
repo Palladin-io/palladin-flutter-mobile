@@ -271,6 +271,7 @@ void configureDependencies(EnvConfig config) {
       remoteDatasource: getIt<OnboardingRemoteDatasource>(),
       vaultCryptoService: getIt<VaultCryptoService>(),
       tokenStorage: getIt<SecureTokenStorage>(),
+      accountRemoteDatasource: getIt<AccountRemoteDatasource>(),
     ),
   );
   getIt.registerLazySingleton<OnboardingRepository>(
@@ -497,7 +498,7 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerLazySingleton<AutoFillCacheService>(
     () => AutoFillCacheService(
-      vaultRepository: getIt<VaultRepository>(),
+      vaultListService: getIt<VaultListCryptoService>(),
       entryRepository: getIt<EntryRepository>(),
       bridge: getIt<AutoFillCacheBridge>(),
       memberIndex: getIt<MemberSyncService>(),
@@ -740,7 +741,7 @@ void configureDependencies(EnvConfig config) {
     (vaultId, entryId) => EntryLogsCubit(
       auditRepository: getIt<AuditRepository>(),
       agentsRepository: getIt<AgentsRepository>(),
-      vaultRepository: getIt<VaultRepository>(),
+      vaultListCubit: getIt<VaultListCubit>(),
       memberSync: getIt<MemberSyncService>(),
       vaultId: vaultId,
       entryId: entryId,
@@ -754,7 +755,7 @@ void configureDependencies(EnvConfig config) {
     (vaultId, _) => AuditLogCubit(
       auditRepository: getIt<AuditRepository>(),
       agentsRepository: getIt<AgentsRepository>(),
-      vaultRepository: getIt<VaultRepository>(),
+      vaultListCubit: getIt<VaultListCubit>(),
       vaultMembersRepository: getIt<VaultMembersRepository>(),
       memberSync: getIt<MemberSyncService>(),
       scope: vaultId == null ? AuditLogScope.org : AuditLogScope.vault,

@@ -85,7 +85,7 @@ class _ContextGrantsView extends StatelessWidget {
           : l10n.grantUnnamedAgent,
     );
     if (result == null) return;
-    await cubit.revokeGrant(grant.vaultId, grant.id, reason: result.reason);
+    await cubit.revokeGrant(grant.vaultId, grant.id);
   }
 
   Future<void> _regrant(BuildContext context, Grant grant) async {

@@ -34,8 +34,9 @@ void main() {
     blocTest<OnboardingCubit, OnboardingState>(
       'submitMasterPassword stores password, generates mnemonic, advances to backup',
       build: () {
-        when(() => mockRepo.generateRecoveryMnemonic())
-            .thenAnswer((_) async => mnemonic);
+        when(
+          () => mockRepo.generateRecoveryMnemonic(),
+        ).thenAnswer((_) async => mnemonic);
         return OnboardingCubit(repository: mockRepo);
       },
       act: (cubit) => cubit.submitMasterPassword('Correct Horse Battery 9!'),
@@ -47,7 +48,8 @@ void main() {
               s.mnemonic.length == 24,
         ),
       ],
-      verify: (_) => verify(() => mockRepo.generateRecoveryMnemonic()).called(1),
+      verify: (_) =>
+          verify(() => mockRepo.generateRecoveryMnemonic()).called(1),
     );
 
     blocTest<OnboardingCubit, OnboardingState>(
@@ -69,11 +71,13 @@ void main() {
     blocTest<OnboardingCubit, OnboardingState>(
       'completeSetup emits submitting then completed with unlock keys on success',
       build: () {
-        when(() => mockRepo.completeSetup(
-              masterPassword: any(named: 'masterPassword'),
-              recoveryMnemonic: any(named: 'recoveryMnemonic'),
-              defaultVaultName: any(named: 'defaultVaultName'),
-            )).thenAnswer((_) async => unlockKeys);
+        when(
+          () => mockRepo.completeSetup(
+            masterPassword: any(named: 'masterPassword'),
+            recoveryMnemonic: any(named: 'recoveryMnemonic'),
+            defaultVaultName: any(named: 'defaultVaultName'),
+          ),
+        ).thenAnswer((_) async => unlockKeys);
         return OnboardingCubit(repository: mockRepo);
       },
       seed: () => OnboardingState(
@@ -111,11 +115,13 @@ void main() {
     blocTest<OnboardingCubit, OnboardingState>(
       'completeSetup treats OnboardingAlreadyCompletedException as success',
       build: () {
-        when(() => mockRepo.completeSetup(
-              masterPassword: any(named: 'masterPassword'),
-              recoveryMnemonic: any(named: 'recoveryMnemonic'),
-              defaultVaultName: any(named: 'defaultVaultName'),
-            )).thenThrow(OnboardingAlreadyCompletedException());
+        when(
+          () => mockRepo.completeSetup(
+            masterPassword: any(named: 'masterPassword'),
+            recoveryMnemonic: any(named: 'recoveryMnemonic'),
+            defaultVaultName: any(named: 'defaultVaultName'),
+          ),
+        ).thenThrow(OnboardingAlreadyCompletedException());
         return OnboardingCubit(repository: mockRepo);
       },
       seed: () => OnboardingState(
@@ -138,13 +144,17 @@ void main() {
     blocTest<OnboardingCubit, OnboardingState>(
       'completeSetup surfaces error and returns to confirm step on failure',
       build: () {
-        when(() => mockRepo.completeSetup(
-              masterPassword: any(named: 'masterPassword'),
-              recoveryMnemonic: any(named: 'recoveryMnemonic'),
-              defaultVaultName: any(named: 'defaultVaultName'),
-            )).thenThrow(const OnboardingServerException(
-          OnboardingServerErrorKind.cannotConnect,
-        ));
+        when(
+          () => mockRepo.completeSetup(
+            masterPassword: any(named: 'masterPassword'),
+            recoveryMnemonic: any(named: 'recoveryMnemonic'),
+            defaultVaultName: any(named: 'defaultVaultName'),
+          ),
+        ).thenThrow(
+          const OnboardingServerException(
+            OnboardingServerErrorKind.cannotConnect,
+          ),
+        );
         return OnboardingCubit(repository: mockRepo);
       },
       seed: () => OnboardingState(
@@ -168,11 +178,13 @@ void main() {
       build: () => OnboardingCubit(repository: mockRepo),
       act: (cubit) => cubit.completeSetup(defaultVaultName: 'Personal'),
       expect: () => const <OnboardingState>[],
-      verify: (_) => verifyNever(() => mockRepo.completeSetup(
-            masterPassword: any(named: 'masterPassword'),
-            recoveryMnemonic: any(named: 'recoveryMnemonic'),
-            defaultVaultName: any(named: 'defaultVaultName'),
-          )),
+      verify: (_) => verifyNever(
+        () => mockRepo.completeSetup(
+          masterPassword: any(named: 'masterPassword'),
+          recoveryMnemonic: any(named: 'recoveryMnemonic'),
+          defaultVaultName: any(named: 'defaultVaultName'),
+        ),
+      ),
     );
 
     blocTest<OnboardingCubit, OnboardingState>(

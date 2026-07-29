@@ -41,15 +41,19 @@ class OrgGrantsState {
   /// The list after applying the status filter and search query.
   List<Grant> get filtered {
     final q = query.trim().toLowerCase();
-    return grants.where((g) {
-      if (statusFilter.isNotEmpty && !statusFilter.contains(g.status)) {
-        return false;
-      }
-      if (q.isEmpty) return true;
-      return [g.agentName, g.entryLabel, g.vaultName]
-          .whereType<String>()
-          .any((v) => v.toLowerCase().contains(q));
-    }).toList(growable: false);
+    return grants
+        .where((g) {
+          if (statusFilter.isNotEmpty && !statusFilter.contains(g.status)) {
+            return false;
+          }
+          if (q.isEmpty) return true;
+          return [
+            g.agentName,
+            g.entryLabel,
+            g.vaultName,
+          ].whereType<String>().any((v) => v.toLowerCase().contains(q));
+        })
+        .toList(growable: false);
   }
 
   /// Per-status counts across the full (unfiltered) list — drives the summary
@@ -80,10 +84,12 @@ class OrgGrantsState {
       error: clearError ? null : (error ?? this.error),
       statusFilter: statusFilter ?? this.statusFilter,
       query: query ?? this.query,
-      revokingGrantId:
-          clearRevokingGrantId ? null : (revokingGrantId ?? this.revokingGrantId),
-      mutationError:
-          clearMutationError ? null : (mutationError ?? this.mutationError),
+      revokingGrantId: clearRevokingGrantId
+          ? null
+          : (revokingGrantId ?? this.revokingGrantId),
+      mutationError: clearMutationError
+          ? null
+          : (mutationError ?? this.mutationError),
     );
   }
 }

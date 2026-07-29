@@ -53,6 +53,12 @@ class ChangePasswordCubit extends Cubit<ChangePasswordState> {
       if (kdf == null) {
         throw const UnsupportedIdentityKdfException('missing-kdf-metadata');
       }
+      final encryptedPrivateKey = account.encryptedPrivateKey;
+      if (encryptedPrivateKey == null) {
+        throw const UnsupportedIdentityKdfException(
+          'missing-private-key-material',
+        );
+      }
       // Throws ChangePasswordWrongCurrentException if the current password
       // can't unwrap the private key (client-side proof before the server's).
       material = await cryptoService.buildChangePasswordMaterial(
@@ -60,7 +66,7 @@ class ChangePasswordCubit extends Cubit<ChangePasswordState> {
         newPassword: newPassword,
         accountId: account.userId,
         currentKdfSaltBase64: kdf.kdfSalt,
-        currentEncryptedPrivateKeyBase64: account.encryptedPrivateKey,
+        currentEncryptedPrivateKeyBase64: encryptedPrivateKey,
       );
 
       await datasource.changePassword(

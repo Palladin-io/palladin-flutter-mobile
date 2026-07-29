@@ -67,11 +67,7 @@ class AgentAvatar extends StatelessWidget {
           color: color.withValues(alpha: 0.18),
           border: Border.all(color: color.withValues(alpha: 0.45)),
         ),
-        child: Icon(
-          agentIconData(iconKey!),
-          size: size * 0.5,
-          color: color,
-        ),
+        child: Icon(agentIconData(iconKey!), size: size * 0.5, color: color),
       );
     }
 
@@ -88,11 +84,7 @@ class AgentAvatar extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.45)),
       ),
       child: initials.isEmpty
-          ? Icon(
-              Icons.smart_toy_outlined,
-              size: size * 0.5,
-              color: color,
-            )
+          ? Icon(Icons.smart_toy_outlined, size: size * 0.5, color: color)
           : Text(
               initials,
               style: TextStyle(
@@ -136,9 +128,15 @@ class _ImageAvatar extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: AppColors.vaultSlate.withValues(alpha: 0.18),
-            border: Border.all(color: AppColors.vaultSlate.withValues(alpha: 0.45)),
+            border: Border.all(
+              color: AppColors.vaultSlate.withValues(alpha: 0.45),
+            ),
           ),
-          child: Icon(Icons.smart_toy_outlined, size: size * 0.5, color: AppColors.vaultSlate),
+          child: Icon(
+            Icons.smart_toy_outlined,
+            size: size * 0.5,
+            color: AppColors.vaultSlate,
+          ),
         ),
       ),
     );
@@ -158,10 +156,7 @@ class AgentStatusDot extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-      ),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
     );
   }
 }

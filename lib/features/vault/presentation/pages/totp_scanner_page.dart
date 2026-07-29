@@ -16,9 +16,10 @@ class TotpScannerPage extends StatefulWidget {
   const TotpScannerPage({super.key});
 
   static Future<String?> push(BuildContext context) {
-    return Navigator.of(context, rootNavigator: true).push<String>(
-      MaterialPageRoute(builder: (_) => const TotpScannerPage()),
-    );
+    return Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push<String>(MaterialPageRoute(builder: (_) => const TotpScannerPage()));
   }
 
   @override

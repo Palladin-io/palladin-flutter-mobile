@@ -259,7 +259,7 @@ final class KeyEntryCreationService {
       memberLabel: label,
       agentLabel: label,
       description: description.isEmpty ? null : description,
-      icon: icon.isEmpty ? null : GlyphVaultIcon(icon),
+      icon: VaultPlaintextIcon.fromReference(icon),
       color: null,
       discoverable: true,
       content: content,

@@ -106,9 +106,9 @@ class _VaultFormState extends State<VaultForm> {
     super.initState();
     _nameController = TextEditingController(text: widget.initial.name)
       ..addListener(_emit);
-    _descriptionController =
-        TextEditingController(text: widget.initial.description)
-          ..addListener(_emit);
+    _descriptionController = TextEditingController(
+      text: widget.initial.description,
+    )..addListener(_emit);
     _selectedIcon = widget.initial.icon;
     _selectedColor = widget.initial.color;
     _selectedMode = widget.initial.grantMode;
@@ -122,13 +122,15 @@ class _VaultFormState extends State<VaultForm> {
   }
 
   void _emit() {
-    widget.onChanged(VaultFormData(
-      name: _nameController.text,
-      description: _descriptionController.text,
-      icon: _selectedIcon,
-      color: _selectedColor,
-      grantMode: _selectedMode,
-    ));
+    widget.onChanged(
+      VaultFormData(
+        name: _nameController.text,
+        description: _descriptionController.text,
+        icon: _selectedIcon,
+        color: _selectedColor,
+        grantMode: _selectedMode,
+      ),
+    );
   }
 
   /// Opens the full icon + color browser sheet. Mirrors the agents
@@ -139,14 +141,13 @@ class _VaultFormState extends State<VaultForm> {
     final result = await IconColorBrowserSheet.show(
       context,
       icons: VaultVisuals.iconChoices
-          .map((c) => (
-                name: c.name,
-                icon: c.icon,
-                paletteColor: c.paletteColor,
-              ))
+          .map(
+            (c) => (name: c.name, icon: c.icon, paletteColor: c.paletteColor),
+          )
           .toList(),
-      colorOptions:
-          VaultVisuals.colorChoices.map(VaultVisuals.colorFor).toList(),
+      colorOptions: VaultVisuals.colorChoices
+          .map(VaultVisuals.colorFor)
+          .toList(),
       initialIconKey: _selectedIcon,
       initialColor: VaultVisuals.colorFor(_selectedColor),
       title: l10n.agentIconBrowserTitle,
@@ -156,8 +157,7 @@ class _VaultFormState extends State<VaultForm> {
     if (!mounted || result == null) return;
     final pickedColor = result.color;
     final matchedHex = VaultVisuals.colorChoices.firstWhere(
-      (hex) =>
-          VaultVisuals.colorFor(hex).toARGB32() == pickedColor.toARGB32(),
+      (hex) => VaultVisuals.colorFor(hex).toARGB32() == pickedColor.toARGB32(),
       orElse: () => VaultVisuals.defaultColorHex,
     );
     setState(() {
@@ -204,7 +204,6 @@ class _VaultFormState extends State<VaultForm> {
     );
   }
 }
-
 
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel({required this.text});

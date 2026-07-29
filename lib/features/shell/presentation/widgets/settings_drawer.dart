@@ -56,11 +56,13 @@ class SettingsDrawer extends StatelessWidget {
     final brightness = Theme.of(context).brightness;
     final authState = context.watch<AuthBloc>().state;
     final email = authState is AuthAuthenticated ? authState.email : null;
-    final permissions =
-        authState is AuthAuthenticated ? authState.permissions : 0;
+    final permissions = authState is AuthAuthenticated
+        ? authState.permissions
+        : 0;
     final isPasswordAccount =
         authState is AuthAuthenticated && authState.isPasswordAccount;
-    final isPro = permissions != 0 &&
+    final isPro =
+        permissions != 0 &&
         permissions != _kPermissionsMaxValue &&
         (permissions & _kPremiumPlanBit) != 0;
 
@@ -212,10 +214,7 @@ class _DrawerHeader extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     final initial = _initialFor(email);
-    final displayName = _displayNameFor(
-      email,
-      l10n.settingsDefaultDisplayName,
-    );
+    final displayName = _displayNameFor(email, l10n.settingsDefaultDisplayName);
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
@@ -490,90 +489,94 @@ class _LanguageRow extends StatelessWidget {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 150),
             child: DropdownButton<Locale>(
-            isExpanded: true,
-            value: current,
-            isDense: true,
-            underline: const SizedBox.shrink(),
-            // modalBackground gives near-white in light (#F5F7FA) and
-            // solid navy in dark (#181B22) — better than the beige
-            // cardSurface (#DCDEE2) which read as "wrong white".
-            dropdownColor: AppColors.modalBackground(brightness),
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+              isExpanded: true,
+              value: current,
+              isDense: true,
+              underline: const SizedBox.shrink(),
+              // modalBackground gives near-white in light (#F5F7FA) and
+              // solid navy in dark (#181B22) — better than the beige
+              // cardSurface (#DCDEE2) which read as "wrong white".
+              dropdownColor: AppColors.modalBackground(brightness),
+              style: TextStyle(
+                color: AppColors.onSurface(brightness),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              iconEnabledColor: AppColors.textTertiaryMobile,
+              // Compact flag + code shown in the closed button.
+              selectedItemBuilder: (_) => [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('🇬🇧', style: TextStyle(fontSize: 14)),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      'EN',
+                      style: TextStyle(
+                        color: AppColors.onSurface(brightness),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('🇵🇱', style: TextStyle(fontSize: 14)),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      'PL',
+                      style: TextStyle(
+                        color: AppColors.onSurface(brightness),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              items: [
+                DropdownMenuItem(
+                  value: const Locale('en'),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('🇬🇧', style: TextStyle(fontSize: 16)),
+                      const SizedBox(width: AppSpacing.innerGap),
+                      Text(
+                        'English',
+                        style: TextStyle(
+                          color: AppColors.onSurface(brightness),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                DropdownMenuItem(
+                  value: const Locale('pl'),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('🇵🇱', style: TextStyle(fontSize: 16)),
+                      const SizedBox(width: AppSpacing.innerGap),
+                      Text(
+                        'Polski',
+                        style: TextStyle(
+                          color: AppColors.onSurface(brightness),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              onChanged: (locale) {
+                if (locale != null) {
+                  context.read<LocaleCubit>().setLocale(locale);
+                }
+              },
             ),
-            iconEnabledColor: AppColors.textTertiaryMobile,
-            // Compact flag + code shown in the closed button.
-            selectedItemBuilder: (_) => [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🇬🇧', style: TextStyle(fontSize: 14)),
-                  const SizedBox(width: AppSpacing.xs),
-                  Text(
-                    'EN',
-                    style: TextStyle(
-                      color: AppColors.onSurface(brightness),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🇵🇱', style: TextStyle(fontSize: 14)),
-                  const SizedBox(width: AppSpacing.xs),
-                  Text(
-                    'PL',
-                    style: TextStyle(
-                      color: AppColors.onSurface(brightness),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            items: [
-              DropdownMenuItem(
-                value: const Locale('en'),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('🇬🇧', style: TextStyle(fontSize: 16)),
-                    const SizedBox(width: AppSpacing.innerGap),
-                    Text(
-                      'English',
-                      style: TextStyle(color: AppColors.onSurface(brightness)),
-                    ),
-                  ],
-                ),
-              ),
-              DropdownMenuItem(
-                value: const Locale('pl'),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('🇵🇱', style: TextStyle(fontSize: 16)),
-                    const SizedBox(width: AppSpacing.innerGap),
-                    Text(
-                      'Polski',
-                      style: TextStyle(color: AppColors.onSurface(brightness)),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            onChanged: (locale) {
-              if (locale != null) {
-                context.read<LocaleCubit>().setLocale(locale);
-              }
-            },
-          ),
-          ),  // ConstrainedBox
+          ), // ConstrainedBox
         ],
       ),
     );

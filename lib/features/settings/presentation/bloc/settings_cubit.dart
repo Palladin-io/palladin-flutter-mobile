@@ -34,12 +34,18 @@ class SettingsCubit extends Cubit<SettingsState> {
       AppLogger.w('Settings', 'Org load failed: ${e.kind.name}');
       emit(state.copyWith(orgStatus: SectionStatus.error, orgError: e.kind));
     } catch (e, s) {
-      AppLogger.e('Settings', 'Org load failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        orgStatus: SectionStatus.error,
-        orgError: SettingsErrorKind.unknown,
-      ));
+      AppLogger.e(
+        'Settings',
+        'Org load failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          orgStatus: SectionStatus.error,
+          orgError: SettingsErrorKind.unknown,
+        ),
+      );
     }
   }
 
@@ -49,28 +55,38 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> saveOrgName(String name) async {
     final trimmed = name.trim();
     AppLogger.d('Settings', 'Renaming organization');
-    emit(state.copyWith(
-      isSavingOrg: true,
-      clearOrgSaveError: true,
-      orgSaveSucceeded: false,
-    ));
+    emit(
+      state.copyWith(
+        isSavingOrg: true,
+        clearOrgSaveError: true,
+        orgSaveSucceeded: false,
+      ),
+    );
     try {
       await repository.updateOrgName(trimmed);
-      emit(state.copyWith(
-        isSavingOrg: false,
-        org: state.org?.copyWith(name: trimmed),
-        orgSaveSucceeded: true,
-      ));
+      emit(
+        state.copyWith(
+          isSavingOrg: false,
+          org: state.org?.copyWith(name: trimmed),
+          orgSaveSucceeded: true,
+        ),
+      );
     } on SettingsException catch (e) {
       AppLogger.w('Settings', 'Org rename failed: ${e.kind.name}');
       emit(state.copyWith(isSavingOrg: false, orgSaveError: e.kind));
     } catch (e, s) {
-      AppLogger.e('Settings', 'Org rename failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        isSavingOrg: false,
-        orgSaveError: SettingsErrorKind.unknown,
-      ));
+      AppLogger.e(
+        'Settings',
+        'Org rename failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          isSavingOrg: false,
+          orgSaveError: SettingsErrorKind.unknown,
+        ),
+      );
     }
   }
 

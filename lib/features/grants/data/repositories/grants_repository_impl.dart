@@ -89,14 +89,10 @@ class GrantsRepositoryImpl implements GrantsRepository {
   }
 
   @override
-  Future<void> revokeGrant(
-    String vaultId,
-    String grantId, {
-    String? reason,
-  }) async {
+  Future<void> revokeGrant(String vaultId, String grantId) async {
     try {
       AppLogger.d('Grants', 'DELETE /api/vaults/$vaultId/grants/$grantId');
-      await _dataSource.revokeGrant(vaultId, grantId, reason: reason);
+      await _dataSource.revokeGrant(vaultId, grantId);
     } on DioException catch (e, s) {
       AppLogger.e('Grants', 'revokeGrant failed', error: e, stackTrace: s);
       throw GrantsException(_classifyError(e));

@@ -25,6 +25,7 @@ class AgentStatusBadge extends StatelessWidget {
       AgentStatus.active => l10n.agentsStatusActive,
       AgentStatus.pending => l10n.agentsStatusPending,
       AgentStatus.deactivated => l10n.agentsStatusDeactivated,
+      AgentStatus.deactivating => l10n.agentsDeactivating,
     };
 
     return Container(

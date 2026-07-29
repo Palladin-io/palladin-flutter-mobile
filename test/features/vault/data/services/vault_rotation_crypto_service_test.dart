@@ -55,6 +55,42 @@ void main() {
     );
   });
 
+  test(
+    'rejects incomplete Member Vault key descriptors without null crashes',
+    () async {
+      final service = VaultRotationCryptoService(
+        sodiumLoader: () async =>
+            throw StateError('sodium must not be reached'),
+      );
+      final incomplete = <String, dynamic>{
+        'wrappedVaultKey': {
+          'descriptor': {
+            'protocolVersion': 2,
+            'purpose': 'memberVaultKey',
+            'scope': {
+              'organizationId': '11111111-1111-4111-8111-111111111111',
+              'vaultId': '22222222-2222-4222-8222-222222222222',
+              'memberId': null,
+            },
+            'resourceRevision': '1',
+            'wrappedKeyVersion': 1,
+            'memberKeyGeneration': 1,
+            'recipientKeyKind': 'memberX25519',
+            'recipientKeyVersion': 1,
+            'recipientFingerprint': null,
+            'wrapperSuiteId': 'palladin-x25519-sealed-box-v1',
+          },
+          'encodedSealedKeyPackage': null,
+        },
+      };
+
+      await expectLater(
+        service.openMemberVaultKey(incomplete, Uint8List(32)),
+        throwsA(isA<EnvelopeException>()),
+      );
+    },
+  );
+
   test('opens the canonical pending Member Vault key package', () async {
     final library = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
     final sodium = await _loadSodium(library);

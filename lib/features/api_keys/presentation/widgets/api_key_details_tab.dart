@@ -50,8 +50,9 @@ class ApiKeyDetailsTab extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     final authState = context.watch<AuthBloc>().state;
-    final permissions =
-        authState is AuthAuthenticated ? authState.permissions : 0;
+    final permissions = authState is AuthAuthenticated
+        ? authState.permissions
+        : 0;
     final canWrite = (permissions & Permissions.writeApiKey) != 0;
 
     return ListView(
@@ -193,14 +194,14 @@ class ApiKeyDetailsTab extends StatelessWidget {
                       ),
                     ),
                     style: TextButton.styleFrom(
-                      backgroundColor:
-                          AppColors.positiveAccent.withValues(alpha: 0.12),
+                      backgroundColor: AppColors.positiveAccent.withValues(
+                        alpha: 0.12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    onPressed:
-                        (isActivating || isDeleting) ? null : onActivate,
+                    onPressed: (isActivating || isDeleting) ? null : onActivate,
                   ),
                 ),
               ],
@@ -210,8 +211,9 @@ class ApiKeyDetailsTab extends StatelessWidget {
           // Danger zone — delete permanently.
           _DangerZone(
             label: l10n.vaultDangerZone,
-            actionLabel:
-                isDeleting ? l10n.apiKeysDeleting : l10n.apiKeysDeletePermanently,
+            actionLabel: isDeleting
+                ? l10n.apiKeysDeleting
+                : l10n.apiKeysDeletePermanently,
             icon: isDeleting
                 ? const SizedBox(
                     height: 14,

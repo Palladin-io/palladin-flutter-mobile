@@ -27,11 +27,7 @@ const _entry = EntrySearchResult(
   vaultName: 'Production',
   entryType: 1,
 );
-const _agent = AgentSearchResult(
-  organizationId: 'o1',
-  agentId: 'a1',
-  displayName: 'Stripe Agent',
-);
+const _agent = AgentSearchResult(agentId: 'a1', displayName: 'Stripe Agent');
 
 void main() {
   setUpAll(() {

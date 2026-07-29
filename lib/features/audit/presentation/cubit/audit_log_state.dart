@@ -183,8 +183,12 @@ class AuditLogState {
               (e.vaultId == null || !vaultFilters.contains(e.vaultId))) {
             return false;
           }
-          if (fromDate != null && e.createdAt.isBefore(fromDate!)) return false;
-          if (toDate != null && e.createdAt.isAfter(toDate!)) return false;
+          if (fromDate != null && e.occurredAt.isBefore(fromDate!)) {
+            return false;
+          }
+          if (toDate != null && e.occurredAt.isAfter(toDate!)) {
+            return false;
+          }
           if (q.isEmpty) return true;
           final agentName =
               e.agentName ?? (e.agentId != null ? agentNames[e.agentId] : null);

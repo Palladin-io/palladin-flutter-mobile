@@ -52,11 +52,6 @@ class OnboardingCryptoService {
       accountId: accountId,
       kdfSalt: salt,
     );
-    identityOutputs.authCredential.fillRange(
-      0,
-      identityOutputs.authCredential.length,
-      0,
-    );
     final masterKey = SecureKey.fromList(sodium, identityOutputs.masterKey);
     identityOutputs.masterKey.fillRange(0, identityOutputs.masterKey.length, 0);
     try {
@@ -90,6 +85,7 @@ class OnboardingCryptoService {
 
             return OnboardingSetupResult(
               payload: OnboardingSetupPayload(
+                authCredential: identityOutputs.authCredential,
                 salt: salt,
                 recoverySalt: recoverySalt,
                 publicKey: Uint8List.fromList(keyPair.publicKey),

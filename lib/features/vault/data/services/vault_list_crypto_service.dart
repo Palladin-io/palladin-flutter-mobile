@@ -85,8 +85,7 @@ class VaultListCryptoService {
           'memberVaultMetadata': summary.memberVaultMetadata,
           'memberVaultKey': summary.memberVaultKey,
           'currentKeyEpoch': summary.currentKeyEpoch,
-          if (summary.discoveryKey != null)
-            'discoveryKey': summary.discoveryKey,
+          'discoveryKey': summary.discoveryKey,
         },
         memberPrivateKey: privateKeyCopy,
       );

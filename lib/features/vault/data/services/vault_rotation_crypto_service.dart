@@ -92,30 +92,58 @@ class VaultRotationCryptoService {
       throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
     }
     final scope = Map<String, dynamic>.from(scopeJson);
+    final protocolVersion = descriptor['protocolVersion'];
+    final organizationId = scope['organizationId'];
+    final vaultId = scope['vaultId'];
+    final memberId = scope['memberId'];
+    final resourceRevision = descriptor['resourceRevision'];
+    final wrappedKeyVersion = descriptor['wrappedKeyVersion'];
+    final memberKeyGeneration = descriptor['memberKeyGeneration'];
+    final recipientKeyKind = descriptor['recipientKeyKind'];
+    final recipientKeyVersion = descriptor['recipientKeyVersion'];
+    final recipientFingerprint = descriptor['recipientFingerprint'];
+    final encodedSealedKeyPackage = wrapped['encodedSealedKeyPackage'];
+    if (protocolVersion is! int ||
+        organizationId is! String ||
+        vaultId is! String ||
+        memberId is! String ||
+        resourceRevision is! String ||
+        wrappedKeyVersion is! int ||
+        memberKeyGeneration is! int ||
+        recipientKeyVersion is! int ||
+        recipientFingerprint is! String ||
+        encodedSealedKeyPackage is! String) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
+
+    final parsedRecipientKeyKind = VaultPublicKeyKind.parseWire(
+      recipientKeyKind,
+    );
+    if (parsedRecipientKeyKind != VaultPublicKeyKind.memberX25519) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
     final fingerprint = VaultProtocolBytes.base64UrlDecode(
-      descriptor['recipientFingerprint'] as String,
+      recipientFingerprint,
       maximumBytes: 32,
     );
     final sealedPackage = VaultProtocolBytes.base64UrlDecode(
-      wrapped['encodedSealedKeyPackage'] as String,
+      encodedSealedKeyPackage,
       maximumBytes: 4096,
     );
     try {
       final context = WrapperContext(
-        protocolVersion: descriptor['protocolVersion'] as int,
+        protocolVersion: protocolVersion,
         purpose: purpose,
         scope: EnvelopeScope(
-          organizationId: EnvelopeId.parse(scope['organizationId'] as String),
-          vaultId: EnvelopeId.parse(scope['vaultId'] as String),
-          memberId: EnvelopeId.parse(scope['memberId'] as String),
+          organizationId: EnvelopeId.parse(organizationId),
+          vaultId: EnvelopeId.parse(vaultId),
+          memberId: EnvelopeId.parse(memberId),
         ),
-        resourceRevision: int.parse(descriptor['resourceRevision'] as String),
-        wrappedKeyVersion: descriptor['wrappedKeyVersion'] as int,
-        memberKeyGeneration: descriptor['memberKeyGeneration'] as int,
-        recipientKeyKind: VaultPublicKeyKind.parseWire(
-          descriptor['recipientKeyKind'],
-        ).id,
-        recipientKeyVersion: descriptor['recipientKeyVersion'] as int,
+        resourceRevision: int.parse(resourceRevision),
+        wrappedKeyVersion: wrappedKeyVersion,
+        memberKeyGeneration: memberKeyGeneration,
+        recipientKeyKind: parsedRecipientKeyKind.id,
+        recipientKeyVersion: recipientKeyVersion,
         recipientFingerprint: fingerprint,
       );
       return await X25519SealedBoxKeyWrapper(sodiumLoader: _sodiumLoader).open(

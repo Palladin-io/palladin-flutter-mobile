@@ -43,10 +43,7 @@ class EntryTypeDropdown extends StatelessWidget {
           value: EntryType.credential,
           child: Text(l10n.entryTypeCredential),
         ),
-        DropdownMenuItem(
-          value: EntryType.key,
-          child: Text(l10n.entryTypeKey),
-        ),
+        DropdownMenuItem(value: EntryType.key, child: Text(l10n.entryTypeKey)),
         DropdownMenuItem(
           value: EntryType.script,
           child: Text(l10n.entryTypeScript),
@@ -76,18 +73,9 @@ class EntryInterpreterDropdown extends StatelessWidget {
       value: value,
       onChanged: onChanged,
       items: const [
-        DropdownMenuItem(
-          value: ScriptInterpreter.bash,
-          child: Text('bash'),
-        ),
-        DropdownMenuItem(
-          value: ScriptInterpreter.sh,
-          child: Text('sh'),
-        ),
-        DropdownMenuItem(
-          value: ScriptInterpreter.node,
-          child: Text('node'),
-        ),
+        DropdownMenuItem(value: ScriptInterpreter.bash, child: Text('bash')),
+        DropdownMenuItem(value: ScriptInterpreter.sh, child: Text('sh')),
+        DropdownMenuItem(value: ScriptInterpreter.node, child: Text('node')),
         DropdownMenuItem(
           value: ScriptInterpreter.python,
           child: Text('python'),
@@ -167,17 +155,11 @@ class EntryEncryptionNotice extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.brandRed.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.brandRed.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: AppColors.brandRed.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.lock_outline,
-            size: 16,
-            color: AppColors.brandRed,
-          ),
+          const Icon(Icons.lock_outline, size: 16, color: AppColors.brandRed),
           const SizedBox(width: AppSpacing.innerGap),
           Expanded(
             child: Text(
@@ -221,7 +203,8 @@ class EntryFieldCaption extends StatelessWidget {
         children: agentVisibleHint
             ? [
                 TextSpan(
-                  text: '  ·  ${AppLocalizations.of(context)!.entryVisibleToAgents}',
+                  text:
+                      '  ·  ${AppLocalizations.of(context)!.entryVisibleToAgents}',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w400,
@@ -271,12 +254,12 @@ class EntrySectionHeader extends StatelessWidget {
 
 /// Leading glyph for a custom field row, keyed to its type (mockup `ficon`).
 IconData customFieldTypeIcon(CustomFieldType type) => switch (type) {
-      CustomFieldType.text => Icons.short_text,
-      CustomFieldType.multiline => Icons.notes,
-      CustomFieldType.concealed => Icons.more_horiz,
-      CustomFieldType.totp => Icons.shield_outlined,
-      CustomFieldType.unknown => Icons.help_outline,
-    };
+  CustomFieldType.text => Icons.short_text,
+  CustomFieldType.multiline => Icons.notes,
+  CustomFieldType.concealed => Icons.more_horiz,
+  CustomFieldType.totp => Icons.shield_outlined,
+  CustomFieldType.unknown => Icons.help_outline,
+};
 
 /// Thin wrapper around [PrimaryButton] that swaps the label for the
 /// "saving…" copy while [isLoading] is true. Used as the Save action on

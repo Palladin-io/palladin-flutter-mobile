@@ -176,21 +176,24 @@ void main() {
   });
 
   group('server-denormalized name fields', () {
-    test('agentName / actorName are ignored at the wire boundary', () {
+    test('agentName / actorName are preserved at the wire boundary', () {
       final entity = AuditLogModel.fromJson(<String, dynamic>{
         'id': 'log-9',
         'eventType': 'apikey.created',
         'actorType': 'User',
+        'result': 'Succeeded',
         'actorName': 'Patryk',
         'agentId': 'a-2',
         'agentName': 'claude-code-01',
         'vaultId': 'v-9',
+        'metadata': <String, String>{},
+        'occurredAt': '2026-06-10T08:59:59Z',
         'createdAt': '2026-06-10T09:00:00Z',
       }).toEntity();
 
       expect(entity.eventType, AuditEventType.apikeyCreated);
-      expect(entity.actorName, isNull);
-      expect(entity.agentName, isNull);
+      expect(entity.actorName, 'Patryk');
+      expect(entity.agentName, 'claude-code-01');
       expect(entity.localPresentationOnly, isTrue);
     });
   });

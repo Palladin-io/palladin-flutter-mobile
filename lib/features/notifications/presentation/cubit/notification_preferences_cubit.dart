@@ -133,11 +133,7 @@ class NotificationPreferencesCubit extends Cubit<NotificationPreferencesState> {
       );
     } catch (_) {
       AppLogger.w('Notifications', 'Preference update failed');
-      emit(
-        previous.copyWith(
-          error: NotificationCenterErrorKind.unknown,
-        ),
-      );
+      emit(previous.copyWith(error: NotificationCenterErrorKind.unknown));
     }
   }
 
@@ -154,8 +150,6 @@ class NotificationPreferencesCubit extends Cubit<NotificationPreferencesState> {
   ) {
     if (effective.isEmpty) return existing;
     final byType = {for (final pref in effective) pref.type: pref};
-    return [
-      for (final item in existing) byType[item.type] ?? item,
-    ];
+    return [for (final item in existing) byType[item.type] ?? item];
   }
 }

@@ -130,40 +130,40 @@ class _AppShellState extends State<AppShell> {
           gradient: AppColors.backgroundGradient(brightness),
         ),
         child: Scaffold(
-        key: _scaffoldKey,
-        backgroundColor: Colors.transparent,
-        endDrawer: const SettingsDrawer(),
-        body: widget.child,
-        // FAB is owned by the shell so it persists across page
-        // transitions instead of animating with the child route. Pages
-        // register their FAB via [AppShellScope.setFab] (typically by
-        // dropping a `FabRegistrar` into the page body).
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-        floatingActionButton: _isBottomNavHidden ? null : _fab,
-        // Keep the nav always mounted and slide it off-screen vertically
-        // when hidden — `AnimatedSlide` translates the widget without
-        // removing it from the tree, so the slide-out matches the
-        // bottom sheet's dismissal animation. Scaffold still reserves
-        // the nav's space in its layout, which is fine because a sheet
-        // covers the body while it's open anyway.
-        bottomNavigationBar: AnimatedSlide(
-          offset: _isBottomNavHidden ? const Offset(0, 1) : Offset.zero,
-          duration: const Duration(milliseconds: 280),
-          curve: _isBottomNavHidden ? Curves.easeIn : Curves.easeOut,
-          child: BlocBuilder<AgentsCubit, AgentsState>(
-            bloc: getIt<AgentsCubit>(),
-            builder: (context, agentsState) =>
-                BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
-              bloc: getIt<NotificationCenterCubit>(),
-              builder: (context, notificationState) => AppBottomNav(
-                currentIndex: currentIndex,
-                onTap: (i) => _onTap(context, i),
-                agentsBadgeCount: agentsState.pendingCount,
-                inboxBadgeCount: notificationState.unreadCount,
-              ),
+          key: _scaffoldKey,
+          backgroundColor: Colors.transparent,
+          endDrawer: const SettingsDrawer(),
+          body: widget.child,
+          // FAB is owned by the shell so it persists across page
+          // transitions instead of animating with the child route. Pages
+          // register their FAB via [AppShellScope.setFab] (typically by
+          // dropping a `FabRegistrar` into the page body).
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+          floatingActionButton: _isBottomNavHidden ? null : _fab,
+          // Keep the nav always mounted and slide it off-screen vertically
+          // when hidden — `AnimatedSlide` translates the widget without
+          // removing it from the tree, so the slide-out matches the
+          // bottom sheet's dismissal animation. Scaffold still reserves
+          // the nav's space in its layout, which is fine because a sheet
+          // covers the body while it's open anyway.
+          bottomNavigationBar: AnimatedSlide(
+            offset: _isBottomNavHidden ? const Offset(0, 1) : Offset.zero,
+            duration: const Duration(milliseconds: 280),
+            curve: _isBottomNavHidden ? Curves.easeIn : Curves.easeOut,
+            child: BlocBuilder<AgentsCubit, AgentsState>(
+              bloc: getIt<AgentsCubit>(),
+              builder: (context, agentsState) =>
+                  BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
+                    bloc: getIt<NotificationCenterCubit>(),
+                    builder: (context, notificationState) => AppBottomNav(
+                      currentIndex: currentIndex,
+                      onTap: (i) => _onTap(context, i),
+                      agentsBadgeCount: agentsState.pendingCount,
+                      inboxBadgeCount: notificationState.unreadCount,
+                    ),
+                  ),
             ),
           ),
-        ),
         ),
       ),
     );
@@ -257,9 +257,11 @@ class AppShellScope extends InheritedWidget {
   /// mounted above [context] — call sites should be reachable only
   /// from within the [AppShell] subtree.
   static AppShellScope of(BuildContext context) {
-    final scope =
-        context.dependOnInheritedWidgetOfExactType<AppShellScope>();
-    assert(scope != null, 'AppShellScope.of called without an AppShell ancestor');
+    final scope = context.dependOnInheritedWidgetOfExactType<AppShellScope>();
+    assert(
+      scope != null,
+      'AppShellScope.of called without an AppShell ancestor',
+    );
     return scope!;
   }
 

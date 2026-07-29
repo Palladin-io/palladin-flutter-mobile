@@ -17,10 +17,7 @@ import '../pages/totp_scanner_page.dart';
 class TotpSetupSheet {
   const TotpSetupSheet._();
 
-  static Future<TotpConfig?> show(
-    BuildContext context, {
-    TotpConfig? initial,
-  }) {
+  static Future<TotpConfig?> show(BuildContext context, {TotpConfig? initial}) {
     return showModalBottomSheet<TotpConfig>(
       context: context,
       isScrollControlled: true,
@@ -49,10 +46,12 @@ class _TotpSetupBodyState extends State<_TotpSetupBody> {
   void initState() {
     super.initState();
     _keyController = TextEditingController(text: widget.initial?.secret ?? '');
-    _issuerController =
-        TextEditingController(text: widget.initial?.issuer ?? '');
-    _accountController =
-        TextEditingController(text: widget.initial?.account ?? '');
+    _issuerController = TextEditingController(
+      text: widget.initial?.issuer ?? '',
+    );
+    _accountController = TextEditingController(
+      text: widget.initial?.account ?? '',
+    );
   }
 
   @override

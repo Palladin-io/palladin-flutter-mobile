@@ -18,17 +18,10 @@ sealed class SearchResultEntity {
 }
 
 final class AgentSearchResult extends SearchResultEntity {
-  const AgentSearchResult({
-    required this.organizationId,
-    required this.agentId,
-    required this.displayName,
-    this.iconReference,
-  });
+  const AgentSearchResult({required this.agentId, required this.displayName});
 
-  final String organizationId;
   final String agentId;
   final String displayName;
-  final String? iconReference;
 
   @override
   SearchResultType get type => SearchResultType.agent;
@@ -37,23 +30,16 @@ final class AgentSearchResult extends SearchResultEntity {
   @override
   String get name => displayName;
   @override
-  String? get icon => iconReference;
+  String? get icon => null;
   @override
-  String get deduplicationKey => 'agent:$organizationId:$agentId';
+  String get deduplicationKey => 'agent:$agentId';
 }
 
 final class MemberSearchResult extends SearchResultEntity {
-  const MemberSearchResult({
-    required this.organizationId,
-    required this.memberId,
-    required this.displayName,
-    this.iconReference,
-  });
+  const MemberSearchResult({required this.memberId, required this.displayName});
 
-  final String organizationId;
   final String memberId;
   final String displayName;
-  final String? iconReference;
 
   @override
   SearchResultType get type => SearchResultType.member;
@@ -62,9 +48,9 @@ final class MemberSearchResult extends SearchResultEntity {
   @override
   String get name => displayName;
   @override
-  String? get icon => iconReference;
+  String? get icon => null;
   @override
-  String get deduplicationKey => 'member:$organizationId:$memberId';
+  String get deduplicationKey => 'member:$memberId';
 }
 
 final class VaultSearchResult extends SearchResultEntity {

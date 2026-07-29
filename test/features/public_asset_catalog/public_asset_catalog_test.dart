@@ -31,6 +31,18 @@ void main() {
     },
   );
 
+  test('datasource rejects noncanonical response wrappers', () async {
+    final dio = Dio()..httpClientAdapter = _StaticAdapter('{"results":[]}');
+    final remote = PublicAssetRemoteDatasource(dio);
+
+    expect(() => remote.search('stripe'), throwsA(isA<FormatException>()));
+  });
+
+  test('datasource rejects search queries above the backend limit', () async {
+    final remote = PublicAssetRemoteDatasource(Dio());
+    expect(() => remote.search('x' * 201), throwsA(isA<FormatException>()));
+  });
+
   test('normalizes and deduplicates only public DNS hostnames', () {
     expect(
       PublicHostname.normalize('HTTPS://WWW.Example.COM/path'),
@@ -74,7 +86,7 @@ void main() {
   });
 
   test(
-    'repository accepts server delivery URL without constructing it',
+    'repository sends the canonical API type and parses the server contract',
     () async {
       final dio = Dio()..httpClientAdapter = _FakeAdapter();
       final repository = PublicAssetRepositoryImpl(
@@ -85,6 +97,18 @@ void main() {
         result['example.com']?.deliveryUrl.toString(),
         'http://bucket.test/icon.webp',
       );
+      expect((dio.httpClientAdapter as _FakeAdapter).requestData, {
+        'type': 'websiteIcon',
+        'hostnames': ['example.com'],
+        'acquireMissing': true,
+      });
+
+      await repository.resolveWebsiteIcons(['example.com']);
+      expect((dio.httpClientAdapter as _FakeAdapter).requestData, {
+        'type': 'websiteIcon',
+        'hostnames': ['example.com'],
+        'acquireMissing': false,
+      });
     },
   );
 }
@@ -125,25 +149,55 @@ class _RecordingRemoteDatasource extends PublicAssetRemoteDatasource {
   final List<List<String>> calls = [];
 
   @override
-  Future<List<Map<String, dynamic>>> resolve(List<String> hostnames) async {
+  Future<List<Map<String, dynamic>>> resolve(
+    List<String> hostnames, {
+    required bool acquireMissing,
+  }) async {
     calls.add(List.of(hostnames));
     return const [];
   }
 }
 
 class _FakeAdapter implements HttpClientAdapter {
+  Object? requestData;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requestData = options.data;
+    return ResponseBody.fromString(
+      '{"items":[{"hostname":"example.com","asset":{"id":"asset-id","type":"websiteIcon","name":"Example","revision":2,"url":"http://bucket.test/icon.webp"}}]}',
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+class _StaticAdapter implements HttpClientAdapter {
+  _StaticAdapter(this.body);
+  final String body;
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
     Stream<List<int>>? requestStream,
     Future<void>? cancelFuture,
   ) async => ResponseBody.fromString(
-    '{"items":[{"hostname":"example.com","id":"asset-id","name":"Example","revision":2,"deliveryUrl":"http://bucket.test/icon.webp"}]}',
+    body,
     200,
     headers: {
       Headers.contentTypeHeader: [Headers.jsonContentType],
     },
   );
+
   @override
   void close({bool force = false}) {}
 }

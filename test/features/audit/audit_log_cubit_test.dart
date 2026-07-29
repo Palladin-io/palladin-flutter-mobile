@@ -10,14 +10,19 @@ import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart
 import 'package:mobile_palladin/features/vault/domain/entities/vault_member.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/vault_members_repository.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
-import 'package:mobile_palladin/features/vault/domain/repositories/vault_repository.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
+import 'package:mobile_palladin/features/vault/presentation/cubit/vault_list_cubit.dart';
 
 class _MockAuditRepository extends Mock implements AuditRepository {}
 
 class _MockAgentsRepository extends Mock implements AgentsRepository {}
 
-class _MockVaultRepository extends Mock implements VaultRepository {}
+class _MockVaultListCubit extends Mock implements VaultListCubit {
+  VaultListState current = const VaultListLoaded([]);
+
+  @override
+  VaultListState get state => current;
+}
 
 class _MockMemberIndex extends Mock implements MemberIndexReader {}
 
@@ -62,26 +67,25 @@ VaultEntity _vault(String id, String name) {
 void main() {
   late AuditRepository audit;
   late AgentsRepository agents;
-  late VaultRepository vaults;
+  late _MockVaultListCubit vaults;
   late MemberIndexReader memberIndex;
   late VaultMembersRepository vaultMembers;
 
   setUp(() {
     audit = _MockAuditRepository();
     agents = _MockAgentsRepository();
-    vaults = _MockVaultRepository();
+    vaults = _MockVaultListCubit();
     memberIndex = _MockMemberIndex();
     vaultMembers = _MockVaultMembersRepository();
     when(() => memberIndex.waitForCurrent(any())).thenAnswer((_) async {});
     when(() => memberIndex.entries(any())).thenReturn(const []);
-    when(() => vaults.listVaults()).thenAnswer((_) async => const []);
     when(() => vaultMembers.list(any())).thenAnswer((_) async => const []);
   });
 
   AuditLogCubit vaultCubit() => AuditLogCubit(
     auditRepository: audit,
     agentsRepository: agents,
-    vaultRepository: vaults,
+    vaultListCubit: vaults,
     vaultMembersRepository: vaultMembers,
     memberSync: memberIndex,
     scope: AuditLogScope.vault,
@@ -92,7 +96,7 @@ void main() {
   AuditLogCubit orgCubit() => AuditLogCubit(
     auditRepository: audit,
     agentsRepository: agents,
-    vaultRepository: vaults,
+    vaultListCubit: vaults,
     vaultMembersRepository: vaultMembers,
     memberSync: memberIndex,
     scope: AuditLogScope.org,
@@ -139,9 +143,7 @@ void main() {
       'load() resolves Vault and Entry names only from local state',
       () async {
         when(() => agents.listAgents()).thenAnswer((_) async => []);
-        when(
-          () => vaults.listVaults(),
-        ).thenAnswer((_) async => [_vault('v-1', 'Production')]);
+        vaults.current = VaultListLoaded([_vault('v-1', 'Production')]);
         when(() => memberIndex.entries('v-1')).thenReturn(const [
           MemberIndexEntry(
             entryId: 'e-1',
@@ -199,9 +201,7 @@ void main() {
       'refreshes unresolved Entry names when MemberIndex sync starts just after load',
       () async {
         when(() => agents.listAgents()).thenAnswer((_) async => []);
-        when(
-          () => vaults.listVaults(),
-        ).thenAnswer((_) async => [_vault('v-1', 'Production')]);
+        vaults.current = VaultListLoaded([_vault('v-1', 'Production')]);
         var indexReady = false;
         var waitCalls = 0;
         when(() => memberIndex.waitForCurrent('v-1')).thenAnswer((_) async {
@@ -254,7 +254,7 @@ void main() {
         final cubit = AuditLogCubit(
           auditRepository: audit,
           agentsRepository: agents,
-          vaultRepository: vaults,
+          vaultListCubit: vaults,
           vaultMembersRepository: vaultMembers,
           memberSync: memberIndex,
           scope: AuditLogScope.vault,
@@ -274,15 +274,13 @@ void main() {
 
   group('org scope', () {
     test(
-      'uses scoped local names and ignores hostile server metadata',
+      'prefers scoped local names and preserves canonical metadata',
       () async {
         const vaultId = '11111111-1111-1111-1111-111111111111';
         when(
           () => agents.listAgents(),
         ).thenAnswer((_) async => [_agent('a-1', 'Local Agent')]);
-        when(
-          () => vaults.listVaults(),
-        ).thenAnswer((_) async => [_vault(vaultId, 'Local Vault')]);
+        vaults.current = VaultListLoaded([_vault(vaultId, 'Local Vault')]);
         when(() => memberIndex.entries(vaultId)).thenReturn(const [
           MemberIndexEntry(
             entryId: 'e-1',
@@ -332,7 +330,7 @@ void main() {
                 entryId: 'e-1',
                 entryLabel: 'Hostile Entry',
                 agentReason: 'plaintext',
-                metadata: const {'name': 'plaintext'},
+                metadata: const {'grantId': 'g-1'},
               ),
             ],
           ),
@@ -346,7 +344,7 @@ void main() {
         expect(row.entryLabel, 'Local Entry');
         expect(row.resolvedVaultName, 'Local Vault');
         expect(row.agentReason, isNull);
-        expect(row.metadata, isEmpty);
+        expect(row.metadata, {'grantId': 'g-1'});
         await cubit.close();
       },
     );
@@ -354,7 +352,7 @@ void main() {
     test('does not resolve or query a vault outside the local scope', () async {
       const foreignVault = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
       when(() => agents.listAgents()).thenAnswer((_) async => []);
-      when(() => vaults.listVaults()).thenAnswer((_) async => []);
+      vaults.current = const VaultListLoaded([]);
       when(
         () => audit.listOrgLogs(
           actions: any(named: 'actions'),
@@ -382,9 +380,7 @@ void main() {
 
     test('load() calls the org endpoint and resolves vault names', () async {
       when(() => agents.listAgents()).thenAnswer((_) async => []);
-      when(
-        () => vaults.listVaults(),
-      ).thenAnswer((_) async => [_vault('v-1', 'Production')]);
+      vaults.current = VaultListLoaded([_vault('v-1', 'Production')]);
       when(
         () => audit.listOrgLogs(
           actions: any(named: 'actions'),
@@ -415,7 +411,7 @@ void main() {
 
     test('loadMore appends the next page and updates the cursor', () async {
       when(() => agents.listAgents()).thenAnswer((_) async => []);
-      when(() => vaults.listVaults()).thenAnswer((_) async => []);
+      vaults.current = const VaultListLoaded([]);
       var call = 0;
       when(
         () => audit.listOrgLogs(
@@ -449,7 +445,7 @@ void main() {
       'loadMore stops on a repeated cursor and respects the bound',
       () async {
         when(() => agents.listAgents()).thenAnswer((_) async => []);
-        when(() => vaults.listVaults()).thenAnswer((_) async => []);
+        vaults.current = const VaultListLoaded([]);
         var call = 0;
         when(
           () => audit.listOrgLogs(
@@ -475,7 +471,7 @@ void main() {
         final cubit = AuditLogCubit(
           auditRepository: audit,
           agentsRepository: agents,
-          vaultRepository: vaults,
+          vaultListCubit: vaults,
           vaultMembersRepository: vaultMembers,
           memberSync: memberIndex,
           scope: AuditLogScope.org,
@@ -521,7 +517,7 @@ void main() {
   group('client-side controls', () {
     test('applyFilter / search update state without refetch', () async {
       when(() => agents.listAgents()).thenAnswer((_) async => []);
-      when(() => vaults.listVaults()).thenAnswer((_) async => []);
+      vaults.current = const VaultListLoaded([]);
       when(
         () => audit.listOrgLogs(
           actions: any(named: 'actions'),

@@ -8,6 +8,7 @@ class PublicAssetRepositoryImpl implements PublicAssetRepository {
   PublicAssetRepositoryImpl(this._remote);
   final PublicAssetRemoteDatasource _remote;
   final Map<String, PublicAsset> _assets = {};
+  final Set<String> _acquisitionRequested = {};
 
   @override
   Future<List<PublicAsset>> searchWebsiteIcons(String query) async {
@@ -25,7 +26,12 @@ class PublicAssetRepositoryImpl implements PublicAssetRepository {
     final result = <String, PublicAsset>{};
     for (var offset = 0; offset < normalized.length; offset += 500) {
       final end = (offset + 500).clamp(0, normalized.length);
-      final rows = await _remote.resolve(normalized.sublist(offset, end));
+      final page = normalized.sublist(offset, end);
+      final acquireMissing = page.any(
+        (hostname) => !_acquisitionRequested.contains(hostname),
+      );
+      final rows = await _remote.resolve(page, acquireMissing: acquireMissing);
+      _acquisitionRequested.addAll(page);
       for (final row in rows) {
         final hostname = PublicHostname.normalize(row['hostname'] as String?);
         final assetValue = row['asset'];
@@ -54,13 +60,14 @@ class PublicAssetRepositoryImpl implements PublicAssetRepository {
 
   PublicAsset? _parse(Map<String, dynamic> row) {
     final id = row['id'] as String? ?? row['assetId'] as String?;
-    final type = row['type'] as String? ?? 'website-icon';
+    final type = row['type'] as String?;
     final name = row['name'] as String? ?? row['displayName'] as String?;
     final revision = row['revision'];
     final urlValue = row['deliveryUrl'] as String? ?? row['url'] as String?;
     final url = Uri.tryParse(urlValue ?? '');
     if (id == null ||
         id.isEmpty ||
+        (type != 'websiteIcon' && type != 'agentIcon') ||
         name == null ||
         name.isEmpty ||
         revision is! num ||
@@ -68,9 +75,10 @@ class PublicAssetRepositoryImpl implements PublicAssetRepository {
         (url.scheme != 'https' && url.scheme != 'http')) {
       return null;
     }
+    final canonicalType = type!;
     final asset = PublicAsset(
       id: id,
-      type: type,
+      type: canonicalType,
       name: name,
       revision: revision.toInt(),
       deliveryUrl: url,

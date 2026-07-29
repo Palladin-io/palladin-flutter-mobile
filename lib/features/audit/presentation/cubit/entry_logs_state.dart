@@ -96,9 +96,15 @@ class EntryLogsState {
               !eventTypeFilter.contains(e.eventType)) {
             return false;
           }
-          if (agentFilter != null && e.agentId != agentFilter) return false;
-          if (fromDate != null && e.createdAt.isBefore(fromDate!)) return false;
-          if (toDate != null && e.createdAt.isAfter(toDate!)) return false;
+          if (agentFilter != null && e.agentId != agentFilter) {
+            return false;
+          }
+          if (fromDate != null && e.occurredAt.isBefore(fromDate!)) {
+            return false;
+          }
+          if (toDate != null && e.occurredAt.isAfter(toDate!)) {
+            return false;
+          }
           if (q.isEmpty) return true;
           final agentName = e.agentId != null ? agentNames[e.agentId] : null;
           return [

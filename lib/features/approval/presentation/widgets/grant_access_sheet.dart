@@ -13,7 +13,7 @@ import '../../../agents/domain/entities/agent.dart';
 import '../../../agents/domain/repositories/agents_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../grants/domain/entities/grant_method.dart';
-import '../../../vault/domain/repositories/vault_repository.dart';
+import '../../../vault/presentation/cubit/vault_list_cubit.dart';
 import '../cubit/grant_access_cubit.dart';
 import 'approval_format.dart';
 import 'grant_limit_selector.dart';
@@ -111,7 +111,11 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
             .map((a) => (id: a.agentId, label: _agentLabel(a)))
             .toList(growable: false);
       } else {
-        final vaults = await getIt<VaultRepository>().listVaults();
+        final state = getIt<VaultListCubit>().state;
+        final vaults = switch (state) {
+          VaultListLoaded(:final vaults) => vaults,
+          _ => throw StateError('Unlocked Vault projections are unavailable'),
+        };
         options = vaults
             .map((v) => (id: v.id, label: v.name))
             .toList(growable: false);

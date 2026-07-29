@@ -43,12 +43,18 @@ class AgentsCubit extends Cubit<AgentsState> {
       AppLogger.w('Agents', 'Agent load failed: ${e.kind.name}');
       emit(state.copyWith(status: AgentsStatus.error, error: e.kind));
     } catch (e, s) {
-      AppLogger.e('Agents', 'Agent load failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        status: AgentsStatus.error,
-        error: AgentsErrorKind.unknown,
-      ));
+      AppLogger.e(
+        'Agents',
+        'Agent load failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          status: AgentsStatus.error,
+          error: AgentsErrorKind.unknown,
+        ),
+      );
     }
   }
 
@@ -65,11 +71,13 @@ class AgentsCubit extends Cubit<AgentsState> {
     AppLogger.d('Agents', 'Refreshing agents (quiet)');
     try {
       final agents = await repository.listAgents();
-      emit(state.copyWith(
-        status: AgentsStatus.loaded,
-        agents: agents,
-        clearError: true,
-      ));
+      emit(
+        state.copyWith(
+          status: AgentsStatus.loaded,
+          agents: agents,
+          clearError: true,
+        ),
+      );
     } catch (e) {
       AppLogger.w('Agents', 'Quiet refresh failed (keeping current list): $e');
     }
@@ -85,17 +93,17 @@ class AgentsCubit extends Cubit<AgentsState> {
     String? name,
     String? type,
     String? iconKey,
+    String? iconColor,
   }) {
     final trimmedName = name?.trim();
     return _runMutation(
       agentId,
       () => repository.approveAgent(
         agentId,
-        name: (trimmedName == null || trimmedName.isEmpty)
-            ? null
-            : trimmedName,
+        name: (trimmedName == null || trimmedName.isEmpty) ? null : trimmedName,
         type: type,
         iconKey: iconKey,
+        iconColor: iconColor,
       ),
     );
   }
@@ -123,6 +131,7 @@ class AgentsCubit extends Cubit<AgentsState> {
     String agentId, {
     String? name,
     String? description,
+    String? type,
     String? iconKey,
     String? iconKeyDisplay,
     String? iconColor,
@@ -134,6 +143,7 @@ class AgentsCubit extends Cubit<AgentsState> {
         agentId,
         name: name?.trim(),
         description: description?.trim(),
+        type: type,
         iconKey: iconKey,
         iconColor: iconColor,
       );
@@ -145,7 +155,8 @@ class AgentsCubit extends Cubit<AgentsState> {
       _evictIconCache(iconKeyDisplay);
       final fresh = await repository.getAgent(agentId);
       final effectiveIconKey = iconKeyDisplay ?? iconKey ?? fresh.iconKey;
-      final needsOverride = iconColor != null ||
+      final needsOverride =
+          iconColor != null ||
           (effectiveIconKey != null && effectiveIconKey != fresh.iconKey);
       final withColor = needsOverride
           ? Agent(
@@ -169,24 +180,29 @@ class AgentsCubit extends Cubit<AgentsState> {
       final updated = state.agents
           .map((a) => a.agentId == agentId ? withColor : a)
           .toList(growable: false);
-      emit(state.copyWith(
-        status: AgentsStatus.loaded,
-        agents: updated,
-        clearMutatingAgentId: true,
-      ));
+      emit(
+        state.copyWith(
+          status: AgentsStatus.loaded,
+          agents: updated,
+          clearMutatingAgentId: true,
+        ),
+      );
     } on AgentsException catch (e) {
       AppLogger.w('Agents', 'updateAgent failed: ${e.kind.name}');
-      emit(state.copyWith(
-        mutationError: e.kind,
-        clearMutatingAgentId: true,
-      ));
+      emit(state.copyWith(mutationError: e.kind, clearMutatingAgentId: true));
     } catch (e, s) {
-      AppLogger.e('Agents', 'updateAgent failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        mutationError: AgentsErrorKind.unknown,
-        clearMutatingAgentId: true,
-      ));
+      AppLogger.e(
+        'Agents',
+        'updateAgent failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          mutationError: AgentsErrorKind.unknown,
+          clearMutatingAgentId: true,
+        ),
+      );
     }
   }
 
@@ -200,31 +216,33 @@ class AgentsCubit extends Cubit<AgentsState> {
     String agentId,
     Future<void> Function() action,
   ) async {
-    emit(state.copyWith(
-      mutatingAgentId: agentId,
-      clearMutationError: true,
-    ));
+    emit(state.copyWith(mutatingAgentId: agentId, clearMutationError: true));
     try {
       await action();
       final agents = await repository.listAgents();
-      emit(state.copyWith(
-        status: AgentsStatus.loaded,
-        agents: agents,
-        clearMutatingAgentId: true,
-      ));
+      emit(
+        state.copyWith(
+          status: AgentsStatus.loaded,
+          agents: agents,
+          clearMutatingAgentId: true,
+        ),
+      );
     } on AgentsException catch (e) {
       AppLogger.w('Agents', 'Agent mutation failed: ${e.kind.name}');
-      emit(state.copyWith(
-        mutationError: e.kind,
-        clearMutatingAgentId: true,
-      ));
+      emit(state.copyWith(mutationError: e.kind, clearMutatingAgentId: true));
     } catch (e, s) {
-      AppLogger.e('Agents', 'Agent mutation failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        mutationError: AgentsErrorKind.unknown,
-        clearMutatingAgentId: true,
-      ));
+      AppLogger.e(
+        'Agents',
+        'Agent mutation failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          mutationError: AgentsErrorKind.unknown,
+          clearMutatingAgentId: true,
+        ),
+      );
     }
   }
 

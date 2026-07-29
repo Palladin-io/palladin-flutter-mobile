@@ -1,7 +1,7 @@
 /// Closed protocol-v2 public-key kinds from the Vault backend contract.
 enum VaultPublicKeyKind {
-  agentMessageX25519(4),
-  manifestSigningEd25519(3);
+  agentMessageX25519(1),
+  manifestSigningEd25519(2);
 
   const VaultPublicKeyKind(this.wireValue);
   final int wireValue;

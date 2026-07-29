@@ -24,9 +24,14 @@ class ImportJsonParser {
         continue;
       }
       final uris = _list(login['uris']);
-      final firstUri = uris.isNotEmpty ? (_map(uris.first)?['uri'] as String?) : null;
+      final firstUri = uris.isNotEmpty
+          ? (_map(uris.first)?['uri'] as String?)
+          : null;
       final extraUris = uris.length > 1
-          ? uris.skip(1).map((u) => _map(u)?['uri'] as String?).whereType<String>()
+          ? uris
+                .skip(1)
+                .map((u) => _map(u)?['uri'] as String?)
+                .whereType<String>()
           : const <String>[];
       final folderId = item['folderId'] as String?;
       final entry = ImportNormalizer.build(
@@ -104,7 +109,8 @@ class ImportJsonParser {
           continue;
         }
         // Login username may live under itemUsername, username, or email.
-        final username = (content['itemUsername'] as String?) ??
+        final username =
+            (content['itemUsername'] as String?) ??
             (content['username'] as String?) ??
             (content['itemEmail'] as String?) ??
             (content['email'] as String?);
@@ -159,7 +165,8 @@ class ImportJsonParser {
             continue;
           }
           final urls = _list(overview['urls']);
-          final url = overview['url'] as String? ??
+          final url =
+              overview['url'] as String? ??
               (urls.isNotEmpty ? (_map(urls.first)?['url'] as String?) : null);
           final entry = ImportNormalizer.build(
             name: overview['title'] as String?,

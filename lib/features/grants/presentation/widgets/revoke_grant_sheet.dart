@@ -4,22 +4,17 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
-import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 
-/// Result of the revoke confirmation sheet: the user confirmed, optionally
-/// with a [reason].
+/// Result of the revoke confirmation sheet.
 class RevokeGrantResult {
-  const RevokeGrantResult({this.reason});
-
-  /// Optional trimmed reason, or `null` when left blank.
-  final String? reason;
+  const RevokeGrantResult();
 }
 
 /// Confirmation bottom sheet shown before revoking a grant.
 ///
 /// Resolves to a [RevokeGrantResult] when confirmed, or `null` when the
 /// user cancels / dismisses.
-class RevokeGrantSheet extends StatefulWidget {
+class RevokeGrantSheet extends StatelessWidget {
   const RevokeGrantSheet({super.key, required this.agentName});
 
   final String agentName;
@@ -34,26 +29,6 @@ class RevokeGrantSheet extends StatefulWidget {
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (_) => RevokeGrantSheet(agentName: agentName),
-    );
-  }
-
-  @override
-  State<RevokeGrantSheet> createState() => _RevokeGrantSheetState();
-}
-
-class _RevokeGrantSheetState extends State<RevokeGrantSheet> {
-  final TextEditingController _reasonController = TextEditingController();
-
-  @override
-  void dispose() {
-    _reasonController.dispose();
-    super.dispose();
-  }
-
-  void _confirm() {
-    final reason = _reasonController.text.trim();
-    Navigator.of(context).pop(
-      RevokeGrantResult(reason: reason.isEmpty ? null : reason),
     );
   }
 
@@ -87,8 +62,9 @@ class _RevokeGrantSheetState extends State<RevokeGrantSheet> {
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.onSurfaceSubtle(brightness)
-                          .withValues(alpha: 0.4),
+                      color: AppColors.onSurfaceSubtle(
+                        brightness,
+                      ).withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -104,26 +80,20 @@ class _RevokeGrantSheetState extends State<RevokeGrantSheet> {
                 ),
                 const SizedBox(height: AppSpacing.innerGap),
                 Text(
-                  l10n.grantsRevokeConfirmBody(widget.agentName),
+                  l10n.grantsRevokeConfirmBody(agentName),
                   style: TextStyle(
                     color: AppColors.onSurfaceMuted(brightness),
                     fontSize: 12,
                     height: 1.45,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.section),
-                OnboardingTextField(
-                  controller: _reasonController,
-                  label: l10n.grantsRevokeReasonLabel,
-                  hintText: l10n.grantsRevokeReasonHint,
-                  textInputAction: TextInputAction.done,
-                ),
               ],
             ),
           ),
           SheetActionButtons(
             onCancel: () => Navigator.of(context).pop(),
-            onConfirm: _confirm,
+            onConfirm: () =>
+                Navigator.of(context).pop(const RevokeGrantResult()),
             confirmLabel: l10n.grantsRevoke,
             confirmColor: AppColors.brandRed,
           ),

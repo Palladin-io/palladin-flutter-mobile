@@ -594,8 +594,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       'iconReference': switch (value['icon']) {
         {'kind': 'glyph', 'value': final String icon} => icon,
         {'kind': 'encryptedAsset', 'assetId': final String id} => 'asset:$id',
-        {'kind': 'publicAsset', 'assetId': final String id} => 'public-asset:$id',
-        {'kind': 'website', 'hostname': final String hostname} => 'website:$hostname',
+        {'kind': 'publicAsset', 'assetId': final String id} =>
+          'public-asset:$id',
+        {'kind': 'website', 'hostname': final String hostname} =>
+          'website:$hostname',
         _ => null,
       },
       'content': Map<String, dynamic>.from(value['content'] as Map),
@@ -1729,7 +1731,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       memberLabel: label,
       agentLabel: agentLabel,
       description: description.isEmpty ? null : description,
-      icon: icon.isEmpty ? null : GlyphVaultIcon(icon),
+      icon: VaultPlaintextIcon.fromReference(icon),
       color: null,
       discoverable: policy.discoverable,
       content: body,
@@ -1808,12 +1810,16 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         if (remaining != null && remaining <= 0) {
           throw const FormatException('Active grant has no remaining uses');
         }
+        final agentId = grant.agentId;
+        if (agentId == null) {
+          throw const FormatException('Active grant has no Agent principal');
+        }
         final envelope = await _entryV2!.sealGrant(
           organizationId: organizationId,
           vaultId: vaultId,
           entryId: entryId,
           grantId: grant.id,
-          agentId: grant.agentId,
+          agentId: agentId,
           entryRevision: entryRevision,
           memberKeyGeneration: memberKeyGeneration,
           agentPublicKey: recipient,

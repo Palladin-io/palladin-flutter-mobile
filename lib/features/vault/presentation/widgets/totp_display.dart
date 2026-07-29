@@ -165,8 +165,9 @@ class _CountdownRing extends StatelessWidget {
             child: CircularProgressIndicator(
               value: fraction.clamp(0.0, 1.0),
               strokeWidth: 2,
-              backgroundColor: AppColors.onSurface(brightness)
-                  .withValues(alpha: 0.12),
+              backgroundColor: AppColors.onSurface(
+                brightness,
+              ).withValues(alpha: 0.12),
               valueColor: AlwaysStoppedAnimation<Color>(color),
             ),
           ),

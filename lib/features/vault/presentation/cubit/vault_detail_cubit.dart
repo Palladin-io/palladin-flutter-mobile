@@ -124,41 +124,6 @@ class VaultDetailCubit extends Cubit<VaultDetailState> {
     }
   }
 
-  Future<void> update(
-    String id, {
-    String? name,
-    String? description,
-    String? icon,
-    String? color,
-    GrantMode? grantMode,
-  }) async {
-    AppLogger.d('Vault', 'Updating vault id=$id');
-    emit(const VaultDetailLoading());
-    try {
-      await repository.updateVault(
-        id,
-        name: name,
-        description: description,
-        icon: icon,
-        color: color,
-        grantMode: grantMode,
-      );
-      // Backend returns 204 — re-fetch to refresh counters / timestamps.
-      emit(const VaultDetailError(VaultErrorKind.unknown));
-    } on VaultException catch (e) {
-      AppLogger.w('Vault', 'Update failed: ${e.kind.name}');
-      emit(VaultDetailError(e.kind));
-    } catch (e, s) {
-      AppLogger.e(
-        'Vault',
-        'Update failed unexpectedly',
-        error: e,
-        stackTrace: s,
-      );
-      emit(const VaultDetailError(VaultErrorKind.unknown));
-    }
-  }
-
   Future<void> delete(String id) async {
     AppLogger.d('Vault', 'Deleting vault id=$id');
     emit(const VaultDetailLoading());

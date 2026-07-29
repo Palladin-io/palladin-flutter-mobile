@@ -95,6 +95,7 @@ enum OnboardingServerErrorKind {
 /// independently.
 class OnboardingSetupPayload {
   const OnboardingSetupPayload({
+    required this.authCredential,
     required this.salt,
     required this.recoverySalt,
     required this.publicKey,
@@ -102,6 +103,7 @@ class OnboardingSetupPayload {
     required this.encryptedPrivateKeyByRecovery,
   });
 
+  final Uint8List authCredential;
   final Uint8List salt;
   final Uint8List recoverySalt;
   final Uint8List publicKey;

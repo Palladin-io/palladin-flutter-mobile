@@ -53,6 +53,29 @@ sealed class VaultPlaintextIcon {
 
   Map<String, Object> toJson();
 
+  static VaultPlaintextIcon? fromReference(String? value) {
+    final reference = value?.trim() ?? '';
+    if (reference.isEmpty) return null;
+    if (reference.startsWith('website:') && reference.length > 8) {
+      return WebsiteVaultIcon(reference.substring(8));
+    }
+    if (reference.startsWith('public-asset:') && reference.length > 13) {
+      return PublicAssetVaultIcon(reference.substring(13));
+    }
+    if (reference.startsWith('asset:') && reference.length > 6) {
+      return EncryptedAssetVaultIcon(reference.substring(6));
+    }
+    if (reference.startsWith('builtin:') && reference.length > 8) {
+      return GlyphVaultIcon(reference.substring(8));
+    }
+    if (reference.startsWith('http://') || reference.startsWith('https://')) {
+      throw const VaultPlaintextFormatException(
+        'Remote icon URLs are not canonical Vault plaintext references.',
+      );
+    }
+    return GlyphVaultIcon(reference);
+  }
+
   static VaultPlaintextIcon? parse(Object? value) {
     if (value == null) return null;
     final map = _object(value, 'icon');
@@ -273,7 +296,11 @@ final class MemberIndex {
       icon: VaultPlaintextIcon.parse(_required(json, 'icon')),
       color: _color(_required(json, 'color')),
       username: _nullableString(json, 'username', max: 8192),
-      urlDomain: _nullableString(json, 'urlDomain', max: 253),
+      // Web keeps the imported URL-domain projection as a normalized string.
+      // It can contain legacy Android/app URLs and is therefore not limited to
+      // the DNS hostname ceiling. Hostname normalization happens only when an
+      // optional public icon is resolved.
+      urlDomain: _nullableString(json, 'urlDomain', max: 8192),
       customIndex: custom,
     );
   }

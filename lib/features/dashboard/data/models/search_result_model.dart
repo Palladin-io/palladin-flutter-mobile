@@ -6,32 +6,14 @@ sealed class SearchResultModel {
 
   factory SearchResultModel.fromJson(Map<String, dynamic> json) {
     final type = json['type'];
-    final organizationId = json['organizationId'];
     final id = json['id'];
     final name = json['name'];
-    final icon = json['icon'];
-    if (organizationId is! String ||
-        organizationId.isEmpty ||
-        id is! String ||
-        id.isEmpty ||
-        name is! String ||
-        name.isEmpty ||
-        (icon != null && icon is! String)) {
+    if (id is! String || id.isEmpty || name is! String || name.isEmpty) {
       throw const FormatException('Malformed administrative search hit');
     }
     return switch (type) {
-      'agent' => AgentSearchResultModel(
-        organizationId: organizationId,
-        agentId: id,
-        name: name,
-        icon: icon as String?,
-      ),
-      'member' => MemberSearchResultModel(
-        organizationId: organizationId,
-        memberId: id,
-        name: name,
-        icon: icon as String?,
-      ),
+      'agent' => AgentSearchResultModel(agentId: id, name: name),
+      'member' => MemberSearchResultModel(memberId: id, name: name),
       _ => throw const FormatException('Unsupported remote search hit type'),
     };
   }
@@ -40,43 +22,21 @@ sealed class SearchResultModel {
 }
 
 final class AgentSearchResultModel extends SearchResultModel {
-  const AgentSearchResultModel({
-    required this.organizationId,
-    required this.agentId,
-    required this.name,
-    this.icon,
-  });
-  final String organizationId;
+  const AgentSearchResultModel({required this.agentId, required this.name});
   final String agentId;
   final String name;
-  final String? icon;
 
   @override
-  AgentSearchResult toEntity() => AgentSearchResult(
-    organizationId: organizationId,
-    agentId: agentId,
-    displayName: name,
-    iconReference: icon,
-  );
+  AgentSearchResult toEntity() =>
+      AgentSearchResult(agentId: agentId, displayName: name);
 }
 
 final class MemberSearchResultModel extends SearchResultModel {
-  const MemberSearchResultModel({
-    required this.organizationId,
-    required this.memberId,
-    required this.name,
-    this.icon,
-  });
-  final String organizationId;
+  const MemberSearchResultModel({required this.memberId, required this.name});
   final String memberId;
   final String name;
-  final String? icon;
 
   @override
-  MemberSearchResult toEntity() => MemberSearchResult(
-    organizationId: organizationId,
-    memberId: memberId,
-    displayName: name,
-    iconReference: icon,
-  );
+  MemberSearchResult toEntity() =>
+      MemberSearchResult(memberId: memberId, displayName: name);
 }

@@ -28,7 +28,7 @@ void main() {
     expect(observed.method, 'POST');
     expect(observed.uri.toString(), isNot(contains('private')));
     expect(observed.queryParameters, isEmpty);
-    expect(observed.data, {'query': 'private vault words', 'limit': 10});
+    expect(observed.data, {'q': 'private vault words', 'limit': 10});
     expect(observed.headers.toString(), isNot(contains('private vault words')));
   });
 
@@ -44,12 +44,7 @@ void main() {
                 requestOptions: options,
                 data: const {
                   'results': [
-                    {
-                      'type': 'entry',
-                      'organizationId': 'o1',
-                      'id': 'e1',
-                      'name': 'x',
-                    },
+                    {'type': 'entry', 'id': 'e1', 'name': 'x'},
                   ],
                 },
                 statusCode: 200,

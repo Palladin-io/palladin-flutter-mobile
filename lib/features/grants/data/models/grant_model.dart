@@ -9,7 +9,7 @@ class GrantModel {
   const GrantModel({
     required this.id,
     required this.vaultId,
-    required this.agentId,
+    this.agentId,
     required this.status,
     required this.scope,
     required this.createdAt,
@@ -32,7 +32,6 @@ class GrantModel {
     this.createdByName,
     this.revokedByName,
     this.deniedByName,
-    this.revokeReason,
     this.denyReason,
     this.canRevoke = false,
     this.canGrantAgain = false,
@@ -40,7 +39,7 @@ class GrantModel {
 
   final String id;
   final String vaultId;
-  final String agentId;
+  final String? agentId;
   final String? agentName;
   final String? agentIconKey;
   final String? agentPublicKey;
@@ -63,7 +62,6 @@ class GrantModel {
   final String? createdByName;
   final String? revokedByName;
   final String? deniedByName;
-  final String? revokeReason;
   final String? denyReason;
   final bool canRevoke;
   final bool canGrantAgain;
@@ -75,7 +73,7 @@ class GrantModel {
     return GrantModel(
       id: json['id'] as String,
       vaultId: contextVaultId ?? json['vaultId'] as String,
-      agentId: json['agentId'] as String,
+      agentId: json['agentId'] as String?,
       agentName: json['agentName'] as String?,
       agentIconKey: json['agentIconKey'] as String?,
       agentPublicKey: json['agentPublicKey'] as String?,
@@ -117,7 +115,6 @@ class GrantModel {
       createdByName: json['createdByName'] as String?,
       revokedByName: json['revokedByName'] as String?,
       deniedByName: json['deniedByName'] as String?,
-      revokeReason: json['revokeReason'] as String?,
       denyReason: json['denyReason'] as String?,
       canRevoke: json['canRevoke'] as bool? ?? false,
       canGrantAgain: json['canGrantAgain'] as bool? ?? false,
@@ -154,7 +151,6 @@ class GrantModel {
       createdByName: createdByName,
       revokedByName: revokedByName,
       deniedByName: deniedByName,
-      revokeReason: revokeReason,
       denyReason: denyReason,
       canRevoke: canRevoke,
       canGrantAgain: canGrantAgain,

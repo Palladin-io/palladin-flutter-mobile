@@ -63,7 +63,7 @@ List<String> websiteIconHostnames(Iterable<EntryEntity> entries) {
 class _VaultEntriesTabState extends State<VaultEntriesTab> {
   static const _initialRenderLimit = 100;
   static const _renderIncrement = 100;
-  static const _maxWebsitePollAttempts = 10;
+  static const _maxWebsitePollAttempts = 30;
 
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _expanded = <String>{};

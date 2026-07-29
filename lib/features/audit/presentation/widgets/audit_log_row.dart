@@ -103,7 +103,7 @@ class _AuditLogRowState extends State<AuditLogRow> {
                       children: [
                         Text(
                           auditTimestamp(
-                            entry.createdAt,
+                            entry.occurredAt,
                             Localizations.localeOf(context).toString(),
                           ),
                           style: TextStyle(

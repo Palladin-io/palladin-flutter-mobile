@@ -105,6 +105,35 @@ void main() {
     });
 
     blocTest<UnlockCubit, UnlockState>(
+      'password unlock fails before crypto when account setup is incomplete',
+      build: () {
+        when(
+          () => datasource.getAccount(),
+        ).thenAnswer((_) async => const AccountResponse(userId: 'account-id'));
+        return buildCubit();
+      },
+      act: (cubit) => cubit.unlock('pw'),
+      expect: () => [
+        isA<UnlockLoading>(),
+        isA<UnlockFailed>().having(
+          (state) => state.error,
+          'error',
+          isA<UnsupportedIdentityKdfException>(),
+        ),
+      ],
+      verify: (_) {
+        verifyNever(
+          () => crypto.deriveAndDecrypt(
+            masterPassword: any(named: 'masterPassword'),
+            accountId: any(named: 'accountId'),
+            kdf: any(named: 'kdf'),
+            encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+          ),
+        );
+      },
+    );
+
+    blocTest<UnlockCubit, UnlockState>(
       'unlock emits [Loading, Success] and enrolls MK on correct password',
       build: () {
         stubEnrollmentReady();

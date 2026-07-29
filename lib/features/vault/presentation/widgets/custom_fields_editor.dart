@@ -130,8 +130,9 @@ class _CustomFieldsEditorState extends State<CustomFieldsEditor> {
             value: _RowAction.toggleAgent,
             icon: Icons.smart_toy_outlined,
             label: l10n.entryFieldAgentVisible,
-            trailing:
-                draft.agentVisible ? l10n.entryFieldOn : l10n.entryFieldOff,
+            trailing: draft.agentVisible
+                ? l10n.entryFieldOn
+                : l10n.entryFieldOff,
             trailingColor: draft.agentVisible ? AppColors.vaultBlue : null,
             dividerBefore: true,
           ),
@@ -190,8 +191,7 @@ class _CustomFieldsEditorState extends State<CustomFieldsEditor> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    final hairline =
-        AppColors.onSurface(brightness).withValues(alpha: 0.08);
+    final hairline = AppColors.onSurface(brightness).withValues(alpha: 0.08);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -202,15 +202,16 @@ class _CustomFieldsEditorState extends State<CustomFieldsEditor> {
           decoration: BoxDecoration(
             color: AppColors.cardFill(brightness),
             borderRadius: BorderRadius.circular(14),
-            border:
-                Border.all(color: AppColors.cardBorder(brightness), width: 1),
+            border: Border.all(
+              color: AppColors.cardBorder(brightness),
+              width: 1,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (var i = 0; i < _drafts.length; i++) ...[
-                if (i > 0)
-                  Divider(height: 1, thickness: 1, color: hairline),
+                if (i > 0) Divider(height: 1, thickness: 1, color: hairline),
                 _FieldRow(
                   key: ValueKey(_drafts[i].id),
                   draft: _drafts[i],
@@ -490,19 +491,19 @@ class _FieldDraft {
     String label = '',
     String value = '',
     this.agentVisible = false,
-  })  : labelController = TextEditingController(text: label),
-        valueController = TextEditingController(text: value);
+  }) : labelController = TextEditingController(text: label),
+       valueController = TextEditingController(text: value);
 
   factory _FieldDraft.empty(CustomFieldType type) =>
       _FieldDraft(id: CustomField.newId(), type: type);
 
   factory _FieldDraft.fromField(CustomField field) => _FieldDraft(
-        id: field.id,
-        type: field.type,
-        label: field.label,
-        value: field.textValue,
-        agentVisible: field.agentVisible,
-      );
+    id: field.id,
+    type: field.type,
+    label: field.label,
+    value: field.textValue,
+    agentVisible: field.agentVisible,
+  );
 
   final String id;
   CustomFieldType type;
@@ -529,22 +530,22 @@ class _FieldDraft {
     final value = valueController.text.trim();
     return switch (type) {
       CustomFieldType.text => CustomField.text(
-          id: id,
-          label: label,
-          value: value,
-          agentVisible: agentVisible,
-        ),
+        id: id,
+        label: label,
+        value: value,
+        agentVisible: agentVisible,
+      ),
       CustomFieldType.multiline => CustomField.multiline(
-          id: id,
-          label: label,
-          value: value,
-          agentVisible: agentVisible,
-        ),
+        id: id,
+        label: label,
+        value: value,
+        agentVisible: agentVisible,
+      ),
       CustomFieldType.concealed => CustomField.concealed(
-          id: id,
-          label: label,
-          value: value,
-        ),
+        id: id,
+        label: label,
+        value: value,
+      ),
       CustomFieldType.totp || CustomFieldType.unknown => null,
     };
   }

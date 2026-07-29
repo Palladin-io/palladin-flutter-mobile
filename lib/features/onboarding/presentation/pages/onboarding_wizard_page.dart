@@ -41,10 +41,12 @@ class _OnboardingWizardView extends StatelessWidget {
         // password they just set. On the "already onboarded" path the
         // keys are null and AuthBloc keeps the vault locked (→ /unlock).
         final keys = state.unlockKeys;
-        context.read<AuthBloc>().add(OnboardingCompleted(
-              masterKey: keys?.masterKey,
-              privateKey: keys?.privateKey,
-            ));
+        context.read<AuthBloc>().add(
+          OnboardingCompleted(
+            masterKey: keys?.masterKey,
+            privateKey: keys?.privateKey,
+          ),
+        );
         // Drop the cubit's now-redundant reference (AuthBloc owns the
         // live copies for the session).
         context.read<OnboardingCubit>().clearUnlockKeys();
@@ -80,12 +82,16 @@ class _OnboardingWizardView extends StatelessWidget {
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 220),
                 transitionBuilder: (child, animation) {
-                  final offset = Tween<Offset>(
-                    begin: const Offset(0.04, 0),
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(parent: animation, curve: Curves.easeOut),
-                  );
+                  final offset =
+                      Tween<Offset>(
+                        begin: const Offset(0.04, 0),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOut,
+                        ),
+                      );
                   return FadeTransition(
                     opacity: animation,
                     child: SlideTransition(position: offset, child: child),

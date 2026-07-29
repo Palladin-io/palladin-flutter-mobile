@@ -10,6 +10,7 @@ class AccountSetupRequest {
   const AccountSetupRequest({
     required this.securityVersion,
     required this.kdfProfileId,
+    required this.newAuthCredential,
     required this.salt,
     required this.recoverySalt,
     required this.publicKey,
@@ -19,6 +20,7 @@ class AccountSetupRequest {
 
   final int securityVersion;
   final String kdfProfileId;
+  final Uint8List newAuthCredential;
 
   /// 16-byte Argon2id salt for the master-password key derivation.
   final Uint8List salt;
@@ -41,6 +43,7 @@ class AccountSetupRequest {
     return {
       'securityVersion': securityVersion,
       'kdfProfileId': kdfProfileId,
+      'newAuthCredential': _encode(newAuthCredential),
       'kdfSalt': _encode(salt),
       'recoverySalt': _encode(recoverySalt),
       'publicKey': _encode(publicKey),

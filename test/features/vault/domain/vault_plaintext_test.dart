@@ -84,6 +84,29 @@ void main() {
     );
   });
 
+  test('icon references preserve their canonical namespace', () {
+    expect(
+      VaultPlaintextIcon.fromReference('website:stripe.com'),
+      isA<WebsiteVaultIcon>(),
+    );
+    expect(
+      VaultPlaintextIcon.fromReference(
+        'public-asset:11111111-1111-4111-8111-111111111111',
+      ),
+      isA<PublicAssetVaultIcon>(),
+    );
+    expect(
+      VaultPlaintextIcon.fromReference(
+        'asset:11111111-1111-4111-8111-111111111111',
+      ),
+      isA<EncryptedAssetVaultIcon>(),
+    );
+    expect(
+      () => VaultPlaintextIcon.fromReference('https://stripe.com/icon.png'),
+      throwsA(isA<VaultPlaintextFormatException>()),
+    );
+  });
+
   test('MemberIndex contains only safe list projection fields', () {
     final index = VaultPlaintextProjector.memberIndex(credential).toJson();
     expect(index['username'], 'patryk@example.com');
@@ -91,6 +114,24 @@ void main() {
     expect(jsonEncode(index), isNot(contains('secret')));
     expect(jsonEncode(index), isNot(contains('JBSWY3')));
     expect(jsonEncode(index), isNot(contains('https://')));
+  });
+
+  test('MemberIndex accepts bounded legacy app URLs used by web imports', () {
+    final androidUrl =
+        'android://${'a' * 300}@com.example.application/some/deep/link';
+    final parsed = MemberIndex.fromJson({
+      'schema': MemberIndex.schema,
+      'entryType': 'credential',
+      'memberLabel': 'Imported application',
+      'description': null,
+      'icon': null,
+      'color': null,
+      'username': null,
+      'urlDomain': androidUrl,
+      'customIndex': const <Object>[],
+    });
+
+    expect(parsed.urlDomain, androidUrl);
   });
 
   test('Discovery contains only discovery fields in ASCII order', () {

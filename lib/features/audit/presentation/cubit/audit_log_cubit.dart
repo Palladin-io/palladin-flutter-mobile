@@ -2,9 +2,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../../agents/domain/repositories/agents_repository.dart';
-import '../../../vault/domain/repositories/vault_repository.dart';
 import '../../../vault/domain/repositories/vault_members_repository.dart';
+import '../../../vault/domain/entities/vault_entity.dart';
 import '../../../vault/data/services/member_sync_service.dart';
+import '../../../vault/presentation/cubit/vault_list_cubit.dart';
 import '../../domain/entities/audit_log_entry.dart';
 import '../../domain/exceptions/audit_exceptions.dart';
 import '../../domain/repositories/audit_repository.dart';
@@ -30,7 +31,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
   AuditLogCubit({
     required this.auditRepository,
     required this.agentsRepository,
-    required this.vaultRepository,
+    required this.vaultListCubit,
     required this.vaultMembersRepository,
     required this.memberSync,
     required AuditLogScope scope,
@@ -41,7 +42,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
 
   final AuditRepository auditRepository;
   final AgentsRepository agentsRepository;
-  final VaultRepository vaultRepository;
+  final VaultListCubit vaultListCubit;
   final VaultMembersRepository vaultMembersRepository;
   final MemberIndexReader memberSync;
   final int maximumLoadedEntries;
@@ -402,6 +403,8 @@ class AuditLogCubit extends Cubit<AuditLogState> {
           eventType: entry.eventType,
           rawEventType: entry.rawEventType,
           actorType: entry.actorType,
+          result: entry.result,
+          occurredAt: entry.occurredAt,
           createdAt: entry.createdAt,
           userId: entry.userId,
           agentId: entry.agentId,
@@ -413,7 +416,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
           resolvedObjectName: entryName ?? vaultName,
           resolvedVaultName: vaultName,
           localPresentationOnly: true,
-          metadata: const {},
+          metadata: entry.metadata,
         );
       })
       .toList(growable: false);
@@ -434,7 +437,10 @@ class AuditLogCubit extends Cubit<AuditLogState> {
 
   Future<Map<String, String>> _resolveVaultNames() async {
     try {
-      final vaults = await vaultRepository.listVaults();
+      final vaults = switch (vaultListCubit.state) {
+        VaultListLoaded(:final vaults) => vaults,
+        _ => const <VaultEntity>[],
+      };
       return {for (final v in vaults) v.id: v.name};
     } catch (_) {
       AppLogger.w('Audit', 'Local vault-name resolution failed');

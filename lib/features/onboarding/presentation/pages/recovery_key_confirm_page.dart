@@ -36,7 +36,10 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
     super.initState();
     final mnemonic = context.read<OnboardingCubit>().state.mnemonic;
     _indices = pickVerificationIndices(length: mnemonic.length);
-    _controllers = List.generate(_indices.length, (_) => TextEditingController());
+    _controllers = List.generate(
+      _indices.length,
+      (_) => TextEditingController(),
+    );
     for (final c in _controllers) {
       c.addListener(_onTextChanged);
     }
@@ -50,7 +53,10 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
       if (nowAllCorrect) {
         // Side-effect fired from a user-input listener (not from a
         // BlocBuilder.builder), which makes it safe to run here.
-        AnalyticsService.instance.capture('onboarding', 'recovery-key-confirmed');
+        AnalyticsService.instance.capture(
+          'onboarding',
+          'recovery-key-confirmed',
+        );
       }
     } else {
       // Still need to rebuild so the per-field result icons update.
@@ -111,8 +117,7 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
               : _WordCheckResult.incorrect;
         });
 
-        final allCorrect =
-            results.every((r) => r == _WordCheckResult.correct);
+        final allCorrect = results.every((r) => r == _WordCheckResult.correct);
 
         // Button lives in the content flow right under the fields (web parity) —
         // not pinned to the screen bottom, which left a big empty gap for a
@@ -140,8 +145,8 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
               isLoading: isSubmitting,
               onPressed: allCorrect && !isSubmitting
                   ? () => context.read<OnboardingCubit>().completeSetup(
-                        defaultVaultName: l10n.defaultVaultName,
-                      )
+                      defaultVaultName: l10n.defaultVaultName,
+                    )
                   : null,
             ),
           ],
@@ -156,10 +161,14 @@ class _RecoveryKeyConfirmPageState extends State<RecoveryKeyConfirmPage> {
     }
     if (error is OnboardingServerException) {
       return switch (error.kind) {
-        OnboardingServerErrorKind.serverNotResponding => l10n.errorServerNotResponding,
-        OnboardingServerErrorKind.cannotConnect => l10n.errorCannotConnectToServer,
-        OnboardingServerErrorKind.connectionFailed => l10n.errorConnectionFailed,
-        OnboardingServerErrorKind.invalidResponse => l10n.errorInvalidServerResponse,
+        OnboardingServerErrorKind.serverNotResponding =>
+          l10n.errorServerNotResponding,
+        OnboardingServerErrorKind.cannotConnect =>
+          l10n.errorCannotConnectToServer,
+        OnboardingServerErrorKind.connectionFailed =>
+          l10n.errorConnectionFailed,
+        OnboardingServerErrorKind.invalidResponse =>
+          l10n.errorInvalidServerResponse,
       };
     }
     return l10n.errorConnectionFailed;
@@ -212,9 +221,7 @@ class _ConfirmationInput extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                isCorrect
-                    ? Icons.check_circle_outline
-                    : Icons.error_outline,
+                isCorrect ? Icons.check_circle_outline : Icons.error_outline,
                 size: 14,
                 color: isCorrect
                     ? AppColors.positiveAccent

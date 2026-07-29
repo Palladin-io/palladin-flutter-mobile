@@ -91,6 +91,7 @@ class AgentModel {
         'pending' => 1,
         'active' => 2,
         'deactivated' => 3,
+        'deactivating' => 4,
         _ => 3, // fail closed
       },
       type: json['type'] as String?,

@@ -6,11 +6,20 @@ import '../models/agent_model.dart';
 class AgentPresignResponse {
   const AgentPresignResponse({
     required this.uploadUrl,
-    required this.publicUrl,
+    required this.assetId,
+    required this.uploadSessionId,
+    required this.maximumBytes,
   });
 
   final String uploadUrl;
-  final String publicUrl;
+  final String assetId;
+  final String uploadSessionId;
+  final int maximumBytes;
+}
+
+class AgentIconCompleteResponse {
+  const AgentIconCompleteResponse({required this.assetId});
+  final String assetId;
 }
 
 /// Remote data source for the agent-management endpoints.
@@ -39,8 +48,9 @@ class AgentsRemoteDataSource {
 
   /// `GET /api/agents/{agentId}` → a single agent.
   Future<AgentModel> getAgent(String agentId) async {
-    final response =
-        await _dio.get<Map<String, dynamic>>('/api/agents/$agentId');
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/agents/$agentId',
+    );
     final data = response.data;
     if (data == null) {
       throw _emptyBody(response);
@@ -58,11 +68,13 @@ class AgentsRemoteDataSource {
     String? name,
     String? type,
     String? iconKey,
+    String? iconColor,
   }) async {
     final body = <String, dynamic>{
       'name': ?name,
       'type': ?type,
       'iconKey': ?iconKey,
+      'iconColor': ?iconColor,
     };
     await _dio.post<void>('/api/agents/$agentId/approve', data: body);
   }
@@ -85,12 +97,14 @@ class AgentsRemoteDataSource {
     String agentId, {
     String? name,
     String? description,
+    String? type,
     String? iconKey,
     String? iconColor,
   }) async {
     final body = <String, dynamic>{};
     if (name != null) body['name'] = name;
     if (description != null) body['description'] = description;
+    if (type != null) body['type'] = type;
     if (iconKey != null) body['iconKey'] = iconKey;
     if (iconColor != null) body['iconColor'] = iconColor;
     await _dio.patch<void>('/api/agents/$agentId', data: body);
@@ -101,25 +115,47 @@ class AgentsRemoteDataSource {
   /// Returns an [AgentPresignResponse] with an `uploadUrl` for the S3 PUT
   /// and a `publicUrl` to store as `iconKey` after the upload completes.
   Future<AgentPresignResponse> presignAgentIcon(
-    String agentId,
-    String extension,
-  ) async {
+    String agentId, {
+    required String mediaType,
+    required int byteLength,
+    required String sha256,
+  }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/agents/$agentId/icon/presign',
-      data: {'agentId': agentId, 'extension': extension},
+      data: {
+        'agentId': agentId,
+        'mediaType': mediaType,
+        'byteLength': byteLength,
+        'sha256': sha256,
+      },
     );
     final data = response.data;
     if (data == null) throw _emptyBody(response);
     return AgentPresignResponse(
       uploadUrl: data['uploadUrl'] as String,
-      publicUrl: data['publicUrl'] as String,
+      assetId: data['assetId'] as String,
+      uploadSessionId: data['uploadSessionId'] as String,
+      maximumBytes: (data['maximumBytes'] as num).toInt(),
     );
   }
 
+  Future<AgentIconCompleteResponse> completeAgentIcon(
+    String agentId,
+    String uploadSessionId,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/agents/$agentId/icon/complete',
+      data: {'agentId': agentId, 'uploadSessionId': uploadSessionId},
+    );
+    final data = response.data;
+    if (data == null) throw _emptyBody(response);
+    return AgentIconCompleteResponse(assetId: data['assetId'] as String);
+  }
+
   DioException _emptyBody(Response<dynamic> response) => DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        type: DioExceptionType.badResponse,
-        error: 'Empty response body',
-      );
+    requestOptions: response.requestOptions,
+    response: response,
+    type: DioExceptionType.badResponse,
+    error: 'Empty response body',
+  );
 }

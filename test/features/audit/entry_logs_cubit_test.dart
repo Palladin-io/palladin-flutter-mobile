@@ -12,13 +12,18 @@ import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
-import 'package:mobile_palladin/features/vault/domain/repositories/vault_repository.dart';
+import 'package:mobile_palladin/features/vault/presentation/cubit/vault_list_cubit.dart';
 
 class _MockAuditRepository extends Mock implements AuditRepository {}
 
 class _MockAgentsRepository extends Mock implements AgentsRepository {}
 
-class _MockVaultRepository extends Mock implements VaultRepository {}
+class _MockVaultListCubit extends Mock implements VaultListCubit {
+  VaultListState current = VaultListLoaded([_vault()]);
+
+  @override
+  VaultListState get state => current;
+}
 
 class _MockMemberIndex extends Mock implements MemberIndexReader {}
 
@@ -48,22 +53,21 @@ Agent _agent(String id, String name) {
 void main() {
   late AuditRepository audit;
   late AgentsRepository agents;
-  late VaultRepository vaults;
+  late _MockVaultListCubit vaults;
   late MemberIndexReader memberIndex;
   late EntryLogsCubit cubit;
 
   setUp(() {
     audit = _MockAuditRepository();
     agents = _MockAgentsRepository();
-    vaults = _MockVaultRepository();
+    vaults = _MockVaultListCubit();
     memberIndex = _MockMemberIndex();
-    when(() => vaults.getVault('v-1')).thenAnswer((_) async => _vault());
     when(() => memberIndex.waitForCurrent('v-1')).thenAnswer((_) async {});
     when(() => memberIndex.entries('v-1')).thenReturn([_memberEntry()]);
     cubit = EntryLogsCubit(
       auditRepository: audit,
       agentsRepository: agents,
-      vaultRepository: vaults,
+      vaultListCubit: vaults,
       memberSync: memberIndex,
       vaultId: 'v-1',
       entryId: 'e-1',
@@ -186,11 +190,7 @@ void main() {
               actorName: 'Server Actor',
               entryLabel: 'Server Entry',
               agentReason: 'server reason',
-              metadata: const {
-                'entryName': 'Server Entry',
-                'password': 'must-not-render',
-                'reason': 'server reason',
-              },
+              metadata: const {'grantId': 'g-1', 'method': 'Get'},
             ),
           ],
         ),
@@ -202,9 +202,9 @@ void main() {
       expect(resolved.agentName, 'Local Agent');
       expect(resolved.entryLabel, 'Local Entry');
       expect(resolved.resolvedVaultName, 'Local Vault');
-      expect(resolved.actorName, isNull);
+      expect(resolved.actorName, 'Server Actor');
       expect(resolved.agentReason, isNull);
-      expect(resolved.metadata, isEmpty);
+      expect(resolved.metadata, {'grantId': 'g-1', 'method': 'Get'});
       expect(resolved.localPresentationOnly, isTrue);
       verify(() => memberIndex.waitForCurrent('v-1')).called(1);
     },
@@ -244,7 +244,7 @@ void main() {
     const purgedVault = '11111111-1111-4111-8111-222222222222';
     const purgedEntry = '33333333-3333-4333-8333-444444444444';
     when(() => agents.listAgents()).thenAnswer((_) async => []);
-    when(() => vaults.getVault(purgedVault)).thenThrow(StateError('purged'));
+    vaults.current = const VaultListLoaded([]);
     when(
       () => memberIndex.waitForCurrent(purgedVault),
     ).thenAnswer((_) async {});
@@ -275,7 +275,7 @@ void main() {
     final purgedCubit = EntryLogsCubit(
       auditRepository: audit,
       agentsRepository: agents,
-      vaultRepository: vaults,
+      vaultListCubit: vaults,
       memberSync: memberIndex,
       vaultId: purgedVault,
       entryId: purgedEntry,
@@ -383,7 +383,7 @@ void main() {
     final lazyCubit = EntryLogsCubit(
       auditRepository: audit,
       agentsRepository: agents,
-      vaultRepository: vaults,
+      vaultListCubit: vaults,
       memberSync: memberIndex,
       vaultId: 'v-1',
       entryId: 'e-1',

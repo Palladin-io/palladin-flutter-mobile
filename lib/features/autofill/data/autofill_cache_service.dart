@@ -4,8 +4,8 @@ import '../../../core/utils/app_logger.dart';
 import '../../vault/domain/entities/entry_entity.dart';
 import '../../vault/domain/entities/member_index_entry.dart';
 import '../../vault/domain/repositories/entry_repository.dart';
-import '../../vault/domain/repositories/vault_repository.dart';
 import '../../vault/data/services/member_sync_service.dart';
+import '../../vault/data/services/vault_list_crypto_service.dart';
 import '../domain/autofill_cache_invalidator.dart';
 import '../domain/autofill_record.dart';
 import 'autofill_cache_bridge.dart';
@@ -16,16 +16,16 @@ import 'autofill_cache_bridge.dart';
 /// material and never sends it to analytics or logs.
 class AutoFillCacheService implements AutoFillCacheInvalidator {
   AutoFillCacheService({
-    required VaultRepository vaultRepository,
+    required VaultListCryptoService vaultListService,
     required EntryRepository entryRepository,
     required AutoFillCacheBridge bridge,
     required MemberIndexReader memberIndex,
-  }) : _vaultRepository = vaultRepository,
+  }) : _vaultListService = vaultListService,
        _entryRepository = entryRepository,
        _bridge = bridge,
        _memberIndex = memberIndex;
 
-  final VaultRepository _vaultRepository;
+  final VaultListCryptoService _vaultListService;
   final EntryRepository _entryRepository;
   final AutoFillCacheBridge _bridge;
   final MemberIndexReader _memberIndex;
@@ -176,7 +176,7 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
   ) async {
     try {
       final records = <AutoFillRecord>[];
-      final vaults = await _vaultRepository.listVaults();
+      final vaults = (await _vaultListService.load(privateKey)).vaults;
       for (final vault in vaults) {
         if (_accessRevoked || generation != _generation) return;
         await _memberIndex.waitForCurrent(vault.id);

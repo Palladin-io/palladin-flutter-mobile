@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../agents/domain/repositories/agents_repository.dart';
 import '../../../vault/data/services/member_sync_service.dart';
-import '../../../vault/domain/repositories/vault_repository.dart';
+import '../../../vault/presentation/cubit/vault_list_cubit.dart';
 import '../../domain/entities/audit_log_entry.dart';
 import '../../domain/exceptions/audit_exceptions.dart';
 import '../../domain/repositories/audit_repository.dart';
@@ -20,7 +20,7 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
   EntryLogsCubit({
     required this.auditRepository,
     required this.agentsRepository,
-    required this.vaultRepository,
+    required this.vaultListCubit,
     required this.memberSync,
     required this.vaultId,
     required this.entryId,
@@ -28,7 +28,7 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
 
   final AuditRepository auditRepository;
   final AgentsRepository agentsRepository;
-  final VaultRepository vaultRepository;
+  final VaultListCubit vaultListCubit;
   final MemberIndexReader memberSync;
   final String vaultId;
   final String entryId;
@@ -152,7 +152,15 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
     final agents = await _resolveAgentNames();
     String? vaultName;
     try {
-      vaultName = (await vaultRepository.getVault(vaultId)).name;
+      final state = vaultListCubit.state;
+      if (state is VaultListLoaded) {
+        for (final vault in state.vaults) {
+          if (vault.id == vaultId) {
+            vaultName = vault.name;
+            break;
+          }
+        }
+      }
     } catch (_) {
       AppLogger.w('Audit', 'Vault name resolution failed');
     }
@@ -187,17 +195,20 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
           eventType: item.eventType,
           rawEventType: item.rawEventType,
           actorType: item.actorType,
+          result: item.result,
+          occurredAt: item.occurredAt,
           createdAt: item.createdAt,
           userId: item.userId,
           agentId: item.agentId,
-          agentName: agentName,
+          agentName: agentName ?? item.agentName,
+          actorName: item.actorName,
           vaultId: item.vaultId,
           entryId: item.entryId,
           entryLabel: names.entry ?? _shortId(item.entryId!),
           resolvedObjectName: names.entry ?? _shortId(item.entryId!),
           resolvedVaultName: names.vault ?? _shortId(item.vaultId!),
           localPresentationOnly: true,
-          metadata: const {},
+          metadata: item.metadata,
         );
       })
       .toList(growable: false);

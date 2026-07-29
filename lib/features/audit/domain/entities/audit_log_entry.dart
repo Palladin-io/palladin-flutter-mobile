@@ -27,6 +27,25 @@ enum AuditActorType {
   }
 }
 
+/// Outcome recorded by the canonical backend `AuditLogListItem` contract.
+enum AuditResult {
+  succeeded,
+  denied,
+  failed,
+  unknown;
+
+  /// Accepts the numeric enum representation emitted by ASP.NET as well as
+  /// string enum values used by fixtures and forward-compatible deployments.
+  static AuditResult fromWire(Object? raw) {
+    return switch (raw) {
+      1 || 'succeeded' || 'Succeeded' => AuditResult.succeeded,
+      2 || 'denied' || 'Denied' => AuditResult.denied,
+      3 || 'failed' || 'Failed' => AuditResult.failed,
+      _ => AuditResult.unknown,
+    };
+  }
+}
+
 /// Coarse grouping of audit events, used for the quick-filter chips and the
 /// legend modal (color/icon families). Mirrors the security domains the
 /// backend taxonomy splits into: credential access, grant lifecycle,
@@ -144,6 +163,8 @@ class AuditLogEntry {
     required this.rawEventType,
     required this.actorType,
     required this.createdAt,
+    DateTime? occurredAt,
+    this.result = AuditResult.unknown,
     this.userId,
     this.agentId,
     this.agentName,
@@ -156,7 +177,7 @@ class AuditLogEntry {
     this.resolvedVaultName,
     this.localPresentationOnly = false,
     this.metadata = const {},
-  });
+  }) : occurredAt = occurredAt ?? createdAt;
 
   final String id;
 
@@ -169,7 +190,12 @@ class AuditLogEntry {
 
   final AuditActorType actorType;
 
-  /// When the action occurred (local time).
+  final AuditResult result;
+
+  /// Timestamp carried by the source event and used for the audit timeline.
+  final DateTime occurredAt;
+
+  /// Timestamp when the Audit module persisted the record (local time).
   final DateTime createdAt;
 
   /// Acting user id (when [actorType] is [AuditActorType.user]).

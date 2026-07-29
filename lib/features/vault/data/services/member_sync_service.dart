@@ -325,6 +325,8 @@ final class MemberSyncService implements MemberIndexReader {
               return await _decrypt(item, vaultId, vaultKey, minimumGeneration);
             } on FormatException {
               return _corrupt(item);
+            } on VaultPlaintextFormatException {
+              return _corrupt(item);
             }
           }),
         ),

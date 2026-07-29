@@ -157,9 +157,15 @@ class LoginCubit extends Cubit<LoginState> {
     if (masterKey == null || account.userId != _accountId) {
       throw const UnsupportedIdentityKdfException('account-context-mismatch');
     }
+    final encryptedPrivateKey = account.encryptedPrivateKey;
+    if (encryptedPrivateKey == null) {
+      throw const UnsupportedIdentityKdfException(
+        'missing-private-key-material',
+      );
+    }
     final result = await unlockCryptoService.decryptWithMasterKey(
       masterKey: masterKey,
-      encryptedPrivateKeyBase64: account.encryptedPrivateKey,
+      encryptedPrivateKeyBase64: encryptedPrivateKey,
     );
     _clearSecrets();
     AppLogger.i('Login', 'Login succeeded, master key derived');

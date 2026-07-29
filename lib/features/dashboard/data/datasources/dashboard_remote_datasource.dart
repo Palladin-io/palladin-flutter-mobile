@@ -11,8 +11,8 @@ import '../models/search_result_model.dart';
 /// `onboardingSteps` object; this projection ignores the crypto fields
 /// (salt / encrypted private key), which are `null` for a not-onboarded
 /// user — precisely the case the onboarding checklist targets — so we
-/// never reuse the unlock `AccountResponse` (its `fromJson` requires
-/// those fields to be non-null and would throw on the onboarding path).
+/// keep this projection independent from unlock-specific key-material
+/// validation.
 class DashboardRemoteDatasource {
   DashboardRemoteDatasource(this._dio);
 
@@ -46,7 +46,7 @@ class DashboardRemoteDatasource {
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/search',
-      data: <String, dynamic>{'query': q, 'limit': limit},
+      data: <String, dynamic>{'q': q, 'limit': limit},
       cancelToken: cancelToken,
     );
     final data = response.data;

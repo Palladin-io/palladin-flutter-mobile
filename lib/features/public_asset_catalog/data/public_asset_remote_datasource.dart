@@ -6,17 +6,28 @@ class PublicAssetRemoteDatasource {
   final Dio _dio;
 
   Future<List<Map<String, dynamic>>> search(String query) async {
+    final normalized = query.trim();
+    if (normalized.isEmpty || normalized.length > 200) {
+      throw const FormatException('Invalid public asset search query');
+    }
     final response = await _dio.get<Object?>(
       '/api/public-assets/search',
-      queryParameters: {'type': 'website-icon', 'q': query},
+      queryParameters: {'type': 'websiteIcon', 'q': normalized},
     );
     return _list(response.data);
   }
 
-  Future<List<Map<String, dynamic>>> resolve(List<String> hostnames) async {
+  Future<List<Map<String, dynamic>>> resolve(
+    List<String> hostnames, {
+    required bool acquireMissing,
+  }) async {
     final response = await _dio.post<Object?>(
       '/api/public-assets/resolve',
-      data: {'type': 'website-icon', 'hostnames': hostnames},
+      data: {
+        'type': 'websiteIcon',
+        'hostnames': hostnames,
+        'acquireMissing': acquireMissing,
+      },
     );
     return _list(response.data);
   }
@@ -31,12 +42,16 @@ class PublicAssetRemoteDatasource {
   }
 
   static List<Map<String, dynamic>> _list(Object? data) {
-    final raw = switch (data) {
-      List<Object?> value => value,
-      {'items': final List<Object?> value} => value,
-      {'results': final List<Object?> value} => value,
-      _ => const <Object?>[],
-    };
-    return raw.whereType<Map>().map(Map<String, dynamic>.from).toList();
+    if (data is! Map || data['items'] is! List) {
+      throw const FormatException('Malformed public asset response');
+    }
+    final raw = data['items'] as List;
+    if (raw.any((item) => item is! Map)) {
+      throw const FormatException('Malformed public asset item');
+    }
+    return raw
+        .cast<Map>()
+        .map(Map<String, dynamic>.from)
+        .toList(growable: false);
   }
 }
