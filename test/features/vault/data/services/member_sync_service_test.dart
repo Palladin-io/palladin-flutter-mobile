@@ -392,6 +392,7 @@ void main() {
           'memberLabel': 'Imported $id',
           'entryType': 1,
           'searchFields': ['Imported $id', 'stripe.com'],
+          'autofillDomains': ['stripe.com'],
           'iconReference': 'website:stripe.com',
         };
       });

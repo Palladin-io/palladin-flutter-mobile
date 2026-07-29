@@ -70,6 +70,7 @@ void main() {
   late _Envelopes envelopes;
   late _Assets assets;
   late VaultSettingsService service;
+  late Uint8List encryptedMetadataPlaintext;
 
   setUpAll(() {
     registerFallbackValue(File('unused'));
@@ -89,6 +90,7 @@ void main() {
     keys = _Keys();
     envelopes = _Envelopes();
     assets = _Assets();
+    encryptedMetadataPlaintext = Uint8List(0);
     service = VaultSettingsService(
       remote: remote,
       keys: keys,
@@ -111,7 +113,7 @@ void main() {
     ).thenAnswer(
       (_) async => Uint8List.fromList(
         utf8.encode(
-          '{"color":"#EB4747","description":"Current","iconReference":"shield","name":"Production"}',
+          '{"color":"#EB4747","description":"Current","grantMode":"granular","icon":{"kind":"glyph","value":"shield"},"name":"Production","schema":"palladin.member-vault-metadata.v1"}',
         ),
       ),
     );
@@ -122,9 +124,12 @@ void main() {
         plaintext: any(named: 'plaintext'),
         key: any(named: 'key'),
       ),
-    ).thenAnswer(
-      (_) async => {'nonce': 'fresh-nonce', 'ciphertext': 'opaque-new'},
-    );
+    ).thenAnswer((invocation) async {
+      encryptedMetadataPlaintext = Uint8List.fromList(
+        invocation.namedArguments[#plaintext] as Uint8List,
+      );
+      return {'nonce': 'fresh-nonce', 'ciphertext': 'opaque-new'};
+    });
     when(() => remote.replaceEncryptedMetadata(vaultId, any())).thenAnswer(
       (_) async => Response<void>(
         requestOptions: RequestOptions(path: '/api/vaults/$vaultId'),
@@ -173,6 +178,12 @@ void main() {
     expect(captured['metadataRevision'], '13');
     expect(captured['ciphertext'], 'opaque-new');
     expect(captured.toString(), isNot(contains('Production 2')));
+    final encryptedJson =
+        jsonDecode(utf8.decode(encryptedMetadataPlaintext)) as Map;
+    expect(encryptedJson['schema'], 'palladin.member-vault-metadata.v1');
+    expect(encryptedJson['grantMode'], 'granular');
+    expect(encryptedJson['icon'], {'kind': 'glyph', 'value': 'shield'});
+    expect(encryptedJson.containsKey('iconReference'), isFalse);
     expect(updated.name, 'Production 2');
   });
 

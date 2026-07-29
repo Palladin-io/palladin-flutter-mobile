@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../domain/entities/vault_entity.dart';
+import '../../domain/entities/vault_plaintext.dart';
 import '../datasources/vault_remote_datasource.dart';
 import 'encrypted_presentation_asset_service.dart';
 import 'vault_protocol/vault_protocol_aad.dart';
@@ -109,12 +110,13 @@ class VaultSettingsService {
         );
         uploadedAssetId = _assetId(nextIcon);
       }
-      final next = <String, dynamic>{
-        'name': name,
-        if (description.isNotEmpty) 'description': description,
-        'iconReference': nextIcon,
-        'color': color,
-      };
+      final next = MemberVaultMetadata(
+        name: name,
+        description: description.isEmpty ? null : description,
+        icon: VaultPlaintextIcon.fromReference(nextIcon),
+        color: color.isEmpty ? null : color.toUpperCase(),
+        grantMode: current['grantMode'] as String,
+      ).toJson();
       final currentRevision = BigInt.tryParse(
         envelope['metadataRevision'] as String,
       );
@@ -253,6 +255,19 @@ class VaultSettingsService {
     final decoded = jsonDecode(utf8.decode(plaintext));
     if (decoded is! Map) throw const FormatException('Malformed metadata');
     final metadata = Map<String, dynamic>.from(decoded);
+    if (metadata['schema'] == MemberVaultMetadata.schema) {
+      final canonical = MemberVaultMetadata.fromJson(
+        Map<String, Object?>.from(metadata),
+      );
+      return <String, dynamic>{
+        'name': canonical.name,
+        if (canonical.description != null) 'description': canonical.description,
+        if (canonical.icon != null)
+          'iconReference': _iconReference(canonical.icon!),
+        if (canonical.color != null) 'color': canonical.color,
+        'grantMode': canonical.grantMode,
+      };
+    }
     const allowed = {'name', 'description', 'iconReference', 'color'};
     if (metadata.keys.any((key) => !allowed.contains(key)) ||
         metadata['name'] is! String ||
@@ -267,8 +282,15 @@ class VaultSettingsService {
     if (name.isEmpty || name.length > 256) {
       throw const FormatException('Invalid Vault name');
     }
-    return metadata;
+    return {...metadata, 'grantMode': 'granular'};
   }
+
+  String _iconReference(VaultPlaintextIcon icon) => switch (icon) {
+    GlyphVaultIcon(:final value) => value,
+    EncryptedAssetVaultIcon(:final assetId) => 'asset:$assetId',
+    PublicAssetVaultIcon(:final assetId) => 'public-asset:$assetId',
+    WebsiteVaultIcon(:final hostname) => 'website:$hostname',
+  };
 
   Map<String, dynamic> _fromEntity(VaultEntity vault) => {
     'name': vault.name,
@@ -278,7 +300,14 @@ class VaultSettingsService {
   };
 
   bool _sameMetadata(Map<String, dynamic> left, Map<String, dynamic> right) =>
-      canonicalizeVaultJson(left) == canonicalizeVaultJson(right);
+      canonicalizeVaultJson({
+        'name': left['name'],
+        if (left['description'] != null) 'description': left['description'],
+        if (left['iconReference'] != null)
+          'iconReference': left['iconReference'],
+        if (left['color'] != null) 'color': left['color'],
+      }) ==
+      canonicalizeVaultJson(right);
 
   String? _assetId(String? reference) {
     final match = RegExp(

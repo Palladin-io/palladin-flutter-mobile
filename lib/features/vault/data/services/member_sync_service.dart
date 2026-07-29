@@ -445,7 +445,7 @@ final class MemberSyncService implements MemberIndexReader {
     Map<String, dynamic> json,
   ) {
     const requiredKeys = {'memberLabel', 'entryType', 'searchFields'};
-    const allowedKeys = {...requiredKeys, 'iconReference'};
+    const allowedKeys = {...requiredKeys, 'iconReference', 'autofillDomains'};
     if (!json.keys.toSet().containsAll(requiredKeys) ||
         json.keys.any((key) => !allowedKeys.contains(key))) {
       throw const VaultPlaintextFormatException(
@@ -497,6 +497,24 @@ final class MemberSyncService implements MemberIndexReader {
     if (websiteDomain != null && websiteDomain.isEmpty) {
       throw const VaultPlaintextFormatException('Invalid iconReference.');
     }
+    final rawAutofillDomains = json['autofillDomains'];
+    if (rawAutofillDomains != null &&
+        (rawAutofillDomains is! List || rawAutofillDomains.length > 16)) {
+      throw const VaultPlaintextFormatException('Invalid autofillDomains.');
+    }
+    final List<String> autofillDomains = rawAutofillDomains == null
+        ? websiteDomain == null
+              ? const <String>[]
+              : <String>[websiteDomain]
+        : (rawAutofillDomains as List)
+              .map<String>(
+                (value) => _boundedUtf8String(
+                  value,
+                  maximumBytes: 2048,
+                  field: 'autofillDomains',
+                ),
+              )
+              .toList(growable: false);
 
     return MemberIndexEntry(
       entryId: item.entryId,
@@ -505,7 +523,7 @@ final class MemberSyncService implements MemberIndexReader {
       searchFields: searchFields,
       revision: item.memberIndexRevision!,
       state: _state(item.state),
-      autofillDomains: websiteDomain == null ? const [] : [websiteDomain],
+      autofillDomains: autofillDomains,
       iconReference: iconReference,
     );
   }
