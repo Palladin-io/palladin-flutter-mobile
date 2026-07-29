@@ -3,10 +3,31 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/vault/data/models/member_sync_models.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_cache.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+class _Database extends Mock implements Database {}
 
 void main() {
   sqfliteFfiInit();
+
+  test('configures WAL through the result-returning PRAGMA API', () async {
+    final database = _Database();
+    when(() => database.rawQuery('PRAGMA journal_mode=WAL')).thenAnswer(
+      (_) async => const <Map<String, Object?>>[
+        {'journal_mode': 'wal'},
+      ],
+    );
+    when(
+      () => database.execute('PRAGMA synchronous=FULL'),
+    ).thenAnswer((_) async {});
+
+    await configureMemberSyncDatabase(database);
+
+    verify(() => database.rawQuery('PRAGMA journal_mode=WAL')).called(1);
+    verify(() => database.execute('PRAGMA synchronous=FULL')).called(1);
+    verifyNever(() => database.execute('PRAGMA journal_mode=WAL'));
+  });
 
   late Database database;
   late SqliteMemberSyncCache cache;

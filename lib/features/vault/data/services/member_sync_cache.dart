@@ -6,6 +6,14 @@ import 'package:sqflite/sqflite.dart';
 
 import '../models/member_sync_models.dart';
 
+/// `journal_mode` returns a result row. Using `execute` for it causes
+/// sqflite_darwin to surface SQLite's successful response as
+/// `DatabaseException("not an error")`.
+Future<void> configureMemberSyncDatabase(Database db) async {
+  await db.rawQuery('PRAGMA journal_mode=WAL');
+  await db.execute('PRAGMA synchronous=FULL');
+}
+
 /// Persistent sync state. Implementations may store only opaque envelopes and
 /// structural cursors; decrypted labels, search terms, and keys are forbidden.
 abstract interface class MemberSyncCache {
@@ -39,10 +47,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
     return openDatabase(
       p.join(support.path, 'vault_member_sync.db'),
       version: 1,
-      onConfigure: (db) async {
-        await db.execute('PRAGMA journal_mode=WAL');
-        await db.execute('PRAGMA synchronous=FULL');
-      },
+      onConfigure: configureMemberSyncDatabase,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE member_sync_heads (
