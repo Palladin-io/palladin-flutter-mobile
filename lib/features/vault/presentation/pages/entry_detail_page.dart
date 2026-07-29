@@ -45,7 +45,7 @@ class EntryDetailDeleted extends EntryDetailResult {
 /// Tab 3 — History (loaded only when selected).
 ///
 /// MemberIndex metadata renders immediately. MemberSecret is fetched and
-/// authenticated only after an explicit reveal/edit action.
+/// authenticated on entry; secret fields remain masked until revealed.
 class EntryDetailPage extends StatelessWidget {
   const EntryDetailPage({super.key, required this.entry, this.wrappedVK});
 

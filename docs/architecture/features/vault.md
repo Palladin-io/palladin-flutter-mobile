@@ -52,7 +52,7 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 
 ### Canonical Entry detail and versioned edit (CVT-452)
 
-- Entry Detail renders the already-decrypted in-memory MemberIndex first and does not fetch MemberSecret until the user explicitly reveals details or enters edit mode. A canonical authentication failure never falls back to the legacy plaintext/blob repository path.
+- Entry Detail renders the already-decrypted in-memory MemberIndex first and automatically authenticates and decrypts MemberSecret on entry. Sensitive values remain masked and are revealed per field. A canonical authentication failure never falls back to the legacy plaintext/blob repository path.
 - A save emits exactly one optimistic backend transition: immutable MemberSecret revision `N+1`, the next MemberIndex head and the next AgentDiscovery high-watermark revision are encrypted locally and switched atomically. A stale Member generation also rewraps the Entry DEK as the next key version before binding all projections to it.
 - HTTP `409` is a dedicated edit-conflict state rather than a generic validation error. Lock, background and widget disposal drop decrypted Cubit state, controller values, reveal flags and TOTP state; keys and temporary plaintext byte buffers are wiped in `finally` paths.
 

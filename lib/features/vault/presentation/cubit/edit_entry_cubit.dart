@@ -30,6 +30,7 @@ class EditEntryCubit extends Cubit<EditEntryState> {
   final EntryRepository repository;
   final CanonicalEntryDetailService canonicalService;
   CanonicalEntrySnapshot? _snapshot;
+  int _sensitiveEpoch = 0;
 
   /// Whether another save can safely reuse the authenticated base revision.
   bool get hasCanonicalSnapshot => _snapshot != null;
@@ -45,6 +46,7 @@ class EditEntryCubit extends Cubit<EditEntryState> {
 
   /// Drops every reference to decrypted canonical state on lock/background.
   void clearSensitiveState() {
+    _sensitiveEpoch++;
     _wipeSnapshot();
     emit(const EditEntryInitial());
   }
@@ -63,6 +65,7 @@ class EditEntryCubit extends Cubit<EditEntryState> {
     required Uint8List privateKey,
     String? wrappedVK,
   }) async {
+    final epoch = _sensitiveEpoch;
     AppLogger.d('Entry', 'Revealing entry id=${entry.id} for edit');
     emit(const EditEntryRevealing());
     try {
@@ -70,6 +73,13 @@ class EditEntryCubit extends Cubit<EditEntryState> {
         expected: entry,
         memberPrivateKey: privateKey,
       );
+      if (epoch != _sensitiveEpoch || isClosed) {
+        snapshot.payload.clear();
+        snapshot.secret.clear();
+        snapshot.entry.clear();
+        return;
+      }
+      _wipeSnapshot();
       _snapshot = snapshot;
       emit(EditEntryReady(entry: entry, payload: snapshot.payload));
     } on EntryException catch (e) {
@@ -214,6 +224,7 @@ class EditEntryCubit extends Cubit<EditEntryState> {
 
   @override
   Future<void> close() {
+    _sensitiveEpoch++;
     _wipeSnapshot();
     return super.close();
   }

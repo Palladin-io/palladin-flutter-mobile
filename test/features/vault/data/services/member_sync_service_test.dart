@@ -375,6 +375,100 @@ void main() {
 
     expect(maximumActiveDecrypts, 2);
   });
+
+  test(
+    'compact web MemberIndex contract parses every entry in a 539 item vault',
+    () async {
+      when(
+        () => entryCrypto.openMemberIndex(
+          envelope: any(named: 'envelope'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      ).thenAnswer((invocation) async {
+        final envelope = invocation.namedArguments[#envelope]! as Map;
+        final scope = (envelope['descriptor'] as Map)['scope'] as Map;
+        final id = scope['entryId'] as String;
+        return {
+          'memberLabel': 'Imported $id',
+          'entryType': 1,
+          'searchFields': ['Imported $id', 'stripe.com'],
+          'iconReference': 'website:stripe.com',
+        };
+      });
+      when(
+        () => remote.snapshot(
+          vaultId: 'vault',
+          cursor: any(named: 'cursor'),
+          pageSize: any(named: 'pageSize'),
+        ),
+      ).thenAnswer((invocation) async {
+        final cursor = invocation.namedArguments[#cursor] as String?;
+        final offset = cursor == null ? 0 : int.parse(cursor);
+        final end = (offset + 200).clamp(0, 539);
+        return MemberSnapshotPage(
+          snapshotBaseSequence: '539',
+          items: List.generate(
+            end - offset,
+            (index) => _head(_entryId(offset + index)),
+          ),
+          nextCursor: end < 539 ? '$end' : null,
+        );
+      });
+
+      final result = await service.synchronize(
+        vaultId: 'vault',
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: 1,
+      );
+
+      final entries = service.entries('vault');
+      expect(result.entryCount, 539);
+      expect(entries, hasLength(539));
+      expect(entries.every((entry) => !entry.corrupt), isTrue);
+      expect(entries.last.memberLabel, contains(_entryId(538)));
+      expect(entries.last.iconReference, 'website:stripe.com');
+      expect(entries.last.autofillDomains, ['stripe.com']);
+    },
+  );
+
+  test(
+    'compact MemberIndex rejects unknown fields instead of widening protocol',
+    () async {
+      when(
+        () => entryCrypto.openMemberIndex(
+          envelope: any(named: 'envelope'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      ).thenAnswer(
+        (_) async => {
+          'memberLabel': 'Entry',
+          'entryType': 1,
+          'searchFields': const <String>[],
+          'unexpected': true,
+        },
+      );
+      when(
+        () => remote.snapshot(
+          vaultId: 'vault',
+          cursor: any(named: 'cursor'),
+          pageSize: any(named: 'pageSize'),
+        ),
+      ).thenAnswer(
+        (_) async => MemberSnapshotPage(
+          snapshotBaseSequence: '1',
+          items: [_head(_firstId)],
+        ),
+      );
+
+      await service.synchronize(
+        vaultId: 'vault',
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: 1,
+      );
+
+      expect(service.entries('vault').single.corrupt, isTrue);
+    },
+  );
 }
 
 String _entryId(int index) =>

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../domain/entities/member_index_entry.dart';
@@ -407,6 +408,9 @@ final class MemberSyncService implements MemberIndexReader {
     MemberSyncItemModel item,
     Map<String, dynamic> json,
   ) {
+    if (!json.containsKey('schema')) {
+      return _parseCompactIndex(item, json);
+    }
     final index = MemberIndex.fromJson(Map<String, Object?>.from(json));
     final fields = <String>[
       index.memberLabel,
@@ -431,6 +435,90 @@ final class MemberSyncService implements MemberIndexReader {
         null => null,
       },
     );
+  }
+
+  /// Parses the compact MemberIndex contract emitted by the active web Vault
+  /// v2 writer. This is a closed protocol variant, not a permissive legacy
+  /// fallback: unknown keys and values fail closed as corrupt projections.
+  MemberIndexEntry _parseCompactIndex(
+    MemberSyncItemModel item,
+    Map<String, dynamic> json,
+  ) {
+    const requiredKeys = {'memberLabel', 'entryType', 'searchFields'};
+    const allowedKeys = {...requiredKeys, 'iconReference'};
+    if (!json.keys.toSet().containsAll(requiredKeys) ||
+        json.keys.any((key) => !allowedKeys.contains(key))) {
+      throw const VaultPlaintextFormatException(
+        'Invalid compact MemberIndex fields.',
+      );
+    }
+
+    final memberLabel = _boundedUtf8String(
+      json['memberLabel'],
+      maximumBytes: 256,
+      field: 'memberLabel',
+    );
+    final entryType = json['entryType'];
+    if (entryType is! int || entryType < 0 || entryType > 2) {
+      throw const VaultPlaintextFormatException('Invalid entryType.');
+    }
+    final rawSearchFields = json['searchFields'];
+    if (rawSearchFields is! List || rawSearchFields.length > 16) {
+      throw const VaultPlaintextFormatException('Invalid searchFields.');
+    }
+    final searchFields = rawSearchFields
+        .map(
+          (value) => _boundedUtf8String(
+            value,
+            maximumBytes: 8192,
+            field: 'searchFields',
+          ),
+        )
+        .toList(growable: false);
+    if (searchFields.fold<int>(
+          0,
+          (total, value) => total + utf8.encode(value).length,
+        ) >
+        8192) {
+      throw const VaultPlaintextFormatException(
+        'MemberIndex searchFields exceed protocol limit.',
+      );
+    }
+    final iconReference = json['iconReference'] == null
+        ? null
+        : _boundedUtf8String(
+            json['iconReference'],
+            maximumBytes: 1024,
+            field: 'iconReference',
+          );
+    final websiteDomain = iconReference?.startsWith('website:') == true
+        ? iconReference!.substring('website:'.length)
+        : null;
+    if (websiteDomain != null && websiteDomain.isEmpty) {
+      throw const VaultPlaintextFormatException('Invalid iconReference.');
+    }
+
+    return MemberIndexEntry(
+      entryId: item.entryId,
+      entryType: entryType,
+      memberLabel: memberLabel,
+      searchFields: searchFields,
+      revision: item.memberIndexRevision!,
+      state: _state(item.state),
+      autofillDomains: websiteDomain == null ? const [] : [websiteDomain],
+      iconReference: iconReference,
+    );
+  }
+
+  String _boundedUtf8String(
+    Object? value, {
+    required int maximumBytes,
+    required String field,
+  }) {
+    if (value is! String || utf8.encode(value).length > maximumBytes) {
+      throw VaultPlaintextFormatException('Invalid $field.');
+    }
+    return value;
   }
 
   MemberIndexEntry _corrupt(MemberSyncItemModel item) => MemberIndexEntry(

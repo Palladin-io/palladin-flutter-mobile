@@ -41,8 +41,8 @@ import '../widgets/vault_visuals.dart';
 /// Defaults to a **read-only, quick-access** presentation: each field is a
 /// non-editable row with per-value copy (and, for secrets, a masked value +
 /// reveal toggle) — mirroring the web entry-row quick actions. MemberIndex
-/// metadata renders first; MemberSecret is authenticated and decrypted only
-/// after an explicit user action.
+/// metadata renders first while MemberSecret is authenticated and decrypted
+/// automatically on entry. Sensitive values remain masked per field.
 ///
 /// Tapping **Edit** swaps in the existing edit form (same cubit-driven flow
 /// that used to be the tab's default). Saving or cancelling returns to the
@@ -151,6 +151,11 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _urlController.addListener(_resolveWebsiteIcon);
     WidgetsBinding.instance.addObserver(this);
     widget.editController?.bindCancel(_cancelEdit);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && context.read<EditEntryCubit>().state is EditEntryInitial) {
+        _requestReveal();
+      }
+    });
     // Resolve reference target names for a Script entry's read-only view.
     if (widget.entry.type == EntryType.script) {
       WidgetsBinding.instance.addPostFrameCallback(
@@ -213,6 +218,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     if (state != AppLifecycleState.resumed) {
       context.read<EditEntryCubit>().clearSensitiveState();
       if (mounted) setState(_clearPlaintextState);
+    } else if (mounted) {
+      _requestReveal();
     }
   }
 
@@ -306,6 +313,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   // ── Mode transitions ───────────────────────────────────────────────
 
   Future<void> _requestReveal({bool editAfter = false}) async {
+    if (context.read<EditEntryCubit>().state is EditEntryRevealing) return;
     if (context.read<EditEntryCubit>().state is EditEntryConflict) {
       setState(_clearPlaintextState);
     }
@@ -623,46 +631,48 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
 
-    return BlocBuilder<EditEntryCubit, EditEntryState>(
-      builder: (context, state) {
-        // Adopt the decrypted payload the first time it is available. Done in
-        // the builder (not a listener) so it also covers the case where the
-        // cubit is already `EditEntryReady` on first build — the cachedPayload
-        // / setReady path — where a BlocListener would never fire. Mutating
-        // `_populated`/controllers here is a safe memoisation: the same build
-        // then renders the populated view, so no extra rebuild is scheduled.
-        if (state is EditEntryReady && !_populated) {
-          _adoptRevealed(state.entry, state.payload);
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthAuthenticated && state.privateKey != null) {
+          _requestReveal();
+          return;
         }
-        if (!_populated && state is EditEntryRevealing) {
-          return _RevealLoading(message: l10n.entryRevealingForEdit);
-        }
-        if (!_populated && state is EditEntryError) {
-          return _RevealError(
-            message: EntryFormUtils.errorMessage(l10n, state.kind),
-            onRetry: _requestReveal,
-          );
-        }
-        if (state is EditEntryConflict) {
-          return _RevealError(
-            message: l10n.entryErrorConflict,
-            onRetry: () => _requestReveal(editAfter: true),
-          );
-        }
-        if (!_populated) {
-          return _IndexOnlyDetails(
-            entry: widget.entry,
-            hint: l10n.entryRevealDetailsHint,
-            action: l10n.entryRevealDetailsAction,
-            onReveal: _requestReveal,
-            onEdit: () => _requestReveal(editAfter: true),
-            editLabel: l10n.entryEditAction,
-          );
-        }
-        return _editMode
-            ? _buildEditForm(l10n, brightness, state)
-            : _buildReadOnly(l10n, brightness);
+        if (mounted) setState(_clearPlaintextState);
       },
+      child: BlocBuilder<EditEntryCubit, EditEntryState>(
+        builder: (context, state) {
+          // Adopt the decrypted payload the first time it is available. Done in
+          // the builder (not a listener) so it also covers the case where the
+          // cubit is already `EditEntryReady` on first build — the cachedPayload
+          // / setReady path — where a BlocListener would never fire. Mutating
+          // `_populated`/controllers here is a safe memoisation: the same build
+          // then renders the populated view, so no extra rebuild is scheduled.
+          if (state is EditEntryReady && !_populated) {
+            _adoptRevealed(state.entry, state.payload);
+          }
+          if (!_populated && state is EditEntryRevealing) {
+            return _RevealLoading(message: l10n.entryRevealingForEdit);
+          }
+          if (!_populated && state is EditEntryError) {
+            return _RevealError(
+              message: EntryFormUtils.errorMessage(l10n, state.kind),
+              onRetry: _requestReveal,
+            );
+          }
+          if (state is EditEntryConflict) {
+            return _RevealError(
+              message: l10n.entryErrorConflict,
+              onRetry: () => _requestReveal(editAfter: true),
+            );
+          }
+          if (!_populated) {
+            return _RevealLoading(message: l10n.entryRevealingForEdit);
+          }
+          return _editMode
+              ? _buildEditForm(l10n, brightness, state)
+              : _buildReadOnly(l10n, brightness);
+        },
+      ),
     );
   }
 
@@ -1497,69 +1507,6 @@ class _RevealLoading extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _IndexOnlyDetails extends StatelessWidget {
-  const _IndexOnlyDetails({
-    required this.entry,
-    required this.hint,
-    required this.action,
-    required this.editLabel,
-    required this.onReveal,
-    required this.onEdit,
-  });
-
-  final EntryEntity entry;
-  final String hint;
-  final String action;
-  final String editLabel;
-  final VoidCallback onReveal;
-  final VoidCallback onEdit;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.fieldGap,
-        AppSpacing.screenH,
-        AppSpacing.listBottom,
-      ),
-      children: [
-        Text(
-          entry.label,
-          style: TextStyle(
-            color: AppColors.onSurface(brightness),
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        if (entry.description case final description?) ...[
-          const SizedBox(height: AppSpacing.innerGap),
-          Text(
-            description,
-            style: TextStyle(
-              color: AppColors.onSurfaceMuted(brightness),
-              fontSize: 13,
-            ),
-          ),
-        ],
-        const SizedBox(height: AppSpacing.section),
-        Text(
-          hint,
-          style: TextStyle(
-            color: AppColors.onSurfaceMuted(brightness),
-            fontSize: 13,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.section),
-        PrimaryButton(label: action, onPressed: onReveal),
-        const SizedBox(height: AppSpacing.fieldGap),
-        TextButton(onPressed: onEdit, child: Text(editLabel)),
-      ],
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:bloc_test/bloc_test.dart';
@@ -56,17 +57,20 @@ void main() {
       EditEntryCubit(repository: repository, canonicalService: canonical);
 
   group('EditEntryCubit canonical lifecycle', () {
-    test('starts index-only without fetching MemberSecret', () async {
-      final cubit = buildCubit();
-      expect(cubit.state, isA<EditEntryInitial>());
-      verifyNever(
-        () => canonical.reveal(
-          expected: any(named: 'expected'),
-          memberPrivateKey: any(named: 'memberPrivateKey'),
-        ),
-      );
-      await cubit.close();
-    });
+    test(
+      'starts empty until the presentation requests canonical data',
+      () async {
+        final cubit = buildCubit();
+        expect(cubit.state, isA<EditEntryInitial>());
+        verifyNever(
+          () => canonical.reveal(
+            expected: any(named: 'expected'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        );
+        await cubit.close();
+      },
+    );
 
     blocTest<EditEntryCubit, EditEntryState>(
       'explicit reveal authenticates canonical secret and emits Ready',
@@ -238,7 +242,7 @@ void main() {
     );
 
     test(
-      'lock/background cleanup clears payload and returns index-only',
+      'lock/background cleanup clears payload and returns initial',
       () async {
         when(
           () => canonical.reveal(
@@ -252,6 +256,36 @@ void main() {
         cubit.clearSensitiveState();
         expect(ready.payload, isEmpty);
         expect(cubit.state, isA<EditEntryInitial>());
+        await cubit.close();
+      },
+    );
+
+    test(
+      'late reveal completion is discarded after lifecycle cleanup',
+      () async {
+        final completion = Completer<CanonicalEntrySnapshot>();
+        when(
+          () => canonical.reveal(
+            expected: any(named: 'expected'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).thenAnswer((_) => completion.future);
+        final cubit = buildCubit();
+
+        final reveal = cubit.revealForEdit(
+          entry: sampleEntry,
+          privateKey: privateKey,
+        );
+        cubit.clearSensitiveState();
+        final revealed = snapshot();
+        completion.complete(revealed);
+        await reveal;
+
+        expect(cubit.state, isA<EditEntryInitial>());
+        expect(cubit.hasCanonicalSnapshot, isFalse);
+        expect(revealed.payload, isEmpty);
+        expect(revealed.entry, isEmpty);
+        expect(revealed.secret, isEmpty);
         await cubit.close();
       },
     );

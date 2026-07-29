@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -11,11 +12,15 @@ import 'package:mobile_palladin/features/vault/presentation/cubit/edit_entry_cub
 import 'package:mobile_palladin/core/utils/secure_clipboard.dart';
 import 'package:mobile_palladin/features/vault/presentation/pages/entry_details_tab.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
+import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 
 class _MockEntryRepository extends Mock implements EntryRepository {}
 
 class _MockCanonicalService extends Mock
     implements CanonicalEntryDetailService {}
+
+class _MockAuthBloc extends MockBloc<AuthEvent, AuthState>
+    implements AuthBloc {}
 
 EntryEntity _keyEntry() => EntryEntity(
   id: 'e1',
@@ -29,6 +34,19 @@ EntryEntity _keyEntry() => EntryEntity(
 void main() {
   const secret = 'sk_live_supersecret';
   const masked = '••••••••••••';
+
+  AuthAuthenticated unlockedAuth() => AuthAuthenticated(
+    userId: 'u1',
+    isOnboarded: true,
+    isVaultLocked: false,
+    privateKey: Uint8List.fromList(List<int>.filled(32, 7)),
+  );
+
+  _MockAuthBloc authBloc(AuthState state) {
+    final bloc = _MockAuthBloc();
+    whenListen(bloc, const Stream<AuthState>.empty(), initialState: state);
+    return bloc;
+  }
 
   setUpAll(() {
     registerFallbackValue(_keyEntry());
@@ -62,14 +80,18 @@ void main() {
       privateKey: Uint8List.fromList(List<int>.filled(32, 7)),
     );
     addTearDown(cubit.close);
+    final auth = authBloc(unlockedAuth());
 
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
-          body: BlocProvider<EditEntryCubit>.value(
-            value: cubit,
+          body: MultiBlocProvider(
+            providers: [
+              BlocProvider<AuthBloc>.value(value: auth),
+              BlocProvider<EditEntryCubit>.value(value: cubit),
+            ],
             child: EntryDetailsTab(
               entry: entry,
               onUpdated: (_) {},
@@ -83,7 +105,7 @@ void main() {
     return cubit;
   }
 
-  testWidgets('renders MemberIndex without fetching MemberSecret', (
+  testWidgets('loads canonical details on entry without a reveal gate', (
     tester,
   ) async {
     final canonical = _MockCanonicalService();
@@ -91,14 +113,30 @@ void main() {
       repository: _MockEntryRepository(),
       canonicalService: canonical,
     );
+    when(
+      () => canonical.reveal(
+        expected: any(named: 'expected'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
+    ).thenAnswer(
+      (_) async => CanonicalEntrySnapshot(
+        entry: {'currentRevision': '1'},
+        payload: {'value': secret},
+        secret: {'schemaVersion': 1},
+      ),
+    );
     addTearDown(cubit.close);
+    final auth = authBloc(unlockedAuth());
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
-          body: BlocProvider<EditEntryCubit>.value(
-            value: cubit,
+          body: MultiBlocProvider(
+            providers: [
+              BlocProvider<AuthBloc>.value(value: auth),
+              BlocProvider<EditEntryCubit>.value(value: cubit),
+            ],
             child: EntryDetailsTab(
               entry: _keyEntry(),
               onUpdated: (_) {},
@@ -108,17 +146,17 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
-    expect(find.text('Deploy key'), findsOneWidget);
-    expect(find.text(l10n.entryRevealDetailsAction), findsOneWidget);
+    expect(find.text(l10n.entryRevealDetailsAction), findsNothing);
+    expect(find.text(masked), findsOneWidget);
     expect(find.text(secret), findsNothing);
-    verifyNever(
+    verify(
       () => canonical.reveal(
         expected: any(named: 'expected'),
         memberPrivateKey: any(named: 'memberPrivateKey'),
       ),
-    );
+    ).called(1);
   });
 
   testWidgets('read-only view masks the secret, the eye toggle reveals it, and '
@@ -200,9 +238,10 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     await tester.pump();
 
-    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
     expect(find.text(secret), findsNothing);
-    expect(find.text(l10n.entryRevealDetailsAction), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.text(masked), findsOneWidget);
   });
 }
