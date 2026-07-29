@@ -86,6 +86,7 @@ void main() {
     memberSync: memberIndex,
     scope: AuditLogScope.vault,
     vaultId: 'v-1',
+    entryNameRefreshDelay: Duration.zero,
   );
 
   AuditLogCubit orgCubit() => AuditLogCubit(
@@ -96,6 +97,7 @@ void main() {
     memberSync: memberIndex,
     scope: AuditLogScope.org,
     vaultId: null,
+    entryNameRefreshDelay: Duration.zero,
   );
 
   group('vault scope', () {
@@ -189,6 +191,82 @@ void main() {
         expect(cubit.state.entries.single.resolvedObjectName, 'Stripe Key');
         expect(cubit.state.entries.single.localPresentationOnly, isTrue);
         verify(() => memberIndex.waitForCurrent('v-1')).called(1);
+        await cubit.close();
+      },
+    );
+
+    test(
+      'refreshes unresolved Entry names when MemberIndex sync starts just after load',
+      () async {
+        when(() => agents.listAgents()).thenAnswer((_) async => []);
+        when(
+          () => vaults.listVaults(),
+        ).thenAnswer((_) async => [_vault('v-1', 'Production')]);
+        var indexReady = false;
+        var waitCalls = 0;
+        when(() => memberIndex.waitForCurrent('v-1')).thenAnswer((_) async {
+          waitCalls++;
+          // The first lookup wins the race and observes no running sync. By
+          // the delayed pass, synchronization has been registered/completed.
+          if (waitCalls == 2) indexReady = true;
+        });
+        when(() => memberIndex.entries('v-1')).thenAnswer((_) {
+          if (!indexReady) return const [];
+          return const [
+            MemberIndexEntry(
+              entryId: 'e-1',
+              entryType: 1,
+              memberLabel: 'Stripe Key',
+              searchFields: [],
+              revision: 'r-1',
+              state: MemberEntryState.active,
+            ),
+          ];
+        });
+        when(
+          () => audit.listVaultLogs(
+            'v-1',
+            actions: any(named: 'actions'),
+            agentId: any(named: 'agentId'),
+            userId: any(named: 'userId'),
+            entryId: any(named: 'entryId'),
+            from: any(named: 'from'),
+            to: any(named: 'to'),
+            cursor: any(named: 'cursor'),
+            pageSize: any(named: 'pageSize'),
+          ),
+        ).thenAnswer(
+          (_) async => AuditLogPage(
+            entries: [
+              AuditLogEntry(
+                id: '1',
+                eventType: AuditEventType.entryCreated,
+                rawEventType: 'entry.created',
+                actorType: AuditActorType.user,
+                createdAt: DateTime(2026),
+                vaultId: 'v-1',
+                entryId: 'e-1',
+              ),
+            ],
+          ),
+        );
+
+        final cubit = AuditLogCubit(
+          auditRepository: audit,
+          agentsRepository: agents,
+          vaultRepository: vaults,
+          vaultMembersRepository: vaultMembers,
+          memberSync: memberIndex,
+          scope: AuditLogScope.vault,
+          vaultId: 'v-1',
+          entryNameRefreshDelay: const Duration(milliseconds: 1),
+        );
+        await cubit.load();
+
+        expect(indexReady, isTrue);
+        expect(cubit.state.entries.single.entryLabel, 'Stripe Key');
+        expect(cubit.state.entries.single.resolvedObjectName, 'Stripe Key');
+        verify(() => memberIndex.waitForCurrent('v-1')).called(2);
         await cubit.close();
       },
     );

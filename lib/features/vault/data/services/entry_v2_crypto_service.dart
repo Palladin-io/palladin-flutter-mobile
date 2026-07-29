@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
-import 'package:sodium_libs/sodium_libs_sumo.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
+import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 import '../../../../core/crypto/asymmetric_keys.dart';
 import '../../../../core/crypto/envelope/envelope_contract.dart';
@@ -291,7 +291,7 @@ class EntryV2CryptoService {
     EnvelopePurpose purpose,
   ) async {
     final descriptorJson = envelope['descriptor'] as Map<String, dynamic>;
-    final descriptor = _descriptorFromJson(descriptorJson, purpose);
+    final descriptor = entryEnvelopeDescriptorFromJson(descriptorJson, purpose);
     return CryptoSuiteRegistry()
         .resolveWire(descriptorJson['cryptoSuiteId'] as String)
         .open(
@@ -304,11 +304,12 @@ class EntryV2CryptoService {
   }
 }
 
-EnvelopeDescriptor _descriptorFromJson(
+@visibleForTesting
+EnvelopeDescriptor entryEnvelopeDescriptorFromJson(
   Map<String, dynamic> json,
   EnvelopePurpose expected,
 ) {
-  if (json['purpose'] != expected.id) {
+  if (EnvelopePurpose.parseWire(json['purpose']) != expected) {
     throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
   }
   final scope = json['scope'] as Map<String, dynamic>;

@@ -36,6 +36,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
     required AuditLogScope scope,
     this.vaultId,
     this.maximumLoadedEntries = 2000,
+    this.entryNameRefreshDelay = const Duration(milliseconds: 250),
   }) : super(AuditLogState(scope: scope));
 
   final AuditRepository auditRepository;
@@ -45,14 +46,21 @@ class AuditLogCubit extends Cubit<AuditLogState> {
   final MemberIndexReader memberSync;
   final int maximumLoadedEntries;
 
+  /// One bounded post-load pass closes the race where the Logs tab mounts
+  /// immediately before Vault MemberIndex synchronization is registered.
+  /// The pass reads only the unlocked in-memory index.
+  final Duration entryNameRefreshDelay;
+
   /// The vault to scope the feed to ([AuditLogScope.vault]); `null` for the
   /// org-wide feed.
   final String? vaultId;
 
   static const _pageSize = 50;
   final Set<String> _seenCursors = {};
+  int _loadGeneration = 0;
 
   Future<void> load() async {
+    final generation = ++_loadGeneration;
     emit(state.copyWith(status: AuditLogStatus.loading, clearError: true));
     _seenCursors.clear();
     try {
@@ -76,6 +84,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
           clearNextCursor: reachedLimit || page.nextCursor == null,
         ),
       );
+      await _refreshEntryNamesAfterSync(generation);
     } on AuditException catch (e) {
       AppLogger.w('Audit', 'Audit log load failed: ${e.kind.name}');
       emit(state.copyWith(status: AuditLogStatus.error, error: e.kind));
@@ -93,6 +102,39 @@ class AuditLogCubit extends Cubit<AuditLogState> {
         ),
       );
     }
+  }
+
+  Future<void> _refreshEntryNamesAfterSync(int generation) async {
+    if (entryNameRefreshDelay == Duration.zero || isClosed) return;
+    final unresolved = state.entries.any(
+      (entry) => entry.entryId != null && entry.entryLabel == null,
+    );
+    if (!unresolved) return;
+
+    await Future<void>.delayed(entryNameRefreshDelay);
+    if (isClosed || generation != _loadGeneration) return;
+
+    final refreshed = await _resolveNames(state.entries);
+    if (isClosed || generation != _loadGeneration) return;
+    final merged = _mergeNames(_namesFromState(), refreshed);
+    final retained = _retainNamesForEntries(merged, state.entries);
+    final resolvedEntries = _resolvePage(state.entries, retained);
+    final gainedName = resolvedEntries.indexed.any(
+      (item) =>
+          state.entries[item.$1].entryLabel == null &&
+          item.$2.entryLabel != null,
+    );
+    if (!gainedName) return;
+
+    emit(
+      state.copyWith(
+        entries: resolvedEntries,
+        agentNames: retained.agents,
+        vaultNames: retained.vaults,
+        entryNames: retained.entries,
+        memberNames: retained.members,
+      ),
+    );
   }
 
   Future<void> loadMore() async {
