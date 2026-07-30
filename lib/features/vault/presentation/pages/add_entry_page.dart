@@ -105,6 +105,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
   bool _valueObscured = true;
   bool _passwordObscured = true;
+  bool _discoverDescription = false;
   bool _exposeUsername = true;
   bool _exposeDomain = true;
   String? _urlError;
@@ -224,19 +225,46 @@ class _AddEntryViewState extends State<_AddEntryView> {
     refs: _refs,
   );
 
-  Widget _urlField(AppLocalizations l10n) => OnboardingTextField(
-    label: l10n.entryUrlLabel,
-    controller: _urlController,
-    textInputAction: TextInputAction.next,
-    borderColor: _urlError != null ? AppColors.brandRed : null,
-    focusBorderColor: _urlError != null ? AppColors.brandRed : null,
-    onChanged: (_) => _validateUrl(),
-    feedbackChild: Text(
-      _urlError ?? '',
-      style: const TextStyle(color: AppColors.brandRed, fontSize: 11),
+  Widget _urlField(AppLocalizations l10n, {required bool supportsDiscovery}) =>
+      OnboardingTextField(
+        label: l10n.entryUrlLabel,
+        controller: _urlController,
+        textInputAction: TextInputAction.next,
+        borderColor: _urlError != null ? AppColors.brandRed : null,
+        focusBorderColor: _urlError != null ? AppColors.brandRed : null,
+        onChanged: (_) => _validateUrl(),
+        feedbackChild: Text(
+          _urlError ?? '',
+          style: const TextStyle(color: AppColors.brandRed, fontSize: 11),
+        ),
+        feedbackVisible: _urlError != null,
+        feedbackReserveSpace: false,
+        suffixIcon: supportsDiscovery
+            ? _discoveryButton(
+                keyName: 'urlDomain',
+                selected: _exposeDomain,
+                onToggle: () => setState(() => _exposeDomain = !_exposeDomain),
+                l10n: l10n,
+              )
+            : null,
+      );
+
+  Widget _discoveryButton({
+    required String keyName,
+    required bool selected,
+    required VoidCallback onToggle,
+    required AppLocalizations l10n,
+  }) => IconButton(
+    key: ValueKey('create-entry-discovery-$keyName'),
+    onPressed: onToggle,
+    tooltip: selected
+        ? l10n.entryFieldAgentVisibleDisableTip
+        : l10n.entryFieldAgentVisibleEnableTip,
+    icon: Icon(
+      Icons.smart_toy_outlined,
+      size: 17,
+      color: selected ? AppColors.vaultBlue : AppColors.textTertiaryMobile,
     ),
-    feedbackVisible: _urlError != null,
-    feedbackReserveSpace: false,
   );
 
   /// Type-specific form fields for the currently-selected [_type]. Ends
@@ -256,7 +284,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
           ),
         ),
         const SizedBox(height: AppSpacing.fieldGap),
-        _urlField(l10n),
+        _urlField(l10n, supportsDiscovery: false),
       ],
       EntryType.credential => [
         OnboardingTextField(
@@ -264,6 +292,12 @@ class _AddEntryViewState extends State<_AddEntryView> {
           controller: _usernameController,
           textInputAction: TextInputAction.next,
           onChanged: (_) => setState(() {}),
+          suffixIcon: _discoveryButton(
+            keyName: 'username',
+            selected: _exposeUsername,
+            onToggle: () => setState(() => _exposeUsername = !_exposeUsername),
+            l10n: l10n,
+          ),
         ),
         const SizedBox(height: AppSpacing.fieldGap),
         OnboardingTextField(
@@ -279,7 +313,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
           ),
         ),
         const SizedBox(height: AppSpacing.fieldGap),
-        _urlField(l10n),
+        _urlField(l10n, supportsDiscovery: true),
       ],
       EntryType.script => [
         ScriptEditorField(
@@ -415,6 +449,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
         agentFields: CustomField.agentFieldsFrom(_allCustomFields),
         exposeUsername: _exposeUsername,
         exposeDomain: _exposeDomain,
+        discoverDescription: _discoverDescription,
       );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
@@ -536,10 +571,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                 ),
                 const SizedBox(height: AppSpacing.fieldGap),
                 // 2. Label — with inline entry icon + agent-visible hint.
-                EntryFieldCaption(
-                  label: l10n.entryLabelLabel,
-                  agentVisibleHint: true,
-                ),
+                EntryFieldCaption(label: l10n.entryLabelLabel),
                 const SizedBox(height: AppSpacing.innerGap),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -563,15 +595,20 @@ class _AddEntryViewState extends State<_AddEntryView> {
                 ),
                 const SizedBox(height: AppSpacing.fieldGap),
                 // 3. Description — agent-visible.
-                EntryFieldCaption(
-                  label: l10n.entryDescriptionLabel,
-                  agentVisibleHint: true,
-                ),
+                EntryFieldCaption(label: l10n.entryDescriptionLabel),
                 const SizedBox(height: AppSpacing.innerGap),
                 OnboardingTextField(
                   controller: _descriptionController,
                   textCapitalization: TextCapitalization.sentences,
                   textInputAction: TextInputAction.next,
+                  suffixIcon: _discoveryButton(
+                    keyName: 'description',
+                    selected: _discoverDescription,
+                    onToggle: () => setState(
+                      () => _discoverDescription = !_discoverDescription,
+                    ),
+                    l10n: l10n,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.fieldGap),
                 // 4. Type-specific fields (+ URL / injected data).
@@ -599,21 +636,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
                   controller: _notesController,
                   initiallyVisible: _notesController.text.trim().isNotEmpty,
                 ),
-                if (_type == EntryType.credential) ...[
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(l10n.entryDiscoverUsername),
-                    value: _exposeUsername,
-                    onChanged: (value) =>
-                        setState(() => _exposeUsername = value),
-                  ),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(l10n.entryDiscoverDomain),
-                    value: _exposeDomain,
-                    onChanged: (value) => setState(() => _exposeDomain = value),
-                  ),
-                ],
                 if (state is CreateEntryError) ...[
                   const SizedBox(height: AppSpacing.fieldGap),
                   Text(

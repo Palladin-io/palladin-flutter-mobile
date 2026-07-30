@@ -51,6 +51,7 @@ class CreateEntryCubit extends Cubit<CreateEntryState> {
     List<AgentField>? agentFields,
     bool exposeUsername = true,
     bool exposeDomain = true,
+    bool discoverDescription = false,
   }) async {
     if (label.trim().isEmpty || privateKey.isEmpty) {
       AppLogger.w('Entry', 'createEntry called with invalid input');
@@ -69,6 +70,7 @@ class CreateEntryCubit extends Cubit<CreateEntryState> {
               icon: _trimToNull(icon) ?? '',
               content: payload,
               memberPrivateKey: privateKey,
+              discoverDescription: discoverDescription,
             )
           : type == EntryType.credential && keyCreationService != null
           ? await keyCreationService!.createCredential(
@@ -80,6 +82,7 @@ class CreateEntryCubit extends Cubit<CreateEntryState> {
               memberPrivateKey: privateKey,
               exposeUsername: exposeUsername,
               exposeDomain: exposeDomain,
+              discoverDescription: discoverDescription,
             )
           : type == EntryType.script && keyCreationService != null
           ? await keyCreationService!.createScript(
@@ -89,6 +92,7 @@ class CreateEntryCubit extends Cubit<CreateEntryState> {
               icon: _trimToNull(icon) ?? '',
               content: payload,
               memberPrivateKey: privateKey,
+              discoverDescription: discoverDescription,
             )
           : await repository.createEntryEncrypted(
               vaultId: vaultId,

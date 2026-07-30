@@ -246,4 +246,58 @@ void main() {
       ),
     );
   });
+
+  test(
+    'persists create-form Discovery choices in the first revision',
+    () async {
+      await service().createCredential(
+        vaultId: vaultId,
+        label: 'Mailbox',
+        description: 'Operations account',
+        icon: '',
+        content: {
+          'type': 'CREDENTIAL',
+          'username': 'operator',
+          'password': 'secret',
+          'url': 'https://mail.example.com/login',
+        },
+        memberPrivateKey: Uint8List(32),
+        exposeUsername: true,
+        exposeDomain: false,
+        discoverDescription: true,
+      );
+
+      final secret =
+          verify(
+                () => entryCrypto.seal(
+                  organizationId: any(named: 'organizationId'),
+                  vaultId: any(named: 'vaultId'),
+                  entryId: any(named: 'entryId'),
+                  revision: any(named: 'revision'),
+                  vaultKeyVersion: any(named: 'vaultKeyVersion'),
+                  vdkVersion: any(named: 'vdkVersion'),
+                  memberKeyGeneration: any(named: 'memberKeyGeneration'),
+                  operation: any(named: 'operation'),
+                  secret: captureAny(named: 'secret'),
+                  vaultKey: any(named: 'vaultKey'),
+                  vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+                ),
+              ).captured.single
+              as MemberSecret;
+
+      expect(secret.agentFieldAccess['agentLabel'], AgentFieldAccess.discovery);
+      expect(
+        secret.agentFieldAccess['description'],
+        AgentFieldAccess.discovery,
+      );
+      expect(
+        secret.agentFieldAccess['credential.username'],
+        AgentFieldAccess.discovery,
+      );
+      expect(
+        secret.agentFieldAccess['credential.urlDomain'],
+        AgentFieldAccess.never,
+      );
+    },
+  );
 }

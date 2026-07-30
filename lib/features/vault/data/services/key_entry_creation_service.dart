@@ -34,6 +34,7 @@ final class KeyEntryCreationService {
     required String icon,
     required Map<String, dynamic> content,
     required Uint8List memberPrivateKey,
+    bool discoverDescription = false,
   }) => _create(
     vaultId: vaultId,
     label: label,
@@ -44,6 +45,7 @@ final class KeyEntryCreationService {
     type: EntryType.key,
     exposeUsername: false,
     exposeDomain: false,
+    discoverDescription: discoverDescription,
   );
 
   Future<EntryEntity> createCredential({
@@ -55,6 +57,7 @@ final class KeyEntryCreationService {
     required Uint8List memberPrivateKey,
     required bool exposeUsername,
     required bool exposeDomain,
+    bool discoverDescription = false,
   }) => _create(
     vaultId: vaultId,
     label: label,
@@ -65,6 +68,7 @@ final class KeyEntryCreationService {
     type: EntryType.credential,
     exposeUsername: exposeUsername,
     exposeDomain: exposeDomain,
+    discoverDescription: discoverDescription,
   );
 
   Future<EntryEntity> createScript({
@@ -74,6 +78,7 @@ final class KeyEntryCreationService {
     required String icon,
     required Map<String, dynamic> content,
     required Uint8List memberPrivateKey,
+    bool discoverDescription = false,
   }) => _create(
     vaultId: vaultId,
     label: label,
@@ -84,6 +89,7 @@ final class KeyEntryCreationService {
     type: EntryType.script,
     exposeUsername: false,
     exposeDomain: false,
+    discoverDescription: discoverDescription,
   );
 
   Future<EntryEntity> _create({
@@ -96,6 +102,7 @@ final class KeyEntryCreationService {
     required EntryType type,
     required bool exposeUsername,
     required bool exposeDomain,
+    required bool discoverDescription,
   }) async {
     _validateContent(type, content, vaultId);
     final vault = await _vaults.getEncryptedVault(vaultId);
@@ -119,6 +126,7 @@ final class KeyEntryCreationService {
         content,
         exposeUsername: exposeUsername,
         exposeDomain: exposeDomain,
+        discoverDescription: discoverDescription,
       );
       final envelopes = await _entryCrypto.seal(
         organizationId: opened.organizationId,
@@ -176,6 +184,7 @@ final class KeyEntryCreationService {
     Map<String, dynamic> raw, {
     required bool exposeUsername,
     required bool exposeDomain,
+    required bool discoverDescription,
   }) {
     final custom = (raw['fields'] as List? ?? const [])
         .whereType<Map>()
@@ -217,7 +226,9 @@ final class KeyEntryCreationService {
     final fields = <String, AgentFieldAccess>{
       'memberLabel': AgentFieldAccess.never,
       'agentLabel': AgentFieldAccess.discovery,
-      'description': AgentFieldAccess.never,
+      'description': discoverDescription
+          ? AgentFieldAccess.discovery
+          : AgentFieldAccess.never,
       'icon': AgentFieldAccess.never,
       'color': AgentFieldAccess.never,
       'entryType': AgentFieldAccess.discovery,
