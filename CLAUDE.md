@@ -237,6 +237,16 @@ These patterns are duplicated and have **no** shared widget yet. Extract to `lib
 - **Top-level tabs**: `AppScreen.titled(...)` (in-body `ListScreenHeader`, inherently left-aligned).
 - Decorative/context icons (e.g. the red upload glyph on the Import wizard) go on the **right** as `actions:` (padded `AppSpacing.screenH` from the edge) — never above/inside the body header.
 
+### Form action footers — ALWAYS pinned
+
+Create and edit forms use the same pinned action-footer pattern. The form fields scroll independently in an `Expanded` scroll view; the primary Save/Create action stays in a separate footer at the bottom of the screen.
+
+- The footer must span the full available width and remain visible while the form scrolls or the keyboard changes the viewport.
+- Use `AppSpacing.screenH` horizontally, `AppSpacing.md` above the action, and `AppSpacing.screenBottom` below it so the action clears the device safe area.
+- Use `AppColors.cardFill(brightness)` with a top border in `AppColors.navBorder(brightness)`.
+- Reuse the same feature action widget (for Entry forms: `EntrySaveButton`) in both create and update flows. Do not place a second Save/Create button inside the scrollable form body.
+- Create and update screens for the same resource must have visually and structurally identical footers unless a product requirement explicitly says otherwise.
+
 ### Reuse rules
 
 1. **Colors** — only `AppColors.*` (`lib/core/theme/app_colors.dart`). Never `Color(0x..)`, `Colors.white`, or a hex literal anywhere outside that file.

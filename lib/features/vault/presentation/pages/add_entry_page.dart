@@ -254,17 +254,11 @@ class _AddEntryViewState extends State<_AddEntryView> {
     required bool selected,
     required VoidCallback onToggle,
     required AppLocalizations l10n,
-  }) => IconButton(
+  }) => _CreateDiscoveryButton(
     key: ValueKey('create-entry-discovery-$keyName'),
-    onPressed: onToggle,
-    tooltip: selected
-        ? l10n.entryFieldAgentVisibleDisableTip
-        : l10n.entryFieldAgentVisibleEnableTip,
-    icon: Icon(
-      Icons.smart_toy_outlined,
-      size: 17,
-      color: selected ? AppColors.vaultBlue : AppColors.textTertiaryMobile,
-    ),
+    selected: selected,
+    onToggle: onToggle,
+    explanation: l10n.entryFieldAgentVisibleTip,
   );
 
   /// Type-specific form fields for the currently-selected [_type]. Ends
@@ -545,118 +539,184 @@ class _AddEntryViewState extends State<_AddEntryView> {
               ),
             ),
           ),
-          body: SingleChildScrollView(
-            // Title→content gap (headerGap) is owned by AppScreen.appBar.
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.screenH,
-              0,
-              AppSpacing.screenH,
-              AppSpacing.screenBottom,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 1. Type — a select-input, consistent with the other fields.
-                EntryTypeDropdown(
-                  value: _type,
-                  onChanged: (next) {
-                    if (next == null || next == _type) return;
-                    setState(() {
-                      _type = next;
-                      if (EntryVisuals.isCustomUrl(_icon)) return;
-                      _icon = EntryVisuals.defaultIconForType(next);
-                    });
-                    if (next == EntryType.script) _ensureVaultEntriesLoaded();
-                  },
-                ),
-                const SizedBox(height: AppSpacing.fieldGap),
-                // 2. Label — with inline entry icon + agent-visible hint.
-                EntryFieldCaption(label: l10n.entryLabelLabel),
-                const SizedBox(height: AppSpacing.innerGap),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    EntryIconTile(
-                      icon: _icon,
-                      accentColor: accentColor,
-                      onTap: _openEntryBrowser,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: OnboardingTextField(
-                        hintText: l10n.entryLabelHint,
-                        controller: _labelController,
+          body: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  // Title→content gap is owned by AppScreen.appBar.
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenH,
+                    0,
+                    AppSpacing.screenH,
+                    AppSpacing.section,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // 1. Type — a select-input, consistent with the other fields.
+                      EntryTypeDropdown(
+                        value: _type,
+                        onChanged: (next) {
+                          if (next == null || next == _type) return;
+                          setState(() {
+                            _type = next;
+                            if (EntryVisuals.isCustomUrl(_icon)) return;
+                            _icon = EntryVisuals.defaultIconForType(next);
+                          });
+                          if (next == EntryType.script) {
+                            _ensureVaultEntriesLoaded();
+                          }
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.fieldGap),
+                      // 2. Label — with inline entry icon + agent-visible hint.
+                      EntryFieldCaption(label: l10n.entryLabelLabel),
+                      const SizedBox(height: AppSpacing.innerGap),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          EntryIconTile(
+                            icon: _icon,
+                            accentColor: accentColor,
+                            onTap: _openEntryBrowser,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: OnboardingTextField(
+                              hintText: l10n.entryLabelHint,
+                              controller: _labelController,
+                              textCapitalization: TextCapitalization.sentences,
+                              textInputAction: TextInputAction.next,
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.fieldGap),
+                      // 3. Description — agent-visible.
+                      EntryFieldCaption(label: l10n.entryDescriptionLabel),
+                      const SizedBox(height: AppSpacing.innerGap),
+                      OnboardingTextField(
+                        controller: _descriptionController,
                         textCapitalization: TextCapitalization.sentences,
                         textInputAction: TextInputAction.next,
-                        onChanged: (_) => setState(() {}),
+                        suffixIcon: _discoveryButton(
+                          keyName: 'description',
+                          selected: _discoverDescription,
+                          onToggle: () => setState(
+                            () => _discoverDescription = !_discoverDescription,
+                          ),
+                          l10n: l10n,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.fieldGap),
-                // 3. Description — agent-visible.
-                EntryFieldCaption(label: l10n.entryDescriptionLabel),
-                const SizedBox(height: AppSpacing.innerGap),
-                OnboardingTextField(
-                  controller: _descriptionController,
-                  textCapitalization: TextCapitalization.sentences,
-                  textInputAction: TextInputAction.next,
-                  suffixIcon: _discoveryButton(
-                    keyName: 'description',
-                    selected: _discoverDescription,
-                    onToggle: () => setState(
-                      () => _discoverDescription = !_discoverDescription,
-                    ),
-                    l10n: l10n,
+                      const SizedBox(height: AppSpacing.fieldGap),
+                      // 4. Type-specific fields (+ URL / injected data).
+                      ..._typeFields(l10n),
+                      const SizedBox(height: AppSpacing.section),
+                      // 5. Two-factor authentication (not for Script).
+                      if (_type != EntryType.script) ...[
+                        TotpSection(
+                          initial: _totpFields,
+                          onChanged: (fields) =>
+                              setState(() => _totpFields = fields),
+                        ),
+                        const SizedBox(height: AppSpacing.section),
+                      ],
+                      // 6. Additional fields (all types).
+                      CustomFieldsEditor(
+                        initial: _customFields,
+                        onChanged: (fields, valid) => setState(() {
+                          _customFields = fields;
+                          _customFieldsValid = valid;
+                        }),
+                      ),
+                      const SizedBox(height: AppSpacing.section),
+                      // 7. Notes — add-on-demand (hidden until the user taps).
+                      EntryNotesSection(
+                        controller: _notesController,
+                        initiallyVisible: _notesController.text
+                            .trim()
+                            .isNotEmpty,
+                      ),
+                      if (state is CreateEntryError) ...[
+                        const SizedBox(height: AppSpacing.fieldGap),
+                        Text(
+                          EntryFormUtils.errorMessage(l10n, state.kind),
+                          style: const TextStyle(
+                            color: AppColors.brandRed,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(height: AppSpacing.fieldGap),
-                // 4. Type-specific fields (+ URL / injected data).
-                ..._typeFields(l10n),
-                const SizedBox(height: AppSpacing.section),
-                // 5. Two-factor authentication (not for Script).
-                if (_type != EntryType.script) ...[
-                  TotpSection(
-                    initial: _totpFields,
-                    onChanged: (fields) => setState(() => _totpFields = fields),
-                  ),
-                  const SizedBox(height: AppSpacing.section),
-                ],
-                // 6. Additional fields (all types).
-                CustomFieldsEditor(
-                  initial: _customFields,
-                  onChanged: (fields, valid) => setState(() {
-                    _customFields = fields;
-                    _customFieldsValid = valid;
-                  }),
+              ),
+              Container(
+                key: const ValueKey('create-entry-save-footer'),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenH,
+                  AppSpacing.md,
+                  AppSpacing.screenH,
+                  AppSpacing.screenBottom,
                 ),
-                const SizedBox(height: AppSpacing.section),
-                // 7. Notes — add-on-demand (hidden until the user taps).
-                EntryNotesSection(
-                  controller: _notesController,
-                  initiallyVisible: _notesController.text.trim().isNotEmpty,
-                ),
-                if (state is CreateEntryError) ...[
-                  const SizedBox(height: AppSpacing.fieldGap),
-                  Text(
-                    EntryFormUtils.errorMessage(l10n, state.kind),
-                    style: const TextStyle(
-                      color: AppColors.brandRed,
-                      fontSize: 12,
-                    ),
+                decoration: BoxDecoration(
+                  color: AppColors.cardFill(brightness),
+                  border: Border(
+                    top: BorderSide(color: AppColors.navBorder(brightness)),
                   ),
-                ],
-                const SizedBox(height: AppSpacing.section),
-                // 8. Save button
-                EntrySaveButton(
+                ),
+                child: EntrySaveButton(
                   isLoading: isLoading,
                   onPressed: canSubmit ? _submit : null,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
     );
   }
+}
+
+final class _CreateDiscoveryButton extends StatefulWidget {
+  const _CreateDiscoveryButton({
+    super.key,
+    required this.selected,
+    required this.onToggle,
+    required this.explanation,
+  });
+
+  final bool selected;
+  final VoidCallback onToggle;
+  final String explanation;
+
+  @override
+  State<_CreateDiscoveryButton> createState() => _CreateDiscoveryButtonState();
+}
+
+final class _CreateDiscoveryButtonState extends State<_CreateDiscoveryButton> {
+  final _tooltipKey = GlobalKey<TooltipState>();
+
+  void _handlePressed() {
+    widget.onToggle();
+    _tooltipKey.currentState?.ensureTooltipVisible();
+  }
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    key: _tooltipKey,
+    message: widget.explanation,
+    triggerMode: TooltipTriggerMode.manual,
+    child: IconButton(
+      onPressed: _handlePressed,
+      icon: Icon(
+        Icons.smart_toy_outlined,
+        size: 17,
+        color: widget.selected
+            ? AppColors.vaultBlue
+            : AppColors.textTertiaryMobile,
+      ),
+    ),
+  );
 }
