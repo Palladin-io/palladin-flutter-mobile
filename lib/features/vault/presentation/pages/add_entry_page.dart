@@ -258,7 +258,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
     key: ValueKey('create-entry-discovery-$keyName'),
     selected: selected,
     onToggle: onToggle,
-    explanation: l10n.entryFieldAgentVisibleTip,
+    visibleMessage: l10n.entryFieldAgentDiscoveryVisible,
+    hiddenMessage: l10n.entryFieldAgentDiscoveryHidden,
   );
 
   /// Type-specific form fields for the currently-selected [_type]. Ends
@@ -519,6 +520,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
         final canSubmit = !isBusy && _canSubmit;
 
         return AppScreen.appBar(
+          safeAreaBottom: false,
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
@@ -684,12 +686,14 @@ final class _CreateDiscoveryButton extends StatefulWidget {
     super.key,
     required this.selected,
     required this.onToggle,
-    required this.explanation,
+    required this.visibleMessage,
+    required this.hiddenMessage,
   });
 
   final bool selected;
   final VoidCallback onToggle;
-  final String explanation;
+  final String visibleMessage;
+  final String hiddenMessage;
 
   @override
   State<_CreateDiscoveryButton> createState() => _CreateDiscoveryButtonState();
@@ -706,7 +710,9 @@ final class _CreateDiscoveryButtonState extends State<_CreateDiscoveryButton> {
   @override
   Widget build(BuildContext context) => Tooltip(
     key: _tooltipKey,
-    message: widget.explanation,
+    // The tooltip describes the state produced by this tap. Keep it short;
+    // explanatory prose belongs in supporting UI, not a compact tooltip.
+    message: widget.selected ? widget.hiddenMessage : widget.visibleMessage,
     triggerMode: TooltipTriggerMode.manual,
     child: IconButton(
       onPressed: _handlePressed,

@@ -1128,6 +1128,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Visible to agents in Discovery. Tap to hide this field from Discovery.';
 
   @override
+  String get entryFieldAgentDiscoveryVisible => 'Visible in Agent Discovery';
+
+  @override
+  String get entryFieldAgentDiscoveryHidden => 'Hidden from Agent Discovery';
+
+  @override
   String get entryFieldOn => 'On';
 
   @override

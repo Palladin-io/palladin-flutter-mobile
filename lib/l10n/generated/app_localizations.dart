@@ -1982,6 +1982,18 @@ abstract class AppLocalizations {
   /// **'Visible to agents in Discovery. Tap to hide this field from Discovery.'**
   String get entryFieldAgentVisibleDisableTip;
 
+  /// No description provided for @entryFieldAgentDiscoveryVisible.
+  ///
+  /// In en, this message translates to:
+  /// **'Visible in Agent Discovery'**
+  String get entryFieldAgentDiscoveryVisible;
+
+  /// No description provided for @entryFieldAgentDiscoveryHidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden from Agent Discovery'**
+  String get entryFieldAgentDiscoveryHidden;
+
   /// Trailing state for an enabled toggle in a field menu
   ///
   /// In en, this message translates to:

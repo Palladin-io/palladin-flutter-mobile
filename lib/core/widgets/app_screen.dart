@@ -33,10 +33,11 @@ class AppScreen extends StatelessWidget {
     this.floatingActionButton,
     this.endDrawer,
     this.gapAfterHeader = true,
-  })  : appBar = null,
-        title = null,
-        subtitle = null,
-        actions = null;
+    this.safeAreaBottom = true,
+  }) : appBar = null,
+       title = null,
+       subtitle = null,
+       actions = null;
 
   /// Titled variant — the canonical top-level list screen (Vaults, Agents,
   /// Inbox). Renders a [ListScreenHeader] in the body (NOT a Material
@@ -50,9 +51,10 @@ class AppScreen extends StatelessWidget {
     required this.body,
     this.floatingActionButton,
     this.endDrawer,
-  })  : appBar = null,
-        header = null,
-        gapAfterHeader = false;
+    this.safeAreaBottom = true,
+  }) : appBar = null,
+       header = null,
+       gapAfterHeader = false;
 
   /// AppBar variant — [appBar] is the header; [body] fills the remaining area.
   const AppScreen.appBar({
@@ -62,10 +64,11 @@ class AppScreen extends StatelessWidget {
     this.floatingActionButton,
     this.endDrawer,
     this.gapAfterHeader = true,
-  })  : header = null,
-        title = null,
-        subtitle = null,
-        actions = null;
+    this.safeAreaBottom = true,
+  }) : header = null,
+       title = null,
+       subtitle = null,
+       actions = null;
 
   /// Content area. Owns its own horizontal padding (see [screenPadding]).
   final Widget body;
@@ -98,6 +101,11 @@ class AppScreen extends StatelessWidget {
   /// must own the leading gap itself (rare).
   final bool gapAfterHeader;
 
+  /// Whether the shared body safe area reserves the device bottom inset.
+  /// Set to false only when the body owns a pinned footer that paints through
+  /// the inset and applies [AppSpacing.screenBottom] itself.
+  final bool safeAreaBottom;
+
   /// Symmetric horizontal screen padding helper, for the common case where a
   /// content section spans the full screen width minus the gutters.
   static const EdgeInsets screenPadding = EdgeInsets.symmetric(
@@ -123,6 +131,7 @@ class AppScreen extends StatelessWidget {
         floatingActionButton: floatingActionButton,
         body: SafeArea(
           top: appBar == null,
+          bottom: safeAreaBottom,
           child: appBar != null
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,

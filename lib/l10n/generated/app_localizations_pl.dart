@@ -1148,6 +1148,12 @@ class AppLocalizationsPl extends AppLocalizations {
       'Widoczne dla agentów w Discovery. Dotknij, aby ukryć to pole w Discovery.';
 
   @override
+  String get entryFieldAgentDiscoveryVisible => 'Widoczne w Discovery agentów';
+
+  @override
+  String get entryFieldAgentDiscoveryHidden => 'Ukryte w Discovery agentów';
+
+  @override
   String get entryFieldOn => 'Wł.';
 
   @override
