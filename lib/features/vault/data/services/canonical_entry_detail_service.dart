@@ -22,6 +22,7 @@ import 'vault_protocol/vault_protocol_signature_service.dart';
 import 'vault_rotation_crypto_service.dart';
 import 'agent_visibility_projector.dart';
 import 'entry_v2_crypto_service.dart';
+import 'vault_crypto_service.dart';
 
 enum CanonicalEntryDetailError {
   conflict,
@@ -279,12 +280,14 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     required EntryRemoteDatasource entries,
     required VaultRemoteDatasource vaults,
     required VaultRotationCryptoService keys,
+    VaultCryptoService? vaultCrypto,
     required VaultEnvelopeCryptography envelopes,
     required GrantsRemoteDatasource grants,
     EntryV2CryptoService? entryV2,
   }) : _entries = entries,
        _vaults = vaults,
        _keys = keys,
+       _vaultCrypto = vaultCrypto,
        _envelopes = envelopes,
        _grants = grants,
        _entryV2 = entryV2;
@@ -292,6 +295,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
   final EntryRemoteDatasource _entries;
   final VaultRemoteDatasource _vaults;
   final VaultRotationCryptoService _keys;
+  final VaultCryptoService? _vaultCrypto;
   final VaultEnvelopeCryptography _envelopes;
   final GrantsRemoteDatasource _grants;
   final EntryV2CryptoService? _entryV2;
@@ -661,15 +665,20 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       if (wrapperGeneration > generation) {
         throw const FormatException('Entry key generation is from the future');
       }
-      vaultKey = await _keys.openMemberVaultKey(
-        _map(vault, 'memberVaultKey'),
-        memberPrivateKey,
-      );
-      discoveryKey = await _keys.openDiscoveryKey(
-        _map(vault, 'discoveryKey'),
-        vaultKey,
-      );
       if (_entryV2 != null && wrapper['descriptor'] is Map) {
+        final canonicalVaultCrypto = _vaultCrypto;
+        if (canonicalVaultCrypto == null) {
+          throw const FormatException('Missing canonical Vault cryptography');
+        }
+        final openedVault = await canonicalVaultCrypto.openVaultProjection(
+          json: vault,
+          memberPrivateKey: memberPrivateKey,
+        );
+        vaultKey = openedVault.vaultKey;
+        discoveryKey = openedVault.vaultDiscoveryKey;
+        if (discoveryKey == null) {
+          throw const FormatException('Missing Vault discovery key');
+        }
         return await _updateCanonicalV2(
           snapshot: snapshot,
           expected: expected,
@@ -688,6 +697,14 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           wrapper: wrapper,
         );
       }
+      vaultKey = await _keys.openMemberVaultKey(
+        _map(vault, 'memberVaultKey'),
+        memberPrivateKey,
+      );
+      discoveryKey = await _keys.openDiscoveryKey(
+        _map(vault, 'discoveryKey'),
+        vaultKey,
+      );
       entryDek = await _envelopes.decrypt(
         profile: VaultAadProfile.entryKeyWrapper,
         envelope: wrapper,

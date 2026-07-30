@@ -38,16 +38,9 @@ import '../widgets/vault_visuals.dart';
 
 /// The Details tab of the entry detail screen.
 ///
-/// Defaults to a **read-only, quick-access** presentation: each field is a
-/// non-editable row with per-value copy (and, for secrets, a masked value +
-/// reveal toggle) — mirroring the web entry-row quick actions. MemberIndex
-/// metadata renders first while MemberSecret is authenticated and decrypted
-/// automatically on entry. Sensitive values remain masked per field.
-///
-/// Tapping **Edit** swaps in the existing edit form (same cubit-driven flow
-/// that used to be the tab's default). Saving or cancelling returns to the
-/// read-only view with refreshed values. Delete lives in the edit-mode
-/// danger zone, unchanged.
+/// Authenticates and decrypts MemberSecret on entry, then renders the canonical
+/// edit form directly. Passwords, key values and concealed fields remain
+/// masked by their individual controls.
 class EntryDetailsTab extends StatefulWidget {
   const EntryDetailsTab({
     super.key,
@@ -117,8 +110,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   List<EntryEntity>? _vaultEntries;
   bool _loadingEntries = false;
 
-  /// Edit mode toggle — false renders the read-only quick-access view.
-  bool _editMode = false;
+  /// The canonical Details layout is the form.
+  bool _editMode = true;
 
   /// Whether the single secret field (password / key value) is unmasked in
   /// the read-only view. Reset every time we return to read-only.
@@ -152,7 +145,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     WidgetsBinding.instance.addObserver(this);
     widget.editController?.bindCancel(_cancelEdit);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && context.read<EditEntryCubit>().state is EditEntryInitial) {
+      if (!mounted) return;
+      widget.editController?.publishEditing(true);
+      if (context.read<EditEntryCubit>().state is EditEntryInitial) {
         _requestReveal();
       }
     });
@@ -312,7 +307,10 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
 
   // ── Mode transitions ───────────────────────────────────────────────
 
-  Future<void> _requestReveal({bool editAfter = false}) async {
+  Future<void> _requestReveal({
+    bool editAfter = false,
+    EntryEntity? expected,
+  }) async {
     if (context.read<EditEntryCubit>().state is EditEntryRevealing) return;
     if (context.read<EditEntryCubit>().state is EditEntryConflict) {
       setState(_clearPlaintextState);
@@ -325,7 +323,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     final keyCopy = Uint8List.fromList(auth.privateKey!);
     try {
       await context.read<EditEntryCubit>().revealForEdit(
-        entry: widget.entry,
+        entry: expected ?? widget.entry,
         privateKey: keyCopy,
         wrappedVK: widget.wrappedVK,
       );
@@ -357,11 +355,12 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
 
   void _cancelEdit() {
     setState(() {
-      _editMode = false;
+      _syncControllersFromSnapshot();
+      _editMode = true;
       _secretRevealed = false;
       _urlError = null;
     });
-    widget.editController?.publishEditing(false);
+    widget.editController?.publishEditing(true);
   }
 
   // ── Copy / clipboard ───────────────────────────────────────────────
@@ -555,17 +554,18 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     }
 
     if (!mounted) return;
-    // Refresh the snapshot from the just-saved values and drop back to the
-    // read-only view — the page keeps this as the pending "updated" result.
+    // Keep the canonical form visible and refresh its optimistic base so a
+    // second save cannot reuse the revision that was just committed.
     setState(() {
       _revealedEntry = entry;
       _payload = _buildPayload();
       _secretRevealed = false;
       _revealedCustom.clear();
-      _editMode = false;
+      _editMode = true;
     });
-    widget.editController?.publishEditing(false);
+    widget.editController?.publishEditing(true);
     widget.onUpdated(entry);
+    await _requestReveal(expected: entry);
   }
 
   Future<void> _confirmDelete() async {

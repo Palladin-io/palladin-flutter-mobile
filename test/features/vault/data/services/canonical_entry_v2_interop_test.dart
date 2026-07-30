@@ -3,13 +3,16 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 import 'package:mobile_palladin/features/grants/data/datasources/grants_remote_datasource.dart';
 import 'package:mobile_palladin/features/grants/data/models/grant_model.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/entry_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/models/entry_v2_contracts.dart';
+import 'package:mobile_palladin/features/vault/data/models/vault_v2_contracts.dart';
 import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_aad.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
@@ -22,6 +25,8 @@ class _Entries extends Mock implements EntryRemoteDatasource {}
 class _Vaults extends Mock implements VaultRemoteDatasource {}
 
 class _Keys extends Mock implements VaultRotationCryptoService {}
+
+class _VaultCrypto extends Mock implements VaultCryptoService {}
 
 class _Grants extends Mock implements GrantsRemoteDatasource {}
 
@@ -59,6 +64,7 @@ void main() {
   late _Entries entries;
   late _Vaults vaults;
   late _Keys keys;
+  late _VaultCrypto vaultCrypto;
   late _Grants grants;
   late _EntryV2 crypto;
   late CanonicalEntryDetailService service;
@@ -159,12 +165,14 @@ void main() {
     entries = _Entries();
     vaults = _Vaults();
     keys = _Keys();
+    vaultCrypto = _VaultCrypto();
     grants = _Grants();
     crypto = _EntryV2();
     service = CanonicalEntryDetailService(
       entries: entries,
       vaults: vaults,
       keys: keys,
+      vaultCrypto: vaultCrypto,
       envelopes: _UnusedEnvelopes(),
       grants: grants,
       entryV2: crypto,
@@ -177,6 +185,40 @@ void main() {
         'memberVaultKey': <String, dynamic>{},
         'discoveryKey': <String, dynamic>{},
       },
+    );
+    when(
+      () => vaultCrypto.openVaultProjection(
+        json: any(named: 'json'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
+    ).thenAnswer(
+      (_) async => OpenedVaultProjection(
+        organizationId: orgId,
+        vaultId: vaultId,
+        vaultKey: Uint8List(32),
+        vaultDiscoveryKey: Uint8List(32),
+        metadata: const MemberVaultMetadata(
+          name: 'Vault',
+          description: null,
+          icon: null,
+          color: null,
+          grantMode: 'granular',
+        ),
+        epoch: const VaultKeyEpochModel(
+          vaultKeyVersion: 4,
+          vdkVersion: 6,
+          agentMessageKeyVersion: 1,
+          manifestSigningKeyVersion: 1,
+        ),
+        memberKeyGeneration: 3,
+        wrapper: const MemberVaultKeyWrapperMetadata(
+          wrapperSuiteId: 'x25519',
+          wrappedKeyVersion: 4,
+          memberKeyGeneration: 3,
+          recipientKeyVersion: 1,
+          recipientFingerprint: 'fingerprint',
+        ),
+      ),
     );
     when(
       () => keys.openMemberVaultKey(any(), any()),

@@ -415,6 +415,7 @@ void configureDependencies(EnvConfig config) {
       entries: getIt<EntryRemoteDatasource>(),
       vaults: getIt<VaultRemoteDatasource>(),
       keys: getIt<VaultRotationCryptoService>(),
+      vaultCrypto: getIt<VaultCryptoService>(),
       envelopes: getIt<VaultProtocolEnvelopeService>(),
       grants: getIt<GrantsRemoteDatasource>(),
       entryV2: getIt<EntryV2CryptoService>(),

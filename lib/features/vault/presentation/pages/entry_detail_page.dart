@@ -232,7 +232,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
               controller: _tabController,
               children: [
                 EntryDetailsTab(
-                  entry: widget.entry,
+                  entry: _entry,
                   wrappedVK: widget.wrappedVK,
                   editController: _editController,
                   onUpdated: _onUpdated,
