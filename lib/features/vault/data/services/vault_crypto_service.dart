@@ -200,6 +200,69 @@ class VaultCryptoService {
         );
   }
 
+  /// Seals the next canonical MemberVaultMetadata revision using the exact
+  /// protocol-v2 descriptor contract consumed by backend and web.
+  Future<Map<String, dynamic>> sealMemberVaultMetadata({
+    required Map<String, dynamic> currentEnvelope,
+    required MemberVaultMetadata metadata,
+    required Uint8List vaultKey,
+    required String organizationId,
+    required String vaultId,
+    required int memberKeyGeneration,
+  }) async {
+    if (vaultKey.length != 32) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
+    final currentJson = currentEnvelope['descriptor'];
+    if (currentJson is! Map<String, dynamic>) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
+    final purpose = EnvelopePurpose.parseWire(currentJson['purpose']);
+    final scopeJson = currentJson['scope'];
+    if (purpose != EnvelopePurpose.memberVaultMetadata ||
+        scopeJson is! Map<String, dynamic> ||
+        scopeJson['organizationId'] != organizationId ||
+        scopeJson['vaultId'] != vaultId ||
+        currentJson['memberKeyGeneration'] != memberKeyGeneration) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
+    final currentRevision = int.tryParse(
+      currentJson['resourceRevision'] as String? ?? '',
+    );
+    if (currentRevision == null || currentRevision < 0) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
+    final descriptor = EnvelopeDescriptor(
+      protocolVersion: currentJson['protocolVersion'] as int,
+      cryptoSuiteId: CryptoSuiteId.palladinVaultXChaChaV1,
+      purpose: purpose,
+      scope: EnvelopeScope(
+        organizationId: EnvelopeId.parse(organizationId),
+        vaultId: EnvelopeId.parse(vaultId),
+      ),
+      resourceRevision: currentRevision + 1,
+      keyVersion: currentJson['keyVersion'] as int,
+      memberKeyGeneration: memberKeyGeneration,
+    );
+    final plaintext = canonicalVaultJson(metadata.toJson());
+    try {
+      final suite = CryptoSuiteRegistry().resolveWire(
+        currentJson['cryptoSuiteId'] as String,
+      );
+      final payload = await suite.seal(
+        descriptor: descriptor,
+        rootKey: vaultKey,
+        plaintext: plaintext,
+      );
+      return {
+        'descriptor': _descriptorJson(descriptor),
+        'encodedSuitePayload': payload.toBase64Url(),
+      };
+    } finally {
+      plaintext.fillRange(0, plaintext.length, 0);
+    }
+  }
+
   /// Builds the complete challenge-bound protocol-v2 Vault transition.
   Future<CreatedVaultBundle> createVaultBundle({
     required String organizationId,

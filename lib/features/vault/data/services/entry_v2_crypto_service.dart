@@ -319,7 +319,7 @@ EnvelopeDescriptor entryEnvelopeDescriptorFromJson(
       wrappingVaultKeyVersion: binding['wrappingVaultKeyVersion'] as int,
     ),
     EnvelopePurpose.memberSecret => MemberSecretPurposeData(
-      operation: binding['operation'] as int,
+      operation: _entryOperationFromJson(binding['operation']),
     ),
     _ => const NoPurposeData(),
   };
@@ -337,6 +337,15 @@ EnvelopeDescriptor entryEnvelopeDescriptorFromJson(
     purposeData: purposeData,
   );
 }
+
+int _entryOperationFromJson(Object? value) => switch (value) {
+  'created' || 1 => 1,
+  'updated' || 2 => 2,
+  'archived' || 3 => 3,
+  'restored' || 4 => 4,
+  'deleted' || 5 => 5,
+  _ => throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor),
+};
 
 Map<String, Object?> _descriptorJson(EnvelopeDescriptor value) => {
   'protocolVersion': value.protocolVersion,

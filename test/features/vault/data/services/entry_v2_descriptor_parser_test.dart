@@ -51,4 +51,27 @@ void main() {
       throwsA(isA<EnvelopeException>()),
     );
   });
+
+  test('parses the canonical member-secret operation emitted by the API', () {
+    final json = descriptor('memberSecret')
+      ..['binding'] = {'operation': 'created'};
+
+    final parsed = entryEnvelopeDescriptorFromJson(
+      json,
+      EnvelopePurpose.memberSecret,
+    );
+
+    expect(parsed.purposeData, isA<MemberSecretPurposeData>());
+    expect((parsed.purposeData as MemberSecretPurposeData).operation, 1);
+  });
+
+  test('rejects a non-canonical member-secret operation', () {
+    final json = descriptor('memberSecret')
+      ..['binding'] = {'operation': 'Created'};
+
+    expect(
+      () => entryEnvelopeDescriptorFromJson(json, EnvelopePurpose.memberSecret),
+      throwsA(isA<EnvelopeException>()),
+    );
+  });
 }

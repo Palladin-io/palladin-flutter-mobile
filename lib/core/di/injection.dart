@@ -398,8 +398,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<VaultSettingsService>(
     () => VaultSettingsService(
       remote: getIt<VaultRemoteDatasource>(),
-      keys: getIt<VaultRotationCryptoService>(),
-      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      vaultCrypto: getIt<VaultCryptoService>(),
       assets: getIt<EncryptedPresentationAssetService>(),
     ),
   );

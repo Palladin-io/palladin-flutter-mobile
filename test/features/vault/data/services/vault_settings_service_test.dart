@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -7,17 +6,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/services/encrypted_presentation_asset_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_aad.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
+import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
+import 'package:mobile_palladin/features/vault/data/models/vault_v2_contracts.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_settings_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
 
 class _Remote extends Mock implements VaultRemoteDatasource {}
 
-class _Keys extends Mock implements VaultRotationCryptoService {}
-
-class _Envelopes extends Mock implements VaultEnvelopeCryptography {}
+class _VaultCrypto extends Mock implements VaultCryptoService {}
 
 class _Assets extends Mock implements EncryptedPresentationAssetService {}
 
@@ -47,88 +45,114 @@ Map<String, dynamic> _fresh({Map<String, dynamic>? metadata}) => {
   'memberVaultMetadata':
       metadata ??
       {
-        'organizationId': organizationId,
-        'vaultId': vaultId,
-        'metadataRevision': '12',
-        'header': {
+        'descriptor': {
           'protocolVersion': 2,
-          'algorithmSuite': 1,
-          'resourceKind': 1,
-          'projectionKind': 1,
+          'cryptoSuiteId': 'palladin-vault-xchacha-v1',
+          'purpose': 1,
+          'scope': {'organizationId': organizationId, 'vaultId': vaultId},
           'resourceRevision': '12',
           'keyVersion': 7,
           'memberKeyGeneration': 3,
-          'nonce': 'old',
+          'binding': <String, dynamic>{},
         },
-        'ciphertext': 'opaque-old',
+        'encodedSuitePayload': 'opaque-old',
       },
 };
 
 void main() {
   late _Remote remote;
-  late _Keys keys;
-  late _Envelopes envelopes;
+  late _VaultCrypto vaultCrypto;
   late _Assets assets;
   late VaultSettingsService service;
-  late Uint8List encryptedMetadataPlaintext;
+  late MemberVaultMetadata sealedMetadata;
 
   setUpAll(() {
     registerFallbackValue(File('unused'));
     registerFallbackValue(Uint8List(0));
-    registerFallbackValue(VaultAadProfile.memberVaultMetadata);
     registerFallbackValue(PresentationAssetMediaType.png);
     registerFallbackValue(
-      const VaultEnvelopeExpectations(
-        aadContext: {},
-        minimumMemberKeyGeneration: 0,
+      const MemberVaultMetadata(
+        name: 'fallback',
+        description: null,
+        icon: null,
+        color: null,
+        grantMode: 'granular',
       ),
     );
   });
 
   setUp(() {
     remote = _Remote();
-    keys = _Keys();
-    envelopes = _Envelopes();
+    vaultCrypto = _VaultCrypto();
     assets = _Assets();
-    encryptedMetadataPlaintext = Uint8List(0);
+    sealedMetadata = const MemberVaultMetadata(
+      name: 'unset',
+      description: null,
+      icon: null,
+      color: null,
+      grantMode: 'granular',
+    );
     service = VaultSettingsService(
       remote: remote,
-      keys: keys,
-      envelopes: envelopes,
+      vaultCrypto: vaultCrypto,
       assets: assets,
     );
     when(
       () => remote.getEncryptedVault(vaultId),
     ).thenAnswer((_) async => _fresh());
     when(
-      () => keys.openMemberVaultKey(any(), any()),
-    ).thenAnswer((_) async => Uint8List(32)..fillRange(0, 32, 9));
-    when(
-      () => envelopes.decrypt(
-        profile: any(named: 'profile'),
-        envelope: any(named: 'envelope'),
-        key: any(named: 'key'),
-        expected: any(named: 'expected'),
+      () => vaultCrypto.openVaultProjection(
+        json: any(named: 'json'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
       ),
     ).thenAnswer(
-      (_) async => Uint8List.fromList(
-        utf8.encode(
-          '{"color":"#EB4747","description":"Current","grantMode":"granular","icon":{"kind":"glyph","value":"shield"},"name":"Production","schema":"palladin.member-vault-metadata.v1"}',
+      (_) async => OpenedVaultProjection(
+        organizationId: organizationId,
+        vaultId: vaultId,
+        vaultKey: Uint8List(32)..fillRange(0, 32, 9),
+        vaultDiscoveryKey: null,
+        metadata: const MemberVaultMetadata(
+          name: 'Production',
+          description: 'Current',
+          icon: GlyphVaultIcon('shield'),
+          color: '#EB4747',
+          grantMode: 'granular',
+        ),
+        epoch: const VaultKeyEpochModel(
+          vaultKeyVersion: 7,
+          vdkVersion: 1,
+          agentMessageKeyVersion: 1,
+          manifestSigningKeyVersion: 1,
+        ),
+        memberKeyGeneration: 3,
+        wrapper: const MemberVaultKeyWrapperMetadata(
+          wrapperSuiteId: 'x25519',
+          wrappedKeyVersion: 7,
+          memberKeyGeneration: 3,
+          recipientKeyVersion: 1,
+          recipientFingerprint: 'fingerprint',
         ),
       ),
     );
     when(
-      () => envelopes.encrypt(
-        profile: any(named: 'profile'),
-        context: any(named: 'context'),
-        plaintext: any(named: 'plaintext'),
-        key: any(named: 'key'),
+      () => vaultCrypto.sealMemberVaultMetadata(
+        currentEnvelope: any(named: 'currentEnvelope'),
+        metadata: any(named: 'metadata'),
+        vaultKey: any(named: 'vaultKey'),
+        organizationId: any(named: 'organizationId'),
+        vaultId: any(named: 'vaultId'),
+        memberKeyGeneration: any(named: 'memberKeyGeneration'),
       ),
     ).thenAnswer((invocation) async {
-      encryptedMetadataPlaintext = Uint8List.fromList(
-        invocation.namedArguments[#plaintext] as Uint8List,
-      );
-      return {'nonce': 'fresh-nonce', 'ciphertext': 'opaque-new'};
+      sealedMetadata =
+          invocation.namedArguments[#metadata] as MemberVaultMetadata;
+      return {
+        'descriptor': {
+          ...(_fresh()['memberVaultMetadata']['descriptor'] as Map),
+          'resourceRevision': '13',
+        },
+        'encodedSuitePayload': 'opaque-new',
+      };
     });
     when(() => remote.replaceEncryptedMetadata(vaultId, any())).thenAnswer(
       (_) async => Response<void>(
@@ -175,15 +199,12 @@ void main() {
               () => remote.replaceEncryptedMetadata(vaultId, captureAny()),
             ).captured.single
             as Map<String, dynamic>;
-    expect(captured['metadataRevision'], '13');
-    expect(captured['ciphertext'], 'opaque-new');
+    expect((captured['descriptor'] as Map)['resourceRevision'], '13');
+    expect(captured['encodedSuitePayload'], 'opaque-new');
     expect(captured.toString(), isNot(contains('Production 2')));
-    final encryptedJson =
-        jsonDecode(utf8.decode(encryptedMetadataPlaintext)) as Map;
-    expect(encryptedJson['schema'], 'palladin.member-vault-metadata.v1');
-    expect(encryptedJson['grantMode'], 'granular');
-    expect(encryptedJson['icon'], {'kind': 'glyph', 'value': 'shield'});
-    expect(encryptedJson.containsKey('iconReference'), isFalse);
+    expect(sealedMetadata.name, 'Production 2');
+    expect(sealedMetadata.grantMode, 'granular');
+    expect(sealedMetadata.icon, isA<GlyphVaultIcon>());
     expect(updated.name, 'Production 2');
   });
 

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -6,12 +5,8 @@ import '../../domain/entities/vault_entity.dart';
 import '../../domain/entities/vault_plaintext.dart';
 import '../datasources/vault_remote_datasource.dart';
 import 'encrypted_presentation_asset_service.dart';
-import 'vault_protocol/vault_protocol_aad.dart';
-import 'vault_protocol/vault_protocol_bytes.dart';
-import 'vault_protocol/vault_protocol_envelope_service.dart';
-import 'vault_protocol/vault_protocol_kdf.dart';
 import 'vault_protocol/vault_protocol_signature_service.dart';
-import 'vault_rotation_crypto_service.dart';
+import 'vault_crypto_service.dart';
 
 enum VaultSettingsErrorKind { locked, conflict, corrupt, network, unknown }
 
@@ -24,17 +19,14 @@ final class VaultSettingsException implements Exception {
 class VaultSettingsService {
   VaultSettingsService({
     required VaultRemoteDatasource remote,
-    required VaultRotationCryptoService keys,
-    required VaultEnvelopeCryptography envelopes,
+    required VaultCryptoService vaultCrypto,
     required EncryptedPresentationAssetService assets,
   }) : _remote = remote,
-       _keys = keys,
-       _envelopes = envelopes,
+       _vaultCrypto = vaultCrypto,
        _assets = assets;
 
   final VaultRemoteDatasource _remote;
-  final VaultRotationCryptoService _keys;
-  final VaultEnvelopeCryptography _envelopes;
+  final VaultCryptoService _vaultCrypto;
   final EncryptedPresentationAssetService _assets;
 
   Future<VaultEntity> update({
@@ -58,43 +50,21 @@ class VaultSettingsService {
       throw const VaultSettingsException(VaultSettingsErrorKind.network);
     }
     final envelope = _map(fresh, 'memberVaultMetadata');
-    final memberVaultKey = _map(fresh, 'memberVaultKey');
-    final epoch = _map(fresh, 'currentKeyEpoch');
     final organizationId = fresh['organizationId'] as String;
     final generation = fresh['memberKeyGeneration'] as int;
-    final keyVersion = epoch['vaultKeyVersion'] as int;
     Uint8List? vaultKey;
-    Uint8List? metadataKey;
-    Uint8List? plaintext;
+    Uint8List? discoveryKey;
     String? uploadedAssetId;
     var committed = false;
     var ambiguous = false;
     try {
-      vaultKey = await _keys.openMemberVaultKey(
-        memberVaultKey,
-        memberPrivateKey,
+      final opened = await _vaultCrypto.openVaultProjection(
+        json: fresh,
+        memberPrivateKey: memberPrivateKey,
       );
-      metadataKey = deriveVaultProjectionKey(
-        vaultKey,
-        VaultKdfContext(
-          purpose: VaultKdfPurpose.memberVaultMetadata,
-          resourceKind: 1,
-          organizationId: organizationId,
-          vaultId: expected.id,
-          keyVersion: keyVersion,
-          memberKeyGeneration: generation,
-        ),
-      );
-      plaintext = await _envelopes.decrypt(
-        profile: VaultAadProfile.memberVaultMetadata,
-        envelope: envelope,
-        key: metadataKey,
-        expected: VaultEnvelopeExpectations(
-          aadContext: envelope,
-          minimumMemberKeyGeneration: generation,
-        ),
-      );
-      final current = _metadata(plaintext);
+      vaultKey = opened.vaultKey;
+      discoveryKey = opened.vaultDiscoveryKey;
+      final current = _metadata(opened.metadata);
       if (!_sameMetadata(current, _fromEntity(expected))) {
         throw const VaultSettingsException(VaultSettingsErrorKind.conflict);
       }
@@ -116,48 +86,15 @@ class VaultSettingsService {
         icon: VaultPlaintextIcon.fromReference(nextIcon),
         color: color.isEmpty ? null : color.toUpperCase(),
         grantMode: current['grantMode'] as String,
-      ).toJson();
-      final currentRevision = BigInt.tryParse(
-        envelope['metadataRevision'] as String,
       );
-      if (currentRevision == null || currentRevision < BigInt.zero) {
-        throw const VaultSettingsException(VaultSettingsErrorKind.corrupt);
-      }
-      final revision = (currentRevision + BigInt.one).toString();
-      final context = <String, Object?>{
-        'organizationId': organizationId,
-        'vaultId': expected.id,
-        'metadataRevision': revision,
-        'header': {
-          'protocolVersion': 2,
-          'algorithmSuite': 1,
-          'resourceKind': 1,
-          'projectionKind': 1,
-          'resourceRevision': revision,
-          'keyVersion': keyVersion,
-          'memberKeyGeneration': generation,
-          'nonce': '',
-        },
-      };
-      final nextBytes = VaultProtocolBytes.utf8Encode(
-        canonicalizeVaultJson(next),
+      final attempted = await _vaultCrypto.sealMemberVaultMetadata(
+        currentEnvelope: envelope,
+        metadata: next,
+        vaultKey: vaultKey,
+        organizationId: organizationId,
+        vaultId: expected.id,
+        memberKeyGeneration: generation,
       );
-      late final Map<String, String> encrypted;
-      try {
-        encrypted = await _envelopes.encrypt(
-          profile: VaultAadProfile.memberVaultMetadata,
-          context: context,
-          plaintext: nextBytes,
-          key: metadataKey,
-        );
-      } finally {
-        nextBytes.fillRange(0, nextBytes.length, 0);
-      }
-      final attempted = <String, dynamic>{
-        ...context,
-        'header': {...context['header']! as Map, 'nonce': encrypted['nonce']},
-        'ciphertext': encrypted['ciphertext'],
-      };
       try {
         final response = await _remote.replaceEncryptedMetadata(
           expected.id,
@@ -219,8 +156,7 @@ class VaultSettingsService {
         }
       }
       vaultKey?.fillRange(0, vaultKey.length, 0);
-      metadataKey?.fillRange(0, metadataKey.length, 0);
-      plaintext?.fillRange(0, plaintext.length, 0);
+      discoveryKey?.fillRange(0, discoveryKey.length, 0);
     }
   }
 
@@ -231,17 +167,18 @@ class VaultSettingsService {
     try {
       final observed = await _remote.getEncryptedVault(vaultId);
       final envelope = _map(observed, 'memberVaultMetadata');
-      if (envelope['metadataRevision'] == attempted['metadataRevision'] &&
-          envelope['ciphertext'] == attempted['ciphertext'] &&
-          _map(envelope, 'header')['nonce'] ==
-              _map(attempted, 'header')['nonce']) {
+      final observedDescriptor = _map(envelope, 'descriptor');
+      final attemptedDescriptor = _map(attempted, 'descriptor');
+      if (observedDescriptor['resourceRevision'] ==
+              attemptedDescriptor['resourceRevision'] &&
+          envelope['encodedSuitePayload'] == attempted['encodedSuitePayload']) {
         return _WriteOutcome.committed;
       }
       final observedRevision = BigInt.parse(
-        envelope['metadataRevision'] as String,
+        observedDescriptor['resourceRevision'] as String,
       );
       final attemptedRevision = BigInt.parse(
-        attempted['metadataRevision'] as String,
+        attemptedDescriptor['resourceRevision'] as String,
       );
       return observedRevision <= attemptedRevision
           ? _WriteOutcome.rejected
@@ -251,39 +188,14 @@ class VaultSettingsService {
     }
   }
 
-  Map<String, dynamic> _metadata(Uint8List plaintext) {
-    final decoded = jsonDecode(utf8.decode(plaintext));
-    if (decoded is! Map) throw const FormatException('Malformed metadata');
-    final metadata = Map<String, dynamic>.from(decoded);
-    if (metadata['schema'] == MemberVaultMetadata.schema) {
-      final canonical = MemberVaultMetadata.fromJson(
-        Map<String, Object?>.from(metadata),
-      );
-      return <String, dynamic>{
-        'name': canonical.name,
-        if (canonical.description != null) 'description': canonical.description,
-        if (canonical.icon != null)
-          'iconReference': _iconReference(canonical.icon!),
-        if (canonical.color != null) 'color': canonical.color,
-        'grantMode': canonical.grantMode,
-      };
-    }
-    const allowed = {'name', 'description', 'iconReference', 'color'};
-    if (metadata.keys.any((key) => !allowed.contains(key)) ||
-        metadata['name'] is! String ||
-        (metadata['description'] != null &&
-            metadata['description'] is! String) ||
-        (metadata['iconReference'] != null &&
-            metadata['iconReference'] is! String) ||
-        (metadata['color'] != null && metadata['color'] is! String)) {
-      throw const FormatException('Malformed Vault metadata');
-    }
-    final name = metadata['name'] as String;
-    if (name.isEmpty || name.length > 256) {
-      throw const FormatException('Invalid Vault name');
-    }
-    return {...metadata, 'grantMode': 'granular'};
-  }
+  Map<String, dynamic> _metadata(MemberVaultMetadata canonical) => {
+    'name': canonical.name,
+    if (canonical.description != null) 'description': canonical.description,
+    if (canonical.icon != null)
+      'iconReference': _iconReference(canonical.icon!),
+    if (canonical.color != null) 'color': canonical.color,
+    'grantMode': canonical.grantMode,
+  };
 
   String _iconReference(VaultPlaintextIcon icon) => switch (icon) {
     GlyphVaultIcon(:final value) => value,
