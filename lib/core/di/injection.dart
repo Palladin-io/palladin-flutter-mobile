@@ -742,6 +742,7 @@ void configureDependencies(EnvConfig config) {
       auditRepository: getIt<AuditRepository>(),
       agentsRepository: getIt<AgentsRepository>(),
       vaultListCubit: getIt<VaultListCubit>(),
+      vaultMembersRepository: getIt<VaultMembersRepository>(),
       memberSync: getIt<MemberSyncService>(),
       vaultId: vaultId,
       entryId: entryId,
@@ -831,6 +832,7 @@ void configureDependencies(EnvConfig config) {
     () => LocalSearchRepositoryImpl(
       vaults: getIt<VaultListCubit>(),
       memberIndex: getIt<MemberSyncService>(),
+      entryLoader: getIt<MemberEntryListService>(),
     ),
   );
   getIt.registerLazySingleton<SearchSessionController>(

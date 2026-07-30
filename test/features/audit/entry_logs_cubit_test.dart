@@ -12,6 +12,8 @@ import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/vault_member.dart';
+import 'package:mobile_palladin/features/vault/domain/repositories/vault_members_repository.dart';
 import 'package:mobile_palladin/features/vault/presentation/cubit/vault_list_cubit.dart';
 
 class _MockAuditRepository extends Mock implements AuditRepository {}
@@ -26,6 +28,9 @@ class _MockVaultListCubit extends Mock implements VaultListCubit {
 }
 
 class _MockMemberIndex extends Mock implements MemberIndexReader {}
+
+class _MockVaultMembersRepository extends Mock
+    implements VaultMembersRepository {}
 
 AuditLogEntry _entry(String id, {String? agentId}) {
   return AuditLogEntry(
@@ -55,6 +60,7 @@ void main() {
   late AgentsRepository agents;
   late _MockVaultListCubit vaults;
   late MemberIndexReader memberIndex;
+  late VaultMembersRepository vaultMembers;
   late EntryLogsCubit cubit;
 
   setUp(() {
@@ -62,12 +68,15 @@ void main() {
     agents = _MockAgentsRepository();
     vaults = _MockVaultListCubit();
     memberIndex = _MockMemberIndex();
+    vaultMembers = _MockVaultMembersRepository();
     when(() => memberIndex.waitForCurrent('v-1')).thenAnswer((_) async {});
     when(() => memberIndex.entries('v-1')).thenReturn([_memberEntry()]);
+    when(() => vaultMembers.list('v-1')).thenAnswer((_) async => const []);
     cubit = EntryLogsCubit(
       auditRepository: audit,
       agentsRepository: agents,
       vaultListCubit: vaults,
+      vaultMembersRepository: vaultMembers,
       memberSync: memberIndex,
       vaultId: 'v-1',
       entryId: 'e-1',
@@ -210,6 +219,48 @@ void main() {
     },
   );
 
+  test('resolves a user actor from the local Vault member directory', () async {
+    when(() => agents.listAgents()).thenAnswer((_) async => []);
+    when(() => vaultMembers.list('v-1')).thenAnswer(
+      (_) async => [
+        VaultMember(
+          id: 'user-1',
+          name: 'Patryk Roguszewski',
+          addedAt: DateTime.utc(2026),
+          status: VaultMemberStatus.active,
+        ),
+      ],
+    );
+    when(
+      () => audit.listVaultLogs(
+        'v-1',
+        entryId: 'e-1',
+        cursor: null,
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).thenAnswer(
+      (_) async => AuditLogPage(
+        entries: [
+          AuditLogEntry(
+            id: '1',
+            eventType: AuditEventType.entryUpdated,
+            rawEventType: 'entry.updated',
+            actorType: AuditActorType.user,
+            createdAt: DateTime.utc(2026),
+            userId: 'user-1',
+            actorName: 'untrusted server label',
+            vaultId: 'v-1',
+            entryId: 'e-1',
+          ),
+        ],
+      ),
+    );
+
+    await cubit.load();
+
+    expect(cubit.state.entries.single.actorName, 'Patryk Roguszewski');
+  });
+
   test('rejects a response outside the requested composite scope', () async {
     when(() => agents.listAgents()).thenAnswer((_) async => []);
     when(
@@ -276,6 +327,7 @@ void main() {
       auditRepository: audit,
       agentsRepository: agents,
       vaultListCubit: vaults,
+      vaultMembersRepository: vaultMembers,
       memberSync: memberIndex,
       vaultId: purgedVault,
       entryId: purgedEntry,
@@ -384,6 +436,7 @@ void main() {
       auditRepository: audit,
       agentsRepository: agents,
       vaultListCubit: vaults,
+      vaultMembersRepository: vaultMembers,
       memberSync: memberIndex,
       vaultId: 'v-1',
       entryId: 'e-1',

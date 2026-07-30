@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
@@ -46,6 +47,20 @@ class SearchCubit extends Cubit<SearchState> {
 
   Timer? _debounceTimer;
   CancelToken? _remoteCancellation;
+  Future<void>? _localPreparation;
+
+  /// Starts rebuilding the runtime-only local index for Home search.
+  /// No key reference is retained after the returned operation completes.
+  void prepare(Uint8List memberPrivateKey) {
+    _localPreparation = _localRepository
+        .prepare(memberPrivateKey)
+        .then(
+          (_) {},
+          onError: (Object _, StackTrace stackTrace) {
+            AppLogger.w('Search', 'Local search index unavailable');
+          },
+        );
+  }
 
   /// Monotonic token identifying the latest intended query. Every call that
   /// changes what the user is asking for (a new [_run], a reset, or a
@@ -75,9 +90,10 @@ class SearchCubit extends Cubit<SearchState> {
     _remoteCancellation?.cancel();
     final cancellation = CancelToken();
     _remoteCancellation = cancellation;
-    final localFuture = Future<List<SearchResultEntity>>.sync(
-      () => _localRepository.search(q, limit: _limit),
-    );
+    final localFuture = () async {
+      await _localPreparation;
+      return _localRepository.search(q, limit: _limit);
+    }();
     final remoteFuture =
         Future<List<SearchResultEntity>>.sync(
           () => _repository.globalSearch(
@@ -176,6 +192,9 @@ class SearchCubit extends Cubit<SearchState> {
 
 final class _EmptyLocalSearchRepository implements LocalSearchRepository {
   const _EmptyLocalSearchRepository();
+
+  @override
+  Future<void> prepare(Uint8List memberPrivateKey) async {}
 
   @override
   List<SearchResultEntity> search(String query, {int limit = 10}) => const [];

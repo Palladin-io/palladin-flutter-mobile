@@ -828,6 +828,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryAgentsAccessGrantRuntime => 'Grant: runtime only';
 
   @override
+  String get entryChangesSaved => 'Changes saved';
+
+  @override
   String get entryDangerZone => 'Danger Zone';
 
   @override

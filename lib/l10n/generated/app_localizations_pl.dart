@@ -845,6 +845,9 @@ class AppLocalizationsPl extends AppLocalizations {
       'Grant: tylko środowisko wykonawcze';
 
   @override
+  String get entryChangesSaved => 'Zmiany zostały zapisane';
+
+  @override
   String get entryDangerZone => 'Strefa niebezpieczna';
 
   @override

@@ -924,6 +924,7 @@
   "entryAgentsAccessGrantValue": "Grant: value",
   "entryAgentsAccessGrantDerived": "Grant: derived only",
   "entryAgentsAccessGrantRuntime": "Grant: runtime only",
+  "entryChangesSaved": "Changes saved",
   "@entryRevealingForEdit": {
     "description": "Shown while the detail page is decrypting the entry payload before the form can be shown"
   },

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../agents/domain/repositories/agents_repository.dart';
 import '../../../vault/data/services/member_sync_service.dart';
+import '../../../vault/domain/repositories/vault_members_repository.dart';
 import '../../../vault/presentation/cubit/vault_list_cubit.dart';
 import '../../domain/entities/audit_log_entry.dart';
 import '../../domain/exceptions/audit_exceptions.dart';
@@ -21,6 +22,7 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
     required this.auditRepository,
     required this.agentsRepository,
     required this.vaultListCubit,
+    required this.vaultMembersRepository,
     required this.memberSync,
     required this.vaultId,
     required this.entryId,
@@ -29,6 +31,7 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
   final AuditRepository auditRepository;
   final AgentsRepository agentsRepository;
   final VaultListCubit vaultListCubit;
+  final VaultMembersRepository vaultMembersRepository;
   final MemberIndexReader memberSync;
   final String vaultId;
   final String entryId;
@@ -88,9 +91,11 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
       final agentNames = hasUnknownAgent
           ? {...state.agentNames, ...await _resolveAgentNames()}
           : state.agentNames;
+      final memberNames = await _resolveMemberNames();
       final remaining = _maximumLoadedEntries - state.entries.length;
       final more = _resolvePage(page.entries, (
         agents: agentNames,
+        members: memberNames,
         vault: state.entries.isEmpty
             ? null
             : state.entries.first.resolvedVaultName,
@@ -147,9 +152,17 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
         pageSize: _pageSize,
       );
 
-  Future<({Map<String, String> agents, String? vault, String? entry})>
+  Future<
+    ({
+      Map<String, String> agents,
+      Map<String, String> members,
+      String? vault,
+      String? entry,
+    })
+  >
   _resolveNames() async {
     final agents = await _resolveAgentNames();
+    final members = await _resolveMemberNames();
     String? vaultName;
     try {
       final state = vaultListCubit.state;
@@ -176,12 +189,23 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
         break;
       }
     }
-    return (agents: agents, vault: vaultName, entry: entryName);
+    return (
+      agents: agents,
+      members: members,
+      vault: vaultName,
+      entry: entryName,
+    );
   }
 
   List<AuditLogEntry> _resolvePage(
     List<AuditLogEntry> page,
-    ({Map<String, String> agents, String? vault, String? entry}) names,
+    ({
+      Map<String, String> agents,
+      Map<String, String> members,
+      String? vault,
+      String? entry,
+    })
+    names,
   ) => page
       .map((item) {
         if (item.vaultId != vaultId || item.entryId != entryId) {
@@ -201,7 +225,9 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
           userId: item.userId,
           agentId: item.agentId,
           agentName: agentName ?? item.agentName,
-          actorName: item.actorName,
+          actorName: item.userId == null
+              ? item.actorName
+              : names.members[item.userId],
           vaultId: item.vaultId,
           entryId: item.entryId,
           entryLabel: names.entry ?? _shortId(item.entryId!),
@@ -229,6 +255,20 @@ class EntryLogsCubit extends Cubit<EntryLogsState> {
       // Agent name resolution is best-effort — a failure here must not
       // block the logs. Rows fall back to a shortened agent id.
       AppLogger.w('Audit', 'Agent name resolution failed');
+      return const {};
+    }
+  }
+
+  Future<Map<String, String>> _resolveMemberNames() async {
+    try {
+      final members = await vaultMembersRepository.list(vaultId);
+      return {
+        for (final member in members)
+          if (member.name?.trim().isNotEmpty == true)
+            member.id: member.name!.trim(),
+      };
+    } catch (_) {
+      AppLogger.w('Audit', 'Member name resolution failed');
       return const {};
     }
   }

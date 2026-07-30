@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import '../../../vault/data/services/member_entry_list_service.dart';
 import '../../../vault/data/services/member_sync_service.dart';
 import '../../../vault/domain/entities/member_index_entry.dart';
 import '../../../vault/domain/entities/vault_performance_budget.dart';
@@ -11,13 +14,32 @@ final class LocalSearchRepositoryImpl implements LocalSearchRepository {
   LocalSearchRepositoryImpl({
     required VaultListCubit vaults,
     required MemberIndexReader memberIndex,
+    required MemberEntryListLoader entryLoader,
     this.maximumCandidates = VaultPerformanceBudget.maximumIndexedEntries,
   }) : _vaults = vaults,
-       _memberIndex = memberIndex;
+       _memberIndex = memberIndex,
+       _entryLoader = entryLoader;
 
   final VaultListCubit _vaults;
   final MemberIndexReader _memberIndex;
+  final MemberEntryListLoader _entryLoader;
   final int maximumCandidates;
+
+  @override
+  Future<void> prepare(Uint8List memberPrivateKey) async {
+    if (memberPrivateKey.length != 32) {
+      throw const FormatException('Member private key must be 32 bytes');
+    }
+    await _vaults.loadIfNeeded(memberPrivateKey);
+    final state = _vaults.state;
+    if (state is! VaultListLoaded) return;
+    for (final vault in state.vaults) {
+      await _entryLoader.load(
+        vaultId: vault.id,
+        memberPrivateKey: memberPrivateKey,
+      );
+    }
+  }
 
   @override
   List<SearchResultEntity> search(String query, {int limit = 10}) {

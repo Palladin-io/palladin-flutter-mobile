@@ -138,6 +138,8 @@ void main() {
           'creatorVaultKey',
           'discoveryKey',
           'vaultPrivateKeys',
+          'vaultAgentMessagePublicKey',
+          'vaultManifestSigningPublicKey',
         }),
       );
       expect(payload['vaultPrivateKeys'], hasLength(2));

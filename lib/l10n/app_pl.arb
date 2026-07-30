@@ -222,6 +222,7 @@
   "entryAgentsAccessGrantValue": "Grant: wartość",
   "entryAgentsAccessGrantDerived": "Grant: tylko wynik pochodny",
   "entryAgentsAccessGrantRuntime": "Grant: tylko środowisko wykonawcze",
+  "entryChangesSaved": "Zmiany zostały zapisane",
   "entryDangerZone": "Strefa niebezpieczna",
   "entryDeleteTitle": "Usunąć wpis?",
   "entryDeleteConfirm": "Wpis zostanie trwale usunięty wraz z zaszyfrowanymi danymi. Tej operacji nie można cofnąć.",

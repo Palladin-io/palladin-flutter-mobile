@@ -848,7 +848,9 @@ String? _nullableString(
   required int max,
 }) {
   final value = _required(map, key);
-  return value == null ? null : _string(value, key, min: 1, max: max);
+  // Canonical web/backend plaintext contracts intentionally allow an empty
+  // normalized string for nullable text projections produced by imports.
+  return value == null ? null : _string(value, key, min: 0, max: max);
 }
 
 String? _color(Object? value) {

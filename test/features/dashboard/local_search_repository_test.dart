@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/dashboard/data/repositories/local_search_repository_impl.dart';
 import 'package:mobile_palladin/features/dashboard/domain/entities/search_result_entity.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/member_entry_list_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 import 'package:mobile_palladin/features/vault/presentation/cubit/vault_list_cubit.dart';
@@ -10,6 +13,8 @@ import 'package:mobile_palladin/features/vault/presentation/cubit/vault_list_cub
 class MockVaultListCubit extends Mock implements VaultListCubit {}
 
 class MockMemberIndexReader extends Mock implements MemberIndexReader {}
+
+class MockMemberEntryListLoader extends Mock implements MemberEntryListLoader {}
 
 final _vault = VaultEntity(
   id: 'v1',
@@ -25,10 +30,12 @@ final _vault = VaultEntity(
 void main() {
   late MockVaultListCubit vaults;
   late MockMemberIndexReader index;
+  late MockMemberEntryListLoader loader;
 
   setUp(() {
     vaults = MockVaultListCubit();
     index = MockMemberIndexReader();
+    loader = MockMemberEntryListLoader();
     when(() => vaults.state).thenReturn(VaultListLoaded([_vault]));
   });
 
@@ -73,6 +80,7 @@ void main() {
       final results = LocalSearchRepositoryImpl(
         vaults: vaults,
         memberIndex: index,
+        entryLoader: loader,
       ).search('stripe', limit: 10);
       expect(results.whereType<EntrySearchResult>().map((e) => e.entryId), [
         'e1',
@@ -98,6 +106,7 @@ void main() {
     final results = LocalSearchRepositoryImpl(
       vaults: vaults,
       memberIndex: index,
+      entryLoader: loader,
     ).search('match', limit: 10);
     expect(results, hasLength(10));
     expect(
@@ -135,6 +144,7 @@ void main() {
     final results = LocalSearchRepositoryImpl(
       vaults: vaults,
       memberIndex: index,
+      entryLoader: loader,
     ).search('needle', limit: 10);
 
     expect(results.whereType<EntrySearchResult>().single.entryId, 'e19999');
@@ -145,9 +155,46 @@ void main() {
     final repository = LocalSearchRepositoryImpl(
       vaults: vaults,
       memberIndex: index,
+      entryLoader: loader,
     );
     expect(repository.search('secret'), isEmpty);
     expect(repository.recentEntries(), isEmpty);
     verifyNever(() => index.entries(any()));
+  });
+
+  test('prepare loads Vaults and decrypts every MemberIndex', () async {
+    final privateKey = Uint8List(32);
+    final secondVault = VaultEntity(
+      id: 'v2',
+      name: 'Personal',
+      grantMode: GrantMode.granular,
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+      entryCount: 1,
+      activeGrantCount: 0,
+      memberCount: 1,
+    );
+    when(() => vaults.state).thenReturn(VaultListLoaded([_vault, secondVault]));
+    when(() => vaults.loadIfNeeded(privateKey)).thenAnswer((_) async {});
+    when(
+      () => loader.load(
+        vaultId: any(named: 'vaultId'),
+        memberPrivateKey: privateKey,
+      ),
+    ).thenAnswer((_) async => const []);
+
+    await LocalSearchRepositoryImpl(
+      vaults: vaults,
+      memberIndex: index,
+      entryLoader: loader,
+    ).prepare(privateKey);
+
+    verify(() => vaults.loadIfNeeded(privateKey)).called(1);
+    verify(
+      () => loader.load(vaultId: 'v1', memberPrivateKey: privateKey),
+    ).called(1);
+    verify(
+      () => loader.load(vaultId: 'v2', memberPrivateKey: privateKey),
+    ).called(1);
   });
 }

@@ -413,7 +413,13 @@ class AuditLogCubit extends Cubit<AuditLogState> {
           vaultId: entry.vaultId,
           entryId: entry.entryId,
           entryLabel: entryName,
-          resolvedObjectName: entryName ?? vaultName,
+          // A Vault name is not a valid presentation fallback for an Entry
+          // event. It makes "created entry Personal" falsely identify the
+          // Vault as the created Entry while the local MemberIndex is still
+          // preparing. Leave the Entry unresolved so the formatter uses its
+          // safe Entry identifier fallback until the bounded refresh resolves
+          // the real label.
+          resolvedObjectName: entry.entryId == null ? vaultName : entryName,
           resolvedVaultName: vaultName,
           localPresentationOnly: true,
           metadata: entry.metadata,

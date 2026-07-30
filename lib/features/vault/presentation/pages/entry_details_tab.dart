@@ -20,6 +20,7 @@ import '../../../public_asset_catalog/presentation/widgets/public_asset_picker_s
 import '../../data/services/canonical_entry_detail_service.dart';
 import '../../data/services/encrypted_presentation_asset_service.dart';
 import '../../domain/entities/custom_field.dart';
+import '../../domain/entities/agent_visibility_policy.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/totp_config.dart';
 import '../../domain/repositories/entry_repository.dart';
@@ -85,6 +86,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   EntryType _type = EntryType.credential;
   ScriptInterpreter _interpreter = ScriptInterpreter.bash;
   String _icon = EntryVisuals.defaultIconName;
+  String? _resolvedWebsiteIcon;
+  int _websiteIconGeneration = 0;
   late final WebsiteIconAutoResolver _websiteIconResolver;
   String _colorHex = EntryVisuals.defaultColorHex;
   String? _urlError;
@@ -93,6 +96,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   bool _valueObscured = true;
   bool _passwordObscured = true;
   bool _populated = false;
+  AgentVisibilityPolicy? _agentPolicy;
+  String? _agentLabel;
 
   List<CustomField> _customFields = const [];
   bool _customFieldsValid = true;
@@ -135,7 +140,12 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
           ? getIt<WebsiteIconService>()
           : null,
       onResolved: (reference) {
-        if (mounted && _editMode) setState(() => _icon = reference);
+        if (mounted && _editMode) {
+          setState(() {
+            _resolvedWebsiteIcon = null;
+            _icon = reference;
+          });
+        }
       },
     );
     if (widget.entry.icon?.isNotEmpty == true) {
@@ -194,6 +204,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
 
   @override
   void dispose() {
+    _websiteIconGeneration++;
     _websiteIconResolver.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _clearPlaintextState();
@@ -235,6 +246,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _totpFields = const [];
     _refs = const [];
     _credentialTotp = null;
+    _agentPolicy = null;
+    _agentLabel = null;
   }
 
   // ── Population / snapshot ──────────────────────────────────────────
@@ -243,6 +256,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _populated = true;
     _revealedEntry = entry;
     _payload = payload;
+    final cubit = context.read<EditEntryCubit>();
+    _agentPolicy = cubit.agentVisibilityPolicy(entry.type);
+    _agentLabel = cubit.agentLabel;
     _syncControllersFromSnapshot();
   }
 
@@ -257,6 +273,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _descriptionController.text = entry.description ?? '';
     _type = entry.type;
     _icon = entry.icon ?? EntryVisuals.defaultIconName;
+    _resolvePersistedWebsiteIcon(_icon);
     _urlController.text = (payload['url'] as String?) ?? '';
     _notesController.text = (payload['notes'] as String?) ?? '';
     final allFields = CustomField.listFromPayload(payload);
@@ -281,6 +298,21 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         );
         _refs = ScriptRef.listFromPayload(payload);
     }
+  }
+
+  Future<void> _resolvePersistedWebsiteIcon(String reference) async {
+    final generation = ++_websiteIconGeneration;
+    if (!reference.startsWith('website:') ||
+        !getIt.isRegistered<WebsiteIconService>()) {
+      if (mounted && _resolvedWebsiteIcon != null) {
+        setState(() => _resolvedWebsiteIcon = null);
+      }
+      return;
+    }
+    final hostname = reference.substring('website:'.length);
+    final asset = await getIt<WebsiteIconService>().resolveOne(hostname);
+    if (!mounted || generation != _websiteIconGeneration) return;
+    setState(() => _resolvedWebsiteIcon = asset?.reference);
   }
 
   /// Loads the vault's key/credential entries for a Script entry's
@@ -416,6 +448,49 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     credentialTotp: _credentialTotp,
   );
 
+  bool _isDiscoverable(String fieldId) =>
+      _agentPolicy?.fields[fieldId] == AgentFieldAccess.discovery;
+
+  void _toggleDiscovery(String fieldId) {
+    final policy = _agentPolicy;
+    if (policy == null) return;
+    final enabled = !_isDiscoverable(fieldId);
+    final fields = Map<String, AgentFieldAccess>.from(policy.fields)
+      ..[fieldId] = enabled
+          ? AgentFieldAccess.discovery
+          : AgentFieldAccess.never;
+    if (fieldId == 'agentLabel') {
+      setState(() {
+        _agentPolicy = AgentVisibilityPolicy(
+          discoverable: enabled,
+          fields: fields,
+        );
+        _agentLabel ??= _labelController.text.trim();
+      });
+      return;
+    }
+    setState(() {
+      _agentPolicy = AgentVisibilityPolicy(
+        discoverable: policy.discoverable,
+        fields: fields,
+      );
+    });
+  }
+
+  Widget _discoveryButton(String fieldId, AppLocalizations l10n) {
+    final selected = _isDiscoverable(fieldId);
+    return IconButton(
+      key: ValueKey('entry-discovery-$fieldId'),
+      onPressed: _agentPolicy == null ? null : () => _toggleDiscovery(fieldId),
+      tooltip: l10n.entryFieldAgentVisibleTip,
+      icon: Icon(
+        Icons.smart_toy_outlined,
+        size: 17,
+        color: selected ? AppColors.vaultBlue : AppColors.textTertiaryMobile,
+      ),
+    );
+  }
+
   Future<String?> _pickIconFile() async {
     if (_pickingIcon || _uploadingIcon) return null;
     setState(() => _pickingIcon = true);
@@ -461,6 +536,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     setState(() {
       if (result.iconKey != null) {
         _websiteIconResolver.markManualSelection();
+        _resolvedWebsiteIcon = null;
         _icon = result.iconKey!;
       }
       _colorHex = matchedHex;
@@ -505,6 +581,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         wrappedVK: widget.wrappedVK,
         createdAt: _originalCreatedAt(cubit.state),
         agentFields: CustomField.agentFieldsFrom(_allCustomFields),
+        agentVisibilityPolicy: _agentPolicy,
+        agentLabel: _agentLabel,
       );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
@@ -565,6 +643,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     });
     widget.editController?.publishEditing(true);
     widget.onUpdated(entry);
+    _showSnackBar(AppLocalizations.of(context)!.entryChangesSaved);
     await _requestReveal(expected: entry);
   }
 
@@ -1006,6 +1085,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     ),
     feedbackVisible: _urlError != null,
     feedbackReserveSpace: false,
+    suffixIcon: _discoveryButton('urlDomain', l10n),
   );
 
   /// Type-specific edit fields for the currently-selected [_type].
@@ -1030,6 +1110,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
           controller: _usernameController,
           textInputAction: TextInputAction.next,
           onChanged: (_) => setState(() {}),
+          suffixIcon: _discoveryButton('username', l10n),
         ),
         const SizedBox(height: AppSpacing.fieldGap),
         OnboardingTextField(
@@ -1092,113 +1173,133 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     final isBusy = isLoading || _pickingIcon;
     final canSubmit = !isBusy && _canSubmit;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.fieldGap,
-        AppSpacing.screenH,
-        AppSpacing.screenBottom,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          EntryTypeDropdown(
-            value: _type,
-            onChanged: (next) {
-              if (next == null || next == _type) return;
-              setState(() {
-                _type = next;
-                if (!EntryVisuals.isCustomUrl(_icon)) {
-                  _icon = EntryVisuals.defaultIconForType(next);
-                }
-              });
-              if (next == EntryType.script) _ensureVaultEntriesLoaded();
-            },
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          EntryFieldCaption(
-            label: l10n.entryLabelLabel,
-            agentVisibleHint: true,
-          ),
-          const SizedBox(height: AppSpacing.innerGap),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              EntryIconTile(
-                icon: _icon,
-                accentColor: accentColor,
-                onTap: _openEntryBrowser,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: OnboardingTextField(
-                  hintText: l10n.entryLabelHint,
-                  controller: _labelController,
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              AppSpacing.fieldGap,
+              AppSpacing.screenH,
+              AppSpacing.section,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                EntryTypeDropdown(
+                  value: _type,
+                  onChanged: (next) {
+                    if (next == null || next == _type) return;
+                    setState(() {
+                      _type = next;
+                      if (!EntryVisuals.isCustomUrl(_icon)) {
+                        _resolvedWebsiteIcon = null;
+                        _icon = EntryVisuals.defaultIconForType(next);
+                      }
+                    });
+                    if (next == EntryType.script) _ensureVaultEntriesLoaded();
+                  },
+                ),
+                const SizedBox(height: AppSpacing.fieldGap),
+                EntryFieldCaption(label: l10n.entryLabelLabel),
+                const SizedBox(height: AppSpacing.innerGap),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    EntryIconTile(
+                      icon: _resolvedWebsiteIcon ?? _icon,
+                      accentColor: accentColor,
+                      onTap: _openEntryBrowser,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: OnboardingTextField(
+                        hintText: l10n.entryLabelHint,
+                        controller: _labelController,
+                        textCapitalization: TextCapitalization.sentences,
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) => setState(() {}),
+                        suffixIcon: _discoveryButton('agentLabel', l10n),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.fieldGap),
+                EntryFieldCaption(label: l10n.entryDescriptionLabel),
+                const SizedBox(height: AppSpacing.innerGap),
+                OnboardingTextField(
+                  controller: _descriptionController,
                   textCapitalization: TextCapitalization.sentences,
                   textInputAction: TextInputAction.next,
-                  onChanged: (_) => setState(() {}),
+                  suffixIcon: _discoveryButton('description', l10n),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          EntryFieldCaption(
-            label: l10n.entryDescriptionLabel,
-            agentVisibleHint: true,
-          ),
-          const SizedBox(height: AppSpacing.innerGap),
-          OnboardingTextField(
-            controller: _descriptionController,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.next,
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          ..._typeFields(l10n),
-          const SizedBox(height: AppSpacing.section),
-          if (_type != EntryType.script) ...[
-            TotpSection(
-              initial: _totpFields,
-              onChanged: (fields) => setState(() => _totpFields = fields),
+                const SizedBox(height: AppSpacing.fieldGap),
+                ..._typeFields(l10n),
+                const SizedBox(height: AppSpacing.section),
+                if (_type != EntryType.script) ...[
+                  TotpSection(
+                    initial: _totpFields,
+                    onChanged: (fields) => setState(() => _totpFields = fields),
+                  ),
+                  const SizedBox(height: AppSpacing.section),
+                ],
+                CustomFieldsEditor(
+                  initial: _customFields,
+                  onChanged: (fields, valid) => setState(() {
+                    _customFields = fields;
+                    _customFieldsValid = valid;
+                  }),
+                ),
+                const SizedBox(height: AppSpacing.section),
+                EntryNotesSection(
+                  controller: _notesController,
+                  initiallyVisible: _notesController.text.trim().isNotEmpty,
+                ),
+                const SizedBox(height: AppSpacing.section),
+                EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
+                if (state is EditEntryError) ...[
+                  const SizedBox(height: AppSpacing.fieldGap),
+                  Text(
+                    EntryFormUtils.errorMessage(l10n, state.kind),
+                    style: const TextStyle(
+                      color: AppColors.brandRed,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.section),
+                _DangerZone(
+                  label: l10n.entryDangerZone,
+                  deleteLabel: isLoading
+                      ? l10n.entryDeleting
+                      : l10n.entryDeleteAction,
+                  onDelete: isBusy ? null : _confirmDelete,
+                  brightness: brightness,
+                ),
+              ],
             ),
-            const SizedBox(height: AppSpacing.section),
-          ],
-          CustomFieldsEditor(
-            initial: _customFields,
-            onChanged: (fields, valid) => setState(() {
-              _customFields = fields;
-              _customFieldsValid = valid;
-            }),
           ),
-          const SizedBox(height: AppSpacing.section),
-          EntryNotesSection(
-            controller: _notesController,
-            initiallyVisible: _notesController.text.trim().isNotEmpty,
+        ),
+        Container(
+          key: const ValueKey('entry-save-footer'),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            AppSpacing.md,
+            AppSpacing.screenH,
+            AppSpacing.screenBottom,
           ),
-          const SizedBox(height: AppSpacing.section),
-          EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
-          if (state is EditEntryError) ...[
-            const SizedBox(height: AppSpacing.fieldGap),
-            Text(
-              EntryFormUtils.errorMessage(l10n, state.kind),
-              style: const TextStyle(color: AppColors.brandRed, fontSize: 12),
+          decoration: BoxDecoration(
+            color: AppColors.cardFill(brightness),
+            border: Border(
+              top: BorderSide(color: AppColors.navBorder(brightness)),
             ),
-          ],
-          const SizedBox(height: AppSpacing.section),
-          EntrySaveButton(
+          ),
+          child: EntrySaveButton(
             isLoading: isLoading,
             onPressed: canSubmit ? _submit : null,
           ),
-          const SizedBox(height: AppSpacing.section),
-          _DangerZone(
-            label: l10n.entryDangerZone,
-            deleteLabel: isLoading
-                ? l10n.entryDeleting
-                : l10n.entryDeleteAction,
-            onDelete: isBusy ? null : _confirmDelete,
-            brightness: brightness,
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

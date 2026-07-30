@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:fake_async/fake_async.dart';
@@ -33,6 +34,7 @@ void main() {
   setUpAll(() {
     WidgetsFlutterBinding.ensureInitialized();
     registerFallbackValue(CancelToken());
+    registerFallbackValue(Uint8List(0));
   });
 
   late MockDashboardRepository remote;
@@ -48,6 +50,7 @@ void main() {
     when(
       () => local.search(any(), limit: any(named: 'limit')),
     ).thenReturn(const []);
+    when(() => local.prepare(any())).thenAnswer((_) async {});
     when(
       () =>
           analytics.capture(any(), any(), properties: any(named: 'properties')),
@@ -73,6 +76,35 @@ void main() {
     );
     verifyNever(() => local.search(any(), limit: any(named: 'limit')));
     cubit.close();
+  });
+
+  test('waits for the decrypted local index before searching', () {
+    fakeAsync((async) {
+      final prepared = Completer<void>();
+      final privateKey = Uint8List(32);
+      when(() => local.prepare(privateKey)).thenAnswer((_) => prepared.future);
+      when(() => local.search('stripe', limit: 10)).thenReturn(const [_entry]);
+      when(
+        () => remote.globalSearch(
+          'stripe',
+          limit: 10,
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((_) async => const []);
+
+      final cubit = buildCubit();
+      cubit.prepare(privateKey);
+      cubit.query('stripe');
+      async.elapse(const Duration(milliseconds: 250));
+      async.flushMicrotasks();
+      verifyNever(() => local.search('stripe', limit: 10));
+
+      prepared.complete();
+      async.flushMicrotasks();
+      verify(() => local.search('stripe', limit: 10)).called(1);
+      expect(cubit.state, isA<SearchResults>());
+      cubit.close();
+    });
   });
 
   test(

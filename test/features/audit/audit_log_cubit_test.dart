@@ -105,6 +105,48 @@ void main() {
   );
 
   group('vault scope', () {
+    test(
+      'does not present the Vault name as an unresolved Entry name',
+      () async {
+        when(() => agents.listAgents()).thenAnswer((_) async => []);
+        vaults.current = VaultListLoaded([_vault('v-1', 'Personal')]);
+        when(
+          () => audit.listVaultLogs(
+            'v-1',
+            actions: any(named: 'actions'),
+            agentId: any(named: 'agentId'),
+            userId: any(named: 'userId'),
+            entryId: any(named: 'entryId'),
+            from: any(named: 'from'),
+            to: any(named: 'to'),
+            cursor: any(named: 'cursor'),
+            pageSize: any(named: 'pageSize'),
+          ),
+        ).thenAnswer(
+          (_) async => AuditLogPage(
+            entries: [
+              AuditLogEntry(
+                id: 'audit-1',
+                eventType: AuditEventType.entryCreated,
+                rawEventType: 'entry.created',
+                actorType: AuditActorType.user,
+                createdAt: DateTime(2026),
+                vaultId: 'v-1',
+                entryId: 'entry-unresolved',
+              ),
+            ],
+          ),
+        );
+
+        final cubit = vaultCubit();
+        await cubit.load();
+
+        expect(cubit.state.entries.single.resolvedObjectName, isNull);
+        expect(cubit.state.entries.single.resolvedVaultName, 'Personal');
+        await cubit.close();
+      },
+    );
+
     test('load() calls the vault endpoint and exposes the page', () async {
       when(
         () => agents.listAgents(),

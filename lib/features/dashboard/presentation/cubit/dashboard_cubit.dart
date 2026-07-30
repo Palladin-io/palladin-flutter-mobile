@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -388,6 +389,9 @@ class DashboardCubit extends Cubit<DashboardState> {
 
 final class _EmptyLocalSearchRepository implements LocalSearchRepository {
   const _EmptyLocalSearchRepository();
+
+  @override
+  Future<void> prepare(Uint8List memberPrivateKey) async {}
 
   @override
   List<SearchResultEntity> search(String query, {int limit = 10}) => const [];

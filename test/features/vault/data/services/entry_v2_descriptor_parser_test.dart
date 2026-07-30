@@ -186,4 +186,22 @@ void main() {
       discoveryKey.fillRange(0, discoveryKey.length, 0);
     }
   });
+
+  test('parses imported MemberIndex with empty nullable text projections', () {
+    final index = MemberIndex.fromJson({
+      'schema': MemberIndex.schema,
+      'entryType': 'credential',
+      'memberLabel': 'Imported login',
+      'description': '',
+      'icon': null,
+      'color': null,
+      'username': '',
+      'urlDomain': '',
+      'customIndex': const [],
+    });
+
+    expect(index.description, '');
+    expect(index.username, '');
+    expect(index.urlDomain, '');
+  });
 }

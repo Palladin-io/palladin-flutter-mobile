@@ -1430,6 +1430,12 @@ abstract class AppLocalizations {
   /// **'Grant: runtime only'**
   String get entryAgentsAccessGrantRuntime;
 
+  /// No description provided for @entryChangesSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Changes saved'**
+  String get entryChangesSaved;
+
   /// Section heading for the delete entry button at the bottom of the Details tab
   ///
   /// In en, this message translates to:

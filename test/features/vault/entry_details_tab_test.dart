@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/agent_visibility_policy.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
 import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
 import 'package:mobile_palladin/features/vault/presentation/cubit/edit_entry_cubit.dart';
@@ -53,6 +54,9 @@ void main() {
     registerFallbackValue(Uint8List(0));
     registerFallbackValue(<String, dynamic>{});
     registerFallbackValue(
+      AgentVisibilityPolicy(discoverable: false, fields: const {}),
+    );
+    registerFallbackValue(
       CanonicalEntrySnapshot(entry: {}, payload: {}, secret: {}),
     );
   });
@@ -72,7 +76,20 @@ void main() {
       (_) async => CanonicalEntrySnapshot(
         entry: {'currentRevision': '1'},
         payload: Map<String, dynamic>.from(payload),
-        secret: {'schemaVersion': 1},
+        secret: {
+          'schemaVersion': 1,
+          'agentLabel': entry.label,
+          'agentVisibilityPolicy': {
+            'discoverable': true,
+            'fields': {
+              'agentLabel': 'discovery',
+              if (entry.type == EntryType.credential) ...{
+                'username': 'discovery',
+                'urlDomain': 'never',
+              },
+            },
+          },
+        },
       ),
     );
     final cubit = EditEntryCubit(
@@ -216,6 +233,8 @@ void main() {
         type: any(named: 'type'),
         content: any(named: 'content'),
         memberPrivateKey: any(named: 'memberPrivateKey'),
+        agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+        agentLabel: any(named: 'agentLabel'),
       ),
     ).thenAnswer(
       (_) async => EntryEntity(
@@ -235,6 +254,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(TextField), findsWidgets);
+    expect(find.text(l10n.entryChangesSaved), findsOneWidget);
     expect(harness.cubit.hasCanonicalSnapshot, isTrue);
     verify(
       () => harness.canonical.update(
@@ -246,8 +266,104 @@ void main() {
         type: any(named: 'type'),
         content: any(named: 'content'),
         memberPrivateKey: any(named: 'memberPrivateKey'),
+        agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+        agentLabel: any(named: 'agentLabel'),
       ),
     ).called(1);
+  });
+
+  testWidgets('failed save keeps the populated form and its values', (
+    tester,
+  ) async {
+    final harness = await pumpTab(
+      tester,
+      entry: _keyEntry(),
+      payload: {'value': secret},
+    );
+    when(
+      () => harness.canonical.update(
+        snapshot: any(named: 'snapshot'),
+        expected: any(named: 'expected'),
+        label: any(named: 'label'),
+        description: any(named: 'description'),
+        icon: any(named: 'icon'),
+        type: any(named: 'type'),
+        content: any(named: 'content'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+        agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+        agentLabel: any(named: 'agentLabel'),
+      ),
+    ).thenThrow(
+      const CanonicalEntryDetailException(CanonicalEntryDetailError.network),
+    );
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    await tester.tap(find.text(l10n.entrySaveAction));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('entry-save-footer')), findsOneWidget);
+    expect(
+      tester
+          .widgetList<EditableText>(find.byType(EditableText))
+          .where((field) => field.controller.text == secret),
+      isNotEmpty,
+    );
+  });
+
+  testWidgets('keeps Save Changes in a sticky footer while content scrolls', (
+    tester,
+  ) async {
+    await pumpTab(tester, entry: _keyEntry(), payload: {'value': secret});
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+    expect(find.byKey(const ValueKey('entry-save-footer')), findsOneWidget);
+    expect(find.text(l10n.entrySaveAction), findsOneWidget);
+
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -500),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('entry-save-footer')), findsOneWidget);
+    expect(find.text(l10n.entrySaveAction), findsOneWidget);
+  });
+
+  testWidgets('shows field-level discovery controls without technical labels', (
+    tester,
+  ) async {
+    final entry = EntryEntity(
+      id: 'e2',
+      vaultId: 'v1',
+      label: 'Account',
+      type: EntryType.credential,
+      createdAt: DateTime.utc(2026, 6, 1),
+      updatedAt: DateTime.utc(2026, 6, 2),
+    );
+    await pumpTab(
+      tester,
+      entry: entry,
+      payload: {'username': 'user', 'password': 'secret', 'url': 'example.com'},
+    );
+
+    expect(
+      find.byKey(const ValueKey('entry-discovery-agentLabel')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('entry-discovery-description')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('entry-discovery-username')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('entry-discovery-urlDomain')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('urlDomain'), findsNothing);
+    expect(find.textContaining('Grant:'), findsNothing);
   });
 
   testWidgets('background transition drops decrypted and revealed state', (

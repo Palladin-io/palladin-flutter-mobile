@@ -98,7 +98,7 @@ void main() {
     await getIt.reset();
   });
 
-  testWidgets('shows only Discovery projection and drops it on background', (
+  testWidgets('shows grants only and never exposes the policy editor', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -122,17 +122,25 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('visible-user'), findsOneWidget);
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    expect(find.text(l10n.entryAgentsEmptyTitle), findsOneWidget);
+    expect(find.text(l10n.entryAgentsPolicyTitle), findsNothing);
+    expect(find.byType(DropdownButton), findsNothing);
+    expect(find.byType(SwitchListTile), findsNothing);
+    expect(find.textContaining('urlDomain'), findsNothing);
+    expect(find.textContaining('totp'), findsNothing);
     expect(find.textContaining('TOPSECRET'), findsNothing);
     for (final forbidden in ['VK', 'VDK', 'EntryDEK', 'TOTP seed']) {
       expect(find.textContaining(forbidden), findsNothing);
     }
 
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    await tester.pump();
-    expect(cubit.state, isA<EntryAgentsInitial>());
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    verify(
+      () => grants.listOrgGrants(
+        entryId: entry.id,
+        agentId: null,
+        vaultId: null,
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).called(1);
   });
 }

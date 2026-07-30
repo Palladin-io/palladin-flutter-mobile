@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../domain/entities/custom_field.dart';
+import '../../domain/entities/agent_visibility_policy.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../../domain/repositories/entry_repository.dart';
@@ -34,6 +35,21 @@ class EditEntryCubit extends Cubit<EditEntryState> {
 
   /// Whether another save can safely reuse the authenticated base revision.
   bool get hasCanonicalSnapshot => _snapshot != null;
+
+  /// Returns the authenticated policy held in the current in-memory snapshot.
+  AgentVisibilityPolicy? agentVisibilityPolicy(EntryType type) {
+    final snapshot = _snapshot;
+    final raw = snapshot?.secret['agentVisibilityPolicy'];
+    if (snapshot == null || raw is! Map) return null;
+    return AgentVisibilityPolicy.fromJson(
+      type,
+      Map<String, dynamic>.from(raw),
+      content: snapshot.payload,
+    );
+  }
+
+  /// Agent-facing label from the authenticated in-memory snapshot.
+  String? get agentLabel => _snapshot?.secret['agentLabel'] as String?;
 
   /// Skips the reveal step — the caller already has the plaintext payload
   /// cached (e.g. from the reveal panel on the entries tab).
@@ -126,6 +142,8 @@ class EditEntryCubit extends Cubit<EditEntryState> {
     String? wrappedVK,
     required DateTime createdAt,
     List<AgentField>? agentFields,
+    AgentVisibilityPolicy? agentVisibilityPolicy,
+    String? agentLabel,
   }) async {
     if (label.trim().isEmpty || privateKey.isEmpty) {
       AppLogger.w('Entry', 'updateEntry called with invalid input');
@@ -157,6 +175,8 @@ class EditEntryCubit extends Cubit<EditEntryState> {
         type: type,
         content: payload,
         memberPrivateKey: privateKey,
+        agentVisibilityPolicy: agentVisibilityPolicy,
+        agentLabel: agentLabel,
       );
       AppLogger.i('Entry', 'Entry updated: id=${updated.id}');
       // The backend switched to N+1. Never let a second edit reuse N as its
