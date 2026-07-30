@@ -1622,6 +1622,18 @@ abstract class AppLocalizations {
   /// **'Edit'**
   String get entryEditAction;
 
+  /// No description provided for @entryShowMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Show more'**
+  String get entryShowMore;
+
+  /// No description provided for @entryShowLess.
+  ///
+  /// In en, this message translates to:
+  /// **'Show less'**
+  String get entryShowLess;
+
   /// Snackbar after copying a specific entry field (field = localized field name)
   ///
   /// In en, this message translates to:

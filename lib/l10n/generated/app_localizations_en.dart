@@ -930,6 +930,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryEditAction => 'Edit';
 
   @override
+  String get entryShowMore => 'Show more';
+
+  @override
+  String get entryShowLess => 'Show less';
+
+  @override
   String entryCopiedField(String field) {
     return '$field copied to clipboard';
   }

@@ -947,6 +947,12 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryEditAction => 'Edytuj';
 
   @override
+  String get entryShowMore => 'Pokaż więcej';
+
+  @override
+  String get entryShowLess => 'Pokaż mniej';
+
+  @override
   String entryCopiedField(String field) {
     return 'Skopiowano $field do schowka';
   }

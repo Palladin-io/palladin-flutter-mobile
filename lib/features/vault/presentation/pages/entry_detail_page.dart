@@ -228,6 +228,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
           ),
           body: SafeArea(
             top: false,
+            bottom: false,
             child: TabBarView(
               controller: _tabController,
               children: [

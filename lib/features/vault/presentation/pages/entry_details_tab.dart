@@ -1057,9 +1057,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
                 revealed: true,
                 onToggleReveal: null,
                 onCopy: () => _copy(field.textValue, field.label),
-                extraTrailing: field.agentVisible
-                    ? _AgentBadge(tip: l10n.entryFieldAgentVisibleTip)
-                    : null,
+                multiline: field.type == CustomFieldType.multiline,
               ),
             ),
           );
@@ -1397,26 +1395,6 @@ class _EmptyReadOnly extends StatelessWidget {
             fontSize: 13,
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Small "visible to agents" indicator shown next to a field's value in
-/// the read-only view (CVT-204).
-class _AgentBadge extends StatelessWidget {
-  const _AgentBadge({required this.tip});
-
-  final String tip;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tip,
-      child: const Icon(
-        Icons.smart_toy_outlined,
-        size: 13,
-        color: AppColors.vaultBlue,
       ),
     );
   }

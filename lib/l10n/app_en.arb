@@ -1043,6 +1043,8 @@
     "description": "Generic fallback error for entry operations"
   },
   "entryEditAction": "Edit",
+  "entryShowMore": "Show more",
+  "entryShowLess": "Show less",
   "@entryEditAction": {
     "description": "Button that switches the read-only entry detail into edit mode"
   },

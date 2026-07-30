@@ -21,6 +21,7 @@ class EntryFieldRow extends StatelessWidget {
     required this.onToggleReveal,
     required this.onCopy,
     this.extraTrailing,
+    this.multiline = false,
     this.valueFontSize = 12,
     this.actionIconSize = 14,
   });
@@ -36,6 +37,7 @@ class EntryFieldRow extends StatelessWidget {
   final VoidCallback? onToggleReveal;
   final VoidCallback onCopy;
   final Widget? extraTrailing;
+  final bool multiline;
 
   /// Font size of the value text. Defaults to 12 (entry detail); the
   /// denser entries-tab reveal panel passes 10.
@@ -56,17 +58,23 @@ class EntryFieldRow extends StatelessWidget {
           Icon(icon, size: 12, color: AppColors.onSurfaceSubtle(brightness)),
           const SizedBox(width: AppSpacing.innerGap),
           Expanded(
-            child: Text(
-              displayed,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: AppColors.onSurface(brightness),
-                fontSize: valueFontSize,
-                fontFamily: 'monospace',
-                letterSpacing: 0.5,
-              ),
-            ),
+            child: multiline
+                ? _ExpandableValueText(
+                    value: displayed,
+                    fontSize: valueFontSize,
+                    brightness: brightness,
+                  )
+                : Text(
+                    displayed,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.onSurface(brightness),
+                      fontSize: valueFontSize,
+                      fontFamily: 'monospace',
+                      letterSpacing: 0.5,
+                    ),
+                  ),
           ),
           if (onToggleReveal != null)
             EntrySmallIconButton(
@@ -88,6 +96,72 @@ class EntryFieldRow extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _ExpandableValueText extends StatefulWidget {
+  const _ExpandableValueText({
+    required this.value,
+    required this.fontSize,
+    required this.brightness,
+  });
+
+  final String value;
+  final double fontSize;
+  final Brightness brightness;
+
+  @override
+  State<_ExpandableValueText> createState() => _ExpandableValueTextState();
+}
+
+class _ExpandableValueTextState extends State<_ExpandableValueText> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final style = TextStyle(
+      color: AppColors.onSurface(widget.brightness),
+      fontSize: widget.fontSize,
+      fontFamily: 'monospace',
+      letterSpacing: 0.5,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: widget.value, style: style),
+          textDirection: Directionality.of(context),
+          maxLines: 3,
+        )..layout(maxWidth: constraints.maxWidth);
+        final truncated = painter.didExceedMaxLines;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.value,
+              maxLines: _expanded ? null : 3,
+              overflow: _expanded ? null : TextOverflow.ellipsis,
+              style: style,
+            ),
+            if (truncated || _expanded)
+              InkWell(
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.xs),
+                  child: Text(
+                    _expanded ? l10n.entryShowLess : l10n.entryShowMore,
+                    style: TextStyle(
+                      color: AppColors.brandRed,
+                      fontSize: widget.fontSize,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

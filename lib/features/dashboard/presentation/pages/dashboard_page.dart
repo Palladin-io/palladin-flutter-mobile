@@ -23,6 +23,9 @@ import '../../../approval/presentation/widgets/approve_grant_sheet.dart';
 import '../../../approval/presentation/widgets/deny_grant_sheet.dart';
 import '../../../audit/presentation/widgets/audit_log_row.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../public_asset_catalog/domain/entities/public_asset.dart';
+import '../../../public_asset_catalog/domain/services/website_icon_service.dart';
+import '../../../public_asset_catalog/presentation/widgets/public_asset_image.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
 import '../../../vault/domain/exceptions/entry_exceptions.dart';
 import '../../../vault/domain/repositories/entry_repository.dart';
@@ -1212,7 +1215,7 @@ class _SearchDropdownCard extends StatelessWidget {
 /// The dropdown's result list: an optional muted header (the "Recent" label)
 /// over tappable [_SearchResultRow]s, hairline-separated, scrollable when the
 /// rows exceed the card's bounded height.
-class _SearchResultList extends StatelessWidget {
+class _SearchResultList extends StatefulWidget {
   const _SearchResultList({
     required this.results,
     required this.onTap,
@@ -1230,6 +1233,49 @@ class _SearchResultList extends StatelessWidget {
   final Future<String?> Function(EntrySearchResult)? onRevealSecret;
 
   @override
+  State<_SearchResultList> createState() => _SearchResultListState();
+}
+
+class _SearchResultListState extends State<_SearchResultList> {
+  Map<String, PublicAsset> _websiteAssets = const {};
+  Set<String> _requestedHostnames = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveWebsiteIcons();
+  }
+
+  @override
+  void didUpdateWidget(_SearchResultList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _resolveWebsiteIcons();
+  }
+
+  void _resolveWebsiteIcons() {
+    final hostnames = widget.results
+        .map((result) => result.icon)
+        .whereType<String>()
+        .where((icon) => icon.startsWith('website:'))
+        .map((icon) => icon.substring('website:'.length))
+        .toSet();
+    if (hostnames.isEmpty ||
+        hostnames.difference(_requestedHostnames).isEmpty) {
+      return;
+    }
+    _requestedHostnames = {..._requestedHostnames, ...hostnames};
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || !getIt.isRegistered<WebsiteIconService>()) return;
+      final resolved = await getIt<WebsiteIconService>().resolveBatch(
+        hostnames,
+      );
+      if (mounted && resolved.isNotEmpty) {
+        setState(() => _websiteAssets = {..._websiteAssets, ...resolved});
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
 
@@ -1237,7 +1283,7 @@ class _SearchResultList extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (header != null)
+          if (widget.header != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.cardPadding,
@@ -1247,10 +1293,10 @@ class _SearchResultList extends StatelessWidget {
               ),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: _RecentSuggestionsHeader(label: header!),
+                child: _RecentSuggestionsHeader(label: widget.header!),
               ),
             ),
-          for (int i = 0; i < results.length; i++) ...[
+          for (int i = 0; i < widget.results.length; i++) ...[
             if (i > 0)
               Divider(
                 height: 1,
@@ -1259,11 +1305,13 @@ class _SearchResultList extends StatelessWidget {
                 color: AppColors.onSurface(brightness).withValues(alpha: 0.06),
               ),
             _SearchResultRow(
-              result: results[i],
-              onTap: () => onTap(results[i]),
-              onRevealSecret: switch (results[i]) {
-                final EntrySearchResult entry when onRevealSecret != null =>
-                  () => onRevealSecret!(entry),
+              result: widget.results[i],
+              websiteAssets: _websiteAssets,
+              onTap: () => widget.onTap(widget.results[i]),
+              onRevealSecret: switch (widget.results[i]) {
+                final EntrySearchResult entry
+                    when widget.onRevealSecret != null =>
+                  () => widget.onRevealSecret!(entry),
                 _ => null,
               },
             ),
@@ -1360,11 +1408,13 @@ class _SearchResultRow extends StatefulWidget {
   const _SearchResultRow({
     required this.result,
     required this.onTap,
+    required this.websiteAssets,
     this.onRevealSecret,
   });
 
   final SearchResultEntity result;
   final VoidCallback onTap;
+  final Map<String, PublicAsset> websiteAssets;
 
   /// Decrypts + returns the entry's secret (null on failure). Null for
   /// non-entry hits, which get neither reveal nor copy.
@@ -1485,14 +1535,10 @@ class _SearchResultRowState extends State<_SearchResultRow> {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(_typeIcon(result), size: 16, color: color),
+                _SearchResultIcon(
+                  result: result,
+                  websiteAssets: widget.websiteAssets,
+                  color: color,
                 ),
                 const SizedBox(width: AppSpacing.innerGap),
                 Expanded(
@@ -1588,6 +1634,57 @@ class _SearchResultRowState extends State<_SearchResultRow> {
     SearchResultType.vault => VaultVisuals.iconFor(result.icon),
     SearchResultType.entry => EntryVisuals.iconFor(result.icon),
   };
+}
+
+class _SearchResultIcon extends StatelessWidget {
+  const _SearchResultIcon({
+    required this.result,
+    required this.websiteAssets,
+    required this.color,
+  });
+
+  final SearchResultEntity result;
+  final Map<String, PublicAsset> websiteAssets;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final reference = result.icon;
+    Widget fallback() =>
+        Icon(_SearchResultRowState._typeIcon(result), size: 16, color: color);
+    Widget content = fallback();
+    if (reference?.startsWith('public-asset:') ?? false) {
+      content = PublicAssetImage(
+        reference: reference!,
+        width: 32,
+        height: 32,
+        fallback: fallback(),
+      );
+    } else if (reference?.startsWith('website:') ?? false) {
+      final hostname = reference!.substring('website:'.length);
+      final asset = websiteAssets[hostname];
+      if (asset != null) {
+        content = Image.network(
+          asset.deliveryUrl.toString(),
+          width: 32,
+          height: 32,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) => fallback(),
+        );
+      }
+    }
+    return Container(
+      width: 32,
+      height: 32,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: content,
+    );
+  }
 }
 
 /// The expanded reveal panel shown below an entry search row — mirrors the

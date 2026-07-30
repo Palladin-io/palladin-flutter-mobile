@@ -348,6 +348,7 @@ void main() {
       entry: entry,
       payload: {'username': 'user', 'password': 'secret', 'url': 'example.com'},
     );
+    expect(find.byIcon(Icons.smart_toy_outlined), findsNothing);
     await enterEdit(tester);
 
     expect(
@@ -368,6 +369,35 @@ void main() {
     );
     expect(find.textContaining('urlDomain'), findsNothing);
     expect(find.textContaining('Grant:'), findsNothing);
+  });
+
+  testWidgets('multiline values show three lines with an explicit expander', (
+    tester,
+  ) async {
+    final multiline = List.generate(8, (index) => 'line $index').join('\n');
+    await pumpTab(
+      tester,
+      entry: _keyEntry(),
+      payload: {
+        'value': secret,
+        'fields': [
+          {
+            'id': 'notes-field',
+            'label': 'Runbook',
+            'type': 'multiline',
+            'value': multiline,
+            'agentVisible': true,
+          },
+        ],
+      },
+    );
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    expect(find.text(l10n.entryShowMore), findsOneWidget);
+    expect(find.byIcon(Icons.smart_toy_outlined), findsNothing);
+
+    await tester.tap(find.text(l10n.entryShowMore));
+    await tester.pump();
+    expect(find.text(l10n.entryShowLess), findsOneWidget);
   });
 
   testWidgets('background transition drops decrypted and revealed state', (
