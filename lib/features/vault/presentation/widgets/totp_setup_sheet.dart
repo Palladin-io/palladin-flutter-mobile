@@ -135,22 +135,18 @@ class _TotpSetupBodyState extends State<_TotpSetupBody> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.section),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
+                SizedBox(
+                  height: AppSpacing.controlHeight,
+                  child: OutlinedButton.icon(
                     onPressed: _scan,
-                    icon: const Icon(Icons.qr_code_scanner, size: 15),
+                    icon: const Icon(Icons.qr_code_scanner, size: 18),
                     label: Text(l10n.totpScanQr),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.brandRed,
-                      minimumSize: const Size(0, 24),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.xs,
-                      ),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      textStyle: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: AppColors.cardFill(brightness),
+                      foregroundColor: AppColors.onSurface(brightness),
+                      side: BorderSide(color: AppColors.cardBorder(brightness)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                   ),

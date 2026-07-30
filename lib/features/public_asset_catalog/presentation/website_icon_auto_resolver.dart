@@ -10,12 +10,16 @@ class WebsiteIconAutoResolver {
     required this.onReference,
     required this.onResolved,
     this.debounce = const Duration(milliseconds: 500),
+    this.pollInterval = const Duration(seconds: 2),
+    this.maxPollAttempts = 30,
   }) : _service = service;
 
   final WebsiteIconService? _service;
   final void Function(String reference) onReference;
   final void Function(String reference) onResolved;
   final Duration debounce;
+  final Duration pollInterval;
+  final int maxPollAttempts;
   Timer? _timer;
   int _generation = 0;
   bool _manualSelection = false;
@@ -38,9 +42,14 @@ class WebsiteIconAutoResolver {
     final generation = ++_generation;
     _timer?.cancel();
     _timer = Timer(debounce, () async {
-      final asset = await _service.resolveOne(hostname);
-      if (!_manualSelection && generation == _generation && asset != null) {
-        onResolved(asset.reference);
+      for (var attempt = 0; attempt <= maxPollAttempts; attempt++) {
+        final asset = await _service.resolveOne(hostname);
+        if (_manualSelection || generation != _generation) return;
+        if (asset != null) {
+          onResolved(asset.reference);
+          return;
+        }
+        if (attempt < maxPollAttempts) await Future<void>.delayed(pollInterval);
       }
     });
   }

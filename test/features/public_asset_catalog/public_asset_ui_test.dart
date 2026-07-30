@@ -69,6 +69,29 @@ void main() {
     resolver.dispose();
   });
 
+  test(
+    'missing website icon is acquired and picked up by bounded polling',
+    () async {
+      final repository = _AcquiringRepository();
+      final resolved = <String>[];
+      final resolver = WebsiteIconAutoResolver(
+        service: WebsiteIconService(repository),
+        debounce: Duration.zero,
+        pollInterval: Duration.zero,
+        maxPollAttempts: 2,
+        onReference: (_) {},
+        onResolved: resolved.add,
+      );
+
+      resolver.resolve('new.example.com');
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(repository.calls, 2);
+      expect(resolved, ['public-asset:asset-id']);
+      resolver.dispose();
+    },
+  );
+
   testWidgets('icon browser exposes manual website icon search', (
     tester,
   ) async {
@@ -170,6 +193,24 @@ class _DelayedRepository implements PublicAssetRepository {
     final hostname = hostnames.single;
     return (_resolutions[hostname] ??= Completer<Map<String, PublicAsset>>())
         .future;
+  }
+
+  @override
+  Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
+}
+
+class _AcquiringRepository implements PublicAssetRepository {
+  int calls = 0;
+
+  @override
+  Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
+
+  @override
+  Future<Map<String, PublicAsset>> resolveWebsiteIcons(
+    Iterable<String> hostnames,
+  ) async {
+    calls++;
+    return calls == 1 ? const {} : {hostnames.single: _Repository.asset};
   }
 
   @override
