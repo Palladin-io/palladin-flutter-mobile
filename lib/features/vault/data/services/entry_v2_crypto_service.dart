@@ -200,7 +200,7 @@ class EntryV2CryptoService {
         memberIndex: await _sealEnvelope(
           suite,
           indexDescriptor,
-          vaultKey,
+          entryDek,
           indexBytes,
         ),
         memberSecret: await _sealEnvelope(
@@ -292,15 +292,17 @@ class EntryV2CryptoService {
   ) async {
     final descriptorJson = envelope['descriptor'] as Map<String, dynamic>;
     final descriptor = entryEnvelopeDescriptorFromJson(descriptorJson, purpose);
-    return CryptoSuiteRegistry()
-        .resolveWire(descriptorJson['cryptoSuiteId'] as String)
-        .open(
-          descriptor: descriptor,
-          rootKey: key,
-          payload: EncodedSuitePayload.fromBase64Url(
-            envelope['encodedSuitePayload'] as String,
-          ),
-        );
+    final suiteId = descriptorJson['cryptoSuiteId'];
+    if (suiteId != CryptoSuiteId.palladinVaultXChaChaV1.wireValue) {
+      throw const EnvelopeException(EnvelopeErrorKind.unsupportedSuite);
+    }
+    return XChaChaVaultEnvelopeSuite(sodiumLoader: _sodiumLoader).open(
+      descriptor: descriptor,
+      rootKey: key,
+      payload: EncodedSuitePayload.fromBase64Url(
+        envelope['encodedSuitePayload'] as String,
+      ),
+    );
   }
 }
 

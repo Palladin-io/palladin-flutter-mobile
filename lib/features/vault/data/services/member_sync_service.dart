@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../../../core/crypto/envelope/envelope_contract.dart';
+import '../../../../core/utils/app_logger.dart';
 import '../../domain/entities/member_index_entry.dart';
 import '../../domain/entities/vault_performance_budget.dart';
 import '../../domain/entities/vault_plaintext.dart';
@@ -317,6 +319,7 @@ final class MemberSyncService implements MemberIndexReader {
     int minimumGeneration,
   ) async {
     final output = <MemberIndexEntry>[];
+    final failures = <String, int>{};
     for (var offset = 0; offset < items.length; offset += decryptConcurrency) {
       final end = (offset + decryptConcurrency).clamp(0, items.length);
       output.addAll(
@@ -325,15 +328,57 @@ final class MemberSyncService implements MemberIndexReader {
             try {
               return await _decrypt(item, vaultId, vaultKey, minimumGeneration);
             } on FormatException {
+              failures.update(
+                'head-binding',
+                (value) => value + 1,
+                ifAbsent: () => 1,
+              );
               return _corrupt(item);
-            } on VaultPlaintextFormatException {
+            } on VaultPlaintextFormatException catch (error) {
+              final code = _plaintextFailureCode(error.message);
+              failures.update(code, (value) => value + 1, ifAbsent: () => 1);
+              return _corrupt(item);
+            } on EnvelopeException catch (error) {
+              final code = switch (error.kind) {
+                EnvelopeErrorKind.authenticationFailed =>
+                  'envelope-authentication',
+                EnvelopeErrorKind.invalidDescriptor => 'envelope-descriptor',
+                EnvelopeErrorKind.invalidPayload => 'envelope-payload',
+                EnvelopeErrorKind.unsupportedProtocol => 'envelope-protocol',
+                EnvelopeErrorKind.unsupportedSuite => 'envelope-suite',
+              };
+              failures.update(code, (value) => value + 1, ifAbsent: () => 1);
               return _corrupt(item);
             }
           }),
         ),
       );
     }
+    if (failures.isNotEmpty) {
+      final summary = failures.entries
+          .map((entry) => '${entry.key}:${entry.value}')
+          .join(',');
+      AppLogger.w(
+        'Entry',
+        'MemberIndex validation rejected page projections [$summary]',
+      );
+    }
     return output;
+  }
+
+  String _plaintextFailureCode(String message) {
+    if (message.contains('urlDomain')) return 'plaintext-url-domain';
+    if (message.contains('icon')) return 'plaintext-icon';
+    if (message.contains('color')) return 'plaintext-color';
+    if (message.contains('customIndex')) return 'plaintext-custom-index';
+    if (message.contains('entryType')) return 'plaintext-entry-type';
+    if (message.contains('memberLabel')) return 'plaintext-member-label';
+    if (message.contains('searchFields')) return 'plaintext-search-fields';
+    if (message.contains('compact MemberIndex')) return 'plaintext-compact';
+    if (message.contains('schema') || message.contains('keys')) {
+      return 'plaintext-shape';
+    }
+    return 'plaintext-contract';
   }
 
   Future<MemberIndexEntry> _decrypt(
