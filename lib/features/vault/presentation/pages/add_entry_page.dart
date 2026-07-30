@@ -98,6 +98,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
   EntryType _type = EntryType.credential;
   ScriptInterpreter _interpreter = ScriptInterpreter.bash;
   String _icon = EntryVisuals.defaultIconForType(EntryType.credential);
+  String? _resolvedWebsiteIcon;
   String _colorHex = EntryVisuals.defaultColorHex;
   bool _pickingIcon = false;
   bool _uploadingIcon = false;
@@ -134,8 +135,11 @@ class _AddEntryViewState extends State<_AddEntryView> {
       service: getIt.isRegistered<WebsiteIconService>()
           ? getIt<WebsiteIconService>()
           : null,
-      onResolved: (reference) {
+      onReference: (reference) {
         if (mounted) setState(() => _icon = reference);
+      },
+      onResolved: (reference) {
+        if (mounted) setState(() => _resolvedWebsiteIcon = reference);
       },
     );
     _urlController.addListener(_resolveWebsiteIcon);
@@ -396,6 +400,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
     setState(() {
       if (result.iconKey != null) {
         _websiteIconResolver.markManualSelection();
+        _resolvedWebsiteIcon = null;
         _icon = result.iconKey!;
       }
       _colorHex = matchedHex;
@@ -578,7 +583,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           EntryIconTile(
-                            icon: _icon,
+                            icon: _resolvedWebsiteIcon ?? _icon,
                             accentColor: accentColor,
                             onTap: _openEntryBrowser,
                           ),

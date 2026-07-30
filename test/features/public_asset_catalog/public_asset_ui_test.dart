@@ -16,6 +16,7 @@ void main() {
     final resolver = WebsiteIconAutoResolver(
       service: WebsiteIconService(_Repository()),
       debounce: Duration.zero,
+      onReference: (_) {},
       onResolved: (_) => fail('manual selection must win'),
     );
     resolver.resolve('example.com');
@@ -26,10 +27,12 @@ void main() {
 
   test('auto resolver applies only the latest URL result', () async {
     final repository = _DelayedRepository();
+    final references = <String>[];
     final resolved = <String>[];
     final resolver = WebsiteIconAutoResolver(
       service: WebsiteIconService(repository),
       debounce: Duration.zero,
+      onReference: references.add,
       onResolved: resolved.add,
     );
 
@@ -43,21 +46,25 @@ void main() {
     repository.complete('first.example', _Repository.asset);
     await Future<void>.delayed(Duration.zero);
 
+    expect(references, ['website:first.example', 'website:second.example']);
     expect(resolved, ['public-asset:asset-id']);
     resolver.dispose();
   });
 
   test('KEY URL resolves https://stripe.com to a public asset', () async {
     final resolved = <String>[];
+    final references = <String>[];
     final resolver = WebsiteIconAutoResolver(
       service: WebsiteIconService(_StripeRepository()),
       debounce: Duration.zero,
+      onReference: references.add,
       onResolved: resolved.add,
     );
 
     resolver.resolve('https://stripe.com');
     await Future<void>.delayed(const Duration(milliseconds: 10));
 
+    expect(references, ['website:stripe.com']);
     expect(resolved, ['public-asset:stripe-icon']);
     resolver.dispose();
   });

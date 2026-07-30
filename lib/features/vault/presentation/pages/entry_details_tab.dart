@@ -140,7 +140,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       service: getIt.isRegistered<WebsiteIconService>()
           ? getIt<WebsiteIconService>()
           : null,
-      onResolved: (reference) {
+      onReference: (reference) {
         if (mounted && _editMode) {
           setState(() {
             _resolvedWebsiteIcon = null;
@@ -148,10 +148,12 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
           });
         }
       },
+      onResolved: (reference) {
+        if (mounted && _editMode) {
+          setState(() => _resolvedWebsiteIcon = reference);
+        }
+      },
     );
-    if (widget.entry.icon?.isNotEmpty == true) {
-      _websiteIconResolver.markManualSelection();
-    }
     _urlController.addListener(_resolveWebsiteIcon);
     WidgetsBinding.instance.addObserver(this);
     widget.editController?.bindCancel(_cancelEdit);
@@ -171,7 +173,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   }
 
   void _resolveWebsiteIcon() {
-    if (_editMode && _type == EntryType.credential) {
+    if (_editMode && _type != EntryType.script) {
       _websiteIconResolver.resolve(_urlController.text);
     }
   }
