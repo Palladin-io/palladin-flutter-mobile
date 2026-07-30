@@ -126,6 +126,12 @@ void main() {
     return (cubit: cubit, canonical: canonical);
   }
 
+  Future<void> enterEdit(WidgetTester tester) async {
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    await tester.tap(find.text(l10n.entryEditAction));
+    await tester.pump();
+  }
+
   testWidgets('loads canonical details on entry without a reveal gate', (
     tester,
   ) async {
@@ -170,11 +176,9 @@ void main() {
     await tester.pumpAndSettle();
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
     expect(find.text(l10n.entryRevealDetailsAction), findsNothing);
-    expect(find.byType(TextField), findsWidgets);
-    final secretField = tester
-        .widgetList<EditableText>(find.byType(EditableText))
-        .singleWhere((field) => field.controller.text == secret);
-    expect(secretField.obscureText, isTrue);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text(l10n.entryEditAction), findsOneWidget);
+    expect(find.text(secret), findsNothing);
     verify(
       () => canonical.reveal(
         expected: any(named: 'expected'),
@@ -183,34 +187,29 @@ void main() {
     ).called(1);
   });
 
-  testWidgets(
-    'canonical form is immediate and key secret is masked per field',
-    (tester) async {
-      await pumpTab(tester, entry: _keyEntry(), payload: {'value': secret});
+  testWidgets('read-only secret is masked and can be revealed per field', (
+    tester,
+  ) async {
+    await pumpTab(tester, entry: _keyEntry(), payload: {'value': secret});
 
-      final fields = tester.widgetList<EditableText>(find.byType(EditableText));
-      final secretField = fields.singleWhere(
-        (field) => field.controller.text == secret,
-      );
-      expect(secretField.obscureText, isTrue);
+    expect(find.text(secret), findsNothing);
 
-      await tester.tap(find.byIcon(Icons.visibility));
-      await tester.pump();
-      final revealed = tester
-          .widgetList<EditableText>(find.byType(EditableText))
-          .singleWhere((field) => field.controller.text == secret);
-      expect(revealed.obscureText, isFalse);
-    },
-  );
+    await tester.tap(find.byIcon(Icons.visibility));
+    await tester.pump();
+    expect(find.text(secret), findsOneWidget);
+  });
 
-  testWidgets('Details opens directly as the editable canonical form', (
+  testWidgets('Details opens read-only and Edit switches to the form', (
     tester,
   ) async {
     await pumpTab(tester, entry: _keyEntry(), payload: {'value': secret});
 
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text(l10n.entryEditAction), findsOneWidget);
+    expect(find.byKey(const ValueKey('entry-edit-footer')), findsOneWidget);
+    await enterEdit(tester);
     expect(find.byType(TextField), findsWidgets);
-    expect(find.text(l10n.entryEditAction), findsNothing);
     expect(find.text(l10n.entrySaveAction), findsOneWidget);
     expect(find.text(l10n.entryDangerZone), findsOneWidget);
   });
@@ -248,12 +247,14 @@ void main() {
     );
 
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    await enterEdit(tester);
     final save = find.text(l10n.entrySaveAction);
     await tester.ensureVisible(save);
     await tester.tap(save);
     await tester.pumpAndSettle();
 
-    expect(find.byType(TextField), findsWidgets);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.byKey(const ValueKey('entry-edit-footer')), findsOneWidget);
     expect(find.text(l10n.entryChangesSaved), findsOneWidget);
     expect(harness.cubit.hasCanonicalSnapshot, isTrue);
     verify(
@@ -298,6 +299,7 @@ void main() {
     );
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
 
+    await enterEdit(tester);
     await tester.tap(find.text(l10n.entrySaveAction));
     await tester.pumpAndSettle();
 
@@ -315,6 +317,7 @@ void main() {
   ) async {
     await pumpTab(tester, entry: _keyEntry(), payload: {'value': secret});
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    await enterEdit(tester);
 
     expect(find.byKey(const ValueKey('entry-save-footer')), findsOneWidget);
     expect(find.text(l10n.entrySaveAction), findsOneWidget);
@@ -345,6 +348,7 @@ void main() {
       entry: entry,
       payload: {'username': 'user', 'password': 'secret', 'url': 'example.com'},
     );
+    await enterEdit(tester);
 
     expect(
       find.byKey(const ValueKey('entry-discovery-agentLabel')),
@@ -370,10 +374,7 @@ void main() {
     tester,
   ) async {
     await pumpTab(tester, entry: _keyEntry(), payload: {'value': secret});
-    final beforePause = tester
-        .widgetList<EditableText>(find.byType(EditableText))
-        .singleWhere((field) => field.controller.text == secret);
-    expect(beforePause.obscureText, isTrue);
+    expect(find.text(secret), findsNothing);
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     await tester.pump();
@@ -388,9 +389,7 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
-    final afterResume = tester
-        .widgetList<EditableText>(find.byType(EditableText))
-        .singleWhere((field) => field.controller.text == secret);
-    expect(afterResume.obscureText, isTrue);
+    expect(find.text(secret), findsNothing);
+    expect(find.byKey(const ValueKey('entry-edit-footer')), findsOneWidget);
   });
 }

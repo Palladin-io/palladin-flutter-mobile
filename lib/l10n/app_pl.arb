@@ -316,6 +316,8 @@
   "entryFieldTypeConcealedHint": "zamaskowane",
   "entryFieldAgentVisible": "Widoczne dla agentów",
   "entryFieldAgentVisibleTip": "Widoczne dla agentów w Twojej organizacji — pokazywane w wyszukiwaniu agentów bez grantu. Tylko dla niesekretnych informacji pomocniczych.",
+  "entryFieldAgentVisibleEnableTip": "Ukryte przed agentami w Discovery. Dotknij, aby udostępnić to niesekretne pole w Discovery.",
+  "entryFieldAgentVisibleDisableTip": "Widoczne dla agentów w Discovery. Dotknij, aby ukryć to pole w Discovery.",
   "entryFieldOn": "Wł.",
   "entryFieldOff": "Wył.",
   "entryFieldMoveUp": "Przenieś w górę",

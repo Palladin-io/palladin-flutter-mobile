@@ -120,6 +120,7 @@ class _VaultDetailViewState extends State<_VaultDetailView>
   late EntryListCubit _entryListCubit;
   VaultFormData? _initialFormData;
   VaultFormData? _currentFormData;
+  VaultEntity? _lastLoadedVault;
 
   // Bumped after a grant is created on the Agents tab so the (self-providing) grants list remounts
   // and reloads — keyed in [_LoadedBody].
@@ -386,6 +387,7 @@ class _VaultDetailViewState extends State<_VaultDetailView>
       child: BlocConsumer<VaultDetailCubit, VaultDetailState>(
         listener: (context, state) {
           if (state is VaultDetailLoaded) {
+            _lastLoadedVault = state.vault;
             _syncFormFromVault(state.vault, l10n);
             // Forward the freshly-loaded wrappedVK so subsequent reveal
             // calls skip the second `GET /api/vaults/{id}`. Safe to call
@@ -400,6 +402,9 @@ class _VaultDetailViewState extends State<_VaultDetailView>
         },
         builder: (context, state) {
           final brightness = Theme.of(context).brightness;
+          final visibleVault = state is VaultDetailLoaded
+              ? state.vault
+              : _lastLoadedVault;
           return Container(
             decoration: BoxDecoration(
               gradient: AppColors.backgroundGradient(brightness),
@@ -407,7 +412,7 @@ class _VaultDetailViewState extends State<_VaultDetailView>
             child: Scaffold(
               backgroundColor: Colors.transparent,
               appBar: _DetailAppBar(
-                state: state,
+                vault: visibleVault,
                 onBack: () => context.pop(),
                 tabController: _tabController,
                 onImport: _onImport,
@@ -417,22 +422,26 @@ class _VaultDetailViewState extends State<_VaultDetailView>
                 children: [
                   SafeArea(
                     top: false,
-                    child: switch (state) {
-                      VaultDetailInitial() ||
-                      VaultDetailLoading() => const _LoadingView(),
-                      VaultDetailDeleted() => const SizedBox.shrink(),
-                      VaultDetailError(:final kind) => _ErrorView(kind: kind),
-                      VaultDetailLoaded(:final vault) => _LoadedBody(
-                        vault: vault,
-                        tabController: _tabController,
-                        grantsRefresh: _grantsRefresh,
-                        initialFormData: _initialFormData,
-                        onFormChanged: (data) =>
-                            setState(() => _currentFormData = data),
-                        onDelete: () => _confirmDelete(vault),
-                        onSave: _saveSettings,
-                      ),
-                    },
+                    child: visibleVault != null && state is! VaultDetailDeleted
+                        ? _LoadedBody(
+                            vault: visibleVault,
+                            tabController: _tabController,
+                            grantsRefresh: _grantsRefresh,
+                            initialFormData: _initialFormData,
+                            onFormChanged: (data) =>
+                                setState(() => _currentFormData = data),
+                            onDelete: () => _confirmDelete(visibleVault),
+                            onSave: _saveSettings,
+                          )
+                        : switch (state) {
+                            VaultDetailInitial() ||
+                            VaultDetailLoading() => const _LoadingView(),
+                            VaultDetailDeleted() => const SizedBox.shrink(),
+                            VaultDetailError(:final kind) => _ErrorView(
+                              kind: kind,
+                            ),
+                            VaultDetailLoaded() => const _LoadingView(),
+                          },
                   ),
                   // Register the FAB with the shell so it stays pinned in
                   // place during page transitions. Pass `null` on tabs
@@ -461,14 +470,14 @@ class _VaultDetailViewState extends State<_VaultDetailView>
 
 class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _DetailAppBar({
-    required this.state,
+    required this.vault,
     required this.onBack,
     required this.tabController,
     required this.onImport,
     required this.onExport,
   });
 
-  final VaultDetailState state;
+  final VaultEntity? vault;
   final VoidCallback onBack;
   final TabController tabController;
   final VoidCallback onImport;
@@ -484,8 +493,7 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    final s = state;
-    final loaded = s is VaultDetailLoaded ? s.vault : null;
+    final loaded = vault;
     final subtitle = loaded != null
         ? l10n.vaultEntryCount(loaded.entryCount)
         : '';

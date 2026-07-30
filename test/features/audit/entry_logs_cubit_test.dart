@@ -476,6 +476,20 @@ void main() {
         pageSize: any(named: 'pageSize'),
       ),
     ).called(1);
+
+    // Switching away and back keeps the already-loaded feed. A refresh is an
+    // explicit user action, not a side effect of selecting the tab.
+    await tester.pumpWidget(app(false));
+    await tester.pumpWidget(app(true));
+    await tester.pumpAndSettle();
+    verifyNever(
+      () => audit.listVaultLogs(
+        'v-1',
+        entryId: 'e-1',
+        cursor: null,
+        pageSize: any(named: 'pageSize'),
+      ),
+    );
   });
 }
 

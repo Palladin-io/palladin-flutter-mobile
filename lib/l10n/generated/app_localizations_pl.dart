@@ -1134,6 +1134,14 @@ class AppLocalizationsPl extends AppLocalizations {
       'Widoczne dla agentów w Twojej organizacji — pokazywane w wyszukiwaniu agentów bez grantu. Tylko dla niesekretnych informacji pomocniczych.';
 
   @override
+  String get entryFieldAgentVisibleEnableTip =>
+      'Ukryte przed agentami w Discovery. Dotknij, aby udostępnić to niesekretne pole w Discovery.';
+
+  @override
+  String get entryFieldAgentVisibleDisableTip =>
+      'Widoczne dla agentów w Discovery. Dotknij, aby ukryć to pole w Discovery.';
+
+  @override
   String get entryFieldOn => 'Wł.';
 
   @override

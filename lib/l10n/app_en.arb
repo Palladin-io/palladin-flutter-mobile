@@ -1272,6 +1272,8 @@
     "description": "Row-menu toggle that exposes a field to agents as discovery metadata"
   },
   "entryFieldAgentVisibleTip": "Visible to agents in your organization — shown in agent discovery without a grant. Only for non-secret helper info.",
+  "entryFieldAgentVisibleEnableTip": "Hidden from agents in Discovery. Tap to make this non-secret field discoverable.",
+  "entryFieldAgentVisibleDisableTip": "Visible to agents in Discovery. Tap to hide this field from Discovery.",
   "@entryFieldAgentVisibleTip": {
     "description": "Tooltip explaining the agent-visible field indicator"
   },

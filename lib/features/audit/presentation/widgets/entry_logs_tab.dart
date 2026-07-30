@@ -59,7 +59,8 @@ class _EntryLogsView extends StatefulWidget {
   State<_EntryLogsView> createState() => _EntryLogsViewState();
 }
 
-class _EntryLogsViewState extends State<_EntryLogsView> {
+class _EntryLogsViewState extends State<_EntryLogsView>
+    with AutomaticKeepAliveClientMixin<_EntryLogsView> {
   final _searchController = TextEditingController();
   bool _loaded = false;
 
@@ -111,6 +112,7 @@ class _EntryLogsViewState extends State<_EntryLogsView> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     final hPad = widget.contentPadding.left;
@@ -142,6 +144,9 @@ class _EntryLogsViewState extends State<_EntryLogsView> {
       },
     );
   }
+
+  @override
+  bool get wantKeepAlive => true;
 
   List<Widget> _contentSlivers(
     BuildContext context,

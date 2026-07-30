@@ -1958,6 +1958,18 @@ abstract class AppLocalizations {
   /// **'Visible to agents in your organization — shown in agent discovery without a grant. Only for non-secret helper info.'**
   String get entryFieldAgentVisibleTip;
 
+  /// No description provided for @entryFieldAgentVisibleEnableTip.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden from agents in Discovery. Tap to make this non-secret field discoverable.'**
+  String get entryFieldAgentVisibleEnableTip;
+
+  /// No description provided for @entryFieldAgentVisibleDisableTip.
+  ///
+  /// In en, this message translates to:
+  /// **'Visible to agents in Discovery. Tap to hide this field from Discovery.'**
+  String get entryFieldAgentVisibleDisableTip;
+
   /// Trailing state for an enabled toggle in a field menu
   ///
   /// In en, this message translates to:

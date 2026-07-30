@@ -39,9 +39,9 @@ import '../widgets/vault_visuals.dart';
 
 /// The Details tab of the entry detail screen.
 ///
-/// Authenticates and decrypts MemberSecret on entry, then renders the canonical
-/// edit form directly. Passwords, key values and concealed fields remain
-/// masked by their individual controls.
+/// Authenticates and decrypts MemberSecret on entry, then renders a read-only
+/// quick-access view. Editing is an explicit mode; secrets stay masked until
+/// the user reveals an individual field.
 class EntryDetailsTab extends StatefulWidget {
   const EntryDetailsTab({
     super.key,
@@ -115,8 +115,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   List<EntryEntity>? _vaultEntries;
   bool _loadingEntries = false;
 
-  /// The canonical Details layout is the form.
-  bool _editMode = true;
+  /// Details opens as a quick-access view. The mutable form is entered only
+  /// through the pinned Edit action.
+  bool _editMode = false;
 
   /// Whether the single secret field (password / key value) is unmasked in
   /// the read-only view. Reset every time we return to read-only.
@@ -156,7 +157,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     widget.editController?.bindCancel(_cancelEdit);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      widget.editController?.publishEditing(true);
+      widget.editController?.publishEditing(false);
       if (context.read<EditEntryCubit>().state is EditEntryInitial) {
         _requestReveal();
       }
@@ -388,11 +389,12 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   void _cancelEdit() {
     setState(() {
       _syncControllersFromSnapshot();
-      _editMode = true;
+      _editMode = false;
       _secretRevealed = false;
+      _revealedCustom.clear();
       _urlError = null;
     });
-    widget.editController?.publishEditing(true);
+    widget.editController?.publishEditing(false);
   }
 
   // ── Copy / clipboard ───────────────────────────────────────────────
@@ -482,7 +484,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     return IconButton(
       key: ValueKey('entry-discovery-$fieldId'),
       onPressed: _agentPolicy == null ? null : () => _toggleDiscovery(fieldId),
-      tooltip: l10n.entryFieldAgentVisibleTip,
+      tooltip: selected
+          ? l10n.entryFieldAgentVisibleDisableTip
+          : l10n.entryFieldAgentVisibleEnableTip,
       icon: Icon(
         Icons.smart_toy_outlined,
         size: 17,
@@ -639,9 +643,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       _payload = _buildPayload();
       _secretRevealed = false;
       _revealedCustom.clear();
-      _editMode = true;
+      _editMode = false;
     });
-    widget.editController?.publishEditing(true);
+    widget.editController?.publishEditing(false);
     widget.onUpdated(entry);
     _showSnackBar(AppLocalizations.of(context)!.entryChangesSaved);
     await _requestReveal(expected: entry);
@@ -887,55 +891,78 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.fieldGap,
-        AppSpacing.screenH,
-        AppSpacing.screenBottom,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (fields.isEmpty)
-            _EmptyReadOnly(message: l10n.entryEmpty, brightness: brightness)
-          else
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.cardFill(brightness),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.cardBorder(brightness),
-                  width: 1,
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.cardPadding,
-                vertical: AppSpacing.innerGap,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: fields,
-              ),
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              AppSpacing.fieldGap,
+              AppSpacing.screenH,
+              AppSpacing.section,
             ),
-          if (entry.type == EntryType.script) ...[
-            const SizedBox(height: AppSpacing.section),
-            _ExecOnlyNote(message: l10n.entryScriptExecOnlyNotice),
-          ],
-          const SizedBox(height: AppSpacing.section),
-          EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
-          const SizedBox(height: AppSpacing.section),
-          // Edit as a full-width button below the encrypted fields.
-          PrimaryButton(label: l10n.entryEditAction, onPressed: _enterEditMode),
-          const SizedBox(height: AppSpacing.section),
-          _DangerZone(
-            label: l10n.entryDangerZone,
-            deleteLabel: l10n.entryDeleteAction,
-            onDelete: _confirmDelete,
-            brightness: brightness,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (fields.isEmpty)
+                  _EmptyReadOnly(
+                    message: l10n.entryEmpty,
+                    brightness: brightness,
+                  )
+                else
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.cardFill(brightness),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.cardBorder(brightness),
+                        width: 1,
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.cardPadding,
+                      vertical: AppSpacing.innerGap,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: fields,
+                    ),
+                  ),
+                if (entry.type == EntryType.script) ...[
+                  const SizedBox(height: AppSpacing.section),
+                  _ExecOnlyNote(message: l10n.entryScriptExecOnlyNotice),
+                ],
+                const SizedBox(height: AppSpacing.section),
+                _DangerZone(
+                  label: l10n.entryDangerZone,
+                  deleteLabel: l10n.entryDeleteAction,
+                  onDelete: _confirmDelete,
+                  brightness: brightness,
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        ),
+        Container(
+          key: const ValueKey('entry-edit-footer'),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            AppSpacing.md,
+            AppSpacing.screenH,
+            AppSpacing.screenBottom,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.cardFill(brightness),
+            border: Border(
+              top: BorderSide(color: AppColors.navBorder(brightness)),
+            ),
+          ),
+          child: PrimaryButton(
+            label: l10n.entryEditAction,
+            onPressed: _enterEditMode,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1255,8 +1282,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
                   controller: _notesController,
                   initiallyVisible: _notesController.text.trim().isNotEmpty,
                 ),
-                const SizedBox(height: AppSpacing.section),
-                EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
                 if (state is EditEntryError) ...[
                   const SizedBox(height: AppSpacing.fieldGap),
                   Text(
