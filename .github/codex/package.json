@@ -1,0 +1,10 @@
+{
+  "name": "palladin-codex-review",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Pinned Codex CLI dependency for the PR review workflow.",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@openai/codex": "0.144.1"
+  }
+}

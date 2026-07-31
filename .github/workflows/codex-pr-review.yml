@@ -1,6 +1,9 @@
 name: "Codex: PR Review"
 
 on:
+  # zizmor: ignore[dangerous-triggers] The trusted base workflow never checks
+  # out or executes PR code, requires a same-repository branch and a writer,
+  # and needs base-repository secrets plus review-write permission.
   pull_request_target:
     types: [opened, synchronize]
   workflow_dispatch:
@@ -58,7 +61,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: read # Reads PR metadata, diffs, reviews, and comments.
     outputs:
       pr_number: ${{ steps.pr.outputs.number }}
       head_sha: ${{ steps.pr_data.outputs.head_sha }}
@@ -139,7 +142,7 @@ jobs:
           node-version: 24
 
       - name: Install Codex CLI
-        run: npm install -g @openai/codex@0.144.1
+        run: npm ci --prefix .github/codex --ignore-scripts
 
       - name: Verify unprivileged Codex user
         run: |
@@ -169,8 +172,12 @@ jobs:
           REVIEW_PROMPT="$RUNTIME_ROOT/prompt.md"
           REVIEW_SCHEMA="$RUNTIME_ROOT/review-output.schema.json"
           REVIEW_OUTPUT="$RUNTIME_ROOT/result.json"
+          CODEX_EVENTS="$RUNTIME_ROOT/codex-events.log"
+          CODEX_ERROR="$RUNTIME_ROOT/codex-error.log"
+          CODEX_BIN="$GITHUB_WORKSPACE/.github/codex/node_modules/.bin/codex"
           trap 'sudo rm -rf "$RUNTIME_ROOT"' EXIT
-          mkdir -m 700 -p "$AUTH_HOME" "$EMPTY_WORKSPACE/home"
+          install -d -m 711 "$RUNTIME_ROOT"
+          install -d -m 700 "$AUTH_HOME" "$EMPTY_WORKSPACE" "$EMPTY_WORKSPACE/home"
           cp "$SOURCE_PROMPT" "$REVIEW_PROMPT"
           cp "$SOURCE_SCHEMA" "$REVIEW_SCHEMA"
           printf '%s' "$CODEX_AUTH_JSON_B64" | base64 --decode > "$AUTH_HOME/auth.json"
@@ -179,9 +186,9 @@ jobs:
             .auth_mode == "chatgpt" and
             ((.tokens.refresh_token // "") | type == "string" and length > 0)
           ' "$AUTH_HOME/auth.json" > /dev/null
-          touch "$REVIEW_OUTPUT"
+          touch "$REVIEW_OUTPUT" "$CODEX_EVENTS" "$CODEX_ERROR"
           sudo chown -R nobody:nogroup "$AUTH_HOME" "$EMPTY_WORKSPACE"
-          sudo chown nobody:nogroup "$REVIEW_OUTPUT"
+          sudo chown nobody:nogroup "$REVIEW_OUTPUT" "$CODEX_EVENTS" "$CODEX_ERROR"
 
           ARGS=(
             exec
@@ -208,15 +215,17 @@ jobs:
               HOME="$EMPTY_WORKSPACE/home" \
               CODEX_HOME="$AUTH_HOME" \
               PATH="$PATH" \
-              codex "${ARGS[@]}" - < "$REVIEW_PROMPT" \
-              > "$RUNTIME_ROOT/codex-events.log" \
-              2> "$RUNTIME_ROOT/codex-error.log" \
+              REVIEW_PROMPT="$REVIEW_PROMPT" \
+              CODEX_EVENTS="$CODEX_EVENTS" \
+              CODEX_ERROR="$CODEX_ERROR" \
+              sh -c 'exec "$@" - < "$REVIEW_PROMPT" > "$CODEX_EVENTS" 2> "$CODEX_ERROR"' \
+              sh "$CODEX_BIN" "${ARGS[@]}" \
             || CODEX_EXIT=$?
 
           if [ "$CODEX_EXIT" -ne 0 ]; then
-            if grep -Fq "You've hit your usage limit." "$RUNTIME_ROOT/codex-error.log"; then
+            if grep -Fq "You've hit your usage limit." "$CODEX_ERROR"; then
               echo "::error::Codex subscription usage limit reached. Retry after the account limit resets."
-            elif grep -Eq '401 Unauthorized|authentication|not logged in' "$RUNTIME_ROOT/codex-error.log"; then
+            elif grep -Eq '401 Unauthorized|authentication|not logged in' "$CODEX_ERROR"; then
               echo "::error::Codex ChatGPT authentication failed. Reseed CODEX_AUTH_JSON_B64."
             else
               echo "::error::Codex review failed. Raw CLI output was suppressed because it may contain untrusted PR content."
@@ -243,7 +252,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-      pull-requests: write
+      pull-requests: write # Publishes the validated review and inline findings.
     steps:
       - name: Publish Codex review
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0

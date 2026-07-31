@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 const _outputPath = 'THIRD_PARTY_NOTICES.md';
 const _packageConfigPath = '.dart_tool/package_config.json';
 const _lockfilePath = 'pubspec.lock';
+const _expectedFlutterVersion = '3.41.4';
 
 void main(List<String> arguments) {
   final checkOnly = arguments.contains('--check');
@@ -35,13 +36,22 @@ String _generate() {
   final lockVersions = _readLockVersions(File(_lockfilePath));
   final config = jsonDecode(packageConfigFile.readAsStringSync()) as Map;
   final configUri = packageConfigFile.absolute.uri;
+  final configuredPackages = <String, Map<String, Object?>>{
+    for (final raw in config['packages'] as List)
+      (raw as Map)['name']! as String: raw.cast<String, Object?>(),
+  };
+  _verifyFlutterVersion(configuredPackages, configUri);
   final packages = <_PackageNotice>[];
   final missingLicenses = <String>[];
 
-  for (final raw in config['packages'] as List) {
-    final package = (raw as Map).cast<String, Object?>();
-    final name = package['name']! as String;
-    if (name == 'mobile_palladin') continue;
+  final lockedNames = lockVersions.keys.toList()..sort();
+  for (final name in lockedNames) {
+    final package = configuredPackages[name];
+    if (package == null) {
+      throw StateError(
+        '$name is in $_lockfilePath but not $_packageConfigPath.',
+      );
+    }
 
     final rootUri = configUri.resolve(package['rootUri']! as String);
     final licenseFiles = _findLicenseFiles(Directory.fromUri(rootUri));
@@ -53,7 +63,7 @@ String _generate() {
     packages.add(
       _PackageNotice(
         name: name,
-        version: lockVersions[name] ?? 'SDK',
+        version: lockVersions[name]!,
         documents: [
           for (final file in licenseFiles)
             _LicenseDocument(
@@ -93,6 +103,11 @@ String _generate() {
     ..writeln(
       'This file records the third-party packages resolved by `pubspec.lock` '
       'and their distributed top-level license or notice texts.',
+    )
+    ..writeln()
+    ..writeln(
+      'Generation is pinned to Flutter $_expectedFlutterVersion so SDK '
+      'licence data is reproducible across platforms and CI runners.',
     )
     ..writeln()
     ..writeln(
@@ -146,6 +161,36 @@ String _generate() {
   }
 
   return buffer.toString();
+}
+
+void _verifyFlutterVersion(
+  Map<String, Map<String, Object?>> configuredPackages,
+  Uri configUri,
+) {
+  final flutterPackage = configuredPackages['flutter'];
+  if (flutterPackage == null) {
+    throw StateError('Flutter is missing from $_packageConfigPath.');
+  }
+
+  final flutterRoot = Directory.fromUri(
+    configUri.resolve(flutterPackage['rootUri']! as String),
+  ).parent.parent;
+  final versionFile = File(
+    '${flutterRoot.path}${Platform.pathSeparator}bin${Platform.pathSeparator}'
+    'cache${Platform.pathSeparator}flutter.version.json',
+  );
+  if (!versionFile.existsSync()) {
+    throw StateError('Cannot determine the Flutter SDK version.');
+  }
+
+  final versionJson = jsonDecode(versionFile.readAsStringSync()) as Map;
+  final actualVersion = versionJson['flutterVersion'];
+  if (actualVersion != _expectedFlutterVersion) {
+    throw StateError(
+      'Third-party notices require Flutter $_expectedFlutterVersion; '
+      'found $actualVersion.',
+    );
+  }
 }
 
 Map<String, String> _readLockVersions(File lockfile) {

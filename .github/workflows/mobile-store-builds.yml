@@ -32,7 +32,7 @@ on:
 
 permissions:
   contents: read
-  actions: read
+  actions: read # Reads the required successful Test workflow run.
 
 concurrency:
   group: mobile-store-${{ github.ref }}-${{ inputs.flavor }}-${{ inputs.backend_environment }}
@@ -73,8 +73,8 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      id-token: write
-      attestations: write
+      id-token: write # Mints the OIDC token used for artifact attestations.
+      attestations: write # Publishes build provenance and SBOM attestations.
 
     steps:
       - name: Checkout
@@ -113,7 +113,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          channel: stable
+          flutter-version: 3.41.4
           cache: true
 
       - name: Prepare Android signing
@@ -181,12 +181,14 @@ jobs:
             --build-number "${BUILD_NUMBER}"
 
       - name: Stage the signed Android artifact
+        env:
+          FLAVOR: ${{ inputs.flavor }}
         run: |
           set -euo pipefail
           release="$RUNNER_TEMP/android-release"
           sbom_input="$RUNNER_TEMP/android-sbom-input"
           mkdir -p "$release" "$sbom_input"
-          mapfile -t artifacts < <(find "build/app/outputs/bundle/${{ inputs.flavor }}Release" \
+          mapfile -t artifacts < <(find "build/app/outputs/bundle/${FLAVOR}Release" \
             -maxdepth 1 -type f -name '*.aab' -print)
           test "${#artifacts[@]}" -eq 1
           cp "${artifacts[0]}" "$release/"
@@ -253,8 +255,8 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
-      id-token: write
-      attestations: write
+      id-token: write # Mints the OIDC token used for artifact attestations.
+      attestations: write # Publishes build provenance and SBOM attestations.
 
     steps:
       - name: Checkout
@@ -287,7 +289,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          channel: stable
+          flutter-version: 3.41.4
           cache: true
 
       - name: Select iOS signing inputs
@@ -368,8 +370,13 @@ jobs:
           security set-keychain-settings -lut 21600 "${keychain_path}"
           security unlock-keychain -p "${keychain_password}" "${keychain_path}"
           security import "${cert_path}" -P "${IOS_DISTRIBUTION_CERTIFICATE_PASSWORD}" -A -t cert -f pkcs12 -k "${keychain_path}"
-          original_keychains="$(security list-keychains -d user | sed 's/[ "]//g')"
-          security list-keychains -d user -s "${keychain_path}" ${original_keychains}
+          original_keychains=()
+          while IFS= read -r keychain; do
+            keychain="${keychain//\"/}"
+            keychain="${keychain#"${keychain%%[![:space:]]*}"}"
+            original_keychains+=("${keychain}")
+          done < <(security list-keychains -d user)
+          security list-keychains -d user -s "${keychain_path}" "${original_keychains[@]}"
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${keychain_password}" "${keychain_path}"
 
           mkdir -p "${HOME}/Library/MobileDevice/Provisioning Profiles"
@@ -444,7 +451,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          ruby -e 'require "xcodeproj"' 2>/dev/null || gem install xcodeproj --no-document
+          ruby -e 'require "xcodeproj"'
           ruby <<'RUBY'
           require 'xcodeproj'
 
