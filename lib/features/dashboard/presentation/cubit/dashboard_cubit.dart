@@ -53,6 +53,7 @@ class DashboardCubit extends Cubit<DashboardState> {
   List<AuditLogEntry> _recentActivitySource = const [];
   AuditPresentationNames _recentActivityNames = const AuditPresentationNames();
   final Set<String> _pendingEntryNameVaults = {};
+  var _loadGeneration = 0;
   var _recentActivityGeneration = 0;
   var _refreshingEntryNames = false;
 
@@ -103,6 +104,7 @@ class DashboardCubit extends Cubit<DashboardState> {
   /// than reading any device-wide key, so onboarding is never hidden without a
   /// matching per-user flag.
   Future<void> load({bool canViewAudit = false, String? userId}) async {
+    final loadGeneration = ++_loadGeneration;
     emit(const DashboardLoading());
     try {
       // Prefs holds only best-effort UI flags — a plugin/platform-channel
@@ -121,6 +123,7 @@ class DashboardCubit extends Cubit<DashboardState> {
       // Keep the cross-vault pending list current so unknown-agent
       // detection reflects the latest requests (quiet — no skeleton flip).
       await pendingGrantsCubit.refresh();
+      if (loadGeneration != _loadGeneration || isClosed) return;
       final unknownGrant = _firstUnknownAgentGrant();
       final pendingCount = pendingGrantsCubit.state.grants.length;
 
@@ -148,6 +151,7 @@ class DashboardCubit extends Cubit<DashboardState> {
       }
 
       final status = await repository.getOnboardingStatus();
+      if (loadGeneration != _loadGeneration || isClosed) return;
 
       // An unregistered agent request takes precedence over the checklist.
       if (unknownGrant != null) {
@@ -174,6 +178,7 @@ class DashboardCubit extends Cubit<DashboardState> {
         // regardless of what the pref says. Errors in checkStatus() degrade
         // gracefully (returns notDetermined) so load() never throws.
         final permStatus = await notificationPermissionService.checkStatus();
+        if (loadGeneration != _loadGeneration || isClosed) return;
         final notificationDone =
             prefsDone || permStatus == NotificationPermissionStatus.authorized;
         final permissionDenied =
@@ -199,6 +204,7 @@ class DashboardCubit extends Cubit<DashboardState> {
         ),
       );
     } catch (e, s) {
+      if (loadGeneration != _loadGeneration || isClosed) return;
       AppLogger.e('Dashboard', 'load failed', error: e, stackTrace: s);
       emit(DashboardError(e));
     }
@@ -317,7 +323,20 @@ class DashboardCubit extends Cubit<DashboardState> {
           );
         }
         if (generation != _recentActivityGeneration || isClosed) continue;
-        _recentActivityNames = _recentActivityNames.merge(refreshed);
+        final refreshedEntryIds = source
+            .where((entry) => vaultIds.contains(entry.vaultId))
+            .map((entry) => entry.entryId)
+            .whereType<String>()
+            .toSet();
+        final currentEntries = Map<String, String>.from(
+          _recentActivityNames.entries,
+        )..removeWhere((entryId, _) => refreshedEntryIds.contains(entryId));
+        _recentActivityNames = AuditPresentationNames(
+          agents: {..._recentActivityNames.agents, ...refreshed.agents},
+          vaults: {..._recentActivityNames.vaults, ...refreshed.vaults},
+          entries: {...currentEntries, ...refreshed.entries},
+          members: {..._recentActivityNames.members, ...refreshed.members},
+        );
         _emitRefreshedRecentActivity();
       }
     } finally {
@@ -442,6 +461,15 @@ class DashboardCubit extends Cubit<DashboardState> {
 
   void onAgentCtaTapped() =>
       unawaited(analytics.capture('dashboard', 'onboarding-agent-clicked'));
+
+  /// Drops every decrypted Home projection at the auth lock boundary.
+  /// In-flight loads are invalidated so they cannot repopulate the singleton
+  /// after the vault has been locked or the session has ended.
+  void lock() {
+    _loadGeneration++;
+    _clearRecentActivitySource();
+    emit(const DashboardInitial());
+  }
 
   /// Fired when the full onboarding is completed; reloads to drop the
   /// checklist in favour of the normal dashboard.

@@ -225,11 +225,73 @@ void main() {
         loaded = cubit.state as DashboardLoaded;
         expect(loaded.recentActivity.single.entryLabel, 'GitHub token');
         expect(loaded.recentActivity.single.resolvedObjectName, 'GitHub token');
+
+        final removed = expectLater(
+          cubit.stream,
+          emits(
+            isA<DashboardLoaded>().having(
+              (state) => state.recentActivity.single.entryLabel,
+              'removed entry label',
+              isNull,
+            ),
+          ),
+        );
+        indexReady = false;
+        indexUpdates.add('vault-1');
+        await removed;
+
+        cubit.lock();
+        expect(cubit.state, isA<DashboardInitial>());
+        indexReady = true;
+        indexUpdates.add('vault-1');
+        await Future<void>.delayed(Duration.zero);
+        expect(cubit.state, isA<DashboardInitial>());
         verifyNever(() => vaultMembersRepository.list(any()));
         await cubit.close();
         await indexUpdates.close();
       },
     );
+
+    test('lock invalidates an in-flight Recent Activity load', () async {
+      final auditPage = Completer<AuditLogPage>();
+      when(
+        () => auditRepository.listOrgLogs(
+          actions: any(named: 'actions'),
+          vaultId: any(named: 'vaultId'),
+          agentId: any(named: 'agentId'),
+          userId: any(named: 'userId'),
+          entryId: any(named: 'entryId'),
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+          cursor: any(named: 'cursor'),
+          pageSize: any(named: 'pageSize'),
+        ),
+      ).thenAnswer((_) => auditPage.future);
+
+      final cubit = buildCubit();
+      final load = cubit.load(canViewAudit: true, userId: 'user-a');
+      await Future<void>.delayed(Duration.zero);
+      cubit.lock();
+      auditPage.complete(
+        AuditLogPage(
+          entries: [
+            AuditLogEntry(
+              id: 'audit-1',
+              eventType: AuditEventType.entryCreated,
+              rawEventType: 'entry.created',
+              actorType: AuditActorType.user,
+              createdAt: DateTime.utc(2026),
+              vaultId: 'vault-1',
+              entryId: 'entry-1',
+            ),
+          ],
+        ),
+      );
+      await load;
+
+      expect(cubit.state, isA<DashboardInitial>());
+      await cubit.close();
+    });
   });
 
   group('load() — notification permission status', () {
