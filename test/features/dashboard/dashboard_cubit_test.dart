@@ -290,7 +290,94 @@ void main() {
       await load;
 
       expect(cubit.state, isA<DashboardInitial>());
+      verifyNever(() => agentsRepository.listAgents());
       await cubit.close();
+    });
+
+    test('applies an index update received while Home is loading', () async {
+      SharedPreferences.setMockInitialValues({
+        'onboarding_skipped:user-a': true,
+      });
+      vaultListCubit.current = VaultListLoaded([
+        VaultEntity(
+          id: 'vault-1',
+          name: 'Personal',
+          grantMode: GrantMode.granular,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+          entryCount: 1,
+          activeGrantCount: 0,
+          memberCount: 1,
+        ),
+      ]);
+      var indexReady = false;
+      var indexReads = 0;
+      final refreshedIndexRead = Completer<void>();
+      when(() => memberIndex.entries('vault-1')).thenAnswer((_) {
+        indexReads++;
+        if (indexReads > 1 && !refreshedIndexRead.isCompleted) {
+          refreshedIndexRead.complete();
+        }
+        return indexReady
+            ? const [
+                MemberIndexEntry(
+                  entryId: 'entry-1',
+                  entryType: 1,
+                  memberLabel: 'GitHub token',
+                  searchFields: [],
+                  revision: '1',
+                  state: MemberEntryState.active,
+                ),
+              ]
+            : const [];
+      });
+      when(
+        () => auditRepository.listOrgLogs(
+          actions: any(named: 'actions'),
+          vaultId: any(named: 'vaultId'),
+          agentId: any(named: 'agentId'),
+          userId: any(named: 'userId'),
+          entryId: any(named: 'entryId'),
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+          cursor: any(named: 'cursor'),
+          pageSize: any(named: 'pageSize'),
+        ),
+      ).thenAnswer(
+        (_) async => AuditLogPage(
+          entries: [
+            AuditLogEntry(
+              id: 'audit-1',
+              eventType: AuditEventType.entryCreated,
+              rawEventType: 'entry.created',
+              actorType: AuditActorType.user,
+              createdAt: DateTime.utc(2026),
+              vaultId: 'vault-1',
+              entryId: 'entry-1',
+            ),
+          ],
+        ),
+      );
+      final pendingRefresh = Completer<void>();
+      when(
+        () => pendingGrantsCubit.refresh(),
+      ).thenAnswer((_) => pendingRefresh.future);
+
+      final indexUpdates = StreamController<String>();
+      final cubit = buildCubit(entryNameUpdates: indexUpdates.stream);
+      final load = cubit.load(canViewAudit: true, userId: 'user-a');
+      await untilCalled(() => pendingGrantsCubit.refresh());
+
+      indexReady = true;
+      indexUpdates.add('vault-1');
+      await refreshedIndexRead.future;
+      pendingRefresh.complete();
+      await load;
+
+      final loaded = cubit.state as DashboardLoaded;
+      expect(loaded.recentActivity.single.entryLabel, 'GitHub token');
+      await cubit.close();
+      await indexUpdates.close();
     });
   });
 
