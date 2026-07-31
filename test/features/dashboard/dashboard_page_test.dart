@@ -10,12 +10,12 @@ import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
 import 'package:mobile_palladin/core/permissions.dart';
 import 'package:mobile_palladin/core/utils/secure_clipboard.dart';
-import 'package:mobile_palladin/features/agents/domain/repositories/agents_repository.dart';
 import 'package:mobile_palladin/features/approval/domain/repositories/approval_repository.dart';
 import 'package:mobile_palladin/features/approval/domain/entities/encrypted_reason.dart';
 import 'package:mobile_palladin/features/approval/presentation/cubit/grant_approval_cubit.dart';
 import 'package:mobile_palladin/features/approval/presentation/cubit/pending_grants_cubit.dart';
 import 'package:mobile_palladin/features/audit/domain/repositories/audit_repository.dart';
+import 'package:mobile_palladin/features/audit/presentation/audit_presentation_resolver.dart';
 import 'package:mobile_palladin/features/audit/presentation/widgets/audit_log_row.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/dashboard/domain/entities/search_result_entity.dart';
@@ -40,7 +40,8 @@ class _MockEntryRepository extends Mock implements EntryRepository {}
 
 class _MockAuditRepository extends Mock implements AuditRepository {}
 
-class _MockAgentsRepository extends Mock implements AgentsRepository {}
+class _MockAuditPresentationResolver extends Mock
+    implements AuditPresentationResolver {}
 
 class _MockApprovalRepository extends Mock implements ApprovalRepository {}
 
@@ -62,7 +63,7 @@ class _FakeDashboardCubit extends DashboardCubit {
     this._seed, {
     required super.repository,
     required super.auditRepository,
-    required super.agentsRepository,
+    required super.auditPresentationResolver,
     required super.pendingGrantsCubit,
     required super.analytics,
     required super.notificationPermissionService,
@@ -136,7 +137,7 @@ AuditLogEntry _auditEntry() => AuditLogEntry(
 void main() {
   late _MockDashboardRepository dashboardRepository;
   late _MockAuditRepository auditRepository;
-  late _MockAgentsRepository agentsRepository;
+  late _MockAuditPresentationResolver auditPresentationResolver;
   late _MockApprovalRepository approvalRepository;
   late _MockPendingGrantsCubit pendingGrantsCubit;
   late _MockNotificationPermissionService permissionService;
@@ -157,7 +158,7 @@ void main() {
   setUp(() {
     dashboardRepository = _MockDashboardRepository();
     auditRepository = _MockAuditRepository();
-    agentsRepository = _MockAgentsRepository();
+    auditPresentationResolver = _MockAuditPresentationResolver();
     approvalRepository = _MockApprovalRepository();
     pendingGrantsCubit = _MockPendingGrantsCubit();
     permissionService = _MockNotificationPermissionService();
@@ -221,7 +222,7 @@ void main() {
         state,
         repository: dashboardRepository,
         auditRepository: auditRepository,
-        agentsRepository: agentsRepository,
+        auditPresentationResolver: auditPresentationResolver,
         pendingGrantsCubit: pendingGrantsCubit,
         analytics: analytics,
         notificationPermissionService: permissionService,

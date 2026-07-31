@@ -50,6 +50,7 @@ import '../../features/approval/presentation/cubit/regrant_cubit.dart';
 import '../../features/audit/data/datasources/audit_remote_datasource.dart';
 import '../../features/audit/data/repositories/audit_repository_impl.dart';
 import '../../features/audit/domain/repositories/audit_repository.dart';
+import '../../features/audit/presentation/audit_presentation_resolver.dart';
 import '../../features/audit/presentation/cubit/audit_log_cubit.dart';
 import '../../features/audit/presentation/cubit/entry_logs_cubit.dart';
 import '../../features/dashboard/data/datasources/dashboard_remote_datasource.dart';
@@ -733,6 +734,14 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<AuditRepository>(
     () => AuditRepositoryImpl(getIt<AuditRemoteDatasource>()),
   );
+  getIt.registerLazySingleton<AuditPresentationResolver>(
+    () => LocalAuditPresentationResolver(
+      agentsRepository: getIt<AgentsRepository>(),
+      vaultListCubit: getIt<VaultListCubit>(),
+      vaultMembersRepository: getIt<VaultMembersRepository>(),
+      memberIndex: getIt<MemberSyncService>(),
+    ),
+  );
 
   // EntryLogsCubit: factory per entry-detail Logs tab mount, scoped to a
   // vault + entry (param1 = vaultId, param2 = entryId). Presentation names
@@ -755,10 +764,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerFactoryParam<AuditLogCubit, String?, dynamic>(
     (vaultId, _) => AuditLogCubit(
       auditRepository: getIt<AuditRepository>(),
-      agentsRepository: getIt<AgentsRepository>(),
-      vaultListCubit: getIt<VaultListCubit>(),
-      vaultMembersRepository: getIt<VaultMembersRepository>(),
-      memberSync: getIt<MemberSyncService>(),
+      presentationResolver: getIt<AuditPresentationResolver>(),
       scope: vaultId == null ? AuditLogScope.org : AuditLogScope.vault,
       vaultId: vaultId,
     ),
@@ -846,7 +852,7 @@ void configureDependencies(EnvConfig config) {
     () => DashboardCubit(
       repository: getIt<DashboardRepository>(),
       auditRepository: getIt<AuditRepository>(),
-      agentsRepository: getIt<AgentsRepository>(),
+      auditPresentationResolver: getIt<AuditPresentationResolver>(),
       pendingGrantsCubit: getIt<PendingGrantsCubit>(),
       analytics: getIt<AnalyticsService>(),
       notificationPermissionService: getIt<NotificationPermissionService>(),

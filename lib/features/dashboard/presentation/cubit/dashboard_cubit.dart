@@ -7,9 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/utils/app_logger.dart';
-import '../../../agents/domain/repositories/agents_repository.dart';
 import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
 import '../../../audit/domain/repositories/audit_repository.dart';
+import '../../../audit/presentation/audit_presentation_resolver.dart';
 import '../../../notifications/data/services/notification_permission_service.dart';
 import '../../domain/repositories/dashboard_repository.dart';
 import '../../domain/repositories/local_search_repository.dart';
@@ -27,22 +27,27 @@ class DashboardCubit extends Cubit<DashboardState> {
   DashboardCubit({
     required this.repository,
     required this.auditRepository,
-    required this.agentsRepository,
+    required this.auditPresentationResolver,
     required this.pendingGrantsCubit,
     required this.analytics,
     required this.notificationPermissionService,
     LocalSearchRepository? localSearchRepository,
+    this.recentActivityNameRefreshDelay = const Duration(milliseconds: 250),
   }) : localSearchRepository =
            localSearchRepository ?? const _EmptyLocalSearchRepository(),
        super(const DashboardInitial());
 
   final DashboardRepository repository;
   final AuditRepository auditRepository;
-  final AgentsRepository agentsRepository;
+  final AuditPresentationResolver auditPresentationResolver;
   final PendingGrantsCubit pendingGrantsCubit;
   final AnalyticsService analytics;
   final NotificationPermissionService notificationPermissionService;
   final LocalSearchRepository localSearchRepository;
+
+  /// Closes the race between the Home feed request and the asynchronous
+  /// preparation of the unlocked MemberIndex used for Entry labels.
+  final Duration recentActivityNameRefreshDelay;
 
   /// How many recent audit-log rows the Home "Recent Activity" section shows.
   static const int _recentActivityLimit = 6;
@@ -100,12 +105,11 @@ class DashboardCubit extends Cubit<DashboardState> {
       await _dropLegacyFlags(prefs);
 
       final recentEntries = await _loadRecentEntriesOrEmpty();
-      final recentActivity = await _loadRecentActivityOrEmpty(canViewAudit);
-      // Resolve agent names only when there are activity rows that might carry
-      // an unresolved agent id — otherwise the map is unused, so skip the call.
-      final agentNames = recentActivity.isEmpty
-          ? const <String, String>{}
-          : await _resolveAgentNamesOrEmpty();
+      final recentActivityResult = await _loadRecentActivityOrEmpty(
+        canViewAudit,
+      );
+      final recentActivity = recentActivityResult.entries;
+      final agentNames = recentActivityResult.agentNames;
 
       // Keep the cross-vault pending list current so unknown-agent
       // detection reflects the latest requests (quiet — no skeleton flip).
@@ -214,15 +218,33 @@ class DashboardCubit extends Cubit<DashboardState> {
   /// Any failure is logged (never the payload) and suppressed so a permission
   /// gap or network hiccup degrades to an empty section rather than blanking
   /// the whole Home screen.
-  Future<List<AuditLogEntry>> _loadRecentActivityOrEmpty(
-    bool canViewAudit,
-  ) async {
-    if (!canViewAudit) return const [];
+  Future<({List<AuditLogEntry> entries, Map<String, String> agentNames})>
+  _loadRecentActivityOrEmpty(bool canViewAudit) async {
+    if (!canViewAudit) {
+      return (
+        entries: const <AuditLogEntry>[],
+        agentNames: const <String, String>{},
+      );
+    }
     try {
       final page = await auditRepository.listOrgLogs(
         pageSize: _recentActivityLimit,
       );
-      return page.entries;
+      var names = await auditPresentationResolver.resolveNames(page.entries);
+      var resolved = auditPresentationResolver.applyNames(page.entries, names);
+      final hasUnresolvedEntry = resolved.any(
+        (entry) => entry.entryId != null && entry.entryLabel == null,
+      );
+      if (hasUnresolvedEntry &&
+          recentActivityNameRefreshDelay != Duration.zero) {
+        await Future<void>.delayed(recentActivityNameRefreshDelay);
+        final refreshed = await auditPresentationResolver.resolveNames(
+          page.entries,
+        );
+        names = names.merge(refreshed);
+        resolved = auditPresentationResolver.applyNames(page.entries, names);
+      }
+      return (entries: resolved, agentNames: names.agents);
     } on DioException catch (e, s) {
       AppLogger.e(
         'Dashboard',
@@ -230,7 +252,10 @@ class DashboardCubit extends Cubit<DashboardState> {
         error: e,
         stackTrace: s,
       );
-      return const [];
+      return (
+        entries: const <AuditLogEntry>[],
+        agentNames: const <String, String>{},
+      );
     } catch (e, s) {
       AppLogger.e(
         'Dashboard',
@@ -238,25 +263,10 @@ class DashboardCubit extends Cubit<DashboardState> {
         error: e,
         stackTrace: s,
       );
-      return const [];
-    }
-  }
-
-  /// Resolves an agent id → display-name map for the Recent Activity rows,
-  /// mirroring `AuditLogCubit._resolveAgentNames`. Best-effort: a failure
-  /// returns an empty map so the rows fall back to the server-denormalized
-  /// name or a shortened id rather than blanking the section.
-  Future<Map<String, String>> _resolveAgentNamesOrEmpty() async {
-    try {
-      final agents = await agentsRepository.listAgents();
-      return {
-        for (final a in agents)
-          if (a.name != null && a.name!.trim().isNotEmpty)
-            a.agentId: a.name!.trim(),
-      };
-    } catch (e) {
-      AppLogger.w('Dashboard', 'Agent name resolution failed: $e');
-      return const {};
+      return (
+        entries: const <AuditLogEntry>[],
+        agentNames: const <String, String>{},
+      );
     }
   }
 
