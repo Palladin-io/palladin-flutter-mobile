@@ -48,6 +48,7 @@ class AgentsRepositoryImpl implements AgentsRepository {
     String? name,
     String? type,
     String? iconKey,
+    String? iconColor,
   }) async {
     try {
       AppLogger.d('Agents', 'PATCH /api/agents/$agentId/approve');
@@ -56,6 +57,7 @@ class AgentsRepositoryImpl implements AgentsRepository {
         name: name,
         type: type,
         iconKey: iconKey,
+        iconColor: iconColor,
       );
     } on DioException catch (e, s) {
       AppLogger.e('Agents', 'approveAgent failed', error: e, stackTrace: s);
@@ -90,6 +92,7 @@ class AgentsRepositoryImpl implements AgentsRepository {
     String agentId, {
     String? name,
     String? description,
+    String? type,
     String? iconKey,
     String? iconColor,
   }) async {
@@ -99,6 +102,7 @@ class AgentsRepositoryImpl implements AgentsRepository {
         agentId,
         name: name,
         description: description,
+        type: type,
         iconKey: iconKey,
         iconColor: iconColor,
       );

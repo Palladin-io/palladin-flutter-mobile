@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
+import '../../../unlock/data/services/identity_kdf_service.dart';
 import '../../domain/crypto_params.dart';
 import '../../domain/repositories/onboarding_repository.dart';
 
@@ -23,9 +24,13 @@ import '../../domain/repositories/onboarding_repository.dart';
 /// Every other intermediate (recovery key, the plaintext used to build
 /// the encrypted blobs) is zeroed before this method returns.
 class OnboardingCryptoService {
-  OnboardingCryptoService({Future<SodiumSumo> Function()? sodiumLoader})
-      : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
+  OnboardingCryptoService({
+    IdentityKdfService? identityKdfService,
+    Future<SodiumSumo> Function()? sodiumLoader,
+  }) : _identityKdfService = identityKdfService ?? IdentityKdfService(),
+       _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
+  final IdentityKdfService _identityKdfService;
   final Future<SodiumSumo> Function() _sodiumLoader;
 
   /// Runs the full key-derivation and encryption pipeline and returns
@@ -35,13 +40,20 @@ class OnboardingCryptoService {
   Future<OnboardingSetupResult> buildSetupPayload({
     required String masterPassword,
     required List<String> recoveryMnemonic,
+    required String accountId,
   }) async {
     final sodium = await _sodiumLoader();
 
     final salt = sodium.randombytes.buf(CryptoParams.saltLength);
     final recoverySalt = sodium.randombytes.buf(CryptoParams.saltLength);
 
-    final masterKey = _deriveKey(sodium, masterPassword, salt);
+    final identityOutputs = await _identityKdfService.derive(
+      password: masterPassword,
+      accountId: accountId,
+      kdfSalt: salt,
+    );
+    final masterKey = SecureKey.fromList(sodium, identityOutputs.masterKey);
+    identityOutputs.masterKey.fillRange(0, identityOutputs.masterKey.length, 0);
     try {
       final recoveryKey = _deriveKey(
         sodium,
@@ -73,6 +85,7 @@ class OnboardingCryptoService {
 
             return OnboardingSetupResult(
               payload: OnboardingSetupPayload(
+                authCredential: identityOutputs.authCredential,
                 salt: salt,
                 recoverySalt: recoverySalt,
                 publicKey: Uint8List.fromList(keyPair.publicKey),
@@ -136,5 +149,4 @@ class OnboardingCryptoService {
     combined.setRange(nonce.length, combined.length, cipher);
     return combined;
   }
-
 }

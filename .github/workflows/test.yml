@@ -1,6 +1,8 @@
 name: Test
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -8,10 +10,16 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: stable
+      - name: Install libsodium for native protocol fixtures
+        run: sudo apt-get update && sudo apt-get install --yes libsodium-dev
       - run: flutter pub get
       - run: flutter analyze
+      - name: Enforce Vault v2 structural performance budgets
+        run: flutter test test/performance/vault_v2_mobile_structural_budget_test.dart
       - run: flutter test

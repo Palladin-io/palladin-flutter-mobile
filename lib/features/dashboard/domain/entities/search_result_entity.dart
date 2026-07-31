@@ -1,34 +1,106 @@
 /// The kind of object a global-search hit points to.
-enum SearchResultType { agent, vault, entry }
+enum SearchResultType { agent, member, vault, entry }
 
-/// One row in the dashboard global-search autocomplete.
+/// Discriminated global-search identity.
 ///
-/// A lightweight projection returned by `GET /api/search` — metadata only,
-/// never any encrypted payload, so zero-knowledge is preserved. [vaultId]
-/// and [vaultName] are populated for [SearchResultType.entry] hits only;
-/// [icon] is the backend icon-name string (nullable), mapped to a Material
-/// icon at the presentation layer via `EntryVisuals`/`VaultVisuals`.
-class SearchResultEntity {
-  const SearchResultEntity({
-    required this.type,
-    required this.id,
-    required this.name,
-    this.vaultId,
-    this.vaultName,
-    this.icon,
+/// Each subtype carries only the scope required for safe navigation. Vault
+/// and Entry presentation is produced locally; Agent and Member presentation
+/// comes from the authorization-scoped administrative catalog.
+sealed class SearchResultEntity {
+  const SearchResultEntity();
+
+  SearchResultType get type;
+  String get id;
+  String get name;
+  String? get icon;
+
+  String get deduplicationKey;
+}
+
+final class AgentSearchResult extends SearchResultEntity {
+  const AgentSearchResult({required this.agentId, required this.displayName});
+
+  final String agentId;
+  final String displayName;
+
+  @override
+  SearchResultType get type => SearchResultType.agent;
+  @override
+  String get id => agentId;
+  @override
+  String get name => displayName;
+  @override
+  String? get icon => null;
+  @override
+  String get deduplicationKey => 'agent:$agentId';
+}
+
+final class MemberSearchResult extends SearchResultEntity {
+  const MemberSearchResult({required this.memberId, required this.displayName});
+
+  final String memberId;
+  final String displayName;
+
+  @override
+  SearchResultType get type => SearchResultType.member;
+  @override
+  String get id => memberId;
+  @override
+  String get name => displayName;
+  @override
+  String? get icon => null;
+  @override
+  String get deduplicationKey => 'member:$memberId';
+}
+
+final class VaultSearchResult extends SearchResultEntity {
+  const VaultSearchResult({
+    required this.vaultId,
+    required this.displayName,
+    this.iconReference,
   });
 
-  final SearchResultType type;
-  final String id;
-  final String name;
+  final String vaultId;
+  final String displayName;
+  final String? iconReference;
 
-  /// The parent vault's id — set for [SearchResultType.entry] only. Required
-  /// to deep-link into the entry detail screen (which is scoped by vault).
-  final String? vaultId;
+  @override
+  SearchResultType get type => SearchResultType.vault;
+  @override
+  String get id => vaultId;
+  @override
+  String get name => displayName;
+  @override
+  String? get icon => iconReference;
+  @override
+  String get deduplicationKey => 'vault:$vaultId';
+}
 
-  /// The parent vault's display name — set for [SearchResultType.entry] only.
-  final String? vaultName;
+final class EntrySearchResult extends SearchResultEntity {
+  const EntrySearchResult({
+    required this.vaultId,
+    required this.entryId,
+    required this.displayName,
+    required this.vaultName,
+    required this.entryType,
+    this.iconReference,
+  });
 
-  /// Backend icon-name string (nullable). Resolved to an icon at the UI layer.
-  final String? icon;
+  final String vaultId;
+  final String entryId;
+  final String displayName;
+  final String vaultName;
+  final int entryType;
+  final String? iconReference;
+
+  @override
+  SearchResultType get type => SearchResultType.entry;
+  @override
+  String get id => entryId;
+  @override
+  String get name => displayName;
+  @override
+  String? get icon => iconReference;
+  @override
+  String get deduplicationKey => 'entry:$vaultId:$entryId';
 }

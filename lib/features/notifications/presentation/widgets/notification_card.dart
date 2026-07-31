@@ -4,7 +4,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/presentation/widgets/agent_avatar.dart';
-import '../../../grants/presentation/widgets/org_grant_card.dart' show GrantDetailRow;
+import '../../../grants/presentation/widgets/org_grant_card.dart'
+    show GrantDetailRow;
 import '../../domain/entities/inbox_notification.dart';
 import 'notification_format.dart';
 
@@ -88,11 +89,11 @@ class NotificationCard extends StatelessWidget {
                 onTap: onTap,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.cardPadding,
-                  AppSpacing.md,
-                  AppSpacing.cardPadding,
-                  AppSpacing.md,
-                ),
+                    AppSpacing.cardPadding,
+                    AppSpacing.md,
+                    AppSpacing.cardPadding,
+                    AppSpacing.md,
+                  ),
                   child: _Header(item: item, glyphTint: glyphTint),
                 ),
               ),
@@ -260,7 +261,9 @@ class _Footer extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardFooterOverlay(brightness),
-        border: Border(top: BorderSide(color: AppColors.cardBorder(brightness))),
+        border: Border(
+          top: BorderSide(color: AppColors.cardBorder(brightness)),
+        ),
       ),
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.cardPadding,
@@ -300,9 +303,7 @@ class _Footer extends StatelessWidget {
         style: TextButton.styleFrom(
           foregroundColor: AppColors.brandRed,
           padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
     );
@@ -317,9 +318,7 @@ class _Footer extends StatelessWidget {
           foregroundColor: AppColors.onSurfaceMuted(brightness),
           side: BorderSide(color: AppColors.cardBorder(brightness)),
           padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Text(
           secondaryLabel ?? '',
@@ -342,9 +341,7 @@ class _Footer extends StatelessWidget {
           backgroundColor: background,
           foregroundColor: AppColors.onBrandRed,
           padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: isBusy
             ? const SizedBox(

@@ -246,7 +246,8 @@ bool notificationUsesAgentAvatar(InboxNotification n) {
 /// The agent's icon key from metadata (`agentIconKey`) — a Material icon name
 /// or an uploaded image URL — used to render [AgentAvatar] exactly like the
 /// Agents list. Null when the backend sent none.
-String? notificationAgentIconKey(InboxNotification n) => _str(n, 'agentIconKey');
+String? notificationAgentIconKey(InboxNotification n) =>
+    _str(n, 'agentIconKey');
 
 /// The agent's display name from metadata, or null.
 String? notificationAgentName(InboxNotification n) => _str(n, 'agentName');
@@ -262,34 +263,26 @@ String notificationAgentId(InboxNotification n) => _str(n, 'agentId') ?? '';
 String? notificationAgentIconColor(InboxNotification n) =>
     _str(n, 'agentIconColor');
 
-/// Resolves the in-app navigation target for a notification's `actionDeepLink`
-/// metadata (sent by the backend, e.g. `/agents/{id}`,
-/// `/vaults/{vaultId}/grants/{grantId}`, `/vaults/{vaultId}/entries/{entryId}`).
-///
-/// Mobile only has agent- and vault-detail screens, so grant/entry deep-links
-/// collapse to their owning vault. Returns null when there is no usable target
-/// — the card then renders without a footer.
+/// Resolves an in-app target only from an allowlisted authoritative Inbox type
+/// and its structural ids. The backend's `actionDeepLink` is never trusted.
 String? notificationDeepLink(InboxNotification n) {
-  final raw = _str(n, 'actionDeepLink');
-  if (raw != null) {
-    final segments =
-        raw.split('/').where((part) => part.isNotEmpty).toList(growable: false);
-    if (segments.length >= 2) {
-      switch (segments[0]) {
-        case 'agents':
-          return AppRoutes.agentDetail(segments[1]);
-        case 'vaults':
-          // Any vault sub-resource (grant/entry) collapses to vault detail.
-          return AppRoutes.vaultDetail(segments[1]);
-      }
-    }
+  switch (n.type) {
+    case 'agent_pending':
+    case 'agent_approved':
+    case 'agent_deactivated':
+    case 'agent_reactivated':
+      final agentId = _str(n, 'agentId');
+      return agentId == null ? null : AppRoutes.agentDetail(agentId);
+    case 'grant_pending':
+    case 'grant_approved':
+    case 'grant_denied':
+    case 'grant_revoked':
+    case 'credential_stale':
+      final vaultId = _str(n, 'vaultId');
+      return vaultId == null ? null : AppRoutes.vaultDetail(vaultId);
+    default:
+      return null;
   }
-  // Fallback to ids in metadata when the backend sent no deep-link.
-  final agentId = _str(n, 'agentId');
-  if (agentId != null) return AppRoutes.agentDetail(agentId);
-  final vaultId = _str(n, 'vaultId');
-  if (vaultId != null) return AppRoutes.vaultDetail(vaultId);
-  return null;
 }
 
 /// The kind of surface a notification's "View" link points at — drives the
@@ -298,28 +291,9 @@ enum NotificationViewTarget { agent, access, entry }
 
 /// Classifies a notification's deep-link target so the "View" footer can carry
 /// a contextual label instead of a generic "View". Derives the target from the
-/// `actionDeepLink` prefix first (authoritative), then falls back to the
-/// notification [type]. Returns null when the type/link is unknown — the caller
-/// then shows no footer.
+/// Classification is derived only from the allowlisted notification [type].
+/// Unknown types have no footer.
 NotificationViewTarget? notificationViewTarget(InboxNotification n) {
-  final raw = _str(n, 'actionDeepLink');
-  if (raw != null) {
-    final segments =
-        raw.split('/').where((part) => part.isNotEmpty).toList(growable: false);
-    if (segments.isNotEmpty) {
-      switch (segments[0]) {
-        case 'agents':
-          return NotificationViewTarget.agent;
-        case 'vaults':
-          // /vaults/{id}/entries/... → entry, /vaults/{id}/grants/... → access,
-          // bare /vaults/{id} → access (grant context).
-          if (segments.length >= 3 && segments[2] == 'entries') {
-            return NotificationViewTarget.entry;
-          }
-          return NotificationViewTarget.access;
-      }
-    }
-  }
   switch (n.type) {
     case 'agent_pending':
     case 'agent_approved':

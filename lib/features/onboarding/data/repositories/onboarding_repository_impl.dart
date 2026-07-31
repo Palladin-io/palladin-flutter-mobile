@@ -9,6 +9,7 @@ import '../datasources/onboarding_remote_datasource.dart';
 import '../models/account_setup_request.dart';
 import '../services/default_vault_provisioner.dart';
 import '../services/onboarding_crypto_service.dart';
+import '../../../unlock/data/services/identity_kdf_service.dart';
 
 /// Concrete implementation of [OnboardingRepository].
 ///
@@ -44,14 +45,24 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
     required String defaultVaultName,
   }) async {
     AppLogger.d('Onboarding', 'Building setup payload');
+    final accountId = await tokenStorage.userId;
+    if (accountId == null || accountId.isEmpty) {
+      throw const OnboardingServerException(
+        OnboardingServerErrorKind.invalidResponse,
+      );
+    }
     final result = await cryptoService.buildSetupPayload(
       masterPassword: masterPassword,
       recoveryMnemonic: recoveryMnemonic,
+      accountId: accountId,
     );
     final payload = result.payload;
 
     try {
       final request = AccountSetupRequest(
+        securityVersion: IdentityKdfProfile.securityVersion,
+        kdfProfileId: IdentityKdfProfile.id,
+        newAuthCredential: payload.authCredential,
         salt: payload.salt,
         recoverySalt: payload.recoverySalt,
         publicKey: payload.publicKey,
@@ -80,13 +91,13 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
         throw OnboardingServerException(_classifyError(e));
       }
 
-      // Auto-create the default vault using the public key from the setup
-      // payload. Fire-and-forget: 409 means the default vault already
-      // exists (safe to swallow); any other transient error is logged and
-      // suppressed so it never blocks the user from proceeding.
+      // Auto-create the default vault through the same challenge-bound,
+      // canonical encrypted contract as normal Vault creation. A 409 means
+      // the default Vault already exists; other transient failures remain
+      // retryable and do not discard the newly established local session.
       try {
-        await defaultVaultProvisioner.ensureFromPublicKey(
-          publicKey: payload.publicKey,
+        await defaultVaultProvisioner.ensureFromPrivateKey(
+          privateKey: result.privateKey,
           name: defaultVaultName,
         );
       } catch (error, stackTrace) {
@@ -113,6 +124,8 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
       result.masterKey.fillRange(0, result.masterKey.length, 0);
       result.privateKey.fillRange(0, result.privateKey.length, 0);
       rethrow;
+    } finally {
+      payload.authCredential.fillRange(0, payload.authCredential.length, 0);
     }
   }
 

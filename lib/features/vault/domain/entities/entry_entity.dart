@@ -1,4 +1,5 @@
 import 'custom_field.dart';
+import 'member_index_entry.dart';
 
 /// Type of vault entry — drives icon, payload schema, and reveal-panel
 /// layout.
@@ -24,20 +25,17 @@ extension EntryTypeExtension on EntryType {
   /// Wire format used by the .NET API (int ordinal: `Key = 0`,
   /// `Credential = 1`, `Script = 2`).
   int toWire() => switch (this) {
-        EntryType.key => 0,
-        EntryType.credential => 1,
-        EntryType.script => 2,
-      };
+    EntryType.key => 0,
+    EntryType.credential => 1,
+    EntryType.script => 2,
+  };
 
   static EntryType fromWire(int value) => switch (value) {
-        0 => EntryType.key,
-        1 => EntryType.credential,
-        2 => EntryType.script,
-        // Default to credential for unknown wire values — surfaces the
-        // safer two-field reveal panel rather than the single-secret
-        // panel, matching the backend default.
-        _ => EntryType.credential,
-      };
+    0 => EntryType.key,
+    1 => EntryType.credential,
+    2 => EntryType.script,
+    _ => throw FormatException('Unsupported Entry type ordinal: $value'),
+  };
 }
 
 /// Domain representation of a single vault entry's metadata.
@@ -58,6 +56,9 @@ class EntryEntity {
     required this.updatedAt,
     this.lastAccessedAt,
     this.accessCount = 0,
+    this.lifecycleState = MemberEntryState.active,
+    this.currentRevision = '0',
+    this.corrupt = false,
   });
 
   /// Stable, server-issued identifier.
@@ -92,20 +93,26 @@ class EntryEntity {
 
   /// Total number of reveals server-side.
   final int accessCount;
+  final MemberEntryState lifecycleState;
+  final String currentRevision;
+  final bool corrupt;
 
   EntryEntity copyWith({String? icon}) => EntryEntity(
-        id: id,
-        vaultId: vaultId,
-        label: label,
-        description: description,
-        icon: icon ?? this.icon,
-        type: type,
-        urlDomain: urlDomain,
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-        lastAccessedAt: lastAccessedAt,
-        accessCount: accessCount,
-      );
+    id: id,
+    vaultId: vaultId,
+    label: label,
+    description: description,
+    icon: icon ?? this.icon,
+    type: type,
+    urlDomain: urlDomain,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    lastAccessedAt: lastAccessedAt,
+    accessCount: accessCount,
+    lifecycleState: lifecycleState,
+    currentRevision: currentRevision,
+    corrupt: corrupt,
+  );
 }
 
 /// Plaintext payload shape for a `KEY` entry. Lives only in memory
@@ -131,20 +138,20 @@ class KeyPayload {
   final List<CustomField> fields;
 
   Map<String, dynamic> toJson() => {
-        'v': 2,
-        'type': 'KEY',
-        'value': value,
-        if (url != null) 'url': url,
-        if (notes != null) 'notes': notes,
-        if (fields.isNotEmpty) 'fields': CustomField.listToJson(fields),
-      };
+    'v': 2,
+    'type': 'KEY',
+    'value': value,
+    if (url != null) 'url': url,
+    if (notes != null) 'notes': notes,
+    if (fields.isNotEmpty) 'fields': CustomField.listToJson(fields),
+  };
 
   factory KeyPayload.fromJson(Map<String, dynamic> json) => KeyPayload(
-        value: (json['value'] as String?) ?? '',
-        url: json['url'] as String?,
-        notes: json['notes'] as String?,
-        fields: CustomField.listFromPayload(json),
-      );
+    value: (json['value'] as String?) ?? '',
+    url: json['url'] as String?,
+    notes: json['notes'] as String?,
+    fields: CustomField.listFromPayload(json),
+  );
 }
 
 /// Plaintext payload shape for a `CREDENTIAL` entry. Lives only in
@@ -176,15 +183,15 @@ class CredentialPayload {
   final String? totp;
 
   Map<String, dynamic> toJson() => {
-        'v': 2,
-        'type': 'CREDENTIAL',
-        'username': username,
-        'password': password,
-        if (url != null) 'url': url,
-        if (notes != null) 'notes': notes,
-        if (totp != null) 'totp': totp,
-        if (fields.isNotEmpty) 'fields': CustomField.listToJson(fields),
-      };
+    'v': 2,
+    'type': 'CREDENTIAL',
+    'username': username,
+    'password': password,
+    if (url != null) 'url': url,
+    if (notes != null) 'notes': notes,
+    if (totp != null) 'totp': totp,
+    if (fields.isNotEmpty) 'fields': CustomField.listToJson(fields),
+  };
 
   factory CredentialPayload.fromJson(Map<String, dynamic> json) =>
       CredentialPayload(
@@ -208,14 +215,14 @@ enum ScriptInterpreter {
 
   String get wireName => name;
 
-  /// Parses an interpreter token. Falls back to [ScriptInterpreter.bash]
-  /// for missing or unknown input.
+  /// Parses an exact canonical interpreter token and fails closed otherwise.
   static ScriptInterpreter fromName(String? raw) => switch (raw) {
-        'sh' => ScriptInterpreter.sh,
-        'node' => ScriptInterpreter.node,
-        'python' => ScriptInterpreter.python,
-        _ => ScriptInterpreter.bash,
-      };
+    'bash' => ScriptInterpreter.bash,
+    'sh' => ScriptInterpreter.sh,
+    'node' => ScriptInterpreter.node,
+    'python' => ScriptInterpreter.python,
+    _ => throw FormatException('Unsupported Script interpreter: $raw'),
+  };
 }
 
 /// One declared credential reference on a `SCRIPT` entry — an explicit
@@ -247,20 +254,20 @@ class ScriptRef {
   final String field;
 
   Map<String, dynamic> toJson() => {
-        'env': env,
-        if (vaultId != null && vaultId!.isNotEmpty) 'vaultId': vaultId,
-        'entryId': entryId,
-        'field': field,
-      };
+    'env': env,
+    if (vaultId != null && vaultId!.isNotEmpty) 'vaultId': vaultId,
+    'entryId': entryId,
+    'field': field,
+  };
 
   factory ScriptRef.fromJson(Map<String, dynamic> json) => ScriptRef(
-        // `env` is the current wire key; `placeholder` is read for
-        // backward compatibility with earlier draft blobs.
-        env: (json['env'] as String?) ?? (json['placeholder'] as String?) ?? '',
-        vaultId: json['vaultId'] as String?,
-        entryId: (json['entryId'] as String?) ?? '',
-        field: (json['field'] as String?) ?? '',
-      );
+    // `env` is the current wire key; `placeholder` is read for
+    // backward compatibility with earlier draft blobs.
+    env: (json['env'] as String?) ?? (json['placeholder'] as String?) ?? '',
+    vaultId: json['vaultId'] as String?,
+    entryId: (json['entryId'] as String?) ?? '',
+    field: (json['field'] as String?) ?? '',
+  );
 
   static List<ScriptRef> listFromPayload(Map<String, dynamic> payload) {
     final raw = payload['refs'];
@@ -302,21 +309,21 @@ class ScriptPayload {
   final List<CustomField> fields;
 
   Map<String, dynamic> toJson() => {
-        'v': 2,
-        'type': 'SCRIPT',
-        'script': script,
-        'interpreter': interpreter.wireName,
-        if (notes != null) 'notes': notes,
-        if (refs.isNotEmpty)
-          'refs': refs.map((r) => r.toJson()).toList(growable: false),
-        if (fields.isNotEmpty) 'fields': CustomField.listToJson(fields),
-      };
+    'v': 2,
+    'type': 'SCRIPT',
+    'script': script,
+    'interpreter': interpreter.wireName,
+    if (notes != null) 'notes': notes,
+    if (refs.isNotEmpty)
+      'refs': refs.map((r) => r.toJson()).toList(growable: false),
+    if (fields.isNotEmpty) 'fields': CustomField.listToJson(fields),
+  };
 
   factory ScriptPayload.fromJson(Map<String, dynamic> json) => ScriptPayload(
-        script: (json['script'] as String?) ?? '',
-        interpreter: ScriptInterpreter.fromName(json['interpreter'] as String?),
-        notes: json['notes'] as String?,
-        refs: ScriptRef.listFromPayload(json),
-        fields: CustomField.listFromPayload(json),
-      );
+    script: (json['script'] as String?) ?? '',
+    interpreter: ScriptInterpreter.fromName(json['interpreter'] as String?),
+    notes: json['notes'] as String?,
+    refs: ScriptRef.listFromPayload(json),
+    fields: CustomField.listFromPayload(json),
+  );
 }

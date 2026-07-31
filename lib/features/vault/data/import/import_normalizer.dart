@@ -38,7 +38,8 @@ class ImportNormalizer {
     // neither (secure notes, blank lines) are dropped by the caller.
     if (trimmedPass == null && trimmedUser == null) return null;
 
-    final resolvedName = _clean(name) ??
+    final resolvedName =
+        _clean(name) ??
         (host != null ? nameFromHost(host) : null) ??
         trimmedUser;
 
@@ -96,8 +97,9 @@ class ImportNormalizer {
 
   /// Google Password Manager app-credential URI:
   /// `android://<signing-cert hash>@<package>/`.
-  static final RegExp _androidCredentialUri =
-      RegExp(r'^android://[^@]+@([a-zA-Z0-9_.]+)/?$');
+  static final RegExp _androidCredentialUri = RegExp(
+    r'^android://[^@]+@([a-zA-Z0-9_.]+)/?$',
+  );
 
   /// Package ids are reverse-DNS — `com.facebook.katana` → `facebook.com`.
   static String? _domainFromAndroidPackage(String packageId) {
@@ -122,8 +124,10 @@ class ImportNormalizer {
     final uri = Uri.tryParse(toParse);
     // A dotless "host" (stray scheme, app id) is useless as a urlDomain.
     if (uri != null && uri.host.contains('.')) return uri.host;
-    final withoutScheme =
-        text.replaceFirst(RegExp(r'^[a-zA-Z][a-zA-Z0-9+\-.]*://'), '');
+    final withoutScheme = text.replaceFirst(
+      RegExp(r'^[a-zA-Z][a-zA-Z0-9+\-.]*://'),
+      '',
+    );
     final firstSegment = withoutScheme.split('/').first.split('?').first;
     return firstSegment.contains('.') ? firstSegment : null;
   }

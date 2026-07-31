@@ -26,7 +26,8 @@ class GrantMethodsSelector extends StatelessWidget {
   final bool enabled;
   final ValueChanged<List<GrantMethod>> onChanged;
 
-  static String _label(AppLocalizations l10n, GrantMethod m) => grantMethodLabel(l10n, m);
+  static String _label(AppLocalizations l10n, GrantMethod m) =>
+      grantMethodLabel(l10n, m);
 
   Future<void> _openPicker(BuildContext context) async {
     final result = await showModalBottomSheet<List<GrantMethod>>(
@@ -182,7 +183,9 @@ class _MethodsPickerSheetState extends State<_MethodsPickerSheet> {
                   alignment: Alignment.topCenter,
                   child: _selected.contains(GrantMethod.get)
                       ? Padding(
-                          padding: const EdgeInsets.only(top: AppSpacing.innerGap),
+                          padding: const EdgeInsets.only(
+                            top: AppSpacing.innerGap,
+                          ),
                           child: WarningZone(
                             title: l10n.approvalMethodWarningZone,
                             message: l10n.approvalMethodGetWarning,

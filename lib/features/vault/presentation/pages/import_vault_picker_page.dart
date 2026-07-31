@@ -8,6 +8,7 @@ import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../cubit/vault_list_cubit.dart';
 import 'import_wizard_page.dart';
@@ -27,8 +28,10 @@ class ImportVaultPickerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.read<AuthBloc>().state;
     return BlocProvider<VaultListCubit>.value(
-      value: getIt<VaultListCubit>()..loadIfNeeded(),
+      value: getIt<VaultListCubit>()
+        ..loadIfNeeded(auth is AuthAuthenticated ? auth.privateKey : null),
       child: const _PickerView(),
     );
   }
@@ -65,9 +68,12 @@ class _PickerView extends StatelessWidget {
           return switch (state) {
             VaultListInitial() || VaultListLoading() => const _Skeleton(),
             VaultListError() => _Message(text: l10n.vaultErrorUnknown),
-            VaultListLoaded(:final vaults) => vaults.isEmpty
-                ? _Message(text: l10n.importNoVaults)
-                : _VaultList(vaults: vaults),
+            VaultListLocked() ||
+            VaultListResetRequired() => _Message(text: l10n.vaultErrorUnknown),
+            VaultListLoaded(:final vaults) =>
+              vaults.isEmpty
+                  ? _Message(text: l10n.importNoVaults)
+                  : _VaultList(vaults: vaults),
           };
         },
       ),
@@ -129,8 +135,11 @@ class _VaultRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.shield_outlined,
-                size: 20, color: AppColors.onSurfaceSubtle(brightness)),
+            Icon(
+              Icons.shield_outlined,
+              size: 20,
+              color: AppColors.onSurfaceSubtle(brightness),
+            ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
@@ -157,8 +166,11 @@ class _VaultRow extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right,
-                size: 20, color: AppColors.onSurfaceSubtle(brightness)),
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: AppColors.onSurfaceSubtle(brightness),
+            ),
           ],
         ),
       ),

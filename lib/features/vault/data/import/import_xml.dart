@@ -13,7 +13,12 @@ import 'import_normalizer.dart';
 class ImportXmlParser {
   ImportXmlParser._();
 
-  static const _totpKeys = ['otp', 'totp seed', 'timeotp-secret-base32', 'totp'];
+  static const _totpKeys = [
+    'otp',
+    'totp seed',
+    'timeotp-secret-base32',
+    'totp',
+  ];
 
   /// Parses a KeePass XML [document] into login entries. The group path is
   /// joined with `/` and surfaced as the folder.

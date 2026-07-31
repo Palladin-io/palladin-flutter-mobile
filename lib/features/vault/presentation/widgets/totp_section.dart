@@ -39,8 +39,9 @@ class TotpSection extends StatefulWidget {
 class _TotpSectionState extends State<TotpSection> {
   static const _service = TotpService();
 
-  late final List<CustomField> _fields =
-      widget.initial.where((f) => f.type == CustomFieldType.totp).toList();
+  late final List<CustomField> _fields = widget.initial
+      .where((f) => f.type == CustomFieldType.totp)
+      .toList();
 
   void _emit() => widget.onChanged(List.unmodifiable(_fields));
 
@@ -48,18 +49,19 @@ class _TotpSectionState extends State<TotpSection> {
     final config = await TotpSetupSheet.show(context);
     if (config == null || !mounted) return;
     setState(() {
-      _fields.add(CustomField.totpField(
-        id: CustomField.newId(),
-        label: _labelFor(config),
-        config: config,
-      ));
+      _fields.add(
+        CustomField.totpField(
+          id: CustomField.newId(),
+          label: _labelFor(config),
+          config: config,
+        ),
+      );
     });
     _emit();
   }
 
   Future<void> _replace(CustomField field) async {
-    final config =
-        await TotpSetupSheet.show(context, initial: field.totp);
+    final config = await TotpSetupSheet.show(context, initial: field.totp);
     if (config == null || !mounted) return;
     setState(() {
       final index = _fields.indexOf(field);
@@ -85,10 +87,12 @@ class _TotpSectionState extends State<TotpSection> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(AppLocalizations.of(context)!.totpCodeCopied),
-          duration: const Duration(seconds: 1),
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.totpCodeCopied),
+            duration: const Duration(seconds: 1),
+          ),
+        );
     } on FormatException {
       // Invalid secret — nothing to copy.
     }
@@ -131,12 +135,11 @@ class _TotpSectionState extends State<TotpSection> {
     }
   }
 
-  String _labelFor(TotpConfig config) =>
-      (config.issuer?.isNotEmpty ?? false)
-          ? config.issuer!
-          : (config.account?.isNotEmpty ?? false)
-              ? config.account!
-              : '2FA';
+  String _labelFor(TotpConfig config) => (config.issuer?.isNotEmpty ?? false)
+      ? config.issuer!
+      : (config.account?.isNotEmpty ?? false)
+      ? config.account!
+      : '2FA';
 
   @override
   Widget build(BuildContext context) {
@@ -358,10 +361,7 @@ class _DashedRectPainter extends CustomPainter {
     for (final metric in path.computeMetrics()) {
       var distance = 0.0;
       while (distance < metric.length) {
-        canvas.drawPath(
-          metric.extractPath(distance, distance + dash),
-          paint,
-        );
+        canvas.drawPath(metric.extractPath(distance, distance + dash), paint);
         distance += dash + gap;
       }
     }

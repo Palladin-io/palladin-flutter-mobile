@@ -44,26 +44,33 @@ class OrgGrantsCubit extends Cubit<OrgGrantsState> {
       final grants = scoped
           ? page.grants
           : page.grants
-              .where((g) => g.status != GrantStatus.pending)
-              .toList(growable: false);
+                .where((g) => g.status != GrantStatus.pending)
+                .toList(growable: false);
       AppLogger.i('Grants', 'Loaded ${grants.length} org grants');
       emit(state.copyWith(status: OrgGrantsStatus.loaded, grants: grants));
     } on GrantsException catch (e) {
       AppLogger.w('Grants', 'Org grant load failed: ${e.kind.name}');
       emit(state.copyWith(status: OrgGrantsStatus.error, error: e.kind));
     } catch (e, s) {
-      AppLogger.e('Grants', 'Org grant load failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        status: OrgGrantsStatus.error,
-        error: GrantsErrorKind.unknown,
-      ));
+      AppLogger.e(
+        'Grants',
+        'Org grant load failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          status: OrgGrantsStatus.error,
+          error: GrantsErrorKind.unknown,
+        ),
+      );
     }
   }
 
   /// Reloads keeping the current context scope (agent/vault/entry). Use after a mutation that
   /// changes the feed (revoke, re-grant) so a scoped tab stays scoped.
-  Future<void> reload() => load(agentId: _agentId, vaultId: _vaultId, entryId: _entryId);
+  Future<void> reload() =>
+      load(agentId: _agentId, vaultId: _vaultId, entryId: _entryId);
 
   /// Toggles a status in the client-side filter (no refetch).
   void toggleStatus(GrantStatus status) {
@@ -79,30 +86,29 @@ class OrgGrantsCubit extends Cubit<OrgGrantsState> {
   void search(String query) => emit(state.copyWith(query: query));
 
   /// Revokes a grant then reloads so its status reflects the change.
-  Future<void> revokeGrant(
-    String vaultId,
-    String grantId, {
-    String? reason,
-  }) async {
+  Future<void> revokeGrant(String vaultId, String grantId) async {
     emit(state.copyWith(revokingGrantId: grantId, clearMutationError: true));
     try {
-      await repository.revokeGrant(vaultId, grantId, reason: reason);
+      await repository.revokeGrant(vaultId, grantId);
       // Reload within the same scope so a context-filtered tab stays filtered.
       await reload();
       emit(state.copyWith(clearRevokingGrantId: true));
     } on GrantsException catch (e) {
       AppLogger.w('Grants', 'revokeGrant failed: ${e.kind.name}');
-      emit(state.copyWith(
-        mutationError: e.kind,
-        clearRevokingGrantId: true,
-      ));
+      emit(state.copyWith(mutationError: e.kind, clearRevokingGrantId: true));
     } catch (e, s) {
-      AppLogger.e('Grants', 'revokeGrant failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        mutationError: GrantsErrorKind.unknown,
-        clearRevokingGrantId: true,
-      ));
+      AppLogger.e(
+        'Grants',
+        'revokeGrant failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          mutationError: GrantsErrorKind.unknown,
+          clearRevokingGrantId: true,
+        ),
+      );
     }
   }
 

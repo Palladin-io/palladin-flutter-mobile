@@ -8,6 +8,7 @@ String approvalErrorMessage(AppLocalizations l10n, ApprovalErrorKind kind) {
     ApprovalErrorKind.notFound => l10n.approvalErrorNotFound,
     ApprovalErrorKind.forbidden => l10n.approvalErrorForbidden,
     ApprovalErrorKind.validation => l10n.approvalErrorValidation,
+    ApprovalErrorKind.conflict => l10n.approvalErrorValidation,
     ApprovalErrorKind.networkError => l10n.approvalErrorNetwork,
     ApprovalErrorKind.cryptoFailure => l10n.approvalErrorCrypto,
     ApprovalErrorKind.vaultLocked => l10n.approvalErrorVaultLocked,

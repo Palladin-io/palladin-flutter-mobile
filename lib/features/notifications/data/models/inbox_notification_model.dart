@@ -5,6 +5,7 @@ import '../../domain/entities/inbox_notification.dart';
 class InboxNotificationModel {
   const InboxNotificationModel({
     required this.id,
+    required this.subjectId,
     required this.type,
     required this.category,
     required this.titleKey,
@@ -15,6 +16,7 @@ class InboxNotificationModel {
   });
 
   final String id;
+  final String subjectId;
   final String type;
   final String category;
   final String titleKey;
@@ -33,6 +35,7 @@ class InboxNotificationModel {
     final rawMetadata = json['metadata'];
     return InboxNotificationModel(
       id: string('id'),
+      subjectId: string('subjectId'),
       type: string('type'),
       category: string('category'),
       titleKey: string('titleKey'),
@@ -47,6 +50,7 @@ class InboxNotificationModel {
 
   InboxNotification toEntity() => InboxNotification(
     id: id,
+    subjectId: subjectId,
     type: type,
     category: NotificationCategory.fromWire(category),
     titleKey: titleKey,

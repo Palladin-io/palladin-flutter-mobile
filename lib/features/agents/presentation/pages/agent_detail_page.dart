@@ -71,6 +71,7 @@ class _AgentDetailView extends StatelessWidget {
       name: result.name,
       type: result.type,
       iconKey: result.iconKey,
+      iconColor: result.iconColor,
     );
   }
 
@@ -210,6 +211,7 @@ class _AppBarTitle extends StatelessWidget {
       AgentStatus.active => l10n.agentsStatusActive,
       AgentStatus.pending => l10n.agentsStatusPending,
       AgentStatus.deactivated => l10n.agentsStatusDeactivated,
+      AgentStatus.deactivating => l10n.agentsDeactivating,
       null => '',
     };
 

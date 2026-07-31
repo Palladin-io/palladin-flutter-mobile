@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../../unlock/data/services/identity_kdf_service.dart';
+
 /// DTO sent to `POST /api/auth/register`.
 ///
 /// Carries the account identity ([email], [displayName], [preferredLanguage])
@@ -14,17 +16,19 @@ import 'dart:typed_data';
 /// master key.
 class RegisterRequest {
   const RegisterRequest({
+    required this.accountId,
     required this.email,
     required this.displayName,
     required this.preferredLanguage,
-    required this.authHash,
-    required this.authSalt,
-    required this.salt,
+    required this.authCredential,
+    required this.kdfSalt,
     required this.recoverySalt,
     required this.publicKey,
     required this.encryptedPrivateKey,
     required this.encryptedPrivateKeyByRecovery,
   });
+
+  final String accountId;
 
   final String email;
   final String displayName;
@@ -34,14 +38,11 @@ class RegisterRequest {
   final String preferredLanguage;
 
   /// Base64 Argon2id auth hash (from `password + authSalt`).
-  final String authHash;
+  final String authCredential;
 
   /// 16-byte auth salt (client-generated, stored server-side, returned by
   /// the login pre-check).
-  final Uint8List authSalt;
-
-  /// 16-byte master-key salt (persisted as the account `salt`).
-  final Uint8List salt;
+  final Uint8List kdfSalt;
 
   /// 16-byte recovery-mnemonic salt.
   final Uint8List recoverySalt;
@@ -57,16 +58,23 @@ class RegisterRequest {
 
   Map<String, dynamic> toJson() {
     return {
+      'accountId': accountId,
       'email': email,
       'displayName': displayName,
       'preferredLanguage': preferredLanguage,
-      'authHash': authHash,
-      'authSalt': base64Encode(authSalt),
-      'salt': base64Encode(salt),
-      'recoverySalt': base64Encode(recoverySalt),
-      'publicKey': base64Encode(publicKey),
-      'encryptedPrivateKey': base64Encode(encryptedPrivateKey),
-      'encryptedPrivateKeyByRecovery': base64Encode(encryptedPrivateKeyByRecovery),
+      'securityVersion': IdentityKdfProfile.securityVersion,
+      'kdfProfileId': IdentityKdfProfile.id,
+      'authCredential': authCredential,
+      'kdfSalt': _encodeBytes(kdfSalt),
+      'recoverySalt': _encodeBytes(recoverySalt),
+      'publicKey': _encodeBytes(publicKey),
+      'encryptedPrivateKey': _encodeBytes(encryptedPrivateKey),
+      'encryptedPrivateKeyByRecovery': _encodeBytes(
+        encryptedPrivateKeyByRecovery,
+      ),
     };
   }
+
+  String _encodeBytes(Uint8List value) =>
+      base64UrlEncode(value).replaceAll('=', '');
 }

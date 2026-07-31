@@ -1,10 +1,11 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:mobile_palladin/features/vault/domain/entities/custom_field.dart';
+import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/exceptions/entry_exceptions.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
@@ -12,242 +13,315 @@ import 'package:mobile_palladin/features/vault/presentation/cubit/edit_entry_cub
 
 class _MockEntryRepository extends Mock implements EntryRepository {}
 
+class _MockCanonicalService extends Mock
+    implements CanonicalEntryDetailService {}
+
 void main() {
   late _MockEntryRepository repository;
+  late _MockCanonicalService canonical;
 
   final sampleEntry = EntryEntity(
     id: 'e-1',
     vaultId: 'v-1',
     label: 'Stripe API Key',
     type: EntryType.key,
-    urlDomain: 'stripe.com',
     createdAt: DateTime.utc(2026, 4, 1),
     updatedAt: DateTime.utc(2026, 4, 20),
   );
-
   final samplePayload = <String, dynamic>{
     'type': 'KEY',
     'value': 'sk_live_xxx',
   };
-
   final privateKey = Uint8List.fromList(List<int>.generate(32, (i) => i + 1));
+
+  CanonicalEntrySnapshot snapshot() => CanonicalEntrySnapshot(
+    entry: <String, dynamic>{'currentRevision': '7'},
+    payload: Map<String, dynamic>.from(samplePayload),
+    secret: <String, dynamic>{'schemaVersion': 1},
+  );
 
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
-    registerFallbackValue(<AgentField>[]);
-    registerFallbackValue(EntryType.credential);
-    registerFallbackValue(DateTime.utc(2026, 1, 1));
+    registerFallbackValue(sampleEntry);
+    registerFallbackValue(snapshot());
+    registerFallbackValue(EntryType.key);
+    registerFallbackValue(<String, dynamic>{});
   });
 
   setUp(() {
     repository = _MockEntryRepository();
+    canonical = _MockCanonicalService();
   });
 
-  EditEntryCubit buildCubit() => EditEntryCubit(repository: repository);
+  EditEntryCubit buildCubit() =>
+      EditEntryCubit(repository: repository, canonicalService: canonical);
 
-  group('EditEntryCubit', () {
-    test('initial state is EditEntryInitial', () {
-      final cubit = buildCubit();
-      expect(cubit.state, isA<EditEntryInitial>());
-      cubit.close();
-    });
-
-    blocTest<EditEntryCubit, EditEntryState>(
-      'setReady emits EditEntryReady with the given entry and payload',
-      build: buildCubit,
-      act: (cubit) => cubit.setReady(sampleEntry, samplePayload),
-      expect: () => [
-        isA<EditEntryReady>()
-            .having((s) => s.entry.id, 'entry.id', 'e-1')
-            .having((s) => s.payload['value'], "payload['value']", 'sk_live_xxx'),
-      ],
+  group('EditEntryCubit canonical lifecycle', () {
+    test(
+      'starts empty until the presentation requests canonical data',
+      () async {
+        final cubit = buildCubit();
+        expect(cubit.state, isA<EditEntryInitial>());
+        verifyNever(
+          () => canonical.reveal(
+            expected: any(named: 'expected'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        );
+        await cubit.close();
+      },
     );
 
     blocTest<EditEntryCubit, EditEntryState>(
-      'markRevealUnavailable emits cryptoFailure error',
-      build: buildCubit,
-      act: (cubit) => cubit.markRevealUnavailable(),
+      'explicit reveal authenticates canonical secret and emits Ready',
+      build: () {
+        when(
+          () => canonical.reveal(
+            expected: any(named: 'expected'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).thenAnswer((_) async => snapshot());
+        return buildCubit();
+      },
+      act: (cubit) =>
+          cubit.revealForEdit(entry: sampleEntry, privateKey: privateKey),
+      expect: () => [isA<EditEntryRevealing>(), isA<EditEntryReady>()],
+      verify: (_) => verifyNever(
+        () => repository.revealEntry(
+          vaultId: any(named: 'vaultId'),
+          entryId: any(named: 'entryId'),
+          privateKey: any(named: 'privateKey'),
+          wrappedVK: any(named: 'wrappedVK'),
+        ),
+      ),
+    );
+
+    blocTest<EditEntryCubit, EditEntryState>(
+      'corrupt canonical secret fails closed without legacy fallback',
+      build: () {
+        when(
+          () => canonical.reveal(
+            expected: any(named: 'expected'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).thenThrow(
+          const CanonicalEntryDetailException(
+            CanonicalEntryDetailError.corrupt,
+          ),
+        );
+        return buildCubit();
+      },
+      act: (cubit) =>
+          cubit.revealForEdit(entry: sampleEntry, privateKey: privateKey),
       expect: () => [
+        isA<EditEntryRevealing>(),
         isA<EditEntryError>().having(
-          (s) => s.kind,
+          (state) => state.kind,
           'kind',
           EntryErrorKind.cryptoFailure,
         ),
       ],
-    );
-
-    blocTest<EditEntryCubit, EditEntryState>(
-      'revealForEdit emits Revealing then Ready on success',
-      build: () {
-        when(() => repository.revealEntry(
-              vaultId: any(named: 'vaultId'),
-              entryId: any(named: 'entryId'),
-              privateKey: any(named: 'privateKey'),
-              wrappedVK: any(named: 'wrappedVK'),
-            )).thenAnswer((_) async => RevealedEntry(
-              entry: sampleEntry,
-              payload: samplePayload,
-            ));
-        return buildCubit();
-      },
-      act: (cubit) => cubit.revealForEdit(
-        entry: sampleEntry,
-        privateKey: privateKey,
+      verify: (_) => verifyNever(
+        () => repository.revealEntry(
+          vaultId: any(named: 'vaultId'),
+          entryId: any(named: 'entryId'),
+          privateKey: any(named: 'privateKey'),
+          wrappedVK: any(named: 'wrappedVK'),
+        ),
       ),
-      expect: () => [
-        isA<EditEntryRevealing>(),
-        isA<EditEntryReady>()
-            .having((s) => s.entry.id, 'entry.id', 'e-1')
-            .having((s) => s.payload['value'], "payload['value']", 'sk_live_xxx'),
-      ],
     );
 
     blocTest<EditEntryCubit, EditEntryState>(
-      'revealForEdit emits Error on EntryException',
+      'save creates a canonical revision and never calls legacy update',
       build: () {
-        when(() => repository.revealEntry(
-              vaultId: any(named: 'vaultId'),
-              entryId: any(named: 'entryId'),
-              privateKey: any(named: 'privateKey'),
-              wrappedVK: any(named: 'wrappedVK'),
-            )).thenThrow(
-          const EntryException(EntryErrorKind.networkError),
+        when(
+          () => canonical.reveal(
+            expected: any(named: 'expected'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).thenAnswer((_) async => snapshot());
+        when(
+          () => canonical.update(
+            snapshot: any(named: 'snapshot'),
+            expected: any(named: 'expected'),
+            label: any(named: 'label'),
+            description: any(named: 'description'),
+            icon: any(named: 'icon'),
+            type: any(named: 'type'),
+            content: any(named: 'content'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).thenAnswer(
+          (_) async => EntryEntity(
+            id: sampleEntry.id,
+            vaultId: sampleEntry.vaultId,
+            label: 'Renamed',
+            type: sampleEntry.type,
+            createdAt: sampleEntry.createdAt,
+            updatedAt: sampleEntry.updatedAt,
+          ),
         );
         return buildCubit();
       },
-      act: (cubit) => cubit.revealForEdit(
-        entry: sampleEntry,
-        privateKey: privateKey,
-      ),
-      expect: () => [
-        isA<EditEntryRevealing>(),
-        isA<EditEntryError>().having(
-          (s) => s.kind,
-          'kind',
-          EntryErrorKind.networkError,
-        ),
-      ],
+      act: (cubit) async {
+        await cubit.revealForEdit(entry: sampleEntry, privateKey: privateKey);
+        await cubit.updateEntry(
+          vaultId: sampleEntry.vaultId,
+          entryId: sampleEntry.id,
+          label: 'Renamed',
+          type: EntryType.key,
+          payload: samplePayload,
+          privateKey: privateKey,
+          createdAt: sampleEntry.createdAt,
+        );
+      },
+      skip: 2,
+      expect: () => [isA<EditEntryLoading>(), isA<EditEntrySuccess>()],
+      verify: (cubit) {
+        expect(cubit.hasCanonicalSnapshot, isFalse);
+        verifyNever(
+          () => repository.updateEntryEncrypted(
+            vaultId: any(named: 'vaultId'),
+            entryId: any(named: 'entryId'),
+            label: any(named: 'label'),
+            description: any(named: 'description'),
+            icon: any(named: 'icon'),
+            type: any(named: 'type'),
+            payload: any(named: 'payload'),
+            urlDomain: any(named: 'urlDomain'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+            createdAt: any(named: 'createdAt'),
+            agentFields: any(named: 'agentFields'),
+          ),
+        );
+      },
     );
 
     blocTest<EditEntryCubit, EditEntryState>(
-      'updateEntry forwards original createdAt to the repository',
+      'optimistic conflict is explicit',
       build: () {
-        when(() => repository.updateEntryEncrypted(
-              vaultId: any(named: 'vaultId'),
-              entryId: any(named: 'entryId'),
-              label: any(named: 'label'),
-              description: any(named: 'description'),
-              icon: any(named: 'icon'),
-              type: any(named: 'type'),
-              payload: any(named: 'payload'),
-              urlDomain: any(named: 'urlDomain'),
-              privateKey: any(named: 'privateKey'),
-              wrappedVK: any(named: 'wrappedVK'),
-              createdAt: any(named: 'createdAt'),
-              agentFields: any(named: 'agentFields'),
-            )).thenAnswer((_) async => sampleEntry);
-        return buildCubit();
-      },
-      act: (cubit) => cubit.updateEntry(
-        vaultId: 'v-1',
-        entryId: 'e-1',
-        label: 'Renamed',
-        type: EntryType.key,
-        payload: samplePayload,
-        privateKey: privateKey,
-        createdAt: DateTime.utc(2026, 4, 1),
-      ),
-      expect: () => [
-        isA<EditEntryLoading>(),
-        isA<EditEntrySuccess>(),
-      ],
-      verify: (_) {
-        // createdAt must be preserved end-to-end — never overwritten by now().
-        verify(() => repository.updateEntryEncrypted(
-              vaultId: 'v-1',
-              entryId: 'e-1',
-              label: 'Renamed',
-              description: null,
-              icon: null,
-              type: EntryType.key,
-              payload: samplePayload,
-              urlDomain: null,
-              privateKey: privateKey,
-              wrappedVK: null,
-              createdAt: DateTime.utc(2026, 4, 1),
-            )).called(1);
-      },
-    );
-
-    blocTest<EditEntryCubit, EditEntryState>(
-      'updateEntry emits Error when label is empty',
-      build: buildCubit,
-      act: (cubit) => cubit.updateEntry(
-        vaultId: 'v-1',
-        entryId: 'e-1',
-        label: '   ',
-        type: EntryType.key,
-        payload: samplePayload,
-        privateKey: privateKey,
-        createdAt: DateTime.utc(2026, 4, 1),
-      ),
-      expect: () => [
-        isA<EditEntryError>().having(
-          (s) => s.kind,
-          'kind',
-          EntryErrorKind.unknown,
-        ),
-      ],
-      verify: (_) {
-        verifyNever(() => repository.updateEntryEncrypted(
-              vaultId: any(named: 'vaultId'),
-              entryId: any(named: 'entryId'),
-              label: any(named: 'label'),
-              type: any(named: 'type'),
-              payload: any(named: 'payload'),
-              privateKey: any(named: 'privateKey'),
-              createdAt: any(named: 'createdAt'),
-              agentFields: any(named: 'agentFields'),
-            ));
-      },
-    );
-
-    blocTest<EditEntryCubit, EditEntryState>(
-      'deleteEntry emits Loading then Deleted on success',
-      build: () {
-        when(() => repository.deleteEntry(
-              vaultId: any(named: 'vaultId'),
-              entryId: any(named: 'entryId'),
-            )).thenAnswer((_) async {});
-        return buildCubit();
-      },
-      act: (cubit) => cubit.deleteEntry(vaultId: 'v-1', entryId: 'e-1'),
-      expect: () => [
-        isA<EditEntryLoading>(),
-        isA<EditEntryDeleted>().having((s) => s.entryId, 'entryId', 'e-1'),
-      ],
-    );
-
-    blocTest<EditEntryCubit, EditEntryState>(
-      'deleteEntry emits Error on EntryException',
-      build: () {
-        when(() => repository.deleteEntry(
-              vaultId: any(named: 'vaultId'),
-              entryId: any(named: 'entryId'),
-            )).thenThrow(
-          const EntryException(EntryErrorKind.forbidden),
+        when(
+          () => canonical.reveal(
+            expected: any(named: 'expected'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).thenAnswer((_) async => snapshot());
+        when(
+          () => canonical.update(
+            snapshot: any(named: 'snapshot'),
+            expected: any(named: 'expected'),
+            label: any(named: 'label'),
+            description: any(named: 'description'),
+            icon: any(named: 'icon'),
+            type: any(named: 'type'),
+            content: any(named: 'content'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).thenThrow(
+          const CanonicalEntryDetailException(
+            CanonicalEntryDetailError.conflict,
+          ),
         );
         return buildCubit();
       },
-      act: (cubit) => cubit.deleteEntry(vaultId: 'v-1', entryId: 'e-1'),
-      expect: () => [
-        isA<EditEntryLoading>(),
-        isA<EditEntryError>().having(
-          (s) => s.kind,
-          'kind',
-          EntryErrorKind.forbidden,
+      act: (cubit) async {
+        await cubit.revealForEdit(entry: sampleEntry, privateKey: privateKey);
+        await cubit.updateEntry(
+          vaultId: sampleEntry.vaultId,
+          entryId: sampleEntry.id,
+          label: 'Renamed',
+          type: EntryType.key,
+          payload: samplePayload,
+          privateKey: privateKey,
+          createdAt: sampleEntry.createdAt,
+        );
+      },
+      skip: 2,
+      expect: () => [isA<EditEntryLoading>(), isA<EditEntryConflict>()],
+    );
+
+    test(
+      'lock/background cleanup clears payload and returns initial',
+      () async {
+        when(
+          () => canonical.reveal(
+            expected: any(named: 'expected'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).thenAnswer((_) async => snapshot());
+        final cubit = buildCubit();
+        await cubit.revealForEdit(entry: sampleEntry, privateKey: privateKey);
+        final ready = cubit.state as EditEntryReady;
+        cubit.clearSensitiveState();
+        expect(ready.payload, isEmpty);
+        expect(cubit.state, isA<EditEntryInitial>());
+        await cubit.close();
+      },
+    );
+
+    test(
+      'late reveal completion is discarded after lifecycle cleanup',
+      () async {
+        final completion = Completer<CanonicalEntrySnapshot>();
+        when(
+          () => canonical.reveal(
+            expected: any(named: 'expected'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).thenAnswer((_) => completion.future);
+        final cubit = buildCubit();
+
+        final reveal = cubit.revealForEdit(
+          entry: sampleEntry,
+          privateKey: privateKey,
+        );
+        cubit.clearSensitiveState();
+        final revealed = snapshot();
+        completion.complete(revealed);
+        await reveal;
+
+        expect(cubit.state, isA<EditEntryInitial>());
+        expect(cubit.hasCanonicalSnapshot, isFalse);
+        expect(revealed.payload, isEmpty);
+        expect(revealed.entry, isEmpty);
+        expect(revealed.secret, isEmpty);
+        await cubit.close();
+      },
+    );
+
+    test('close wipes the snapshot still referenced by Ready state', () async {
+      final revealed = snapshot();
+      when(
+        () => canonical.reveal(
+          expected: any(named: 'expected'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
         ),
-      ],
+      ).thenAnswer((_) async => revealed);
+      final cubit = buildCubit();
+      await cubit.revealForEdit(entry: sampleEntry, privateKey: privateKey);
+      final ready = cubit.state as EditEntryReady;
+
+      await cubit.close();
+
+      expect(ready.payload, isEmpty);
+      expect(revealed.entry, isEmpty);
+      expect(revealed.secret, isEmpty);
+    });
+
+    blocTest<EditEntryCubit, EditEntryState>(
+      'delete remains repository-backed and typed',
+      build: () {
+        when(
+          () => repository.deleteEntry(
+            vaultId: any(named: 'vaultId'),
+            entryId: any(named: 'entryId'),
+          ),
+        ).thenAnswer((_) async {});
+        return buildCubit();
+      },
+      act: (cubit) => cubit.deleteEntry(vaultId: 'v-1', entryId: 'e-1'),
+      expect: () => [isA<EditEntryLoading>(), isA<EditEntryDeleted>()],
     );
   });
 }

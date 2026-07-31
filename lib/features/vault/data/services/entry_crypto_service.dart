@@ -24,7 +24,7 @@ import '../models/entry_model.dart';
 /// lingering on the heap.
 class EntryCryptoService {
   EntryCryptoService({Future<SodiumSumo> Function()? sodiumLoader})
-      : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
+    : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
   final Future<SodiumSumo> Function() _sodiumLoader;
 
@@ -127,8 +127,12 @@ class EntryCryptoService {
       try {
         return jsonDecode(utf8.decode(plaintext)) as Map<String, dynamic>;
       } on FormatException catch (e, s) {
-        AppLogger.e('Entry', 'decrypted blob is not valid JSON',
-            error: e, stackTrace: s);
+        AppLogger.e(
+          'Entry',
+          'decrypted blob is not valid JSON',
+          error: e,
+          stackTrace: s,
+        );
         throw const EntryException(EntryErrorKind.cryptoFailure);
       }
     } finally {

@@ -38,7 +38,8 @@ class GrantAccessState {
 /// zero-knowledge envelope via [ApprovalRepository.createGrant]; the owner's [privateKey] is passed
 /// at call time and never stored.
 class GrantAccessCubit extends Cubit<GrantAccessState> {
-  GrantAccessCubit({required this.repository}) : super(const GrantAccessState());
+  GrantAccessCubit({required this.repository})
+    : super(const GrantAccessState());
 
   final ApprovalRepository repository;
 
@@ -46,38 +47,60 @@ class GrantAccessCubit extends Cubit<GrantAccessState> {
     required String vaultId,
     required String agentId,
     required String agentPublicKey,
+    required int recipientKeyVersion,
     required bool isFull,
     String? entryId,
     required Uint8List privateKey,
     required GrantLimit limit,
     required List<GrantMethod> methods,
   }) async {
-    emit(state.copyWith(status: GrantAccessStatus.submitting, clearError: true));
+    emit(
+      state.copyWith(status: GrantAccessStatus.submitting, clearError: true),
+    );
     try {
       await repository.createGrant(
         vaultId: vaultId,
         agentId: agentId,
         agentPublicKey: agentPublicKey,
+        recipientKeyVersion: recipientKeyVersion,
         isFull: isFull,
         entryId: entryId,
         privateKey: privateKey,
         limit: limit,
         methods: methods,
       );
-      AppLogger.i('Approval', 'Granted access to agent $agentId (full=$isFull)');
+      AppLogger.i(
+        'Approval',
+        'Granted access to agent $agentId (full=$isFull)',
+      );
       emit(state.copyWith(status: GrantAccessStatus.done));
     } on ApprovalException catch (e) {
       AppLogger.w('Approval', 'grant access failed: ${e.kind.name}');
       emit(state.copyWith(status: GrantAccessStatus.error, error: e.kind));
     } catch (e, s) {
-      AppLogger.e('Approval', 'grant access failed unexpectedly', error: e, stackTrace: s);
-      emit(state.copyWith(status: GrantAccessStatus.error, error: ApprovalErrorKind.unknown));
+      AppLogger.e(
+        'Approval',
+        'grant access failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(
+        state.copyWith(
+          status: GrantAccessStatus.error,
+          error: ApprovalErrorKind.unknown,
+        ),
+      );
     }
   }
 
   /// Reports the vault is locked so the envelope cannot be produced.
   void reportVaultLocked() {
-    emit(state.copyWith(status: GrantAccessStatus.error, error: ApprovalErrorKind.vaultLocked));
+    emit(
+      state.copyWith(
+        status: GrantAccessStatus.error,
+        error: ApprovalErrorKind.vaultLocked,
+      ),
+    );
   }
 
   void acknowledgeError() {

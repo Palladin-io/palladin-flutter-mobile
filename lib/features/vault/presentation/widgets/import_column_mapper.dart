@@ -44,13 +44,13 @@ class _ImportColumnMapperState extends State<ImportColumnMapper> {
   }
 
   ColumnMapping get _mapping => ColumnMapping(
-        nameIndex: _name == _none ? null : _name,
-        usernameIndex: _username == _none ? null : _username,
-        passwordIndex: _password == _none ? null : _password,
-        urlIndex: _url == _none ? null : _url,
-        notesIndex: _notes == _none ? null : _notes,
-        totpIndex: _totp == _none ? null : _totp,
-      );
+    nameIndex: _name == _none ? null : _name,
+    usernameIndex: _username == _none ? null : _username,
+    passwordIndex: _password == _none ? null : _password,
+    urlIndex: _url == _none ? null : _url,
+    notesIndex: _notes == _none ? null : _notes,
+    totpIndex: _totp == _none ? null : _totp,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -87,23 +87,41 @@ class _ImportColumnMapperState extends State<ImportColumnMapper> {
                 ),
               ),
               const SizedBox(height: AppSpacing.section),
-              _field(l10n.importColumnPassword, _password,
-                  (v) => setState(() => _password = v)),
+              _field(
+                l10n.importColumnPassword,
+                _password,
+                (v) => setState(() => _password = v),
+              ),
               const SizedBox(height: AppSpacing.fieldGap),
-              _field(l10n.importColumnName, _name,
-                  (v) => setState(() => _name = v)),
+              _field(
+                l10n.importColumnName,
+                _name,
+                (v) => setState(() => _name = v),
+              ),
               const SizedBox(height: AppSpacing.fieldGap),
-              _field(l10n.importColumnUsername, _username,
-                  (v) => setState(() => _username = v)),
+              _field(
+                l10n.importColumnUsername,
+                _username,
+                (v) => setState(() => _username = v),
+              ),
               const SizedBox(height: AppSpacing.fieldGap),
-              _field(l10n.importColumnUrl, _url,
-                  (v) => setState(() => _url = v)),
+              _field(
+                l10n.importColumnUrl,
+                _url,
+                (v) => setState(() => _url = v),
+              ),
               const SizedBox(height: AppSpacing.fieldGap),
-              _field(l10n.importColumnNotes, _notes,
-                  (v) => setState(() => _notes = v)),
+              _field(
+                l10n.importColumnNotes,
+                _notes,
+                (v) => setState(() => _notes = v),
+              ),
               const SizedBox(height: AppSpacing.fieldGap),
-              _field(l10n.importColumnTotp, _totp,
-                  (v) => setState(() => _totp = v)),
+              _field(
+                l10n.importColumnTotp,
+                _totp,
+                (v) => setState(() => _totp = v),
+              ),
               if (_password == _none) ...[
                 const SizedBox(height: AppSpacing.fieldGap),
                 Text(

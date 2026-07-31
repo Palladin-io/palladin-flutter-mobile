@@ -53,23 +53,49 @@ void main() {
 
   group('JwtClaims.emailVerifiedFrom', () {
     test('reads a boolean email_verified claim', () {
-      expect(JwtClaims.emailVerifiedFrom(_makeJwt({'email_verified': true})),
-          isTrue);
-      expect(JwtClaims.emailVerifiedFrom(_makeJwt({'email_verified': false})),
-          isFalse);
+      expect(
+        JwtClaims.emailVerifiedFrom(_makeJwt({'email_verified': true})),
+        isTrue,
+      );
+      expect(
+        JwtClaims.emailVerifiedFrom(_makeJwt({'email_verified': false})),
+        isFalse,
+      );
     });
 
     test('reads a string email_verified claim', () {
-      expect(JwtClaims.emailVerifiedFrom(_makeJwt({'email_verified': 'false'})),
-          isFalse);
-      expect(JwtClaims.emailVerifiedFrom(_makeJwt({'email_verified': 'true'})),
-          isTrue);
+      expect(
+        JwtClaims.emailVerifiedFrom(_makeJwt({'email_verified': 'false'})),
+        isFalse,
+      );
+      expect(
+        JwtClaims.emailVerifiedFrom(_makeJwt({'email_verified': 'true'})),
+        isTrue,
+      );
     });
 
     test('defaults to true when the claim is missing or the token is bad', () {
       // A missing claim must never wedge a user behind the verify wall.
       expect(JwtClaims.emailVerifiedFrom(_makeJwt({'sub': 'u1'})), isTrue);
       expect(JwtClaims.emailVerifiedFrom('not-a-jwt'), isTrue);
+    });
+  });
+
+  group('JwtClaims.organizationIdFrom', () {
+    test('reads the existing org_id issuer claim', () {
+      expect(
+        JwtClaims.organizationIdFrom(_makeJwt({'org_id': 'org-legacy'})),
+        'org-legacy',
+      );
+    });
+
+    test('also reads organization_id during coordinated migration', () {
+      expect(
+        JwtClaims.organizationIdFrom(
+          _makeJwt({'organization_id': 'org-current'}),
+        ),
+        'org-current',
+      );
     });
   });
 }

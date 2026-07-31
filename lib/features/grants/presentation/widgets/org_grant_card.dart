@@ -130,7 +130,7 @@ class _IdentityRow extends StatelessWidget {
       child: Row(
         children: [
           AgentAvatar(
-            agentId: grant.agentId,
+            agentId: grant.agentId ?? '',
             name: grant.agentName,
             iconKey: grant.agentIconKey,
             size: 28,
@@ -291,8 +291,11 @@ class _Footer extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.check_circle,
-                size: 14, color: AppColors.positiveAccent),
+            const Icon(
+              Icons.check_circle,
+              size: 14,
+              color: AppColors.positiveAccent,
+            ),
             const SizedBox(width: AppSpacing.chipGap),
             Text(
               l10n.orgGrantAlreadyActive,
@@ -328,9 +331,7 @@ class _RegrantButton extends StatelessWidget {
           backgroundColor: AppColors.positiveAccent,
           foregroundColor: AppColors.onBrandRed,
           padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Text(
           l10n.approvalRegrant,
@@ -384,9 +385,7 @@ class _RevokeButton extends StatelessWidget {
           foregroundColor: AppColors.brandRed,
           side: const BorderSide(color: AppColors.brandRed),
           padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: isRevoking
             ? const SizedBox(

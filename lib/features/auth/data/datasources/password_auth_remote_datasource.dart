@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
@@ -9,6 +11,7 @@ import '../models/register_request.dart';
 import '../models/totp_enroll_model.dart';
 import '../services/password_auth_crypto_service.dart'
     show ChangePasswordWrongCurrentException;
+import '../../../unlock/data/services/identity_kdf_service.dart';
 
 /// Remote data source for the email + master-password auth endpoints on
 /// the .NET Identity module (`/api/auth/*`, `/api/account/*`).
@@ -21,6 +24,22 @@ class PasswordAuthRemoteDatasource {
   PasswordAuthRemoteDatasource(this._dio);
 
   final Dio _dio;
+
+  /// Fetches and preserves the complete versioned login bootstrap contract.
+  Future<LoginKdfBootstrap> fetchLoginKdf(
+    String email, {
+    required String profileId,
+  }) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/auth/login/salt',
+        data: {'email': email, 'profileId': profileId},
+      );
+      return LoginKdfBootstrap.fromJson(_requireBody(response));
+    } on DioException catch (e) {
+      throw PasswordAuthServerException(_classify(e));
+    }
+  }
 
   /// `POST /api/auth/register` — creates the account and returns an
   /// (unverified) session. Throws [EmailAlreadyRegisteredException] on 409.
@@ -39,32 +58,22 @@ class PasswordAuthRemoteDatasource {
     }
   }
 
-  /// `POST /api/auth/login/salt` — fetches the account's [authSalt] so the
-  /// client can derive its auth hash. Returns a deterministic pseudo-salt
-  /// for unknown emails (anti-enumeration), never a 404.
-  Future<String> fetchLoginSalt(String email) async {
-    try {
-      final response = await _dio.post<Map<String, dynamic>>(
-        '/api/auth/login/salt',
-        data: {'email': email},
-      );
-      return _requireBody(response)['authSalt'] as String;
-    } on DioException catch (e) {
-      throw PasswordAuthServerException(_classify(e));
-    }
-  }
-
   /// `POST /api/auth/login` — exchanges the auth hash for a session, or a
   /// TOTP challenge. Throws [InvalidCredentialsException] on 401 and
   /// [LoginRateLimitedException] on 429.
   Future<LoginResponse> login({
     required String email,
-    required String authHash,
+    required String authCredential,
   }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/auth/login',
-        data: {'email': email, 'authHash': authHash},
+        data: {
+          'email': email,
+          'securityVersion': IdentityKdfProfile.securityVersion,
+          'kdfProfileId': IdentityKdfProfile.id,
+          'authCredential': authCredential,
+        },
       );
       return LoginResponse.fromJson(_requireBody(response));
     } on DioException catch (e) {
@@ -123,8 +132,9 @@ class PasswordAuthRemoteDatasource {
   /// `POST /api/auth/totp/enroll` (JWT) — begins TOTP enrollment.
   Future<TotpEnrollModel> totpEnroll() async {
     try {
-      final response =
-          await _dio.post<Map<String, dynamic>>('/api/auth/totp/enroll');
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/auth/totp/enroll',
+      );
       return TotpEnrollModel.fromJson(_requireBody(response));
     } on DioException catch (e) {
       throw PasswordAuthServerException(_classify(e));
@@ -163,21 +173,25 @@ class PasswordAuthRemoteDatasource {
   /// Throws [ChangePasswordWrongCurrentException] if the server rejects the
   /// current auth hash (HTTP 401 / 403).
   Future<void> changePassword({
-    required String currentAuthHash,
-    required String newAuthHash,
-    required String newAuthSaltBase64,
-    required String newSaltBase64,
-    required String newEncryptedPrivateKeyBase64,
+    required int baseCredentialRevision,
+    required int basePrivateKeyWrapRevision,
+    required Uint8List currentAuthCredential,
+    required Uint8List newAuthCredential,
+    required Uint8List newKdfSalt,
+    required Uint8List newEncryptedPrivateKey,
   }) async {
     try {
       await _dio.put<dynamic>(
         '/api/account/password',
         data: {
-          'currentAuthHash': currentAuthHash,
-          'newAuthHash': newAuthHash,
-          'newAuthSalt': newAuthSaltBase64,
-          'newSalt': newSaltBase64,
-          'newEncryptedPrivateKey': newEncryptedPrivateKeyBase64,
+          'securityVersion': IdentityKdfProfile.securityVersion,
+          'kdfProfileId': IdentityKdfProfile.id,
+          'baseCredentialRevision': baseCredentialRevision,
+          'basePrivateKeyWrapRevision': basePrivateKeyWrapRevision,
+          'currentAuthCredential': _encode(currentAuthCredential),
+          'newAuthCredential': _encode(newAuthCredential),
+          'newKdfSalt': _encode(newKdfSalt),
+          'newEncryptedPrivateKey': _encode(newEncryptedPrivateKey),
         },
       );
     } on DioException catch (e) {
@@ -188,6 +202,8 @@ class PasswordAuthRemoteDatasource {
       throw PasswordAuthServerException(_classify(e));
     }
   }
+
+  String _encode(Uint8List value) => base64UrlEncode(value).replaceAll('=', '');
 
   Map<String, dynamic> _requireBody(Response<Map<String, dynamic>> response) {
     final data = response.data;
@@ -228,4 +244,36 @@ class PasswordAuthRemoteDatasource {
     }
     return PasswordAuthServerErrorKind.connectionFailed;
   }
+}
+
+/// Public, non-secret login KDF bootstrap returned before authentication.
+final class LoginKdfBootstrap {
+  const LoginKdfBootstrap({
+    required this.accountId,
+    required this.profileId,
+    required this.securityVersion,
+    required this.kdfSalt,
+    required this.memoryKiB,
+    required this.iterations,
+    required this.parallelism,
+  });
+
+  final String? accountId;
+  final String profileId;
+  final int securityVersion;
+  final String kdfSalt;
+  final int memoryKiB;
+  final int iterations;
+  final int parallelism;
+
+  factory LoginKdfBootstrap.fromJson(Map<String, dynamic> json) =>
+      LoginKdfBootstrap(
+        accountId: json['accountId'] as String?,
+        profileId: json['profileId'] as String,
+        securityVersion: json['securityVersion'] as int,
+        kdfSalt: json['kdfSalt'] as String,
+        memoryKiB: json['memoryKiB'] as int,
+        iterations: json['iterations'] as int,
+        parallelism: json['parallelism'] as int,
+      );
 }

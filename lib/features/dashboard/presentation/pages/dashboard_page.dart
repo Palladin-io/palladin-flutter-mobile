@@ -23,6 +23,9 @@ import '../../../approval/presentation/widgets/approve_grant_sheet.dart';
 import '../../../approval/presentation/widgets/deny_grant_sheet.dart';
 import '../../../audit/presentation/widgets/audit_log_row.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../public_asset_catalog/domain/entities/public_asset.dart';
+import '../../../public_asset_catalog/domain/services/website_icon_service.dart';
+import '../../../public_asset_catalog/presentation/widgets/public_asset_image.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
 import '../../../vault/domain/exceptions/entry_exceptions.dart';
 import '../../../vault/domain/repositories/entry_repository.dart';
@@ -33,6 +36,7 @@ import '../../domain/entities/search_result_entity.dart';
 import '../cubit/dashboard_cubit.dart';
 import '../cubit/search_cubit.dart';
 import '../cubit/search_state.dart';
+import '../cubit/search_session_controller.dart';
 import '../widgets/onboarding_checklist.dart';
 import '../widgets/unknown_agent_card.dart';
 
@@ -103,6 +107,14 @@ class _DashboardViewState extends State<_DashboardView> {
   late final FocusNode _searchFocusNode = FocusNode()
     ..addListener(_onSearchFocusChanged);
   late final SearchCubit _searchCubit = getIt<SearchCubit>();
+  late final SearchSessionController _searchSession =
+      getIt<SearchSessionController>();
+
+  void _clearSearchView() {
+    _searchController.clear();
+    _searchFocusNode.unfocus();
+    if (_dropdownController.isShowing) _dropdownController.hide();
+  }
 
   /// Anchors the floating autocomplete dropdown to the search field so it
   /// follows the field's position (web-panel parity).
@@ -110,7 +122,18 @@ class _DashboardViewState extends State<_DashboardView> {
   final OverlayPortalController _dropdownController = OverlayPortalController();
 
   @override
+  void initState() {
+    super.initState();
+    _searchSession.attachView(_clearSearchView);
+    final auth = context.read<AuthBloc>().state;
+    if (auth is AuthAuthenticated && auth.privateKey != null) {
+      _searchCubit.prepare(auth.privateKey!);
+    }
+  }
+
+  @override
   void dispose() {
+    _searchSession.detachView(_clearSearchView);
     _searchFocusNode.removeListener(_onSearchFocusChanged);
     _searchFocusNode.dispose();
     _searchController.dispose();
@@ -152,12 +175,14 @@ class _DashboardViewState extends State<_DashboardView> {
   /// search field so the dashboard content is visible on return.
   void _onSearchResultTap(BuildContext context, SearchResultEntity result) {
     _searchCubit.selectResult(result);
-    switch (result.type) {
-      case SearchResultType.agent:
-        context.go(AppRoutes.agentDetail(result.id));
-      case SearchResultType.vault:
-        context.go(AppRoutes.vaultDetail(result.id));
-      case SearchResultType.entry:
+    switch (result) {
+      case AgentSearchResult(:final agentId):
+        context.go(AppRoutes.agentDetail(agentId));
+      case MemberSearchResult():
+        context.go('/settings');
+      case VaultSearchResult(:final vaultId):
+        context.go(AppRoutes.vaultDetail(vaultId));
+      case EntrySearchResult():
         _openEntryDetail(context, result);
     }
     _searchController.clear();
@@ -168,14 +193,14 @@ class _DashboardViewState extends State<_DashboardView> {
   /// Projects a recent-entry snapshot onto the shared [SearchResultEntity]
   /// shape so a "Recent" suggestion can be rendered by [_SearchResultRow]
   /// and tapped through the exact same path as an `entry` search hit.
-  SearchResultEntity _recentToSearchResult(RecentEntryEntity recent) =>
-      SearchResultEntity(
-        type: SearchResultType.entry,
-        id: recent.id,
-        name: recent.label,
+  EntrySearchResult _recentToSearchResult(RecentEntryEntity recent) =>
+      EntrySearchResult(
+        entryId: recent.id,
+        displayName: recent.label,
         vaultId: recent.vaultId,
         vaultName: recent.vaultName,
-        icon: recent.icon,
+        entryType: recent.typeWire,
+        iconReference: recent.icon,
       );
 
   /// Recent entries carried by the current dashboard state, if any. Only
@@ -199,31 +224,17 @@ class _DashboardViewState extends State<_DashboardView> {
   ///
   /// `vaultId` is entry-only and defensively nullable; if the backend omits
   /// it we fall back to the vault list so the tap is never a dead end.
-  void _openEntryDetail(BuildContext context, SearchResultEntity result) {
+  void _openEntryDetail(BuildContext context, EntrySearchResult result) {
     final vaultId = result.vaultId;
-    if (vaultId == null) {
-      // No vault to scope the detail screen to — tell the user why the tap
-      // lands on the vault list instead of the entry (same "not found"
-      // message the reveal path surfaces).
-      final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(l10n.entryErrorNotFound),
-          duration: const Duration(seconds: 2),
-        ));
-      context.go('/vaults');
-      return;
-    }
     final now = DateTime.now();
     EntryDetailPage.push(
       context,
       entry: EntryEntity(
-        id: result.id,
+        id: result.entryId,
         vaultId: vaultId,
-        label: result.name,
-        icon: result.icon,
-        type: EntryType.credential,
+        label: result.displayName,
+        icon: result.iconReference,
+        type: EntryTypeExtension.fromWire(result.entryType),
         createdAt: now,
         updatedAt: now,
       ),
@@ -236,24 +247,22 @@ class _DashboardViewState extends State<_DashboardView> {
   /// plaintext — copy it to the clipboard or reveal it inline — and caches it
   /// so copy and reveal share a single fetch. The private-key copy is zeroed
   /// in `finally`; the plaintext is never logged.
-  Future<String?> _revealEntrySecret(SearchResultEntity result) async {
+  Future<String?> _revealEntrySecret(EntrySearchResult result) async {
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.of(context);
     void errorSnack(String message) {
       if (!mounted) return;
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 2),
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: Text(message),
+            duration: const Duration(seconds: 2),
+          ),
+        );
     }
 
     final vaultId = result.vaultId;
-    if (vaultId == null) {
-      errorSnack(l10n.entryErrorNotFound);
-      return null;
-    }
 
     final auth = context.read<AuthBloc>().state;
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
@@ -266,7 +275,7 @@ class _DashboardViewState extends State<_DashboardView> {
     try {
       final revealed = await getIt<EntryRepository>().revealEntry(
         vaultId: vaultId,
-        entryId: result.id,
+        entryId: result.entryId,
         privateKey: keyCopy,
       );
       final payload = revealed.payload;
@@ -347,7 +356,12 @@ class _DashboardViewState extends State<_DashboardView> {
       _showSnack(messenger, agentsErrorMessage(l10n, e.kind));
       return;
     } catch (e, s) {
-      AppLogger.e('Dashboard', 'agent register failed', error: e, stackTrace: s);
+      AppLogger.e(
+        'Dashboard',
+        'agent register failed',
+        error: e,
+        stackTrace: s,
+      );
       _showSnack(messenger, l10n.settingsErrorUnknown);
       return;
     }
@@ -360,9 +374,9 @@ class _DashboardViewState extends State<_DashboardView> {
 
     if (!mounted) return;
     context.read<DashboardCubit>().load(
-          canViewAudit: _DashboardPageState._canViewAudit(context),
-          userId: _DashboardPageState._userId(context),
-        );
+      canViewAudit: _DashboardPageState._canViewAudit(context),
+      userId: _DashboardPageState._userId(context),
+    );
   }
 
   /// Rejects an unknown-agent request via the shared deny sheet (optional
@@ -377,9 +391,9 @@ class _DashboardViewState extends State<_DashboardView> {
 
     _showSnack(messenger, l10n.dashboardRequestRejected);
     context.read<DashboardCubit>().load(
-          canViewAudit: _DashboardPageState._canViewAudit(context),
-          userId: _DashboardPageState._userId(context),
-        );
+      canViewAudit: _DashboardPageState._canViewAudit(context),
+      userId: _DashboardPageState._userId(context),
+    );
   }
 
   /// Shows a short single-line snackbar, replacing any current one.
@@ -387,10 +401,9 @@ class _DashboardViewState extends State<_DashboardView> {
     if (!mounted) return;
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 2),
-      ));
+      ..showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+      );
   }
 
   void _onRecentEntryTap(RecentEntryEntity recent) {
@@ -436,8 +449,9 @@ class _DashboardViewState extends State<_DashboardView> {
                   height: 1,
                   thickness: 1,
                   indent: AppSpacing.screenH + AppSpacing.innerGap + 32,
-                  color:
-                      AppColors.onSurface(brightness).withValues(alpha: 0.06),
+                  color: AppColors.onSurface(
+                    brightness,
+                  ).withValues(alpha: 0.06),
                 ),
               _RecentEntryRow(
                 entry: entries[i],
@@ -580,35 +594,36 @@ class _DashboardViewState extends State<_DashboardView> {
                 child: BlocBuilder<SearchCubit, SearchState>(
                   builder: (context, searchState) =>
                       BlocBuilder<DashboardCubit, DashboardState>(
-                    builder: (context, dashboardState) => AnimatedSize(
-                      duration: const Duration(milliseconds: 140),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 140),
-                        switchInCurve: Curves.easeOut,
-                        switchOutCurve: Curves.easeIn,
-                        // Top-align the outgoing/incoming children so the
-                        // cross-fade doesn't vertically re-center mid-flight
-                        // (the "jump" that reads as lag).
-                        layoutBuilder: (currentChild, previousChildren) => Stack(
+                        builder: (context, dashboardState) => AnimatedSize(
+                          duration: const Duration(milliseconds: 140),
+                          curve: Curves.easeOutCubic,
                           alignment: Alignment.topCenter,
-                          children: [
-                            ...previousChildren,
-                            ?currentChild,
-                          ],
-                        ),
-                        child: KeyedSubtree(
-                          key: ValueKey(_dropdownContentKey(searchState)),
-                          child: _dropdownContent(
-                            context,
-                            searchState,
-                            _recentEntriesFor(dashboardState),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 140),
+                            switchInCurve: Curves.easeOut,
+                            switchOutCurve: Curves.easeIn,
+                            // Top-align the outgoing/incoming children so the
+                            // cross-fade doesn't vertically re-center mid-flight
+                            // (the "jump" that reads as lag).
+                            layoutBuilder: (currentChild, previousChildren) =>
+                                Stack(
+                                  alignment: Alignment.topCenter,
+                                  children: [
+                                    ...previousChildren,
+                                    ?currentChild,
+                                  ],
+                                ),
+                            child: KeyedSubtree(
+                              key: ValueKey(_dropdownContentKey(searchState)),
+                              child: _dropdownContent(
+                                context,
+                                searchState,
+                                _recentEntriesFor(dashboardState),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
                 ),
               ),
             ),
@@ -621,8 +636,7 @@ class _DashboardViewState extends State<_DashboardView> {
   /// Identifies the current dropdown "range" so the [AnimatedSwitcher] cross-
   /// fades when it changes (recent ↔ results ↔ loading ↔ empty ↔ error).
   String _dropdownContentKey(SearchState searchState) {
-    final isSearching =
-        _searchController.text.trim().length >= _minQueryChars;
+    final isSearching = _searchController.text.trim().length >= _minQueryChars;
     if (!isSearching) return 'recent';
     return switch (searchState) {
       SearchResults() => 'results',
@@ -640,8 +654,7 @@ class _DashboardViewState extends State<_DashboardView> {
     List<RecentEntryEntity> recentEntries,
   ) {
     final l10n = AppLocalizations.of(context)!;
-    final isSearching =
-        _searchController.text.trim().length >= _minQueryChars;
+    final isSearching = _searchController.text.trim().length >= _minQueryChars;
 
     if (!isSearching) {
       final results = recentEntries
@@ -704,16 +717,14 @@ class _DashboardViewState extends State<_DashboardView> {
                 notificationStepDone: notificationStepDone,
                 notificationPermissionDenied: notificationPermissionDenied,
                 onSkipSetup: () => context.read<DashboardCubit>().skipSetup(
-                      _DashboardPageState._userId(context),
-                    ),
-                onEnableNotifications: () =>
-                    context.read<DashboardCubit>().enableNotifications(
-                          _DashboardPageState._userId(context),
-                        ),
-                onSkipNotification: () =>
-                    context.read<DashboardCubit>().skipNotificationStep(
-                          _DashboardPageState._userId(context),
-                        ),
+                  _DashboardPageState._userId(context),
+                ),
+                onEnableNotifications: () => context
+                    .read<DashboardCubit>()
+                    .enableNotifications(_DashboardPageState._userId(context)),
+                onSkipNotification: () => context
+                    .read<DashboardCubit>()
+                    .skipNotificationStep(_DashboardPageState._userId(context)),
                 onVaultCta: _onVaultCta,
                 onApiKeyCta: _onApiKeyCta,
                 onAgentCta: _onAgentCta,
@@ -739,8 +750,9 @@ class _DashboardViewState extends State<_DashboardView> {
             sliver: SliverList.list(
               children: [
                 _SectionHeader(
-                  title:
-                      AppLocalizations.of(context)!.dashboardPendingApprovals,
+                  title: AppLocalizations.of(
+                    context,
+                  )!.dashboardPendingApprovals,
                   // Reflect the true number of outstanding requests; hide the
                   // badge entirely if the count is somehow non-positive.
                   badge: pendingCount > 0 ? '$pendingCount' : null,
@@ -800,9 +812,9 @@ class _DashboardViewState extends State<_DashboardView> {
           hasScrollBody: false,
           child: _ErrorView(
             onRetry: () => context.read<DashboardCubit>().load(
-                  canViewAudit: hasAuditView,
-                  userId: _DashboardPageState._userId(context),
-                ),
+              canViewAudit: hasAuditView,
+              userId: _DashboardPageState._userId(context),
+            ),
           ),
         ),
       ],
@@ -1114,7 +1126,11 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, color: AppColors.brandRed, size: 40),
+            const Icon(
+              Icons.error_outline,
+              color: AppColors.brandRed,
+              size: 40,
+            ),
             const SizedBox(height: AppSpacing.section),
             Text(
               l10n.errorCannotConnectToServer,
@@ -1128,9 +1144,7 @@ class _ErrorView extends StatelessWidget {
             const SizedBox(height: AppSpacing.section),
             TextButton(
               onPressed: onRetry,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.brandRed,
-              ),
+              style: TextButton.styleFrom(foregroundColor: AppColors.brandRed),
               child: Text(l10n.vaultRetry),
             ),
           ],
@@ -1139,7 +1153,6 @@ class _ErrorView extends StatelessWidget {
     );
   }
 }
-
 
 /// Small muted header above the focus-driven "Recent" suggestions. Sentence
 /// case only — no all-caps (project rule against `text-transform`).
@@ -1194,10 +1207,7 @@ class _SearchDropdownCard extends StatelessWidget {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: Material(
-        type: MaterialType.transparency,
-        child: child,
-      ),
+      child: Material(type: MaterialType.transparency, child: child),
     );
   }
 }
@@ -1205,7 +1215,7 @@ class _SearchDropdownCard extends StatelessWidget {
 /// The dropdown's result list: an optional muted header (the "Recent" label)
 /// over tappable [_SearchResultRow]s, hairline-separated, scrollable when the
 /// rows exceed the card's bounded height.
-class _SearchResultList extends StatelessWidget {
+class _SearchResultList extends StatefulWidget {
   const _SearchResultList({
     required this.results,
     required this.onTap,
@@ -1220,7 +1230,50 @@ class _SearchResultList extends StatelessWidget {
   /// Fetches + decrypts an entry hit's secret (returns null on failure).
   /// Wired only for entry-type rows; agent/vault rows show neither the
   /// reveal nor the copy action.
-  final Future<String?> Function(SearchResultEntity)? onRevealSecret;
+  final Future<String?> Function(EntrySearchResult)? onRevealSecret;
+
+  @override
+  State<_SearchResultList> createState() => _SearchResultListState();
+}
+
+class _SearchResultListState extends State<_SearchResultList> {
+  Map<String, PublicAsset> _websiteAssets = const {};
+  Set<String> _requestedHostnames = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveWebsiteIcons();
+  }
+
+  @override
+  void didUpdateWidget(_SearchResultList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _resolveWebsiteIcons();
+  }
+
+  void _resolveWebsiteIcons() {
+    final hostnames = widget.results
+        .map((result) => result.icon)
+        .whereType<String>()
+        .where((icon) => icon.startsWith('website:'))
+        .map((icon) => icon.substring('website:'.length))
+        .toSet();
+    if (hostnames.isEmpty ||
+        hostnames.difference(_requestedHostnames).isEmpty) {
+      return;
+    }
+    _requestedHostnames = {..._requestedHostnames, ...hostnames};
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || !getIt.isRegistered<WebsiteIconService>()) return;
+      final resolved = await getIt<WebsiteIconService>().resolveBatch(
+        hostnames,
+      );
+      if (mounted && resolved.isNotEmpty) {
+        setState(() => _websiteAssets = {..._websiteAssets, ...resolved});
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1230,7 +1283,7 @@ class _SearchResultList extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (header != null)
+          if (widget.header != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.cardPadding,
@@ -1240,10 +1293,10 @@ class _SearchResultList extends StatelessWidget {
               ),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: _RecentSuggestionsHeader(label: header!),
+                child: _RecentSuggestionsHeader(label: widget.header!),
               ),
             ),
-          for (int i = 0; i < results.length; i++) ...[
+          for (int i = 0; i < widget.results.length; i++) ...[
             if (i > 0)
               Divider(
                 height: 1,
@@ -1252,12 +1305,15 @@ class _SearchResultList extends StatelessWidget {
                 color: AppColors.onSurface(brightness).withValues(alpha: 0.06),
               ),
             _SearchResultRow(
-              result: results[i],
-              onTap: () => onTap(results[i]),
-              onRevealSecret: results[i].type == SearchResultType.entry &&
-                      onRevealSecret != null
-                  ? () => onRevealSecret!(results[i])
-                  : null,
+              result: widget.results[i],
+              websiteAssets: _websiteAssets,
+              onTap: () => widget.onTap(widget.results[i]),
+              onRevealSecret: switch (widget.results[i]) {
+                final EntrySearchResult entry
+                    when widget.onRevealSecret != null =>
+                  () => widget.onRevealSecret!(entry),
+                _ => null,
+              },
             ),
           ],
         ],
@@ -1293,7 +1349,8 @@ class _DropdownMessage extends StatelessWidget {
           Icon(
             icon,
             size: 16,
-            color: iconColor ??
+            color:
+                iconColor ??
                 AppColors.onSurfaceSubtle(brightness).withValues(alpha: 0.6),
           ),
           const SizedBox(width: AppSpacing.innerGap),
@@ -1351,11 +1408,13 @@ class _SearchResultRow extends StatefulWidget {
   const _SearchResultRow({
     required this.result,
     required this.onTap,
+    required this.websiteAssets,
     this.onRevealSecret,
   });
 
   final SearchResultEntity result;
   final VoidCallback onTap;
+  final Map<String, PublicAsset> websiteAssets;
 
   /// Decrypts + returns the entry's secret (null on failure). Null for
   /// non-entry hits, which get neither reveal nor copy.
@@ -1400,10 +1459,12 @@ class _SearchResultRowState extends State<_SearchResultRow> {
     final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(l10n.entryCopied),
-        duration: const Duration(seconds: 1),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.entryCopied),
+          duration: const Duration(seconds: 1),
+        ),
+      );
   }
 
   Future<void> _onCopy() async {
@@ -1456,9 +1517,10 @@ class _SearchResultRowState extends State<_SearchResultRow> {
     final color = _typeColor(result.type);
     final label = _typeLabel(l10n, result.type);
     final hasActions = widget.onRevealSecret != null;
-    final subtitle = result.type == SearchResultType.entry
-        ? (result.vaultName ?? label)
-        : label;
+    final subtitle = switch (result) {
+      EntrySearchResult(:final vaultName) => vaultName,
+      _ => label,
+    };
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1473,18 +1535,10 @@ class _SearchResultRowState extends State<_SearchResultRow> {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    _typeIcon(result),
-                    size: 16,
-                    color: color,
-                  ),
+                _SearchResultIcon(
+                  result: result,
+                  websiteAssets: widget.websiteAssets,
+                  color: color,
                 ),
                 const SizedBox(width: AppSpacing.innerGap),
                 Expanded(
@@ -1560,23 +1614,77 @@ class _SearchResultRowState extends State<_SearchResultRow> {
   }
 
   static Color _typeColor(SearchResultType type) => switch (type) {
-        SearchResultType.agent => AppColors.vaultBlue,
-        SearchResultType.vault => AppColors.brandRed,
-        SearchResultType.entry => AppColors.positiveAccent,
-      };
+    SearchResultType.agent => AppColors.vaultBlue,
+    SearchResultType.member => AppColors.onboardingStepAmber,
+    SearchResultType.vault => AppColors.brandRed,
+    SearchResultType.entry => AppColors.positiveAccent,
+  };
 
   static String _typeLabel(AppLocalizations l10n, SearchResultType type) =>
       switch (type) {
         SearchResultType.agent => l10n.searchTypeBadgeAgent,
+        SearchResultType.member => l10n.searchTypeBadgeMember,
         SearchResultType.vault => l10n.searchTypeBadgeVault,
         SearchResultType.entry => l10n.searchTypeBadgeEntry,
       };
 
   static IconData _typeIcon(SearchResultEntity result) => switch (result.type) {
-        SearchResultType.agent => Icons.smart_toy,
-        SearchResultType.vault => VaultVisuals.iconFor(result.icon),
-        SearchResultType.entry => EntryVisuals.iconFor(result.icon),
-      };
+    SearchResultType.agent => Icons.smart_toy,
+    SearchResultType.member => Icons.person_outline,
+    SearchResultType.vault => VaultVisuals.iconFor(result.icon),
+    SearchResultType.entry => EntryVisuals.iconFor(result.icon),
+  };
+}
+
+class _SearchResultIcon extends StatelessWidget {
+  const _SearchResultIcon({
+    required this.result,
+    required this.websiteAssets,
+    required this.color,
+  });
+
+  final SearchResultEntity result;
+  final Map<String, PublicAsset> websiteAssets;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final reference = result.icon;
+    Widget fallback() =>
+        Icon(_SearchResultRowState._typeIcon(result), size: 16, color: color);
+    Widget content = fallback();
+    if (reference?.startsWith('public-asset:') ?? false) {
+      content = PublicAssetImage(
+        reference: reference!,
+        width: 32,
+        height: 32,
+        fallback: fallback(),
+      );
+    } else if (reference?.startsWith('website:') ?? false) {
+      final hostname = reference!.substring('website:'.length);
+      final asset = websiteAssets[hostname];
+      if (asset != null) {
+        content = Image.network(
+          asset.deliveryUrl.toString(),
+          width: 32,
+          height: 32,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) => fallback(),
+        );
+      }
+    }
+    return Container(
+      width: 32,
+      height: 32,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: content,
+    );
+  }
 }
 
 /// The expanded reveal panel shown below an entry search row — mirrors the
@@ -1704,4 +1812,3 @@ class _TypeBadge extends StatelessWidget {
     );
   }
 }
-

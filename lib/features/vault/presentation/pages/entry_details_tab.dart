@@ -14,11 +14,13 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
-import '../../data/datasources/entry_remote_datasource.dart';
-import '../../data/services/entry_icon_upload_service.dart';
-import '../../data/services/vault_icon_upload_service.dart'
-    show VaultIconUploadErrorKind, VaultIconUploadException;
+import '../../../public_asset_catalog/domain/services/website_icon_service.dart';
+import '../../../public_asset_catalog/presentation/website_icon_auto_resolver.dart';
+import '../../../public_asset_catalog/presentation/widgets/public_asset_picker_sheet.dart';
+import '../../data/services/canonical_entry_detail_service.dart';
+import '../../data/services/encrypted_presentation_asset_service.dart';
 import '../../domain/entities/custom_field.dart';
+import '../../domain/entities/agent_visibility_policy.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/totp_config.dart';
 import '../../domain/repositories/entry_repository.dart';
@@ -37,16 +39,9 @@ import '../widgets/vault_visuals.dart';
 
 /// The Details tab of the entry detail screen.
 ///
-/// Defaults to a **read-only, quick-access** presentation: each field is a
-/// non-editable row with per-value copy (and, for secrets, a masked value +
-/// reveal toggle) — mirroring the web entry-row quick actions. The payload
-/// is decrypted once on open (the parent wires the reveal into the shared
-/// [EditEntryCubit]); secrets stay masked until the user taps reveal.
-///
-/// Tapping **Edit** swaps in the existing edit form (same cubit-driven flow
-/// that used to be the tab's default). Saving or cancelling returns to the
-/// read-only view with refreshed values. Delete lives in the edit-mode
-/// danger zone, unchanged.
+/// Authenticates and decrypts MemberSecret on entry, then renders a read-only
+/// quick-access view. Editing is an explicit mode; secrets stay masked until
+/// the user reveals an individual field.
 class EntryDetailsTab extends StatefulWidget {
   const EntryDetailsTab({
     super.key,
@@ -77,7 +72,8 @@ class EntryDetailsTab extends StatefulWidget {
   State<EntryDetailsTab> createState() => _EntryDetailsTabState();
 }
 
-class _EntryDetailsTabState extends State<EntryDetailsTab> {
+class _EntryDetailsTabState extends State<EntryDetailsTab>
+    with WidgetsBindingObserver {
   final _labelController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _valueController = TextEditingController();
@@ -90,6 +86,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
   EntryType _type = EntryType.credential;
   ScriptInterpreter _interpreter = ScriptInterpreter.bash;
   String _icon = EntryVisuals.defaultIconName;
+  String? _resolvedWebsiteIcon;
+  int _websiteIconGeneration = 0;
+  late final WebsiteIconAutoResolver _websiteIconResolver;
   String _colorHex = EntryVisuals.defaultColorHex;
   String? _urlError;
   bool _pickingIcon = false;
@@ -97,6 +96,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
   bool _valueObscured = true;
   bool _passwordObscured = true;
   bool _populated = false;
+  AgentVisibilityPolicy? _agentPolicy;
+  String? _agentLabel;
 
   List<CustomField> _customFields = const [];
   bool _customFieldsValid = true;
@@ -114,7 +115,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
   List<EntryEntity>? _vaultEntries;
   bool _loadingEntries = false;
 
-  /// Edit mode toggle — false renders the read-only quick-access view.
+  /// Details opens as a quick-access view. The mutable form is entered only
+  /// through the pinned Edit action.
   bool _editMode = false;
 
   /// Whether the single secret field (password / key value) is unmasked in
@@ -134,12 +136,45 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
   @override
   void initState() {
     super.initState();
+    _websiteIconResolver = WebsiteIconAutoResolver(
+      service: getIt.isRegistered<WebsiteIconService>()
+          ? getIt<WebsiteIconService>()
+          : null,
+      onReference: (reference) {
+        if (mounted && _editMode) {
+          setState(() {
+            _resolvedWebsiteIcon = null;
+            _icon = reference;
+          });
+        }
+      },
+      onResolved: (reference) {
+        if (mounted && _editMode) {
+          setState(() => _resolvedWebsiteIcon = reference);
+        }
+      },
+    );
+    _urlController.addListener(_resolveWebsiteIcon);
+    WidgetsBinding.instance.addObserver(this);
     widget.editController?.bindCancel(_cancelEdit);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.editController?.publishEditing(false);
+      if (context.read<EditEntryCubit>().state is EditEntryInitial) {
+        _requestReveal();
+      }
+    });
     // Resolve reference target names for a Script entry's read-only view.
     if (widget.entry.type == EntryType.script) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _ensureVaultEntriesLoaded(),
       );
+    }
+  }
+
+  void _resolveWebsiteIcon() {
+    if (_editMode && _type != EntryType.script) {
+      _websiteIconResolver.resolve(_urlController.text);
     }
   }
 
@@ -162,14 +197,20 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(l10n.totpCodeCopied),
-        duration: const Duration(seconds: 1),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.totpCodeCopied),
+          duration: const Duration(seconds: 1),
+        ),
+      );
   }
 
   @override
   void dispose() {
+    _websiteIconGeneration++;
+    _websiteIconResolver.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _clearPlaintextState();
     _labelController.dispose();
     _descriptionController.dispose();
     _valueController.dispose();
@@ -181,12 +222,46 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      context.read<EditEntryCubit>().clearSensitiveState();
+      if (mounted) setState(_clearPlaintextState);
+    } else if (mounted) {
+      _requestReveal();
+    }
+  }
+
+  void _clearPlaintextState() {
+    _payload = null;
+    _revealedEntry = null;
+    _populated = false;
+    _secretRevealed = false;
+    _revealedCustom.clear();
+    _valueController.clear();
+    _usernameController.clear();
+    _passwordController.clear();
+    _urlController.clear();
+    _descriptionController.clear();
+    _notesController.clear();
+    _scriptController.clear();
+    _customFields = const [];
+    _totpFields = const [];
+    _refs = const [];
+    _credentialTotp = null;
+    _agentPolicy = null;
+    _agentLabel = null;
+  }
+
   // ── Population / snapshot ──────────────────────────────────────────
 
   void _adoptRevealed(EntryEntity entry, Map<String, dynamic> payload) {
     _populated = true;
     _revealedEntry = entry;
     _payload = payload;
+    final cubit = context.read<EditEntryCubit>();
+    _agentPolicy = cubit.agentVisibilityPolicy(entry.type);
+    _agentLabel = cubit.agentLabel;
     _syncControllersFromSnapshot();
   }
 
@@ -201,13 +276,16 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     _descriptionController.text = entry.description ?? '';
     _type = entry.type;
     _icon = entry.icon ?? EntryVisuals.defaultIconName;
+    _resolvePersistedWebsiteIcon(_icon);
     _urlController.text = (payload['url'] as String?) ?? '';
     _notesController.text = (payload['notes'] as String?) ?? '';
     final allFields = CustomField.listFromPayload(payload);
-    _totpFields =
-        allFields.where((f) => f.type == CustomFieldType.totp).toList();
-    _customFields =
-        allFields.where((f) => f.type != CustomFieldType.totp).toList();
+    _totpFields = allFields
+        .where((f) => f.type == CustomFieldType.totp)
+        .toList();
+    _customFields = allFields
+        .where((f) => f.type != CustomFieldType.totp)
+        .toList();
     _customFieldsValid = true;
     switch (entry.type) {
       case EntryType.key:
@@ -218,10 +296,26 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
         _credentialTotp = payload['totp'] as String?;
       case EntryType.script:
         _scriptController.text = (payload['script'] as String?) ?? '';
-        _interpreter =
-            ScriptInterpreter.fromName(payload['interpreter'] as String?);
+        _interpreter = ScriptInterpreter.fromName(
+          payload['interpreter'] as String?,
+        );
         _refs = ScriptRef.listFromPayload(payload);
     }
+  }
+
+  Future<void> _resolvePersistedWebsiteIcon(String reference) async {
+    final generation = ++_websiteIconGeneration;
+    if (!reference.startsWith('website:') ||
+        !getIt.isRegistered<WebsiteIconService>()) {
+      if (mounted && _resolvedWebsiteIcon != null) {
+        setState(() => _resolvedWebsiteIcon = null);
+      }
+      return;
+    }
+    final hostname = reference.substring('website:'.length);
+    final asset = await getIt<WebsiteIconService>().resolveOne(hostname);
+    if (!mounted || generation != _websiteIconGeneration) return;
+    setState(() => _resolvedWebsiteIcon = asset?.reference);
   }
 
   /// Loads the vault's key/credential entries for a Script entry's
@@ -230,13 +324,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     if (_vaultEntries != null || _loadingEntries) return;
     setState(() => _loadingEntries = true);
     try {
-      final entries =
-          await getIt<EntryRepository>().listEntries(widget.entry.vaultId);
+      final entries = await getIt<EntryRepository>().listEntries(
+        widget.entry.vaultId,
+      );
       if (!mounted) return;
       setState(() {
         _vaultEntries = entries
-            .where((e) =>
-                e.type != EntryType.script && e.id != widget.entry.id)
+            .where((e) => e.type != EntryType.script && e.id != widget.entry.id)
             .toList(growable: false);
       });
     } catch (_) {
@@ -248,7 +342,41 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
 
   // ── Mode transitions ───────────────────────────────────────────────
 
+  Future<void> _requestReveal({
+    bool editAfter = false,
+    EntryEntity? expected,
+  }) async {
+    if (context.read<EditEntryCubit>().state is EditEntryRevealing) return;
+    if (context.read<EditEntryCubit>().state is EditEntryConflict) {
+      setState(_clearPlaintextState);
+    }
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated || auth.privateKey == null) {
+      context.read<EditEntryCubit>().markRevealUnavailable();
+      return;
+    }
+    final keyCopy = Uint8List.fromList(auth.privateKey!);
+    try {
+      await context.read<EditEntryCubit>().revealForEdit(
+        entry: expected ?? widget.entry,
+        privateKey: keyCopy,
+        wrappedVK: widget.wrappedVK,
+      );
+    } finally {
+      keyCopy.fillRange(0, keyCopy.length, 0);
+    }
+    if (!mounted || context.read<EditEntryCubit>().state is! EditEntryReady) {
+      return;
+    }
+    if (editAfter) _enterEditMode();
+  }
+
   void _enterEditMode() {
+    if (!_populated || !context.read<EditEntryCubit>().hasCanonicalSnapshot) {
+      setState(_clearPlaintextState);
+      _requestReveal(editAfter: true);
+      return;
+    }
     setState(() {
       _syncControllersFromSnapshot();
       _urlError = null;
@@ -262,8 +390,10 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
 
   void _cancelEdit() {
     setState(() {
+      _syncControllersFromSnapshot();
       _editMode = false;
       _secretRevealed = false;
+      _revealedCustom.clear();
       _urlError = null;
     });
     widget.editController?.publishEditing(false);
@@ -277,10 +407,12 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(l10n.entryCopiedField(field)),
-        duration: const Duration(seconds: 1),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.entryCopiedField(field)),
+          duration: const Duration(seconds: 1),
+        ),
+      );
   }
 
   // ── Edit-form helpers (unchanged behaviour) ────────────────────────
@@ -288,8 +420,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
   bool _validateUrl() {
     final valid = EntryFormUtils.isValidUrl(_urlController.text);
     setState(
-      () => _urlError =
-          valid ? null : AppLocalizations.of(context)!.entryUrlInvalid,
+      () => _urlError = valid
+          ? null
+          : AppLocalizations.of(context)!.entryUrlInvalid,
     );
     return valid;
   }
@@ -306,18 +439,63 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
       );
 
   Map<String, dynamic> _buildPayload() => EntryFormUtils.buildPayload(
-        type: _type,
-        value: _valueController.text,
-        username: _usernameController.text,
-        password: _passwordController.text,
-        url: _urlController.text,
-        notes: _notesController.text,
-        fields: _allCustomFields,
-        script: _scriptController.text,
-        interpreter: _interpreter,
-        refs: _refs,
-        credentialTotp: _credentialTotp,
+    type: _type,
+    value: _valueController.text,
+    username: _usernameController.text,
+    password: _passwordController.text,
+    url: _type == EntryType.key ? '' : _urlController.text,
+    notes: _notesController.text,
+    fields: _allCustomFields,
+    script: _scriptController.text,
+    interpreter: _interpreter,
+    refs: _refs,
+    credentialTotp: _credentialTotp,
+  );
+
+  bool _isDiscoverable(String fieldId) =>
+      _agentPolicy?.fields[fieldId] == AgentFieldAccess.discovery;
+
+  void _toggleDiscovery(String fieldId) {
+    final policy = _agentPolicy;
+    if (policy == null) return;
+    final enabled = !_isDiscoverable(fieldId);
+    final fields = Map<String, AgentFieldAccess>.from(policy.fields)
+      ..[fieldId] = enabled
+          ? AgentFieldAccess.discovery
+          : AgentFieldAccess.never;
+    if (fieldId == 'agentLabel') {
+      setState(() {
+        _agentPolicy = AgentVisibilityPolicy(
+          discoverable: enabled,
+          fields: fields,
+        );
+        _agentLabel ??= _labelController.text.trim();
+      });
+      return;
+    }
+    setState(() {
+      _agentPolicy = AgentVisibilityPolicy(
+        discoverable: policy.discoverable,
+        fields: fields,
       );
+    });
+  }
+
+  Widget _discoveryButton(String fieldId, AppLocalizations l10n) {
+    final selected = _isDiscoverable(fieldId);
+    return IconButton(
+      key: ValueKey('entry-discovery-$fieldId'),
+      onPressed: _agentPolicy == null ? null : () => _toggleDiscovery(fieldId),
+      tooltip: selected
+          ? l10n.entryFieldAgentVisibleDisableTip
+          : l10n.entryFieldAgentVisibleEnableTip,
+      icon: Icon(
+        Icons.smart_toy_outlined,
+        size: 17,
+        color: selected ? AppColors.vaultBlue : AppColors.textTertiaryMobile,
+      ),
+    );
+  }
 
   Future<String?> _pickIconFile() async {
     if (_pickingIcon || _uploadingIcon) return null;
@@ -341,15 +519,19 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     final result = await IconColorBrowserSheet.show(
       context,
       icons: EntryVisuals.iconChoices
-          .map((c) => (name: c.name, icon: c.icon, paletteColor: c.paletteColor))
+          .map(
+            (c) => (name: c.name, icon: c.icon, paletteColor: c.paletteColor),
+          )
           .toList(),
-      colorOptions:
-          VaultVisuals.colorChoices.map(VaultVisuals.colorFor).toList(),
+      colorOptions: VaultVisuals.colorChoices
+          .map(VaultVisuals.colorFor)
+          .toList(),
       initialIconKey: _icon,
       initialColor: VaultVisuals.colorFor(_colorHex),
       title: l10n.agentIconBrowserTitle,
       confirmLabel: l10n.agentIconChoose,
       onPickCustom: _pickIconFile,
+      onPickPublicAsset: () => PublicAssetPickerSheet.show(context),
     );
     if (!mounted || result == null) return;
     final pickedColor = result.color;
@@ -358,7 +540,11 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
       orElse: () => EntryVisuals.defaultColorHex,
     );
     setState(() {
-      if (result.iconKey != null) _icon = result.iconKey!;
+      if (result.iconKey != null) {
+        _websiteIconResolver.markManualSelection();
+        _resolvedWebsiteIcon = null;
+        _icon = result.iconKey!;
+      }
       _colorHex = matchedHex;
     });
   }
@@ -366,13 +552,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
   /// The entry's real creation timestamp, read from the revealed entity so
   /// it survives an edit.
   DateTime _originalCreatedAt(EditEntryState state) => switch (state) {
-        EditEntryReady(:final entry) => entry.createdAt,
-        EditEntrySuccess(:final entry) => entry.createdAt,
-        _ => _revealedEntry?.createdAt ?? widget.entry.createdAt,
-      };
+    EditEntryReady(:final entry) => entry.createdAt,
+    EditEntrySuccess(:final entry) => entry.createdAt,
+    _ => _revealedEntry?.createdAt ?? widget.entry.createdAt,
+  };
 
   Future<void> _submit() async {
-    if (!_validateUrl()) return;
+    if (_type != EntryType.key && !_validateUrl()) return;
     final payload = _buildPayload();
     if (!EntryFormUtils.isPayloadWithinLimit(payload)) {
       _showSnackBar(AppLocalizations.of(context)!.entryTooLarge);
@@ -385,7 +571,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     }
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
-    final urlDomain = EntryFormUtils.extractDomain(_urlController.text);
     final hasCustomFile = _icon.startsWith('file://');
     final iconForApi = hasCustomFile ? null : _icon;
     final cubit = context.read<EditEntryCubit>();
@@ -398,11 +583,12 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
         icon: iconForApi,
         type: _type,
         payload: payload,
-        urlDomain: urlDomain,
         privateKey: keyCopy,
         wrappedVK: widget.wrappedVK,
         createdAt: _originalCreatedAt(cubit.state),
         agentFields: CustomField.agentFieldsFrom(_allCustomFields),
+        agentVisibilityPolicy: _agentPolicy,
+        agentLabel: _agentLabel,
       );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
@@ -415,39 +601,45 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     var entry = cubitState.entry;
     if (hasCustomFile) {
       setState(() => _uploadingIcon = true);
+      final assetKey = Uint8List.fromList(auth.privateKey!);
       try {
-        final service = EntryIconUploadService(getIt<EntryRemoteDatasource>());
-        final url = await service.uploadIcon(
-          widget.entry.vaultId,
-          entry.id,
-          File(_icon.substring(7)),
+        final reference = await getIt<EncryptedPresentationAssetService>()
+            .uploadFile(
+              target: PresentationAssetTarget.entry,
+              vaultId: widget.entry.vaultId,
+              entryId: entry.id,
+              file: File(_icon.substring(7)),
+              memberPrivateKey: assetKey,
+            );
+        final canonical = getIt<CanonicalEntryDetailService>();
+        final snapshot = await canonical.reveal(
+          expected: entry,
+          memberPrivateKey: assetKey,
         );
-        entry = entry.copyWith(icon: url);
-      } on VaultIconUploadException catch (e) {
-        entry = entry.copyWith(icon: widget.entry.icon);
-        if (mounted) {
-          final l = AppLocalizations.of(context)!;
-          final msg = switch (e.kind) {
-            VaultIconUploadErrorKind.unsupportedFormat =>
-              l.vaultIconUploadFormatError,
-            VaultIconUploadErrorKind.fileTooLarge => l.vaultIconUploadSizeError,
-            _ => l.vaultIconUploadError,
-          };
-          _showSnackBar(msg);
-        }
+        entry = await canonical.update(
+          snapshot: snapshot,
+          expected: entry,
+          label: entry.label,
+          description: _descriptionController.text,
+          icon: reference,
+          type: _type,
+          content: payload,
+          memberPrivateKey: assetKey,
+        );
       } catch (_) {
         entry = entry.copyWith(icon: widget.entry.icon);
         if (mounted) {
           _showSnackBar(AppLocalizations.of(context)!.vaultIconUploadError);
         }
       } finally {
+        assetKey.fillRange(0, assetKey.length, 0);
         if (mounted) setState(() => _uploadingIcon = false);
       }
     }
 
     if (!mounted) return;
-    // Refresh the snapshot from the just-saved values and drop back to the
-    // read-only view — the page keeps this as the pending "updated" result.
+    // Keep the canonical form visible and refresh its optimistic base so a
+    // second save cannot reuse the revision that was just committed.
     setState(() {
       _revealedEntry = entry;
       _payload = _buildPayload();
@@ -457,6 +649,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     });
     widget.editController?.publishEditing(false);
     widget.onUpdated(entry);
+    _showSnackBar(AppLocalizations.of(context)!.entryChangesSaved);
+    await _requestReveal(expected: entry);
   }
 
   Future<void> _confirmDelete() async {
@@ -499,9 +693,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     if (confirmed != true || !mounted) return;
     // ignore: use_build_context_synchronously
     await context.read<EditEntryCubit>().deleteEntry(
-          vaultId: widget.entry.vaultId,
-          entryId: widget.entry.id,
-        );
+      vaultId: widget.entry.vaultId,
+      entryId: widget.entry.id,
+    );
     if (!mounted) return;
     final state = context.read<EditEntryCubit>().state;
     if (state is EditEntryDeleted) {
@@ -522,30 +716,48 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
 
-    return BlocBuilder<EditEntryCubit, EditEntryState>(
-      builder: (context, state) {
-        // Adopt the decrypted payload the first time it is available. Done in
-        // the builder (not a listener) so it also covers the case where the
-        // cubit is already `EditEntryReady` on first build — the cachedPayload
-        // / setReady path — where a BlocListener would never fire. Mutating
-        // `_populated`/controllers here is a safe memoisation: the same build
-        // then renders the populated view, so no extra rebuild is scheduled.
-        if (state is EditEntryReady && !_populated) {
-          _adoptRevealed(state.entry, state.payload);
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthAuthenticated && state.privateKey != null) {
+          _requestReveal();
+          return;
         }
-        if (!_populated &&
-            (state is EditEntryInitial || state is EditEntryRevealing)) {
-          return _RevealLoading(message: l10n.entryRevealingForEdit);
-        }
-        if (!_populated && state is EditEntryError) {
-          return _RevealError(
-            message: EntryFormUtils.errorMessage(l10n, state.kind),
-          );
-        }
-        return _editMode
-            ? _buildEditForm(l10n, brightness, state)
-            : _buildReadOnly(l10n, brightness);
+        if (mounted) setState(_clearPlaintextState);
       },
+      child: BlocBuilder<EditEntryCubit, EditEntryState>(
+        builder: (context, state) {
+          // Adopt the decrypted payload the first time it is available. Done in
+          // the builder (not a listener) so it also covers the case where the
+          // cubit is already `EditEntryReady` on first build — the cachedPayload
+          // / setReady path — where a BlocListener would never fire. Mutating
+          // `_populated`/controllers here is a safe memoisation: the same build
+          // then renders the populated view, so no extra rebuild is scheduled.
+          if (state is EditEntryReady && !_populated) {
+            _adoptRevealed(state.entry, state.payload);
+          }
+          if (!_populated && state is EditEntryRevealing) {
+            return _RevealLoading(message: l10n.entryRevealingForEdit);
+          }
+          if (!_populated && state is EditEntryError) {
+            return _RevealError(
+              message: EntryFormUtils.errorMessage(l10n, state.kind),
+              onRetry: _requestReveal,
+            );
+          }
+          if (state is EditEntryConflict) {
+            return _RevealError(
+              message: l10n.entryErrorConflict,
+              onRetry: () => _requestReveal(editAfter: true),
+            );
+          }
+          if (!_populated) {
+            return _RevealLoading(message: l10n.entryRevealingForEdit);
+          }
+          return _editMode
+              ? _buildEditForm(l10n, brightness, state)
+              : _buildReadOnly(l10n, brightness);
+        },
+      ),
     );
   }
 
@@ -572,82 +784,92 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     }
 
     if (description.isNotEmpty) {
-      addField(_ReadOnlyField(
-        label: l10n.entryDescriptionLabel,
-        row: EntryFieldRow(
-          icon: Icons.notes,
-          value: description,
-          isMasked: false,
-          revealed: true,
-          onToggleReveal: null,
-          onCopy: () => _copy(description, l10n.entryDescriptionLabel),
+      addField(
+        _ReadOnlyField(
+          label: l10n.entryDescriptionLabel,
+          row: EntryFieldRow(
+            icon: Icons.notes,
+            value: description,
+            isMasked: false,
+            revealed: true,
+            onToggleReveal: null,
+            onCopy: () => _copy(description, l10n.entryDescriptionLabel),
+          ),
         ),
-      ));
+      );
     }
 
     if (url.isNotEmpty) {
-      addField(_ReadOnlyField(
-        label: l10n.entryUrlLabel,
-        row: EntryFieldRow(
-          icon: Icons.link,
-          value: url,
-          isMasked: false,
-          revealed: true,
-          onToggleReveal: null,
-          onCopy: () => _copy(url, l10n.entryUrlLabel),
-          extraTrailing: EntrySmallIconButton(
-            icon: Icons.open_in_new,
-            tooltip: l10n.vaultOpenLink,
-            // This surface intentionally keeps its existing copy behavior.
-            onPressed: () => _copy(url, l10n.entryUrlLabel),
+      addField(
+        _ReadOnlyField(
+          label: l10n.entryUrlLabel,
+          row: EntryFieldRow(
+            icon: Icons.link,
+            value: url,
+            isMasked: false,
+            revealed: true,
+            onToggleReveal: null,
+            onCopy: () => _copy(url, l10n.entryUrlLabel),
+            extraTrailing: EntrySmallIconButton(
+              icon: Icons.open_in_new,
+              tooltip: l10n.vaultOpenLink,
+              // This surface intentionally keeps its existing copy behavior.
+              onPressed: () => _copy(url, l10n.entryUrlLabel),
+            ),
           ),
         ),
-      ));
+      );
     }
 
     switch (entry.type) {
       case EntryType.key:
         if (value.isNotEmpty) {
-          addField(_ReadOnlyField(
-            label: l10n.entryValueLabel,
-            row: EntryFieldRow(
-              icon: Icons.vpn_key,
-              value: value,
-              isMasked: true,
-              revealed: _secretRevealed,
-              onToggleReveal: () =>
-                  setState(() => _secretRevealed = !_secretRevealed),
-              onCopy: () => _copy(value, l10n.entryValueLabel),
+          addField(
+            _ReadOnlyField(
+              label: l10n.entryValueLabel,
+              row: EntryFieldRow(
+                icon: Icons.vpn_key,
+                value: value,
+                isMasked: true,
+                revealed: _secretRevealed,
+                onToggleReveal: () =>
+                    setState(() => _secretRevealed = !_secretRevealed),
+                onCopy: () => _copy(value, l10n.entryValueLabel),
+              ),
             ),
-          ));
+          );
         }
       case EntryType.credential:
         if (username.isNotEmpty) {
-          addField(_ReadOnlyField(
-            label: l10n.entryUsernameLabel,
-            row: EntryFieldRow(
-              icon: Icons.person,
-              value: username,
-              isMasked: false,
-              revealed: true,
-              onToggleReveal: null,
-              onCopy: () => _copy(username, l10n.entryUsernameLabel),
+          addField(
+            _ReadOnlyField(
+              label: l10n.entryUsernameLabel,
+              row: EntryFieldRow(
+                icon: Icons.person,
+                value: username,
+                isMasked: false,
+                revealed: true,
+                onToggleReveal: null,
+                onCopy: () => _copy(username, l10n.entryUsernameLabel),
+              ),
             ),
-          ));
+          );
         }
         if (password.isNotEmpty) {
-          addField(_ReadOnlyField(
-            label: l10n.entryPasswordLabel,
-            row: EntryFieldRow(
-              icon: Icons.lock,
-              value: password,
-              isMasked: true,
-              revealed: _secretRevealed,
-              onToggleReveal: () =>
-                  setState(() => _secretRevealed = !_secretRevealed),
-              onCopy: () => _copy(password, l10n.entryPasswordLabel),
+          addField(
+            _ReadOnlyField(
+              label: l10n.entryPasswordLabel,
+              row: EntryFieldRow(
+                icon: Icons.lock,
+                value: password,
+                isMasked: true,
+                revealed: _secretRevealed,
+                onToggleReveal: () =>
+                    setState(() => _secretRevealed = !_secretRevealed),
+                onCopy: () => _copy(password, l10n.entryPasswordLabel),
+              ),
             ),
-          ));
+          );
         }
       case EntryType.script:
         _addScriptFields(addField, payload, l10n, brightness);
@@ -656,71 +878,93 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     _addCustomFields(addField, payload, l10n, brightness);
 
     if (notes.isNotEmpty) {
-      addField(_ReadOnlyField(
-        label: l10n.entryNotesLabel,
-        row: EntryFieldRow(
-          icon: Icons.sticky_note_2_outlined,
-          value: notes,
-          isMasked: false,
-          revealed: true,
-          onToggleReveal: null,
-          onCopy: () => _copy(notes, l10n.entryNotesLabel),
+      addField(
+        _ReadOnlyField(
+          label: l10n.entryNotesLabel,
+          row: EntryFieldRow(
+            icon: Icons.sticky_note_2_outlined,
+            value: notes,
+            isMasked: false,
+            revealed: true,
+            onToggleReveal: null,
+            onCopy: () => _copy(notes, l10n.entryNotesLabel),
+          ),
         ),
-      ));
+      );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.fieldGap,
-        AppSpacing.screenH,
-        AppSpacing.screenBottom,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (fields.isEmpty)
-            _EmptyReadOnly(message: l10n.entryEmpty, brightness: brightness)
-          else
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.cardFill(brightness),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.cardBorder(brightness),
-                  width: 1,
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.cardPadding,
-                vertical: AppSpacing.innerGap,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: fields,
-              ),
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              AppSpacing.fieldGap,
+              AppSpacing.screenH,
+              AppSpacing.section,
             ),
-          if (entry.type == EntryType.script) ...[
-            const SizedBox(height: AppSpacing.section),
-            _ExecOnlyNote(message: l10n.entryScriptExecOnlyNotice),
-          ],
-          const SizedBox(height: AppSpacing.section),
-          EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
-          const SizedBox(height: AppSpacing.section),
-          // Edit as a full-width button below the encrypted fields.
-          PrimaryButton(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (fields.isEmpty)
+                  _EmptyReadOnly(
+                    message: l10n.entryEmpty,
+                    brightness: brightness,
+                  )
+                else
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.cardFill(brightness),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.cardBorder(brightness),
+                        width: 1,
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.cardPadding,
+                      vertical: AppSpacing.innerGap,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: fields,
+                    ),
+                  ),
+                if (entry.type == EntryType.script) ...[
+                  const SizedBox(height: AppSpacing.section),
+                  _ExecOnlyNote(message: l10n.entryScriptExecOnlyNotice),
+                ],
+                const SizedBox(height: AppSpacing.section),
+                _DangerZone(
+                  label: l10n.entryDangerZone,
+                  deleteLabel: l10n.entryDeleteAction,
+                  onDelete: _confirmDelete,
+                  brightness: brightness,
+                ),
+              ],
+            ),
+          ),
+        ),
+        Container(
+          key: const ValueKey('entry-edit-footer'),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            AppSpacing.md,
+            AppSpacing.screenH,
+            AppSpacing.screenBottom,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.cardFill(brightness),
+            border: Border(
+              top: BorderSide(color: AppColors.navBorder(brightness)),
+            ),
+          ),
+          child: PrimaryButton(
             label: l10n.entryEditAction,
             onPressed: _enterEditMode,
           ),
-          const SizedBox(height: AppSpacing.section),
-          _DangerZone(
-            label: l10n.entryDangerZone,
-            deleteLabel: l10n.entryDeleteAction,
-            onDelete: _confirmDelete,
-            brightness: brightness,
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -738,49 +982,55 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     Brightness brightness,
   ) {
     final script = (payload['script'] as String?) ?? '';
-    final interpreter =
-        ScriptInterpreter.fromName(payload['interpreter'] as String?);
+    final interpreter = ScriptInterpreter.fromName(
+      payload['interpreter'] as String?,
+    );
     final refs = ScriptRef.listFromPayload(payload);
 
     if (script.isNotEmpty) {
-      addField(_ReadOnlyField(
-        label: l10n.entryScriptLabel,
-        row: _ScriptBodyView(
-          script: script,
-          revealed: _secretRevealed,
-          brightness: brightness,
-          onToggle: () =>
-              setState(() => _secretRevealed = !_secretRevealed),
-          onCopy: () => _copy(script, l10n.entryScriptLabel),
+      addField(
+        _ReadOnlyField(
+          label: l10n.entryScriptLabel,
+          row: _ScriptBodyView(
+            script: script,
+            revealed: _secretRevealed,
+            brightness: brightness,
+            onToggle: () => setState(() => _secretRevealed = !_secretRevealed),
+            onCopy: () => _copy(script, l10n.entryScriptLabel),
+          ),
         ),
-      ));
+      );
     }
 
-    addField(_ReadOnlyField(
-      label: l10n.entryInterpreterLabel,
-      row: EntryFieldRow(
-        icon: Icons.code,
-        value: interpreter.wireName,
-        isMasked: false,
-        revealed: true,
-        onToggleReveal: null,
-        onCopy: () => _copy(interpreter.wireName, l10n.entryInterpreterLabel),
-      ),
-    ));
-
-    for (final ref in refs) {
-      if (ref.env.isEmpty) continue;
-      addField(_ReadOnlyField(
-        label: ref.env,
+    addField(
+      _ReadOnlyField(
+        label: l10n.entryInterpreterLabel,
         row: EntryFieldRow(
-          icon: Icons.data_object,
-          value: '${_refEntryLabel(ref.entryId)} · ${ref.field}',
+          icon: Icons.code,
+          value: interpreter.wireName,
           isMasked: false,
           revealed: true,
           onToggleReveal: null,
-          onCopy: () => _copy(ref.env, l10n.entryRefEnvLabel),
+          onCopy: () => _copy(interpreter.wireName, l10n.entryInterpreterLabel),
         ),
-      ));
+      ),
+    );
+
+    for (final ref in refs) {
+      if (ref.env.isEmpty) continue;
+      addField(
+        _ReadOnlyField(
+          label: ref.env,
+          row: EntryFieldRow(
+            icon: Icons.data_object,
+            value: '${_refEntryLabel(ref.entryId)} · ${ref.field}',
+            isMasked: false,
+            revealed: true,
+            onToggleReveal: null,
+            onCopy: () => _copy(ref.env, l10n.entryRefEnvLabel),
+          ),
+        ),
+      );
     }
   }
 
@@ -797,46 +1047,50 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
       switch (field.type) {
         case CustomFieldType.text:
         case CustomFieldType.multiline:
-          addField(_ReadOnlyField(
-            label: field.label,
-            row: EntryFieldRow(
-              icon: field.type == CustomFieldType.multiline
-                  ? Icons.notes
-                  : Icons.short_text,
-              value: field.textValue,
-              isMasked: false,
-              revealed: true,
-              onToggleReveal: null,
-              onCopy: () => _copy(field.textValue, field.label),
-              extraTrailing: field.agentVisible
-                  ? _AgentBadge(tip: l10n.entryFieldAgentVisibleTip)
-                  : null,
+          addField(
+            _ReadOnlyField(
+              label: field.label,
+              row: EntryFieldRow(
+                icon: field.type == CustomFieldType.multiline
+                    ? Icons.notes
+                    : Icons.short_text,
+                value: field.textValue,
+                isMasked: false,
+                revealed: true,
+                onToggleReveal: null,
+                onCopy: () => _copy(field.textValue, field.label),
+                multiline: field.type == CustomFieldType.multiline,
+              ),
             ),
-          ));
+          );
         case CustomFieldType.concealed:
-          addField(_ReadOnlyField(
-            label: field.label,
-            row: EntryFieldRow(
-              icon: Icons.lock_outline,
-              value: field.textValue,
-              isMasked: true,
-              revealed: _revealedCustom.contains(field.id),
-              onToggleReveal: () => _toggleCustomReveal(field.id),
-              onCopy: () => _copy(field.textValue, field.label),
+          addField(
+            _ReadOnlyField(
+              label: field.label,
+              row: EntryFieldRow(
+                icon: Icons.lock_outline,
+                value: field.textValue,
+                isMasked: true,
+                revealed: _revealedCustom.contains(field.id),
+                onToggleReveal: () => _toggleCustomReveal(field.id),
+                onCopy: () => _copy(field.textValue, field.label),
+              ),
             ),
-          ));
+          );
         case CustomFieldType.totp:
           final config = field.totp;
           if (config == null) break;
-          addField(_ReadOnlyField(
-            label: field.label,
-            row: _TotpFieldRow(
-              config: config,
-              revealed: _revealedCustom.contains(field.id),
-              onToggle: () => _toggleCustomReveal(field.id),
-              onCopy: _copyTotp,
+          addField(
+            _ReadOnlyField(
+              label: field.label,
+              row: _TotpFieldRow(
+                config: config,
+                revealed: _revealedCustom.contains(field.id),
+                onToggle: () => _toggleCustomReveal(field.id),
+                onCopy: _copyTotp,
+              ),
             ),
-          ));
+          );
         case CustomFieldType.unknown:
           break;
       }
@@ -846,95 +1100,93 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
   // ── Edit form (previous default presentation) ──────────────────────
 
   Widget _urlField(AppLocalizations l10n) => OnboardingTextField(
-        label: l10n.entryUrlLabel,
-        controller: _urlController,
-        textInputAction: TextInputAction.next,
-        borderColor: _urlError != null ? AppColors.brandRed : null,
-        focusBorderColor: _urlError != null ? AppColors.brandRed : null,
-        onChanged: (_) => _validateUrl(),
-        feedbackChild: Text(
-          _urlError ?? '',
-          style: const TextStyle(color: AppColors.brandRed, fontSize: 11),
-        ),
-        feedbackVisible: _urlError != null,
-        feedbackReserveSpace: false,
-      );
+    label: l10n.entryUrlLabel,
+    controller: _urlController,
+    textInputAction: TextInputAction.next,
+    borderColor: _urlError != null ? AppColors.brandRed : null,
+    focusBorderColor: _urlError != null ? AppColors.brandRed : null,
+    onChanged: (_) => _validateUrl(),
+    feedbackChild: Text(
+      _urlError ?? '',
+      style: const TextStyle(color: AppColors.brandRed, fontSize: 11),
+    ),
+    feedbackVisible: _urlError != null,
+    feedbackReserveSpace: false,
+    suffixIcon: _discoveryButton('urlDomain', l10n),
+  );
 
   /// Type-specific edit fields for the currently-selected [_type].
   List<Widget> _typeFields(AppLocalizations l10n) {
     return switch (_type) {
       EntryType.key => [
-          OnboardingTextField(
-            label: l10n.entryValueLabel,
-            controller: _valueController,
-            obscureText: _valueObscured,
-            textInputAction: TextInputAction.next,
-            onChanged: (_) => setState(() {}),
-            suffixIcon: EntryObscureToggle(
-              obscured: _valueObscured,
-              onPressed: () =>
-                  setState(() => _valueObscured = !_valueObscured),
-            ),
+        OnboardingTextField(
+          label: l10n.entryValueLabel,
+          controller: _valueController,
+          obscureText: _valueObscured,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _valueObscured,
+            onPressed: () => setState(() => _valueObscured = !_valueObscured),
           ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          _urlField(l10n),
-        ],
+        ),
+      ],
       EntryType.credential => [
-          OnboardingTextField(
-            label: l10n.entryUsernameLabel,
-            controller: _usernameController,
-            textInputAction: TextInputAction.next,
-            onChanged: (_) => setState(() {}),
+        OnboardingTextField(
+          label: l10n.entryUsernameLabel,
+          controller: _usernameController,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+          suffixIcon: _discoveryButton('username', l10n),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryPasswordLabel,
+          controller: _passwordController,
+          obscureText: _passwordObscured,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _passwordObscured,
+            onPressed: () =>
+                setState(() => _passwordObscured = !_passwordObscured),
           ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          OnboardingTextField(
-            label: l10n.entryPasswordLabel,
-            controller: _passwordController,
-            obscureText: _passwordObscured,
-            textInputAction: TextInputAction.next,
-            onChanged: (_) => setState(() {}),
-            suffixIcon: EntryObscureToggle(
-              obscured: _passwordObscured,
-              onPressed: () =>
-                  setState(() => _passwordObscured = !_passwordObscured),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          _urlField(l10n),
-        ],
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        _urlField(l10n),
+      ],
       EntryType.script => [
-          ScriptEditorField(
-            controller: _scriptController,
-            interpreter: _interpreter,
-            onInterpreterChanged: (next) =>
-                setState(() => _interpreter = next),
-            onChanged: () => setState(() {}),
-          ),
-          const SizedBox(height: AppSpacing.section),
-          EntrySectionHeader(label: l10n.entryInjectedDataLabel),
-          const SizedBox(height: AppSpacing.innerGap),
-          if (_loadingEntries && _vaultEntries == null)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.brandRed,
-                  ),
+        ScriptEditorField(
+          controller: _scriptController,
+          interpreter: _interpreter,
+          onInterpreterChanged: (next) => setState(() => _interpreter = next),
+          onChanged: () => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.section),
+        EntrySectionHeader(label: l10n.entryInjectedDataLabel),
+        const SizedBox(height: AppSpacing.innerGap),
+        if (_loadingEntries && _vaultEntries == null)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.brandRed,
                 ),
               ),
-            )
-          else
-            ScriptRefsEditor(
-              vaultId: widget.entry.vaultId,
-              entries: _vaultEntries ?? const [],
-              initial: _refs,
-              onChanged: (refs) => setState(() => _refs = refs),
             ),
-        ],
+          )
+        else
+          ScriptRefsEditor(
+            vaultId: widget.entry.vaultId,
+            entries: _vaultEntries ?? const [],
+            initial: _refs,
+            onChanged: (refs) => setState(() => _refs = refs),
+          ),
+      ],
     };
   }
 
@@ -948,112 +1200,131 @@ class _EntryDetailsTabState extends State<EntryDetailsTab> {
     final isBusy = isLoading || _pickingIcon;
     final canSubmit = !isBusy && _canSubmit;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.fieldGap,
-        AppSpacing.screenH,
-        AppSpacing.screenBottom,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          EntryTypeDropdown(
-            value: _type,
-            onChanged: (next) {
-              if (next == null || next == _type) return;
-              setState(() {
-                _type = next;
-                if (!EntryVisuals.isCustomUrl(_icon)) {
-                  _icon = EntryVisuals.defaultIconForType(next);
-                }
-              });
-              if (next == EntryType.script) _ensureVaultEntriesLoaded();
-            },
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          EntryFieldCaption(
-            label: l10n.entryLabelLabel,
-            agentVisibleHint: true,
-          ),
-          const SizedBox(height: AppSpacing.innerGap),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              EntryIconTile(
-                icon: _icon,
-                accentColor: accentColor,
-                onTap: _openEntryBrowser,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: OnboardingTextField(
-                  hintText: l10n.entryLabelHint,
-                  controller: _labelController,
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              AppSpacing.fieldGap,
+              AppSpacing.screenH,
+              AppSpacing.section,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                EntryTypeDropdown(
+                  value: _type,
+                  onChanged: (next) {
+                    if (next == null || next == _type) return;
+                    setState(() {
+                      _type = next;
+                      if (!EntryVisuals.isCustomUrl(_icon)) {
+                        _resolvedWebsiteIcon = null;
+                        _icon = EntryVisuals.defaultIconForType(next);
+                      }
+                    });
+                    if (next == EntryType.script) _ensureVaultEntriesLoaded();
+                  },
+                ),
+                const SizedBox(height: AppSpacing.fieldGap),
+                EntryFieldCaption(label: l10n.entryLabelLabel),
+                const SizedBox(height: AppSpacing.innerGap),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    EntryIconTile(
+                      icon: _resolvedWebsiteIcon ?? _icon,
+                      accentColor: accentColor,
+                      onTap: _openEntryBrowser,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: OnboardingTextField(
+                        hintText: l10n.entryLabelHint,
+                        controller: _labelController,
+                        textCapitalization: TextCapitalization.sentences,
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) => setState(() {}),
+                        suffixIcon: _discoveryButton('agentLabel', l10n),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.fieldGap),
+                EntryFieldCaption(label: l10n.entryDescriptionLabel),
+                const SizedBox(height: AppSpacing.innerGap),
+                OnboardingTextField(
+                  controller: _descriptionController,
                   textCapitalization: TextCapitalization.sentences,
                   textInputAction: TextInputAction.next,
-                  onChanged: (_) => setState(() {}),
+                  suffixIcon: _discoveryButton('description', l10n),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          EntryFieldCaption(
-            label: l10n.entryDescriptionLabel,
-            agentVisibleHint: true,
-          ),
-          const SizedBox(height: AppSpacing.innerGap),
-          OnboardingTextField(
-            controller: _descriptionController,
-            textCapitalization: TextCapitalization.sentences,
-            textInputAction: TextInputAction.next,
-          ),
-          const SizedBox(height: AppSpacing.fieldGap),
-          ..._typeFields(l10n),
-          const SizedBox(height: AppSpacing.section),
-          if (_type != EntryType.script) ...[
-            TotpSection(
-              initial: _totpFields,
-              onChanged: (fields) => setState(() => _totpFields = fields),
+                const SizedBox(height: AppSpacing.fieldGap),
+                ..._typeFields(l10n),
+                const SizedBox(height: AppSpacing.section),
+                if (_type != EntryType.script) ...[
+                  TotpSection(
+                    initial: _totpFields,
+                    onChanged: (fields) => setState(() => _totpFields = fields),
+                  ),
+                  const SizedBox(height: AppSpacing.section),
+                ],
+                CustomFieldsEditor(
+                  initial: _customFields,
+                  onChanged: (fields, valid) => setState(() {
+                    _customFields = fields;
+                    _customFieldsValid = valid;
+                  }),
+                ),
+                const SizedBox(height: AppSpacing.section),
+                EntryNotesSection(
+                  controller: _notesController,
+                  initiallyVisible: _notesController.text.trim().isNotEmpty,
+                ),
+                if (state is EditEntryError) ...[
+                  const SizedBox(height: AppSpacing.fieldGap),
+                  Text(
+                    EntryFormUtils.errorMessage(l10n, state.kind),
+                    style: const TextStyle(
+                      color: AppColors.brandRed,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.section),
+                _DangerZone(
+                  label: l10n.entryDangerZone,
+                  deleteLabel: isLoading
+                      ? l10n.entryDeleting
+                      : l10n.entryDeleteAction,
+                  onDelete: isBusy ? null : _confirmDelete,
+                  brightness: brightness,
+                ),
+              ],
             ),
-            const SizedBox(height: AppSpacing.section),
-          ],
-          CustomFieldsEditor(
-            initial: _customFields,
-            onChanged: (fields, valid) => setState(() {
-              _customFields = fields;
-              _customFieldsValid = valid;
-            }),
           ),
-          const SizedBox(height: AppSpacing.section),
-          EntryNotesSection(
-            controller: _notesController,
-            initiallyVisible: _notesController.text.trim().isNotEmpty,
+        ),
+        Container(
+          key: const ValueKey('entry-save-footer'),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            AppSpacing.md,
+            AppSpacing.screenH,
+            AppSpacing.screenBottom,
           ),
-          const SizedBox(height: AppSpacing.section),
-          EntryEncryptionNotice(message: l10n.entryEncryptionNotice),
-          if (state is EditEntryError) ...[
-            const SizedBox(height: AppSpacing.fieldGap),
-            Text(
-              EntryFormUtils.errorMessage(l10n, state.kind),
-              style: const TextStyle(color: AppColors.brandRed, fontSize: 12),
+          decoration: BoxDecoration(
+            color: AppColors.cardFill(brightness),
+            border: Border(
+              top: BorderSide(color: AppColors.navBorder(brightness)),
             ),
-          ],
-          const SizedBox(height: AppSpacing.section),
-          EntrySaveButton(
+          ),
+          child: EntrySaveButton(
             isLoading: isLoading,
             onPressed: canSubmit ? _submit : null,
           ),
-          const SizedBox(height: AppSpacing.section),
-          _DangerZone(
-            label: l10n.entryDangerZone,
-            deleteLabel:
-                isLoading ? l10n.entryDeleting : l10n.entryDeleteAction,
-            onDelete: isBusy ? null : _confirmDelete,
-            brightness: brightness,
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -1126,26 +1397,6 @@ class _EmptyReadOnly extends StatelessWidget {
             fontSize: 13,
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Small "visible to agents" indicator shown next to a field's value in
-/// the read-only view (CVT-204).
-class _AgentBadge extends StatelessWidget {
-  const _AgentBadge({required this.tip});
-
-  final String tip;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tip,
-      child: const Icon(
-        Icons.smart_toy_outlined,
-        size: 13,
-        color: AppColors.vaultBlue,
       ),
     );
   }
@@ -1292,7 +1543,9 @@ class _TotpFieldRow extends StatelessWidget {
     if (revealed) {
       return Row(
         children: [
-          Expanded(child: TotpDisplay(config: config, onCopy: onCopy)),
+          Expanded(
+            child: TotpDisplay(config: config, onCopy: onCopy),
+          ),
           const SizedBox(width: AppSpacing.xs),
           EntrySmallIconButton(
             icon: Icons.visibility_off,
@@ -1365,23 +1618,35 @@ class _RevealLoading extends StatelessWidget {
 }
 
 class _RevealError extends StatelessWidget {
-  const _RevealError({required this.message});
+  const _RevealError({required this.message, required this.onRetry});
 
   final String message;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: AppColors.brandRed,
-            fontSize: 14,
-            height: 1.4,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.brandRed,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.section),
+            IconButton(
+              onPressed: onRetry,
+              color: AppColors.brandRed,
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
         ),
       ),
     );
@@ -1451,8 +1716,9 @@ class _DangerZone extends StatelessWidget {
               onPressed: onDelete,
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.brandRed,
-                disabledForegroundColor:
-                    AppColors.brandRed.withValues(alpha: 0.4),
+                disabledForegroundColor: AppColors.brandRed.withValues(
+                  alpha: 0.4,
+                ),
                 side: BorderSide(
                   color: onDelete != null
                       ? AppColors.brandRed.withValues(alpha: 0.5)

@@ -255,7 +255,9 @@ class ImportCsvParser {
       final entry = ImportNormalizer.build(
         name: profile.nameKey != null ? map[profile.nameKey!] : null,
         username: username,
-        password: profile.passwordKey != null ? map[profile.passwordKey!] : null,
+        password: profile.passwordKey != null
+            ? map[profile.passwordKey!]
+            : null,
         url: profile.urlKey != null ? map[profile.urlKey!] : null,
         notes: notes,
         rawTotp: profile.totpKey != null ? map[profile.totpKey!] : null,
@@ -309,7 +311,10 @@ class ImportCsvParser {
     return index;
   }
 
-  static Map<String, String> _rowMap(Map<String, int> headerIndex, List<String> row) {
+  static Map<String, String> _rowMap(
+    Map<String, int> headerIndex,
+    List<String> row,
+  ) {
     final map = <String, String>{};
     headerIndex.forEach((key, i) {
       if (i < row.length) map[key] = row[i];

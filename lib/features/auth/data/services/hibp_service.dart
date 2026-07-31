@@ -20,18 +20,19 @@ import '../../../../core/utils/app_logger.dart';
 /// registration on it. The password and its full hash are never logged.
 class HibpService {
   HibpService({Dio? dio})
-      : _dio = dio ??
-            Dio(
-              BaseOptions(
-                baseUrl: _baseUrl,
-                connectTimeout: const Duration(seconds: 6),
-                receiveTimeout: const Duration(seconds: 6),
-                // Opt into HIBP's padding so response sizes don't leak the
-                // prefix's hit count to a network observer.
-                headers: const {'Add-Padding': 'true'},
-                responseType: ResponseType.plain,
-              ),
-            );
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              baseUrl: _baseUrl,
+              connectTimeout: const Duration(seconds: 6),
+              receiveTimeout: const Duration(seconds: 6),
+              // Opt into HIBP's padding so response sizes don't leak the
+              // prefix's hit count to a network observer.
+              headers: const {'Add-Padding': 'true'},
+              responseType: ResponseType.plain,
+            ),
+          );
 
   final Dio _dio;
 

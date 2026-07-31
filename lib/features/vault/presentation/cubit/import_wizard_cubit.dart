@@ -7,6 +7,7 @@ import '../../../../core/utils/app_logger.dart';
 import '../../../grants/domain/entities/grant.dart';
 import '../../../grants/domain/exceptions/grants_exceptions.dart';
 import '../../../grants/domain/repositories/grants_repository.dart';
+import '../../../public_asset_catalog/domain/services/public_hostname.dart';
 import '../../data/import/import_engine.dart';
 import '../../data/import/import_models.dart';
 import '../../domain/entities/entry_entity.dart';
@@ -34,13 +35,11 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     required this.grantsRepository,
     required this.vaultId,
     AnalyticsService? analytics,
-  })  : _analytics = analytics ?? AnalyticsService.instance,
-        super(const ImportWizardInitial());
+  }) : super(const ImportWizardInitial());
 
   final EntryRepository repository;
   final GrantsRepository grantsRepository;
   final String vaultId;
-  final AnalyticsService _analytics;
 
   /// Backend field-length limits (import batch is atomic — one over-length
   /// field 400s the whole batch), so clamp defensively client-side.
@@ -55,22 +54,27 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
   /// Existing entries keyed by trimmed, lower-cased label — the conflict
   /// index rebuilt on each parse.
   Map<String, EntryEntity> _existingByLabel = const {};
+  int _sessionEpoch = 0;
 
   /// Parses [bytes] (with an optional [fileName] hint), loads the vault's
   /// current entries, and moves to the preview or manual-mapping step.
   Future<void> parseBytes(Uint8List bytes, {String? fileName}) async {
+    final epoch = _sessionEpoch;
     emit(const ImportWizardParsing());
     try {
       // The backend requires per-entry re-wrap material for every active
       // FULL grant on the vault. The mobile create/import flow can't produce
       // it, so block up-front rather than fail the atomic batch server-side.
       if (await _hasActiveFullGrants()) {
+        if (!_isCurrent(epoch)) return;
         _trackFailed('full-grants-blocked');
         emit(const ImportWizardFailure(ImportFailureReason.fullGrantsBlocked));
         return;
       }
       await _loadExistingEntries();
+      if (!_isCurrent(epoch)) return;
       final outcome = ImportEngine.parse(bytes, fileName: fileName);
+      if (!_isCurrent(epoch)) return;
       switch (outcome) {
         case ImportParsed(:final result):
           _emitPreview(result);
@@ -82,21 +86,29 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
           emit(ImportWizardFailure(_mapUnsupported(reason)));
       }
     } on GrantsException catch (e) {
+      if (!_isCurrent(epoch)) return;
       // Grant lookup runs before we touch the file, so a wire failure here
       // must not be reported as an unrecognised file.
       _trackFailed(e.kind.name);
-      emit(ImportWizardFailure(
-        e.kind == GrantsErrorKind.networkError
-            ? ImportFailureReason.network
-            : ImportFailureReason.unknown,
-      ));
+      emit(
+        ImportWizardFailure(
+          e.kind == GrantsErrorKind.networkError
+              ? ImportFailureReason.network
+              : ImportFailureReason.unknown,
+        ),
+      );
     } on EntryException catch (e) {
+      if (!_isCurrent(epoch)) return;
       _trackFailed(e.kind.name);
+      _clearPlaintextCaches();
       emit(ImportWizardFailure(_mapEntryError(e.kind)));
-    } catch (e, s) {
-      AppLogger.e('Import', 'parse failed', error: e, stackTrace: s);
+    } catch (_) {
+      if (!_isCurrent(epoch)) return;
+      AppLogger.e('Import', 'Import parse failed');
       _trackFailed('parse-error');
       emit(const ImportWizardFailure(ImportFailureReason.unrecognisedFile));
+    } finally {
+      bytes.fillRange(0, bytes.length, 0);
     }
   }
 
@@ -105,6 +117,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     final table = _pendingTable;
     if (table == null) return;
     final result = ImportEngine.parseWithMapping(table, mapping);
+    _pendingTable = null;
     _emitPreview(result);
   }
 
@@ -133,6 +146,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     required String untitledLabel,
     String? wrappedVK,
   }) async {
+    final epoch = _sessionEpoch;
     final current = state;
     if (current is! ImportWizardPreview) return;
     if (privateKey.isEmpty) {
@@ -146,7 +160,6 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     // Two source rows can collide with the same existing entry — only the
     // first may overwrite it, or the batch issues two PUTs to one entryId.
     final overwrittenIds = <String>{};
-
     for (final item in current.items) {
       if (!item.effectiveIncluded(current.conflictStrategy)) continue;
       final parsed = item.parsed;
@@ -154,33 +167,41 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       if (item.hasConflict &&
           current.conflictStrategy == ImportConflictStrategy.overwrite) {
         if (!overwrittenIds.add(item.conflict!.id)) continue;
-        overwrites.add(ImportEntryOverwrite(
-          entryId: item.conflict!.id,
-          label: _clamp(baseName, _maxLabel),
-          description: _clampOrNull(parsed.folder, _maxDescription),
-          type: EntryType.credential,
-          payload: parsed.toPayload(),
-          urlDomain: _clampOrNull(parsed.urlDomain, _maxUrlDomain),
-          createdAt: item.conflict!.createdAt,
-        ));
+        overwrites.add(
+          ImportEntryOverwrite(
+            entryId: item.conflict!.id,
+            label: _clamp(baseName, _maxLabel),
+            description: _clampOrNull(parsed.folder, _maxDescription),
+            type: EntryType.credential,
+            payload: parsed.toPayload(),
+            urlDomain: _clampOrNull(parsed.urlDomain, _maxUrlDomain),
+            createdAt: item.conflict!.createdAt,
+            icon: _iconReference(parsed.urlDomain),
+          ),
+        );
       } else {
         // Under the rename strategy, dedup both against the vault's existing
         // labels and against earlier rows in this same batch (two identical
         // names in the source file would otherwise collide).
-        final collidesInBatch =
-            existingLabels.contains(baseName.trim().toLowerCase());
-        final label = current.conflictStrategy == ImportConflictStrategy.rename &&
+        final collidesInBatch = existingLabels.contains(
+          baseName.trim().toLowerCase(),
+        );
+        final label =
+            current.conflictStrategy == ImportConflictStrategy.rename &&
                 (item.hasConflict || collidesInBatch)
             ? _uniqueLabel(baseName, existingLabels)
             : baseName;
         existingLabels.add(label.trim().toLowerCase());
-        creates.add(ImportEntryDraft(
-          label: _clamp(label, _maxLabel),
-          description: _clampOrNull(parsed.folder, _maxDescription),
-          type: EntryType.credential,
-          payload: parsed.toPayload(),
-          urlDomain: _clampOrNull(parsed.urlDomain, _maxUrlDomain),
-        ));
+        creates.add(
+          ImportEntryDraft(
+            label: _clamp(label, _maxLabel),
+            description: _clampOrNull(parsed.folder, _maxDescription),
+            type: EntryType.credential,
+            payload: parsed.toPayload(),
+            urlDomain: _clampOrNull(parsed.urlDomain, _maxUrlDomain),
+            icon: _iconReference(parsed.urlDomain),
+          ),
+        );
       }
     }
 
@@ -199,26 +220,38 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
         overwrites: overwrites,
         privateKey: privateKey,
         wrappedVK: wrappedVK,
-        onProgress: (done, t) => emit(ImportWizardImporting(done: done, total: t)),
+        onProgress: (done, t) {
+          if (_isCurrent(epoch)) {
+            emit(ImportWizardImporting(done: done, total: t));
+          }
+        },
       );
-      _analytics.capture('vault', 'import-wizard-completed', properties: {
-        'count': result.total,
-        'format': current.format.id,
-        'skipped': current.skippedCount,
-      });
-      emit(ImportWizardSuccess(
-        createdCount: result.createdCount,
-        updatedCount: result.updatedCount,
-        skippedCount: current.skippedCount,
-      ));
+      if (!_isCurrent(epoch)) return;
+      _clearPlaintextCaches();
+      emit(
+        ImportWizardSuccess(
+          createdCount: result.createdCount,
+          updatedCount: result.updatedCount,
+          skippedCount: current.skippedCount,
+        ),
+      );
     } on EntryException catch (e) {
+      if (!_isCurrent(epoch)) return;
       _trackFailed(e.kind.name);
+      _clearPlaintextCaches();
       emit(ImportWizardFailure(_mapEntryError(e.kind)));
-    } catch (e, s) {
-      AppLogger.e('Import', 'import commit failed', error: e, stackTrace: s);
+    } catch (_) {
+      if (!_isCurrent(epoch)) return;
+      AppLogger.e('Import', 'Import commit failed');
       _trackFailed('commit-error');
+      _clearPlaintextCaches();
       emit(const ImportWizardFailure(ImportFailureReason.unknown));
     }
+  }
+
+  static String? _iconReference(String? domain) {
+    final normalized = PublicHostname.normalize(domain);
+    return normalized == null ? null : 'website:$normalized';
   }
 
   /// Pages through the vault's active grants looking for any FULL-scope
@@ -269,12 +302,14 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
           conflict: _existingByLabel[parsed.name?.trim().toLowerCase()],
         ),
     ];
-    emit(ImportWizardPreview(
-      format: result.format,
-      items: items,
-      skippedCount: result.skippedCount,
-      conflictStrategy: ImportConflictStrategy.rename,
-    ));
+    emit(
+      ImportWizardPreview(
+        format: result.format,
+        items: items,
+        skippedCount: result.skippedCount,
+        conflictStrategy: ImportConflictStrategy.rename,
+      ),
+    );
   }
 
   String _uniqueLabel(String base, Set<String> takenLower) {
@@ -291,12 +326,29 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
   }
 
   void _trackFailed(String reason) {
-    _analytics.capture('vault', 'import-failed', properties: {
-      'format': state is ImportWizardPreview
-          ? (state as ImportWizardPreview).format.id
-          : 'unknown',
-      'reason': reason,
-    });
+    // Import business events are recorded by the backend after commit. Mobile
+    // intentionally emits no duplicate analytics and never serializes source
+    // format or parser details from a plaintext import session.
+  }
+
+  void clearSensitiveState() {
+    _sessionEpoch++;
+    _clearPlaintextCaches();
+    if (!isClosed) emit(const ImportWizardInitial());
+  }
+
+  void _clearPlaintextCaches() {
+    _pendingTable = null;
+    _existingByLabel = const {};
+  }
+
+  bool _isCurrent(int epoch) => !isClosed && epoch == _sessionEpoch;
+
+  @override
+  Future<void> close() {
+    _sessionEpoch++;
+    _clearPlaintextCaches();
+    return super.close();
   }
 
   ImportFailureReason _mapUnsupported(ImportUnsupportedReason reason) =>
@@ -308,8 +360,8 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       };
 
   ImportFailureReason _mapEntryError(EntryErrorKind kind) => switch (kind) {
-        EntryErrorKind.networkError => ImportFailureReason.network,
-        EntryErrorKind.cryptoFailure => ImportFailureReason.crypto,
-        _ => ImportFailureReason.unknown,
-      };
+    EntryErrorKind.networkError => ImportFailureReason.network,
+    EntryErrorKind.cryptoFailure => ImportFailureReason.crypto,
+    _ => ImportFailureReason.unknown,
+  };
 }

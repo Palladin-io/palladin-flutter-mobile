@@ -237,6 +237,16 @@ These patterns are duplicated and have **no** shared widget yet. Extract to `lib
 - **Top-level tabs**: `AppScreen.titled(...)` (in-body `ListScreenHeader`, inherently left-aligned).
 - Decorative/context icons (e.g. the red upload glyph on the Import wizard) go on the **right** as `actions:` (padded `AppSpacing.screenH` from the edge) — never above/inside the body header.
 
+### Form action footers — ALWAYS pinned
+
+Create and edit forms use the same pinned action-footer pattern. The form fields scroll independently in an `Expanded` scroll view; the primary Save/Create action stays in a separate footer at the bottom of the screen.
+
+- The footer must span the full available width and remain visible while the form scrolls or the keyboard changes the viewport.
+- Use `AppSpacing.screenH` horizontally, `AppSpacing.md` above the action, and `AppSpacing.screenBottom` below it so the action clears the device safe area.
+- Use `AppColors.cardFill(brightness)` with a top border in `AppColors.navBorder(brightness)`.
+- Reuse the same feature action widget (for Entry forms: `EntrySaveButton`) in both create and update flows. Do not place a second Save/Create button inside the scrollable form body.
+- Create and update screens for the same resource must have visually and structurally identical footers unless a product requirement explicitly says otherwise.
+
 ### Reuse rules
 
 1. **Colors** — only `AppColors.*` (`lib/core/theme/app_colors.dart`). Never `Color(0x..)`, `Colors.white`, or a hex literal anywhere outside that file.
@@ -392,6 +402,19 @@ mb:{module}:{event}
 ```
 
 Mobile tracks **UI-only** events — page views, biometric usage, push taps. Business logic events are tracked by backend.
+
+## Bounded Pull Request Review
+
+Official Codex review is a bounded release gate, not an iterative design loop.
+
+- Request the first official review only after the scoped implementation is complete, local validation passes, and CI is green.
+- Batch all accepted findings into one remediation pass; do not run a separate review after each comment or commit.
+- Run at most two standard official review rounds. A third round is allowed only to verify a concrete P0/P1 fix involving security, authorization, data integrity, atomicity, or material performance. Any further round requires explicit product-owner approval.
+- Treat review comments critically. Before changing code, identify the reproducible production scenario, verify that the current code permits it, and confirm that the fix belongs to the issue's acceptance criteria.
+- P0/P1 findings in scope are blocking. Fix a P2 only when it is real, in scope, and small; otherwise document it or create a follow-up. Do not expand the PR for P3/style feedback, speculative edge cases, or unrelated architecture work.
+- A review comment does not expand Linear scope by itself. If remediation would introduce a subsystem, broad abstraction, or substantial diff growth, stop and move it to a follow-up unless it closes a confirmed P0/P1.
+- Inspect CI status first. Fetch logs only for failed checks, and then only the failing step and necessary surrounding context.
+- Stop the review loop when CI is green, no unresolved in-scope P0/P1 remains, and lower-severity findings are either addressed or explicitly dispositioned.
 
 ## Maintaining this file
 

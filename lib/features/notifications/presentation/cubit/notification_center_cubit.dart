@@ -4,6 +4,8 @@ import '../../../../core/utils/app_logger.dart';
 import '../../domain/entities/inbox_notification.dart';
 import '../../domain/exceptions/notification_center_exceptions.dart';
 import '../../domain/repositories/notification_center_repository.dart';
+import '../../data/services/notification_presentation_resolver.dart';
+import '../../../vault/domain/entities/vault_entity.dart';
 
 enum NotificationCenterStatus { initial, loading, loaded, error }
 
@@ -54,10 +56,64 @@ class NotificationCenterState {
 }
 
 class NotificationCenterCubit extends Cubit<NotificationCenterState> {
-  NotificationCenterCubit({required this.repository})
+  NotificationCenterCubit({required this.repository, this.resolver})
     : super(const NotificationCenterState());
 
   final NotificationCenterRepository repository;
+  final NotificationPresentationResolver? resolver;
+  String? _activeAccountId;
+  String? _activeOrganizationId;
+  List<VaultEntity> _activeVaults = const [];
+
+  void configureUnlockedResolution({
+    required String activeAccountId,
+    required String activeOrganizationId,
+    required List<VaultEntity> activeVaults,
+  }) {
+    _activeAccountId = activeAccountId;
+    _activeOrganizationId = activeOrganizationId;
+    _activeVaults = List.unmodifiable(activeVaults);
+  }
+
+  Future<void> resolveAfterUnlock({
+    required String activeAccountId,
+    required String activeOrganizationId,
+    required List<VaultEntity> activeVaults,
+  }) async {
+    configureUnlockedResolution(
+      activeAccountId: activeAccountId,
+      activeOrganizationId: activeOrganizationId,
+      activeVaults: activeVaults,
+    );
+    final source = state.items;
+    final resolved = await _resolve(source);
+    if (identical(source, state.items)) emit(state.copyWith(items: resolved));
+  }
+
+  Future<List<InboxNotification>> _resolve(List<InboxNotification> items) {
+    final presentationResolver = resolver;
+    final accountId = _activeAccountId;
+    final organizationId = _activeOrganizationId;
+    if (presentationResolver == null) {
+      return Future.value(items);
+    }
+    if (accountId == null || organizationId == null) {
+      return presentationResolver.resolve(
+        items: items,
+        unlocked: false,
+        activeAccountId: '',
+        activeOrganizationId: '',
+        activeVaults: const [],
+      );
+    }
+    return presentationResolver.resolve(
+      items: items,
+      unlocked: true,
+      activeAccountId: accountId,
+      activeOrganizationId: organizationId,
+      activeVaults: _activeVaults,
+    );
+  }
 
   /// Ids already marked read via [markReadOnView] — prevents the optimistic
   /// mark from re-firing every time a tile rebuilds (which would loop on a
@@ -68,6 +124,9 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   /// Clears user-specific notification titles and metadata on logout.
   void reset() {
     _markingOnView.clear();
+    _activeAccountId = null;
+    _activeOrganizationId = null;
+    _activeVaults = const [];
     emit(const NotificationCenterState());
   }
 
@@ -102,10 +161,11 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       ]);
       final page = results[0] as NotificationPage;
       final summary = results[1] as NotificationSummary;
+      final items = await _resolve(page.items);
       emit(
         state.copyWith(
           status: NotificationCenterStatus.loaded,
-          items: page.items,
+          items: items,
           unreadCount: summary.unreadCount,
           pendingActionCount: summary.pendingActionCount,
           nextCursor: page.nextCursor,
@@ -119,13 +179,8 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
           error: error.kind,
         ),
       );
-    } catch (error, stackTrace) {
-      AppLogger.e(
-        'Notifications',
-        'Inbox load failed unexpectedly',
-        error: error,
-        stackTrace: stackTrace,
-      );
+    } catch (_) {
+      AppLogger.e('Notifications', 'Inbox load failed unexpectedly');
       emit(
         state.copyWith(
           status: NotificationCenterStatus.error,
@@ -143,10 +198,11 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       ]);
       final page = results[0] as NotificationPage;
       final summary = results[1] as NotificationSummary;
+      final items = await _resolve(page.items);
       emit(
         state.copyWith(
           status: NotificationCenterStatus.loaded,
-          items: page.items,
+          items: items,
           unreadCount: summary.unreadCount,
           pendingActionCount: summary.pendingActionCount,
           nextCursor: page.nextCursor,
@@ -154,8 +210,8 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
           clearError: true,
         ),
       );
-    } catch (error) {
-      AppLogger.w('Notifications', 'Inbox refresh failed (quiet): $error');
+    } catch (_) {
+      AppLogger.w('Notifications', 'Inbox refresh failed (quiet)');
     }
   }
 
@@ -168,8 +224,8 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
           pendingActionCount: summary.pendingActionCount,
         ),
       );
-    } catch (error) {
-      AppLogger.w('Notifications', 'Summary refresh failed (quiet): $error');
+    } catch (_) {
+      AppLogger.w('Notifications', 'Summary refresh failed (quiet)');
     }
   }
 
@@ -179,16 +235,17 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     emit(state.copyWith(isLoadingMore: true));
     try {
       final page = await repository.list(cursor: cursor);
+      final items = await _resolve(page.items);
       emit(
         state.copyWith(
-          items: [...state.items, ...page.items],
+          items: [...state.items, ...items],
           nextCursor: page.nextCursor,
           clearCursor: page.nextCursor == null,
           isLoadingMore: false,
         ),
       );
-    } catch (error) {
-      AppLogger.w('Notifications', 'Inbox pagination failed: $error');
+    } catch (_) {
+      AppLogger.w('Notifications', 'Inbox pagination failed');
       emit(state.copyWith(isLoadingMore: false));
     }
   }
@@ -207,9 +264,9 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     );
     try {
       await repository.markRead(id);
-    } catch (error) {
+    } catch (_) {
       emit(previous);
-      AppLogger.w('Notifications', 'Mark read failed: $error');
+      AppLogger.w('Notifications', 'Mark read failed');
     }
   }
 
@@ -225,8 +282,9 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     // Already resolved → nothing to do (avoid double-decrementing the badge).
     if (item.actionState == NotificationActionState.resolved) return;
     final updated = [...state.items];
-    updated[index] =
-        item.copyWith(actionState: NotificationActionState.resolved);
+    updated[index] = item.copyWith(
+      actionState: NotificationActionState.resolved,
+    );
     // Resolving an open action drops the To-do badge immediately too — the
     // count comes from pendingActionCount, not from the (now-collapsed) item,
     // so without this the badge lingered until the slower server refresh.
@@ -249,9 +307,9 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     try {
       await repository.markAllRead();
       emit(state.copyWith(isMarkingAllRead: false));
-    } catch (error) {
+    } catch (_) {
       emit(previous);
-      AppLogger.w('Notifications', 'Mark all read failed: $error');
+      AppLogger.w('Notifications', 'Mark all read failed');
     }
   }
 }

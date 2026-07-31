@@ -40,9 +40,7 @@ class EntryLogsState {
 
   final AuditErrorKind? error;
 
-  /// Cursor for the next vault page, or `null` when the vault feed is
-  /// exhausted. Because entry scoping is client-side, more entry logs may
-  /// live in later pages — drives the "Load more" affordance.
+  /// Opaque cursor for the next already entry-scoped page.
   final String? nextCursor;
 
   /// `true` while a "Load more" page request is in flight.
@@ -63,7 +61,7 @@ class EntryLogsState {
   final DateTime? fromDate;
   final DateTime? toDate;
 
-  /// Free-text search over agent name, entry label, reason and event type.
+  /// Local presentation-only search. It is never sent to the Audit API.
   final String query;
 
   /// `true` when any client-side filter narrows the list.
@@ -98,23 +96,28 @@ class EntryLogsState {
               !eventTypeFilter.contains(e.eventType)) {
             return false;
           }
-          if (agentFilter != null && e.agentId != agentFilter) return false;
-          if (fromDate != null && e.createdAt.isBefore(fromDate!)) return false;
-          if (toDate != null && e.createdAt.isAfter(toDate!)) return false;
+          if (agentFilter != null && e.agentId != agentFilter) {
+            return false;
+          }
+          if (fromDate != null && e.occurredAt.isBefore(fromDate!)) {
+            return false;
+          }
+          if (toDate != null && e.occurredAt.isAfter(toDate!)) {
+            return false;
+          }
           if (q.isEmpty) return true;
           final agentName = e.agentId != null ? agentNames[e.agentId] : null;
           return [
             agentName,
-            e.entryLabel,
-            e.agentReason,
             e.rawEventType,
           ].whereType<String>().any((v) => v.toLowerCase().contains(q));
         })
         .toList(growable: false);
   }
 
-  static String _shortId(String id) =>
-      id.length <= 8 ? id : '${id.substring(0, 8)}…';
+  static String _shortId(String id) => id.length <= 15
+      ? id
+      : '${id.substring(0, 8)}…${id.substring(id.length - 6)}';
 
   EntryLogsState copyWith({
     EntryLogsStatus? status,

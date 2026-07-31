@@ -788,6 +788,66 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryRevealingForEdit => 'Ładowanie danych wpisu…';
 
   @override
+  String get entryRevealDetailsAction => 'Pokaż szczegóły wpisu';
+
+  @override
+  String get entryRevealDetailsHint =>
+      'Pola wrażliwe są odszyfrowywane dopiero na Twoje żądanie.';
+
+  @override
+  String get entryErrorConflict =>
+      'Ten wpis zmienił się podczas edycji. Odśwież go i spróbuj ponownie.';
+
+  @override
+  String get entryAgentsPolicyTitle => 'Widoczność dla agentów';
+
+  @override
+  String get entryAgentsPolicyHint =>
+      'Wybierz, co agenci mogą odkryć i co może udostępnić grant związany z dokładną rewizją.';
+
+  @override
+  String get entryAgentsDiscoverable => 'Widoczny dla agentów organizacji';
+
+  @override
+  String get entryAgentsAgentLabel => 'Etykieta widoczna dla agentów';
+
+  @override
+  String get entryAgentsDiscoveryPreview => 'Podgląd Discovery';
+
+  @override
+  String get entryAgentsDiscoveryEmpty =>
+      'Żadne wartości nie trafią do Discovery.';
+
+  @override
+  String get entryAgentsSavePolicy => 'Zapisz politykę widoczności';
+
+  @override
+  String get entryAgentsSavingPolicy => 'Zapisywanie polityki…';
+
+  @override
+  String get entryAgentsPolicyError =>
+      'Nie udało się bezpiecznie wczytać lub zapisać zaszyfrowanej polityki.';
+
+  @override
+  String get entryAgentsAccessNever => 'Nigdy';
+
+  @override
+  String get entryAgentsAccessDiscovery => 'Discovery';
+
+  @override
+  String get entryAgentsAccessGrantValue => 'Grant: wartość';
+
+  @override
+  String get entryAgentsAccessGrantDerived => 'Grant: tylko wynik pochodny';
+
+  @override
+  String get entryAgentsAccessGrantRuntime =>
+      'Grant: tylko środowisko wykonawcze';
+
+  @override
+  String get entryChangesSaved => 'Zmiany zostały zapisane';
+
+  @override
   String get entryDangerZone => 'Strefa niebezpieczna';
 
   @override
@@ -845,6 +905,13 @@ class AppLocalizationsPl extends AppLocalizations {
       'Szyfrowane na urządzeniu (XSalsa20-Poly1305) przed wysłaniem';
 
   @override
+  String get entryDiscoverUsername =>
+      'Pozwól agentom wykrywać nazwę użytkownika';
+
+  @override
+  String get entryDiscoverDomain => 'Pozwól agentom wykrywać domenę URL';
+
+  @override
   String get entrySearchHint => 'Szukaj wpisów…';
 
   @override
@@ -878,6 +945,12 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get entryEditAction => 'Edytuj';
+
+  @override
+  String get entryShowMore => 'Pokaż więcej';
+
+  @override
+  String get entryShowLess => 'Pokaż mniej';
 
   @override
   String entryCopiedField(String field) {
@@ -1065,6 +1138,20 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get entryFieldAgentVisibleTip =>
       'Widoczne dla agentów w Twojej organizacji — pokazywane w wyszukiwaniu agentów bez grantu. Tylko dla niesekretnych informacji pomocniczych.';
+
+  @override
+  String get entryFieldAgentVisibleEnableTip =>
+      'Ukryte przed agentami w Discovery. Dotknij, aby udostępnić to niesekretne pole w Discovery.';
+
+  @override
+  String get entryFieldAgentVisibleDisableTip =>
+      'Widoczne dla agentów w Discovery. Dotknij, aby ukryć to pole w Discovery.';
+
+  @override
+  String get entryFieldAgentDiscoveryVisible => 'Widoczne w Discovery agentów';
+
+  @override
+  String get entryFieldAgentDiscoveryHidden => 'Ukryte w Discovery agentów';
 
   @override
   String get entryFieldOn => 'Wł.';
@@ -1556,6 +1643,15 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get agentIconChoose => 'Wybierz';
+
+  @override
+  String get publicAssetSearchTitle => 'Ikony witryn';
+
+  @override
+  String get publicAssetSearchHint => 'Szukaj marki lub domeny';
+
+  @override
+  String get publicAssetSearchAction => 'Szukaj ikon witryn';
 
   @override
   String get agentsTypeUnknown => 'Nieznany';
@@ -2327,6 +2423,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get auditDetailEntry => 'Wpis';
 
   @override
+  String get auditDetailVault => 'Sejf';
+
+  @override
   String get auditDetailReason => 'Powód';
 
   @override
@@ -2717,6 +2816,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get searchTypeBadgeAgent => 'Agent';
 
   @override
+  String get searchTypeBadgeMember => 'Członek';
+
+  @override
   String get searchTypeBadgeVault => 'Vault';
 
   @override
@@ -2986,6 +3088,23 @@ class AppLocalizationsPl extends AppLocalizations {
   String get exportErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';
 
   @override
+  String get exportIncludeArchived => 'Uwzględnij zarchiwizowane wpisy';
+
+  @override
+  String get exportIncludeDeleted => 'Uwzględnij ostatnio usunięte wpisy';
+
+  @override
+  String get exportIncludeHistory => 'Uwzględnij poprzednie wersje';
+
+  @override
+  String get exportDeletionDisclosure =>
+      'Palladin usuwa swoją kopię tymczasową po udostępnieniu w miarę możliwości. Kopie utworzone przez wybraną aplikację lub usługę chmurową pozostają pod kontrolą odbiorcy i mogą nadal tam istnieć.';
+
+  @override
+  String get exportErrorTooLarge =>
+      'Eksport przekracza lokalny limit bezpieczeństwa. Wybierz mniejszy zakres.';
+
+  @override
   String get authLoginSubtitle =>
       'Zaloguj się adresem e-mail i hasłem głównym.';
 
@@ -3245,6 +3364,208 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get settingsChangePassword => 'Zmień hasło główne';
+
+  @override
+  String get entryStateActive => 'Aktywne';
+
+  @override
+  String get entryStateArchived => 'Archiwum';
+
+  @override
+  String get entryStateDeleted => 'Ostatnio usunięte';
+
+  @override
+  String get entryArchivedRecoverability => 'Zarchiwizowany · można przywrócić';
+
+  @override
+  String get entryDeletedRecoverability =>
+      'Ostatnio usunięty · możliwy do odzyskania w okresie retencji';
+
+  @override
+  String get entryCorruptProjection =>
+      'Nie udało się zweryfikować zaszyfrowanych metadanych';
+
+  @override
+  String get entryArchiveTitle => 'Archiwum';
+
+  @override
+  String get entryArchiveSubtitle => 'Wpisy poza aktywnym sejfem';
+
+  @override
+  String get entryArchiveSearchHint => 'Szukaj w archiwum';
+
+  @override
+  String get entryArchiveEmpty => 'Brak zarchiwizowanych wpisów';
+
+  @override
+  String get entryArchiveRestore => 'Przywróć';
+
+  @override
+  String get entryArchiveRestoring => 'Przywracanie…';
+
+  @override
+  String get entryArchiveConflict =>
+      'Ten wpis zmienił się na innym urządzeniu. Zsynchronizuj i spróbuj ponownie.';
+
+  @override
+  String get entryArchiveAllTypes => 'Wszystkie typy';
+
+  @override
+  String get entryArchiveSortAscending => 'A–Z';
+
+  @override
+  String get entryArchiveSortDescending => 'Z–A';
+
+  @override
+  String get entryArchiveSortType => 'Według typu';
+
+  @override
+  String get entryDeletedTitle => 'Ostatnio usunięte';
+
+  @override
+  String get entryDeletedSubtitle => 'Wpisy oczekujące na trwałe usunięcie';
+
+  @override
+  String get entryDeletedSearchHint => 'Szukaj w ostatnio usuniętych';
+
+  @override
+  String get entryDeletedEmpty => 'Brak ostatnio usuniętych wpisów';
+
+  @override
+  String get entryDeletedRestore => 'Przywróć';
+
+  @override
+  String entryDeletedPurgeAt(String date) {
+    return 'Trwałe usunięcie po $date';
+  }
+
+  @override
+  String get entryDeletedPurgeTitle => 'Usunąć trwale?';
+
+  @override
+  String get entryDeletedPurgeWarning =>
+      'Ta operacja trwale usuwa całą zaszyfrowaną zawartość, klucze i historię. Nie można jej cofnąć.';
+
+  @override
+  String get entryDeletedPurgeConfirm => 'Usuń trwale';
+
+  @override
+  String get vaultDiscoveryTitle => 'Wykrywanie agentów';
+
+  @override
+  String get vaultDiscoveryNoActiveAgents =>
+      'Żaden aktywny agent organizacji nie wymaga provisioningu Discovery.';
+
+  @override
+  String get vaultDiscoveryCurrent => 'Aktualny';
+
+  @override
+  String get vaultDiscoveryPending => 'Oczekujący / nieaktualny';
+
+  @override
+  String vaultDiscoveryVdkVersion(int version) {
+    return 'Aktualna wersja klucza Discovery: v$version';
+  }
+
+  @override
+  String vaultDiscoveryKeyVersion(int version) {
+    return 'Klucz odbiorcy v$version';
+  }
+
+  @override
+  String get vaultMemberYou => 'Ty';
+
+  @override
+  String get vaultMemberActive => 'Aktywny';
+
+  @override
+  String get vaultMemberPending => 'Usunięcie oczekuje';
+
+  @override
+  String get vaultMemberRotating =>
+      'Zabezpieczanie dostępu — sejf pozostaje dostępny';
+
+  @override
+  String get vaultMemberBlockedLast =>
+      'Zablokowane — ostatni uprawniony członek';
+
+  @override
+  String get vaultMemberRemove => 'Usuń';
+
+  @override
+  String get vaultMemberRemoveTitle => 'Usunąć członka organizacji?';
+
+  @override
+  String vaultMemberRemoveBody(String name) {
+    return 'Usunięcie użytkownika $name dotyczy wszystkich sejfów, do których ma dostęp. Dostęp pozostanie aktywny do zatwierdzenia wszystkich wymaganych rotacji kluczy.';
+  }
+
+  @override
+  String get vaultMemberRemovalStarted =>
+      'Rozpoczęto usuwanie. Sejf pozostaje dostępny podczas rotacji.';
+
+  @override
+  String get vaultMembersLoadError => 'Nie udało się wczytać stanu członków.';
+
+  @override
+  String get vaultMemberForbidden =>
+      'Nie masz uprawnień do zarządzania członkami organizacji.';
+
+  @override
+  String get vaultMemberProtected => 'Tego członka nie można usunąć.';
+
+  @override
+  String get vaultMemberNetworkError =>
+      'Sprawdź połączenie i spróbuj ponownie.';
+
+  @override
+  String get vaultMetadataConflict =>
+      'Ten sejf został zmieniony na innym urządzeniu. Sprawdź najnowsze wartości i spróbuj ponownie.';
+
+  @override
+  String get vaultMetadataCorrupt =>
+      'Nie udało się zweryfikować zaszyfrowanych ustawień sejfu. Nie zapisano zmian.';
+
+  @override
+  String get entryTabHistory => 'Historia';
+
+  @override
+  String get entryHistoryEmpty => 'Brak poprzednich wersji';
+
+  @override
+  String get entryHistoryLoadError =>
+      'Nie udało się wczytać lub zweryfikować zaszyfrowanej historii.';
+
+  @override
+  String entryHistoryVersion(String revision) {
+    return 'Wersja $revision';
+  }
+
+  @override
+  String entryHistoryActor(String actor, String time) {
+    return '$actor · $time';
+  }
+
+  @override
+  String get entryHistoryLoadMore => 'Wczytaj starsze wersje';
+
+  @override
+  String get entryHistoryReveal => 'Odszyfruj tę wersję';
+
+  @override
+  String get entryHistoryRestore => 'Przywróć jako nową wersję';
+
+  @override
+  String get entryHistoryRestored =>
+      'Historyczna treść została przywrócona jako nowa aktualna wersja.';
+
+  @override
+  String get entryHistorySensitiveWarning =>
+      'Historyczne wersje mogą zawierać poprzednie hasła i nasiona TOTP.';
+
+  @override
+  String get entryHistoryLocked =>
+      'Odblokuj aplikację, aby odszyfrować tę wersję.';
 
   @override
   String get settingsTwoFactor => 'Uwierzytelnianie dwuskładnikowe';

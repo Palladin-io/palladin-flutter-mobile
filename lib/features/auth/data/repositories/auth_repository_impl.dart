@@ -187,6 +187,13 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<String?> getUserId() => tokenStorage.userId;
 
   @override
+  Future<String?> getOrganizationId() async {
+    final token = await tokenStorage.accessToken;
+    if (token == null || token.isEmpty) return null;
+    return JwtClaims.organizationIdFrom(token);
+  }
+
+  @override
   Future<bool> isOnboarded() => tokenStorage.isOnboarded;
 
   @override

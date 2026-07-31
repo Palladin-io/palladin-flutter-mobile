@@ -12,6 +12,15 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/agent.dart';
 import '../../domain/exceptions/agents_exceptions.dart';
 
+String agentColorHex(Color color) {
+  final r = (color.r * 255).round();
+  final g = (color.g * 255).round();
+  final b = (color.b * 255).round();
+  return '#${r.toRadixString(16).padLeft(2, '0')}'
+      '${g.toRadixString(16).padLeft(2, '0')}'
+      '${b.toRadixString(16).padLeft(2, '0')}';
+}
+
 /// Resolves an [AgentsErrorKind] to a localized, user-facing message.
 ///
 /// Lives at the presentation layer — the data/domain layers only ever
@@ -70,9 +79,7 @@ String agentInitials(String? name) {
   if (parts.isEmpty) return '';
   if (parts.length == 1) {
     final p = parts.first;
-    return p.length == 1
-        ? p.toUpperCase()
-        : p.substring(0, 2).toUpperCase();
+    return p.length == 1 ? p.toUpperCase() : p.substring(0, 2).toUpperCase();
   }
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
@@ -115,20 +122,51 @@ String? agentTypeLabel(AppLocalizations l10n, String? type) {
 /// in display order. Mirrors the web panel's `AGENT_ICON_OPTIONS` so
 /// the two surfaces stay visually aligned.
 const List<String> agentIconOptions = [
-  'smart_toy', 'memory', 'hub', 'token', 'terminal',
-  'psychology', 'auto_mode', 'support_agent', 'dns', 'code',
-  'api', 'cloud', 'extension', 'bolt', 'developer_mode',
+  'smart_toy',
+  'memory',
+  'hub',
+  'token',
+  'terminal',
+  'psychology',
+  'auto_mode',
+  'support_agent',
+  'dns',
+  'code',
+  'api',
+  'cloud',
+  'extension',
+  'bolt',
+  'developer_mode',
 ];
 
 /// Full browsable icon set shown in the icon-browser modal. Mirrors the
 /// web panel's `AGENT_ICON_ALL` — superset of [agentIconOptions] plus a
 /// handful of extra glyphs available only via "more".
 const List<String> agentIconAll = [
-  'smart_toy', 'memory', 'hub', 'token', 'terminal', 'psychology',
-  'auto_mode', 'support_agent', 'dns', 'code', 'api', 'extension',
-  'computer', 'bolt', 'cloud', 'assistant', 'data_object',
-  'precision_manufacturing', 'settings_suggest', 'manage_search',
-  'batch_prediction', 'android', 'biotech', 'developer_mode',
+  'smart_toy',
+  'memory',
+  'hub',
+  'token',
+  'terminal',
+  'psychology',
+  'auto_mode',
+  'support_agent',
+  'dns',
+  'code',
+  'api',
+  'extension',
+  'computer',
+  'bolt',
+  'cloud',
+  'assistant',
+  'data_object',
+  'precision_manufacturing',
+  'settings_suggest',
+  'manage_search',
+  'batch_prediction',
+  'android',
+  'biotech',
+  'developer_mode',
 ];
 
 /// Six selectable accent colors for the agent icon. Mirrors the web

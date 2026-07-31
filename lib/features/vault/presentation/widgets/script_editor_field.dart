@@ -189,11 +189,17 @@ class _ScriptEditorFieldState extends State<ScriptEditorField> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.circle,
-                        size: 8, color: AppColors.vaultViolet),
+                    const Icon(
+                      Icons.circle,
+                      size: 8,
+                      color: AppColors.vaultViolet,
+                    ),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
-                      l10n.entryScriptFooter(widget.interpreter.wireName, lines),
+                      l10n.entryScriptFooter(
+                        widget.interpreter.wireName,
+                        lines,
+                      ),
                       style: TextStyle(
                         color: AppColors.onSurfaceSubtle(brightness),
                         fontSize: 11,
@@ -211,7 +217,11 @@ class _ScriptEditorFieldState extends State<ScriptEditorField> {
           children: [
             const Padding(
               padding: EdgeInsets.only(top: AppSpacing.xxs),
-              child: Icon(Icons.terminal, size: 12, color: AppColors.vaultViolet),
+              child: Icon(
+                Icons.terminal,
+                size: 12,
+                color: AppColors.vaultViolet,
+              ),
             ),
             const SizedBox(width: AppSpacing.innerGap),
             Expanded(
@@ -256,8 +266,9 @@ class _Gutter extends StatelessWidget {
               child: Text(
                 '$i',
                 style: TextStyle(
-                  color: AppColors.onSurfaceSubtle(brightness)
-                      .withValues(alpha: 0.6),
+                  color: AppColors.onSurfaceSubtle(
+                    brightness,
+                  ).withValues(alpha: 0.6),
                   fontSize: 12,
                   height: 1.5,
                   fontFamily: 'monospace',

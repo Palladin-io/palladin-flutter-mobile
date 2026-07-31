@@ -365,9 +365,7 @@ class _ErrorView extends StatelessWidget {
             const SizedBox(height: AppSpacing.innerGap),
             TextButton(
               onPressed: onRetry,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.brandRed,
-              ),
+              style: TextButton.styleFrom(foregroundColor: AppColors.brandRed),
               child: Text(l10n.approvalRetry),
             ),
           ],

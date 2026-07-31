@@ -3,10 +3,9 @@ import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
-import '../../data/services/vault_crypto_service.dart';
+import '../../data/services/vault_creation_service.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
-import '../../domain/repositories/vault_repository.dart';
 import 'create_vault_state.dart';
 
 export 'create_vault_state.dart';
@@ -23,13 +22,10 @@ export 'create_vault_state.dart';
 ///   2. POST `/api/vaults` with the sealed VK and metadata.
 ///   3. Emit [CreateVaultSuccess] with the created entity.
 class CreateVaultCubit extends Cubit<CreateVaultState> {
-  CreateVaultCubit({
-    required this.repository,
-    required this.cryptoService,
-  }) : super(const CreateVaultInitial());
+  CreateVaultCubit({required this.creationService})
+    : super(const CreateVaultInitial());
 
-  final VaultRepository repository;
-  final VaultCryptoService cryptoService;
+  final VaultCreator creationService;
 
   /// Runs the create-vault pipeline.
   ///
@@ -50,17 +46,15 @@ class CreateVaultCubit extends Cubit<CreateVaultState> {
       return;
     }
 
-    AppLogger.d('Vault', 'Creating vault "$name"');
+    AppLogger.d('Vault', 'Creating encrypted Vault');
     emit(const CreateVaultLoading());
     try {
-      final wrappedVK = await cryptoService.generateWrappedVK(privateKey);
-      final vault = await repository.createVault(
+      final vault = await creationService.create(
         name: name.trim(),
         description: _trimToNull(description),
         icon: _trimToNull(icon),
         color: _trimToNull(color),
-        grantMode: grantMode,
-        wrappedVK: wrappedVK,
+        memberPrivateKey: privateKey,
       );
       AppLogger.i('Vault', 'Vault created: id=${vault.id}');
       emit(CreateVaultSuccess(vault));
@@ -68,8 +62,12 @@ class CreateVaultCubit extends Cubit<CreateVaultState> {
       AppLogger.w('Vault', 'Vault creation failed: ${e.kind.name}');
       emit(CreateVaultError(e.kind));
     } catch (e, s) {
-      AppLogger.e('Vault', 'Vault creation failed unexpectedly',
-          error: e, stackTrace: s);
+      AppLogger.e(
+        'Vault',
+        'Vault creation failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
       emit(const CreateVaultError(VaultErrorKind.unknown));
     }
   }

@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/crypto/vault_session_store.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -14,7 +15,9 @@ export 'auth_state.dart';
 /// Emits [AuthAuthenticated] on successful login/check, and
 /// [AuthUnauthenticated] after logout or when no stored session exists.
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  AuthBloc({required this.authRepository}) : super(const AuthInitial()) {
+  AuthBloc({required this.authRepository, VaultSessionStore? vaultSessionStore})
+    : _vaultSessionStore = vaultSessionStore,
+      super(const AuthInitial()) {
     on<AuthLoginWithGoogle>(_onLoginWithGoogle);
     on<AuthRefreshRequested>(_onRefreshRequested);
     on<AuthLogoutRequested>(_onLogout);
@@ -27,6 +30,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   final AuthRepository authRepository;
+  final VaultSessionStore? _vaultSessionStore;
+
+  void _emitUnauthenticated(Emitter<AuthState> emit) {
+    _vaultSessionStore?.clear();
+    emit(const AuthUnauthenticated());
+  }
 
   Future<void> _onLoginWithGoogle(
     AuthLoginWithGoogle event,
@@ -53,7 +62,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
     } on AuthCancelledException {
       AppLogger.i('AuthBloc', 'Sign-in cancelled, returning unauthenticated');
-      emit(const AuthUnauthenticated());
+      _emitUnauthenticated(emit);
     } catch (e) {
       AppLogger.w('AuthBloc', 'Auth error: ${e.runtimeType}');
       emit(AuthError(e));
@@ -75,7 +84,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final authProvider = await authRepository.getAuthProvider();
       if (userId == null) {
         AppLogger.w('AuthBloc', 'Refresh succeeded without a stored userId');
-        emit(const AuthUnauthenticated());
+        _emitUnauthenticated(emit);
         return;
       }
       AppLogger.i('AuthBloc', 'Refresh successful: userId=$userId');
@@ -91,7 +100,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
     } catch (e) {
       AppLogger.w('AuthBloc', 'Refresh failed: ${e.runtimeType}');
-      emit(const AuthUnauthenticated());
+      _emitUnauthenticated(emit);
     }
   }
 
@@ -100,6 +109,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     AppLogger.d('AuthBloc', 'Logout requested');
+    _vaultSessionStore?.clear();
     final stateBeforeLogout = state;
     emit(const AuthLoading());
     try {
@@ -114,7 +124,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
     AppLogger.i('AuthBloc', 'Logout complete');
-    emit(const AuthUnauthenticated());
+    _emitUnauthenticated(emit);
   }
 
   Future<void> _onCheck(
@@ -125,7 +135,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final authenticated = await authRepository.isAuthenticated();
     if (!authenticated) {
       AppLogger.i('AuthBloc', 'No stored session, unauthenticated');
-      emit(const AuthUnauthenticated());
+      _emitUnauthenticated(emit);
       return;
     }
 
@@ -150,7 +160,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
     } else {
       AppLogger.w('AuthBloc', 'Token present but no userId, unauthenticated');
-      emit(const AuthUnauthenticated());
+      _emitUnauthenticated(emit);
     }
   }
 
@@ -165,6 +175,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
     AppLogger.i('AuthBloc', 'Vault unlocked for userId=${current.userId}');
+    _vaultSessionStore?.setMemberPrivateKey(event.privateKey);
     emit(
       current.copyWith(
         isVaultLocked: false,
@@ -184,6 +195,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final current = state;
     if (current is! AuthAuthenticated) return;
     AppLogger.i('AuthBloc', 'Vault lock requested');
+    _vaultSessionStore?.clear();
     emit(current.copyWith(isVaultLocked: true, clearKeys: true));
   }
 
@@ -203,7 +215,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final userId = await authRepository.getUserId();
     if (userId == null) {
       AppLogger.w('AuthBloc', 'OnboardingCompleted — no userId in storage');
-      emit(const AuthUnauthenticated());
+      _emitUnauthenticated(emit);
       return;
     }
     final permissions = await authRepository.getPermissions();
@@ -211,6 +223,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final emailVerified = await authRepository.isEmailVerified();
     final authProvider = await authRepository.getAuthProvider();
     final hasKeys = event.masterKey != null && event.privateKey != null;
+    if (event.privateKey != null) {
+      _vaultSessionStore?.setMemberPrivateKey(event.privateKey!);
+    }
     AppLogger.i(
       'AuthBloc',
       'Onboarding completed for userId=$userId (vaultUnlocked=$hasKeys)',
@@ -243,7 +258,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final userId = await authRepository.getUserId();
     if (userId == null) {
       AppLogger.w('AuthBloc', 'PasswordSession — no userId in storage');
-      emit(const AuthUnauthenticated());
+      _emitUnauthenticated(emit);
       return;
     }
     final permissions = await authRepository.getPermissions();
@@ -255,6 +270,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       'Password session established for userId=$userId '
           '(emailVerified=$emailVerified)',
     );
+    _vaultSessionStore?.setMemberPrivateKey(event.privateKey);
     emit(
       AuthAuthenticated(
         userId: userId,

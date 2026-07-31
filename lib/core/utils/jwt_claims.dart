@@ -39,6 +39,17 @@ abstract final class JwtClaims {
     return 0;
   }
 
+  /// Reads the active tenant scope. `org_id` remains the emitted backend
+  /// claim; `organization_id` is accepted for coordinated issuer migration.
+  static String? organizationIdFrom(String token) {
+    final payload = decodePayload(token);
+    for (final name in const ['organization_id', 'org_id']) {
+      final raw = payload[name];
+      if (raw is String && raw.isNotEmpty) return raw;
+    }
+    return null;
+  }
+
   /// Reads the `email` claim emitted by the backend `TokenService`
   /// (see `JwtClaimNames.Email = "email"`). Returns `null` when the
   /// claim is missing or empty.

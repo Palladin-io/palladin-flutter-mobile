@@ -14,7 +14,7 @@ export 'totp_enroll_state.dart';
 /// code to enable TOTP and receive the one-time recovery codes.
 class TotpEnrollCubit extends Cubit<TotpEnrollState> {
   TotpEnrollCubit({required this.datasource})
-      : super(const TotpEnrollLoading());
+    : super(const TotpEnrollLoading());
 
   final PasswordAuthRemoteDatasource datasource;
 

@@ -46,11 +46,9 @@ class _ScriptRefsEditorState extends State<ScriptRefsEditor> {
   void initState() {
     super.initState();
     for (final ref in widget.initial) {
-      _drafts.add(_RefDraft(
-        env: ref.env,
-        entryId: ref.entryId,
-        field: ref.field,
-      ));
+      _drafts.add(
+        _RefDraft(env: ref.env, entryId: ref.entryId, field: ref.field),
+      );
     }
   }
 
@@ -242,10 +240,7 @@ class _RefCard extends StatelessWidget {
             },
             items: [
               for (final option in fieldOptions)
-                DropdownMenuItem(
-                  value: option.wire,
-                  child: Text(option.label),
-                ),
+                DropdownMenuItem(value: option.wire, child: Text(option.label)),
             ],
           ),
         ],
@@ -256,8 +251,8 @@ class _RefCard extends StatelessWidget {
 
 class _RefDraft {
   _RefDraft({String env = '', this.entryId, this.field})
-      : id = _nextId++,
-        envController = TextEditingController(text: env);
+    : id = _nextId++,
+      envController = TextEditingController(text: env);
 
   static int _nextId = 0;
 

@@ -70,15 +70,16 @@ class _TotpEnrollViewState extends State<_TotpEnrollView> {
       body: BlocBuilder<TotpEnrollCubit, TotpEnrollState>(
         builder: (context, state) => switch (state) {
           TotpEnrollLoading() => const Center(
-              child: CircularProgressIndicator(color: AppColors.brandRed),
-            ),
+            child: CircularProgressIndicator(color: AppColors.brandRed),
+          ),
           TotpEnrollLoadFailed(:final error) => _LoadFailed(error: error),
           TotpEnrollReady() => _ReadyBody(
-              state: state,
-              codeController: _codeController,
-            ),
-          TotpEnrollConfirmed(:final recoveryCodes) =>
-            _RecoveryCodesBody(codes: recoveryCodes),
+            state: state,
+            codeController: _codeController,
+          ),
+          TotpEnrollConfirmed(:final recoveryCodes) => _RecoveryCodesBody(
+            codes: recoveryCodes,
+          ),
         },
       ),
     );

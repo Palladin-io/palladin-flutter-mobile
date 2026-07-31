@@ -321,6 +321,7 @@ class _SplitDetailPane extends StatelessWidget {
       name: result.name,
       type: result.type,
       iconKey: result.iconKey,
+      iconColor: result.iconColor,
     );
   }
 

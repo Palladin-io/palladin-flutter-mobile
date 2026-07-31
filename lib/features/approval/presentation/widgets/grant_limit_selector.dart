@@ -224,8 +224,10 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
   /// Mirrors the web approve dialog's quick intervals.
   Widget _buildExpiryFields(AppLocalizations l10n, Brightness brightness) {
     final quick = <({int minutes, String label})>[
-      for (final m in _quickMinutes) (minutes: m, label: l10n.approvalQuickMinutes(m)),
-      for (final h in _quickHours) (minutes: h * 60, label: l10n.approvalQuickHours(h)),
+      for (final m in _quickMinutes)
+        (minutes: m, label: l10n.approvalQuickMinutes(m)),
+      for (final h in _quickHours)
+        (minutes: h * 60, label: l10n.approvalQuickHours(h)),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -270,7 +272,8 @@ class _GrantLimitSelectorState extends State<GrantLimitSelector> {
   /// Relative "Expires in Xm/h/d/mo" for the summary — mirrors the web
   /// `formatExpiresInLong` (rounds, so now+24h reads "24h", not "23h").
   String _expiresInLabel(AppLocalizations l10n, DateTime expiresOn) {
-    final minutes = (expiresOn.difference(DateTime.now()).inSeconds / 60).round();
+    final minutes = (expiresOn.difference(DateTime.now()).inSeconds / 60)
+        .round();
     if (minutes <= 0) return l10n.approvalExpiredAlready;
     if (minutes < 60) return l10n.approvalExpiresInMinutes(minutes);
     final hours = (minutes / 60).round();

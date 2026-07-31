@@ -80,7 +80,10 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
     );
   }
 
-  Future<void> _copyToClipboard(List<String> words, AppLocalizations l10n) async {
+  Future<void> _copyToClipboard(
+    List<String> words,
+    AppLocalizations l10n,
+  ) async {
     await SecureClipboard.copy(words.join(' '));
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -96,12 +99,15 @@ class _RecoveryKeyBackupPageState extends State<RecoveryKeyBackupPage> {
 
   Future<void> _exportToFile(List<String> words) async {
     final l10n = AppLocalizations.of(context)!;
-    final box = _exportButtonKey.currentContext?.findRenderObject() as RenderBox?;
+    final box =
+        _exportButtonKey.currentContext?.findRenderObject() as RenderBox?;
     final origin = box != null
         ? box.localToGlobal(Offset.zero) & box.size
         : Rect.zero;
 
-    final content = words.asMap().entries
+    final content = words
+        .asMap()
+        .entries
         .map((e) => '${e.key + 1}. ${e.value}')
         .join('\n');
 
@@ -145,8 +151,11 @@ class _WarningBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.warning_amber_rounded,
-              color: AppColors.brandRed, size: 18),
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: AppColors.brandRed,
+            size: 18,
+          ),
           const SizedBox(width: AppSpacing.innerGap),
           Expanded(
             child: Text(

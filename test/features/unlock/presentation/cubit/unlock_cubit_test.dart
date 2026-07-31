@@ -10,6 +10,7 @@ import 'package:mobile_palladin/features/unlock/data/datasources/account_remote_
 import 'package:mobile_palladin/features/onboarding/data/services/default_vault_provisioner.dart';
 import 'package:mobile_palladin/features/unlock/data/models/account_response.dart';
 import 'package:mobile_palladin/features/unlock/data/services/unlock_crypto_service.dart';
+import 'package:mobile_palladin/features/unlock/data/services/identity_kdf_service.dart';
 import 'package:mobile_palladin/features/unlock/domain/unlock_exceptions.dart';
 import 'package:mobile_palladin/features/unlock/presentation/cubit/unlock_cubit.dart';
 
@@ -31,8 +32,17 @@ void main() {
   final masterKey = Uint8List.fromList(List.filled(32, 0xAA));
   final privateKey = Uint8List.fromList(List.filled(32, 0xBB));
   final accountResponse = const AccountResponse(
+    userId: '00112233-4455-6677-8899-aabbccddeeff',
     salt: 'c2FsdC1pcy1zaXh0ZWVuISE=', // 16 bytes of arbitrary base64
     encryptedPrivateKey: 'ZW5jcnlwdGVk',
+    kdf: IdentityKdfMetadata(
+      securityVersion: 1,
+      minimumSecurityVersion: 1,
+      profileId: IdentityKdfProfile.id,
+      kdfSalt: 'AAECAwQFBgcICQoLDA0ODw',
+      credentialRevision: 1,
+      privateKeyWrapRevision: 1,
+    ),
   );
   const copy = BiometricPromptCopy(
     promptTitle: 'title',
@@ -44,6 +54,7 @@ void main() {
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
     registerFallbackValue(copy);
+    registerFallbackValue(accountResponse.kdf!);
   });
 
   setUp(() {
@@ -70,7 +81,8 @@ void main() {
     when(
       () => crypto.deriveAndDecrypt(
         masterPassword: any(named: 'masterPassword'),
-        saltBase64: any(named: 'saltBase64'),
+        accountId: any(named: 'accountId'),
+        kdf: any(named: 'kdf'),
         encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
       ),
     ).thenAnswer(
@@ -91,6 +103,35 @@ void main() {
       expect(cubit.state, isA<UnlockInitial>());
       cubit.close();
     });
+
+    blocTest<UnlockCubit, UnlockState>(
+      'password unlock fails before crypto when account setup is incomplete',
+      build: () {
+        when(
+          () => datasource.getAccount(),
+        ).thenAnswer((_) async => const AccountResponse(userId: 'account-id'));
+        return buildCubit();
+      },
+      act: (cubit) => cubit.unlock('pw'),
+      expect: () => [
+        isA<UnlockLoading>(),
+        isA<UnlockFailed>().having(
+          (state) => state.error,
+          'error',
+          isA<UnsupportedIdentityKdfException>(),
+        ),
+      ],
+      verify: (_) {
+        verifyNever(
+          () => crypto.deriveAndDecrypt(
+            masterPassword: any(named: 'masterPassword'),
+            accountId: any(named: 'accountId'),
+            kdf: any(named: 'kdf'),
+            encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
+          ),
+        );
+      },
+    );
 
     blocTest<UnlockCubit, UnlockState>(
       'unlock emits [Loading, Success] and enrolls MK on correct password',
@@ -151,7 +192,8 @@ void main() {
         when(
           () => crypto.deriveAndDecrypt(
             masterPassword: any(named: 'masterPassword'),
-            saltBase64: any(named: 'saltBase64'),
+            accountId: any(named: 'accountId'),
+            kdf: any(named: 'kdf'),
             encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
           ),
         ).thenAnswer(
@@ -252,7 +294,8 @@ void main() {
         when(
           () => crypto.deriveAndDecrypt(
             masterPassword: any(named: 'masterPassword'),
-            saltBase64: any(named: 'saltBase64'),
+            accountId: any(named: 'accountId'),
+            kdf: any(named: 'kdf'),
             encryptedPrivateKeyBase64: any(named: 'encryptedPrivateKeyBase64'),
           ),
         ).thenThrow(const WrongMasterPasswordException());

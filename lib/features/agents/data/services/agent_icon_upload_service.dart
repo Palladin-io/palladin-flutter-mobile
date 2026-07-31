@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:crypto/crypto.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../datasources/agents_remote_data_source.dart';
@@ -35,7 +36,7 @@ class AgentIconUploadService {
   final AgentsRemoteDataSource _datasource;
 
   static const _allowedExtensions = {'jpg', 'jpeg', 'png', 'webp'};
-  static const _maxBytes = 2 * 1024 * 1024;
+  static const _maxBytes = 1024 * 1024;
   static final _mimeMap = {
     'png': 'image/png',
     'jpg': 'image/jpeg',
@@ -57,8 +58,20 @@ class AgentIconUploadService {
       );
     }
     try {
-      AppLogger.d('AgentIconUpload', 'presign agentId=$agentId ext=$ext');
-      final presign = await _datasource.presignAgentIcon(agentId, ext);
+      final bytes = await file.readAsBytes();
+      final mediaType = _mimeMap[ext] ?? 'image/jpeg';
+      AppLogger.d('AgentIconUpload', 'presign agentId=$agentId');
+      final presign = await _datasource.presignAgentIcon(
+        agentId,
+        mediaType: mediaType,
+        byteLength: bytes.length,
+        sha256: sha256.convert(bytes).toString(),
+      );
+      if (presign.maximumBytes < bytes.length) {
+        throw const AgentIconUploadException(
+          AgentIconUploadErrorKind.fileTooLarge,
+        );
+      }
       // Never log the full presigned URL — its query string carries the
       // S3 signature granting temporary PUT access. Log only the path.
       AppLogger.d(
@@ -66,25 +79,31 @@ class AgentIconUploadService {
         'presigned ${presign.uploadUrl.split('?').first}',
       );
 
-      final bytes = await file.readAsBytes();
       final s3 = Dio();
       await s3.put<void>(
         presign.uploadUrl,
         data: bytes,
         options: Options(
-          headers: {
-            Headers.contentTypeHeader: _mimeMap[ext] ?? 'image/jpeg',
-          },
+          headers: {Headers.contentTypeHeader: mediaType},
           sendTimeout: const Duration(seconds: 60),
         ),
       );
-      AppLogger.i('AgentIconUpload', 'S3 PUT done, publicUrl=${presign.publicUrl}');
-      return presign.publicUrl;
+      final completed = await _datasource.completeAgentIcon(
+        agentId,
+        presign.uploadSessionId,
+      );
+      AppLogger.i('AgentIconUpload', 'Agent icon upload completed');
+      return 'public-asset:${completed.assetId}';
     } on DioException catch (e) {
       AppLogger.e('AgentIconUpload', 'upload failed', error: e);
       throw const AgentIconUploadException(AgentIconUploadErrorKind.network);
     } catch (e, s) {
-      AppLogger.e('AgentIconUpload', 'unexpected error', error: e, stackTrace: s);
+      AppLogger.e(
+        'AgentIconUpload',
+        'unexpected error',
+        error: e,
+        stackTrace: s,
+      );
       throw const AgentIconUploadException(AgentIconUploadErrorKind.unknown);
     }
   }

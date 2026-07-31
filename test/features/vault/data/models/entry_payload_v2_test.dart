@@ -14,19 +14,19 @@ void main() {
       expect(EntryTypeExtension.fromWire(2), EntryType.script);
     });
 
-    test('unknown ordinals still default to credential', () {
-      expect(EntryTypeExtension.fromWire(99), EntryType.credential);
+    test('unknown ordinals fail closed', () {
+      expect(() => EntryTypeExtension.fromWire(99), throwsFormatException);
     });
 
     test('EntryModel parses the string type "script"', () {
       Map<String, dynamic> base(Object type) => {
-            'id': 'e1',
-            'vaultId': 'v1',
-            'label': 'Deploy',
-            'type': type,
-            'createdAt': '2026-01-01T00:00:00Z',
-            'updatedAt': '2026-01-01T00:00:00Z',
-          };
+        'id': 'e1',
+        'vaultId': 'v1',
+        'label': 'Deploy',
+        'type': type,
+        'createdAt': '2026-01-01T00:00:00Z',
+        'updatedAt': '2026-01-01T00:00:00Z',
+      };
       expect(
         EntryModel.fromJson(base('script')).toEntity().type,
         EntryType.script,
@@ -47,7 +47,12 @@ void main() {
     test('parses text / concealed / totp and preserves unknown', () {
       final payload = {
         'fields': [
-          {'id': 'a', 'label': 'Recovery email', 'type': 'text', 'value': 'x@y'},
+          {
+            'id': 'a',
+            'label': 'Recovery email',
+            'type': 'text',
+            'value': 'x@y',
+          },
           {'id': 'b', 'label': 'PIN', 'type': 'concealed', 'value': '1234'},
           {
             'id': 'c',
@@ -77,13 +82,20 @@ void main() {
       expect(CustomField.listFromPayload({'fields': 'nope'}), isEmpty);
     });
 
-    test('multiline round-trips and agentVisible only for text/multiline',
-        () {
+    test('multiline round-trips and agentVisible only for text/multiline', () {
       final fields = [
         CustomField.text(
-            id: '1', label: 'Account', value: 'acme', agentVisible: true),
+          id: '1',
+          label: 'Account',
+          value: 'acme',
+          agentVisible: true,
+        ),
         CustomField.multiline(
-            id: '2', label: 'Config', value: 'a\nb', agentVisible: true),
+          id: '2',
+          label: 'Config',
+          value: 'a\nb',
+          agentVisible: true,
+        ),
         CustomField.concealed(id: '3', label: 'PIN', value: '1234'),
       ];
       final json = CustomField.listToJson(fields);
@@ -100,24 +112,37 @@ void main() {
       expect(parsed[1].agentVisible, isTrue);
     });
 
-    test('agentFieldsFrom mirrors only agent-visible text/multiline fields',
-        () {
-      final agentFields = CustomField.agentFieldsFrom([
-        CustomField.text(
-            id: '1', label: 'Account', value: 'acme', agentVisible: true),
-        CustomField.text(id: '2', label: 'Hidden helper', value: 'x'),
-        CustomField.multiline(
-            id: '3', label: 'Region', value: 'eu', agentVisible: true),
-        CustomField.concealed(id: '4', label: 'PIN', value: '1'),
-      ]);
-      expect(agentFields.map((f) => f.label), ['Account', 'Region']);
-      expect(agentFields.map((f) => f.value), ['acme', 'eu']);
-    });
+    test(
+      'agentFieldsFrom mirrors only agent-visible text/multiline fields',
+      () {
+        final agentFields = CustomField.agentFieldsFrom([
+          CustomField.text(
+            id: '1',
+            label: 'Account',
+            value: 'acme',
+            agentVisible: true,
+          ),
+          CustomField.text(id: '2', label: 'Hidden helper', value: 'x'),
+          CustomField.multiline(
+            id: '3',
+            label: 'Region',
+            value: 'eu',
+            agentVisible: true,
+          ),
+          CustomField.concealed(id: '4', label: 'PIN', value: '1'),
+        ]);
+        expect(agentFields.map((f) => f.label), ['Account', 'Region']);
+        expect(agentFields.map((f) => f.value), ['acme', 'eu']);
+      },
+    );
 
     test('a concealed field flagged agent-visible never leaks the flag', () {
       // Even if constructed with agentVisible via copyWith, concealed drops it.
-      final field = CustomField.concealed(id: '1', label: 'PIN', value: '1')
-          .copyWith(agentVisible: true);
+      final field = CustomField.concealed(
+        id: '1',
+        label: 'PIN',
+        value: '1',
+      ).copyWith(agentVisible: true);
       expect(field.toJson().containsKey('agentVisible'), isFalse);
       expect(CustomField.agentFieldsFrom([field]), isEmpty);
     });
@@ -163,9 +188,7 @@ void main() {
       final payload = KeyPayload(
         value: 'sk_live_x',
         notes: 'rotate me',
-        fields: [
-          CustomField.text(id: '1', label: 'Env', value: 'prod'),
-        ],
+        fields: [CustomField.text(id: '1', label: 'Env', value: 'prod')],
       );
       final json = payload.toJson();
       expect(json['v'], 2);
@@ -230,20 +253,21 @@ void main() {
       expect(parsed.fields.single.type, CustomFieldType.concealed);
     });
 
-    test('reads the legacy placeholder key and optional vaultId', () {
-      final parsed = ScriptPayload.fromJson({
-        'script': 'echo',
-        'refs': [
-          {'placeholder': 'TOKEN', 'entryId': 'e1', 'field': 'value'},
-        ],
-      });
-      expect(parsed.refs.single.env, 'TOKEN');
-      expect(parsed.refs.single.vaultId, isNull);
+    test('rejects a legacy script shape without an exact interpreter', () {
+      expect(
+        () => ScriptPayload.fromJson({
+          'script': 'echo',
+          'refs': [
+            {'placeholder': 'TOKEN', 'entryId': 'e1', 'field': 'value'},
+          ],
+        }),
+        throwsFormatException,
+      );
     });
 
-    test('interpreter falls back to bash for unknown tokens', () {
-      expect(ScriptInterpreter.fromName('zsh'), ScriptInterpreter.bash);
-      expect(ScriptInterpreter.fromName(null), ScriptInterpreter.bash);
+    test('unknown or missing interpreter fails closed', () {
+      expect(() => ScriptInterpreter.fromName('zsh'), throwsFormatException);
+      expect(() => ScriptInterpreter.fromName(null), throwsFormatException);
     });
   });
 
@@ -254,9 +278,7 @@ void main() {
         script: '  echo hi  ',
         interpreter: ScriptInterpreter.python,
         notes: 'x',
-        refs: const [
-          ScriptRef(env: 'TOKEN', entryId: 'e1', field: 'value'),
-        ],
+        refs: const [ScriptRef(env: 'TOKEN', entryId: 'e1', field: 'value')],
       );
       expect(json['type'], 'SCRIPT');
       expect(json['script'], 'echo hi');

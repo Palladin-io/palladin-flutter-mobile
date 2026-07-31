@@ -71,31 +71,31 @@ void main() {
     analytics = MockAnalyticsService();
 
     // Shared happy-path stubs — individual tests can override.
-    when(() => repository.getOnboardingStatus())
-        .thenAnswer((_) async => _incompleteStatus);
-    when(() => repository.getRecentEntries(any()))
-        .thenAnswer((_) async => const []);
+    when(
+      () => repository.getOnboardingStatus(),
+    ).thenAnswer((_) async => _incompleteStatus);
+    when(
+      () => repository.getRecentEntries(any()),
+    ).thenAnswer((_) async => const []);
     when(() => agentsRepository.listAgents()).thenAnswer((_) async => const []);
     when(() => pendingGrantsCubit.refresh()).thenAnswer((_) async {});
-    when(() => pendingGrantsCubit.state)
-        .thenReturn(const PendingGrantsState());
-    when(() => analytics.capture(any(), any()))
-        .thenAnswer((_) async {});
+    when(() => pendingGrantsCubit.state).thenReturn(const PendingGrantsState());
+    when(() => analytics.capture(any(), any())).thenAnswer((_) async {});
 
     // Default: permission not yet determined (fresh install / first prompt).
-    when(() => permissionService.checkStatus()).thenAnswer(
-      (_) async => NotificationPermissionStatus.notDetermined,
-    );
+    when(
+      () => permissionService.checkStatus(),
+    ).thenAnswer((_) async => NotificationPermissionStatus.notDetermined);
   });
 
   DashboardCubit buildCubit() => DashboardCubit(
-        repository: repository,
-        auditRepository: auditRepository,
-        agentsRepository: agentsRepository,
-        pendingGrantsCubit: pendingGrantsCubit,
-        analytics: analytics,
-        notificationPermissionService: permissionService,
-      );
+    repository: repository,
+    auditRepository: auditRepository,
+    agentsRepository: agentsRepository,
+    pendingGrantsCubit: pendingGrantsCubit,
+    analytics: analytics,
+    notificationPermissionService: permissionService,
+  );
 
   // ── load() ──────────────────────────────────
 
@@ -109,38 +109,37 @@ void main() {
         isA<DashboardLoading>(),
         isA<DashboardOnboarding>()
             .having((s) => s.notificationStepDone, 'stepDone', isFalse)
-            .having(
-                (s) => s.notificationPermissionDenied, 'denied', isFalse),
+            .having((s) => s.notificationPermissionDenied, 'denied', isFalse),
       ],
     );
 
     blocTest<DashboardCubit, DashboardState>(
       'auto-completes step when OS permission is already authorized',
-      setUp: () => when(() => permissionService.checkStatus())
-          .thenAnswer((_) async => NotificationPermissionStatus.authorized),
+      setUp: () => when(
+        () => permissionService.checkStatus(),
+      ).thenAnswer((_) async => NotificationPermissionStatus.authorized),
       build: buildCubit,
       act: (c) => c.load(),
       expect: () => [
         isA<DashboardLoading>(),
         isA<DashboardOnboarding>()
             .having((s) => s.notificationStepDone, 'stepDone', isTrue)
-            .having(
-                (s) => s.notificationPermissionDenied, 'denied', isFalse),
+            .having((s) => s.notificationPermissionDenied, 'denied', isFalse),
       ],
     );
 
     blocTest<DashboardCubit, DashboardState>(
       'sets denied=true when OS permission is denied',
-      setUp: () => when(() => permissionService.checkStatus())
-          .thenAnswer((_) async => NotificationPermissionStatus.denied),
+      setUp: () => when(
+        () => permissionService.checkStatus(),
+      ).thenAnswer((_) async => NotificationPermissionStatus.denied),
       build: buildCubit,
       act: (c) => c.load(),
       expect: () => [
         isA<DashboardLoading>(),
         isA<DashboardOnboarding>()
             .having((s) => s.notificationStepDone, 'stepDone', isFalse)
-            .having(
-                (s) => s.notificationPermissionDenied, 'denied', isTrue),
+            .having((s) => s.notificationPermissionDenied, 'denied', isTrue),
       ],
     );
   });
@@ -151,9 +150,9 @@ void main() {
     blocTest<DashboardCubit, DashboardState>(
       'marks step done and fires analytics when OS grants permission',
       setUp: () {
-        when(() => permissionService.requestPermission()).thenAnswer(
-          (_) async => NotificationPermissionStatus.authorized,
-        );
+        when(
+          () => permissionService.requestPermission(),
+        ).thenAnswer((_) async => NotificationPermissionStatus.authorized);
       },
       build: buildCubit,
       seed: () => const DashboardOnboarding(
@@ -162,14 +161,19 @@ void main() {
       ),
       act: (c) => c.enableNotifications('user-a'),
       expect: () => [
-        isA<DashboardOnboarding>()
-            .having((s) => s.notificationStepDone, 'stepDone', isTrue),
+        isA<DashboardOnboarding>().having(
+          (s) => s.notificationStepDone,
+          'stepDone',
+          isTrue,
+        ),
       ],
       verify: (_) {
-        verify(() => analytics.capture(
-              'dashboard',
-              'onboarding-notifications-enabled',
-            )).called(1);
+        verify(
+          () => analytics.capture(
+            'dashboard',
+            'onboarding-notifications-enabled',
+          ),
+        ).called(1);
         verifyNever(() => permissionService.openSettings());
       },
     );
@@ -177,11 +181,10 @@ void main() {
     blocTest<DashboardCubit, DashboardState>(
       'opens system settings and marks denied flag when OS denies permission',
       setUp: () {
-        when(() => permissionService.requestPermission()).thenAnswer(
-          (_) async => NotificationPermissionStatus.denied,
-        );
-        when(() => permissionService.openSettings())
-            .thenAnswer((_) async {});
+        when(
+          () => permissionService.requestPermission(),
+        ).thenAnswer((_) async => NotificationPermissionStatus.denied);
+        when(() => permissionService.openSettings()).thenAnswer((_) async {});
       },
       build: buildCubit,
       seed: () => const DashboardOnboarding(
@@ -192,28 +195,31 @@ void main() {
       expect: () => [
         isA<DashboardOnboarding>()
             .having((s) => s.notificationStepDone, 'stepDone', isFalse)
-            .having(
-                (s) => s.notificationPermissionDenied, 'denied', isTrue),
+            .having((s) => s.notificationPermissionDenied, 'denied', isTrue),
       ],
       verify: (_) {
         verify(() => permissionService.openSettings()).called(1);
-        verify(() => analytics.capture(
-              'dashboard',
-              'onboarding-notifications-settings-opened',
-            )).called(1);
-        verifyNever(() => analytics.capture(
-              'dashboard',
-              'onboarding-notifications-enabled',
-            ));
+        verify(
+          () => analytics.capture(
+            'dashboard',
+            'onboarding-notifications-settings-opened',
+          ),
+        ).called(1);
+        verifyNever(
+          () => analytics.capture(
+            'dashboard',
+            'onboarding-notifications-enabled',
+          ),
+        );
       },
     );
 
     blocTest<DashboardCubit, DashboardState>(
       'emits no state change when dialog is dismissed (notDetermined)',
       setUp: () {
-        when(() => permissionService.requestPermission()).thenAnswer(
-          (_) async => NotificationPermissionStatus.notDetermined,
-        );
+        when(
+          () => permissionService.requestPermission(),
+        ).thenAnswer((_) async => NotificationPermissionStatus.notDetermined);
       },
       build: buildCubit,
       seed: () => const DashboardOnboarding(
@@ -246,8 +252,11 @@ void main() {
       ),
       act: (c) => c.skipNotificationStep('user-a'),
       expect: () => [
-        isA<DashboardOnboarding>()
-            .having((s) => s.notificationStepDone, 'stepDone', isTrue),
+        isA<DashboardOnboarding>().having(
+          (s) => s.notificationStepDone,
+          'stepDone',
+          isTrue,
+        ),
       ],
       verify: (_) {
         verifyNever(() => permissionService.requestPermission());
@@ -267,10 +276,7 @@ void main() {
         await c.load(userId: 'user-a');
       },
       skip: 1, // drop the DashboardLoaded emitted synchronously by skipSetup
-      expect: () => [
-        isA<DashboardLoading>(),
-        isA<DashboardLoaded>(),
-      ],
+      expect: () => [isA<DashboardLoading>(), isA<DashboardLoaded>()],
       verify: (_) {
         // Onboarding was hidden without consulting the backend status.
         verifyNever(() => repository.getOnboardingStatus());
@@ -285,10 +291,7 @@ void main() {
         await c.load(userId: 'user-b');
       },
       skip: 1, // drop the DashboardLoaded emitted synchronously by skipSetup
-      expect: () => [
-        isA<DashboardLoading>(),
-        isA<DashboardOnboarding>(),
-      ],
+      expect: () => [isA<DashboardLoading>(), isA<DashboardOnboarding>()],
       verify: (_) {
         // Onboarding was resolved from the backend status, not the A flag.
         verify(() => repository.getOnboardingStatus()).called(1);
@@ -303,10 +306,7 @@ void main() {
       }),
       build: buildCubit,
       act: (c) => c.load(),
-      expect: () => [
-        isA<DashboardLoading>(),
-        isA<DashboardOnboarding>(),
-      ],
+      expect: () => [isA<DashboardLoading>(), isA<DashboardOnboarding>()],
     );
 
     blocTest<DashboardCubit, DashboardState>(
@@ -321,8 +321,11 @@ void main() {
       },
       expect: () => [
         isA<DashboardLoading>(),
-        isA<DashboardOnboarding>()
-            .having((s) => s.notificationStepDone, 'stepDone', isFalse),
+        isA<DashboardOnboarding>().having(
+          (s) => s.notificationStepDone,
+          'stepDone',
+          isFalse,
+        ),
       ],
     );
   });

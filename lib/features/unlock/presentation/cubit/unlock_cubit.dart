@@ -7,6 +7,7 @@ import '../../../../core/storage/biometric_key_store.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../onboarding/data/services/default_vault_provisioner.dart';
 import '../../data/datasources/account_remote_datasource.dart';
+import '../../data/services/identity_kdf_service.dart';
 import '../../data/services/unlock_crypto_service.dart';
 import '../../domain/unlock_exceptions.dart';
 import 'unlock_state.dart';
@@ -63,10 +64,16 @@ class UnlockCubit extends Cubit<UnlockState> {
     var keysHandedOff = false;
     try {
       final account = await datasource.getAccount();
+      final kdf = account.kdf;
+      final encryptedPrivateKey = account.encryptedPrivateKey;
+      if (kdf == null || encryptedPrivateKey == null) {
+        throw UnsupportedIdentityKdfException('missing-account-key-material');
+      }
       result = await cryptoService.deriveAndDecrypt(
         masterPassword: password,
-        saltBase64: account.salt,
-        encryptedPrivateKeyBase64: account.encryptedPrivateKey,
+        accountId: account.userId,
+        kdf: kdf,
+        encryptedPrivateKeyBase64: encryptedPrivateKey,
       );
 
       if (biometricCopy != null) {
@@ -170,9 +177,13 @@ class UnlockCubit extends Cubit<UnlockState> {
       }
 
       final account = await datasource.getAccount();
+      final encryptedPrivateKey = account.encryptedPrivateKey;
+      if (encryptedPrivateKey == null) {
+        throw UnsupportedIdentityKdfException('missing-account-key-material');
+      }
       result = await cryptoService.decryptWithMasterKey(
         masterKey: masterKey,
-        encryptedPrivateKeyBase64: account.encryptedPrivateKey,
+        encryptedPrivateKeyBase64: encryptedPrivateKey,
       );
 
       await _provisionDefaultVault(

@@ -41,12 +41,12 @@ enum GrantStatus {
   /// payload fails closed (renders as no-access rather than active).
   static GrantStatus fromWire(Object? raw) {
     return switch (raw) {
-      'pending' || 0 => GrantStatus.pending,
-      'active' || 1 => GrantStatus.active,
-      'denied' || 2 => GrantStatus.denied,
-      'revoked' || 3 => GrantStatus.revoked,
-      'expired' || 4 => GrantStatus.expired,
+      'pending' || 1 => GrantStatus.pending,
+      'active' || 2 => GrantStatus.active,
+      'expired' || 3 => GrantStatus.expired,
+      'revoked' || 4 => GrantStatus.revoked,
       'consumed' || 5 => GrantStatus.consumed,
+      'denied' || 6 => GrantStatus.denied,
       _ => GrantStatus.revoked,
     };
   }
@@ -69,7 +69,8 @@ enum GrantScope {
 
   static GrantScope fromWire(Object? raw) {
     return switch (raw) {
-      'full' || 1 => GrantScope.full,
+      'full' || 2 => GrantScope.full,
+      'granular' || 1 => GrantScope.granular,
       _ => GrantScope.granular,
     };
   }
@@ -82,13 +83,15 @@ class Grant {
   const Grant({
     required this.id,
     required this.vaultId,
-    required this.agentId,
+    this.agentId,
     required this.status,
     required this.scope,
     required this.createdAt,
     this.agentName,
     this.agentIconKey,
     this.agentPublicKey,
+    this.recipientAgentKeyVersion,
+    this.entryScopes = const [],
     this.vaultName,
     this.entryId,
     this.entryLabel,
@@ -103,7 +106,6 @@ class Grant {
     this.createdByName,
     this.revokedByName,
     this.deniedByName,
-    this.revokeReason,
     this.denyReason,
     this.canRevoke = false,
     this.canGrantAgain = false,
@@ -113,7 +115,7 @@ class Grant {
   final String id;
 
   final String vaultId;
-  final String agentId;
+  final String? agentId;
 
   /// Display name of the requesting agent, or `null` if unnamed.
   final String? agentName;
@@ -125,6 +127,12 @@ class Grant {
   /// Agent's base64 X25519 public key — needed to seal a DEK when re-granting
   /// ("Grant again"). Public by design (it can only seal *to* the agent).
   final String? agentPublicKey;
+
+  /// Current public recipient-key version used for a refreshed envelope.
+  final int? recipientAgentKeyVersion;
+
+  /// Durable field scope and current envelope counters. Contains no secrets.
+  final List<GrantEntryScope> entryScopes;
 
   /// Display name of the owning vault (org-wide listing only).
   final String? vaultName;
@@ -173,9 +181,6 @@ class Grant {
   /// Actor who denied the grant, when [status] is denied.
   final String? deniedByName;
 
-  /// Owner-supplied reason recorded at revoke time.
-  final String? revokeReason;
-
   /// Owner-supplied reason recorded at deny time.
   final String? denyReason;
 
@@ -184,4 +189,27 @@ class Grant {
   /// action is wrongly offered (e.g. revoking an already-expired grant).
   final bool canRevoke;
   final bool canGrantAgain;
+}
+
+/// One Entry covered by a grant, with ciphertext-only refresh metadata.
+class GrantEntryScope {
+  const GrantEntryScope({
+    required this.entryId,
+    required this.fieldIds,
+    this.grantEnvelopeRevision,
+    this.entryRevision,
+    this.grantKeyVersion,
+    this.memberKeyGeneration,
+    this.recipientAgentKeyVersion,
+    this.agentKeyFingerprint,
+  });
+
+  final String entryId;
+  final List<String> fieldIds;
+  final String? grantEnvelopeRevision;
+  final String? entryRevision;
+  final int? grantKeyVersion;
+  final int? memberKeyGeneration;
+  final int? recipientAgentKeyVersion;
+  final String? agentKeyFingerprint;
 }

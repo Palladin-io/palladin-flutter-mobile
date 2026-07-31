@@ -1,6 +1,7 @@
-import 'dart:typed_data';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -9,12 +10,20 @@ import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../public_asset_catalog/presentation/widgets/public_asset_image.dart';
+import '../../../public_asset_catalog/domain/entities/public_asset.dart';
+import '../../../public_asset_catalog/domain/services/website_icon_service.dart';
+import '../../../../core/di/injection.dart';
 import '../../domain/entities/entry_entity.dart';
+import '../../domain/entities/member_index_entry.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../cubit/entry_list_cubit.dart';
 import '../pages/entry_detail_page.dart';
+import '../pages/entry_archive_page.dart';
 import 'entry_field_row.dart';
 import 'vault_visuals.dart';
+import 'encrypted_asset_image.dart';
+import '../../data/services/encrypted_presentation_asset_service.dart';
 
 /// Entries tab on the vault detail page.
 ///
@@ -28,32 +37,162 @@ import 'vault_visuals.dart';
 /// on-device and stashed on the cubit's state until the user collapses
 /// the panel.
 class VaultEntriesTab extends StatefulWidget {
-  const VaultEntriesTab({super.key});
+  const VaultEntriesTab({super.key, this.openArchive});
+
+  /// Test seam for the pushed Archive route. Production uses
+  /// [EntryArchivePage.push].
+  final Future<void> Function(BuildContext context)? openArchive;
 
   @override
   State<VaultEntriesTab> createState() => _VaultEntriesTabState();
 }
 
+@visibleForTesting
+List<String> websiteIconHostnames(Iterable<EntryEntity> entries) {
+  final hostnames = entries
+      .map((entry) => entry.icon)
+      .whereType<String>()
+      .where((reference) => reference.startsWith('website:'))
+      .map((reference) => reference.substring('website:'.length))
+      .toSet()
+      .toList(growable: false);
+  hostnames.sort();
+  return hostnames;
+}
+
 class _VaultEntriesTabState extends State<VaultEntriesTab> {
+  static const _initialRenderLimit = 100;
+  static const _renderIncrement = 100;
+  static const _maxWebsitePollAttempts = 30;
+
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _expanded = <String>{};
   final Set<String> _revealedFields = <String>{}; // composite "$entryId:$field"
+  final Map<String, PublicAsset> _websiteAssets = <String, PublicAsset>{};
+  Timer? _websiteAssetPoll;
+  Timer? _searchDebounce;
+  Set<String> _scheduledWebsiteHostnames = const {};
+  String _searchQuery = '';
+  int _renderLimit = _initialRenderLimit;
+  int _filteredCount = 0;
+  List<EntryEntity>? _filterSource;
+  String? _filterQuery;
+  List<EntryEntity> _filteredEntries = const [];
 
   @override
   void dispose() {
+    _websiteAssetPoll?.cancel();
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  List<EntryEntity> _filter(List<EntryEntity> entries) {
-    final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return entries;
-    return entries
-        .where((e) =>
-            e.label.toLowerCase().contains(query) ||
-            (e.description?.toLowerCase().contains(query) ?? false) ||
-            (e.urlDomain?.toLowerCase().contains(query) ?? false))
+  void _scheduleWebsiteAssets(List<EntryEntity> entries) {
+    final hostnames = websiteIconHostnames(entries);
+    final hostnameSet = hostnames.toSet();
+    if (setEquals(hostnameSet, _scheduledWebsiteHostnames)) return;
+    _scheduledWebsiteHostnames = hostnameSet;
+    _websiteAssetPoll?.cancel();
+    if (hostnames.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && setEquals(hostnameSet, _scheduledWebsiteHostnames)) {
+        _resolveWebsiteAssets(hostnames, hostnameSet, 0);
+      }
+    });
+  }
+
+  Future<void> _resolveWebsiteAssets(
+    List<String> hostnames,
+    Set<String> scheduledHostnames,
+    int attempt,
+  ) async {
+    if (!getIt.isRegistered<WebsiteIconService>()) return;
+    final unresolved = hostnames
+        .where((hostname) => !_websiteAssets.containsKey(hostname))
         .toList(growable: false);
+    if (unresolved.isEmpty) return;
+    final resolved = await getIt<WebsiteIconService>().resolveBatch(unresolved);
+    if (!mounted ||
+        !setEquals(scheduledHostnames, _scheduledWebsiteHostnames)) {
+      return;
+    }
+    if (resolved.isNotEmpty) {
+      setState(() => _websiteAssets.addAll(resolved));
+    }
+    if (_websiteAssets.keys.toSet().containsAll(hostnames) ||
+        attempt >= _maxWebsitePollAttempts) {
+      return;
+    }
+    _websiteAssetPoll = Timer(
+      const Duration(seconds: 2),
+      () => _resolveWebsiteAssets(hostnames, scheduledHostnames, attempt + 1),
+    );
+  }
+
+  List<EntryEntity> _filter(List<EntryEntity> entries) {
+    if (identical(entries, _filterSource) && _searchQuery == _filterQuery) {
+      return _filteredEntries;
+    }
+    final query = _searchQuery;
+    final filtered =
+        entries
+            .where((e) => e.lifecycleState == MemberEntryState.active)
+            .where(
+              (e) =>
+                  query.isEmpty ||
+                  e.label.toLowerCase().contains(query) ||
+                  (e.description?.toLowerCase().contains(query) ?? false) ||
+                  (e.urlDomain?.toLowerCase().contains(query) ?? false),
+            )
+            .toList(growable: false)
+          ..sort((left, right) => left.label.compareTo(right.label));
+    _filterSource = entries;
+    _filterQuery = query;
+    _filteredEntries = filtered;
+    return filtered;
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 200), () {
+      if (!mounted) return;
+      setState(() {
+        _searchQuery = value.trim().toLowerCase();
+        _renderLimit = _initialRenderLimit;
+      });
+    });
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification &&
+        notification.metrics.extentAfter < 400 &&
+        _renderLimit < _filteredCount) {
+      setState(() => _renderLimit += _renderIncrement);
+    }
+    return false;
+  }
+
+  void _retrySync() {
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated || auth.privateKey == null) return;
+    final keyCopy = Uint8List.fromList(auth.privateKey!);
+    context
+        .read<EntryListCubit>()
+        .loadIndexedEntries(keyCopy)
+        .whenComplete(() => keyCopy.fillRange(0, keyCopy.length, 0));
+  }
+
+  Future<void> _openArchive() async {
+    final open = widget.openArchive;
+    if (open != null) {
+      await open(context);
+    } else {
+      await EntryArchivePage.push(
+        context,
+        context.read<EntryListCubit>().vaultId,
+      );
+    }
+    if (mounted) _retrySync();
   }
 
   void _onToggleReveal(EntryEntity entry) {
@@ -75,9 +214,11 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(AppLocalizations.of(context)!.entryErrorCrypto),
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.entryErrorCrypto),
+          ),
+        );
       return;
     }
 
@@ -104,15 +245,11 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     });
   }
 
-  Future<void> _onEditEntry(
-    EntryEntity entry,
-    Map<String, dynamic>? cachedPayload,
-  ) async {
+  Future<void> _onEditEntry(EntryEntity entry) async {
     final cubit = context.read<EntryListCubit>();
     final result = await EntryDetailPage.push(
       context,
       entry: entry,
-      cachedPayload: cachedPayload,
       wrappedVK: cubit.wrappedVK,
     );
     if (!mounted) return;
@@ -128,10 +265,12 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(l10n.vaultCopyValue),
-        duration: const Duration(seconds: 1),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l10n.vaultCopyValue),
+          duration: const Duration(seconds: 1),
+        ),
+      );
   }
 
   List<Widget> _loadedSlivers({
@@ -140,9 +279,7 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     required AppLocalizations l10n,
   }) {
     if (entries.isEmpty) {
-      return [
-        SliverToBoxAdapter(child: _EmptyEntries(l10n: l10n)),
-      ];
+      return [SliverToBoxAdapter(child: _EmptyEntries(l10n: l10n))];
     }
     return [
       SliverPadding(
@@ -153,13 +290,14 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
               const SizedBox(height: AppSpacing.cardGap),
           itemBuilder: (context, i) => _EntryCard(
             entry: entries[i],
+            websiteAssets: _websiteAssets,
             isExpanded: _expanded.contains(entries[i].id),
             payload: revealedEntries[entries[i].id],
             revealedFields: _revealedFields,
             onToggleReveal: () => _onToggleReveal(entries[i]),
             onToggleFieldReveal: _toggleFieldReveal,
             onCopy: (value) => _copyToClipboard(value, l10n),
-            onEdit: () => _onEditEntry(entries[i], revealedEntries[entries[i].id]),
+            onEdit: () => _onEditEntry(entries[i]),
           ),
         ),
       ),
@@ -195,49 +333,75 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
         if (kind == null) return;
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(
-            content: Text(_errorMessage(kind, l10n)),
-            duration: const Duration(seconds: 3),
-          ));
+          ..showSnackBar(
+            SnackBar(
+              content: Text(_errorMessage(kind, l10n)),
+              duration: const Duration(seconds: 3),
+            ),
+          );
       },
       builder: (context, state) {
         // Search scrolls with the entries list (canonical Vaults pattern): it
         // is the first sliver of a single CustomScrollView, so an overscroll
         // never reveals a background strip between a pinned search bar and a
         // separate scroll area. Each state contributes the slivers below it.
-        return CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.fieldGap),
-                child: AppSearchField(
-                  controller: _searchController,
-                  hint: l10n.entrySearchHint,
-                  onChanged: (_) => setState(() {}),
+        return NotificationListener<ScrollNotification>(
+          onNotification: _onScroll,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.fieldGap),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: AppSearchField(
+                          controller: _searchController,
+                          hint: l10n.entrySearchHint,
+                          onChanged: _onSearchChanged,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.innerGap),
+                      IconButton(
+                        tooltip: l10n.entryArchiveTitle,
+                        onPressed: _openArchive,
+                        icon: const Icon(Icons.archive_outlined),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            ...switch (state) {
-              EntryListInitial() ||
-              EntryListLoading() => const [_LoadingSliver()],
-              EntryListError(:final kind) => [
-                _ErrorSliver(
-                  kind: kind,
-                  onRetry: () => context.read<EntryListCubit>().loadEntries(),
-                ),
-              ],
-              EntryListLoaded(:final entries, :final revealedEntries) =>
-                _loadedSlivers(
-                  entries: _filter(entries),
-                  revealedEntries: revealedEntries,
-                  l10n: l10n,
-                ),
-            },
-          ],
+              ...switch (state) {
+                EntryListInitial() ||
+                EntryListLoading() => const [_LoadingSliver()],
+                EntryListError(:final kind) => [
+                  _ErrorSliver(kind: kind, onRetry: _retrySync),
+                ],
+                EntryListLoaded(:final entries, :final revealedEntries) =>
+                  _loadedSlivers(
+                    entries: _prepareEntries(entries),
+                    revealedEntries: revealedEntries,
+                    l10n: l10n,
+                  ),
+              },
+            ],
+          ),
         );
       },
     );
+  }
+
+  List<EntryEntity> _prepareEntries(List<EntryEntity> entries) {
+    final filtered = _filter(entries);
+    _filteredCount = filtered.length;
+    // Resolve every distinct hostname represented by the decrypted member
+    // index, not merely the first rendered window. Rendering stays bounded,
+    // while the repository pages catalog requests in backend-sized chunks.
+    // This makes icon coverage independent of entry count and scroll order.
+    _scheduleWebsiteAssets(filtered);
+    final visible = filtered.take(_renderLimit).toList(growable: false);
+    return visible;
   }
 }
 
@@ -256,8 +420,11 @@ class _EmptyEntries extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(Icons.inbox_outlined,
-              size: 36, color: AppColors.onSurfaceSubtle(brightness)),
+          Icon(
+            Icons.inbox_outlined,
+            size: 36,
+            color: AppColors.onSurfaceSubtle(brightness),
+          ),
           const SizedBox(height: AppSpacing.md),
           Text(
             l10n.entryEmpty,
@@ -326,9 +493,10 @@ class _SkeletonRowState extends State<_SkeletonRow>
     Future.delayed(Duration(milliseconds: widget.delay), () {
       if (mounted) _ctrl.repeat(reverse: true);
     });
-    _anim = Tween<double>(begin: 0.4, end: 0.85).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
+    _anim = Tween<double>(
+      begin: 0.4,
+      end: 0.85,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
@@ -411,6 +579,7 @@ class _ErrorSliver extends StatelessWidget {
 class _EntryCard extends StatelessWidget {
   const _EntryCard({
     required this.entry,
+    required this.websiteAssets,
     required this.isExpanded,
     required this.payload,
     required this.revealedFields,
@@ -421,6 +590,7 @@ class _EntryCard extends StatelessWidget {
   });
 
   final EntryEntity entry;
+  final Map<String, PublicAsset> websiteAssets;
   final bool isExpanded;
   final Map<String, dynamic>? payload;
   final Set<String> revealedFields;
@@ -433,12 +603,21 @@ class _EntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    final meta = entry.urlDomain ?? entry.description ?? '';
+    final interactive =
+        entry.lifecycleState == MemberEntryState.active && !entry.corrupt;
+    final meta = entry.corrupt
+        ? l10n.entryCorruptProjection
+        : switch (entry.lifecycleState) {
+            MemberEntryState.active =>
+              entry.urlDomain ?? entry.description ?? '',
+            MemberEntryState.archived => l10n.entryArchivedRecoverability,
+            MemberEntryState.deleted => l10n.entryDeletedRecoverability,
+          };
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onEdit,
+        onTap: interactive ? onEdit : null,
         borderRadius: BorderRadius.circular(12),
         child: Ink(
           decoration: BoxDecoration(
@@ -466,7 +645,10 @@ class _EntryCard extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    _EntryIconWidget(entry: entry),
+                    _EntryIconWidget(
+                      entry: entry,
+                      websiteAssets: websiteAssets,
+                    ),
                     const SizedBox(width: AppSpacing.cardGap),
                     Expanded(
                       child: Column(
@@ -498,19 +680,21 @@ class _EntryCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: AppSpacing.chipGap),
-                    EntrySmallIconButton(
-                      icon: isExpanded
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                      tooltip: l10n.vaultRevealEntry,
-                      onPressed: onToggleReveal,
-                    ),
-                    const SizedBox(width: AppSpacing.chipGap),
-                    EntrySmallIconButton(
-                      icon: Icons.arrow_forward,
-                      tooltip: l10n.vaultViewEntry,
-                      onPressed: onEdit,
-                    ),
+                    if (interactive) ...[
+                      EntrySmallIconButton(
+                        icon: isExpanded
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        tooltip: l10n.vaultRevealEntry,
+                        onPressed: onToggleReveal,
+                      ),
+                      const SizedBox(width: AppSpacing.chipGap),
+                      EntrySmallIconButton(
+                        icon: Icons.arrow_forward,
+                        tooltip: l10n.vaultViewEntry,
+                        onPressed: onEdit,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -524,9 +708,7 @@ class _EntryCard extends StatelessWidget {
                   opacity: isExpanded ? 1.0 : 0.0,
                   child: isExpanded
                       ? Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: AppSpacing.md,
-                          ),
+                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
                           child: payload == null
                               ? const Padding(
                                   padding: EdgeInsets.symmetric(
@@ -673,35 +855,73 @@ class _RevealPanel extends StatelessWidget {
 /// preset names map to the matching [EntryVisuals] palette color.
 /// Falls back to a type-based icon when `entry.icon` is null.
 class _EntryIconWidget extends StatelessWidget {
-  const _EntryIconWidget({required this.entry});
+  const _EntryIconWidget({required this.entry, required this.websiteAssets});
 
   final EntryEntity entry;
+  final Map<String, PublicAsset> websiteAssets;
 
   @override
   Widget build(BuildContext context) {
     final icon = entry.icon;
 
+    if (icon?.startsWith('asset:') ?? false) {
+      return SizedBox(
+        width: 40,
+        height: 40,
+        child: ClipOval(
+          child: EncryptedAssetImage(
+            reference: icon!,
+            target: PresentationAssetTarget.entry,
+            vaultId: entry.vaultId,
+            entryId: entry.id,
+            width: 40,
+            height: 40,
+            fallback: _presetIcon(null),
+          ),
+        ),
+      );
+    }
+
+    if (icon?.startsWith('public-asset:') ?? false) {
+      return SizedBox(
+        width: 40,
+        height: 40,
+        child: ClipOval(
+          child: PublicAssetImage(
+            reference: icon!,
+            width: 40,
+            height: 40,
+            fallback: _presetIcon(null),
+          ),
+        ),
+      );
+    }
+
+    if (icon?.startsWith('website:') ?? false) {
+      final asset = websiteAssets[icon!.substring('website:'.length)];
+      if (asset != null) {
+        return SizedBox(
+          width: 40,
+          height: 40,
+          child: ClipOval(
+            child: Image.network(
+              asset.deliveryUrl.toString(),
+              width: 40,
+              height: 40,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (_, _, _) => _presetIcon(null),
+            ),
+          ),
+        );
+      }
+    }
+
     if (!EntryVisuals.isCustomUrl(icon)) {
       return _presetIcon(icon);
     }
 
-    // Cache-bust on icon updates: `updatedAt` changes whenever the entry
-    // is patched (including after a new icon upload), so the `?v=` query
-    // forces Flutter's image cache to refetch the new bytes.
-    final url = '$icon?v=${entry.updatedAt.millisecondsSinceEpoch}';
-    return SizedBox(
-      width: 40,
-      height: 40,
-      child: ClipOval(
-        child: Image.network(
-          url,
-          width: 40,
-          height: 40,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _presetIcon(null),
-        ),
-      ),
-    );
+    return _presetIcon(null);
   }
 
   Widget _presetIcon(String? name) {
@@ -729,4 +949,3 @@ class _EntryIconWidget extends StatelessWidget {
     );
   }
 }
-

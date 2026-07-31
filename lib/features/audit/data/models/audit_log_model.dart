@@ -2,13 +2,16 @@ import '../../domain/entities/audit_log_entry.dart';
 
 /// Wire DTO for an audit log list item (`AuditLogListItem` on the backend).
 ///
-/// Carries non-sensitive context only — ids, the entry label, the agent's
-/// stated reason and a flat metadata map. Never any crypto material.
+/// Mirrors the canonical backend `AuditLogListItem` contract. Metadata is an
+/// allow-listed structural dictionary produced by the Audit module; it must
+/// never be logged by the client.
 class AuditLogModel {
   const AuditLogModel({
     required this.id,
     required this.eventType,
     required this.actorType,
+    required this.result,
+    required this.occurredAt,
     required this.createdAt,
     this.userId,
     this.agentId,
@@ -16,14 +19,14 @@ class AuditLogModel {
     this.actorName,
     this.vaultId,
     this.entryId,
-    this.entryLabel,
-    this.agentReason,
     this.metadata = const {},
   });
 
   final String id;
   final String eventType;
   final Object? actorType;
+  final Object? result;
+  final String occurredAt;
   final String createdAt;
   final String? userId;
   final String? agentId;
@@ -31,16 +34,15 @@ class AuditLogModel {
   final String? actorName;
   final String? vaultId;
   final String? entryId;
-  final String? entryLabel;
-  final String? agentReason;
   final Map<String, String> metadata;
 
   factory AuditLogModel.fromJson(Map<String, dynamic> json) {
-    final rawMeta = json['metadata'] as Map<String, dynamic>? ?? const {};
     return AuditLogModel(
       id: json['id'] as String,
       eventType: json['eventType'] as String? ?? '',
       actorType: json['actorType'],
+      result: json['result'],
+      occurredAt: json['occurredAt'] as String,
       createdAt: json['createdAt'] as String,
       userId: json['userId'] as String?,
       agentId: json['agentId'] as String?,
@@ -48,9 +50,7 @@ class AuditLogModel {
       actorName: json['actorName'] as String?,
       vaultId: json['vaultId'] as String?,
       entryId: json['entryId'] as String?,
-      entryLabel: json['entryLabel'] as String?,
-      agentReason: json['agentReason'] as String?,
-      metadata: rawMeta.map((k, v) => MapEntry(k, v?.toString() ?? '')),
+      metadata: _metadata(json['metadata']),
     );
   }
 
@@ -63,6 +63,8 @@ class AuditLogModel {
       eventType: AuditEventType.fromWire(eventType),
       rawEventType: eventType,
       actorType: AuditActorType.fromWire(actorType),
+      result: AuditResult.fromWire(result),
+      occurredAt: DateTime.parse(occurredAt).toLocal(),
       createdAt: DateTime.parse(createdAt).toLocal(),
       userId: userId,
       agentId: agentId,
@@ -70,9 +72,17 @@ class AuditLogModel {
       actorName: actorName,
       vaultId: vaultId,
       entryId: entryId,
-      entryLabel: entryLabel,
-      agentReason: agentReason,
       metadata: metadata,
+      localPresentationOnly: true,
     );
+  }
+
+  static Map<String, String> _metadata(Object? raw) {
+    if (raw is! Map) return const {};
+    return Map.unmodifiable({
+      for (final entry in raw.entries)
+        if (entry.key is String && entry.value is String)
+          entry.key as String: entry.value as String,
+    });
   }
 }

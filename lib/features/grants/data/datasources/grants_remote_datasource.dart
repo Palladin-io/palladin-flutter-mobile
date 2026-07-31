@@ -43,13 +43,14 @@ class GrantsRemoteDatasource {
 
     final raw = (data['items'] as List<dynamic>? ?? const <dynamic>[]);
     final grants = raw
-        .map((e) =>
-            GrantModel.fromJson(e as Map<String, dynamic>, contextVaultId: vaultId))
+        .map(
+          (e) => GrantModel.fromJson(
+            e as Map<String, dynamic>,
+            contextVaultId: vaultId,
+          ),
+        )
         .toList(growable: false);
-    return GrantPage(
-      grants: grants,
-      nextCursor: data['nextCursor'] as String?,
-    );
+    return GrantPage(grants: grants, nextCursor: data['nextCursor'] as String?);
   }
 
   /// `GET /api/grants?status=&agentId=&vaultId=&entryId=&query=&cursor=&pageSize=`
@@ -85,10 +86,7 @@ class GrantsRemoteDatasource {
     final grants = raw
         .map((e) => GrantModel.fromJson(e as Map<String, dynamic>))
         .toList(growable: false);
-    return GrantPage(
-      grants: grants,
-      nextCursor: data['nextCursor'] as String?,
-    );
+    return GrantPage(grants: grants, nextCursor: data['nextCursor'] as String?);
   }
 
   /// `GET /api/vaults/{vaultId}/grants/{grantId}` → a single grant.
@@ -103,25 +101,14 @@ class GrantsRemoteDatasource {
 
   /// `DELETE /api/vaults/{vaultId}/grants/{grantId}` → 204 (no body).
   ///
-  /// [reason] is optional and only sent when non-empty.
-  Future<void> revokeGrant(
-    String vaultId,
-    String grantId, {
-    String? reason,
-  }) async {
-    final trimmed = reason?.trim();
-    await _dio.delete<void>(
-      '/api/vaults/$vaultId/grants/$grantId',
-      data: (trimmed == null || trimmed.isEmpty)
-          ? null
-          : <String, dynamic>{'reason': trimmed},
-    );
+  Future<void> revokeGrant(String vaultId, String grantId) async {
+    await _dio.delete<void>('/api/vaults/$vaultId/grants/$grantId');
   }
 
   DioException _emptyBody(Response<dynamic> response) => DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        type: DioExceptionType.badResponse,
-        error: 'Empty response body',
-      );
+    requestOptions: response.requestOptions,
+    response: response,
+    type: DioExceptionType.badResponse,
+    error: 'Empty response body',
+  );
 }

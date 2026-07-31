@@ -6,6 +6,7 @@ import 'package:sodium_libs/sodium_libs_sumo.dart';
 import '../../../../core/crypto/sodium_provider.dart';
 import '../../../onboarding/domain/crypto_params.dart';
 import '../../../onboarding/domain/mnemonic.dart' as mnemonic;
+import '../../../unlock/data/services/identity_kdf_service.dart';
 import '../../domain/recovery_exceptions.dart';
 import '../models/recover_account_request.dart';
 
@@ -40,9 +41,13 @@ class RecoveryResult {
 /// All derived keys and the raw private key are zeroed before returning
 /// so no secret material lingers past this method's stack frame.
 class RecoveryCryptoService {
-  RecoveryCryptoService({Future<SodiumSumo> Function()? sodiumLoader})
-      : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
+  RecoveryCryptoService({
+    IdentityKdfService? identityKdfService,
+    Future<SodiumSumo> Function()? sodiumLoader,
+  }) : _identityKdfService = identityKdfService ?? IdentityKdfService(),
+       _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
+  final IdentityKdfService _identityKdfService;
   final Future<SodiumSumo> Function() _sodiumLoader;
 
   /// Validates that [recoveryMnemonic] can unwrap the supplied
@@ -88,12 +93,16 @@ class RecoveryCryptoService {
     required String newPassword,
     required String recoverySaltBase64,
     required String encryptedPrivateKeyByRecoveryBase64,
+    required String accountId,
+    required int baseCredentialRevision,
+    required int basePrivateKeyWrapRevision,
   }) async {
     final sodium = await _sodiumLoader();
     final recoverySalt = base64.decode(recoverySaltBase64);
 
     final recoveryKey = _deriveKey(sodium, recoveryMnemonic, recoverySalt);
     Uint8List? privateKey;
+    IdentityKdfOutputs? outputs;
     try {
       // Step 1: unwrap the private key with the user-supplied mnemonic.
       privateKey = _openPrivateKey(
@@ -103,8 +112,13 @@ class RecoveryCryptoService {
       );
 
       // Step 2: re-wrap under a fresh MK derived from the new password.
-      final newSalt = sodium.randombytes.buf(CryptoParams.saltLength);
-      final newMasterKey = _deriveKey(sodium, newPassword, newSalt);
+      final newSalt = sodium.randombytes.buf(IdentityKdfProfile.saltBytes);
+      outputs = await _identityKdfService.derive(
+        password: newPassword,
+        accountId: accountId,
+        kdfSalt: newSalt,
+      );
+      final newMasterKey = SecureKey.fromList(sodium, outputs.masterKey);
       late final Uint8List newEncryptedPrivateKey;
       try {
         newEncryptedPrivateKey = _encryptWithKey(
@@ -135,9 +149,15 @@ class RecoveryCryptoService {
         newRecoveryKey.dispose();
       }
 
+      final newAuthCredential = baseCredentialRevision > 0
+          ? Uint8List.fromList(outputs.authCredential)
+          : null;
       return RecoveryResult(
         request: RecoverAccountRequest(
-          newSalt: newSalt,
+          baseCredentialRevision: baseCredentialRevision,
+          basePrivateKeyWrapRevision: basePrivateKeyWrapRevision,
+          newKdfSalt: newSalt,
+          newAuthCredential: newAuthCredential,
           newEncryptedPrivateKey: newEncryptedPrivateKey,
           newRecoverySalt: newRecoverySalt,
           newEncryptedPrivateKeyByRecovery: newEncryptedPrivateKeyByRecovery,
@@ -150,6 +170,7 @@ class RecoveryCryptoService {
       if (privateKey != null) {
         privateKey.fillRange(0, privateKey.length, 0);
       }
+      outputs?.dispose();
       recoveryKey.dispose();
     }
   }

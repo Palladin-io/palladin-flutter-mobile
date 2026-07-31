@@ -8,14 +8,17 @@ import 'package:mobile_palladin/features/auth/data/models/auth_result_model.dart
 import 'package:mobile_palladin/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:mobile_palladin/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 
 class MockAuthRepository extends Mock implements AuthRepository {}
 
 void main() {
   late MockAuthRepository mockRepo;
+  late VaultSessionStore vaultSessionStore;
 
   setUp(() {
     mockRepo = MockAuthRepository();
+    vaultSessionStore = VaultSessionStore()..setMemberPrivateKey(Uint8List(32));
     // Default permissions / email stubs — most tests don't care about
     // the value but every successful auth path queries them. Override
     // per test when a specific bitmask or identity matters.
@@ -144,10 +147,16 @@ void main() {
       'emits [AuthUnauthenticated] when check finds no stored session',
       build: () {
         when(() => mockRepo.isAuthenticated()).thenAnswer((_) async => false);
-        return AuthBloc(authRepository: mockRepo);
+        return AuthBloc(
+          authRepository: mockRepo,
+          vaultSessionStore: vaultSessionStore,
+        );
       },
       act: (bloc) => bloc.add(const AuthCheckRequested()),
       expect: () => [isA<AuthUnauthenticated>()],
+      verify: (_) {
+        expect(vaultSessionStore.copyMemberPrivateKey, throwsStateError);
+      },
     );
 
     blocTest<AuthBloc, AuthState>(
@@ -168,10 +177,16 @@ void main() {
         when(
           () => mockRepo.refreshToken(),
         ).thenThrow(AuthNoRefreshTokenException());
-        return AuthBloc(authRepository: mockRepo);
+        return AuthBloc(
+          authRepository: mockRepo,
+          vaultSessionStore: vaultSessionStore,
+        );
       },
       act: (bloc) => bloc.add(const AuthRefreshRequested()),
       expect: () => [isA<AuthUnauthenticated>()],
+      verify: (_) {
+        expect(vaultSessionStore.copyMemberPrivateKey, throwsStateError);
+      },
     );
 
     blocTest<AuthBloc, AuthState>(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:fake_async/fake_async.dart';
@@ -8,267 +9,246 @@ import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/features/dashboard/domain/entities/search_result_entity.dart';
 import 'package:mobile_palladin/features/dashboard/domain/repositories/dashboard_repository.dart';
+import 'package:mobile_palladin/features/dashboard/domain/repositories/local_search_repository.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_cubit.dart';
+import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_session_controller.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_state.dart';
-
-// ──────────────────────────────────────────────
-// Mocks & fixtures
-// ──────────────────────────────────────────────
 
 class MockDashboardRepository extends Mock implements DashboardRepository {}
 
+class MockLocalSearchRepository extends Mock implements LocalSearchRepository {}
+
 class MockAnalyticsService extends Mock implements AnalyticsService {}
 
-const _oneResult = SearchResultEntity(
-  type: SearchResultType.vault,
-  id: 'v1',
-  name: 'Production',
-);
-
-const _entryResult = SearchResultEntity(
-  type: SearchResultType.entry,
-  id: 'e1',
-  name: 'Stripe API Key',
+const _vault = VaultSearchResult(vaultId: 'v1', displayName: 'Production');
+const _entry = EntrySearchResult(
   vaultId: 'v1',
+  entryId: 'e1',
+  displayName: 'Stripe API Key',
   vaultName: 'Production',
+  entryType: 1,
 );
-
-DioException _dioError() => DioException(
-      requestOptions: RequestOptions(path: '/api/search'),
-      type: DioExceptionType.connectionError,
-      error: 'boom',
-    );
+const _agent = AgentSearchResult(agentId: 'a1', displayName: 'Stripe Agent');
 
 void main() {
-  // Analytics + logger touch platform channels; ensure the binding is up.
   setUpAll(() {
     WidgetsFlutterBinding.ensureInitialized();
+    registerFallbackValue(CancelToken());
+    registerFallbackValue(Uint8List(0));
   });
 
-  late MockDashboardRepository repository;
+  late MockDashboardRepository remote;
+  late MockLocalSearchRepository local;
   late MockAnalyticsService analytics;
+  late SearchSessionController sessions;
 
   setUp(() {
-    repository = MockDashboardRepository();
+    remote = MockDashboardRepository();
+    local = MockLocalSearchRepository();
     analytics = MockAnalyticsService();
-    when(() => analytics.capture(any(), any(), properties: any(named: 'properties')))
-        .thenAnswer((_) async {});
+    sessions = SearchSessionController();
+    when(
+      () => local.search(any(), limit: any(named: 'limit')),
+    ).thenReturn(const []);
+    when(() => local.prepare(any())).thenAnswer((_) async {});
+    when(
+      () =>
+          analytics.capture(any(), any(), properties: any(named: 'properties')),
+    ).thenAnswer((_) async {});
   });
 
-  SearchCubit buildCubit() =>
-      SearchCubit(repository: repository, analytics: analytics);
+  SearchCubit buildCubit() => SearchCubit(
+    repository: remote,
+    localRepository: local,
+    analytics: analytics,
+    sessionController: sessions,
+  );
 
-  // ── short queries short-circuit ─────────────
-
-  test('query("") stays idle and never hits the backend', () {
-    final cubit = buildCubit();
-    cubit.query('');
+  test('short queries wipe state and never leave the device', () {
+    final cubit = buildCubit()..query('a');
     expect(cubit.state, isA<SearchIdle>());
     verifyNever(
-      () => repository.globalSearch(any(), limit: any(named: 'limit')),
+      () => remote.globalSearch(
+        any(),
+        limit: any(named: 'limit'),
+        cancelToken: any(named: 'cancelToken'),
+      ),
     );
+    verifyNever(() => local.search(any(), limit: any(named: 'limit')));
     cubit.close();
   });
 
-  test('query("a") (1 char) stays idle and never hits the backend', () {
-    final cubit = buildCubit();
-    cubit.query('a');
-    expect(cubit.state, isA<SearchIdle>());
-    verifyNever(
-      () => repository.globalSearch(any(), limit: any(named: 'limit')),
-    );
-    cubit.close();
-  });
-
-  // ── debounced query resolution ──────────────
-
-  test('query("ab") with results emits [Loading, Results]', () {
+  test('waits for the decrypted local index before searching', () {
     fakeAsync((async) {
-      when(() => repository.globalSearch('ab', limit: 10))
-          .thenAnswer((_) async => const [_oneResult]);
+      final prepared = Completer<void>();
+      final privateKey = Uint8List(32);
+      when(() => local.prepare(privateKey)).thenAnswer((_) => prepared.future);
+      when(() => local.search('stripe', limit: 10)).thenReturn(const [_entry]);
+      when(
+        () => remote.globalSearch(
+          'stripe',
+          limit: 10,
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((_) async => const []);
 
       final cubit = buildCubit();
-      final states = <SearchState>[];
-      final sub = cubit.stream.listen(states.add);
-
-      cubit.query('ab');
+      cubit.prepare(privateKey);
+      cubit.query('stripe');
       async.elapse(const Duration(milliseconds: 250));
       async.flushMicrotasks();
+      verifyNever(() => local.search('stripe', limit: 10));
 
-      expect(states, [isA<SearchLoading>(), isA<SearchResults>()]);
-      expect((states.last as SearchResults).results, hasLength(1));
-
-      sub.cancel();
+      prepared.complete();
+      async.flushMicrotasks();
+      verify(() => local.search('stripe', limit: 10)).called(1);
+      expect(cubit.state, isA<SearchResults>());
       cubit.close();
     });
   });
 
-  test('query("ab") with empty results emits [Loading, Empty]', () {
+  test(
+    'publishes local results before remote completes, then appends remote',
+    () {
+      fakeAsync((async) {
+        final pending = Completer<List<SearchResultEntity>>();
+        when(
+          () => local.search('stripe', limit: 10),
+        ).thenReturn(const [_entry]);
+        when(
+          () => remote.globalSearch(
+            'stripe',
+            limit: 10,
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        ).thenAnswer((_) => pending.future);
+        final cubit = buildCubit()..query('stripe');
+        async.elapse(const Duration(milliseconds: 250));
+        async.flushMicrotasks();
+        expect(cubit.state, isA<SearchResults>());
+        expect((cubit.state as SearchResults).results, const [_entry]);
+        expect((cubit.state as SearchResults).remotePending, isTrue);
+
+        pending.complete(const [_agent]);
+        async.flushMicrotasks();
+        expect((cubit.state as SearchResults).results, const [_entry, _agent]);
+        cubit.close();
+      });
+    },
+  );
+
+  test('remote failure preserves responsive local results', () {
     fakeAsync((async) {
-      when(() => repository.globalSearch('ab', limit: 10))
-          .thenAnswer((_) async => const <SearchResultEntity>[]);
-
-      final cubit = buildCubit();
-      final states = <SearchState>[];
-      final sub = cubit.stream.listen(states.add);
-
-      cubit.query('ab');
+      when(() => local.search('stripe', limit: 10)).thenReturn(const [_entry]);
+      when(
+        () => remote.globalSearch(
+          'stripe',
+          limit: 10,
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenThrow(
+        DioException(
+          requestOptions: RequestOptions(path: '/api/search'),
+          type: DioExceptionType.connectionError,
+        ),
+      );
+      final cubit = buildCubit()..query('stripe');
       async.elapse(const Duration(milliseconds: 250));
       async.flushMicrotasks();
-
-      expect(states, [isA<SearchLoading>(), isA<SearchEmpty>()]);
-
-      sub.cancel();
+      final state = cubit.state as SearchResults;
+      expect(state.results, const [_entry]);
+      expect(state.remoteFailed, isTrue);
       cubit.close();
     });
   });
 
-  test('query("ab") with a DioException emits [Loading, Error]', () {
-    fakeAsync((async) {
-      when(() => repository.globalSearch('ab', limit: 10))
-          .thenThrow(_dioError());
-
-      final cubit = buildCubit();
-      final states = <SearchState>[];
-      final sub = cubit.stream.listen(states.add);
-
-      cubit.query('ab');
-      async.elapse(const Duration(milliseconds: 250));
-      async.flushMicrotasks();
-
-      expect(states, [isA<SearchLoading>(), isA<SearchError>()]);
-
-      sub.cancel();
-      cubit.close();
-    });
-  });
-
-  // ── debounce coalescing ─────────────────────
-
-  test('rapid-fire queries trigger a single backend call (debounce)', () {
-    fakeAsync((async) {
-      when(() => repository.globalSearch(any(), limit: any(named: 'limit')))
-          .thenAnswer((_) async => const [_oneResult]);
-
-      final cubit = buildCubit();
-
-      cubit.query('ab');
-      async.elapse(const Duration(milliseconds: 50));
-      cubit.query('abc');
-      async.elapse(const Duration(milliseconds: 50));
-      cubit.query('abcd');
-      async.elapse(const Duration(milliseconds: 50));
-      cubit.query('abcde');
-      async.elapse(const Duration(milliseconds: 250));
-      async.flushMicrotasks();
-
-      verify(() => repository.globalSearch('abcde', limit: 10)).called(1);
-      verifyNever(() => repository.globalSearch('ab', limit: 10));
-      verifyNever(() => repository.globalSearch('abc', limit: 10));
-      verifyNever(() => repository.globalSearch('abcd', limit: 10));
-
-      cubit.close();
-    });
-  });
-
-  // ── generation guard (stale result drop) ────
-
-  test('a slow earlier query does not overwrite a newer query\'s results', () {
+  test('new query cancels old transport and stale completion cannot win', () {
     fakeAsync((async) {
       final slow = Completer<List<SearchResultEntity>>();
       final fast = Completer<List<SearchResultEntity>>();
-      when(() => repository.globalSearch('ab', limit: 10))
-          .thenAnswer((_) => slow.future);
-      when(() => repository.globalSearch('abcd', limit: 10))
-          .thenAnswer((_) => fast.future);
-
-      final cubit = buildCubit();
-
-      // First query fires its request (generation 1).
-      cubit.query('ab');
+      when(
+        () => remote.globalSearch(
+          'old',
+          limit: 10,
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((_) => slow.future);
+      when(
+        () => remote.globalSearch(
+          'new',
+          limit: 10,
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((_) => fast.future);
+      final cubit = buildCubit()..query('old');
       async.elapse(const Duration(milliseconds: 250));
-      // Second query fires its request (generation 2) before the first resolves.
-      cubit.query('abcd');
+      async.flushMicrotasks();
+      cubit.query('new');
       async.elapse(const Duration(milliseconds: 250));
-
-      // The newer request resolves first and wins.
-      fast.complete(const [_entryResult]);
       async.flushMicrotasks();
-      expect((cubit.state as SearchResults).results, [_entryResult]);
 
-      // The older, now-stale request resolves last — must be dropped, not
-      // clobber the fresher results.
-      slow.complete(const [_oneResult]);
+      fast.complete(const [_agent]);
       async.flushMicrotasks();
-      expect((cubit.state as SearchResults).results, [_entryResult]);
-
+      expect((cubit.state as SearchResults).results, const [_agent]);
+      slow.complete(const [_vault]);
+      async.flushMicrotasks();
+      expect((cubit.state as SearchResults).results, const [_agent]);
+      final tokens = verify(
+        () => remote.globalSearch(
+          any(),
+          limit: 10,
+          cancelToken: captureAny(named: 'cancelToken'),
+        ),
+      ).captured.cast<CancelToken>();
+      expect(tokens.first.isCancelled, isTrue);
       cubit.close();
     });
   });
 
-  test('an in-flight query dropped by reset() cannot re-populate results', () {
+  test('security transition wipes results and cancels in-flight query', () {
     fakeAsync((async) {
-      final slow = Completer<List<SearchResultEntity>>();
-      when(() => repository.globalSearch('ab', limit: 10))
-          .thenAnswer((_) => slow.future);
-
-      final cubit = buildCubit();
-      cubit.query('ab');
-      async.elapse(const Duration(milliseconds: 250)); // _run('ab') in flight
-
-      cubit.reset();
-      expect(cubit.state, isA<SearchIdle>());
-
-      // The late result must not resurrect a results state after reset().
-      slow.complete(const [_oneResult]);
-      async.flushMicrotasks();
-      expect(cubit.state, isA<SearchIdle>());
-
-      cubit.close();
-    });
-  });
-
-  // ── reset() ─────────────────────────────────
-
-  test('reset() cancels the pending query and returns to idle', () {
-    fakeAsync((async) {
-      when(() => repository.globalSearch(any(), limit: any(named: 'limit')))
-          .thenAnswer((_) async => const [_oneResult]);
-
-      final cubit = buildCubit();
-      final states = <SearchState>[];
-      final sub = cubit.stream.listen(states.add);
-
-      cubit.query('ab');
+      final pending = Completer<List<SearchResultEntity>>();
+      when(() => local.search('secret', limit: 10)).thenReturn(const [_entry]);
+      when(
+        () => remote.globalSearch(
+          'secret',
+          limit: 10,
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((_) => pending.future);
+      final cubit = buildCubit()..query('secret');
       async.elapse(const Duration(milliseconds: 250));
       async.flushMicrotasks();
-      // At this point we have Loading + Results.
-      cubit.reset();
-      async.flushMicrotasks();
+      expect(cubit.state, isA<SearchResults>());
 
+      sessions.lock();
       expect(cubit.state, isA<SearchIdle>());
-      expect(states.last, isA<SearchIdle>());
-
-      sub.cancel();
+      pending.complete(const [_agent]);
+      async.flushMicrotasks();
+      expect(cubit.state, isA<SearchIdle>());
       cubit.close();
     });
   });
 
-  // ── selectResult analytics ──────────────────
+  test('security transition invokes registered view query clearer', () {
+    var retainedQuery = 'secret words';
+    void clear() => retainedQuery = '';
+    sessions.attachView(clear);
+    sessions.lock();
+    expect(retainedQuery, isEmpty);
+    sessions.detachView(clear);
+  });
 
-  test('selectResult fires analytics with the entry type + id only (ZK)', () {
+  test('analytics records type only, never query or resource identity', () {
     final cubit = buildCubit();
-
-    cubit.selectResult(_entryResult);
-
+    cubit.selectResult(_entry);
     verify(
       () => analytics.capture(
         'dashboard',
         'search-result-selected',
-        properties: {'type': 'entry', 'id': 'e1'},
+        properties: {'type': 'entry'},
       ),
     ).called(1);
-
     cubit.close();
   });
 }

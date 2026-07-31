@@ -41,6 +41,6 @@ abstract interface class GrantsRepository {
   /// Fetches a single grant by id.
   Future<Grant> getGrant(String vaultId, String grantId);
 
-  /// Revokes a grant, optionally recording a [reason].
-  Future<void> revokeGrant(String vaultId, String grantId, {String? reason});
+  /// Revokes a grant.
+  Future<void> revokeGrant(String vaultId, String grantId);
 }

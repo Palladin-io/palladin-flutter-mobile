@@ -1328,6 +1328,114 @@ abstract class AppLocalizations {
   /// **'Loading entry data…'**
   String get entryRevealingForEdit;
 
+  /// No description provided for @entryRevealDetailsAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Reveal entry details'**
+  String get entryRevealDetailsAction;
+
+  /// No description provided for @entryRevealDetailsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Sensitive fields are decrypted only after you request them.'**
+  String get entryRevealDetailsHint;
+
+  /// No description provided for @entryErrorConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'This entry changed while you were editing it. Reload it and try again.'**
+  String get entryErrorConflict;
+
+  /// No description provided for @entryAgentsPolicyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent visibility'**
+  String get entryAgentsPolicyTitle;
+
+  /// No description provided for @entryAgentsPolicyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose what agents may discover and what can be released by an exact-revision grant.'**
+  String get entryAgentsPolicyHint;
+
+  /// No description provided for @entryAgentsDiscoverable.
+  ///
+  /// In en, this message translates to:
+  /// **'Discoverable by organization agents'**
+  String get entryAgentsDiscoverable;
+
+  /// No description provided for @entryAgentsAgentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent-facing label'**
+  String get entryAgentsAgentLabel;
+
+  /// No description provided for @entryAgentsDiscoveryPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Discovery preview'**
+  String get entryAgentsDiscoveryPreview;
+
+  /// No description provided for @entryAgentsDiscoveryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No values will be included in Discovery.'**
+  String get entryAgentsDiscoveryEmpty;
+
+  /// No description provided for @entryAgentsSavePolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Save visibility policy'**
+  String get entryAgentsSavePolicy;
+
+  /// No description provided for @entryAgentsSavingPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving policy…'**
+  String get entryAgentsSavingPolicy;
+
+  /// No description provided for @entryAgentsPolicyError.
+  ///
+  /// In en, this message translates to:
+  /// **'The encrypted policy could not be loaded or saved safely.'**
+  String get entryAgentsPolicyError;
+
+  /// No description provided for @entryAgentsAccessNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get entryAgentsAccessNever;
+
+  /// No description provided for @entryAgentsAccessDiscovery.
+  ///
+  /// In en, this message translates to:
+  /// **'Discovery'**
+  String get entryAgentsAccessDiscovery;
+
+  /// No description provided for @entryAgentsAccessGrantValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant: value'**
+  String get entryAgentsAccessGrantValue;
+
+  /// No description provided for @entryAgentsAccessGrantDerived.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant: derived only'**
+  String get entryAgentsAccessGrantDerived;
+
+  /// No description provided for @entryAgentsAccessGrantRuntime.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant: runtime only'**
+  String get entryAgentsAccessGrantRuntime;
+
+  /// No description provided for @entryChangesSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Changes saved'**
+  String get entryChangesSaved;
+
   /// Section heading for the delete entry button at the bottom of the Details tab
   ///
   /// In en, this message translates to:
@@ -1436,6 +1544,18 @@ abstract class AppLocalizations {
   /// **'Encrypted on-device with XSalsa20-Poly1305 before upload'**
   String get entryEncryptionNotice;
 
+  /// No description provided for @entryDiscoverUsername.
+  ///
+  /// In en, this message translates to:
+  /// **'Let agents discover the username'**
+  String get entryDiscoverUsername;
+
+  /// No description provided for @entryDiscoverDomain.
+  ///
+  /// In en, this message translates to:
+  /// **'Let agents discover the URL domain'**
+  String get entryDiscoverDomain;
+
   /// Placeholder for the search input on the Entries tab
   ///
   /// In en, this message translates to:
@@ -1501,6 +1621,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Edit'**
   String get entryEditAction;
+
+  /// No description provided for @entryShowMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Show more'**
+  String get entryShowMore;
+
+  /// No description provided for @entryShowLess.
+  ///
+  /// In en, this message translates to:
+  /// **'Show less'**
+  String get entryShowLess;
 
   /// Snackbar after copying a specific entry field (field = localized field name)
   ///
@@ -1837,6 +1969,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Visible to agents in your organization — shown in agent discovery without a grant. Only for non-secret helper info.'**
   String get entryFieldAgentVisibleTip;
+
+  /// No description provided for @entryFieldAgentVisibleEnableTip.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden from agents in Discovery. Tap to make this non-secret field discoverable.'**
+  String get entryFieldAgentVisibleEnableTip;
+
+  /// No description provided for @entryFieldAgentVisibleDisableTip.
+  ///
+  /// In en, this message translates to:
+  /// **'Visible to agents in Discovery. Tap to hide this field from Discovery.'**
+  String get entryFieldAgentVisibleDisableTip;
+
+  /// No description provided for @entryFieldAgentDiscoveryVisible.
+  ///
+  /// In en, this message translates to:
+  /// **'Visible in Agent Discovery'**
+  String get entryFieldAgentDiscoveryVisible;
+
+  /// No description provided for @entryFieldAgentDiscoveryHidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden from Agent Discovery'**
+  String get entryFieldAgentDiscoveryHidden;
 
   /// Trailing state for an enabled toggle in a field menu
   ///
@@ -2749,6 +2905,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Choose'**
   String get agentIconChoose;
+
+  /// No description provided for @publicAssetSearchTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Website icons'**
+  String get publicAssetSearchTitle;
+
+  /// No description provided for @publicAssetSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search brands or domains'**
+  String get publicAssetSearchHint;
+
+  /// No description provided for @publicAssetSearchAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Search website icons'**
+  String get publicAssetSearchAction;
 
   /// Fallback type label on the agent card when no type is set
   ///
@@ -4148,6 +4322,12 @@ abstract class AppLocalizations {
   /// **'Entry'**
   String get auditDetailEntry;
 
+  /// No description provided for @auditDetailVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get auditDetailVault;
+
   /// No description provided for @auditDetailReason.
   ///
   /// In en, this message translates to:
@@ -4820,6 +5000,12 @@ abstract class AppLocalizations {
   /// **'Agent'**
   String get searchTypeBadgeAgent;
 
+  /// No description provided for @searchTypeBadgeMember.
+  ///
+  /// In en, this message translates to:
+  /// **'Member'**
+  String get searchTypeBadgeMember;
+
   /// Type badge label for vault search results
   ///
   /// In en, this message translates to:
@@ -5215,6 +5401,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong. Please try again.'**
   String get exportErrorUnknown;
+
+  /// Export scope toggle for archived entries
+  ///
+  /// In en, this message translates to:
+  /// **'Include archived entries'**
+  String get exportIncludeArchived;
+
+  /// Export scope toggle for deleted entries
+  ///
+  /// In en, this message translates to:
+  /// **'Include recently deleted entries'**
+  String get exportIncludeDeleted;
+
+  /// Export scope toggle for entry history
+  ///
+  /// In en, this message translates to:
+  /// **'Include previous revisions'**
+  String get exportIncludeHistory;
+
+  /// Explains temporary-file deletion and share ownership
+  ///
+  /// In en, this message translates to:
+  /// **'Palladin removes its temporary copy after sharing on a best-effort basis. Copies created by the selected app or cloud service are controlled by that recipient and may remain there.'**
+  String get exportDeletionDisclosure;
+
+  /// Export exceeded bounded local limits
+  ///
+  /// In en, this message translates to:
+  /// **'This export exceeds the local safety limit. Export a smaller scope.'**
+  String get exportErrorTooLarge;
 
   /// Subtitle on the email + password sign-in screen
   ///
@@ -5695,6 +5911,354 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Change master password'**
   String get settingsChangePassword;
+
+  /// No description provided for @entryStateActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get entryStateActive;
+
+  /// No description provided for @entryStateArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive'**
+  String get entryStateArchived;
+
+  /// No description provided for @entryStateDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently deleted'**
+  String get entryStateDeleted;
+
+  /// No description provided for @entryArchivedRecoverability.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived · can be restored'**
+  String get entryArchivedRecoverability;
+
+  /// No description provided for @entryDeletedRecoverability.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently deleted · recoverable during retention'**
+  String get entryDeletedRecoverability;
+
+  /// No description provided for @entryCorruptProjection.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted metadata could not be verified'**
+  String get entryCorruptProjection;
+
+  /// No description provided for @entryArchiveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive'**
+  String get entryArchiveTitle;
+
+  /// No description provided for @entryArchiveSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Items kept outside your active vault'**
+  String get entryArchiveSubtitle;
+
+  /// No description provided for @entryArchiveSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search archived items'**
+  String get entryArchiveSearchHint;
+
+  /// No description provided for @entryArchiveEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No archived items'**
+  String get entryArchiveEmpty;
+
+  /// No description provided for @entryArchiveRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Unarchive'**
+  String get entryArchiveRestore;
+
+  /// No description provided for @entryArchiveRestoring.
+  ///
+  /// In en, this message translates to:
+  /// **'Restoring…'**
+  String get entryArchiveRestoring;
+
+  /// No description provided for @entryArchiveConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'This item changed on another device. Sync and try again.'**
+  String get entryArchiveConflict;
+
+  /// No description provided for @entryArchiveAllTypes.
+  ///
+  /// In en, this message translates to:
+  /// **'All types'**
+  String get entryArchiveAllTypes;
+
+  /// No description provided for @entryArchiveSortAscending.
+  ///
+  /// In en, this message translates to:
+  /// **'A–Z'**
+  String get entryArchiveSortAscending;
+
+  /// No description provided for @entryArchiveSortDescending.
+  ///
+  /// In en, this message translates to:
+  /// **'Z–A'**
+  String get entryArchiveSortDescending;
+
+  /// No description provided for @entryArchiveSortType.
+  ///
+  /// In en, this message translates to:
+  /// **'By type'**
+  String get entryArchiveSortType;
+
+  /// No description provided for @entryDeletedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently Deleted'**
+  String get entryDeletedTitle;
+
+  /// No description provided for @entryDeletedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recoverable items awaiting permanent deletion'**
+  String get entryDeletedSubtitle;
+
+  /// No description provided for @entryDeletedSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search recently deleted items'**
+  String get entryDeletedSearchHint;
+
+  /// No description provided for @entryDeletedEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No recently deleted items'**
+  String get entryDeletedEmpty;
+
+  /// No description provided for @entryDeletedRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get entryDeletedRestore;
+
+  /// No description provided for @entryDeletedPurgeAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently deleted after {date}'**
+  String entryDeletedPurgeAt(String date);
+
+  /// No description provided for @entryDeletedPurgeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete permanently?'**
+  String get entryDeletedPurgeTitle;
+
+  /// No description provided for @entryDeletedPurgeWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This permanently removes all encrypted content, keys and history. This cannot be undone.'**
+  String get entryDeletedPurgeWarning;
+
+  /// No description provided for @entryDeletedPurgeConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete permanently'**
+  String get entryDeletedPurgeConfirm;
+
+  /// No description provided for @vaultDiscoveryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent Discovery'**
+  String get vaultDiscoveryTitle;
+
+  /// No description provided for @vaultDiscoveryNoActiveAgents.
+  ///
+  /// In en, this message translates to:
+  /// **'No active organization agents require Discovery provisioning.'**
+  String get vaultDiscoveryNoActiveAgents;
+
+  /// No description provided for @vaultDiscoveryCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Current'**
+  String get vaultDiscoveryCurrent;
+
+  /// No description provided for @vaultDiscoveryPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending / stale'**
+  String get vaultDiscoveryPending;
+
+  /// No description provided for @vaultDiscoveryVdkVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Discovery key version: v{version}'**
+  String vaultDiscoveryVdkVersion(int version);
+
+  /// No description provided for @vaultDiscoveryKeyVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Recipient key v{version}'**
+  String vaultDiscoveryKeyVersion(int version);
+
+  /// No description provided for @vaultMemberYou.
+  ///
+  /// In en, this message translates to:
+  /// **'you'**
+  String get vaultMemberYou;
+
+  /// No description provided for @vaultMemberActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get vaultMemberActive;
+
+  /// No description provided for @vaultMemberPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Removal pending'**
+  String get vaultMemberPending;
+
+  /// No description provided for @vaultMemberRotating.
+  ///
+  /// In en, this message translates to:
+  /// **'Securing access — Vault remains available'**
+  String get vaultMemberRotating;
+
+  /// No description provided for @vaultMemberBlockedLast.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked — last capable Member'**
+  String get vaultMemberBlockedLast;
+
+  /// No description provided for @vaultMemberRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get vaultMemberRemove;
+
+  /// No description provided for @vaultMemberRemoveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove organization Member?'**
+  String get vaultMemberRemoveTitle;
+
+  /// No description provided for @vaultMemberRemoveBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Removing {name} affects every Vault they can access. Access remains active until all required key rotations commit.'**
+  String vaultMemberRemoveBody(String name);
+
+  /// No description provided for @vaultMemberRemovalStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Removal started. This Vault remains available while rotations finish.'**
+  String get vaultMemberRemovalStarted;
+
+  /// No description provided for @vaultMembersLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Member status could not be loaded.'**
+  String get vaultMembersLoadError;
+
+  /// No description provided for @vaultMemberForbidden.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to manage organization Members.'**
+  String get vaultMemberForbidden;
+
+  /// No description provided for @vaultMemberProtected.
+  ///
+  /// In en, this message translates to:
+  /// **'This Member cannot be removed.'**
+  String get vaultMemberProtected;
+
+  /// No description provided for @vaultMemberNetworkError.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your connection and try again.'**
+  String get vaultMemberNetworkError;
+
+  /// No description provided for @vaultMetadataConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'This Vault changed on another device. Review the latest values and try again.'**
+  String get vaultMetadataConflict;
+
+  /// No description provided for @vaultMetadataCorrupt.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted Vault settings could not be verified. No changes were saved.'**
+  String get vaultMetadataCorrupt;
+
+  /// No description provided for @entryTabHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get entryTabHistory;
+
+  /// No description provided for @entryHistoryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No previous versions'**
+  String get entryHistoryEmpty;
+
+  /// No description provided for @entryHistoryLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted history could not be loaded or verified.'**
+  String get entryHistoryLoadError;
+
+  /// No description provided for @entryHistoryVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {revision}'**
+  String entryHistoryVersion(String revision);
+
+  /// No description provided for @entryHistoryActor.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} · {time}'**
+  String entryHistoryActor(String actor, String time);
+
+  /// No description provided for @entryHistoryLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load older versions'**
+  String get entryHistoryLoadMore;
+
+  /// No description provided for @entryHistoryReveal.
+  ///
+  /// In en, this message translates to:
+  /// **'Decrypt this version'**
+  String get entryHistoryReveal;
+
+  /// No description provided for @entryHistoryRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore as a new version'**
+  String get entryHistoryRestore;
+
+  /// No description provided for @entryHistoryRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'Historical content restored as a new current version.'**
+  String get entryHistoryRestored;
+
+  /// No description provided for @entryHistorySensitiveWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Historical versions may contain previous passwords and TOTP seeds.'**
+  String get entryHistorySensitiveWarning;
+
+  /// No description provided for @entryHistoryLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock the app to decrypt this version.'**
+  String get entryHistoryLocked;
 
   /// Settings drawer item — set up TOTP two-factor auth
   ///

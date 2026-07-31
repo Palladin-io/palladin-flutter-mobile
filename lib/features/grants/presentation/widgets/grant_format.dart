@@ -77,8 +77,10 @@ String orgGrantActorName(AppLocalizations l10n, Grant grant) {
 /// One-line access-policy summary: remaining uses, expiry date, or unlimited.
 String orgGrantAccessSummary(AppLocalizations l10n, Grant grant) {
   if (grant.queryLimit != null) {
-    final left = (grant.queryLimit! - (grant.queryCount ?? 0))
-        .clamp(0, grant.queryLimit!);
+    final left = (grant.queryLimit! - (grant.queryCount ?? 0)).clamp(
+      0,
+      grant.queryLimit!,
+    );
     return l10n.orgGrantUsesLeft(left, grant.queryLimit!);
   }
   if (grant.expiresAt != null) {
@@ -98,13 +100,6 @@ String orgGrantAccessSummary(AppLocalizations l10n, Grant grant) {
   if (grant.status == GrantStatus.denied &&
       (grant.denyReason?.trim().isNotEmpty ?? false)) {
     return (label: l10n.orgGrantRowDenyReason, text: grant.denyReason!.trim());
-  }
-  if (grant.status == GrantStatus.revoked &&
-      (grant.revokeReason?.trim().isNotEmpty ?? false)) {
-    return (
-      label: l10n.orgGrantRowRevokeReason,
-      text: grant.revokeReason!.trim()
-    );
   }
   final reason = grant.reason?.trim();
   return (

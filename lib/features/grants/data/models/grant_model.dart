@@ -9,13 +9,15 @@ class GrantModel {
   const GrantModel({
     required this.id,
     required this.vaultId,
-    required this.agentId,
+    this.agentId,
     required this.status,
     required this.scope,
     required this.createdAt,
     this.agentName,
     this.agentIconKey,
     this.agentPublicKey,
+    this.recipientAgentKeyVersion,
+    this.entryScopes = const [],
     this.vaultName,
     this.entryId,
     this.entryLabel,
@@ -30,7 +32,6 @@ class GrantModel {
     this.createdByName,
     this.revokedByName,
     this.deniedByName,
-    this.revokeReason,
     this.denyReason,
     this.canRevoke = false,
     this.canGrantAgain = false,
@@ -38,10 +39,12 @@ class GrantModel {
 
   final String id;
   final String vaultId;
-  final String agentId;
+  final String? agentId;
   final String? agentName;
   final String? agentIconKey;
   final String? agentPublicKey;
+  final int? recipientAgentKeyVersion;
+  final List<GrantEntryScope> entryScopes;
   final String? vaultName;
   final Object? status;
   final Object? scope;
@@ -59,7 +62,6 @@ class GrantModel {
   final String? createdByName;
   final String? revokedByName;
   final String? deniedByName;
-  final String? revokeReason;
   final String? denyReason;
   final bool canRevoke;
   final bool canGrantAgain;
@@ -71,10 +73,29 @@ class GrantModel {
     return GrantModel(
       id: json['id'] as String,
       vaultId: contextVaultId ?? json['vaultId'] as String,
-      agentId: json['agentId'] as String,
+      agentId: json['agentId'] as String?,
       agentName: json['agentName'] as String?,
       agentIconKey: json['agentIconKey'] as String?,
       agentPublicKey: json['agentPublicKey'] as String?,
+      recipientAgentKeyVersion: json['recipientAgentKeyVersion'] as int?,
+      entryScopes: (json['entryScopes'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map(
+            (scope) => GrantEntryScope(
+              entryId: scope['entryId'] as String,
+              fieldIds: (scope['fieldIds'] as List<dynamic>? ?? const [])
+                  .whereType<String>()
+                  .toList(growable: false),
+              grantEnvelopeRevision: scope['grantEnvelopeRevision'] as String?,
+              entryRevision: scope['entryRevision'] as String?,
+              grantKeyVersion: scope['grantKeyVersion'] as int?,
+              memberKeyGeneration: scope['memberKeyGeneration'] as int?,
+              recipientAgentKeyVersion:
+                  scope['recipientAgentKeyVersion'] as int?,
+              agentKeyFingerprint: scope['agentKeyFingerprint'] as String?,
+            ),
+          )
+          .toList(growable: false),
       vaultName: json['vaultName'] as String?,
       status: json['status'],
       // Org listing returns `type` (full/granular); the per-vault list uses
@@ -94,7 +115,6 @@ class GrantModel {
       createdByName: json['createdByName'] as String?,
       revokedByName: json['revokedByName'] as String?,
       deniedByName: json['deniedByName'] as String?,
-      revokeReason: json['revokeReason'] as String?,
       denyReason: json['denyReason'] as String?,
       canRevoke: json['canRevoke'] as bool? ?? false,
       canGrantAgain: json['canGrantAgain'] as bool? ?? false,
@@ -112,6 +132,8 @@ class GrantModel {
       agentName: agentName,
       agentIconKey: agentIconKey,
       agentPublicKey: agentPublicKey,
+      recipientAgentKeyVersion: recipientAgentKeyVersion,
+      entryScopes: entryScopes,
       vaultName: vaultName,
       status: GrantStatus.fromWire(status),
       scope: GrantScope.fromWire(scope),
@@ -129,7 +151,6 @@ class GrantModel {
       createdByName: createdByName,
       revokedByName: revokedByName,
       deniedByName: deniedByName,
-      revokeReason: revokeReason,
       denyReason: denyReason,
       canRevoke: canRevoke,
       canGrantAgain: canGrantAgain,

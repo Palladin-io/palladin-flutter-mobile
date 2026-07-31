@@ -10,18 +10,27 @@ import 'package:mobile_palladin/features/autofill/domain/autofill_record.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
-import 'package:mobile_palladin/features/vault/domain/repositories/vault_repository.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_list_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 
-class _MockVaultRepository extends Mock implements VaultRepository {}
+class _MockVaultListCryptoService extends Mock
+    implements VaultListCryptoService {}
 
 class _MockEntryRepository extends Mock implements EntryRepository {}
 
 class _MockBridge extends Mock implements AutoFillCacheBridge {}
 
+class _MockMemberIndex extends Mock implements MemberIndexReader {}
+
+DecryptedVaultList _vaultList([List<VaultEntity> vaults = const []]) =>
+    DecryptedVaultList(vaults: vaults, corruptIds: const []);
+
 void main() {
-  late _MockVaultRepository vaultRepository;
+  late _MockVaultListCryptoService vaultListService;
   late _MockEntryRepository entryRepository;
   late _MockBridge bridge;
+  late _MockMemberIndex memberIndex;
   late AutoFillCacheService service;
 
   setUpAll(() {
@@ -30,15 +39,19 @@ void main() {
   });
 
   setUp(() async {
-    vaultRepository = _MockVaultRepository();
+    vaultListService = _MockVaultListCryptoService();
     entryRepository = _MockEntryRepository();
     bridge = _MockBridge();
+    memberIndex = _MockMemberIndex();
     service = AutoFillCacheService(
-      vaultRepository: vaultRepository,
+      vaultListService: vaultListService,
       entryRepository: entryRepository,
       bridge: bridge,
+      memberIndex: memberIndex,
     );
     when(bridge.beginCacheSession).thenAnswer((_) async => 1);
+    when(() => memberIndex.waitForCurrent(any())).thenAnswer((_) async {});
+    when(() => memberIndex.entries(any())).thenReturn(const []);
     when(
       () =>
           bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
@@ -53,7 +66,7 @@ void main() {
   test('normalizes URL hosts and rejects ambiguous identifiers', () {
     expect(
       AutoFillCacheService.normalizeDomain('https://WWW.Example.com/login'),
-      'example.com',
+      'www.example.com',
     );
     expect(
       AutoFillCacheService.normalizeDomain('sub.example.com.'),
@@ -61,12 +74,35 @@ void main() {
     );
     expect(AutoFillCacheService.normalizeDomain('localhost'), isNull);
     expect(AutoFillCacheService.normalizeDomain('not a host'), isNull);
+    expect(
+      AutoFillCacheService.normalizeDomain('https://user@example.com'),
+      isNull,
+    );
+    expect(
+      AutoFillCacheService.normalizeDomain('https://example.com:443'),
+      isNull,
+    );
+    expect(AutoFillCacheService.normalizeDomain('https://exаmple.com'), isNull);
+    expect(AutoFillCacheService.normalizeDomain('*.example.com'), isNull);
   });
 
   test('decrypts credential entries and replaces the native cache', () async {
     final vault = _vault();
     final entry = _entry();
-    when(vaultRepository.listVaults).thenAnswer((_) async => [vault]);
+    when(
+      () => vaultListService.load(any()),
+    ).thenAnswer((_) async => _vaultList([vault]));
+    when(() => memberIndex.entries(vault.id)).thenReturn(const [
+      MemberIndexEntry(
+        entryId: 'entry-1',
+        entryType: 1,
+        memberLabel: 'Local Example',
+        searchFields: [],
+        revision: 'r-1',
+        state: MemberEntryState.active,
+        autofillDomains: ['https://login.example.com/path'],
+      ),
+    ]);
     when(
       () => entryRepository.revealAutoFillCredentials(
         vaultId: vault.id,
@@ -100,11 +136,144 @@ void main() {
     expect(records.single.id, entry.id);
     expect(records.single.username, 'alice@example.com');
     expect(records.single.password, 'secret-value');
-    expect(records.single.domains, ['example.com', 'login.example.com']);
+    expect(records.single.label, 'Local Example');
+    expect(records.single.domains, ['login.example.com']);
   });
 
+  test(
+    'archived, deleted and corrupt MemberIndex rows never decrypt',
+    () async {
+      final vault = _vault();
+      when(
+        () => vaultListService.load(any()),
+      ).thenAnswer((_) async => _vaultList([vault]));
+      when(() => memberIndex.entries(vault.id)).thenReturn(const [
+        MemberIndexEntry(
+          entryId: 'archived',
+          entryType: 1,
+          memberLabel: 'A',
+          searchFields: [],
+          revision: '1',
+          state: MemberEntryState.archived,
+          autofillDomains: ['example.com'],
+        ),
+        MemberIndexEntry(
+          entryId: 'deleted',
+          entryType: 1,
+          memberLabel: 'D',
+          searchFields: [],
+          revision: '1',
+          state: MemberEntryState.deleted,
+          autofillDomains: ['example.com'],
+        ),
+        MemberIndexEntry(
+          entryId: 'corrupt',
+          entryType: 1,
+          memberLabel: 'C',
+          searchFields: [],
+          revision: '1',
+          state: MemberEntryState.active,
+          autofillDomains: ['example.com'],
+          corrupt: true,
+        ),
+      ]);
+
+      await service.synchronize(privateKey: Uint8List(32));
+
+      verifyNever(
+        () => entryRepository.revealAutoFillCredentials(
+          vaultId: any(named: 'vaultId'),
+          privateKey: any(named: 'privateKey'),
+          wrappedVK: any(named: 'wrappedVK'),
+        ),
+      );
+      final records =
+          verify(
+                () => bridge.replaceCache(
+                  captureAny(),
+                  sessionToken: any(named: 'sessionToken'),
+                ),
+              ).captured.single
+              as List<AutoFillRecord>;
+      expect(records, isEmpty);
+    },
+  );
+
+  test('stale secret revision is rejected after decryption', () async {
+    final vault = _vault();
+    when(
+      () => vaultListService.load(any()),
+    ).thenAnswer((_) async => _vaultList([vault]));
+    when(() => memberIndex.entries(vault.id)).thenReturn(const [
+      MemberIndexEntry(
+        entryId: 'entry-1',
+        entryType: 1,
+        memberLabel: 'Example',
+        searchFields: [],
+        revision: 'newer',
+        state: MemberEntryState.active,
+        autofillDomains: ['example.com'],
+      ),
+    ]);
+    when(
+      () => entryRepository.revealAutoFillCredentials(
+        vaultId: vault.id,
+        privateKey: any(named: 'privateKey'),
+        wrappedVK: vault.wrappedVK,
+      ),
+    ).thenAnswer(
+      (_) async => [
+        RevealedEntry(
+          entry: _entry(),
+          payload: const CredentialPayload(
+            username: 'alice',
+            password: 'secret',
+            notes: 'never',
+            totp: 'never',
+          ).toJson(),
+        ),
+      ],
+    );
+
+    await service.synchronize(privateKey: Uint8List(32));
+
+    final records =
+        verify(
+              () => bridge.replaceCache(
+                captureAny(),
+                sessionToken: any(named: 'sessionToken'),
+              ),
+            ).captured.single
+            as List<AutoFillRecord>;
+    expect(records, isEmpty);
+  });
+
+  test(
+    'platform record releases only identity, username, password and origins',
+    () {
+      const record = AutoFillRecord(
+        id: 'id',
+        label: 'label',
+        username: 'user',
+        password: 'password',
+        domains: ['example.com'],
+      );
+      expect(record.toPlatformMap().keys, {
+        'id',
+        'label',
+        'username',
+        'password',
+        'domains',
+      });
+      expect(record.toPlatformMap(), isNot(contains('notes')));
+      expect(record.toPlatformMap(), isNot(contains('totp')));
+    },
+  );
+
   test('clears stale cache before a mutation-triggered rebuild', () async {
-    when(vaultRepository.listVaults).thenAnswer((_) async => const []);
+    when(
+      () => vaultListService.load(any()),
+    ).thenAnswer((_) async => _vaultList());
 
     await service.clearAndSynchronize(privateKey: Uint8List(32));
 
@@ -117,8 +286,8 @@ void main() {
 
   test('logout invalidates an active synchronization before replace', () async {
     final listStarted = Completer<void>();
-    final vaults = Completer<List<VaultEntity>>();
-    when(vaultRepository.listVaults).thenAnswer((_) {
+    final vaults = Completer<DecryptedVaultList>();
+    when(() => vaultListService.load(any())).thenAnswer((_) {
       listStarted.complete();
       return vaults.future;
     });
@@ -126,7 +295,7 @@ void main() {
     final synchronization = service.synchronize(privateKey: Uint8List(32));
     await listStarted.future;
     final logoutClear = service.clear();
-    vaults.complete(const []);
+    vaults.complete(_vaultList());
 
     await Future.wait([synchronization, logoutClear]);
 
@@ -141,8 +310,8 @@ void main() {
 
   test('access revocation bypasses the serialized identity queue', () async {
     final listStarted = Completer<void>();
-    final vaults = Completer<List<VaultEntity>>();
-    when(vaultRepository.listVaults).thenAnswer((_) {
+    final vaults = Completer<DecryptedVaultList>();
+    when(() => vaultListService.load(any())).thenAnswer((_) {
       listStarted.complete();
       return vaults.future;
     });
@@ -150,7 +319,7 @@ void main() {
     final synchronization = service.synchronize(privateKey: Uint8List(32));
     await listStarted.future;
     await service.revokeAccess();
-    vaults.complete(const []);
+    vaults.complete(_vaultList());
     await synchronization;
 
     verify(bridge.revokeCacheAccess).called(1);
@@ -165,7 +334,9 @@ void main() {
     () async {
       final replaceStarted = Completer<void>();
       final allowReplace = Completer<void>();
-      when(vaultRepository.listVaults).thenAnswer((_) async => const []);
+      when(
+        () => vaultListService.load(any()),
+      ).thenAnswer((_) async => _vaultList());
       when(
         () => bridge.replaceCache(
           any(),
@@ -196,7 +367,9 @@ void main() {
     final replaceStarted = Completer<void>();
     final allowReplace = Completer<void>();
     int? replacementToken;
-    when(vaultRepository.listVaults).thenAnswer((_) async => const []);
+    when(
+      () => vaultListService.load(any()),
+    ).thenAnswer((_) async => _vaultList());
     when(
       () =>
           bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
@@ -222,7 +395,9 @@ void main() {
     final firstReplaceStarted = Completer<void>();
     final releaseFirstReplace = Completer<void>();
     var replaceCalls = 0;
-    when(vaultRepository.listVaults).thenAnswer((_) async => const []);
+    when(
+      () => vaultListService.load(any()),
+    ).thenAnswer((_) async => _vaultList());
     when(
       () =>
           bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
@@ -255,11 +430,14 @@ void main() {
     () async {
       await service.revokeAccess();
       when(bridge.beginCacheSession).thenAnswer((_) async => 41);
-      when(vaultRepository.listVaults).thenAnswer((_) async => const []);
+      when(
+        () => vaultListService.load(any()),
+      ).thenAnswer((_) async => _vaultList());
       final recreated = AutoFillCacheService(
-        vaultRepository: vaultRepository,
+        vaultListService: vaultListService,
         entryRepository: entryRepository,
         bridge: bridge,
+        memberIndex: memberIndex,
       );
 
       await recreated.beginSession();
@@ -331,4 +509,5 @@ EntryEntity _entry() => EntryEntity(
   urlDomain: 'example.com',
   createdAt: DateTime.utc(2026),
   updatedAt: DateTime.utc(2026),
+  currentRevision: 'r-1',
 );

@@ -24,6 +24,7 @@ abstract interface class AgentsRepository {
     String? name,
     String? type,
     String? iconKey,
+    String? iconColor,
   });
 
   /// Deactivates an active agent — it immediately loses all access.
@@ -39,6 +40,7 @@ abstract interface class AgentsRepository {
     String agentId, {
     String? name,
     String? description,
+    String? type,
     String? iconKey,
     String? iconColor,
   });

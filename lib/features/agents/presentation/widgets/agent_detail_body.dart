@@ -546,6 +546,7 @@ class _ActionZone extends StatelessWidget {
         isLoading: isMutating,
         onPressed: isMutating ? null : onReactivate,
       ),
+      AgentStatus.deactivating => const SizedBox.shrink(),
     };
   }
 }

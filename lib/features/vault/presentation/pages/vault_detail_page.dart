@@ -1,15 +1,19 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../cubit/vault_list_cubit.dart';
+import '../cubit/vault_members_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../shell/presentation/pages/app_shell.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/vault_entity.dart';
@@ -17,12 +21,12 @@ import '../../domain/exceptions/vault_exceptions.dart';
 import '../cubit/entry_list_cubit.dart';
 import '../cubit/vault_detail_cubit.dart';
 import '../widgets/vault_entries_tab.dart';
+import '../widgets/vault_agents_tab.dart';
 import '../widgets/vault_form.dart';
+import '../widgets/vault_members_tab.dart';
 import '../../../approval/presentation/widgets/grant_access_sheet.dart';
 import '../../../audit/presentation/widgets/vault_audit_log_tab.dart';
-import '../../../grants/presentation/widgets/context_grants_tab.dart';
 import '../widgets/export_sheet.dart';
-import '../widgets/vault_placeholder_tab.dart';
 import '../widgets/vault_settings_tab.dart';
 import '../widgets/vault_visuals.dart';
 import 'add_entry_page.dart';
@@ -45,7 +49,14 @@ class VaultDetailPage extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider<VaultDetailCubit>(
-          create: (_) => getIt<VaultDetailCubit>()..load(vaultId),
+          create: (ctx) {
+            final auth = ctx.read<AuthBloc>().state;
+            final privateKey =
+                auth is AuthAuthenticated && auth.privateKey != null
+                ? Uint8List.fromList(auth.privateKey!)
+                : null;
+            return getIt<VaultDetailCubit>()..load(vaultId, privateKey);
+          },
         ),
         // The entries cubit is parametrised on `vaultId` so the
         // datasource calls hit the right route. Loading is kicked off
@@ -63,9 +74,25 @@ class VaultDetailPage extends StatelessWidget {
             final wrappedVK = detailState is VaultDetailLoaded
                 ? detailState.vault.wrappedVK
                 : null;
-            return getIt<EntryListCubit>(param1: vaultId, param2: wrappedVK)
-              ..loadEntries();
+            final cubit = getIt<EntryListCubit>(
+              param1: vaultId,
+              param2: wrappedVK,
+            );
+            final auth = ctx.read<AuthBloc>().state;
+            final privateKey = auth is AuthAuthenticated
+                ? auth.privateKey
+                : null;
+            if (privateKey != null) {
+              final keyCopy = Uint8List.fromList(privateKey);
+              cubit
+                  .loadIndexedEntries(keyCopy)
+                  .whenComplete(() => keyCopy.fillRange(0, keyCopy.length, 0));
+            }
+            return cubit;
           },
+        ),
+        BlocProvider<VaultMembersCubit>(
+          create: (_) => getIt<VaultMembersCubit>(param1: vaultId)..load(),
         ),
       ],
       child: _VaultDetailView(vaultId: vaultId),
@@ -90,8 +117,10 @@ class _VaultDetailView extends StatefulWidget {
 class _VaultDetailViewState extends State<_VaultDetailView>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  late EntryListCubit _entryListCubit;
   VaultFormData? _initialFormData;
   VaultFormData? _currentFormData;
+  VaultEntity? _lastLoadedVault;
 
   // Bumped after a grant is created on the Agents tab so the (self-providing) grants list remounts
   // and reloads — keyed in [_LoadedBody].
@@ -105,7 +134,17 @@ class _VaultDetailViewState extends State<_VaultDetailView>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Resolve inherited dependencies while the element is active. Looking up
+    // a provider from dispose() is unsafe because the route may already have
+    // deactivated this element (most visible when backing out on iOS).
+    _entryListCubit = context.read<EntryListCubit>();
+  }
+
+  @override
   void dispose() {
+    _entryListCubit.lock();
     _tabController.dispose();
     super.dispose();
   }
@@ -202,15 +241,26 @@ class _VaultDetailViewState extends State<_VaultDetailView>
     final vault = detailState.vault;
     final entryListCubit = context.read<EntryListCubit>();
     final detailCubit = context.read<VaultDetailCubit>();
+    final authBloc = context.read<AuthBloc>();
     final imported = await ImportWizardPage.push(
       context,
       vaultId: widget.vaultId,
       vaultName: vault.name,
-      wrappedVK: vault.wrappedVK,
     );
     if (imported == true) {
-      await entryListCubit.loadEntries();
-      await detailCubit.load(widget.vaultId);
+      final auth = authBloc.state;
+      if (auth is AuthAuthenticated && auth.privateKey != null) {
+        final keyCopy = Uint8List.fromList(auth.privateKey!);
+        try {
+          await entryListCubit.loadIndexedEntries(keyCopy);
+        } finally {
+          keyCopy.fillRange(0, keyCopy.length, 0);
+        }
+      }
+      final privateKey = auth is AuthAuthenticated && auth.privateKey != null
+          ? Uint8List.fromList(auth.privateKey!)
+          : null;
+      await detailCubit.load(widget.vaultId, privateKey);
     }
   }
 
@@ -222,20 +272,31 @@ class _VaultDetailViewState extends State<_VaultDetailView>
       context,
       vaultId: widget.vaultId,
       vaultName: vault.name,
-      wrappedVK: vault.wrappedVK,
     );
   }
 
-  void _saveSettings() {
+  Future<void> _saveSettings() async {
     final data = _currentFormData;
-    if (data == null) return;
-    context.read<VaultDetailCubit>().update(
-      widget.vaultId,
+    final detail = context.read<VaultDetailCubit>().state;
+    final auth = context.read<AuthBloc>().state;
+    if (data == null ||
+        detail is! VaultDetailLoaded ||
+        auth is! AuthAuthenticated ||
+        auth.privateKey == null) {
+      return;
+    }
+    final privateKey = Uint8List.fromList(auth.privateKey!);
+    final localIconPath = data.icon.startsWith('file:')
+        ? Uri.parse(data.icon).toFilePath()
+        : null;
+    await context.read<VaultDetailCubit>().updateEncrypted(
+      expected: detail.vault,
       name: data.name.trim(),
       description: data.description.trim(),
       icon: data.icon,
       color: data.color,
-      grantMode: data.grantMode,
+      memberPrivateKey: privateKey,
+      localIconPath: localIconPath,
     );
   }
 
@@ -317,73 +378,90 @@ class _VaultDetailViewState extends State<_VaultDetailView>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return BlocConsumer<VaultDetailCubit, VaultDetailState>(
+    return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state is VaultDetailLoaded) {
-          _syncFormFromVault(state.vault, l10n);
-          // Forward the freshly-loaded wrappedVK so subsequent reveal
-          // calls skip the second `GET /api/vaults/{id}`. Safe to call
-          // every load — reload/update preserves the latest sealed VK.
-          context.read<EntryListCubit>().updateWrappedVK(state.vault.wrappedVK);
-        } else if (state is VaultDetailDeleted) {
-          getIt<VaultListCubit>().removeVault(widget.vaultId);
-          context.go('/vaults');
+        if (state is! AuthAuthenticated || state.isVaultLocked) {
+          context.read<EntryListCubit>().lock();
         }
       },
-      builder: (context, state) {
-        final brightness = Theme.of(context).brightness;
-        return Container(
-          decoration: BoxDecoration(
-            gradient: AppColors.backgroundGradient(brightness),
-          ),
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            appBar: _DetailAppBar(
-              state: state,
-              onBack: () => context.pop(),
-              tabController: _tabController,
-              onImport: _onImport,
-              onExport: _onExport,
+      child: BlocConsumer<VaultDetailCubit, VaultDetailState>(
+        listener: (context, state) {
+          if (state is VaultDetailLoaded) {
+            _lastLoadedVault = state.vault;
+            _syncFormFromVault(state.vault, l10n);
+            // Forward the freshly-loaded wrappedVK so subsequent reveal
+            // calls skip the second `GET /api/vaults/{id}`. Safe to call
+            // every load — reload/update preserves the latest sealed VK.
+            context.read<EntryListCubit>().updateWrappedVK(
+              state.vault.wrappedVK,
+            );
+          } else if (state is VaultDetailDeleted) {
+            getIt<VaultListCubit>().removeVault(widget.vaultId);
+            context.go('/vaults');
+          }
+        },
+        builder: (context, state) {
+          final brightness = Theme.of(context).brightness;
+          final visibleVault = state is VaultDetailLoaded
+              ? state.vault
+              : _lastLoadedVault;
+          return Container(
+            decoration: BoxDecoration(
+              gradient: AppColors.backgroundGradient(brightness),
             ),
-            body: Stack(
-              children: [
-                SafeArea(
-                  top: false,
-                  child: switch (state) {
-                    VaultDetailInitial() ||
-                    VaultDetailLoading() => const _LoadingView(),
-                    VaultDetailDeleted() => const SizedBox.shrink(),
-                    VaultDetailError(:final kind) => _ErrorView(kind: kind),
-                    VaultDetailLoaded(:final vault) => _LoadedBody(
-                      vault: vault,
-                      tabController: _tabController,
-                      grantsRefresh: _grantsRefresh,
-                      initialFormData: _initialFormData,
-                      onFormChanged: (data) =>
-                          setState(() => _currentFormData = data),
-                      onDelete: () => _confirmDelete(vault),
-                      onSave: _saveSettings,
-                    ),
-                  },
-                ),
-                // Register the FAB with the shell so it stays pinned in
-                // place during page transitions. Pass `null` on tabs
-                // that shouldn't show one (Logs, Members, Settings) —
-                // otherwise the previous page's FAB would linger.
-                Positioned(
-                  width: 0,
-                  height: 0,
-                  child: FabRegistrar(fab: _detailFab(l10n)),
-                ),
-              ],
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              appBar: _DetailAppBar(
+                vault: visibleVault,
+                onBack: () => context.pop(),
+                tabController: _tabController,
+                onImport: _onImport,
+                onExport: _onExport,
+              ),
+              body: Stack(
+                children: [
+                  SafeArea(
+                    top: false,
+                    child: visibleVault != null && state is! VaultDetailDeleted
+                        ? _LoadedBody(
+                            vault: visibleVault,
+                            tabController: _tabController,
+                            grantsRefresh: _grantsRefresh,
+                            initialFormData: _initialFormData,
+                            onFormChanged: (data) =>
+                                setState(() => _currentFormData = data),
+                            onDelete: () => _confirmDelete(visibleVault),
+                            onSave: _saveSettings,
+                          )
+                        : switch (state) {
+                            VaultDetailInitial() ||
+                            VaultDetailLoading() => const _LoadingView(),
+                            VaultDetailDeleted() => const SizedBox.shrink(),
+                            VaultDetailError(:final kind) => _ErrorView(
+                              kind: kind,
+                            ),
+                            VaultDetailLoaded() => const _LoadingView(),
+                          },
+                  ),
+                  // Register the FAB with the shell so it stays pinned in
+                  // place during page transitions. Pass `null` on tabs
+                  // that shouldn't show one (Logs, Members, Settings) —
+                  // otherwise the previous page's FAB would linger.
+                  Positioned(
+                    width: 0,
+                    height: 0,
+                    child: FabRegistrar(fab: _detailFab(l10n)),
+                  ),
+                ],
+              ),
+              // No `bottomNavigationBar` here — the shell-owned
+              // [AppBottomNav] is shared across every route under the
+              // shell (now including `/vaults/:vaultId`), so the chrome
+              // persists across navigation without rebuilding.
             ),
-            // No `bottomNavigationBar` here — the shell-owned
-            // [AppBottomNav] is shared across every route under the
-            // shell (now including `/vaults/:vaultId`), so the chrome
-            // persists across navigation without rebuilding.
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -392,14 +470,14 @@ class _VaultDetailViewState extends State<_VaultDetailView>
 
 class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _DetailAppBar({
-    required this.state,
+    required this.vault,
     required this.onBack,
     required this.tabController,
     required this.onImport,
     required this.onExport,
   });
 
-  final VaultDetailState state;
+  final VaultEntity? vault;
   final VoidCallback onBack;
   final TabController tabController;
   final VoidCallback onImport;
@@ -415,8 +493,7 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    final s = state;
-    final loaded = s is VaultDetailLoaded ? s.vault : null;
+    final loaded = vault;
     final subtitle = loaded != null
         ? l10n.vaultEntryCount(loaded.entryCount)
         : '';
@@ -578,7 +655,7 @@ class _LoadedBody extends StatelessWidget {
         children: [
           // Entries are sourced from `EntryListCubit` provided above.
           const VaultEntriesTab(),
-          _VaultAgentsTab(key: ValueKey(grantsRefresh), vaultId: vault.id),
+          VaultAgentsTab(key: ValueKey(grantsRefresh), vaultId: vault.id),
           // Logs tab (CVT-121) — vault-scoped audit feed. Horizontal padding
           // and the tab-bar → content gap are owned by the TabBarView wrapper.
           VaultAuditLogTab(
@@ -590,10 +667,7 @@ class _LoadedBody extends StatelessWidget {
               AppSpacing.listBottom,
             ),
           ),
-          _PlaceholderTabBuilder(
-            messageKey: (l10n) => l10n.vaultMembersEmpty,
-            icon: Icons.group_outlined,
-          ),
+          const VaultMembersTab(),
           if (initialFormData != null)
             VaultSettingsTab(
               vaultId: vault.id,
@@ -606,39 +680,6 @@ class _LoadedBody extends StatelessWidget {
             const SizedBox.shrink(),
         ],
       ),
-    );
-  }
-}
-
-class _PlaceholderTabBuilder extends StatelessWidget {
-  const _PlaceholderTabBuilder({required this.messageKey, required this.icon});
-
-  final String Function(AppLocalizations) messageKey;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return VaultPlaceholderTab(icon: icon, message: messageKey(l10n));
-  }
-}
-
-/// Agents tab — the vault's grants list (filtered by vaultId), mirroring the web Vault→Agents tab.
-/// Horizontal padding is zeroed because the parent TabBarView is already padded.
-class _VaultAgentsTab extends StatelessWidget {
-  const _VaultAgentsTab({super.key, required this.vaultId});
-
-  final String vaultId;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return ContextGrantsTab(
-      vaultId: vaultId,
-      emptyTitle: l10n.vaultAgentsEmptyTitle,
-      emptyHint: l10n.vaultAgentsEmptyHint,
-      // Tab bar → content gap (fieldGap) is owned by the TabBarView wrapper.
-      contentPadding: const EdgeInsets.fromLTRB(0, 0, 0, AppSpacing.listBottom),
     );
   }
 }
@@ -676,6 +717,8 @@ class _ErrorView extends StatelessWidget {
             VaultErrorKind.fullModeNotAllowed =>
               l10n.vaultErrorFullModeNotAllowed,
             VaultErrorKind.networkError => l10n.errorCannotConnectToServer,
+            VaultErrorKind.conflict => l10n.vaultMetadataConflict,
+            VaultErrorKind.corrupt => l10n.vaultMetadataCorrupt,
             VaultErrorKind.unknown => l10n.vaultErrorUnknown,
           },
           textAlign: TextAlign.center,

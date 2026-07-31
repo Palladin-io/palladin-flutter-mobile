@@ -19,10 +19,20 @@ struct AutoFillCredentialRecord: Codable {
         guard var value = raw?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
               !value.isEmpty else { return nil }
         if !value.contains("://") { value = "https://\(value)" }
-        guard var host = URLComponents(string: value)?.host?.lowercased() else { return nil }
+        guard let components = URLComponents(string: value),
+              components.scheme == "https" || components.scheme == "http",
+              components.user == nil,
+              components.password == nil,
+              components.port == nil,
+              var host = components.host?.lowercased(),
+              host.unicodeScalars.allSatisfy({ $0.isASCII }) else { return nil }
         while host.hasSuffix(".") { host.removeLast() }
-        if host.hasPrefix("www.") { host.removeFirst(4) }
-        guard host.contains("."), !host.contains("..") else { return nil }
+        let labels = host.split(separator: ".", omittingEmptySubsequences: false)
+        guard host.contains("."), !host.contains(".."), labels.allSatisfy({ label in
+            !label.isEmpty && label.count <= 63 &&
+            label.first != "-" && label.last != "-" &&
+            label.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
+        }) else { return nil }
         return host
     }
 }
@@ -43,6 +53,9 @@ enum AutoFillCacheError: Error {
 
 final class AutoFillCacheStore {
     private static let cacheVersion = 1
+    private static let maximumRecords = 2_000
+    private static let maximumDomainsPerRecord = 16
+    private static let maximumCacheBytes = 16 * 1024 * 1024
     private static let cacheFileName = "palladin_autofill_cache_v1"
     private static let keychainService = "io.palladin.mobile.autofill.cache"
     private static let keychainAccount = "cache-key-v1"
@@ -87,6 +100,9 @@ final class AutoFillCacheStore {
               sessionToken == Self.currentSessionToken else {
             throw AutoFillCacheError.staleSession
         }
+        guard rawRecords.count <= Self.maximumRecords else {
+            throw AutoFillCacheError.invalidRecords
+        }
         var serialized = try JSONSerialization.data(withJSONObject: rawRecords)
         defer { serialized.resetBytes(in: 0..<serialized.count) }
         let records = try JSONDecoder().decode([AutoFillCredentialRecord].self, from: serialized)
@@ -111,6 +127,12 @@ final class AutoFillCacheStore {
     }
 
     func read(authenticationPrompt: String) throws -> [AutoFillCredentialRecord] {
+        let attributes = try FileManager.default.attributesOfItem(atPath: cacheURL.path)
+        guard let size = attributes[.size] as? NSNumber,
+              size.intValue > 0,
+              size.intValue <= Self.maximumCacheBytes else {
+            throw AutoFillCacheError.invalidRecords
+        }
         let envelope = try JSONDecoder().decode(
             AutoFillCacheEnvelope.self,
             from: Data(contentsOf: cacheURL)
@@ -190,6 +212,7 @@ final class AutoFillCacheStore {
     }
 
     private static func validated(_ record: AutoFillCredentialRecord) -> AutoFillCredentialRecord? {
+        guard record.domains.count <= maximumDomainsPerRecord else { return nil }
         let domains = Array(Set(record.domains.compactMap(AutoFillCredentialRecord.normalizeDomain))).sorted()
         guard !record.id.isEmpty,
               !record.label.isEmpty,

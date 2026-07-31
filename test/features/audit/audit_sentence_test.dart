@@ -10,7 +10,11 @@ AuditLogEntry _entry(
   String? actorName,
   String? agentName,
   String? agentId,
+  String? userId,
+  String? entryId,
   String? entryLabel,
+  String? resolvedObjectName,
+  bool localPresentationOnly = false,
   Map<String, String> metadata = const {},
 }) {
   return AuditLogEntry(
@@ -22,7 +26,11 @@ AuditLogEntry _entry(
     actorName: actorName,
     agentName: agentName,
     agentId: agentId,
+    userId: userId,
+    entryId: entryId,
     entryLabel: entryLabel,
+    resolvedObjectName: resolvedObjectName,
+    localPresentationOnly: localPresentationOnly,
     metadata: metadata,
   );
 }
@@ -78,6 +86,39 @@ void main() {
       )!;
       expect(plain(spans), 'Patryk created entry Stripe Key');
       expect(bold(spans), ['Patryk', 'Stripe Key']);
+    });
+
+    test('Vault log uses locally resolved actor and Entry names', () {
+      final spans = auditEventSentence(
+        en,
+        _entry(
+          AuditEventType.entryDeleted,
+          actorName: 'Patryk',
+          userId: 'user-1234567890-opaque',
+          entryId: 'entry-1234567890-purged',
+          resolvedObjectName: 'Stripe Key',
+          localPresentationOnly: true,
+        ),
+        const {},
+      )!;
+
+      expect(plain(spans), 'Patryk deleted entry Stripe Key');
+      expect(bold(spans), ['Patryk', 'Stripe Key']);
+    });
+
+    test('Vault log safely shortens unresolved actor and object ids', () {
+      final spans = auditEventSentence(
+        en,
+        _entry(
+          AuditEventType.entryDeleted,
+          userId: 'user-1234567890-opaque',
+          entryId: 'entry-1234567890-purged',
+          localPresentationOnly: true,
+        ),
+        const {},
+      )!;
+
+      expect(plain(spans), 'user-123…opaque deleted entry entry-12…purged');
     });
 
     test('org.created reads from metadata.name', () {

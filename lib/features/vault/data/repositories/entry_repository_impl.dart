@@ -17,6 +17,7 @@ import '../models/entry_model.dart';
 import '../models/import_entries_request.dart';
 import '../models/update_entry_request.dart';
 import '../services/entry_crypto_service.dart';
+import '../services/canonical_import_projection_service.dart';
 
 /// Concrete implementation of [EntryRepository].
 ///
@@ -32,13 +33,16 @@ class EntryRepositoryImpl implements EntryRepository {
     required this.entryDatasource,
     required this.vaultDatasource,
     required this.cryptoService,
+    this.canonicalImport,
     this.autoFillMutationNotifier,
   });
 
   final EntryRemoteDatasource entryDatasource;
   final VaultRemoteDatasource vaultDatasource;
   final EntryCryptoService cryptoService;
+  final CanonicalImportProjectionService? canonicalImport;
   final AutoFillMutationNotifier? autoFillMutationNotifier;
+  final Map<String, _CanonicalImportProgress> _canonicalImports = {};
 
   @override
   Future<List<EntryEntity>> listEntries(String vaultId) async {
@@ -55,8 +59,7 @@ class EntryRepositoryImpl implements EntryRepository {
     }
   }
 
-  @override
-  Future<EntryEntity> createEntry({
+  Future<EntryEntity> _createEntry({
     required String vaultId,
     required String label,
     String? description,
@@ -166,7 +169,7 @@ class EntryRepositoryImpl implements EntryRepository {
         payload: payload,
         vaultKey: vaultKey,
       );
-      return await createEntry(
+      return await _createEntry(
         vaultId: vaultId,
         label: label,
         description: description,
@@ -269,6 +272,19 @@ class EntryRepositoryImpl implements EntryRepository {
     int chunkSize = 500,
     void Function(int done, int total)? onProgress,
   }) async {
+    final canonical = canonicalImport;
+    if (canonical != null) {
+      return _importCanonical(
+        canonical: canonical,
+        vaultId: vaultId,
+        format: format,
+        creates: creates,
+        overwrites: overwrites,
+        privateKey: privateKey,
+        chunkSize: chunkSize.clamp(1, 500),
+        onProgress: onProgress,
+      );
+    }
     AppLogger.d(
       'Entry',
       'Importing ${creates.length} new + ${overwrites.length} overwrites into $vaultId',
@@ -313,6 +329,7 @@ class EntryRepositoryImpl implements EntryRepository {
               type: draft.type.toWire(),
               content: encrypted,
               urlDomain: draft.urlDomain,
+              icon: draft.icon,
             ),
           );
         }
@@ -351,6 +368,7 @@ class EntryRepositoryImpl implements EntryRepository {
               type: overwrite.type.toWire(),
               content: encrypted,
               urlDomain: overwrite.urlDomain,
+              icon: overwrite.icon,
             ),
           );
           updatedCount++;
@@ -384,38 +402,76 @@ class EntryRepositoryImpl implements EntryRepository {
     }
   }
 
-  @override
-  Future<List<RevealedEntry>> revealAllEntries({
+  Future<ImportResult> _importCanonical({
+    required CanonicalImportProjectionService canonical,
     required String vaultId,
+    required String format,
+    required List<ImportEntryDraft> creates,
+    required List<ImportEntryOverwrite> overwrites,
     required Uint8List privateKey,
-    String? wrappedVK,
+    required int chunkSize,
+    void Function(int done, int total)? onProgress,
   }) async {
-    AppLogger.d('Entry', 'Revealing all entries in $vaultId for export');
-    final summaries = await listEntries(vaultId);
-    final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
-
-    Uint8List? vaultKey;
+    if (overwrites.isNotEmpty) {
+      throw const EntryException(EntryErrorKind.validation);
+    }
+    var progress = _canonicalImports[vaultId];
+    if (progress == null ||
+        progress.format != format ||
+        progress.total != creates.length) {
+      progress = _CanonicalImportProgress(format, creates.length);
+      _canonicalImports[vaultId] = progress;
+    }
+    var start = progress.committedRows;
+    onProgress?.call(start, creates.length);
     try {
-      vaultKey = await cryptoService.unwrapVK(
-        wrappedVK: vk,
-        privateKey: privateKey,
-      );
-      final revealed = <RevealedEntry>[];
-      for (final summary in summaries) {
-        final detail = await _fetchDetail(vaultId, summary.id);
-        final payload = await cryptoService.decryptEntry(
-          content: detail.content,
-          vaultKey: vaultKey,
+      while (start < creates.length) {
+        final end = (start + chunkSize).clamp(0, creates.length);
+        var pending = progress.pending;
+        if (pending == null || pending.start != start || pending.end != end) {
+          final ids = await entryDatasource.issueCreationChallenges(
+            vaultId,
+            count: end - start,
+          );
+          final payloads = await canonical.prepareCredentialBatch(
+            vaultId: vaultId,
+            entryIds: ids,
+            drafts: creates.sublist(start, end),
+            memberPrivateKey: privateKey,
+          );
+          pending = _PendingCanonicalBatch(start, end, payloads);
+          progress.pending = pending;
+        }
+        final request = ImportEntriesRequest(
+          format: format,
+          entries: pending.entries,
         );
-        revealed.add(
-          RevealedEntry(entry: detail.summary.toEntity(), payload: payload),
-        );
+        try {
+          await entryDatasource.importEntries(vaultId, request);
+        } on DioException catch (error) {
+          if (error.response != null) {
+            throw EntryException(_classifyError(error));
+          }
+          // Lost response: retry the exact same ids, nonces and ciphertext.
+          try {
+            await entryDatasource.importEntries(vaultId, request);
+          } on DioException catch (retryError) {
+            throw EntryException(_classifyError(retryError));
+          }
+        }
+        progress.committedRows = end;
+        progress.pending = null;
+        start = end;
+        autoFillMutationNotifier?.notifyInvalidated();
+        onProgress?.call(start, creates.length);
       }
-      return revealed;
-    } finally {
-      if (vaultKey != null) {
-        vaultKey.fillRange(0, vaultKey.length, 0);
-      }
+      _canonicalImports.remove(vaultId);
+      autoFillMutationNotifier?.notifyChanged();
+      return ImportResult(createdCount: creates.length, updatedCount: 0);
+    } catch (_) {
+      // Keep only the current unconfirmed ciphertext batch plus committed row
+      // count. A retry resumes without rebuilding successful transitions.
+      rethrow;
     }
   }
 
@@ -459,21 +515,6 @@ class EntryRepositoryImpl implements EntryRepository {
     }
   }
 
-  @override
-  Future<void> logExportAudit({
-    required String vaultId,
-    required String format,
-    required int entryCount,
-  }) async {
-    try {
-      await entryDatasource.logExportAudit(vaultId, format, entryCount);
-    } on DioException catch (e) {
-      // Best-effort — the export already succeeded, so a failed audit
-      // record must not surface to the user.
-      AppLogger.w('Entry', 'export-audit failed (non-fatal)', error: e);
-    }
-  }
-
   /// Wraps the vault datasource's wrappedVK lookup with our typed error
   /// classifier so the entry-level cubit only ever sees [EntryException]s.
   Future<String> _fetchWrappedVK(String vaultId) async {
@@ -512,4 +553,21 @@ class EntryRepositoryImpl implements EntryRepository {
       _ => EntryErrorKind.unknown,
     };
   }
+}
+
+final class _CanonicalImportProgress {
+  _CanonicalImportProgress(this.format, this.total);
+
+  final String format;
+  final int total;
+  int committedRows = 0;
+  _PendingCanonicalBatch? pending;
+}
+
+final class _PendingCanonicalBatch {
+  const _PendingCanonicalBatch(this.start, this.end, this.entries);
+
+  final int start;
+  final int end;
+  final List<Map<String, dynamic>> entries;
 }

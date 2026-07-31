@@ -79,9 +79,9 @@ class _FieldFeedbackSlotState extends State<FieldFeedbackSlot>
   }
 
   Widget _innerContent() => Padding(
-        padding: const EdgeInsets.only(top: FieldFeedbackSlot._kTopPadding),
-        child: widget.child,
-      );
+    padding: const EdgeInsets.only(top: FieldFeedbackSlot._kTopPadding),
+    child: widget.child,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -92,10 +92,7 @@ class _FieldFeedbackSlotState extends State<FieldFeedbackSlot>
         child: ClipRect(
           child: SlideTransition(
             position: _slide,
-            child: FadeTransition(
-              opacity: _controller,
-              child: _innerContent(),
-            ),
+            child: FadeTransition(opacity: _controller, child: _innerContent()),
           ),
         ),
       );
@@ -111,10 +108,7 @@ class _FieldFeedbackSlotState extends State<FieldFeedbackSlot>
       ),
       // ignore: deprecated_member_use
       axisAlignment: -1.0,
-      child: FadeTransition(
-        opacity: _controller,
-        child: _innerContent(),
-      ),
+      child: FadeTransition(opacity: _controller, child: _innerContent()),
     );
   }
 }
@@ -265,8 +259,10 @@ class OnboardingTextField extends StatelessWidget {
         // buttons/controls (the default was ~48-52, which read as oversized).
         isDense: true,
         hintText: hintText,
-        hintStyle:
-            TextStyle(color: AppColors.inputHint(brightness), fontSize: 13),
+        hintStyle: TextStyle(
+          color: AppColors.inputHint(brightness),
+          fontSize: 13,
+        ),
         filled: true,
         fillColor: fillColor ?? AppColors.inputFill(brightness),
         contentPadding: const EdgeInsets.symmetric(

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../domain/entities/push_message.dart';
+import '../../domain/repositories/notification_center_repository.dart';
 
 /// Drives deep-link navigation in response to a tapped push notification.
 ///
@@ -16,61 +17,67 @@ import '../../domain/entities/push_message.dart';
 /// Emits `null` for messages that have no meaningful destination (e.g.
 /// [PushNotificationType.unknown]) so the listener can no-op.
 class PushNavigationCubit extends Cubit<String?> {
-  PushNavigationCubit({required AnalyticsService analytics})
-      : _analytics = analytics,
-        super(null);
+  PushNavigationCubit({
+    required AnalyticsService analytics,
+    required NotificationCenterRepository repository,
+  }) : _analytics = analytics,
+       _repository = repository,
+       super(null);
 
   final AnalyticsService _analytics;
+  final NotificationCenterRepository _repository;
+  bool _resolving = false;
 
   /// Handles a notification the user tapped. Fires the
   /// `mb:push:notification-tapped` analytics event and emits the
   /// resolved route (or `null` when there is nothing to navigate to).
-  void onNotificationTapped(PushMessage message) {
-    AppLogger.i('Push', 'Notification tapped: type=${message.type.name}');
-    _analytics.capture('push', 'notification-tapped', properties: {
-      'type': message.type.name,
-    });
+  Future<void> onNotificationTapped(PushMessage message) async {
+    if (_resolving) return;
+    _resolving = true;
+    AppLogger.i('Push', 'Notification tapped');
+    _analytics.capture(
+      'push',
+      'notification-tapped',
+      properties: {'type': message.type.name},
+    );
 
-    final route = _resolveRoute(message);
-    if (route == null) {
-      AppLogger.d('Push', 'No deep-link target for type=${message.type.name}');
-      return;
+    try {
+      final id = await _resolveAuthorizedInboxId(message);
+      if (id == null) return;
+      emit(null);
+      emit('/inbox?focus=${Uri.encodeQueryComponent(id)}');
+    } catch (_) {
+      // 401/403/404, deleted references and network failures fail closed.
+      AppLogger.w('Push', 'Inbox notification could not be resolved');
+    } finally {
+      _resolving = false;
     }
-    // Re-emit even if the route is identical to the current state so a
-    // second tap on the same notification still navigates.
-    emit(null);
-    emit(route);
   }
 
   /// Clears the pending navigation target after the listener consumes it.
   void consumed() => emit(null);
 
-  /// Maps a [PushMessage] to a router location.
-  ///
-  /// | type             | destination                               |
-  /// |------------------|-------------------------------------------|
-  /// | grant_pending    | `/inbox?focus=<id>` (owner business inbox)|
-  /// | grant_revoked    | `/inbox?focus=<id>`                        |
-  /// | credential_stale | `/inbox?focus=<id>`                        |
-  /// | agent_pending    | `/agents/{agentId}` else `/agents`        |
-  /// | grant_approved   | `/agents/{agentId}` else `/agents`        |
-  /// | unknown          | `null` (no navigation)                    |
-  String? _resolveRoute(PushMessage message) {
-    switch (message.type) {
-      // Inbox-owned notifications open the business Inbox, not agent detail.
-      // Carry the notification id so the inbox can focus + mark it read.
-      case PushNotificationType.grantPending:
-      case PushNotificationType.grantRevoked:
-      case PushNotificationType.credentialStale:
-        final id = message.notificationId;
-        return id != null ? '/inbox?focus=$id' : '/inbox';
-      case PushNotificationType.grantApproved:
-      case PushNotificationType.agentPending:
-      case PushNotificationType.agentApproved:
-        final agentId = message.agentId;
-        return agentId != null ? '/agents/$agentId' : '/agents';
-      case PushNotificationType.unknown:
-        return null;
-    }
+  /// Resolves one structural event against at most 500 current Inbox rows.
+  /// Pages are inspected and discarded one at a time; the feed is not
+  /// accumulated in memory.
+  Future<String?> _resolveAuthorizedInboxId(PushMessage message) async {
+    String? cursor;
+    var inspected = 0;
+    do {
+      final page = await _repository.list(cursor: cursor);
+      for (final item in page.items) {
+        inspected++;
+        if (item.subjectId == message.subjectId &&
+            item.type == message.type.wireValue &&
+            item.category.name == message.category &&
+            item.occurredAt.toUtc() == message.occurredAt.toUtc()) {
+          return item.id;
+        }
+        if (inspected >= 500) return null;
+      }
+      final next = page.nextCursor;
+      if (next == null || next == cursor) return null;
+      cursor = next;
+    } while (true);
   }
 }

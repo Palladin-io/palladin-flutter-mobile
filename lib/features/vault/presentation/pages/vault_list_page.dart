@@ -43,18 +43,37 @@ class VaultListPage extends StatefulWidget {
 
 class _VaultListPageState extends State<VaultListPage> {
   late final VaultListCubit _cubit;
+  late final AuthBloc _authBloc;
 
   @override
   void initState() {
     super.initState();
-    _cubit = getIt<VaultListCubit>()..loadIfNeeded();
+    // Cache the provider while this element is active. Vaults remains below a
+    // pushed Vault Detail route and can be deactivated before it is disposed;
+    // looking the provider up from dispose() is therefore unsafe.
+    _authBloc = context.read<AuthBloc>();
+    final auth = _authBloc.state;
+    final privateKey = auth is AuthAuthenticated ? auth.privateKey : null;
+    _cubit = getIt<VaultListCubit>()..loadIfNeeded(privateKey);
+  }
+
+  @override
+  void dispose() {
+    final auth = _authBloc.state;
+    if (auth is! AuthAuthenticated || auth.isVaultLocked) _cubit.lock();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<VaultListCubit>.value(
-      value: _cubit,
-      child: const _VaultListView(),
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (_, state) {
+        if (state is! AuthAuthenticated || state.isVaultLocked) _cubit.lock();
+      },
+      child: BlocProvider<VaultListCubit>.value(
+        value: _cubit,
+        child: const _VaultListView(),
+      ),
     );
   }
 }
@@ -115,7 +134,9 @@ class _VaultListViewState extends State<_VaultListView> {
     );
     if (!mounted) return;
     if (created == null) return;
-    context.read<VaultListCubit>().appendVault(created);
+    final auth = context.read<AuthBloc>().state;
+    final privateKey = auth is AuthAuthenticated ? auth.privateKey : null;
+    await context.read<VaultListCubit>().loadVaults(privateKey);
     if (!mounted) return;
     context.push('/vaults/${created.id}');
   }
@@ -214,16 +235,40 @@ class _VaultListViewState extends State<_VaultListView> {
                             _SkeletonList(brightness: brightness),
                           VaultListError(:final kind) => _ErrorView(
                             kind: kind,
-                            onRetry: () =>
-                                context.read<VaultListCubit>().loadVaults(),
+                            onRetry: () {
+                              final auth = context.read<AuthBloc>().state;
+                              context.read<VaultListCubit>().loadVaults(
+                                auth is AuthAuthenticated
+                                    ? auth.privateKey
+                                    : null,
+                              );
+                            },
+                          ),
+                          VaultListLocked() => const SizedBox.shrink(),
+                          VaultListResetRequired() => _ErrorView(
+                            kind: VaultErrorKind.unknown,
+                            onRetry: () {
+                              final auth = context.read<AuthBloc>().state;
+                              context.read<VaultListCubit>().loadVaults(
+                                auth is AuthAuthenticated
+                                    ? auth.privateKey
+                                    : null,
+                              );
+                            },
                           ),
                           VaultListLoaded(:final vaults) => _LoadedContent(
                             vaults: vaults,
                             filtered: _filter(vaults),
                             searchController: _searchController,
                             onCreate: _openCreateSheet,
-                            onRefresh: () =>
-                                context.read<VaultListCubit>().loadVaults(),
+                            onRefresh: () {
+                              final auth = context.read<AuthBloc>().state;
+                              return context.read<VaultListCubit>().loadVaults(
+                                auth is AuthAuthenticated
+                                    ? auth.privateKey
+                                    : null,
+                              );
+                            },
                           ),
                         },
                       ),
@@ -314,7 +359,12 @@ class _LoadedContent extends StatelessWidget {
                       await context.push('/vaults/${vault.id}');
                       // Refresh list after returning from detail so any
                       // name/icon/color edits are reflected immediately.
-                      if (context.mounted) cubit.loadVaults();
+                      if (context.mounted) {
+                        final auth = context.read<AuthBloc>().state;
+                        cubit.loadVaults(
+                          auth is AuthAuthenticated ? auth.privateKey : null,
+                        );
+                      }
                     },
                   );
                 },
@@ -719,9 +769,7 @@ class _ErrorView extends StatelessWidget {
             const SizedBox(height: AppSpacing.section),
             TextButton(
               onPressed: onRetry,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.brandRed,
-              ),
+              style: TextButton.styleFrom(foregroundColor: AppColors.brandRed),
               child: Text(l10n.vaultRetry),
             ),
           ],
@@ -738,6 +786,8 @@ class _ErrorView extends StatelessWidget {
       VaultErrorKind.planLimitReached => l10n.vaultErrorPlanLimitReached,
       VaultErrorKind.fullModeNotAllowed => l10n.vaultErrorFullModeNotAllowed,
       VaultErrorKind.networkError => l10n.errorCannotConnectToServer,
+      VaultErrorKind.conflict => l10n.vaultMetadataConflict,
+      VaultErrorKind.corrupt => l10n.vaultMetadataCorrupt,
       VaultErrorKind.unknown => l10n.vaultErrorUnknown,
     };
   }

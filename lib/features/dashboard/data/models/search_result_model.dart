@@ -1,55 +1,42 @@
 import '../../domain/entities/search_result_entity.dart';
 
-/// DTO for one item in the `GET /api/search` response.
-///
-/// Parses `{ "type", "id", "name", "vaultId"?, "vaultName"?, "icon"? }`. The
-/// backend emits `type` as one of `"agent" | "vault" | "entry"`; unknown
-/// values fall back to [SearchResultType.entry] so a forward-compatible
-/// backend change never crashes the client. `vaultId`/`vaultName` are present
-/// for entry hits only.
-class SearchResultModel {
-  const SearchResultModel({
-    required this.type,
-    required this.id,
-    required this.name,
-    this.vaultId,
-    this.vaultName,
-    this.icon,
-  });
-
-  final SearchResultType type;
-  final String id;
-  final String name;
-  final String? vaultId;
-  final String? vaultName;
-  final String? icon;
+/// Strict DTO for one authorization-scoped administrative search hit.
+sealed class SearchResultModel {
+  const SearchResultModel();
 
   factory SearchResultModel.fromJson(Map<String, dynamic> json) {
-    return SearchResultModel(
-      type: _parseType(json['type'] as String?),
-      id: json['id'] as String,
-      name: json['name'] as String,
-      vaultId: json['vaultId'] as String?,
-      vaultName: json['vaultName'] as String?,
-      icon: json['icon'] as String?,
-    );
-  }
-
-  static SearchResultType _parseType(String? raw) {
-    return switch (raw) {
-      'agent' => SearchResultType.agent,
-      'vault' => SearchResultType.vault,
-      'entry' => SearchResultType.entry,
-      _ => SearchResultType.entry,
+    final type = json['type'];
+    final id = json['id'];
+    final name = json['name'];
+    if (id is! String || id.isEmpty || name is! String || name.isEmpty) {
+      throw const FormatException('Malformed administrative search hit');
+    }
+    return switch (type) {
+      'agent' => AgentSearchResultModel(agentId: id, name: name),
+      'member' => MemberSearchResultModel(memberId: id, name: name),
+      _ => throw const FormatException('Unsupported remote search hit type'),
     };
   }
 
-  SearchResultEntity toEntity() => SearchResultEntity(
-        type: type,
-        id: id,
-        name: name,
-        vaultId: vaultId,
-        vaultName: vaultName,
-        icon: icon,
-      );
+  SearchResultEntity toEntity();
+}
+
+final class AgentSearchResultModel extends SearchResultModel {
+  const AgentSearchResultModel({required this.agentId, required this.name});
+  final String agentId;
+  final String name;
+
+  @override
+  AgentSearchResult toEntity() =>
+      AgentSearchResult(agentId: agentId, displayName: name);
+}
+
+final class MemberSearchResultModel extends SearchResultModel {
+  const MemberSearchResultModel({required this.memberId, required this.name});
+  final String memberId;
+  final String name;
+
+  @override
+  MemberSearchResult toEntity() =>
+      MemberSearchResult(memberId: memberId, displayName: name);
 }

@@ -71,13 +71,8 @@ class NotificationPreferencesCubit extends Cubit<NotificationPreferencesState> {
           error: error.kind,
         ),
       );
-    } catch (error, stackTrace) {
-      AppLogger.e(
-        'Notifications',
-        'Preferences load failed unexpectedly',
-        error: error,
-        stackTrace: stackTrace,
-      );
+    } catch (_) {
+      AppLogger.e('Notifications', 'Preferences load failed unexpectedly');
       emit(
         state.copyWith(
           status: NotificationPreferencesStatus.error,
@@ -136,13 +131,9 @@ class NotificationPreferencesCubit extends Cubit<NotificationPreferencesState> {
           savingKeys: {...state.savingKeys}..remove(key),
         ),
       );
-    } catch (error) {
-      AppLogger.w('Notifications', 'Preference update failed: $error');
-      emit(
-        previous.copyWith(
-          error: NotificationCenterErrorKind.unknown,
-        ),
-      );
+    } catch (_) {
+      AppLogger.w('Notifications', 'Preference update failed');
+      emit(previous.copyWith(error: NotificationCenterErrorKind.unknown));
     }
   }
 
@@ -159,8 +150,6 @@ class NotificationPreferencesCubit extends Cubit<NotificationPreferencesState> {
   ) {
     if (effective.isEmpty) return existing;
     final byType = {for (final pref in effective) pref.type: pref};
-    return [
-      for (final item in existing) byType[item.type] ?? item,
-    ];
+    return [for (final item in existing) byType[item.type] ?? item];
   }
 }

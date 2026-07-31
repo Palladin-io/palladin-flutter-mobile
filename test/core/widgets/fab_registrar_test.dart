@@ -42,35 +42,74 @@ class _ScopeHostState extends State<_ScopeHost> {
 }
 
 void main() {
+  testWidgets('disposing while deactivated does not crash on ancestor lookup', (
+    tester,
+  ) async {
+    final hostKey = GlobalKey<_ScopeHostState>();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: _ScopeHost(
+          key: hostKey,
+          child: const Scaffold(body: FabRegistrar(fab: Icon(Icons.add))),
+        ),
+      ),
+    );
+    await tester.pump(); // run the registrar's post-frame setFab
+
+    // Navigate away: the registrar leaves the tree and disposes. The old
+    // implementation looked up AppShellScope in dispose() and threw
+    // "Looking up a deactivated widget's ancestor is unsafe."
+    await tester.pumpWidget(
+      MaterialApp(
+        home: _ScopeHost(
+          key: hostKey,
+          child: const Scaffold(body: SizedBox.shrink()),
+        ),
+      ),
+    );
+    await tester.pump(); // run the dispose post-frame clearFab
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
-    'disposing while deactivated does not crash on ancestor lookup',
+    'switching tabs and tearing down pending FAB updates is lifecycle-safe',
     (tester) async {
       final hostKey = GlobalKey<_ScopeHostState>();
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: _ScopeHost(
-            key: hostKey,
-            child: const Scaffold(body: FabRegistrar(fab: Icon(Icons.add))),
+      Widget app({required int tab, required bool mounted}) => MaterialApp(
+        home: _ScopeHost(
+          key: hostKey,
+          child: Scaffold(
+            body: mounted
+                ? FabRegistrar(
+                    // Mirrors Vault Detail: Entries and Agents own a FAB;
+                    // Logs, Members and Settings explicitly suppress it.
+                    fab: switch (tab) {
+                      0 => const Icon(Icons.add),
+                      1 => const Icon(Icons.person_add_alt_1),
+                      _ => null,
+                    },
+                  )
+                : const SizedBox.shrink(),
           ),
         ),
       );
-      await tester.pump(); // run the registrar's post-frame setFab
 
-      // Navigate away: the registrar leaves the tree and disposes. The old
-      // implementation looked up AppShellScope in dispose() and threw
-      // "Looking up a deactivated widget's ancestor is unsafe."
-      await tester.pumpWidget(
-        MaterialApp(
-          home: _ScopeHost(
-            key: hostKey,
-            child: const Scaffold(body: SizedBox.shrink()),
-          ),
-        ),
-      );
-      await tester.pump(); // run the dispose post-frame clearFab
+      await tester.pumpWidget(app(tab: 0, mounted: true));
+      await tester.pump();
+
+      // Traverse all five Vault Detail tabs without settling their deferred
+      // registrations, then immediately remove the route subtree.
+      for (var tab = 1; tab < 5; tab++) {
+        await tester.pumpWidget(app(tab: tab, mounted: true));
+      }
+      await tester.pumpWidget(app(tab: 4, mounted: false));
+      await tester.pump();
 
       expect(tester.takeException(), isNull);
+      expect(hostKey.currentState!.owners, isEmpty);
     },
   );
 }

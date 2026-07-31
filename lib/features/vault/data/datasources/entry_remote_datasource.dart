@@ -4,7 +4,6 @@ import '../models/create_entry_request.dart';
 import '../models/entry_model.dart';
 import '../models/import_entries_request.dart';
 import '../models/update_entry_request.dart';
-import 'vault_remote_datasource.dart' show PresignResponse;
 
 /// Remote data source for the per-vault entry endpoints.
 ///
@@ -17,6 +16,128 @@ class EntryRemoteDatasource {
   EntryRemoteDatasource(this._dio);
 
   final Dio _dio;
+
+  Future<Map<String, dynamic>> getCanonicalEntry(
+    String vaultId,
+    String entryId,
+  ) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries/$entryId',
+    );
+    return response.data ??
+        (throw const FormatException('Empty canonical Entry'));
+  }
+
+  Future<Response<Map<String, dynamic>>> updateCanonicalEntry(
+    String vaultId,
+    String entryId,
+    Map<String, dynamic> payload,
+  ) => _dio.put<Map<String, dynamic>>(
+    '/api/vaults/$vaultId/entries/$entryId',
+    data: payload,
+    options: Options(
+      validateStatus: (status) =>
+          status == 200 || status == 400 || status == 409,
+    ),
+  );
+
+  /// Restores an Archived Entry through one versioned lifecycle transition.
+  ///
+  /// The caller owns the encrypted projection payload. A transport retry must
+  /// reuse the exact same payload so the backend can recognize it as an
+  /// idempotent lifecycle retry.
+  Future<Response<Map<String, dynamic>>> restoreCanonicalEntry(
+    String vaultId,
+    String entryId,
+    Map<String, dynamic> payload,
+  ) => _dio.post<Map<String, dynamic>>(
+    '/api/vaults/$vaultId/entries/$entryId/restore',
+    data: payload,
+    options: Options(
+      validateStatus: (status) =>
+          status == 200 || status == 400 || status == 409,
+    ),
+  );
+
+  Future<Map<String, dynamic>> listRecentlyDeleted(
+    String vaultId, {
+    String? cursor,
+    int pageSize = 100,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries/recently-deleted',
+      queryParameters: {'cursor': ?cursor, 'pageSize': pageSize},
+    );
+    return response.data ??
+        (throw const FormatException('Empty Recently Deleted response'));
+  }
+
+  /// Permanently destroys an already Deleted Entry without secret material.
+  Future<Response<void>> destroyEntry(String vaultId, String entryId) =>
+      _dio.post<void>(
+        '/api/vaults/$vaultId/entries/$entryId/destroy',
+        options: Options(
+          validateStatus: (status) =>
+              status == 204 || status == 404 || status == 409,
+        ),
+      );
+
+  /// Loads one bounded page of immutable encrypted Entry versions.
+  Future<Map<String, dynamic>> getEntryHistory(
+    String vaultId,
+    String entryId, {
+    String? beforeRevision,
+    int pageSize = 20,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries/$entryId/history',
+      queryParameters: {
+        'beforeRevision': ?beforeRevision,
+        'pageSize': pageSize,
+      },
+    );
+    return response.data ??
+        (throw const FormatException('Empty Entry history response'));
+  }
+
+  Future<String> issueCreationChallenge(String vaultId) async {
+    final items = await issueCreationChallenges(vaultId, count: 1);
+    return items.single;
+  }
+
+  Future<List<String>> issueCreationChallenges(
+    String vaultId, {
+    required int count,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries/creation-challenges',
+      data: {'count': count},
+    );
+    final items = response.data?['items'];
+    if (items is! List || items.length != count) {
+      throw const FormatException('Malformed Entry creation challenge');
+    }
+    return items
+        .map((item) {
+          if (item is! Map || item['entryId'] is! String) {
+            throw const FormatException('Malformed entryId');
+          }
+          return item['entryId']! as String;
+        })
+        .toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> createCanonicalEntry(
+    String vaultId,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/entries',
+      data: payload,
+    );
+    return response.data ??
+        (throw const FormatException('Empty canonical Entry response'));
+  }
 
   /// `GET /api/vaults/{vaultId}/entries` → list of entry summaries
   /// (no encrypted payload).
@@ -37,10 +158,12 @@ class EntryRemoteDatasource {
     // The list item shape (EntryListItem) omits vaultId — inject from URL.
     final raw = (data['items'] as List<dynamic>? ?? const <dynamic>[]);
     return raw
-        .map((e) => EntryModel.fromJson(
-              e as Map<String, dynamic>,
-              contextVaultId: vaultId,
-            ))
+        .map(
+          (e) => EntryModel.fromJson(
+            e as Map<String, dynamic>,
+            contextVaultId: vaultId,
+          ),
+        )
         .toList(growable: false);
   }
 
@@ -128,20 +251,6 @@ class EntryRemoteDatasource {
     return (data['importedCount'] as int?) ?? request.entries.length;
   }
 
-  /// `POST /api/vaults/{vaultId}/export-audit` → records that a plaintext
-  /// export happened. Fire-and-forget from the caller's perspective — an
-  /// audit failure must not block the export UX.
-  Future<void> logExportAudit(
-    String vaultId,
-    String format,
-    int entryCount,
-  ) async {
-    await _dio.post<void>(
-      '/api/vaults/$vaultId/export-audit',
-      data: {'format': format, 'entryCount': entryCount},
-    );
-  }
-
   /// `PUT /api/vaults/{vaultId}/entries/{entryId}` → 204 No Content.
   ///
   /// Updates label, description, icon, type, content (re-encrypted),
@@ -154,45 +263,6 @@ class EntryRemoteDatasource {
     await _dio.put<void>(
       '/api/vaults/$vaultId/entries/$entryId',
       data: request.toJson(),
-    );
-  }
-
-  /// `POST /api/vaults/{vaultId}/entries/{entryId}/icon/presign` →
-  /// presigned S3 upload URL for an entry icon.
-  Future<PresignResponse> presignEntryIcon(
-    String vaultId,
-    String entryId,
-    String extension,
-  ) async {
-    final response = await _dio.post<Map<String, dynamic>>(
-      '/api/vaults/$vaultId/entries/$entryId/icon/presign',
-      data: {'vaultId': vaultId, 'entryId': entryId, 'extension': extension},
-    );
-    final data = response.data;
-    if (data == null) {
-      throw DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        type: DioExceptionType.badResponse,
-        error: 'Empty response body',
-      );
-    }
-    return PresignResponse(
-      uploadUrl: data['uploadUrl'] as String,
-      publicUrl: data['publicUrl'] as String,
-    );
-  }
-
-  /// `PUT /api/vaults/{vaultId}/entries/{entryId}` — updates only the
-  /// icon field (patch semantics on the backend).
-  Future<void> updateEntryIcon(
-    String vaultId,
-    String entryId,
-    String iconUrl,
-  ) async {
-    await _dio.put<void>(
-      '/api/vaults/$vaultId/entries/$entryId',
-      data: {'vaultId': vaultId, 'entryId': entryId, 'icon': iconUrl},
     );
   }
 }

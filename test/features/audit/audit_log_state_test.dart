@@ -13,6 +13,7 @@ AuditLogEntry _entry(
   String? vaultId,
   String? entryLabel,
   DateTime? at,
+  DateTime? occurredAt,
 }) {
   return AuditLogEntry(
     id: id,
@@ -20,6 +21,7 @@ AuditLogEntry _entry(
     rawEventType: type.wire,
     actorType: actorType,
     createdAt: at ?? DateTime(2026, 6, 1, 10),
+    occurredAt: occurredAt,
     agentId: agentId,
     agentName: agentName,
     userId: userId,
@@ -113,6 +115,25 @@ void main() {
         toDate: DateTime(2026, 6, 10, 23, 59, 59),
       );
       expect(s.filtered.map((e) => e.id), ['2', '3']);
+    });
+
+    test('date range uses source occurredAt, not persistence createdAt', () {
+      final occurred = DateTime(2026, 6, 5);
+      final persisted = DateTime(2026, 6, 20);
+      final state = base().copyWith(
+        entries: [
+          _entry(
+            'delayed',
+            type: AuditEventType.entryCreated,
+            at: persisted,
+            occurredAt: occurred,
+          ),
+        ],
+        fromDate: DateTime(2026, 6, 4),
+        toDate: DateTime(2026, 6, 6),
+      );
+
+      expect(state.filtered.map((entry) => entry.id), ['delayed']);
     });
 
     test('query matches entry label, agent name and actor name', () {

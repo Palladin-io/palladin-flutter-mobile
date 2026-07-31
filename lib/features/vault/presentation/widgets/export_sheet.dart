@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../core/widgets/sheet_drag_handle.dart';
+import '../../../../core/widgets/app_toggle.dart';
 import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -24,29 +25,22 @@ class ExportSheet extends StatelessWidget {
     super.key,
     required this.vaultId,
     required this.vaultName,
-    this.wrappedVK,
   });
 
   final String vaultId;
   final String vaultName;
-  final String? wrappedVK;
 
   static Future<bool?> show(
     BuildContext context, {
     required String vaultId,
     required String vaultName,
-    String? wrappedVK,
   }) {
     return showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       useRootNavigator: true,
-      builder: (_) => ExportSheet(
-        vaultId: vaultId,
-        vaultName: vaultName,
-        wrappedVK: wrappedVK,
-      ),
+      builder: (_) => ExportSheet(vaultId: vaultId, vaultName: vaultName),
     );
   }
 
@@ -54,25 +48,16 @@ class ExportSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider<ExportCubit>(
       create: (_) => getIt<ExportCubit>(),
-      child: _ExportSheetView(
-        vaultId: vaultId,
-        vaultName: vaultName,
-        wrappedVK: wrappedVK,
-      ),
+      child: _ExportSheetView(vaultId: vaultId, vaultName: vaultName),
     );
   }
 }
 
 class _ExportSheetView extends StatefulWidget {
-  const _ExportSheetView({
-    required this.vaultId,
-    required this.vaultName,
-    this.wrappedVK,
-  });
+  const _ExportSheetView({required this.vaultId, required this.vaultName});
 
   final String vaultId;
   final String vaultName;
-  final String? wrappedVK;
 
   @override
   State<_ExportSheetView> createState() => _ExportSheetViewState();
@@ -80,6 +65,9 @@ class _ExportSheetView extends StatefulWidget {
 
 class _ExportSheetViewState extends State<_ExportSheetView> {
   ExportFormat _format = ExportFormat.csv;
+  bool _includeArchived = false;
+  bool _includeDeleted = false;
+  bool _includeHistory = false;
 
   Rect? _shareOrigin() {
     final box = context.findRenderObject() as RenderBox?;
@@ -90,7 +78,9 @@ class _ExportSheetViewState extends State<_ExportSheetView> {
   Future<void> _confirm() async {
     final auth = context.read<AuthBloc>().state;
     final l10n = AppLocalizations.of(context)!;
-    if (auth is! AuthAuthenticated || auth.privateKey == null) {
+    if (auth is! AuthAuthenticated ||
+        auth.isVaultLocked ||
+        auth.privateKey == null) {
       _snack(l10n.exportErrorCrypto);
       return;
     }
@@ -98,13 +88,17 @@ class _ExportSheetViewState extends State<_ExportSheetView> {
     final keyCopy = Uint8List.fromList(auth.privateKey!);
     try {
       await context.read<ExportCubit>().export(
-            vaultId: widget.vaultId,
-            vaultName: widget.vaultName,
-            format: _format,
-            privateKey: keyCopy,
-            wrappedVK: widget.wrappedVK,
-            sharePositionOrigin: origin,
-          );
+        vaultId: widget.vaultId,
+        vaultName: widget.vaultName,
+        options: ExportOptions(
+          format: _format,
+          includeArchived: _includeArchived,
+          includeDeleted: _includeDeleted,
+          includeHistory: _includeHistory,
+        ),
+        privateKey: keyCopy,
+        sharePositionOrigin: origin,
+      );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
     }
@@ -172,7 +166,8 @@ class _ExportSheetViewState extends State<_ExportSheetView> {
                           selected: _format == ExportFormat.csv,
                           onTap: busy
                               ? null
-                              : () => setState(() => _format = ExportFormat.csv),
+                              : () =>
+                                    setState(() => _format = ExportFormat.csv),
                         ),
                         const SizedBox(height: AppSpacing.cardGap),
                         _FormatOption(
@@ -182,18 +177,49 @@ class _ExportSheetViewState extends State<_ExportSheetView> {
                           onTap: busy
                               ? null
                               : () =>
-                                  setState(() => _format = ExportFormat.json),
+                                    setState(() => _format = ExportFormat.json),
+                        ),
+                        const SizedBox(height: AppSpacing.section),
+                        _ScopeOption(
+                          label: l10n.exportIncludeArchived,
+                          value: _includeArchived,
+                          onChanged: busy
+                              ? null
+                              : (value) =>
+                                    setState(() => _includeArchived = value),
+                        ),
+                        const SizedBox(height: AppSpacing.innerGap),
+                        _ScopeOption(
+                          label: l10n.exportIncludeDeleted,
+                          value: _includeDeleted,
+                          onChanged: busy
+                              ? null
+                              : (value) =>
+                                    setState(() => _includeDeleted = value),
+                        ),
+                        const SizedBox(height: AppSpacing.innerGap),
+                        _ScopeOption(
+                          label: l10n.exportIncludeHistory,
+                          value: _includeHistory,
+                          onChanged: busy
+                              ? null
+                              : (value) =>
+                                    setState(() => _includeHistory = value),
                         ),
                         const SizedBox(height: AppSpacing.section),
                         WarningZone(
                           title: l10n.exportWarningTitle,
-                          message: l10n.exportWarningBody,
+                          message:
+                              '${l10n.exportWarningBody}\n\n${l10n.exportDeletionDisclosure}',
                         ),
                       ],
                     ),
                   ),
                   SheetActionButtons(
-                    onCancel: busy ? null : () => Navigator.of(context).pop(false),
+                    onCancel: () {
+                      context.read<ExportCubit>().cancel();
+                      Navigator.of(context).pop(false);
+                    },
                     onConfirm: busy ? null : _confirm,
                     confirmLabel: l10n.exportConfirm,
                     confirmColor: AppColors.brandRed,
@@ -208,13 +234,36 @@ class _ExportSheetViewState extends State<_ExportSheetView> {
     );
   }
 
-  String _errorMessage(AppLocalizations l10n, ExportFailureReason reason) =>
+  String _errorMessage(AppLocalizations l10n, ExportErrorKind reason) =>
       switch (reason) {
-        ExportFailureReason.empty => l10n.exportEmpty,
-        ExportFailureReason.crypto => l10n.exportErrorCrypto,
-        ExportFailureReason.network => l10n.exportErrorNetwork,
-        ExportFailureReason.unknown => l10n.exportErrorUnknown,
+        ExportErrorKind.empty => l10n.exportEmpty,
+        ExportErrorKind.locked ||
+        ExportErrorKind.cancelled => l10n.exportErrorCrypto,
+        ExportErrorKind.network => l10n.exportErrorNetwork,
+        ExportErrorKind.tooLarge => l10n.exportErrorTooLarge,
+        ExportErrorKind.corrupt ||
+        ExportErrorKind.staging => l10n.exportErrorUnknown,
       };
+}
+
+class _ScopeOption extends StatelessWidget {
+  const _ScopeOption({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(child: Text(label)),
+      AppToggle(value: value, onChanged: onChanged),
+    ],
+  );
 }
 
 class _FormatOption extends StatelessWidget {

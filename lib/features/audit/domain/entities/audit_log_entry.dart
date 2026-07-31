@@ -27,6 +27,25 @@ enum AuditActorType {
   }
 }
 
+/// Outcome recorded by the canonical backend `AuditLogListItem` contract.
+enum AuditResult {
+  succeeded,
+  denied,
+  failed,
+  unknown;
+
+  /// Accepts the numeric enum representation emitted by ASP.NET as well as
+  /// string enum values used by fixtures and forward-compatible deployments.
+  static AuditResult fromWire(Object? raw) {
+    return switch (raw) {
+      1 || 'succeeded' || 'Succeeded' => AuditResult.succeeded,
+      2 || 'denied' || 'Denied' => AuditResult.denied,
+      3 || 'failed' || 'Failed' => AuditResult.failed,
+      _ => AuditResult.unknown,
+    };
+  }
+}
+
 /// Coarse grouping of audit events, used for the quick-filter chips and the
 /// legend modal (color/icon families). Mirrors the security domains the
 /// backend taxonomy splits into: credential access, grant lifecycle,
@@ -144,6 +163,8 @@ class AuditLogEntry {
     required this.rawEventType,
     required this.actorType,
     required this.createdAt,
+    DateTime? occurredAt,
+    this.result = AuditResult.unknown,
     this.userId,
     this.agentId,
     this.agentName,
@@ -152,8 +173,11 @@ class AuditLogEntry {
     this.entryId,
     this.entryLabel,
     this.agentReason,
+    this.resolvedObjectName,
+    this.resolvedVaultName,
+    this.localPresentationOnly = false,
     this.metadata = const {},
-  });
+  }) : occurredAt = occurredAt ?? createdAt;
 
   final String id;
 
@@ -166,7 +190,12 @@ class AuditLogEntry {
 
   final AuditActorType actorType;
 
-  /// When the action occurred (local time).
+  final AuditResult result;
+
+  /// Timestamp carried by the source event and used for the audit timeline.
+  final DateTime occurredAt;
+
+  /// Timestamp when the Audit module persisted the record (local time).
   final DateTime createdAt;
 
   /// Acting user id (when [actorType] is [AuditActorType.user]).
@@ -194,6 +223,17 @@ class AuditLogEntry {
 
   /// Free-text reason the agent supplied when requesting access.
   final String? agentReason;
+
+  /// Runtime-only display resolved from unlocked local projections.
+  final String? resolvedObjectName;
+
+  /// Runtime-only Vault name resolved from unlocked local state.
+  final String? resolvedVaultName;
+
+  /// Whether presentation fields must come exclusively from unlocked local
+  /// projections. Vault-scoped logs set this to avoid trusting legacy server
+  /// labels while org-wide audit keeps its existing non-secret presentation.
+  final bool localPresentationOnly;
 
   /// Non-sensitive contextual key/values (grant id, method, ip, device…).
   final Map<String, String> metadata;

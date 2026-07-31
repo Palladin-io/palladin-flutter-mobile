@@ -16,7 +16,12 @@ import 'agent_format.dart';
 /// All fields are optional — a `null` field tells the API to keep its
 /// server-side default. The selected icon color is currently a UI-only
 /// affordance (mirrors the web preset highlight) and is not persisted.
-typedef ApproveAgentResult = ({String? name, String? type, String? iconKey});
+typedef ApproveAgentResult = ({
+  String? name,
+  String? type,
+  String? iconKey,
+  String? iconColor,
+});
 
 /// Approve-agent form shown as a bottom sheet before a pending agent is
 /// granted access.
@@ -111,6 +116,7 @@ class _ApproveAgentSheetState extends State<ApproveAgentSheet> {
       name: name.isEmpty ? null : name,
       type: typeText.isEmpty ? null : typeText,
       iconKey: iconForApi,
+      iconColor: agentColorHex(_selectedColor),
     ));
   }
 

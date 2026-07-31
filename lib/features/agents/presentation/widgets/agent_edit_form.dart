@@ -98,15 +98,6 @@ class _AgentEditFormState extends State<AgentEditForm> {
     return Color(cleaned.length == 6 ? 0xFF000000 | value : value);
   }
 
-  static String _colorToHex(Color color) {
-    final r = (color.r * 255).round();
-    final g = (color.g * 255).round();
-    final b = (color.b * 255).round();
-    return '#${r.toRadixString(16).padLeft(2, '0')}'
-        '${g.toRadixString(16).padLeft(2, '0')}'
-        '${b.toRadixString(16).padLeft(2, '0')}';
-  }
-
   @override
   void dispose() {
     _nameController.dispose();
@@ -244,9 +235,10 @@ class _AgentEditFormState extends State<AgentEditForm> {
       widget.agent.agentId,
       name: _nameController.text.trim(),
       description: _descriptionController.text.trim(),
+      type: _type,
       iconKey: iconForApi,
       iconKeyDisplay: selected,
-      iconColor: _colorToHex(_iconColor),
+      iconColor: agentColorHex(_iconColor),
     );
     if (!mounted) return;
     if (cubit.state.mutationError == null) {

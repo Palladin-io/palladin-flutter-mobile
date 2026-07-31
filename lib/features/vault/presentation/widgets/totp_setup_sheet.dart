@@ -17,10 +17,7 @@ import '../pages/totp_scanner_page.dart';
 class TotpSetupSheet {
   const TotpSetupSheet._();
 
-  static Future<TotpConfig?> show(
-    BuildContext context, {
-    TotpConfig? initial,
-  }) {
+  static Future<TotpConfig?> show(BuildContext context, {TotpConfig? initial}) {
     return showModalBottomSheet<TotpConfig>(
       context: context,
       isScrollControlled: true,
@@ -49,10 +46,12 @@ class _TotpSetupBodyState extends State<_TotpSetupBody> {
   void initState() {
     super.initState();
     _keyController = TextEditingController(text: widget.initial?.secret ?? '');
-    _issuerController =
-        TextEditingController(text: widget.initial?.issuer ?? '');
-    _accountController =
-        TextEditingController(text: widget.initial?.account ?? '');
+    _issuerController = TextEditingController(
+      text: widget.initial?.issuer ?? '',
+    );
+    _accountController = TextEditingController(
+      text: widget.initial?.account ?? '',
+    );
   }
 
   @override
@@ -143,10 +142,9 @@ class _TotpSetupBodyState extends State<_TotpSetupBody> {
                     icon: const Icon(Icons.qr_code_scanner, size: 18),
                     label: Text(l10n.totpScanQr),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.brandRed,
-                      side: BorderSide(
-                        color: AppColors.brandRed.withValues(alpha: 0.5),
-                      ),
+                      backgroundColor: AppColors.cardFill(brightness),
+                      foregroundColor: AppColors.onSurface(brightness),
+                      side: BorderSide(color: AppColors.cardBorder(brightness)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),

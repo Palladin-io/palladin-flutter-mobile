@@ -151,10 +151,7 @@ class _AgentCardIdentity extends StatelessWidget {
 /// fill. Shows a single lifecycle status line (deactivated / last access
 /// / enrolled / connected) plus an icon on the left.
 class _AgentCardFooter extends StatelessWidget {
-  const _AgentCardFooter({
-    required this.agent,
-    required this.brightness,
-  });
+  const _AgentCardFooter({required this.agent, required this.brightness});
 
   final Agent agent;
   final Brightness brightness;
@@ -195,10 +192,7 @@ class _AgentCardFooter extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardFooterOverlay(brightness),
         border: Border(
-          top: BorderSide(
-            color: AppColors.cardBorder(brightness),
-            width: 1,
-          ),
+          top: BorderSide(color: AppColors.cardBorder(brightness), width: 1),
         ),
       ),
       padding: const EdgeInsets.symmetric(

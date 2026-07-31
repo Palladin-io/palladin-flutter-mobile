@@ -89,8 +89,9 @@ class EntryModel {
       urlDomain: urlDomain,
       createdAt: DateTime.parse(createdAt),
       updatedAt: DateTime.parse(updatedAt),
-      lastAccessedAt:
-          lastAccessedAt != null ? DateTime.parse(lastAccessedAt!) : null,
+      lastAccessedAt: lastAccessedAt != null
+          ? DateTime.parse(lastAccessedAt!)
+          : null,
       accessCount: accessCount,
     );
   }
@@ -105,10 +106,7 @@ class EntryModel {
 /// row-level [EntryModel.type] column, not by a discriminator on this
 /// envelope.
 class EntryContentModel {
-  const EntryContentModel({
-    required this.encryptedBlob,
-    required this.nonce,
-  });
+  const EntryContentModel({required this.encryptedBlob, required this.nonce});
 
   /// Base64-encoded ciphertext (`crypto_secretbox_easy` output).
   final String encryptedBlob;
@@ -123,9 +121,9 @@ class EntryContentModel {
       );
 
   Map<String, dynamic> toJson() => {
-        'encryptedBlob': encryptedBlob,
-        'nonce': nonce,
-      };
+    'encryptedBlob': encryptedBlob,
+    'nonce': nonce,
+  };
 }
 
 /// Detail-shape DTO returned by `GET /api/vaults/{vaultId}/entries/{id}`.
@@ -133,10 +131,7 @@ class EntryContentModel {
 /// Extends the list shape with the encrypted [content] envelope so
 /// callers can decrypt on-device.
 class EntryDetailModel {
-  const EntryDetailModel({
-    required this.summary,
-    required this.content,
-  });
+  const EntryDetailModel({required this.summary, required this.content});
 
   final EntryModel summary;
 

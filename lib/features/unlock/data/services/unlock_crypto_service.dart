@@ -4,17 +4,14 @@ import 'dart:typed_data';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
-import '../../../onboarding/domain/crypto_params.dart';
 import '../../domain/unlock_exceptions.dart';
+import 'identity_kdf_service.dart';
 
 /// Result of a successful master-password unlock — the two pieces of
 /// key material that downstream features (vault decryption, grant
 /// approval, etc.) need in memory.
 class UnlockResult {
-  const UnlockResult({
-    required this.masterKey,
-    required this.privateKey,
-  });
+  const UnlockResult({required this.masterKey, required this.privateKey});
 
   /// 32-byte Argon2id-derived master key.
   final Uint8List masterKey;
@@ -36,10 +33,15 @@ class UnlockResult {
 /// libsodium's MAC check is constant-time, so the caller should not
 /// distinguish between "wrong password" and "tampered ciphertext".
 class UnlockCryptoService {
-  UnlockCryptoService({Future<SodiumSumo> Function()? sodiumLoader})
-      : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
+  UnlockCryptoService({
+    Future<SodiumSumo> Function()? sodiumLoader,
+    IdentityKdfService? identityKdfService,
+  }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance,
+       _identityKdfService =
+           identityKdfService ?? IdentityKdfService(sodiumLoader: sodiumLoader);
 
   final Future<SodiumSumo> Function() _sodiumLoader;
+  final IdentityKdfService _identityKdfService;
 
   /// Derives the master key from [masterPassword] and [saltBase64],
   /// then decrypts [encryptedPrivateKeyBase64] with it.
@@ -47,14 +49,22 @@ class UnlockCryptoService {
   /// Throws [WrongMasterPasswordException] if decryption fails.
   Future<UnlockResult> deriveAndDecrypt({
     required String masterPassword,
-    required String saltBase64,
+    required String accountId,
+    required IdentityKdfMetadata kdf,
     required String encryptedPrivateKeyBase64,
   }) async {
+    _identityKdfService.assertSupported(kdf);
     final sodium = await _sodiumLoader();
-    final salt = base64.decode(saltBase64);
-
-    final masterKey = _deriveKey(sodium, masterPassword, salt);
+    final salt = _decodeWireBytes(kdf.kdfSalt);
+    IdentityKdfOutputs? outputs;
+    SecureKey? masterKey;
     try {
+      outputs = await _identityKdfService.derive(
+        password: masterPassword,
+        accountId: accountId,
+        kdfSalt: salt,
+      );
+      masterKey = SecureKey.fromList(sodium, outputs.masterKey);
       final privateKeyBytes = _openPrivateKey(
         sodium,
         masterKey,
@@ -65,13 +75,14 @@ class UnlockCryptoService {
       // presentation layer can hold them after we dispose the
       // SecureKey wrapper. `extractBytes()` already returns a copy
       // (not backed by the native buffer) so this is safe.
-      final masterKeyBytes = masterKey.extractBytes();
       return UnlockResult(
-        masterKey: masterKeyBytes,
+        masterKey: Uint8List.fromList(outputs.masterKey),
         privateKey: privateKeyBytes,
       );
     } finally {
-      masterKey.dispose();
+      salt.fillRange(0, salt.length, 0);
+      masterKey?.dispose();
+      outputs?.dispose();
     }
   }
 
@@ -110,7 +121,7 @@ class UnlockCryptoService {
     SecureKey key,
     String encryptedPrivateKeyBase64,
   ) {
-    final combined = base64.decode(encryptedPrivateKeyBase64);
+    final combined = _decodeWireBytes(encryptedPrivateKeyBase64);
     final nonceBytes = sodium.crypto.secretBox.nonceBytes;
 
     if (combined.length <= nonceBytes) {
@@ -134,20 +145,11 @@ class UnlockCryptoService {
     }
   }
 
-  /// Runs `crypto_pwhash` (Argon2id) with the project-wide cost
-  /// parameters and returns a [SecureKey] backed by locked memory.
-  ///
-  /// The password is UTF-8 encoded so non-ASCII characters in a master
-  /// password hash identically on mobile and web.
-  SecureKey _deriveKey(SodiumSumo sodium, String password, Uint8List salt) {
-    final utf8Bytes = utf8.encode(password);
-    return sodium.crypto.pwhash.call(
-      outLen: CryptoParams.derivedKeyLength,
-      password: Int8List.fromList(utf8Bytes),
-      salt: salt,
-      opsLimit: CryptoParams.argon2OpsLimit,
-      memLimit: CryptoParams.argon2MemLimit,
-      alg: CryptoPwhashAlgorithm.argon2id13,
-    );
+  Uint8List _decodeWireBytes(String value) {
+    try {
+      return Uint8List.fromList(base64Url.decode(base64Url.normalize(value)));
+    } on FormatException {
+      return Uint8List.fromList(base64.decode(value));
+    }
   }
 }

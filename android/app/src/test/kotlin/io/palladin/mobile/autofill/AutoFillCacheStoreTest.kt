@@ -9,9 +9,14 @@ import org.junit.Test
 class AutoFillCacheStoreTest {
     @Test
     fun normalizeDomainRejectsAmbiguousHosts() {
-        assertEquals("example.com", AutoFillCacheStore.normalizeDomain("WWW.Example.com."))
+        assertEquals("www.example.com", AutoFillCacheStore.normalizeDomain("WWW.Example.com."))
         assertNull(AutoFillCacheStore.normalizeDomain("localhost"))
         assertNull(AutoFillCacheStore.normalizeDomain("example..com"))
+        assertNull(AutoFillCacheStore.normalizeDomain("https://example.com"))
+        assertNull(AutoFillCacheStore.normalizeDomain("user@example.com"))
+        assertNull(AutoFillCacheStore.normalizeDomain("example.com:443"))
+        assertNull(AutoFillCacheStore.normalizeDomain("exаmple.com"))
+        assertNull(AutoFillCacheStore.normalizeDomain("*.example.com"))
     }
 
     @Test

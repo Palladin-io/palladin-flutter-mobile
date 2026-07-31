@@ -13,14 +13,17 @@ enum GrantMethod {
 
   /// PascalCase name the backend's flags converter accepts.
   String get wireName => switch (this) {
-        GrantMethod.get => 'Get',
-        GrantMethod.exec => 'Exec',
-        GrantMethod.inject => 'Inject',
-      };
+    GrantMethod.get => 'Get',
+    GrantMethod.exec => 'Exec',
+    GrantMethod.inject => 'Inject',
+  };
 }
 
 /// Default for a proactive grant: the privacy-preserving methods; `get` is opt-in.
-const List<GrantMethod> kDefaultGrantMethods = [GrantMethod.exec, GrantMethod.inject];
+const List<GrantMethod> kDefaultGrantMethods = [
+  GrantMethod.exec,
+  GrantMethod.inject,
+];
 
 /// Parse the backend's combined-flags string ("get, exec") into a canonically
 /// ordered, de-duplicated list. Tolerates casing/spacing; skips unknown tokens.

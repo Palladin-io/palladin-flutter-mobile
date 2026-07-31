@@ -29,10 +29,8 @@ export 'recovery_state.dart';
 /// Failures surface as [RecoveryFailed] carrying typed exceptions so the
 /// presentation layer can choose the correct localized message.
 class RecoveryCubit extends Cubit<RecoveryState> {
-  RecoveryCubit({
-    required this.datasource,
-    required this.cryptoService,
-  }) : super(const RecoveryInitial());
+  RecoveryCubit({required this.datasource, required this.cryptoService})
+    : super(const RecoveryInitial());
 
   final RecoveryRemoteDatasource datasource;
   final RecoveryCryptoService cryptoService;
@@ -105,7 +103,8 @@ class RecoveryCubit extends Cubit<RecoveryState> {
       final account = await datasource.getAccount();
       final recoverySalt = account.recoverySalt;
       final encryptedByRecovery = account.encryptedPrivateKeyByRecovery;
-      if (recoverySalt == null || encryptedByRecovery == null) {
+      final kdf = account.kdf;
+      if (recoverySalt == null || encryptedByRecovery == null || kdf == null) {
         emit(const RecoveryFailed(RecoveryMaterialMissingException()));
         return;
       }
@@ -115,14 +114,15 @@ class RecoveryCubit extends Cubit<RecoveryState> {
         newPassword: newPassword,
         recoverySaltBase64: recoverySalt,
         encryptedPrivateKeyByRecoveryBase64: encryptedByRecovery,
+        accountId: account.userId,
+        baseCredentialRevision: kdf.credentialRevision,
+        basePrivateKeyWrapRevision: kdf.privateKeyWrapRevision,
       );
 
       await datasource.recoverAccount(result.request);
 
       AppLogger.i('Recovery', 'Account recovery completed');
-      emit(RecoveryCompleted(
-        newRecoveryMnemonic: result.newRecoveryMnemonic,
-      ));
+      emit(RecoveryCompleted(newRecoveryMnemonic: result.newRecoveryMnemonic));
     } on WrongRecoveryKeyException catch (e) {
       // The mnemonic was validated in step 1 but the server rotated the
       // ciphertext between steps — very unlikely but surface the same
@@ -130,8 +130,12 @@ class RecoveryCubit extends Cubit<RecoveryState> {
       AppLogger.w('Recovery', 'Mnemonic no longer valid at completion');
       emit(RecoveryFailed(e));
     } on DioException catch (e, s) {
-      AppLogger.e('Recovery', 'Recovery request failed',
-          error: e, stackTrace: s);
+      AppLogger.e(
+        'Recovery',
+        'Recovery request failed',
+        error: e,
+        stackTrace: s,
+      );
       emit(RecoveryFailed(RecoveryServerException(_classifyDioError(e))));
     } catch (e, s) {
       AppLogger.e('Recovery', 'Recovery failed', error: e, stackTrace: s);

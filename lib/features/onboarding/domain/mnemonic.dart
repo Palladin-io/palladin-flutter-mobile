@@ -9,7 +9,9 @@ import 'crypto_params.dart';
 /// Uses 256 bits of entropy so the mnemonic is 24 words long, matching
 /// the web panel and the zero-knowledge spec.
 List<String> generateRecoveryMnemonic() {
-  final phrase = bip39.generateMnemonic(strength: CryptoParams.recoveryEntropyBytes * 8);
+  final phrase = bip39.generateMnemonic(
+    strength: CryptoParams.recoveryEntropyBytes * 8,
+  );
   return phrase.split(' ');
 }
 

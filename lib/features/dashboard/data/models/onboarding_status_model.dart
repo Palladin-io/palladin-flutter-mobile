@@ -25,7 +25,8 @@ class OnboardingStatusModel {
   final bool agentEnrolled;
 
   factory OnboardingStatusModel.fromJson(Map<String, dynamic> json) {
-    final steps = json['onboardingSteps'] as Map<String, dynamic>? ??
+    final steps =
+        json['onboardingSteps'] as Map<String, dynamic>? ??
         const <String, dynamic>{};
     return OnboardingStatusModel(
       isOnboarded: json['isOnboarded'] as bool? ?? false,

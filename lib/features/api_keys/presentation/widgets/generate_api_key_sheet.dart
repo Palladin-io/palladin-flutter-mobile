@@ -140,10 +140,7 @@ class _GenerateApiKeySheetState extends State<GenerateApiKeySheet> {
                 Flexible(
                   child: SingleChildScrollView(
                     child: _isRevealPhase
-                        ? _RevealPhase(
-                            newKey: _newKey!,
-                            onCopy: _copyKey,
-                          )
+                        ? _RevealPhase(newKey: _newKey!, onCopy: _copyKey)
                         : _NamePhase(
                             controller: _nameController,
                             isSubmitting: _isSubmitting,
@@ -254,8 +251,9 @@ class _RevealPhase extends StatefulWidget {
 }
 
 class _RevealPhaseState extends State<_RevealPhase> {
-  late final TextEditingController _agentNameController =
-      TextEditingController(text: widget.newKey.name);
+  late final TextEditingController _agentNameController = TextEditingController(
+    text: widget.newKey.name,
+  );
 
   @override
   void dispose() {
@@ -432,11 +430,7 @@ class _RevealPhaseState extends State<_RevealPhase> {
 /// trailing copy affordance. Reused for the secret, the connect command,
 /// the install command, and the agent message.
 class _MonospaceBox extends StatelessWidget {
-  const _MonospaceBox({
-    required this.text,
-    this.onCopy,
-    this.monospace = true,
-  });
+  const _MonospaceBox({required this.text, this.onCopy, this.monospace = true});
 
   final String text;
   final VoidCallback? onCopy;

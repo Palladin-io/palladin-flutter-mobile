@@ -16,6 +16,7 @@ class AgentModel {
     this.iconColor,
     this.publicKeyPrefix = '',
     this.publicKey = '',
+    this.recipientKeyVersion = 1,
     this.enrolledAt,
     this.enrolledByName,
     this.deactivatedAt,
@@ -54,6 +55,7 @@ class AgentModel {
   /// Full public key. Defaults to `''` for older payloads that only
   /// exposed the suffix.
   final String publicKey;
+  final int recipientKeyVersion;
 
   final String publicKeySuffix;
   final String createdAt;
@@ -89,6 +91,7 @@ class AgentModel {
         'pending' => 1,
         'active' => 2,
         'deactivated' => 3,
+        'deactivating' => 4,
         _ => 3, // fail closed
       },
       type: json['type'] as String?,
@@ -96,6 +99,7 @@ class AgentModel {
       iconColor: json['iconColor'] as String?,
       publicKeyPrefix: (json['publicKeyPrefix'] as String?) ?? '',
       publicKey: (json['publicKey'] as String?) ?? '',
+      recipientKeyVersion: (json['recipientKeyVersion'] as num?)?.toInt() ?? 1,
       publicKeySuffix: (json['publicKeySuffix'] as String?) ?? '',
       createdAt: json['createdAt'] as String,
       enrolledAt: json['enrolledAt'] as String?,
@@ -119,16 +123,17 @@ class AgentModel {
       iconColor: iconColor,
       publicKeyPrefix: publicKeyPrefix,
       publicKey: publicKey,
+      recipientKeyVersion: recipientKeyVersion,
       publicKeySuffix: publicKeySuffix,
       createdAt: DateTime.parse(createdAt),
       enrolledAt: enrolledAt != null ? DateTime.parse(enrolledAt!) : null,
       enrolledByName: enrolledByName,
-      deactivatedAt:
-          deactivatedAt != null ? DateTime.parse(deactivatedAt!) : null,
+      deactivatedAt: deactivatedAt != null
+          ? DateTime.parse(deactivatedAt!)
+          : null,
       deactivatedByName: deactivatedByName,
       description: description,
-      lastAccessAt:
-          lastAccessAt != null ? DateTime.parse(lastAccessAt!) : null,
+      lastAccessAt: lastAccessAt != null ? DateTime.parse(lastAccessAt!) : null,
       lastIp: lastIp,
       lastHostname: lastHostname,
     );

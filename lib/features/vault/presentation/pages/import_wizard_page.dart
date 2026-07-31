@@ -95,9 +95,10 @@ class _ImportWizardViewState extends State<_ImportWizardView> {
       final file = result?.files.singleOrNull;
       final bytes = file?.bytes;
       if (bytes == null) return;
-      await context
-          .read<ImportWizardCubit>()
-          .parseBytes(bytes, fileName: file?.name);
+      await context.read<ImportWizardCubit>().parseBytes(
+        bytes,
+        fileName: file?.name,
+      );
     } finally {
       if (mounted) setState(() => _picking = false);
     }
@@ -113,10 +114,10 @@ class _ImportWizardViewState extends State<_ImportWizardView> {
     final keyCopy = Uint8List.fromList(auth.privateKey!);
     try {
       await context.read<ImportWizardCubit>().import(
-            privateKey: keyCopy,
-            untitledLabel: l10n.importUntitledFallback,
-            wrappedVK: widget.wrappedVK,
-          );
+        privateKey: keyCopy,
+        untitledLabel: l10n.importUntitledFallback,
+        wrappedVK: widget.wrappedVK,
+      );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
     }
@@ -133,41 +134,54 @@ class _ImportWizardViewState extends State<_ImportWizardView> {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
 
-    return BlocBuilder<ImportWizardCubit, ImportWizardState>(
-      builder: (context, state) {
-        final busy = state is ImportWizardImporting || state is ImportWizardParsing;
-        return AppScreen.appBar(
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            surfaceTintColor: Colors.transparent,
-            titleSpacing: 0,
-            centerTitle: false,
-            iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
-            leading: IconButton(
-              icon: const Icon(Icons.close, size: 22),
-              tooltip: l10n.vaultCancel,
-              onPressed: busy
-                  ? null
-                  : () => Navigator.of(context)
-                      .pop(state is ImportWizardSuccess),
-            ),
-            title: AppBarTitle(title: l10n.importTitle, subtitle: widget.vaultName),
-            actions: const [
-              Padding(
-                padding: EdgeInsets.only(right: AppSpacing.screenH),
-                child: Icon(
-                  Icons.file_upload_outlined,
-                  size: 24,
-                  color: AppColors.brandRed,
-                ),
+    return BlocListener<AuthBloc, AuthState>(
+      listenWhen: (previous, current) =>
+          previous is AuthAuthenticated &&
+          !previous.isVaultLocked &&
+          (current is! AuthAuthenticated || current.isVaultLocked),
+      listener: (context, _) =>
+          context.read<ImportWizardCubit>().clearSensitiveState(),
+      child: BlocBuilder<ImportWizardCubit, ImportWizardState>(
+        builder: (context, state) {
+          final busy =
+              state is ImportWizardImporting || state is ImportWizardParsing;
+          return AppScreen.appBar(
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              surfaceTintColor: Colors.transparent,
+              titleSpacing: 0,
+              centerTitle: false,
+              iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
+              leading: IconButton(
+                icon: const Icon(Icons.close, size: 22),
+                tooltip: l10n.vaultCancel,
+                onPressed: busy
+                    ? null
+                    : () => Navigator.of(
+                        context,
+                      ).pop(state is ImportWizardSuccess),
               ),
-            ],
-          ),
-          body: _buildBody(context, state, l10n),
-        );
-      },
+              title: AppBarTitle(
+                title: l10n.importTitle,
+                subtitle: widget.vaultName,
+              ),
+              actions: const [
+                Padding(
+                  padding: EdgeInsets.only(right: AppSpacing.screenH),
+                  child: Icon(
+                    Icons.file_upload_outlined,
+                    size: 24,
+                    color: AppColors.brandRed,
+                  ),
+                ),
+              ],
+            ),
+            body: _buildBody(context, state, l10n),
+          );
+        },
+      ),
     );
   }
 
@@ -178,33 +192,33 @@ class _ImportWizardViewState extends State<_ImportWizardView> {
   ) {
     return switch (state) {
       ImportWizardInitial() => _IntroStep(
-          picking: _picking,
-          onPickFile: _pickFile,
-        ),
+        picking: _picking,
+        onPickFile: _pickFile,
+      ),
       ImportWizardParsing() => const _CenteredSpinner(),
       ImportWizardNeedsMapping(:final table) => ImportColumnMapper(
-          table: table,
-          onSubmit: (mapping) =>
-              context.read<ImportWizardCubit>().applyMapping(mapping),
-        ),
+        table: table,
+        onSubmit: (mapping) =>
+            context.read<ImportWizardCubit>().applyMapping(mapping),
+      ),
       ImportWizardPreview() => ImportPreviewList(
-          state: state,
-          onToggle: (i) => context.read<ImportWizardCubit>().toggleItem(i),
-          onStrategy: (s) =>
-              context.read<ImportWizardCubit>().setConflictStrategy(s),
-          onImport: _runImport,
-        ),
+        state: state,
+        onToggle: (i) => context.read<ImportWizardCubit>().toggleItem(i),
+        onStrategy: (s) =>
+            context.read<ImportWizardCubit>().setConflictStrategy(s),
+        onImport: _runImport,
+      ),
       ImportWizardImporting() => _ProgressStep(state: state),
       ImportWizardSuccess() => _SuccessStep(
-          state: state,
-          onDone: () => Navigator.of(context).pop(true),
-        ),
+        state: state,
+        onDone: () => Navigator.of(context).pop(true),
+      ),
       ImportWizardFailure(:final reason) => _FailureStep(
-          reason: reason,
-          picking: _picking,
-          onRetry: _pickFile,
-          onClose: () => Navigator.of(context).pop(false),
-        ),
+        reason: reason,
+        picking: _picking,
+        onRetry: _pickFile,
+        onClose: () => Navigator.of(context).pop(false),
+      ),
     };
   }
 }
@@ -357,8 +371,11 @@ class _SuccessStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Spacer(),
-          Icon(Icons.check_circle_outline,
-              size: 56, color: AppColors.positiveAccent),
+          Icon(
+            Icons.check_circle_outline,
+            size: 56,
+            color: AppColors.positiveAccent,
+          ),
           const SizedBox(height: AppSpacing.section),
           Text(
             l10n.importSuccessTitle,

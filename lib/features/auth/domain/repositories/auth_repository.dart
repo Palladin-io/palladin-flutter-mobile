@@ -24,6 +24,9 @@ abstract class AuthRepository {
   /// Returns the stored user ID, or `null` if not authenticated.
   Future<String?> getUserId();
 
+  /// Returns the active organization identifier from the JWT.
+  Future<String?> getOrganizationId();
+
   /// Returns whether the user has completed onboarding.
   Future<bool> isOnboarded();
 

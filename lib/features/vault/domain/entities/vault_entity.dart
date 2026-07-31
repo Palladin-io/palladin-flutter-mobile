@@ -23,8 +23,7 @@ extension GrantModeExtension on GrantMode {
 
 /// Domain representation of a single vault.
 ///
-/// Pure domain object — no JSON / DTO concerns. Created from
-/// `VaultModel.toEntity()` at the data layer boundary.
+/// Pure domain object created after encrypted metadata is decrypted locally.
 class VaultEntity {
   const VaultEntity({
     required this.id,

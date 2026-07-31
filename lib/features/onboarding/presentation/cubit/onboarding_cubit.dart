@@ -23,21 +23,22 @@ class OnboardingCubit extends Cubit<OnboardingState> {
   Future<void> submitMasterPassword(String password) async {
     AppLogger.d('Onboarding', 'Master password submitted, generating mnemonic');
     final mnemonic = await repository.generateRecoveryMnemonic();
-    emit(state.copyWith(
-      step: OnboardingStep.recoveryKeyBackup,
-      masterPassword: password,
-      mnemonic: mnemonic,
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(
+        step: OnboardingStep.recoveryKeyBackup,
+        masterPassword: password,
+        mnemonic: mnemonic,
+        clearError: true,
+      ),
+    );
   }
 
   /// Advances from the backup screen to the confirmation screen.
   void acknowledgeRecoveryBackup() {
     AppLogger.d('Onboarding', 'Recovery key backup acknowledged');
-    emit(state.copyWith(
-      step: OnboardingStep.recoveryKeyConfirm,
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(step: OnboardingStep.recoveryKeyConfirm, clearError: true),
+    );
   }
 
   /// Runs the crypto pipeline, submits the setup request, and
@@ -51,14 +52,14 @@ class OnboardingCubit extends Cubit<OnboardingState> {
   /// with an error attached so the UI can surface it.
   Future<void> completeSetup({required String defaultVaultName}) async {
     if (state.masterPassword.isEmpty || state.mnemonic.isEmpty) {
-      AppLogger.w('Onboarding', 'Cannot complete setup — missing password/mnemonic');
+      AppLogger.w(
+        'Onboarding',
+        'Cannot complete setup — missing password/mnemonic',
+      );
       return;
     }
 
-    emit(state.copyWith(
-      step: OnboardingStep.submitting,
-      clearError: true,
-    ));
+    emit(state.copyWith(step: OnboardingStep.submitting, clearError: true));
 
     try {
       final keys = await repository.completeSetup(
@@ -77,15 +78,15 @@ class OnboardingCubit extends Cubit<OnboardingState> {
       // repository has already flipped the local onboarded flag —
       // treat this as success and let the router forward the user on.
       if (state.step != OnboardingStep.submitting) return;
-      AppLogger.i('Onboarding', 'Account already onboarded — treating as success');
+      AppLogger.i(
+        'Onboarding',
+        'Account already onboarded — treating as success',
+      );
       emit(state.copyWith(step: OnboardingStep.completed));
     } catch (e, s) {
       if (state.step != OnboardingStep.submitting) return;
       AppLogger.e('Onboarding', 'Setup failed', error: e, stackTrace: s);
-      emit(state.copyWith(
-        step: OnboardingStep.recoveryKeyConfirm,
-        error: e,
-      ));
+      emit(state.copyWith(step: OnboardingStep.recoveryKeyConfirm, error: e));
     }
   }
 
@@ -107,15 +108,16 @@ class OnboardingCubit extends Cubit<OnboardingState> {
   void goBack() {
     switch (state.step) {
       case OnboardingStep.recoveryKeyBackup:
-        emit(state.copyWith(
-          step: OnboardingStep.masterPassword,
-          clearError: true,
-        ));
+        emit(
+          state.copyWith(step: OnboardingStep.masterPassword, clearError: true),
+        );
       case OnboardingStep.recoveryKeyConfirm:
-        emit(state.copyWith(
-          step: OnboardingStep.recoveryKeyBackup,
-          clearError: true,
-        ));
+        emit(
+          state.copyWith(
+            step: OnboardingStep.recoveryKeyBackup,
+            clearError: true,
+          ),
+        );
       case OnboardingStep.masterPassword:
       case OnboardingStep.submitting:
       case OnboardingStep.completed:

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -23,7 +24,8 @@ void main() {
   late _MockRepository repository;
   late _MockGrantsRepository grantsRepository;
 
-  const csv = 'name,url,username,password,note\n'
+  const csv =
+      'name,url,username,password,note\n'
       'GitHub,https://github.com,octocat,S3cr3t!,\n'
       'GitLab,https://gitlab.com,tux,hunter2,';
   final privateKey = Uint8List.fromList(List<int>.generate(32, (i) => i + 1));
@@ -37,40 +39,65 @@ void main() {
   setUp(() {
     repository = _MockRepository();
     grantsRepository = _MockGrantsRepository();
-    when(() => grantsRepository.listGrants(
+    when(
+      () => grantsRepository.listGrants(
+        any(),
+        status: any(named: 'status'),
+        agentId: any(named: 'agentId'),
+        cursor: any(named: 'cursor'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).thenAnswer((_) async => const GrantListPage(grants: []));
+  });
+
+  ImportWizardCubit build() => ImportWizardCubit(
+    repository: repository,
+    grantsRepository: grantsRepository,
+    vaultId: 'v-1',
+  );
+
+  Grant grant(GrantScope scope) => Grant(
+    id: 'g-1',
+    vaultId: 'v-1',
+    agentId: 'a-1',
+    status: GrantStatus.active,
+    scope: scope,
+    createdAt: DateTime.utc(2026, 1, 1),
+  );
+
+  EntryEntity existing(String label) => EntryEntity(
+    id: 'e-$label',
+    vaultId: 'v-1',
+    label: label,
+    type: EntryType.credential,
+    createdAt: DateTime.utc(2026, 1, 1),
+    updatedAt: DateTime.utc(2026, 1, 1),
+  );
+
+  group('parseBytes', () {
+    test('lock clears state and suppresses a late parse result', () async {
+      final grants = Completer<GrantListPage>();
+      when(
+        () => grantsRepository.listGrants(
           any(),
           status: any(named: 'status'),
           agentId: any(named: 'agentId'),
           cursor: any(named: 'cursor'),
           pageSize: any(named: 'pageSize'),
-        )).thenAnswer((_) async => const GrantListPage(grants: []));
-  });
+        ),
+      ).thenAnswer((_) => grants.future);
+      when(() => repository.listEntries(any())).thenAnswer((_) async => []);
+      final cubit = build();
+      final parse = cubit.parseBytes(_bytes(csv));
 
-  ImportWizardCubit build() => ImportWizardCubit(
-        repository: repository,
-        grantsRepository: grantsRepository,
-        vaultId: 'v-1',
-      );
+      cubit.clearSensitiveState();
+      grants.complete(const GrantListPage(grants: []));
+      await parse;
 
-  Grant grant(GrantScope scope) => Grant(
-        id: 'g-1',
-        vaultId: 'v-1',
-        agentId: 'a-1',
-        status: GrantStatus.active,
-        scope: scope,
-        createdAt: DateTime.utc(2026, 1, 1),
-      );
+      expect(cubit.state, isA<ImportWizardInitial>());
+      await cubit.close();
+    });
 
-  EntryEntity existing(String label) => EntryEntity(
-        id: 'e-$label',
-        vaultId: 'v-1',
-        label: label,
-        type: EntryType.credential,
-        createdAt: DateTime.utc(2026, 1, 1),
-        updatedAt: DateTime.utc(2026, 1, 1),
-      );
-
-  group('parseBytes', () {
     blocTest<ImportWizardCubit, ImportWizardState>(
       'emits Parsing then Preview for a recognised CSV',
       build: () {
@@ -89,27 +116,34 @@ void main() {
     blocTest<ImportWizardCubit, ImportWizardState>(
       'flags an existing label as a conflict',
       build: () {
-        when(() => repository.listEntries(any()))
-            .thenAnswer((_) async => [existing('GitHub')]);
+        when(
+          () => repository.listEntries(any()),
+        ).thenAnswer((_) async => [existing('GitHub')]);
         return build();
       },
       act: (c) => c.parseBytes(_bytes(csv)),
       expect: () => [
         isA<ImportWizardParsing>(),
-        isA<ImportWizardPreview>().having((s) => s.conflictCount, 'conflicts', 1),
+        isA<ImportWizardPreview>().having(
+          (s) => s.conflictCount,
+          'conflicts',
+          1,
+        ),
       ],
     );
 
     blocTest<ImportWizardCubit, ImportWizardState>(
       'blocks the import when the vault has an active FULL grant',
       build: () {
-        when(() => grantsRepository.listGrants(
-              any(),
-              status: any(named: 'status'),
-              agentId: any(named: 'agentId'),
-              cursor: any(named: 'cursor'),
-              pageSize: any(named: 'pageSize'),
-            )).thenAnswer(
+        when(
+          () => grantsRepository.listGrants(
+            any(),
+            status: any(named: 'status'),
+            agentId: any(named: 'agentId'),
+            cursor: any(named: 'cursor'),
+            pageSize: any(named: 'pageSize'),
+          ),
+        ).thenAnswer(
           (_) async => GrantListPage(grants: [grant(GrantScope.full)]),
         );
         return build();
@@ -129,13 +163,15 @@ void main() {
     blocTest<ImportWizardCubit, ImportWizardState>(
       'a granular grant does not block the import',
       build: () {
-        when(() => grantsRepository.listGrants(
-              any(),
-              status: any(named: 'status'),
-              agentId: any(named: 'agentId'),
-              cursor: any(named: 'cursor'),
-              pageSize: any(named: 'pageSize'),
-            )).thenAnswer(
+        when(
+          () => grantsRepository.listGrants(
+            any(),
+            status: any(named: 'status'),
+            agentId: any(named: 'agentId'),
+            cursor: any(named: 'cursor'),
+            pageSize: any(named: 'pageSize'),
+          ),
+        ).thenAnswer(
           (_) async => GrantListPage(grants: [grant(GrantScope.granular)]),
         );
         when(() => repository.listEntries(any())).thenAnswer((_) async => []);
@@ -151,13 +187,15 @@ void main() {
     blocTest<ImportWizardCubit, ImportWizardState>(
       'maps a grant-lookup network failure to network, not unrecognised file',
       build: () {
-        when(() => grantsRepository.listGrants(
-              any(),
-              status: any(named: 'status'),
-              agentId: any(named: 'agentId'),
-              cursor: any(named: 'cursor'),
-              pageSize: any(named: 'pageSize'),
-            )).thenThrow(const GrantsException(GrantsErrorKind.networkError));
+        when(
+          () => grantsRepository.listGrants(
+            any(),
+            status: any(named: 'status'),
+            agentId: any(named: 'agentId'),
+            cursor: any(named: 'cursor'),
+            pageSize: any(named: 'pageSize'),
+          ),
+        ).thenThrow(const GrantsException(GrantsErrorKind.networkError));
         return build();
       },
       act: (c) => c.parseBytes(_bytes(csv)),
@@ -190,20 +228,58 @@ void main() {
   });
 
   group('import', () {
+    test('lock during upload suppresses progress and late success', () async {
+      when(() => repository.listEntries(any())).thenAnswer((_) async => []);
+      final upload = Completer<ImportResult>();
+      void Function(int, int)? progress;
+      when(
+        () => repository.importEntriesEncrypted(
+          vaultId: any(named: 'vaultId'),
+          format: any(named: 'format'),
+          creates: any(named: 'creates'),
+          overwrites: any(named: 'overwrites'),
+          privateKey: any(named: 'privateKey'),
+          wrappedVK: any(named: 'wrappedVK'),
+          chunkSize: any(named: 'chunkSize'),
+          onProgress: any(named: 'onProgress'),
+        ),
+      ).thenAnswer((invocation) {
+        progress =
+            invocation.namedArguments[#onProgress] as void Function(int, int)?;
+        return upload.future;
+      });
+      final cubit = build();
+      await cubit.parseBytes(_bytes(csv));
+      final importing = cubit.import(
+        privateKey: privateKey,
+        untitledLabel: 'Untitled',
+      );
+
+      cubit.clearSensitiveState();
+      progress?.call(1, 2);
+      upload.complete(const ImportResult(createdCount: 2, updatedCount: 0));
+      await importing;
+
+      expect(cubit.state, isA<ImportWizardInitial>());
+      await cubit.close();
+    });
+
     blocTest<ImportWizardCubit, ImportWizardState>(
       'streams progress then Success on the happy path',
       build: () {
         when(() => repository.listEntries(any())).thenAnswer((_) async => []);
-        when(() => repository.importEntriesEncrypted(
-              vaultId: any(named: 'vaultId'),
-              format: any(named: 'format'),
-              creates: any(named: 'creates'),
-              overwrites: any(named: 'overwrites'),
-              privateKey: any(named: 'privateKey'),
-              wrappedVK: any(named: 'wrappedVK'),
-              chunkSize: any(named: 'chunkSize'),
-              onProgress: any(named: 'onProgress'),
-            )).thenAnswer((inv) async {
+        when(
+          () => repository.importEntriesEncrypted(
+            vaultId: any(named: 'vaultId'),
+            format: any(named: 'format'),
+            creates: any(named: 'creates'),
+            overwrites: any(named: 'overwrites'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+            chunkSize: any(named: 'chunkSize'),
+            onProgress: any(named: 'onProgress'),
+          ),
+        ).thenAnswer((inv) async {
           final onProgress =
               inv.namedArguments[#onProgress] as void Function(int, int)?;
           onProgress?.call(2, 2);
@@ -227,19 +303,25 @@ void main() {
             .having((s) => s.updatedCount, 'updated', 0),
       ],
       verify: (_) {
-        final captured = verify(() => repository.importEntriesEncrypted(
-              vaultId: 'v-1',
-              format: any(named: 'format'),
-              creates: captureAny(named: 'creates'),
-              overwrites: captureAny(named: 'overwrites'),
-              privateKey: any(named: 'privateKey'),
-              wrappedVK: any(named: 'wrappedVK'),
-              chunkSize: any(named: 'chunkSize'),
-              onProgress: any(named: 'onProgress'),
-            )).captured;
+        final captured = verify(
+          () => repository.importEntriesEncrypted(
+            vaultId: 'v-1',
+            format: any(named: 'format'),
+            creates: captureAny(named: 'creates'),
+            overwrites: captureAny(named: 'overwrites'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+            chunkSize: any(named: 'chunkSize'),
+            onProgress: any(named: 'onProgress'),
+          ),
+        ).captured;
         final creates = captured[0] as List<ImportEntryDraft>;
         final overwrites = captured[1] as List<ImportEntryOverwrite>;
         expect(creates, hasLength(2));
+        expect(creates.map((draft) => draft.icon), [
+          'website:github.com',
+          'website:gitlab.com',
+        ]);
         expect(overwrites, isEmpty);
       },
     );
@@ -248,36 +330,41 @@ void main() {
       'applies the localized untitled fallback to an unnamed entry',
       build: () {
         when(() => repository.listEntries(any())).thenAnswer((_) async => []);
-        when(() => repository.importEntriesEncrypted(
-              vaultId: any(named: 'vaultId'),
-              format: any(named: 'format'),
-              creates: any(named: 'creates'),
-              overwrites: any(named: 'overwrites'),
-              privateKey: any(named: 'privateKey'),
-              wrappedVK: any(named: 'wrappedVK'),
-              chunkSize: any(named: 'chunkSize'),
-              onProgress: any(named: 'onProgress'),
-            )).thenAnswer(
+        when(
+          () => repository.importEntriesEncrypted(
+            vaultId: any(named: 'vaultId'),
+            format: any(named: 'format'),
+            creates: any(named: 'creates'),
+            overwrites: any(named: 'overwrites'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+            chunkSize: any(named: 'chunkSize'),
+            onProgress: any(named: 'onProgress'),
+          ),
+        ).thenAnswer(
           (_) async => const ImportResult(createdCount: 1, updatedCount: 0),
         );
         return build();
       },
       act: (c) async {
-        await c
-            .parseBytes(_bytes('name,url,username,password,note\n,,,S3cr3t!,'));
+        await c.parseBytes(
+          _bytes('name,url,username,password,note\n,,,S3cr3t!,'),
+        );
         await c.import(privateKey: privateKey, untitledLabel: 'No name');
       },
       verify: (_) {
-        final captured = verify(() => repository.importEntriesEncrypted(
-              vaultId: any(named: 'vaultId'),
-              format: any(named: 'format'),
-              creates: captureAny(named: 'creates'),
-              overwrites: any(named: 'overwrites'),
-              privateKey: any(named: 'privateKey'),
-              wrappedVK: any(named: 'wrappedVK'),
-              chunkSize: any(named: 'chunkSize'),
-              onProgress: any(named: 'onProgress'),
-            )).captured;
+        final captured = verify(
+          () => repository.importEntriesEncrypted(
+            vaultId: any(named: 'vaultId'),
+            format: any(named: 'format'),
+            creates: captureAny(named: 'creates'),
+            overwrites: any(named: 'overwrites'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+            chunkSize: any(named: 'chunkSize'),
+            onProgress: any(named: 'onProgress'),
+          ),
+        ).captured;
         final creates = captured[0] as List<ImportEntryDraft>;
         expect(creates, hasLength(1));
         expect(creates.first.label, 'No name');
@@ -288,16 +375,18 @@ void main() {
       'maps a network EntryException to a network failure',
       build: () {
         when(() => repository.listEntries(any())).thenAnswer((_) async => []);
-        when(() => repository.importEntriesEncrypted(
-              vaultId: any(named: 'vaultId'),
-              format: any(named: 'format'),
-              creates: any(named: 'creates'),
-              overwrites: any(named: 'overwrites'),
-              privateKey: any(named: 'privateKey'),
-              wrappedVK: any(named: 'wrappedVK'),
-              chunkSize: any(named: 'chunkSize'),
-              onProgress: any(named: 'onProgress'),
-            )).thenThrow(const EntryException(EntryErrorKind.networkError));
+        when(
+          () => repository.importEntriesEncrypted(
+            vaultId: any(named: 'vaultId'),
+            format: any(named: 'format'),
+            creates: any(named: 'creates'),
+            overwrites: any(named: 'overwrites'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+            chunkSize: any(named: 'chunkSize'),
+            onProgress: any(named: 'onProgress'),
+          ),
+        ).thenThrow(const EntryException(EntryErrorKind.networkError));
         return build();
       },
       act: (c) async {
@@ -319,18 +408,21 @@ void main() {
     blocTest<ImportWizardCubit, ImportWizardState>(
       'overwrite strategy routes conflicts to overwrites',
       build: () {
-        when(() => repository.listEntries(any()))
-            .thenAnswer((_) async => [existing('GitHub')]);
-        when(() => repository.importEntriesEncrypted(
-              vaultId: any(named: 'vaultId'),
-              format: any(named: 'format'),
-              creates: any(named: 'creates'),
-              overwrites: any(named: 'overwrites'),
-              privateKey: any(named: 'privateKey'),
-              wrappedVK: any(named: 'wrappedVK'),
-              chunkSize: any(named: 'chunkSize'),
-              onProgress: any(named: 'onProgress'),
-            )).thenAnswer(
+        when(
+          () => repository.listEntries(any()),
+        ).thenAnswer((_) async => [existing('GitHub')]);
+        when(
+          () => repository.importEntriesEncrypted(
+            vaultId: any(named: 'vaultId'),
+            format: any(named: 'format'),
+            creates: any(named: 'creates'),
+            overwrites: any(named: 'overwrites'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+            chunkSize: any(named: 'chunkSize'),
+            onProgress: any(named: 'onProgress'),
+          ),
+        ).thenAnswer(
           (_) async => const ImportResult(createdCount: 1, updatedCount: 1),
         );
         return build();
@@ -341,16 +433,18 @@ void main() {
         await c.import(privateKey: privateKey, untitledLabel: 'Untitled');
       },
       verify: (_) {
-        final captured = verify(() => repository.importEntriesEncrypted(
-              vaultId: any(named: 'vaultId'),
-              format: any(named: 'format'),
-              creates: captureAny(named: 'creates'),
-              overwrites: captureAny(named: 'overwrites'),
-              privateKey: any(named: 'privateKey'),
-              wrappedVK: any(named: 'wrappedVK'),
-              chunkSize: any(named: 'chunkSize'),
-              onProgress: any(named: 'onProgress'),
-            )).captured;
+        final captured = verify(
+          () => repository.importEntriesEncrypted(
+            vaultId: any(named: 'vaultId'),
+            format: any(named: 'format'),
+            creates: captureAny(named: 'creates'),
+            overwrites: captureAny(named: 'overwrites'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+            chunkSize: any(named: 'chunkSize'),
+            onProgress: any(named: 'onProgress'),
+          ),
+        ).captured;
         final creates = captured[0] as List<ImportEntryDraft>;
         final overwrites = captured[1] as List<ImportEntryOverwrite>;
         // GitLab is new → create; GitHub collides → overwrite.

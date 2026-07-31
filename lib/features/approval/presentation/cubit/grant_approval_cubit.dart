@@ -7,23 +7,26 @@ import '../../../grants/domain/entities/grant_method.dart';
 import '../../domain/entities/pending_grant.dart';
 import '../../domain/exceptions/approval_exceptions.dart';
 import '../../domain/repositories/approval_repository.dart';
+import '../../data/services/grant_approval_review_service.dart';
 
 export '../../../grants/domain/entities/grant_method.dart' show GrantMethod;
 export '../../domain/entities/pending_grant.dart';
 export '../../domain/repositories/approval_repository.dart'
     show GrantLimit, GrantExpiry, GrantUseLimit, GrantLifetime;
 
-enum GrantApprovalStatus { idle, submitting, done, error }
+enum GrantApprovalStatus { idle, reviewing, ready, submitting, done, error }
 
 /// State for the approve/deny screen of a single pending grant.
 class GrantApprovalState {
   const GrantApprovalState({
     this.status = GrantApprovalStatus.idle,
     this.error,
+    this.review,
   });
 
   final GrantApprovalStatus status;
   final ApprovalErrorKind? error;
+  final GrantApprovalReview? review;
 
   bool get isSubmitting => status == GrantApprovalStatus.submitting;
 
@@ -31,10 +34,13 @@ class GrantApprovalState {
     GrantApprovalStatus? status,
     ApprovalErrorKind? error,
     bool clearError = false,
+    GrantApprovalReview? review,
+    bool clearReview = false,
   }) {
     return GrantApprovalState(
       status: status ?? this.status,
       error: clearError ? null : (error ?? this.error),
+      review: clearReview ? null : (review ?? this.review),
     );
   }
 }
@@ -45,11 +51,59 @@ class GrantApprovalState {
 /// The owner's [privateKey] (in-memory, from the unlocked auth state) is
 /// passed in at call time — the cubit never stores it.
 class GrantApprovalCubit extends Cubit<GrantApprovalState> {
-  GrantApprovalCubit({required this.repository, required this.grant})
-      : super(const GrantApprovalState());
+  GrantApprovalCubit({
+    required this.repository,
+    this.reviewService,
+    required this.grant,
+  }) : super(const GrantApprovalState());
 
   final ApprovalRepository repository;
+  final GrantApprovalReviewer? reviewService;
   final PendingGrant grant;
+  int _reviewGeneration = 0;
+
+  Future<void> loadReview(Uint8List privateKey) async {
+    clearReview();
+    final generation = _reviewGeneration;
+    emit(
+      state.copyWith(status: GrantApprovalStatus.reviewing, clearError: true),
+    );
+    final keyCopy = Uint8List.fromList(privateKey);
+    try {
+      final service = reviewService;
+      if (service == null) throw StateError('Approval review unavailable');
+      final review = await service.open(
+        grant: grant,
+        memberPrivateKey: keyCopy,
+      );
+      if (generation != _reviewGeneration || isClosed) {
+        review.clear();
+        return;
+      }
+      emit(state.copyWith(status: GrantApprovalStatus.ready, review: review));
+    } catch (_) {
+      if (generation != _reviewGeneration || isClosed) return;
+      clearReview();
+      emit(
+        state.copyWith(
+          status: GrantApprovalStatus.error,
+          error: ApprovalErrorKind.cryptoFailure,
+        ),
+      );
+    } finally {
+      keyCopy.fillRange(0, keyCopy.length, 0);
+    }
+  }
+
+  void clearReview() {
+    _reviewGeneration++;
+    state.review?.clear();
+    if (state.review != null ||
+        state.status == GrantApprovalStatus.reviewing ||
+        state.status == GrantApprovalStatus.ready) {
+      emit(state.copyWith(status: GrantApprovalStatus.idle, clearReview: true));
+    }
+  }
 
   /// Approves the grant with the chosen [limit] (exactly one of
   /// expiry/use-count — enforced by the [GrantLimit] sealed type).
@@ -62,63 +116,84 @@ class GrantApprovalCubit extends Cubit<GrantApprovalState> {
     required Uint8List privateKey,
     required GrantLimit limit,
     required List<GrantMethod> methods,
+    required List<String> fieldIds,
+    required String reviewedEntryRevision,
   }) async {
-    emit(state.copyWith(
-        status: GrantApprovalStatus.submitting, clearError: true));
+    emit(
+      state.copyWith(status: GrantApprovalStatus.submitting, clearError: true),
+    );
+    final keyCopy = Uint8List.fromList(privateKey);
     try {
       await repository.approveGrant(
         grant: grant,
-        privateKey: privateKey,
+        privateKey: keyCopy,
         limit: limit,
         methods: methods,
+        fieldIds: fieldIds,
+        reviewedEntryRevision: reviewedEntryRevision,
       );
-      AppLogger.i('Approval', 'Grant approved: ${grant.grantId}');
+      AppLogger.i('Approval', 'Grant approved');
       emit(state.copyWith(status: GrantApprovalStatus.done));
     } on ApprovalException catch (e) {
+      if (e.kind == ApprovalErrorKind.conflict) clearReview();
       AppLogger.w('Approval', 'approve failed: ${e.kind.name}');
       emit(state.copyWith(status: GrantApprovalStatus.error, error: e.kind));
-    } catch (e, s) {
-      AppLogger.e('Approval', 'approve failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        status: GrantApprovalStatus.error,
-        error: ApprovalErrorKind.unknown,
-      ));
+    } catch (_) {
+      AppLogger.w('Approval', 'approve failed unexpectedly');
+      emit(
+        state.copyWith(
+          status: GrantApprovalStatus.error,
+          error: ApprovalErrorKind.unknown,
+        ),
+      );
+    } finally {
+      keyCopy.fillRange(0, keyCopy.length, 0);
     }
   }
 
   /// Reports that the vault is locked so the envelope cannot be produced —
   /// surfaces a typed error without attempting the call.
   void reportVaultLocked() {
-    emit(state.copyWith(
-      status: GrantApprovalStatus.error,
-      error: ApprovalErrorKind.vaultLocked,
-    ));
+    emit(
+      state.copyWith(
+        status: GrantApprovalStatus.error,
+        error: ApprovalErrorKind.vaultLocked,
+      ),
+    );
   }
 
-  /// Denies the grant with an optional [reason].
-  Future<void> deny({String? reason}) async {
-    emit(state.copyWith(
-        status: GrantApprovalStatus.submitting, clearError: true));
+  /// Denies without decrypting or transmitting any secret/reason material.
+  Future<void> deny() async {
+    emit(
+      state.copyWith(status: GrantApprovalStatus.submitting, clearError: true),
+    );
     try {
-      await repository.denyGrant(grant: grant, reason: reason);
-      AppLogger.i('Approval', 'Grant denied: ${grant.grantId}');
+      await repository.denyGrant(grant: grant);
+      AppLogger.i('Approval', 'Grant denied');
       emit(state.copyWith(status: GrantApprovalStatus.done));
     } on ApprovalException catch (e) {
       AppLogger.w('Approval', 'deny failed: ${e.kind.name}');
       emit(state.copyWith(status: GrantApprovalStatus.error, error: e.kind));
-    } catch (e, s) {
-      AppLogger.e('Approval', 'deny failed unexpectedly',
-          error: e, stackTrace: s);
-      emit(state.copyWith(
-        status: GrantApprovalStatus.error,
-        error: ApprovalErrorKind.unknown,
-      ));
+    } catch (_) {
+      AppLogger.w('Approval', 'deny failed unexpectedly');
+      emit(
+        state.copyWith(
+          status: GrantApprovalStatus.error,
+          error: ApprovalErrorKind.unknown,
+        ),
+      );
     }
   }
 
   void acknowledgeError() {
     if (state.error == null) return;
     emit(state.copyWith(clearError: true, status: GrantApprovalStatus.idle));
+  }
+
+  @override
+  Future<void> close() {
+    _reviewGeneration++;
+    state.review?.clear();
+    return super.close();
   }
 }

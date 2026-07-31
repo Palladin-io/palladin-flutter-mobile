@@ -5,6 +5,7 @@ import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
 import '../../../onboarding/domain/crypto_params.dart';
+import '../../../unlock/data/services/identity_kdf_service.dart';
 
 /// Zero-knowledge crypto pipeline for the email + master-password auth
 /// flow (Variant A).
@@ -30,29 +31,20 @@ import '../../../onboarding/domain/crypto_params.dart';
 /// copies on [RegistrationCryptoMaterial] survive, and the caller owns
 /// their lifetime.
 class PasswordAuthCryptoService {
-  PasswordAuthCryptoService({Future<SodiumSumo> Function()? sodiumLoader})
-      : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
+  PasswordAuthCryptoService({
+    IdentityKdfService? identityKdfService,
+    Future<SodiumSumo> Function()? sodiumLoader,
+  }) : _identityKdfService = identityKdfService ?? IdentityKdfService(),
+       _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
+  final IdentityKdfService _identityKdfService;
   final Future<SodiumSumo> Function() _sodiumLoader;
 
-  /// Derives the **auth hash** for `POST /api/auth/login` from
-  /// [password] and the server-provided [authSaltBase64].
-  ///
-  /// Returns the base64-encoded Argon2id output. This is the only value
-  /// derived from the password that ever leaves the device on the login
-  /// path — it is a separate derivation from the master key and cannot
-  /// be used to recover it.
-  Future<String> deriveAuthHash({
-    required String password,
-    required String authSaltBase64,
-  }) async {
-    final sodium = await _sodiumLoader();
-    final authSalt = base64.decode(authSaltBase64);
-    final authKey = _deriveKey(sodium, password, authSalt);
+  Uint8List _decodeWireBytes(String value) {
     try {
-      return base64.encode(authKey.extractBytes());
-    } finally {
-      authKey.dispose();
+      return Uint8List.fromList(base64Url.decode(base64Url.normalize(value)));
+    } on FormatException {
+      return Uint8List.fromList(base64.decode(value));
     }
   }
 
@@ -74,63 +66,60 @@ class PasswordAuthCryptoService {
   }) async {
     final sodium = await _sodiumLoader();
 
-    final authSalt = sodium.randombytes.buf(CryptoParams.saltLength);
-    final encSalt = sodium.randombytes.buf(CryptoParams.saltLength);
+    final accountId = _newAccountId(sodium);
+    final kdfSalt = sodium.randombytes.buf(IdentityKdfProfile.saltBytes);
     final recoverySalt = sodium.randombytes.buf(CryptoParams.saltLength);
 
-    // Each derived key sits inside the try guarded by the previously
-    // derived key's finally, so a throw from any later derivation can never
-    // leave an earlier key's secret buffer undisposed.
-    final authKey = _deriveKey(sodium, password, authSalt);
+    final outputs = await _identityKdfService.derive(
+      password: password,
+      accountId: accountId,
+      kdfSalt: kdfSalt,
+    );
+    final masterKey = SecureKey.fromList(sodium, outputs.masterKey);
     try {
-      final masterKey = _deriveKey(sodium, password, encSalt);
+      final recoveryKey = _deriveKey(
+        sodium,
+        recoveryMnemonic.join(' '),
+        recoverySalt,
+      );
       try {
-        final recoveryKey = _deriveKey(
-          sodium,
-          recoveryMnemonic.join(' '),
-          recoverySalt,
-        );
+        final keyPair = sodium.crypto.box.keyPair();
         try {
-          final keyPair = sodium.crypto.box.keyPair();
+          final privateKeyBytes = keyPair.secretKey.extractBytes();
           try {
-            final privateKeyBytes = keyPair.secretKey.extractBytes();
-            try {
-              final encryptedPrivateKey = _encryptWithKey(
+            return RegistrationCryptoMaterial(
+              accountId: accountId,
+              authCredential: base64Url
+                  .encode(outputs.authCredential)
+                  .replaceAll('=', ''),
+              kdfSalt: kdfSalt,
+              recoverySalt: recoverySalt,
+              publicKey: Uint8List.fromList(keyPair.publicKey),
+              encryptedPrivateKey: _encryptWithKey(
                 sodium,
                 plaintext: privateKeyBytes,
                 key: masterKey,
-              );
-              final encryptedPrivateKeyByRecovery = _encryptWithKey(
+              ),
+              encryptedPrivateKeyByRecovery: _encryptWithKey(
                 sodium,
                 plaintext: privateKeyBytes,
                 key: recoveryKey,
-              );
-
-              return RegistrationCryptoMaterial(
-                authHash: base64.encode(authKey.extractBytes()),
-                authSalt: authSalt,
-                encSalt: encSalt,
-                recoverySalt: recoverySalt,
-                publicKey: Uint8List.fromList(keyPair.publicKey),
-                encryptedPrivateKey: encryptedPrivateKey,
-                encryptedPrivateKeyByRecovery: encryptedPrivateKeyByRecovery,
-                masterKey: masterKey.extractBytes(),
-                privateKey: Uint8List.fromList(privateKeyBytes),
-              );
-            } finally {
-              privateKeyBytes.fillRange(0, privateKeyBytes.length, 0);
-            }
+              ),
+              masterKey: Uint8List.fromList(outputs.masterKey),
+              privateKey: Uint8List.fromList(privateKeyBytes),
+            );
           } finally {
-            keyPair.dispose();
+            privateKeyBytes.fillRange(0, privateKeyBytes.length, 0);
           }
         } finally {
-          recoveryKey.dispose();
+          keyPair.dispose();
         }
       } finally {
-        masterKey.dispose();
+        recoveryKey.dispose();
       }
     } finally {
-      authKey.dispose();
+      masterKey.dispose();
+      outputs.dispose();
     }
   }
 
@@ -151,15 +140,21 @@ class PasswordAuthCryptoService {
   Future<ChangePasswordMaterial> buildChangePasswordMaterial({
     required String currentPassword,
     required String newPassword,
-    required String currentAuthSaltBase64,
-    required String currentEncSaltBase64,
+    required String accountId,
+    required String currentKdfSaltBase64,
     required String currentEncryptedPrivateKeyBase64,
   }) async {
     final sodium = await _sodiumLoader();
-    final currentEncSalt = base64.decode(currentEncSaltBase64);
-    final currentAuthSalt = base64.decode(currentAuthSaltBase64);
-
-    final currentMasterKey = _deriveKey(sodium, currentPassword, currentEncSalt);
+    final currentSalt = _decodeWireBytes(currentKdfSaltBase64);
+    final currentOutputs = await _identityKdfService.derive(
+      password: currentPassword,
+      accountId: accountId,
+      kdfSalt: currentSalt,
+    );
+    final currentMasterKey = SecureKey.fromList(
+      sodium,
+      currentOutputs.masterKey,
+    );
     Uint8List? privateKeyBytes;
     try {
       privateKeyBytes = _openPrivateKey(
@@ -168,47 +163,39 @@ class PasswordAuthCryptoService {
         currentEncryptedPrivateKeyBase64,
       );
 
-      // The current auth hash (from the current auth salt) is sent so the
-      // server can verify knowledge of the current password constant-time
-      // before overwriting key material — a stolen session alone must not
-      // be able to rotate the credential.
-      final currentAuthKey = _deriveKey(sodium, currentPassword, currentAuthSalt);
-      final currentAuthHash = base64.encode(currentAuthKey.extractBytes());
-      currentAuthKey.dispose();
-
-      final newAuthSalt = sodium.randombytes.buf(CryptoParams.saltLength);
-      final newEncSalt = sodium.randombytes.buf(CryptoParams.saltLength);
-      // Nested try/finally so a throw from the second derivation can never
-      // leave the first key's secret buffer undisposed.
-      final newAuthKey = _deriveKey(sodium, newPassword, newAuthSalt);
+      final newSalt = sodium.randombytes.buf(IdentityKdfProfile.saltBytes);
+      final newOutputs = await _identityKdfService.derive(
+        password: newPassword,
+        accountId: accountId,
+        kdfSalt: newSalt,
+      );
+      final newMasterKey = SecureKey.fromList(sodium, newOutputs.masterKey);
       try {
-        final newMasterKey = _deriveKey(sodium, newPassword, newEncSalt);
-        try {
-          final newEncryptedPrivateKey = _encryptWithKey(
+        return ChangePasswordMaterial(
+          currentAuthCredential: Uint8List.fromList(
+            currentOutputs.authCredential,
+          ),
+          newAuthCredential: Uint8List.fromList(newOutputs.authCredential),
+          kdfSalt: newSalt,
+          encryptedPrivateKey: _encryptWithKey(
             sodium,
             plaintext: privateKeyBytes,
             key: newMasterKey,
-          );
-          return ChangePasswordMaterial(
-            currentAuthHash: currentAuthHash,
-            authHash: base64.encode(newAuthKey.extractBytes()),
-            authSalt: newAuthSalt,
-            encSalt: newEncSalt,
-            encryptedPrivateKey: newEncryptedPrivateKey,
-            masterKey: newMasterKey.extractBytes(),
-            privateKey: Uint8List.fromList(privateKeyBytes),
-          );
-        } finally {
-          newMasterKey.dispose();
-        }
+          ),
+          masterKey: Uint8List.fromList(newOutputs.masterKey),
+          privateKey: Uint8List.fromList(privateKeyBytes),
+        );
       } finally {
-        newAuthKey.dispose();
+        newMasterKey.dispose();
+        newOutputs.dispose();
       }
     } finally {
       if (privateKeyBytes != null) {
         privateKeyBytes.fillRange(0, privateKeyBytes.length, 0);
       }
       currentMasterKey.dispose();
+      currentOutputs.dispose();
+      currentSalt.fillRange(0, currentSalt.length, 0);
     }
   }
 
@@ -272,6 +259,19 @@ class PasswordAuthCryptoService {
     combined.setRange(nonce.length, combined.length, cipher);
     return combined;
   }
+
+  String _newAccountId(SodiumSumo sodium) {
+    final bytes = sodium.randombytes.buf(16);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    final hex = bytes
+        .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+        .join();
+    bytes.fillRange(0, bytes.length, 0);
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
+        '${hex.substring(20)}';
+  }
 }
 
 /// Crypto material produced by [PasswordAuthCryptoService.buildRegistrationMaterial].
@@ -283,9 +283,9 @@ class PasswordAuthCryptoService {
 /// not hand them off.
 class RegistrationCryptoMaterial {
   const RegistrationCryptoMaterial({
-    required this.authHash,
-    required this.authSalt,
-    required this.encSalt,
+    required this.accountId,
+    required this.authCredential,
+    required this.kdfSalt,
     required this.recoverySalt,
     required this.publicKey,
     required this.encryptedPrivateKey,
@@ -295,15 +295,12 @@ class RegistrationCryptoMaterial {
   });
 
   /// Base64 Argon2id auth hash (from `password + authSalt`).
-  final String authHash;
+  final String accountId;
+  final String authCredential;
 
   /// 16-byte salt used to derive [authHash] — the server stores it and
   /// returns it from the login pre-check so the client can re-derive.
-  final Uint8List authSalt;
-
-  /// 16-byte salt used to derive the master key (`password + encSalt`).
-  /// Persisted as the account `salt` and returned by `GET /api/account`.
-  final Uint8List encSalt;
+  final Uint8List kdfSalt;
 
   /// 16-byte salt for the recovery-mnemonic key derivation.
   final Uint8List recoverySalt;
@@ -327,10 +324,9 @@ class RegistrationCryptoMaterial {
 /// Crypto material produced by [PasswordAuthCryptoService.buildChangePasswordMaterial].
 class ChangePasswordMaterial {
   const ChangePasswordMaterial({
-    required this.currentAuthHash,
-    required this.authHash,
-    required this.authSalt,
-    required this.encSalt,
+    required this.currentAuthCredential,
+    required this.newAuthCredential,
+    required this.kdfSalt,
     required this.encryptedPrivateKey,
     required this.masterKey,
     required this.privateKey,
@@ -339,16 +335,13 @@ class ChangePasswordMaterial {
   /// Base64 Argon2id auth hash derived from the **current** password and
   /// the current auth salt — the server verifies this constant-time
   /// before accepting the change.
-  final String currentAuthHash;
+  final Uint8List currentAuthCredential;
 
   /// Base64 Argon2id auth hash derived from the new password.
-  final String authHash;
+  final Uint8List newAuthCredential;
 
   /// New 16-byte auth salt.
-  final Uint8List authSalt;
-
-  /// New 16-byte master-key salt (persisted as the account `salt`).
-  final Uint8List encSalt;
+  final Uint8List kdfSalt;
 
   /// Private key re-wrapped under the new master key.
   final Uint8List encryptedPrivateKey;
