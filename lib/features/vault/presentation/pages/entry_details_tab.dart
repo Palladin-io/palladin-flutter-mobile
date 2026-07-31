@@ -275,6 +275,10 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _descriptionController.text = entry.description ?? '';
     _type = entry.type;
     _icon = entry.icon ?? EntryVisuals.defaultIconName;
+    // A persisted glyph, upload, or catalog choice is authoritative. Its
+    // provenance is intentionally not leaked in plaintext, so Edit must never
+    // guess that it was automatic and replace it during an unrelated save.
+    if (entry.icon != null) _websiteIconResolver.markManualSelection();
     _resolvedWebsiteIcon = null;
     _urlController.text = (payload['url'] as String?) ?? '';
     _notesController.text = (payload['notes'] as String?) ?? '';

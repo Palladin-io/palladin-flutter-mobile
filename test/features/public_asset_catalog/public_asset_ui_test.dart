@@ -25,6 +25,20 @@ void main() {
     resolver.dispose();
   });
 
+  test('ensureNow preserves a selection marked before an edit save', () async {
+    final repository = _AcquiringRepository();
+    final resolver = WebsiteIconAutoResolver(
+      service: WebsiteIconService(repository),
+      onReference: (_) => fail('persisted selection must win'),
+      onResolved: (_) => fail('persisted selection must win'),
+    );
+
+    resolver.markManualSelection();
+    expect(await resolver.ensureNow('example.com'), isNull);
+    expect(repository.calls, 0);
+    resolver.dispose();
+  });
+
   test('auto resolver applies only the latest URL result', () async {
     final repository = _DelayedRepository();
     final references = <String>[];
