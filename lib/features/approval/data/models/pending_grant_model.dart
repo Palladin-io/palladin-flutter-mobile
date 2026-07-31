@@ -36,7 +36,7 @@ class PendingGrantModel {
   final EncryptedReason encryptedReason;
   final int? recipientAgentKeyVersion;
 
-  /// Combined-flags string the agent requested, e.g. "get, exec" (CVT-149).
+  /// Combined-flags string the agent requested, e.g. "get, exec".
   final String? methods;
 
   /// Whether the requesting agent is already enrolled. Defaults to `true`

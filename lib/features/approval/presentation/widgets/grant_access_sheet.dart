@@ -45,9 +45,10 @@ class GrantForAgent extends GrantAccessMode {
   final String agentId;
 }
 
-/// Proactive grant-creation sheet (CVT-120/132). Resolves to `true` once a grant is created so the
-/// caller can refresh its list. Reuses [GrantLimitSelector] + [GrantMethodsSelector]; envelope
-/// production runs in [GrantAccessCubit] from the unlocked in-memory private key.
+/// Proactive grant-creation sheet. Resolves to `true` once a grant is created
+/// so the caller can refresh its list. Reuses [GrantLimitSelector] and
+/// [GrantMethodsSelector]; envelope production runs in [GrantAccessCubit] from
+/// the unlocked in-memory private key.
 class GrantAccessSheet extends StatelessWidget {
   const GrantAccessSheet({super.key, required this.mode});
 

@@ -2,8 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
-/// Clipboard helper that auto-clears copied secrets after a short delay
-/// (CVT-215).
+/// Clipboard helper that auto-clears copied secrets after a short delay.
 ///
 /// Passwords, API keys and recovery phrases must not linger on the system
 /// clipboard indefinitely (other apps, clipboard history, cloud sync can read

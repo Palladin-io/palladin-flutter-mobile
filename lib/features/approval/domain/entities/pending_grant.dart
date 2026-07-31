@@ -48,7 +48,7 @@ class PendingGrant {
 
   final int? recipientAgentKeyVersion;
 
-  /// Methods the agent requested (CVT-149) — used to pre-select the approval
+  /// Methods the agent requested — used to pre-select the approval
   /// choices. Empty when the backend predates the methods feature.
   final List<GrantMethod> requestedMethods;
 

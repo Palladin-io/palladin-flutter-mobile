@@ -124,7 +124,7 @@ class PasswordAuthCryptoService {
   }
 
   /// Re-derives the auth credential and master key for a master-password
-  /// change (CVT-273) and re-wraps the private key under the new master
+  /// change and re-wraps the private key under the new master
   /// key.
   ///
   /// [currentPassword] unwraps the existing private key (its MAC check is

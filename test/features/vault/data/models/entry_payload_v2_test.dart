@@ -148,7 +148,7 @@ void main() {
     });
   });
 
-  group('agentFields on request DTOs (CVT-204)', () {
+  group('agentFields on request DTOs', () {
     const content = EntryContentModel(encryptedBlob: 'blob', nonce: 'n');
 
     test('create request serializes agentFields', () {

@@ -7,8 +7,8 @@ export '../audit_filters.dart'
 
 enum AuditLogStatus { initial, loading, loaded, error }
 
-/// Whether the feed is scoped to a single vault (CVT-121, the vault-detail
-/// Logs tab) or org-wide (CVT-66, the global Logs screen).
+/// Whether the feed is scoped to a single vault (the vault-detail Logs tab) or
+/// organization-wide (the global Logs screen).
 enum AuditLogScope { vault, org }
 
 /// State for the shared vault-/org-scoped audit Logs surfaces.

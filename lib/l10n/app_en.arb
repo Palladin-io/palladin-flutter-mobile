@@ -1374,6 +1374,22 @@
   "@settingsApiKeys": {
     "description": "Label for the settings-drawer item that opens the standalone API keys screen"
   },
+  "settingsOpenSourceSection": "About",
+  "@settingsOpenSourceSection": {
+    "description": "Heading above open-source information on the settings screen"
+  },
+  "settingsOpenSourceLicenses": "Open-source licences",
+  "@settingsOpenSourceLicenses": {
+    "description": "Settings row that opens Flutter's bundled dependency licence registry"
+  },
+  "settingsOpenSourceLicensesHint": "View licences for Flutter and third-party packages.",
+  "@settingsOpenSourceLicensesHint": {
+    "description": "Subtitle for the open-source licences settings row"
+  },
+  "settingsOpenSourceLegalese": "Copyright 2026 Patryk Roguszewski, trading as Patryk Roguszewski IT Solutions",
+  "@settingsOpenSourceLegalese": {
+    "description": "Copyright notice shown at the top of the open-source licences page"
+  },
   "settingsRetry": "Retry",
   "@settingsRetry": {
     "description": "Label for the retry button on settings error states"

@@ -31,7 +31,7 @@ class UpdateEntryRequest {
 
   final String? urlDomain;
 
-  /// Plaintext agent-visible mirror (CVT-204). Patch semantics: `null`
+  /// Plaintext agent-visible mirror. Patch semantics: `null`
   /// leaves the stored set unchanged; an empty list clears it. The full
   /// edit flow always sends the current set (possibly empty) so removals
   /// take effect.

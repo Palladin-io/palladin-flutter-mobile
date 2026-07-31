@@ -166,21 +166,21 @@ GoRouter createRouter(
       GoRoute(path: '/unlock', builder: (_, _) => const UnlockPage()),
       GoRoute(path: '/recovery', builder: (_, _) => const RecoveryPage()),
       GoRoute(
-        // Master-password change (CVT-273) — a focused full-screen flow
+        // Master-password change — a focused full-screen flow
         // pushed from Settings; sits outside the shell so it has no bottom
         // nav. Guarded by the unlock redirect above (needs a session).
         path: '/change-password',
         builder: (_, _) => const ChangePasswordPage(),
       ),
       GoRoute(
-        // TOTP enrollment (CVT-274) — pushed from Settings › Security.
+        // TOTP enrollment — pushed from Settings › Security.
         path: '/totp/enroll',
         builder: (_, _) => const TotpEnrollPage(),
       ),
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
-          // Home — landing tab (CVT-114). Dashboard with onboarding
+          // Home — landing tab. Dashboard with onboarding
           // checklist, unknown-agent prompt, or normal empty state. Lives
           // at `/` so the post-unlock redirect lands here directly.
           GoRoute(path: '/', builder: (_, _) => const DashboardPage()),
@@ -214,7 +214,7 @@ GoRouter createRouter(
               ),
             ],
           ),
-          // Org-wide audit Logs screen (CVT-66) — reached from the settings
+          // Org-wide audit Logs screen — reached from the settings
           // drawer's "Audit" item.
           GoRoute(
             path: '/audit',

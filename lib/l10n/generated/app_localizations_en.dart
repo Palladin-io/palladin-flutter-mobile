@@ -1209,6 +1209,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsApiKeys => 'API keys';
 
   @override
+  String get settingsOpenSourceSection => 'About';
+
+  @override
+  String get settingsOpenSourceLicenses => 'Open-source licences';
+
+  @override
+  String get settingsOpenSourceLicensesHint =>
+      'View licences for Flutter and third-party packages.';
+
+  @override
+  String get settingsOpenSourceLegalese =>
+      'Copyright 2026 Patryk Roguszewski, trading as Patryk Roguszewski IT Solutions';
+
+  @override
   String get settingsRetry => 'Retry';
 
   @override

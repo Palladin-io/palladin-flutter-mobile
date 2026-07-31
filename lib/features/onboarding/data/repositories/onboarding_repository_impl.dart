@@ -112,7 +112,7 @@ class OnboardingRepositoryImpl implements OnboardingRepository {
       // NOTE: the master key is intentionally NOT persisted here. Biometric
       // unlock is enrolled — into the enclave-bound, biometric-gated store —
       // on the user's first password unlock (see UnlockCubit). Writing the
-      // raw MK to secure storage at onboarding was the H4 finding (CVT-199).
+      // raw MK to secure storage at onboarding would violate that boundary.
 
       return OnboardingUnlockKeys(
         masterKey: result.masterKey,

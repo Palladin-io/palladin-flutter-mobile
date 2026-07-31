@@ -161,7 +161,7 @@ class PasswordAuthRemoteDatasource {
     }
   }
 
-  /// Changes the master password for the authenticated user (CVT-273) via
+  /// Changes the master password for the authenticated user via
   /// `PUT /api/account/password` (JWT).
   ///
   /// [currentAuthHash] proves knowledge of the current password; the

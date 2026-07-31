@@ -1,4 +1,4 @@
-/// State for the TOTP enrollment flow (CVT-274).
+/// State for the TOTP enrollment flow.
 sealed class TotpEnrollState {
   const TotpEnrollState();
 }

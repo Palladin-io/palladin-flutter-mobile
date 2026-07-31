@@ -17,7 +17,7 @@ import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../domain/password_auth_exceptions.dart';
 import '../cubit/totp_enroll_cubit.dart';
 
-/// TOTP enrollment screen (CVT-274).
+/// TOTP enrollment screen.
 ///
 /// Shows the otpauth QR + the base32 secret for manual entry, confirms a
 /// generated 6-digit code, then reveals the one-time recovery codes.

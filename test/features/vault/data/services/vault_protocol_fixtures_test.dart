@@ -14,23 +14,10 @@ import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vaul
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
 
-const _pinnedRootCommit = 'b370b56e4f65ecf5350bc4f9203fee6429572955';
 const _pinnedManifestSha256 =
-    '13c43defd459e95d50bf2f0a76a5a5446ca41903c36a38beef8b8af3aa208050';
+    'b3cbd9bee6a663789fae4047931e411abb3ad0c15fa2204a747be6c09b54fd9e';
 
-Directory? _findFixtureRoot() {
-  final configured = Platform.environment['PALLADIN_VAULT_V2_FIXTURES'];
-  final candidates = [
-    if (configured != null) Directory(configured),
-    Directory('test/fixtures/vault_protocol_2'),
-    Directory('../contracts/vault-v2/fixtures/v2'),
-    Directory('../contracts-root/contracts/vault-v2/fixtures/v2'),
-  ];
-  for (final candidate in candidates) {
-    if (File('${candidate.path}/manifest.json').existsSync()) return candidate;
-  }
-  return null;
-}
+final _fixtureRoot = Directory('test/fixtures/vault_protocol_2');
 
 Map<String, dynamic> _fixture(Directory root, String path) =>
     (jsonDecode(File('${root.path}/$path').readAsStringSync()) as Map)
@@ -80,15 +67,15 @@ VaultEnvelopeExpectations _expectations(Map<String, Object?> envelope) {
 
 void main() {
   final isCi = Platform.environment['CI'] == 'true';
-  final root = _findFixtureRoot();
-  if (root == null) {
+  final root = _fixtureRoot;
+  if (!File('${root.path}/manifest.json').existsSync()) {
     test(
-      'canonical Vault protocol 2 fixtures require root commit '
-      '$_pinnedRootCommit',
-      () => fail('Canonical Vault protocol fixtures are missing.'),
-      skip: isCi
-          ? false
-          : 'Set PALLADIN_VAULT_V2_FIXTURES to the canonical fixture root.',
+      'vendored Vault protocol 2 fixtures are present',
+      () => fail(
+        'Vendored fixtures are missing from ${root.path}. Restore the tracked '
+        'test fixture directory before running the suite.',
+      ),
+      skip: isCi ? false : 'Vendored protocol fixtures are missing.',
     );
     return;
   }
@@ -149,7 +136,7 @@ void main() {
     }
   });
 
-  test('pins the authoritative root fixture manifest', () {
+  test('pins the vendored fixture manifest', () {
     final bytes = File('${root.path}/manifest.json').readAsBytesSync();
     expect(sha256.convert(bytes).toString(), _pinnedManifestSha256);
     final manifest = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;

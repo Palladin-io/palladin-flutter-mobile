@@ -7,7 +7,7 @@ import '../../domain/entities/audit_log_entry.dart';
 import '../cubit/audit_log_cubit.dart';
 import 'audit_log_content.dart';
 
-/// The vault-detail **Logs** tab (CVT-121).
+/// The vault-detail **Logs** tab.
 ///
 /// Read-only, filterable audit feed scoped to a single vault: search bar with
 /// a `tune` filter trigger (agent + date range), group quick-filter chips and

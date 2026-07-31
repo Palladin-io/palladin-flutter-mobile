@@ -13,8 +13,8 @@ import '../cubit/audit_log_cubit.dart';
 import 'audit_log_filter_sheet.dart';
 import 'audit_log_row.dart';
 
-/// Shared body for the vault-scoped Logs tab (CVT-121) and the org-wide Logs
-/// screen (CVT-66).
+/// Shared body for the vault-scoped Logs tab and the org-wide Logs
+/// screen.
 ///
 /// Renders the search bar (with a `tune` filter trigger that opens the filter
 /// sheet — event-type groups, user, agent, vault and date range) and the

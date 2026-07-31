@@ -8,7 +8,7 @@ import '../../domain/entities/custom_field.dart';
 import 'entry_form_widgets.dart';
 
 /// Editable grouped list of non-TOTP custom fields (text / multiline /
-/// hidden) — the "Additional fields" section (blob schema v2, CVT-204).
+/// hidden) — the "Additional fields" section (blob schema v2).
 ///
 /// TOTP fields are owned by the dedicated 2FA section, not here. Each row
 /// is one line: a type glyph, an inline label + value, and a "⋯" menu that

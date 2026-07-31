@@ -1,6 +1,9 @@
 name: mobile_palladin
 description: "Palladin — Zero-knowledge password manager for AI agents."
 publish_to: 'none'
+homepage: https://palladin.io
+repository: https://github.com/Palladin-io/palladin-flutter-mobile
+issue_tracker: https://github.com/Palladin-io/palladin-flutter-mobile/issues
 
 version: 0.1.0+1
 
@@ -52,7 +55,7 @@ dependencies:
   path: ^1.9.1
   sqflite: ^2.4.2
 
-  # Import wizard (CVT-37) — pick the source export file, parse CSV/JSON/
+  # Import wizard — pick the source export file, parse CSV/JSON/
   # XML/ZIP from other password managers. `archive` + `xml` are already
   # pulled in transitively; declared explicitly here because we use them
   # directly.
@@ -78,7 +81,7 @@ dependencies:
   # Foreground notification banner (Android heads-up; iOS shows natively)
   flutter_local_notifications: ^18.0.1
 
-  # SHA-256 for TLS SPKI certificate pinning (CVT-213)
+  # SHA-256 for TLS SPKI certificate pinning
   crypto: ^3.0.6
 
   # Canonical NFC validation for Vault protocol 2 AAD and RFC 8785 JSON.
@@ -98,18 +101,18 @@ dependencies:
   app_settings: ^5.1.1
 
   # Enclave-bound, biometric-gated master-key storage for biometric unlock
-  # (CVT-199). iOS SecAccessControl .biometryCurrentSet / Android Keystore
+  # iOS SecAccessControl .biometryCurrentSet / Android Keystore
   # setUserAuthenticationRequired — the MK is never stored where it can be
   # read without a fresh biometric authentication.
   biometric_storage: ^5.0.1
   mobile_scanner: ^7.2.0
 
-  # Custom-scheme deep links (CVT-261) — palladin://verify-email?token=…
+  # Custom-scheme deep links — palladin://verify-email?token=…
   # routes an email-verification tap into the app on cold start + resume.
   app_links: ^6.3.2
 
   # Renders the TOTP enrollment QR (otpauth:// URI) so the user can scan
-  # it into their authenticator app (CVT-274). Display-only; never scans.
+  # it into their authenticator app. Display-only; never scans.
   qr_flutter: ^4.1.0
 
 dev_dependencies:

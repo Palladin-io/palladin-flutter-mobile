@@ -14,7 +14,7 @@ import 'grant_format.dart';
 import 'org_grant_card.dart';
 
 /// Reusable grants list scoped to a single agent / vault / entry — the body of the
-/// Agent→Grants, Vault→Agents and Entry→Agents detail tabs (CVT-120/132). Mirrors the web
+/// Agent→Grants, Vault→Agents and Entry→Agents detail tabs. Mirrors the web
 /// `OrgGrantsPanel` filtered by `agentId` / `vaultId` / `entryId`: same `OrgGrantCard`, same
 /// revoke / re-grant flow. Provides its own [OrgGrantsCubit] scoped to the given filter. The "add"
 /// affordance is a FAB owned by the host screen (consistent with the rest of the app), which

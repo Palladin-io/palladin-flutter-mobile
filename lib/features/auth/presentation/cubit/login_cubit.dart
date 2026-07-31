@@ -17,8 +17,8 @@ import 'login_state.dart';
 
 export 'login_state.dart';
 
-/// Drives the email + master-password login (CVT-272) and the in-flow
-/// TOTP challenge (CVT-275).
+/// Drives the email + master-password login and the in-flow
+/// TOTP challenge.
 ///
 /// Flow:
 ///   1. `POST /api/auth/login/salt` → the account's auth salt.

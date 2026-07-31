@@ -18,7 +18,7 @@ import '../../domain/password_auth_exceptions.dart';
 import '../bloc/auth_bloc.dart';
 import '../cubit/change_password_cubit.dart';
 
-/// Change-master-password screen (CVT-273).
+/// Change-master-password screen.
 ///
 /// Re-derives the auth hash + master key from the new password and
 /// re-wraps the private key on-device; the recovery mnemonic is left

@@ -1,46 +1,79 @@
-# Firebase configuration files — intentionally committed (CVT-216 / M13)
+# Firebase client configuration
 
-These per-flavor Firebase config files are **committed on purpose**:
+The per-flavor Firebase client configuration files are committed intentionally:
 
 | Platform | Path |
-|----------|------|
-| Android  | `android/app/src/{local,staging,production}/google-services.json` |
-| iOS      | `ios/config/{local,staging,production}/GoogleService-Info.plist` |
+|---|---|
+| Android | `android/app/src/{local,staging,production}/google-services.json` |
+| iOS | `ios/config/{local,staging,production}/GoogleService-Info.plist` |
 
-## Why committing them is safe
+## What these files contain
 
-`google-services.json` and `GoogleService-Info.plist` contain the Firebase
-**client** configuration — project id, app id, sender id, and a client API key.
-None of these are secrets: they are extracted verbatim from any distributed app
-binary, so treating them as confidential provides no security value. Google's
-own guidance is that these files are safe to commit.
+`google-services.json` and `GoogleService-Info.plist` identify a Firebase
+project and registered client application. Their API keys, project IDs, app
+IDs, and sender IDs are embedded in every distributed app and are therefore
+public client identifiers. They are not service-account credentials and do not
+grant administrative access to Firebase or GCP.
 
-The security control that actually protects the project is **API key
-restriction in the GCP console**, which must be kept in place:
+Committing client configuration does not mean that an unrestricted Firebase
+project is safe. The project must remain protected by controls enforced outside
+the app:
 
-- **Application restriction** — each key is locked to our app: Android package
-  name + SHA-1/SHA-256 signing certificate, iOS bundle id.
-- **API restriction** — each key is limited to only the Firebase APIs we use
-  (Firebase Cloud Messaging / Installations). No other Google APIs are callable
-  with the key even if it leaks.
+1. **Application restrictions** bind Android keys to the expected package name
+   and signing-certificate fingerprints, and iOS keys to the expected bundle
+   ID.
+2. **API restrictions** permit only the Google/Firebase APIs required by the
+   mobile client.
+3. **Firebase Security Rules** default-deny every enabled data product and grant
+   only the minimum access required by its data model. Palladin currently uses
+   Firebase Cloud Messaging rather than Firestore, Realtime Database, or Cloud
+   Storage; if a data product is enabled later, its rules must be reviewed and
+   deployed before client code is merged.
+4. **Firebase App Check** is enforced for every enabled product that supports
+   it, using platform attestation appropriate to production Android and iOS
+   builds. Debug providers and tokens must stay limited to development
+   environments.
+5. **Server credentials** stay outside this repository. Service-account keys,
+   FCM server credentials, APNs signing keys, and signing material belong in a
+   protected secret store with least-privilege access and rotation.
 
-Because we use **no Firebase Auth and no Firestore** (JWT auth is via our own
-REST backend; push is FCM-only — see the root `CLAUDE.md`), the blast radius of
-the client key is limited to sending device-registration/installations traffic
-for our own restricted app.
+App Check, Security Rules, and API/application restrictions solve different
+problems. None is a substitute for the others, and none makes a Firebase client
+API key confidential. App Check coverage is product-specific; it must not be
+described as protecting an unsupported API.
 
-## `.gitignore` / CI story
+## Current Firebase scope
 
-These files are **tracked, not ignored** — deliberately. The build reads them
-in-place per flavor (`android/app/src/{flavor}/`, iOS via the flavor xcconfig),
-so there is no CI-injection step and none is required. If a prior policy note
-elsewhere claimed these are CI-injected, that note is stale: the source of truth
-is that they are committed and restricted.
+The mobile client uses Firebase Cloud Messaging for push delivery. Application
+authentication is JWT-based through the Palladin REST API; the app does not use
+Firebase Authentication. No Firestore or Realtime Database dependency is
+present.
 
-## Known gap (tracked, non-blocking)
+Push payloads must contain only routing identifiers and non-sensitive display
+metadata. Credentials, decrypted vault content, master keys, vault keys,
+recovery material, and auth tokens must never be included in a notification.
 
-The Android client API key is currently **reused across all three flavors**
-(`local`, `staging`, `production`). This is acceptable *only* because the keys
-are application-restricted in GCP, but it weakens environment isolation. The
-preferred end state is a distinct Firebase app (and therefore distinct config /
-key) per flavor. This is a GCP-side change, out of scope for this repo.
+## Repository and CI behavior
+
+The client files are tracked and read in place by each platform build. Public
+pull-request CI does not inject Firebase secrets and does not need access to a
+private parent repository:
+
+- Android reads `android/app/src/<flavor>/google-services.json`.
+- iOS selects `ios/config/<flavor>/GoogleService-Info.plist` through the flavor
+  build configuration and copy script.
+- Store signing material is supplied only to the manually triggered store-build
+  workflow and is never available to fork pull requests.
+
+## Maintainer checklist
+
+When adding or rotating a Firebase app:
+
+1. register the exact package name or bundle ID for the flavor;
+2. restrict the client key by application and API;
+3. verify Security Rules for every enabled Firebase data product;
+4. configure and enforce App Check where supported;
+5. download and commit only the client configuration file;
+6. confirm that no service-account or signing credential entered the diff;
+7. run a flavor build and validate push token registration against the intended
+   backend environment.

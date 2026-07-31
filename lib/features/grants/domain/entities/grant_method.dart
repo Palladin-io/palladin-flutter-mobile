@@ -1,4 +1,4 @@
-/// How an agent's CLI may use a credential (CVT-148/149):
+/// How an agent's CLI may use a credential:
 ///   - [get]    returns the plaintext into the agent's context (LLM exposure)
 ///   - [exec]   injects the secret into a subprocess environment
 ///   - [inject] fills a browser login form

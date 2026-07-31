@@ -445,7 +445,7 @@ class _PremiumGateSheet extends StatelessWidget {
   void _onUpgradeTapped(BuildContext context) {
     Navigator.of(context).pop();
     // TODO(billing): navigate to billing screen once /billing route exists
-    // For now, no-op — tracked in Linear as part of Phase 4 monetization
+    // The upgrade action is intentionally unavailable until billing ships.
   }
 
   @override

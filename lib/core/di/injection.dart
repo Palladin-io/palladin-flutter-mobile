@@ -207,7 +207,7 @@ void configureDependencies(EnvConfig config) {
     ),
   );
 
-  // Email + master-password auth (CVT-252) — data layer.
+  // Email + master-password auth — data layer.
   getIt.registerLazySingleton<PasswordAuthCryptoService>(
     () => PasswordAuthCryptoService(),
   );
@@ -255,7 +255,7 @@ void configureDependencies(EnvConfig config) {
     () => TotpEnrollCubit(datasource: getIt<PasswordAuthRemoteDatasource>()),
   );
 
-  // Custom-scheme deep links (CVT-261). Singleton — owns the link stream
+  // Custom-scheme deep links. Singleton — owns the link stream
   // subscription for the whole session; the app-level listener routes
   // resolved links via GoRouter.
   getIt.registerLazySingleton<DeepLinkService>(() => DeepLinkService());
@@ -563,7 +563,7 @@ void configureDependencies(EnvConfig config) {
     () => EntryHistoryCubit(getIt<EntryHistoryService>()),
   );
 
-  // Import wizard (CVT-37) — one cubit per wizard mount, scoped to the
+  // Import wizard — one cubit per wizard mount, scoped to the
   // target vault. `param1` is the vault id.
   getIt.registerFactoryParam<ImportWizardCubit, String, void>(
     (vaultId, _) => ImportWizardCubit(
@@ -573,7 +573,7 @@ void configureDependencies(EnvConfig config) {
     ),
   );
 
-  // Export flow (CVT-235) — reveals + serializes + shares a vault.
+  // Export flow — reveals + serializes + shares a vault.
   getIt.registerLazySingleton<ExportSharer>(
     () => const SharePlusExportSharer(),
   );
@@ -727,7 +727,7 @@ void configureDependencies(EnvConfig config) {
     () => OrgGrantsCubit(repository: getIt<GrantsRepository>()),
   );
 
-  // Audit (CVT-133) — data layer.
+  // Audit — data layer.
   getIt.registerLazySingleton<AuditRemoteDatasource>(
     () => AuditRemoteDatasource(getIt<Dio>()),
   );
@@ -759,8 +759,8 @@ void configureDependencies(EnvConfig config) {
   );
 
   // AuditLogCubit: factory per Logs surface mount. `param1` is the vault id
-  // for the vault-detail Logs tab (CVT-121); pass `null` for the org-wide
-  // Logs screen (CVT-66). Scope is inferred from whether a vault id is given.
+  // for the vault-detail Logs tab; pass `null` for the org-wide
+  // Logs screen. Scope is inferred from whether a vault id is given.
   getIt.registerFactoryParam<AuditLogCubit, String?, dynamic>(
     (vaultId, _) => AuditLogCubit(
       auditRepository: getIt<AuditRepository>(),
@@ -770,7 +770,7 @@ void configureDependencies(EnvConfig config) {
     ),
   );
 
-  // Approval flow (CVT-58) — data layer.
+  // Approval flow — data layer.
   getIt.registerLazySingleton<ApprovalRemoteDatasource>(
     () => ApprovalRemoteDatasource(getIt<Dio>()),
   );
@@ -821,13 +821,13 @@ void configureDependencies(EnvConfig config) {
         RegrantCubit(repository: getIt<ApprovalRepository>(), args: args),
   );
 
-  // GrantAccessCubit: factory per "Add agent / Add grant" sheet (CVT-120/132). Subject is chosen
-  // in-sheet, so no construction args.
+  // GrantAccessCubit: factory per "Add agent / Add grant" sheet. The subject
+  // is chosen in-sheet, so no construction args.
   getIt.registerFactory<GrantAccessCubit>(
     () => GrantAccessCubit(repository: getIt<ApprovalRepository>()),
   );
 
-  // Dashboard (CVT-114) — data layer.
+  // Dashboard — data layer.
   getIt.registerLazySingleton<DashboardRemoteDatasource>(
     () => DashboardRemoteDatasource(getIt<Dio>()),
   );

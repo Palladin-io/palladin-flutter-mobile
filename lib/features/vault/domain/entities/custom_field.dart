@@ -27,7 +27,7 @@ enum CustomFieldType {
   };
 
   /// Whether a field of this type may be marked visible to agents
-  /// (CVT-204). Only non-secret helper text — never a concealed value or a
+  /// Only non-secret helper text — never a concealed value or a
   /// TOTP secret.
   bool get canBeAgentVisible =>
       this == CustomFieldType.text || this == CustomFieldType.multiline;
@@ -70,7 +70,7 @@ class CustomField {
   final Object? value;
 
   /// Owner marked this field visible to agents (plaintext discovery
-  /// metadata, CVT-204). Only meaningful for text/multiline fields.
+  /// metadata). Only meaningful for text/multiline fields.
   final bool agentVisible;
 
   /// String value for text / multiline / concealed fields (empty for other
@@ -197,7 +197,7 @@ class CustomField {
   static List<Map<String, dynamic>> listToJson(List<CustomField> fields) =>
       fields.map((f) => f.toJson()).toList(growable: false);
 
-  /// The plaintext agent-visible mirror (CVT-204) — `{label, value}` for
+  /// The plaintext agent-visible mirror — `{label, value}` for
   /// each text/multiline field the owner flagged. Sent alongside the
   /// encrypted blob so agents can discover these without a grant.
   static List<AgentField> agentFieldsFrom(List<CustomField> fields) {
@@ -222,7 +222,7 @@ class CustomField {
     ),
   };
 
-  /// Backend limits (CVT-204) — mirrored client-side for early validation.
+  /// Backend limits — mirrored client-side for early validation.
   static const int maxAgentFields = 20;
   static const int maxAgentFieldLabel = 200;
   static const int maxAgentFieldValue = 2000;
@@ -241,7 +241,7 @@ class CustomField {
 }
 
 /// Plaintext `{label, value}` pair sent alongside a create/update request
-/// so an agent can discover it without a grant (CVT-204). The encrypted
+/// so an agent can discover it without a grant. The encrypted
 /// blob remains the source of truth; this is a denormalized mirror of the
 /// custom fields the owner marked visible.
 class AgentField {

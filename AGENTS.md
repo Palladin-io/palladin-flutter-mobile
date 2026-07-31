@@ -2,20 +2,19 @@
 
 Flutter mobile app for managing vaults, approving agent grants, and biometric unlock. Zero-knowledge architecture — all encryption/decryption happens on-device.
 
-## Project Brain
+## Repository documentation
 
-Business and architecture knowledge for the project: `../brain/`
+This repository is self-contained. Public contributors must not need a parent
+monorepo or private documentation checkout.
 
-Key notes for this repository:
-- `Technical/Mobile.md` — stack, flavors, BLoC, AppColors, i18n, conventions
-- `Technical/Analytics Conventions.md` — PostHog, event format `mb:{module}:{event}`
-- `Technical/Security Model.md` — zero-knowledge, on-device encryption
-- `Product/Modules/Vault/` — Vault module: rules, API, onboarding flow
-- `Product/Modules/Notification/Business Rules.md` — FCM/APNs, push tokens
+Key references:
+- `README.md` — security boundary, setup, flavors, and contribution checks
+- `docs/architecture/` — feature structure, shared widgets, and conventions
+- `docs/firebase-config.md` — public Firebase client configuration boundary
+- `test/fixtures/vault_protocol_2/PROVENANCE.md` — vendored fixture provenance
 
-Use `/brain` to navigate the brain, or: `grep -r "WORD" ../brain --include="*.md"`
-
-**After a session that changes functionality, business rules, or architecture: update the relevant note in the brain.**
+After changing functionality or architecture, update the relevant in-repository
+architecture document in the same pull request.
 
 Repository: [Palladin-io/palladin-flutter-mobile](https://github.com/Palladin-io/palladin-flutter-mobile)
 
@@ -105,7 +104,7 @@ Current implementation:
 - iOS reads the explicit per-flavor `APP_GROUP_IDENTIFIER` from signed build configuration, stores only encrypted provider records in that App Group, and protects the dedicated cache key with `biometryCurrentSet` in the same App Group keychain access group. Never derive this identifier from a bundle ID.
 - Android stores only encrypted provider records in `noBackupFilesDir` and protects the wrapping key with a biometric-bound Android Keystore key.
 - Both providers fail closed without a normalized service domain. Android accepts a `webDomain` only from an Android 12+ package with an OS-verified App Link for that exact host or from the explicitly allowlisted, platform-authenticated system Chrome package; all other native/browser forms fail closed.
-- System AutoFill behavior is tracked in Linear as **CVT-276** and documented in `docs/architecture/features/autofill.md`.
+- System AutoFill behavior is documented in `docs/architecture/features/autofill.md`.
 
 Security rules for all AutoFill work:
 1. Never persist MK, VK, private keys, decrypted vault payloads, plaintext passwords, or TOTP seeds in App Groups, shared preferences, files, logs, analytics, or extension caches. A dedicated native AutoFill cache may persist only authenticated ciphertext encrypted with a random key unrelated to MK/VK.
@@ -231,7 +230,7 @@ These patterns are duplicated and have **no** shared widget yet. Extract to `lib
 
 ### Screen titles — ALWAYS left-aligned
 
-**Every screen title sits on the LEFT edge of the AppBar/header — never centered.** This is a hard product rule (recurring user finding, last: Import wizard centered on iOS).
+**Every screen title sits on the LEFT edge of the AppBar/header — never centered.** This is a hard product rule.
 
 - **Pushed screens** (`AppScreen.appBar`): `AppBar` MUST set `titleSpacing: 0` **and** `centerTitle: false` — without `centerTitle: false` iOS silently centers the title. Title widget = shared `AppBarTitle(title:, subtitle:)` (16/w700 + 11px subtle subtitle, e.g. screen name + vault name). Never hand-roll the title `Column`.
 - **Top-level tabs**: `AppScreen.titled(...)` (in-body `ListScreenHeader`, inherently left-aligned).
@@ -282,7 +281,7 @@ Brightness-aware semantic colors are static methods (`AppColors.onSurface(bright
 - `Color(0xFFxxxxxx)` — always add to `AppColors` with a descriptive name
 - `onPrimary: Colors.white` in `ThemeData` — use `AppColors.onBrandRed`
 
-**Audit Log colors:** when touching Audit Log UI (event colors, legend, badges), load the canonical taxonomy: **`../.agents/memory/reference_audit_log_colors.md`** (monorepo memory). Roles map to `AppColors`: `positiveAccent` (#10B981 success), `vaultPeach` (#FFAB87 = pending / `grant.requested`), `vaultBlue` (#60A5FA info), `brandRed` (danger), `textTertiary` (#8A95A6 neutral). Consumed in `lib/features/audit/.../audit_log_format.dart`. Web ↔ mobile parity required; `agent.enrolled` = vaultBlue, `agent.reactivated` = positiveAccent.
+**Audit Log colors:** roles map to `AppColors`: `positiveAccent` (#10B981 success), `vaultPeach` (#FFAB87 = pending / `grant.requested`), `vaultBlue` (#60A5FA info), `brandRed` (danger), `textTertiary` (#8A95A6 neutral). Consumed in `lib/features/audit/.../audit_log_format.dart`. Web ↔ mobile parity required; `agent.enrolled` = vaultBlue, `agent.reactivated` = positiveAccent.
 
 ## Spacing
 
@@ -412,7 +411,7 @@ Official Codex review is a bounded release gate, not an iterative design loop.
 - Run at most two standard official review rounds. A third round is allowed only to verify a concrete P0/P1 fix involving security, authorization, data integrity, atomicity, or material performance. Any further round requires explicit product-owner approval.
 - Treat review comments critically. Before changing code, identify the reproducible production scenario, verify that the current code permits it, and confirm that the fix belongs to the issue's acceptance criteria.
 - P0/P1 findings in scope are blocking. Fix a P2 only when it is real, in scope, and small; otherwise document it or create a follow-up. Do not expand the PR for P3/style feedback, speculative edge cases, or unrelated architecture work.
-- A review comment does not expand Linear scope by itself. If remediation would introduce a subsystem, broad abstraction, or substantial diff growth, stop and move it to a follow-up unless it closes a confirmed P0/P1.
+- A review comment does not expand the approved pull-request scope by itself. If remediation would introduce a subsystem, broad abstraction, or substantial diff growth, stop and move it to a follow-up unless it closes a confirmed P0/P1.
 - Inspect CI status first. Fetch logs only for failed checks, and then only the failing step and necessary surrounding context.
 - Stop the review loop when CI is green, no unresolved in-scope P0/P1 remains, and lower-severity findings are either addressed or explicitly dispositioned.
 
