@@ -411,15 +411,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
   Future<void> _submit() async {
     if (_reservingIcon) return;
     if (_type != EntryType.script && !_validateUrl()) return;
-    final payload = _buildPayload();
-    if (!EntryFormUtils.isPayloadWithinLimit(payload)) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.entryTooLarge)),
-        );
-      return;
-    }
     final auth = context.read<AuthBloc>().state;
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
       ScaffoldMessenger.of(context)
@@ -433,14 +424,33 @@ class _AddEntryViewState extends State<_AddEntryView> {
     }
 
     setState(() => _reservingIcon = true);
-    final reservedReference = _type == EntryType.script
+    final reservationType = _type;
+    final reservationUrl = _urlController.text;
+    final reservedReference = reservationType == EntryType.script
         ? null
-        : await _websiteIconResolver.ensureNow(_urlController.text);
+        : await _websiteIconResolver.ensureNow(reservationUrl);
     if (!mounted) return;
     setState(() {
-      if (reservedReference != null) _icon = reservedReference;
+      if (reservedReference != null &&
+          _type == reservationType &&
+          _urlController.text == reservationUrl) {
+        _icon = reservedReference;
+      }
       _reservingIcon = false;
     });
+
+    // Snapshot all presentation and secret fields after the asynchronous
+    // reservation boundary so one write cannot combine stale payload bytes
+    // with newer metadata. A response for an edited URL is ignored above.
+    final payload = _buildPayload();
+    if (!EntryFormUtils.isPayloadWithinLimit(payload)) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.entryTooLarge)),
+        );
+      return;
+    }
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
     final hasCustomFile = _icon.startsWith('file://');
