@@ -62,6 +62,10 @@ private parent repository:
 - Android reads `android/app/src/<flavor>/google-services.json`.
 - iOS selects `ios/config/<flavor>/GoogleService-Info.plist` through the flavor
   build configuration and copy script.
+- The committed configuration is verified by
+  `test/config/firebase_client_config_test.dart`, which checks only public
+  project, package, bundle, and Firebase App identifiers and never snapshots an
+  API key.
 - Store signing material is supplied only to the manually triggered store-build
   workflow and is never available to fork pull requests.
 
@@ -77,3 +81,9 @@ When adding or rotating a Firebase app:
 6. confirm that no service-account or signing credential entered the diff;
 7. run a flavor build and validate push token registration against the intended
    backend environment.
+
+When one Firebase project contains several Android apps, the downloaded
+`google-services.json` can contain every registered Android client. The Google
+Services Gradle plugin selects the entry matching the active flavor's final
+application ID. Do not trim the file to the production client because that
+silently breaks the `local` and `staging` flavors.
