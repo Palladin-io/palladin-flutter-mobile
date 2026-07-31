@@ -10,7 +10,7 @@ import 'change_password_state.dart';
 
 export 'change_password_state.dart';
 
-/// Drives the change-master-password flow (CVT-273).
+/// Drives the change-master-password flow.
 ///
 /// Fetches the current account material, uses the **current** password to
 /// unwrap the private key (proving knowledge of the old password), then

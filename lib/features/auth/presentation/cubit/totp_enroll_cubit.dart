@@ -7,7 +7,7 @@ import 'totp_enroll_state.dart';
 
 export 'totp_enroll_state.dart';
 
-/// Drives TOTP enrollment (CVT-274).
+/// Drives TOTP enrollment.
 ///
 /// On mount [enroll] fetches a pending secret + otpauth URI; the user
 /// scans / types it into an authenticator app, then [confirm]s a generated

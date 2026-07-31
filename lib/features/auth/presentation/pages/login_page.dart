@@ -21,8 +21,8 @@ import '../widgets/auth_provider_divider.dart';
 import '../widgets/oauth_button.dart';
 import '../widgets/oauth_provider_icons.dart';
 
-/// Sign-in screen (CVT-272) — email + master password, with the in-flow
-/// TOTP challenge (CVT-275) and the existing OAuth providers.
+/// Sign-in screen — email + master password, with the in-flow
+/// TOTP challenge and the existing OAuth providers.
 ///
 /// The [LoginCubit] runs salt → authHash → login → master-key derivation;
 /// on success the page hands the derived keys to [AuthBloc] via

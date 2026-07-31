@@ -9,8 +9,7 @@ import 'audit_log_state.dart';
 
 export 'audit_log_state.dart';
 
-/// Drives the vault-scoped Logs tab (CVT-121) and the org-wide Logs screen
-/// (CVT-66).
+/// Drives the vault-scoped Logs tab and the org-wide Logs screen.
 ///
 /// Pages the relevant audit feed (newest-first) and resolves agent / vault
 /// names from unlocked local projections for Vault-scoped logs. All chip /

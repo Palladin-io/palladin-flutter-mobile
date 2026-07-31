@@ -32,10 +32,11 @@ class GrantAccessState {
   }
 }
 
-/// Drives the proactive "Add agent / Add grant" flow (CVT-120/132) — the mobile counterpart of the
-/// web `GrantAccessDialog` create. Unlike [RegrantCubit] the subject (agent / vault / entry) is
-/// chosen inside the sheet, so it is supplied to [submit] rather than at construction. Produces the
-/// zero-knowledge envelope via [ApprovalRepository.createGrant]; the owner's [privateKey] is passed
+/// Drives the proactive "Add agent / Add grant" flow — the mobile counterpart
+/// of the web `GrantAccessDialog` create. Unlike [RegrantCubit] the subject
+/// (agent / vault / entry) is chosen inside the sheet, so it is supplied to
+/// [submit] rather than at construction. Produces the zero-knowledge envelope
+/// via [ApprovalRepository.createGrant]; the owner's [privateKey] is passed
 /// at call time and never stored.
 class GrantAccessCubit extends Cubit<GrantAccessState> {
   GrantAccessCubit({required this.repository})

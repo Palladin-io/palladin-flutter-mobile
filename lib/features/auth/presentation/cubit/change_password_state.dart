@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-/// State for the change-master-password flow (CVT-273).
+/// State for the change-master-password flow.
 sealed class ChangePasswordState {
   const ChangePasswordState();
 }

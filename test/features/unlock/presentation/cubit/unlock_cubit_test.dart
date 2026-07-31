@@ -253,7 +253,7 @@ void main() {
 
     blocTest<UnlockCubit, UnlockState>(
       'unlock purges the legacy raw MK even when the device cannot store a '
-      'biometric key (CVT-199 upgrade path)',
+      'biometric key during the upgrade path',
       build: () {
         when(() => keyStore.isEnrolled()).thenAnswer((_) async => false);
         when(() => keyStore.canStore()).thenAnswer((_) async => false);

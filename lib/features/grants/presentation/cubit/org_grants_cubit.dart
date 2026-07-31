@@ -18,7 +18,7 @@ class OrgGrantsCubit extends Cubit<OrgGrantsState> {
 
   static const _pageSize = 100;
 
-  // Context filter (CVT-120/132): when set, the feed is scoped server-side to a single
+  // Context filter: when set, the feed is scoped server-side to a single
   // agent / vault / entry (the detail-screen Agents/Grants tabs). Stored so revoke→reload keeps the
   // same scope. All null = the Approvals org-wide history feed.
   String? _agentId;

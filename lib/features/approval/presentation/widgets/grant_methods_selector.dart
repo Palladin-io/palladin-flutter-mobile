@@ -8,10 +8,10 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../../grants/domain/entities/grant_method.dart';
 import '../../../grants/presentation/grant_method_label.dart';
 
-/// Compact multi-select for grant methods (CVT-148/149) — the mobile counterpart of the web methods
-/// dropdown. A single 44px field (matching the app's inputs) shows the chosen methods as a summary
-/// and opens a picker with one checkable row + description per method (so the modal stays small and
-/// scales as methods are added). The `get` warning lives inside the picker.
+/// Compact multi-select for grant methods — the mobile counterpart of the web
+/// methods dropdown. A single 44px field (matching the app's inputs) shows the
+/// chosen methods as a summary and opens a picker with one checkable row and
+/// description per method. The `get` warning lives inside the picker.
 class GrantMethodsSelector extends StatelessWidget {
   const GrantMethodsSelector({
     super.key,

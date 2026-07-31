@@ -2126,6 +2126,30 @@ abstract class AppLocalizations {
   /// **'API keys'**
   String get settingsApiKeys;
 
+  /// Heading above open-source information on the settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get settingsOpenSourceSection;
+
+  /// Settings row that opens Flutter's bundled dependency licence registry
+  ///
+  /// In en, this message translates to:
+  /// **'Open-source licences'**
+  String get settingsOpenSourceLicenses;
+
+  /// Subtitle for the open-source licences settings row
+  ///
+  /// In en, this message translates to:
+  /// **'View licences for Flutter and third-party packages.'**
+  String get settingsOpenSourceLicensesHint;
+
+  /// Copyright notice shown at the top of the open-source licences page
+  ///
+  /// In en, this message translates to:
+  /// **'Copyright 2026 Patryk Roguszewski, trading as Patryk Roguszewski IT Solutions'**
+  String get settingsOpenSourceLegalese;
+
   /// Label for the retry button on settings error states
   ///
   /// In en, this message translates to:

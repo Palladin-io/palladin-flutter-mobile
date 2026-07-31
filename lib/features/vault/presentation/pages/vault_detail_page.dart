@@ -656,7 +656,7 @@ class _LoadedBody extends StatelessWidget {
           // Entries are sourced from `EntryListCubit` provided above.
           const VaultEntriesTab(),
           VaultAgentsTab(key: ValueKey(grantsRefresh), vaultId: vault.id),
-          // Logs tab (CVT-121) — vault-scoped audit feed. Horizontal padding
+          // Logs tab — vault-scoped audit feed. Horizontal padding
           // and the tab-bar → content gap are owned by the TabBarView wrapper.
           VaultAuditLogTab(
             vaultId: vault.id,

@@ -22,7 +22,7 @@ Dio createDio(EnvConfig config, SecureTokenStorage tokenStorage) {
     ),
   );
 
-  // TLS SPKI pinning (CVT-213). `validateCertificate` runs only after the
+  // TLS SPKI pinning. `validateCertificate` runs only after the
   // system CA chain is trusted and evaluates the leaf; when no pins are
   // configured it is a no-op so local/staging dev is unaffected.
   final pinning = CertificatePinningService(config.certificatePins);

@@ -11,7 +11,7 @@ import 'verify_email_state.dart';
 
 export 'verify_email_state.dart';
 
-/// Drives the email-verification screen (CVT-261).
+/// Drives the email-verification screen.
 ///
 /// Two modes, one cubit:
 ///   * **result** — a token arrived (deep link `palladin://verify-email?token=…`

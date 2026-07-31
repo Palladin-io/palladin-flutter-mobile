@@ -1,6 +1,6 @@
 # Vault v2 mobile performance release gates
 
-CVT-472 separates deterministic CI gates from physical-device release
+ separates deterministic CI gates from physical-device release
 measurements. CI must not turn host or simulator wall-clock observations into a
 claimed low-end-mobile latency budget.
 

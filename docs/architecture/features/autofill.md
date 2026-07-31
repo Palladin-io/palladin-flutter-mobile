@@ -1,7 +1,5 @@
 # System AutoFill
 
-Linear: CVT-276
-
 ## Current state
 
 - Flutter rebuilds a dedicated native cache after vault unlock and after vault

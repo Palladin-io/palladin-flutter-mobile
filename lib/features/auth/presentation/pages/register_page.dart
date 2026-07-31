@@ -30,7 +30,7 @@ import '../cubit/register_cubit.dart';
 import '../widgets/auth_brand_header.dart';
 import '../widgets/password_security_status.dart';
 
-/// Registration wizard (CVT-271): email + master password + recovery
+/// Registration wizard: email + master password + recovery
 /// mnemonic backup + confirmation, then `POST /api/auth/register`.
 ///
 /// On success the freshly derived keys are handed to [AuthBloc] via

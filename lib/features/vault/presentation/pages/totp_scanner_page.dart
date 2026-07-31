@@ -11,7 +11,7 @@ import '../../../../l10n/generated/app_localizations.dart';
 /// Pops with the scanned `otpauth://` string on success, or `null` when
 /// the user backs out. Camera-permission denial degrades gracefully to an
 /// in-screen message with a shortcut to system settings — the caller
-/// still offers manual entry (spec §CVT-176).
+/// still offers manual entry.
 class TotpScannerPage extends StatefulWidget {
   const TotpScannerPage({super.key});
 

@@ -128,8 +128,8 @@ class UnlockCubit extends Cubit<UnlockState> {
     // isEnrolled()/canStore() guards. On a non-biometric device canStore()
     // returns false and we bail out before enrollment; if the purge lived only
     // inside enroll(), an upgrading user on such a device would keep the raw MK
-    // on disk until logout, partially undoing CVT-199. Best-effort; never
-    // blocks unlock.
+    // on disk until logout, partially undoing the security migration.
+    // Best-effort; never blocks unlock.
     await keyStore.purgeLegacyRawKey();
     try {
       if (await keyStore.isEnrolled()) return;

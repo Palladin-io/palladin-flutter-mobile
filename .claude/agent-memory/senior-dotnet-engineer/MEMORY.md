@@ -1,4 +1,0 @@
-- [Permission preprocessor pattern](permission_preprocessor.md) — Generyczny RequirePermissionPreProcessor<T> w Core.Security zamiast inline HasFlag w endpointach
-- [Test DB cleanup](test_db_cleanup.md) — Test DBy z poprzednich runów blokują migracje; trzeba ręcznie dropować w docker postgres
-- [FastEndpoints typed test client](fastendpoints_typed_client.md) — POSTAsync<TEndpoint, TRequest, TResponse> serializuje NodaTime poprawnie, ReadFromJsonAsync nie
-- [Read/write context convention](read_write_context_convention.md) — Read-modify-write endpointy ładują encję z write contextu, bez jawnego domainContext.Update()

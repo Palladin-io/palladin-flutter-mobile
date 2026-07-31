@@ -9,7 +9,7 @@ import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../domain/entities/totp_config.dart';
 import '../pages/totp_scanner_page.dart';
 
-/// Bottom sheet that captures a TOTP secret three ways (spec §CVT-176):
+/// Bottom sheet that captures a TOTP secret three ways:
 /// scan a QR code, paste an `otpauth://` URI, or type a base32 secret with
 /// optional issuer/account. Returns the parsed [TotpConfig] or null on
 /// cancel. The secret never leaves this flow except inside the returned

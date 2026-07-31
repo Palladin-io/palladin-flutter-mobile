@@ -12,7 +12,7 @@ import '../cubit/entry_logs_cubit.dart';
 import 'audit_log_row.dart';
 import 'entry_logs_filter_sheet.dart';
 
-/// The entry-detail **Logs** tab (CVT-133).
+/// The entry-detail **Logs** tab.
 ///
 /// Read-only, filterable audit feed scoped to a single entry: a search bar
 /// with a `tune` filter trigger, a filter sheet (event-type checkboxes +

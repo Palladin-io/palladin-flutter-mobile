@@ -46,8 +46,8 @@
       "keySource": "HKDF(member-vault-metadata, VK)",
       "decryptionKeyHex": "5d0df44711d4b00586a508e8c3e05aa7297a4179ec9100f597929b258aebd775",
       "plaintextType": "MemberVaultMetadataPayload",
-      "plaintextCanonical": "{\"color\":\"coral\",\"description\":\"Synthetic CVT-398 fixture\",\"iconReference\":\"builtin:shield\",\"name\":\"Engineering Vault\"}",
-      "plaintextHex": "7b22636f6c6f72223a22636f72616c222c226465736372697074696f6e223a2253796e746865746963204356542d3339382066697874757265222c2269636f6e5265666572656e6365223a226275696c74696e3a736869656c64222c226e616d65223a22456e67696e656572696e67205661756c74227d",
+      "plaintextCanonical": "{\"color\":\"coral\",\"description\":\"Synthetic protocol fixture\",\"iconReference\":\"builtin:shield\",\"name\":\"Engineering Vault\"}",
+      "plaintextHex": "7b22636f6c6f72223a22636f72616c222c226465736372697074696f6e223a2253796e7468657469632070726f746f636f6c2066697874757265222c2269636f6e5265666572656e6365223a226275696c74696e3a736869656c64222c226e616d65223a22456e67696e656572696e67205661756c74227d",
       "nonceHex": "cb7105d7c7e2947792a6044a91e1e9d251ff9b518c7a91b9",
       "aadHex": "504c444e56324144010900000101000200020201000200010301000200010404001011111111111141118111111111111111050400102222222222224222822222222222222207010002000108030008000000000000000709020004000000030a02000400000004",
       "aadFields": [
@@ -130,7 +130,7 @@
           "memberKeyGeneration": 4,
           "nonce": "y3EF18filHeSpgRKkeHp0lH_m1GMepG5"
         },
-        "ciphertext": "aDtKX5I9kjmyoQHf4btDi0ILr9ID2w4FeFAEy_Heyty8lTXOUHrGm07Uy-MKDSjGQbl4LqLwoz5lD0tIAK479v7vULOPMbb9kkEuSgNywNWVB6JNF0uu7oFcXrofak2UAvAbJg8p-WQZxRO7EuLjcMj2NPBus7OnkLh_-T6OW-QxdgtOY8Nt"
+        "ciphertext": "aDtKX5I9kjmyoQHf4btDi0ILr9ID2w4FeFAEy_Heyty8lTXOUHrGm07U-McxVHScFvU-IbP8ojlySEVGS6Q398LYU7CYJr3wlAY2UkNl3NCNGqUZXlCv4ohUGLQRJkKYCrcDPmgC8GoezhOsCeXqN77BIOl25eyHhuHwQC1SdzNjpWt1S620QA"
       }
     },
     {

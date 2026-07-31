@@ -11,7 +11,7 @@ import 'register_state.dart';
 
 export 'register_state.dart';
 
-/// Drives the registration wizard (CVT-271).
+/// Drives the registration wizard.
 ///
 /// Mirrors the shape of `OnboardingCubit` but for the email + master
 /// password flow: it collects credentials, generates and confirms the

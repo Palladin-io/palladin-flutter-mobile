@@ -1231,6 +1231,20 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsApiKeys => 'Klucze API';
 
   @override
+  String get settingsOpenSourceSection => 'O aplikacji';
+
+  @override
+  String get settingsOpenSourceLicenses => 'Licencje open source';
+
+  @override
+  String get settingsOpenSourceLicensesHint =>
+      'Wyświetl licencje Fluttera i pakietów zewnętrznych.';
+
+  @override
+  String get settingsOpenSourceLegalese =>
+      'Copyright 2026 Patryk Roguszewski, prowadzący działalność jako Patryk Roguszewski IT Solutions';
+
+  @override
   String get settingsRetry => 'Ponów';
 
   @override

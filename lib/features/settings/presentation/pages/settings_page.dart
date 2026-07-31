@@ -9,6 +9,7 @@ import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../bloc/settings_cubit.dart';
+import '../widgets/open_source_licenses_section.dart';
 import '../widgets/org_settings_section.dart';
 
 /// Dedicated settings screen — organization details only.
@@ -63,7 +64,11 @@ class _SettingsView extends StatelessWidget {
             AppSpacing.screenH,
             AppSpacing.screenBottom,
           ),
-          children: const [OrgSettingsSection()],
+          children: const [
+            OrgSettingsSection(),
+            SizedBox(height: AppSpacing.section),
+            OpenSourceLicensesSection(),
+          ],
         ),
       ),
     );

@@ -146,7 +146,7 @@ class Grant {
   /// Display label of the target entry, or `null` for FULL grants.
   final String? entryLabel;
 
-  /// Methods the grant permits (CVT-149). Empty when the backend predates the
+  /// Methods the grant permits. Empty when the backend predates the
   /// feature; the card hides the badges in that case.
   final List<GrantMethod> methods;
 

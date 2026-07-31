@@ -8,7 +8,7 @@ import '../utils/app_logger.dart';
 /// Resolves custom-scheme deep links (`palladin://…`) into in-app routes.
 ///
 /// Currently handles the email-verification link
-/// `palladin://verify-email?token=<token>` (CVT-261), mapping it to the
+/// `palladin://verify-email?token=<token>`, mapping it to the
 /// `/verify-email?token=<token>` route. Only explicitly recognized hosts
 /// are mapped — an unknown link resolves to `null` so a malicious or
 /// malformed URL can never drive arbitrary navigation.

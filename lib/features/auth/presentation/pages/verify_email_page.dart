@@ -14,7 +14,7 @@ import '../cubit/verify_email_cubit.dart';
 import '../widgets/auth_brand_header.dart';
 import '../widgets/oauth_button.dart';
 
-/// Email-verification screen (CVT-261).
+/// Email-verification screen.
 ///
 /// Two modes selected by [token]:
 ///   * `token != null` → verification-result mode (a deep link arrived);

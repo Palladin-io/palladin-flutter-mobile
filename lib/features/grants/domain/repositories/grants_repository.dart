@@ -13,7 +13,7 @@ class GrantListPage {
 /// Lives in the domain layer; implemented in the data layer. All methods
 /// throw a typed `GrantsException` on failure. No method ever returns or
 /// accepts crypto material — that flows through the approval path only
-/// (see CVT-58 `GrantApprovalRepository`).
+/// (see `GrantApprovalRepository`).
 abstract interface class GrantsRepository {
   /// Lists grants for [vaultId] with optional [status] / [agentId]
   /// filters and cursor pagination.

@@ -12,7 +12,7 @@ import '../cubit/audit_log_cubit.dart';
 import '../widgets/audit_legend_sheet.dart';
 import '../widgets/audit_log_content.dart';
 
-/// Org-wide audit Logs screen (CVT-66).
+/// Org-wide audit Logs screen.
 ///
 /// Reached from the settings drawer's "Audit" item. Shows every audit event
 /// across the organization with group quick-filter chips, a `tune` filter
