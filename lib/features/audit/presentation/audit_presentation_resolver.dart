@@ -87,38 +87,42 @@ final class LocalAuditPresentationResolver
     final entries = <String, String>{};
     final members = <String, String>{};
     for (final vaultId in allowedVaultIds) {
-      try {
-        await _memberIndex.waitForCurrent(vaultId);
-        final requestedEntryIds = page
-            .where((entry) => entry.vaultId == vaultId)
-            .map((entry) => entry.entryId)
-            .whereType<String>()
-            .toSet();
-        for (final entry in _memberIndex.entries(vaultId)) {
-          if (!entry.corrupt && requestedEntryIds.contains(entry.entryId)) {
-            entries[entry.entryId] = entry.memberLabel;
+      final requestedEntryIds = page
+          .where((entry) => entry.vaultId == vaultId)
+          .map((entry) => entry.entryId)
+          .whereType<String>()
+          .toSet();
+      if (requestedEntryIds.isNotEmpty) {
+        try {
+          await _memberIndex.waitForCurrent(vaultId);
+          for (final entry in _memberIndex.entries(vaultId)) {
+            if (!entry.corrupt && requestedEntryIds.contains(entry.entryId)) {
+              entries[entry.entryId] = entry.memberLabel;
+            }
           }
+        } catch (_) {
+          AppLogger.w('Audit', 'Local entry-name resolution failed');
         }
-      } catch (_) {
-        AppLogger.w('Audit', 'Local entry-name resolution failed');
       }
-      try {
-        final requestedMemberIds = page
-            .where((entry) => entry.vaultId == vaultId)
-            .map((entry) => entry.userId)
-            .whereType<String>()
-            .toSet();
-        final directory = await _vaultMembersRepository.list(vaultId);
-        for (final member in directory) {
-          final name = member.name?.trim();
-          if (requestedMemberIds.contains(member.id) &&
-              name != null &&
-              name.isNotEmpty) {
-            members[member.id] = name;
+      final requestedMemberIds = page
+          .where((entry) => entry.vaultId == vaultId)
+          .map((entry) => entry.userId)
+          .whereType<String>()
+          .toSet();
+      if (requestedMemberIds.isNotEmpty) {
+        try {
+          final directory = await _vaultMembersRepository.list(vaultId);
+          for (final member in directory) {
+            final name = member.name?.trim();
+            if (requestedMemberIds.contains(member.id) &&
+                name != null &&
+                name.isNotEmpty) {
+              members[member.id] = name;
+            }
           }
+        } catch (_) {
+          AppLogger.w('Audit', 'Local member-name resolution failed');
         }
-      } catch (_) {
-        AppLogger.w('Audit', 'Local member-name resolution failed');
       }
     }
     return AuditPresentationNames(

@@ -853,6 +853,7 @@ void configureDependencies(EnvConfig config) {
       repository: getIt<DashboardRepository>(),
       auditRepository: getIt<AuditRepository>(),
       auditPresentationResolver: getIt<AuditPresentationResolver>(),
+      recentActivityEntryNameUpdates: getIt<MemberSyncService>().indexUpdates,
       pendingGrantsCubit: getIt<PendingGrantsCubit>(),
       analytics: getIt<AnalyticsService>(),
       notificationPermissionService: getIt<NotificationPermissionService>(),

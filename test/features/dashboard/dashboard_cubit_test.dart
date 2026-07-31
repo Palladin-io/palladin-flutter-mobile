@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -124,7 +126,7 @@ void main() {
     ).thenAnswer((_) async => NotificationPermissionStatus.notDetermined);
   });
 
-  DashboardCubit buildCubit({Duration nameRefreshDelay = Duration.zero}) =>
+  DashboardCubit buildCubit({Stream<String>? entryNameUpdates}) =>
       DashboardCubit(
         repository: repository,
         auditRepository: auditRepository,
@@ -132,82 +134,102 @@ void main() {
         pendingGrantsCubit: pendingGrantsCubit,
         analytics: analytics,
         notificationPermissionService: permissionService,
-        recentActivityNameRefreshDelay: nameRefreshDelay,
+        recentActivityEntryNameUpdates: entryNameUpdates,
       );
 
   // ── load() ──────────────────────────────────
 
   group('load() — Recent Activity presentation', () {
-    test('resolves an Entry label after MemberIndex preparation wins the '
-        'initial load race', () async {
-      SharedPreferences.setMockInitialValues({
-        'onboarding_skipped:user-a': true,
-      });
-      vaultListCubit.current = VaultListLoaded([
-        VaultEntity(
-          id: 'vault-1',
-          name: 'Personal',
-          grantMode: GrantMode.granular,
-          createdAt: DateTime.utc(2026),
-          updatedAt: DateTime.utc(2026),
-          entryCount: 1,
-          activeGrantCount: 0,
-          memberCount: 1,
-        ),
-      ]);
-      var indexReadCount = 0;
-      when(() => memberIndex.entries('vault-1')).thenAnswer((_) {
-        indexReadCount++;
-        if (indexReadCount == 1) return const [];
-        return const [
-          MemberIndexEntry(
-            entryId: 'entry-1',
-            entryType: 1,
-            memberLabel: 'GitHub token',
-            searchFields: [],
-            revision: '1',
-            state: MemberEntryState.active,
+    test(
+      'resolves an Entry label when the relevant MemberIndex becomes ready',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'onboarding_skipped:user-a': true,
+        });
+        vaultListCubit.current = VaultListLoaded([
+          VaultEntity(
+            id: 'vault-1',
+            name: 'Personal',
+            grantMode: GrantMode.granular,
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026),
+            entryCount: 1,
+            activeGrantCount: 0,
+            memberCount: 1,
           ),
-        ];
-      });
-      when(
-        () => auditRepository.listOrgLogs(
-          actions: any(named: 'actions'),
-          vaultId: any(named: 'vaultId'),
-          agentId: any(named: 'agentId'),
-          userId: any(named: 'userId'),
-          entryId: any(named: 'entryId'),
-          from: any(named: 'from'),
-          to: any(named: 'to'),
-          cursor: any(named: 'cursor'),
-          pageSize: any(named: 'pageSize'),
-        ),
-      ).thenAnswer(
-        (_) async => AuditLogPage(
-          entries: [
-            AuditLogEntry(
-              id: 'audit-1',
-              eventType: AuditEventType.entryCreated,
-              rawEventType: 'entry.created',
-              actorType: AuditActorType.user,
-              createdAt: DateTime.utc(2026),
-              vaultId: 'vault-1',
-              entryId: 'entry-1',
+        ]);
+        var indexReady = false;
+        when(() => memberIndex.entries('vault-1')).thenAnswer(
+          (_) => indexReady
+              ? const [
+                  MemberIndexEntry(
+                    entryId: 'entry-1',
+                    entryType: 1,
+                    memberLabel: 'GitHub token',
+                    searchFields: [],
+                    revision: '1',
+                    state: MemberEntryState.active,
+                  ),
+                ]
+              : const [],
+        );
+        when(
+          () => auditRepository.listOrgLogs(
+            actions: any(named: 'actions'),
+            vaultId: any(named: 'vaultId'),
+            agentId: any(named: 'agentId'),
+            userId: any(named: 'userId'),
+            entryId: any(named: 'entryId'),
+            from: any(named: 'from'),
+            to: any(named: 'to'),
+            cursor: any(named: 'cursor'),
+            pageSize: any(named: 'pageSize'),
+          ),
+        ).thenAnswer(
+          (_) async => AuditLogPage(
+            entries: [
+              AuditLogEntry(
+                id: 'audit-1',
+                eventType: AuditEventType.entryCreated,
+                rawEventType: 'entry.created',
+                actorType: AuditActorType.user,
+                createdAt: DateTime.utc(2026),
+                vaultId: 'vault-1',
+                entryId: 'entry-1',
+              ),
+            ],
+          ),
+        );
+
+        final indexUpdates = StreamController<String>();
+        final cubit = buildCubit(entryNameUpdates: indexUpdates.stream);
+        await cubit.load(canViewAudit: true, userId: 'user-a');
+
+        var loaded = cubit.state as DashboardLoaded;
+        expect(loaded.recentActivity.single.entryLabel, isNull);
+
+        final refreshed = expectLater(
+          cubit.stream,
+          emits(
+            isA<DashboardLoaded>().having(
+              (state) => state.recentActivity.single.entryLabel,
+              'entry label',
+              'GitHub token',
             ),
-          ],
-        ),
-      );
+          ),
+        );
+        indexReady = true;
+        indexUpdates.add('vault-1');
+        await refreshed;
 
-      final cubit = buildCubit(
-        nameRefreshDelay: const Duration(milliseconds: 1),
-      );
-      await cubit.load(canViewAudit: true, userId: 'user-a');
-
-      final loaded = cubit.state as DashboardLoaded;
-      expect(loaded.recentActivity.single.entryLabel, 'GitHub token');
-      expect(loaded.recentActivity.single.resolvedObjectName, 'GitHub token');
-      await cubit.close();
-    });
+        loaded = cubit.state as DashboardLoaded;
+        expect(loaded.recentActivity.single.entryLabel, 'GitHub token');
+        expect(loaded.recentActivity.single.resolvedObjectName, 'GitHub token');
+        verifyNever(() => vaultMembersRepository.list(any()));
+        await cubit.close();
+        await indexUpdates.close();
+      },
+    );
   });
 
   group('load() — notification permission status', () {

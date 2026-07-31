@@ -32,10 +32,15 @@ class DashboardCubit extends Cubit<DashboardState> {
     required this.analytics,
     required this.notificationPermissionService,
     LocalSearchRepository? localSearchRepository,
-    this.recentActivityNameRefreshDelay = const Duration(milliseconds: 250),
+    Stream<String>? recentActivityEntryNameUpdates,
   }) : localSearchRepository =
            localSearchRepository ?? const _EmptyLocalSearchRepository(),
-       super(const DashboardInitial());
+       super(const DashboardInitial()) {
+    _entryNameUpdatesSubscription =
+        (recentActivityEntryNameUpdates ?? const Stream<String>.empty()).listen(
+          _onEntryNameIndexUpdated,
+        );
+  }
 
   final DashboardRepository repository;
   final AuditRepository auditRepository;
@@ -44,10 +49,12 @@ class DashboardCubit extends Cubit<DashboardState> {
   final AnalyticsService analytics;
   final NotificationPermissionService notificationPermissionService;
   final LocalSearchRepository localSearchRepository;
-
-  /// Closes the race between the Home feed request and the asynchronous
-  /// preparation of the unlocked MemberIndex used for Entry labels.
-  final Duration recentActivityNameRefreshDelay;
+  late final StreamSubscription<String> _entryNameUpdatesSubscription;
+  List<AuditLogEntry> _recentActivitySource = const [];
+  AuditPresentationNames _recentActivityNames = const AuditPresentationNames();
+  final Set<String> _pendingEntryNameVaults = {};
+  var _recentActivityGeneration = 0;
+  var _refreshingEntryNames = false;
 
   /// How many recent audit-log rows the Home "Recent Activity" section shows.
   static const int _recentActivityLimit = 6;
@@ -221,6 +228,7 @@ class DashboardCubit extends Cubit<DashboardState> {
   Future<({List<AuditLogEntry> entries, Map<String, String> agentNames})>
   _loadRecentActivityOrEmpty(bool canViewAudit) async {
     if (!canViewAudit) {
+      _clearRecentActivitySource();
       return (
         entries: const <AuditLogEntry>[],
         agentNames: const <String, String>{},
@@ -230,22 +238,24 @@ class DashboardCubit extends Cubit<DashboardState> {
       final page = await auditRepository.listOrgLogs(
         pageSize: _recentActivityLimit,
       );
-      var names = await auditPresentationResolver.resolveNames(page.entries);
-      var resolved = auditPresentationResolver.applyNames(page.entries, names);
-      final hasUnresolvedEntry = resolved.any(
-        (entry) => entry.entryId != null && entry.entryLabel == null,
-      );
-      if (hasUnresolvedEntry &&
-          recentActivityNameRefreshDelay != Duration.zero) {
-        await Future<void>.delayed(recentActivityNameRefreshDelay);
-        final refreshed = await auditPresentationResolver.resolveNames(
-          page.entries,
+      final generation = ++_recentActivityGeneration;
+      _recentActivitySource = List.unmodifiable(page.entries);
+      _recentActivityNames = const AuditPresentationNames();
+      final names = await auditPresentationResolver.resolveNames(page.entries);
+      if (generation != _recentActivityGeneration) {
+        return (
+          entries: const <AuditLogEntry>[],
+          agentNames: const <String, String>{},
         );
-        names = names.merge(refreshed);
-        resolved = auditPresentationResolver.applyNames(page.entries, names);
       }
-      return (entries: resolved, agentNames: names.agents);
+      _recentActivityNames = _recentActivityNames.merge(names);
+      final resolved = auditPresentationResolver.applyNames(
+        _recentActivitySource,
+        _recentActivityNames,
+      );
+      return (entries: resolved, agentNames: _recentActivityNames.agents);
     } on DioException catch (e, s) {
+      _clearRecentActivitySource();
       AppLogger.e(
         'Dashboard',
         'recent activity unavailable (${e.response?.statusCode})',
@@ -257,6 +267,7 @@ class DashboardCubit extends Cubit<DashboardState> {
         agentNames: const <String, String>{},
       );
     } catch (e, s) {
+      _clearRecentActivitySource();
       AppLogger.e(
         'Dashboard',
         'recent activity load failed',
@@ -267,6 +278,83 @@ class DashboardCubit extends Cubit<DashboardState> {
         entries: const <AuditLogEntry>[],
         agentNames: const <String, String>{},
       );
+    }
+  }
+
+  void _clearRecentActivitySource() {
+    _recentActivityGeneration++;
+    _recentActivitySource = const [];
+    _recentActivityNames = const AuditPresentationNames();
+    _pendingEntryNameVaults.clear();
+  }
+
+  void _onEntryNameIndexUpdated(String vaultId) {
+    if (!_recentActivitySource.any((entry) => entry.vaultId == vaultId)) return;
+    _pendingEntryNameVaults.add(vaultId);
+    unawaited(_refreshEntryNamesFromReadyIndexes());
+  }
+
+  Future<void> _refreshEntryNamesFromReadyIndexes() async {
+    if (_refreshingEntryNames) return;
+    _refreshingEntryNames = true;
+    try {
+      while (_pendingEntryNameVaults.isNotEmpty) {
+        final vaultIds = Set<String>.from(_pendingEntryNameVaults);
+        _pendingEntryNameVaults.clear();
+        final generation = _recentActivityGeneration;
+        final source = _recentActivitySource;
+        var refreshed = const AuditPresentationNames();
+        for (final vaultId in vaultIds) {
+          final scopedPage = source
+              .where((entry) => entry.vaultId == vaultId)
+              .toList(growable: false);
+          if (scopedPage.isEmpty) continue;
+          refreshed = refreshed.merge(
+            await auditPresentationResolver.resolveNames(
+              scopedPage,
+              scopedVaultId: vaultId,
+            ),
+          );
+        }
+        if (generation != _recentActivityGeneration || isClosed) continue;
+        _recentActivityNames = _recentActivityNames.merge(refreshed);
+        _emitRefreshedRecentActivity();
+      }
+    } finally {
+      _refreshingEntryNames = false;
+      if (_pendingEntryNameVaults.isNotEmpty && !isClosed) {
+        unawaited(_refreshEntryNamesFromReadyIndexes());
+      }
+    }
+  }
+
+  void _emitRefreshedRecentActivity() {
+    final entries = auditPresentationResolver.applyNames(
+      _recentActivitySource,
+      _recentActivityNames,
+    );
+    final current = state;
+    switch (current) {
+      case DashboardLoaded():
+        emit(
+          DashboardLoaded(
+            recentEntries: current.recentEntries,
+            recentActivity: entries,
+            agentNames: {...current.agentNames, ..._recentActivityNames.agents},
+          ),
+        );
+      case DashboardUnknownAgent():
+        emit(
+          DashboardUnknownAgent(
+            grant: current.grant,
+            pendingCount: current.pendingCount,
+            recentEntries: current.recentEntries,
+            recentActivity: entries,
+            agentNames: {...current.agentNames, ..._recentActivityNames.agents},
+          ),
+        );
+      default:
+        break;
     }
   }
 
@@ -394,6 +482,12 @@ class DashboardCubit extends Cubit<DashboardState> {
       if (!grant.isAgentRegistered) return grant;
     }
     return null;
+  }
+
+  @override
+  Future<void> close() async {
+    await _entryNameUpdatesSubscription.cancel();
+    return super.close();
   }
 }
 

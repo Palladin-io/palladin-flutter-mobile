@@ -26,7 +26,7 @@ Audit log viewer — a global page plus tabs embedded in vault/entry detail.
   are ignored, cross-organization Vault ids remain unresolved, and search plus
   structural filters are strictly local after fetch.
 - **Home Recent Activity:** uses the same org-scoped presentation resolver as
-  Global Audit Log and performs one bounded delayed retry when MemberIndex
-  preparation races the initial six-row feed request.
+  Global Audit Log and refreshes the already-fetched six-row feed whenever the
+  relevant MemberIndex publishes a completed runtime-index update.
 
 **Cross-feature deps:** embedded by `vault` (Logs tab). Filter/legend sheets inline the drag handle → extract `SheetDragHandle`.
