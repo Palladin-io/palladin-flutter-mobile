@@ -71,6 +71,8 @@ jobs:
     if: ${{ inputs.platform == 'both' || inputs.platform == 'android' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment:
+      name: mobile-store-${{ inputs.flavor }}
     permissions:
       contents: read
       id-token: write # Mints the OIDC token used for artifact attestations.
@@ -194,6 +196,11 @@ jobs:
           cp "${artifacts[0]}" "$release/"
           cp pubspec.lock "$sbom_input/"
 
+      - name: Remove Android signing assets
+        if: ${{ always() }}
+        run: |
+          rm -f android/upload-keystore.jks android/key.properties
+
       - name: Generate the Android artifact SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
@@ -253,6 +260,8 @@ jobs:
     if: ${{ inputs.platform == 'both' || inputs.platform == 'ios' }}
     runs-on: macos-15
     timeout-minutes: 45
+    environment:
+      name: mobile-store-${{ inputs.flavor }}
     permissions:
       contents: read
       id-token: write # Mints the OIDC token used for artifact attestations.
@@ -532,6 +541,24 @@ jobs:
           cp "${artifacts[0]}" "$release/"
           cp pubspec.lock "$sbom_input/"
           cp ios/Podfile.lock "$sbom_input/ios/"
+
+      - name: Remove Apple signing assets
+        if: ${{ always() }}
+        run: |
+          security delete-keychain "${RUNNER_TEMP}/app-signing.keychain-db" 2>/dev/null || true
+          rm -f \
+            "${RUNNER_TEMP}/ios_distribution.p12" \
+            "${RUNNER_TEMP}/profile.mobileprovision" \
+            "${RUNNER_TEMP}/credential-provider.mobileprovision" \
+            "${RUNNER_TEMP}/profile.plist" \
+            "${RUNNER_TEMP}/credential-provider.plist" \
+            ios/ExportOptions.plist
+          if [ -n "${IOS_PROFILE_UUID:-}" ]; then
+            rm -f "${HOME}/Library/MobileDevice/Provisioning Profiles/${IOS_PROFILE_UUID}.mobileprovision"
+          fi
+          if [ -n "${IOS_EXTENSION_PROFILE_UUID:-}" ]; then
+            rm -f "${HOME}/Library/MobileDevice/Provisioning Profiles/${IOS_EXTENSION_PROFILE_UUID}.mobileprovision"
+          fi
 
       - name: Generate the iOS artifact SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
