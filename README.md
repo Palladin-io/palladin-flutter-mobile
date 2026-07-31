@@ -153,6 +153,8 @@ private certificates, backend credentials, or production secrets.
 Run the same checks used by pull-request CI:
 
 ```bash
+gitleaks dir . --config .gitleaks.toml --redact --no-banner
+dart run tool/generate_third_party_notices.dart --check
 flutter analyze
 flutter test test/performance/vault_v2_mobile_structural_budget_test.dart
 flutter test
@@ -162,6 +164,11 @@ The test workflow uses only repository contents and read-only GitHub
 permissions, so it is safe to run for pull requests from public forks. Store
 builds are separate, maintainer-triggered workflows and require protected
 signing secrets.
+
+CI runs Gitleaks 8.30.1 against the current tree. The repository configuration
+extends the default rules and contains only exact-path exceptions for synthetic
+crypto tests and fixtures, dependency checksums, cryptographic documentation,
+and the documented public Firebase client configuration.
 
 Vault protocol 2 tests consume a vendored, synthetic, hash-verified fixture
 snapshot. Its exact source commit, path, manifest digest, and file digests are

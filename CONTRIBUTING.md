@@ -17,6 +17,8 @@ Install the Flutter version recorded in `.metadata`, then run:
 ```bash
 flutter pub get
 flutter gen-l10n
+gitleaks dir . --config .gitleaks.toml --redact --no-banner
+dart run tool/generate_third_party_notices.dart --check
 flutter analyze
 flutter test test/performance/vault_v2_mobile_structural_budget_test.dart
 flutter test

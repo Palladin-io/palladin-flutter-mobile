@@ -59,9 +59,12 @@ flutter run --flavor production -t lib/main_production.dart   # Run production
 ## CI/CD
 
 GitHub Actions workflow at `.github/workflows/test.yml` runs on PRs to `main`:
-1. `flutter pub get`
-2. `flutter analyze`
-3. `flutter test`
+1. Gitleaks 8.30.1 current-tree secret scan
+2. `flutter pub get`
+3. third-party notice verification
+4. `flutter analyze`
+5. Vault v2 structural performance budgets
+6. `flutter test`
 
 **All changes must go through PRs** — CI must pass before merging.
 
@@ -402,22 +405,7 @@ mb:{module}:{event}
 
 Mobile tracks **UI-only** events — page views, biometric usage, push taps. Business logic events are tracked by backend.
 
-## Bounded Pull Request Review
-
-Official Codex review is a bounded release gate, not an iterative design loop.
-
-- Request the first official review only after the scoped implementation is complete, local validation passes, and CI is green.
-- Batch all accepted findings into one remediation pass; do not run a separate review after each comment or commit.
-- Run at most two standard official review rounds. A third round is allowed only to verify a concrete P0/P1 fix involving security, authorization, data integrity, atomicity, or material performance. Any further round requires explicit product-owner approval.
-- Treat review comments critically. Before changing code, identify the reproducible production scenario, verify that the current code permits it, and confirm that the fix belongs to the issue's acceptance criteria.
-- P0/P1 findings in scope are blocking. Fix a P2 only when it is real, in scope, and small; otherwise document it or create a follow-up. Do not expand the PR for P3/style feedback, speculative edge cases, or unrelated architecture work.
-- A review comment does not expand the approved pull-request scope by itself. If remediation would introduce a subsystem, broad abstraction, or substantial diff growth, stop and move it to a follow-up unless it closes a confirmed P0/P1.
-- Inspect CI status first. Fetch logs only for failed checks, and then only the failing step and necessary surrounding context.
-- Stop the review loop when CI is green, no unresolved in-scope P0/P1 remains, and lower-severity findings are either addressed or explicitly dispositioned.
-
 ## Maintaining this file
-
-Pull-request review automation is Codex-only. Keep the workflow at `.github/workflows/codex-pr-review.yml`, its support files under `.github/codex/`, and review skills under `.agents/`; do not add Claude Code PR workflows or `.claude/skills/pr-review` / `.claude/skills/fix-pr` adapters.
 
 This file is **always loaded** into context, so keep it lean. Only guidance useful in **every** iteration belongs here — the shared widget catalog, tokens (`AppColors`/`AppSpacing`), screen/skeleton/error conventions, the reuse rules.
 
