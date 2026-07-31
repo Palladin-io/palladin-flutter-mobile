@@ -25,3 +25,19 @@ The complete process and safe-harbor conditions are defined in Palladin's
 Do not access another person's data, perform social engineering, disrupt
 availability, destroy data, retain or disclose secrets, or publicly disclose a
 vulnerability before Palladin has had a reasonable opportunity to remediate it.
+
+## Secret scanning
+
+Pull-request CI runs Gitleaks 8.30.1 against the current repository tree. Run
+the same configured scan locally before opening a pull request:
+
+```bash
+gitleaks dir . --config .gitleaks.toml --redact --no-banner
+```
+
+`.gitleaks.toml` extends the upstream default rules. Its allowlists match exact
+paths only: deterministic cryptographic fixtures, synthetic test credentials,
+dependency checksums, cryptographic documentation, and the Firebase client
+configuration described in [`docs/firebase-config.md`](docs/firebase-config.md).
+Do not add value-based or repository-wide exceptions. A new finding must be
+removed, rotated, or documented and constrained to the narrowest safe path.

@@ -82,3 +82,22 @@ Provisioning profiles must be App Store distribution profiles for these bundle I
 - staging credential provider: `io.palladin.mobile.staging.CredentialProvider`
 - production: `io.palladin.mobile`
 - production credential provider: `io.palladin.mobile.CredentialProvider`
+
+## Release environments
+
+The Android and iOS jobs bind signing access to a flavor-specific GitHub
+environment:
+
+- `mobile-store-staging`
+- `mobile-store-production`
+
+Both environments must remain restricted to the `main` branch. Before the
+repository becomes public, enable required-reviewer protection on both
+environments and verify that an unapproved store job cannot start. This is a
+public-cutover release blocker; do not dispatch store builds while the reviewer
+gate is unavailable or disabled.
+
+Signing files exist only for the build portion of each job. An `always()`
+cleanup step removes the Android keystore and properties or the Apple
+certificate, profiles, temporary keychain, decoded metadata, and export options
+before SBOM, attestation, and artifact-upload actions execute.

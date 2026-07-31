@@ -1,0 +1,41 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public Firebase mobile client configuration; see docs/firebase-config.md"
+paths = [
+  '''^android/app/src/local/google-services\.json$''',
+  '''^android/app/src/staging/google-services\.json$''',
+  '''^android/app/src/production/google-services\.json$''',
+  '''^ios/config/local/GoogleService-Info\.plist$''',
+  '''^ios/config/staging/GoogleService-Info\.plist$''',
+  '''^ios/config/production/GoogleService-Info\.plist$''',
+]
+
+[[allowlists]]
+description = "Deterministic cryptographic fixtures with no production secrets"
+paths = [
+  '''^test/fixtures/crypto/envelope-xchacha-hkdf\.json$''',
+  '''^test/fixtures/vault_protocol_2/negative/corruption\.json$''',
+  '''^test/fixtures/vault_protocol_2/vectors/envelopes\.json$''',
+  '''^test/fixtures/vault_protocol_2/vectors/key-derivation\.json$''',
+  '''^test/fixtures/vault_protocol_2/vectors/pairing\.json$''',
+  '''^test/fixtures/vault_protocol_2/vectors/rotation\.json$''',
+  '''^test/fixtures/vault_protocol_2/vectors/signatures\.json$''',
+]
+
+[[allowlists]]
+description = "Synthetic test-only credentials and ciphertext"
+paths = [
+  '''^test/features/recovery/presentation/cubit/recovery_cubit_test\.dart$''',
+  '''^test/features/unlock/presentation/cubit/unlock_cubit_test\.dart$''',
+  '''^test/features/vault/data/services/totp_service_test\.dart$''',
+  '''^test/features/vault/entry_details_tab_test\.dart$''',
+]
+
+[[allowlists]]
+description = "Non-secret cryptographic names and dependency checksums"
+paths = [
+  '''^docs/architecture/features/vault\.md$''',
+  '''^ios/Podfile\.lock$''',
+]
