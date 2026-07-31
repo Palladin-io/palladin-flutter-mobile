@@ -23,7 +23,9 @@ the app:
    and signing-certificate fingerprints, and iOS keys to the expected bundle
    ID.
 2. **API restrictions** permit only the Google/Firebase APIs required by the
-   mobile client.
+   mobile client. Never add unrelated services such as the Cloud SQL Admin API
+   or the Generative Language API to a Firebase client key; create a separate,
+   narrowly restricted key if a non-Firebase client API is introduced.
 3. **Firebase Security Rules** default-deny every enabled data product and grant
    only the minimum access required by its data model. Palladin currently uses
    Firebase Cloud Messaging rather than Firestore, Realtime Database, or Cloud
