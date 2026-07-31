@@ -598,10 +598,13 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       'iconReference': switch (value['icon']) {
         {'kind': 'glyph', 'value': final String icon} => icon,
         {'kind': 'encryptedAsset', 'assetId': final String id} => 'asset:$id',
-        {'kind': 'publicAsset', 'assetId': final String id} =>
-          'public-asset:$id',
-        {'kind': 'website', 'hostname': final String hostname} =>
-          'website:$hostname',
+        {
+          'kind': 'publicAsset',
+          'assetId': final String id,
+          'revision': final int revision,
+          'url': final String url,
+        } =>
+          'public-asset:$id|$revision|${Uri.encodeComponent(url)}',
         _ => null,
       },
       'content': Map<String, dynamic>.from(value['content'] as Map),

@@ -490,8 +490,7 @@ final class MemberSyncService implements MemberIndexReader {
       iconReference: switch (index.icon) {
         GlyphVaultIcon(:final value) => 'builtin:$value',
         EncryptedAssetVaultIcon(:final assetId) => 'asset:$assetId',
-        PublicAssetVaultIcon(:final assetId) => 'public-asset:$assetId',
-        WebsiteVaultIcon(:final hostname) => 'website:$hostname',
+        final PublicAssetVaultIcon icon => icon.reference,
         null => null,
       },
     );
@@ -551,21 +550,13 @@ final class MemberSyncService implements MemberIndexReader {
             maximumBytes: 1024,
             field: 'iconReference',
           );
-    final websiteDomain = iconReference?.startsWith('website:') == true
-        ? iconReference!.substring('website:'.length)
-        : null;
-    if (websiteDomain != null && websiteDomain.isEmpty) {
-      throw const VaultPlaintextFormatException('Invalid iconReference.');
-    }
     final rawAutofillDomains = json['autofillDomains'];
     if (rawAutofillDomains != null &&
         (rawAutofillDomains is! List || rawAutofillDomains.length > 16)) {
       throw const VaultPlaintextFormatException('Invalid autofillDomains.');
     }
     final List<String> autofillDomains = rawAutofillDomains == null
-        ? websiteDomain == null
-              ? const <String>[]
-              : <String>[websiteDomain]
+        ? const <String>[]
         : (rawAutofillDomains as List)
               .map<String>(
                 (value) => _boundedUtf8String(

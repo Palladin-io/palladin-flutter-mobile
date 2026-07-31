@@ -570,6 +570,7 @@ void configureDependencies(EnvConfig config) {
       repository: getIt<EntryRepository>(),
       grantsRepository: getIt<GrantsRepository>(),
       vaultId: vaultId,
+      websiteIconService: getIt<WebsiteIconService>(),
     ),
   );
 

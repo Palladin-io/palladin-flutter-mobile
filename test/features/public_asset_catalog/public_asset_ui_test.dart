@@ -46,8 +46,8 @@ void main() {
     repository.complete('first.example', _Repository.asset);
     await Future<void>.delayed(Duration.zero);
 
-    expect(references, ['website:first.example', 'website:second.example']);
-    expect(resolved, ['public-asset:asset-id']);
+    expect(references, [_Repository.asset.reference]);
+    expect(resolved, [_Repository.asset.reference]);
     resolver.dispose();
   });
 
@@ -64,21 +64,19 @@ void main() {
     resolver.resolve('https://stripe.com');
     await Future<void>.delayed(const Duration(milliseconds: 10));
 
-    expect(references, ['website:stripe.com']);
-    expect(resolved, ['public-asset:stripe-icon']);
+    expect(references, [_StripeRepository.asset.reference]);
+    expect(resolved, [_StripeRepository.asset.reference]);
     resolver.dispose();
   });
 
   test(
-    'missing website icon is acquired and picked up by bounded polling',
+    'missing website icon is reserved in one request without polling',
     () async {
       final repository = _AcquiringRepository();
       final resolved = <String>[];
       final resolver = WebsiteIconAutoResolver(
         service: WebsiteIconService(repository),
         debounce: Duration.zero,
-        pollInterval: Duration.zero,
-        maxPollAttempts: 2,
         onReference: (_) {},
         onResolved: resolved.add,
       );
@@ -86,8 +84,8 @@ void main() {
       resolver.resolve('new.example.com');
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      expect(repository.calls, 2);
-      expect(resolved, ['public-asset:asset-id']);
+      expect(repository.calls, 1);
+      expect(resolved, [_Repository.asset.reference]);
       resolver.dispose();
     },
   );
@@ -168,7 +166,7 @@ class _Repository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => asset;
 
   @override
-  Future<Map<String, PublicAsset>> resolveWebsiteIcons(
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async => {'example.com': asset};
 
@@ -187,7 +185,7 @@ class _DelayedRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
 
   @override
-  Future<Map<String, PublicAsset>> resolveWebsiteIcons(
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) {
     final hostname = hostnames.single;
@@ -206,11 +204,11 @@ class _AcquiringRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
 
   @override
-  Future<Map<String, PublicAsset>> resolveWebsiteIcons(
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     calls++;
-    return calls == 1 ? const {} : {hostnames.single: _Repository.asset};
+    return {hostnames.single: _Repository.asset};
   }
 
   @override
@@ -230,7 +228,7 @@ class _StripeRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => asset;
 
   @override
-  Future<Map<String, PublicAsset>> resolveWebsiteIcons(
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     expect(hostnames, ['stripe.com']);

@@ -8,26 +8,24 @@ class WebsiteIconService {
   const WebsiteIconService(this._repository);
   final PublicAssetRepository _repository;
 
-  Future<PublicAsset?> resolveOne(String? urlOrHostname) async {
+  Future<PublicAsset?> ensureOne(String? urlOrHostname) async {
     final hostname = PublicHostname.normalize(urlOrHostname);
     if (hostname == null) return null;
     try {
-      return (await _repository.resolveWebsiteIcons([hostname]))[hostname];
+      return (await _repository.ensureWebsiteIcons([hostname]))[hostname];
     } catch (_) {
       return null;
     }
   }
 
-  /// Resolves at most one API batch. Callers may poll this method for assets
-  /// that the backend catalog is still acquiring, but must keep that polling
-  /// bounded and outside create/import transactions.
-  Future<Map<String, PublicAsset>> resolveBatch(
+  /// Reserves direct delivery URLs for a bounded create/edit/import batch.
+  Future<Map<String, PublicAsset>> ensureBatch(
     Iterable<String?> domains,
   ) async {
     final unique = PublicHostname.unique(domains, limit: 10000);
     if (unique.isEmpty) return const {};
     try {
-      return await _repository.resolveWebsiteIcons(unique);
+      return await _repository.ensureWebsiteIcons(unique);
     } catch (_) {
       return const {};
     }

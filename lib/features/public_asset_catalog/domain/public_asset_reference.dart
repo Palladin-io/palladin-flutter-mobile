@@ -5,6 +5,23 @@ sealed class PublicAssetReference {
   factory PublicAssetReference.parse(String? value) {
     final reference = value?.trim() ?? '';
     if (reference.startsWith('public-asset:') && reference.length > 13) {
+      final payload = reference.substring(13).split('|');
+      if (payload.length == 3) {
+        final revision = int.tryParse(payload[1]);
+        Uri? deliveryUrl;
+        try {
+          deliveryUrl = Uri.tryParse(Uri.decodeComponent(payload[2]));
+        } on FormatException {
+          deliveryUrl = null;
+        }
+        if (revision != null && revision > 0 && deliveryUrl != null) {
+          return CatalogAssetReference(
+            payload[0],
+            revision: revision,
+            deliveryUrl: deliveryUrl,
+          );
+        }
+      }
       return CatalogAssetReference(reference.substring(13));
     }
     if (reference.startsWith('builtin:') && reference.length > 8) {
@@ -25,8 +42,10 @@ sealed class PublicAssetReference {
 }
 
 final class CatalogAssetReference extends PublicAssetReference {
-  const CatalogAssetReference(this.assetId);
+  const CatalogAssetReference(this.assetId, {this.revision, this.deliveryUrl});
   final String assetId;
+  final int? revision;
+  final Uri? deliveryUrl;
 }
 
 final class BuiltinAssetReference extends PublicAssetReference {

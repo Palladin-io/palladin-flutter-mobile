@@ -55,16 +55,16 @@ void main() {
     ]);
   });
 
-  test('resolve batch remains non-blocking when catalog fails', () async {
+  test('ensure batch remains non-blocking when catalog fails', () async {
     final service = WebsiteIconService(_ThrowingRepository());
-    expect(await service.resolveBatch(['example.com']), isEmpty);
+    expect(await service.ensureBatch(['example.com']), isEmpty);
   });
 
-  test('resolve batch sends all 539 hosts in backend-sized pages', () async {
+  test('ensure batch sends all 539 hosts to the repository', () async {
     final repository = _RecordingRepository();
     final service = WebsiteIconService(repository);
 
-    await service.resolveBatch(
+    await service.ensureBatch(
       List<String>.generate(539, (index) => 'host-$index.example.com'),
     );
 
@@ -77,7 +77,7 @@ void main() {
     final remote = _RecordingRemoteDatasource();
     final repository = PublicAssetRepositoryImpl(remote);
 
-    await repository.resolveWebsiteIcons(
+    await repository.ensureWebsiteIcons(
       List<String>.generate(539, (index) => 'host-$index.example.com'),
     );
 
@@ -92,22 +92,13 @@ void main() {
       final repository = PublicAssetRepositoryImpl(
         PublicAssetRemoteDatasource(dio),
       );
-      final result = await repository.resolveWebsiteIcons(['example.com']);
+      final result = await repository.ensureWebsiteIcons(['example.com']);
       expect(
         result['example.com']?.deliveryUrl.toString(),
         'http://bucket.test/icon.webp',
       );
       expect((dio.httpClientAdapter as _FakeAdapter).requestData, {
-        'type': 'websiteIcon',
         'hostnames': ['example.com'],
-        'acquireMissing': true,
-      });
-
-      await repository.resolveWebsiteIcons(['example.com']);
-      expect((dio.httpClientAdapter as _FakeAdapter).requestData, {
-        'type': 'websiteIcon',
-        'hostnames': ['example.com'],
-        'acquireMissing': false,
       });
     },
   );
@@ -118,7 +109,7 @@ class _ThrowingRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) =>
       throw Exception();
   @override
-  Future<Map<String, PublicAsset>> resolveWebsiteIcons(
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) => throw Exception();
   @override
@@ -130,7 +121,7 @@ class _RecordingRepository implements PublicAssetRepository {
   final List<List<String>> calls = [];
 
   @override
-  Future<Map<String, PublicAsset>> resolveWebsiteIcons(
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     calls.add(hostnames.toList(growable: false));
@@ -149,10 +140,7 @@ class _RecordingRemoteDatasource extends PublicAssetRemoteDatasource {
   final List<List<String>> calls = [];
 
   @override
-  Future<List<Map<String, dynamic>>> resolve(
-    List<String> hostnames, {
-    required bool acquireMissing,
-  }) async {
+  Future<List<Map<String, dynamic>>> ensure(List<String> hostnames) async {
     calls.add(List.of(hostnames));
     return const [];
   }

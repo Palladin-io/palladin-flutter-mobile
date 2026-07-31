@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/di/injection.dart';
-import '../../domain/entities/public_asset.dart';
+import '../../../../config/env_config.dart';
 import '../../domain/public_asset_reference.dart';
 import '../../domain/repositories/public_asset_repository.dart';
 
@@ -25,33 +25,53 @@ class PublicAssetImage extends StatefulWidget {
 }
 
 class _PublicAssetImageState extends State<PublicAssetImage> {
-  late Future<PublicAsset?> _asset;
+  late Future<Uri?> _deliveryUrl;
   @override
   void initState() {
     super.initState();
-    _asset = _load();
+    _deliveryUrl = _load();
   }
 
   @override
   void didUpdateWidget(PublicAssetImage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.reference != widget.reference) _asset = _load();
+    if (oldWidget.reference != widget.reference) _deliveryUrl = _load();
   }
 
-  Future<PublicAsset?> _load() {
+  Future<Uri?> _load() async {
     final reference = PublicAssetReference.parse(widget.reference);
-    if (reference is! CatalogAssetReference) return Future.value();
-    return getIt<PublicAssetRepository>().getById(reference.assetId);
+    if (reference is! CatalogAssetReference) return null;
+    if (reference.deliveryUrl case final direct?) {
+      return _trusted(direct) ? direct : null;
+    }
+    final asset = await getIt<PublicAssetRepository>().getById(
+      reference.assetId,
+    );
+    return asset != null && _trusted(asset.deliveryUrl)
+        ? asset.deliveryUrl
+        : null;
+  }
+
+  bool _trusted(Uri candidate) {
+    final base = Uri.parse(getIt<EnvConfig>().publicAssetBaseUrl);
+    final prefix = '${base.path.replaceFirst(RegExp(r'/$'), '')}/';
+    return candidate.scheme == base.scheme &&
+        candidate.host == base.host &&
+        candidate.port == base.port &&
+        candidate.userInfo.isEmpty &&
+        !candidate.hasQuery &&
+        !candidate.hasFragment &&
+        candidate.path.startsWith(prefix);
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<PublicAsset?>(
-    future: _asset,
+  Widget build(BuildContext context) => FutureBuilder<Uri?>(
+    future: _deliveryUrl,
     builder: (context, snapshot) {
-      final asset = snapshot.data;
-      if (asset == null) return widget.fallback;
+      final deliveryUrl = snapshot.data;
+      if (deliveryUrl == null) return widget.fallback;
       return Image.network(
-        asset.deliveryUrl.toString(),
+        deliveryUrl.toString(),
         width: widget.width,
         height: widget.height,
         fit: widget.fit,

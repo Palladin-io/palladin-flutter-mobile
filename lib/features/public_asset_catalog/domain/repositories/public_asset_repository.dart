@@ -4,7 +4,7 @@ import '../entities/public_asset.dart';
 abstract interface class PublicAssetRepository {
   Future<List<PublicAsset>> searchWebsiteIcons(String query);
 
-  Future<Map<String, PublicAsset>> resolveWebsiteIcons(
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
     Iterable<String> hostnames,
   );
 

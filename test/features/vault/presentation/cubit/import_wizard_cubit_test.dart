@@ -8,6 +8,9 @@ import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
 import 'package:mobile_palladin/features/grants/domain/exceptions/grants_exceptions.dart';
 import 'package:mobile_palladin/features/grants/domain/repositories/grants_repository.dart';
+import 'package:mobile_palladin/features/public_asset_catalog/domain/entities/public_asset.dart';
+import 'package:mobile_palladin/features/public_asset_catalog/domain/repositories/public_asset_repository.dart';
+import 'package:mobile_palladin/features/public_asset_catalog/domain/services/website_icon_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/import_draft.dart';
 import 'package:mobile_palladin/features/vault/domain/exceptions/entry_exceptions.dart';
@@ -17,6 +20,28 @@ import 'package:mobile_palladin/features/vault/presentation/cubit/import_wizard_
 class _MockRepository extends Mock implements EntryRepository {}
 
 class _MockGrantsRepository extends Mock implements GrantsRepository {}
+
+class _CatalogRepository implements PublicAssetRepository {
+  @override
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+    Iterable<String> hostnames,
+  ) async => {
+    for (final hostname in hostnames)
+      hostname: PublicAsset(
+        id: '11111111-1111-4111-8111-111111111111',
+        type: 'websiteIcon',
+        name: hostname,
+        revision: 1,
+        deliveryUrl: Uri.parse('https://assets.palladin.io/$hostname.png'),
+      ),
+  };
+
+  @override
+  Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
+
+  @override
+  Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
+}
 
 Uint8List _bytes(String s) => Uint8List.fromList(utf8.encode(s));
 
@@ -54,6 +79,7 @@ void main() {
     repository: repository,
     grantsRepository: grantsRepository,
     vaultId: 'v-1',
+    websiteIconService: WebsiteIconService(_CatalogRepository()),
   );
 
   Grant grant(GrantScope scope) => Grant(
@@ -319,8 +345,8 @@ void main() {
         final overwrites = captured[1] as List<ImportEntryOverwrite>;
         expect(creates, hasLength(2));
         expect(creates.map((draft) => draft.icon), [
-          'website:github.com',
-          'website:gitlab.com',
+          'public-asset:11111111-1111-4111-8111-111111111111|1|https%3A%2F%2Fassets.palladin.io%2Fgithub.com.png',
+          'public-asset:11111111-1111-4111-8111-111111111111|1|https%3A%2F%2Fassets.palladin.io%2Fgitlab.com.png',
         ]);
         expect(overwrites, isEmpty);
       },

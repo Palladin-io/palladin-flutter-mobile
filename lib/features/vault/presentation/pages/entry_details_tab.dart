@@ -87,7 +87,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   ScriptInterpreter _interpreter = ScriptInterpreter.bash;
   String _icon = EntryVisuals.defaultIconName;
   String? _resolvedWebsiteIcon;
-  int _websiteIconGeneration = 0;
   late final WebsiteIconAutoResolver _websiteIconResolver;
   String _colorHex = EntryVisuals.defaultColorHex;
   String? _urlError;
@@ -207,7 +206,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
 
   @override
   void dispose() {
-    _websiteIconGeneration++;
     _websiteIconResolver.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _clearPlaintextState();
@@ -276,7 +274,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _descriptionController.text = entry.description ?? '';
     _type = entry.type;
     _icon = entry.icon ?? EntryVisuals.defaultIconName;
-    _resolvePersistedWebsiteIcon(_icon);
+    _resolvedWebsiteIcon = null;
     _urlController.text = (payload['url'] as String?) ?? '';
     _notesController.text = (payload['notes'] as String?) ?? '';
     final allFields = CustomField.listFromPayload(payload);
@@ -301,21 +299,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         );
         _refs = ScriptRef.listFromPayload(payload);
     }
-  }
-
-  Future<void> _resolvePersistedWebsiteIcon(String reference) async {
-    final generation = ++_websiteIconGeneration;
-    if (!reference.startsWith('website:') ||
-        !getIt.isRegistered<WebsiteIconService>()) {
-      if (mounted && _resolvedWebsiteIcon != null) {
-        setState(() => _resolvedWebsiteIcon = null);
-      }
-      return;
-    }
-    final hostname = reference.substring('website:'.length);
-    final asset = await getIt<WebsiteIconService>().resolveOne(hostname);
-    if (!mounted || generation != _websiteIconGeneration) return;
-    setState(() => _resolvedWebsiteIcon = asset?.reference);
   }
 
   /// Loads the vault's key/credential entries for a Script entry's
