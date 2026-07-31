@@ -96,6 +96,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   bool _valueObscured = true;
   bool _passwordObscured = true;
   bool _populated = false;
+  int _plaintextEpoch = 0;
   AgentVisibilityPolicy? _agentPolicy;
   String? _agentLabel;
 
@@ -151,6 +152,14 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       onResolved: (reference) {
         if (mounted && _editMode) {
           setState(() => _resolvedWebsiteIcon = reference);
+        }
+      },
+      onAutomaticCleared: () {
+        if (mounted && _editMode) {
+          setState(() {
+            _resolvedWebsiteIcon = null;
+            _icon = EntryVisuals.defaultIconForType(_type);
+          });
         }
       },
     );
@@ -225,13 +234,21 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
       context.read<EditEntryCubit>().clearSensitiveState();
-      if (mounted) setState(_clearPlaintextState);
+      if (mounted) {
+        setState(() {
+          _editMode = false;
+          _reservingIcon = false;
+          _clearPlaintextState();
+        });
+        widget.editController?.publishEditing(false);
+      }
     } else if (mounted) {
       _requestReveal();
     }
   }
 
   void _clearPlaintextState() {
+    _plaintextEpoch++;
     _payload = null;
     _revealedEntry = null;
     _populated = false;
@@ -548,12 +565,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   Future<void> _submit() async {
     if (_reservingIcon) return;
     if (_type != EntryType.key && !_validateUrl()) return;
-    final auth = context.read<AuthBloc>().state;
-    if (auth is! AuthAuthenticated || auth.privateKey == null) {
+    final initialAuth = context.read<AuthBloc>().state;
+    if (initialAuth is! AuthAuthenticated || initialAuth.privateKey == null) {
       _showSnackBar(AppLocalizations.of(context)!.entryErrorCrypto);
       return;
     }
 
+    final submissionEpoch = _plaintextEpoch;
     setState(() => _reservingIcon = true);
     final reservationType = _type;
     final reservationUrl = _urlController.text;
@@ -561,6 +579,17 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         ? null
         : await _websiteIconResolver.ensureNow(reservationUrl);
     if (!mounted) return;
+    final cubit = context.read<EditEntryCubit>();
+    final auth = context.read<AuthBloc>().state;
+    if (submissionEpoch != _plaintextEpoch ||
+        !_editMode ||
+        !_populated ||
+        !cubit.hasCanonicalSnapshot ||
+        auth is! AuthAuthenticated ||
+        auth.privateKey == null) {
+      setState(() => _reservingIcon = false);
+      return;
+    }
     setState(() {
       if (reservedReference != null &&
           _type == reservationType &&
@@ -582,7 +611,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     final keyCopy = Uint8List.fromList(auth.privateKey!);
     final hasCustomFile = _icon.startsWith('file://');
     final iconForApi = hasCustomFile ? null : _icon;
-    final cubit = context.read<EditEntryCubit>();
     try {
       await cubit.updateEntry(
         vaultId: widget.entry.vaultId,

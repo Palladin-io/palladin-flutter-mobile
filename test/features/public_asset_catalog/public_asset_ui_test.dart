@@ -65,6 +65,30 @@ void main() {
     resolver.dispose();
   });
 
+  test(
+    'auto resolver clears the previous host when the next has no icon',
+    () async {
+      final references = <String>[];
+      var clears = 0;
+      final resolver = WebsiteIconAutoResolver(
+        service: WebsiteIconService(_HostSwitchRepository()),
+        debounce: Duration.zero,
+        onReference: references.add,
+        onResolved: (_) {},
+        onAutomaticCleared: () => clears++,
+      );
+
+      resolver.resolve('first.example');
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      resolver.resolve('missing.example');
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(references, [_Repository.asset.reference]);
+      expect(clears, 1);
+      resolver.dispose();
+    },
+  );
+
   test('KEY URL resolves https://stripe.com to a public asset', () async {
     final resolved = <String>[];
     final references = <String>[];
@@ -227,6 +251,24 @@ class _DelayedRepository implements PublicAssetRepository {
     final hostname = hostnames.single;
     return (_resolutions[hostname] ??= Completer<Map<String, PublicAsset>>())
         .future;
+  }
+
+  @override
+  Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
+}
+
+class _HostSwitchRepository implements PublicAssetRepository {
+  @override
+  Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
+
+  @override
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+    Iterable<String> hostnames,
+  ) async {
+    final hostname = hostnames.single;
+    return hostname == 'first.example'
+        ? {hostname: _Repository.asset}
+        : const {};
   }
 
   @override

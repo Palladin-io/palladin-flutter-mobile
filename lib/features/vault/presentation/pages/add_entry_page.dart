@@ -142,6 +142,14 @@ class _AddEntryViewState extends State<_AddEntryView> {
       onResolved: (reference) {
         if (mounted) setState(() => _resolvedWebsiteIcon = reference);
       },
+      onAutomaticCleared: () {
+        if (mounted) {
+          setState(() {
+            _resolvedWebsiteIcon = null;
+            _icon = EntryVisuals.defaultIconForType(_type);
+          });
+        }
+      },
     );
     _urlController.addListener(_resolveWebsiteIcon);
   }
