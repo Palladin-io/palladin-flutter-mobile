@@ -92,6 +92,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   String? _urlError;
   bool _pickingIcon = false;
   bool _uploadingIcon = false;
+  bool _reservingIcon = false;
   bool _valueObscured = true;
   bool _passwordObscured = true;
   bool _populated = false;
@@ -541,6 +542,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   };
 
   Future<void> _submit() async {
+    if (_reservingIcon) return;
     if (_type != EntryType.key && !_validateUrl()) return;
     final payload = _buildPayload();
     if (!EntryFormUtils.isPayloadWithinLimit(payload)) {
@@ -552,6 +554,16 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       _showSnackBar(AppLocalizations.of(context)!.entryErrorCrypto);
       return;
     }
+
+    setState(() => _reservingIcon = true);
+    final reservedReference = _type == EntryType.script
+        ? null
+        : await _websiteIconResolver.ensureNow(_urlController.text);
+    if (!mounted) return;
+    setState(() {
+      if (reservedReference != null) _icon = reservedReference;
+      _reservingIcon = false;
+    });
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
     final hasCustomFile = _icon.startsWith('file://');
@@ -1179,7 +1191,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     EditEntryState state,
   ) {
     final accentColor = VaultVisuals.colorFor(_colorHex);
-    final isLoading = state is EditEntryLoading || _uploadingIcon;
+    final isLoading =
+        state is EditEntryLoading || _uploadingIcon || _reservingIcon;
     final isBusy = isLoading || _pickingIcon;
     final canSubmit = !isBusy && _canSubmit;
 

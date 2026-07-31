@@ -158,6 +158,17 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       return;
     }
 
+    final selected = current.items
+        .where((item) => item.effectiveIncluded(current.conflictStrategy))
+        .toList(growable: false);
+    if (selected.isEmpty) {
+      emit(const ImportWizardFailure(ImportFailureReason.noEntries));
+      return;
+    }
+    // Enter a non-interactive state before the optional network reservation,
+    // so a second tap cannot start another import with the same plaintext.
+    emit(ImportWizardImporting(done: 0, total: selected.length));
+
     final creates = <ImportEntryDraft>[];
     final overwrites = <ImportEntryOverwrite>[];
     final existingLabels = _existingByLabel.keys.toSet();
@@ -166,9 +177,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     final overwrittenIds = <String>{};
     final publicAssets =
         await websiteIconService?.ensureBatch(
-          current.items
-              .where((item) => item.effectiveIncluded(current.conflictStrategy))
-              .map((item) => item.parsed.urlDomain),
+          selected.map((item) => item.parsed.urlDomain),
         ) ??
         const <String, PublicAsset>{};
     if (!_isCurrent(epoch)) return;
@@ -223,7 +232,9 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       return;
     }
 
-    emit(ImportWizardImporting(done: 0, total: total));
+    if (total != selected.length) {
+      emit(ImportWizardImporting(done: 0, total: total));
+    }
     try {
       final result = await repository.importEntriesEncrypted(
         vaultId: vaultId,

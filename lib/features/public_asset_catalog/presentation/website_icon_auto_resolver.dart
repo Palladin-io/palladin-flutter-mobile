@@ -34,14 +34,27 @@ class WebsiteIconAutoResolver {
     if (_service == null) return;
     final generation = ++_generation;
     _timer?.cancel();
-    _timer = Timer(debounce, () async {
-      final asset = await _service.ensureOne(hostname);
-      if (_manualSelection || generation != _generation) return;
-      if (asset != null) {
-        onReference(asset.reference);
-        onResolved(asset.reference);
-      }
-    });
+    _timer = Timer(debounce, () => _ensure(hostname, generation));
+  }
+
+  /// Cancels the debounce and completes the reservation needed by a save.
+  /// A manual icon selection always wins and stale requests remain ignored.
+  Future<String?> ensureNow(String input) async {
+    if (_manualSelection || _service == null) return null;
+    final hostname = PublicHostname.normalize(input);
+    if (hostname == null) return null;
+    _timer?.cancel();
+    return _ensure(hostname, ++_generation);
+  }
+
+  Future<String?> _ensure(String hostname, int generation) async {
+    final asset = await _service!.ensureOne(hostname);
+    if (_manualSelection || generation != _generation || asset == null) {
+      return null;
+    }
+    onReference(asset.reference);
+    onResolved(asset.reference);
+    return asset.reference;
   }
 
   void dispose() {

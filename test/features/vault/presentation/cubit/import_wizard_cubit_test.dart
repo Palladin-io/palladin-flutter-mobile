@@ -43,6 +43,25 @@ class _CatalogRepository implements PublicAssetRepository {
   Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
 }
 
+class _DelayedCatalogRepository implements PublicAssetRepository {
+  final reservation = Completer<Map<String, PublicAsset>>();
+  int calls = 0;
+
+  @override
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+    Iterable<String> hostnames,
+  ) {
+    calls++;
+    return reservation.future;
+  }
+
+  @override
+  Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
+
+  @override
+  Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
+}
+
 Uint8List _bytes(String s) => Uint8List.fromList(utf8.encode(s));
 
 void main() {
@@ -75,12 +94,15 @@ void main() {
     ).thenAnswer((_) async => const GrantListPage(grants: []));
   });
 
-  ImportWizardCubit build() => ImportWizardCubit(
-    repository: repository,
-    grantsRepository: grantsRepository,
-    vaultId: 'v-1',
-    websiteIconService: WebsiteIconService(_CatalogRepository()),
-  );
+  ImportWizardCubit build({PublicAssetRepository? catalogRepository}) =>
+      ImportWizardCubit(
+        repository: repository,
+        grantsRepository: grantsRepository,
+        vaultId: 'v-1',
+        websiteIconService: WebsiteIconService(
+          catalogRepository ?? _CatalogRepository(),
+        ),
+      );
 
   Grant grant(GrantScope scope) => Grant(
     id: 'g-1',
@@ -254,6 +276,56 @@ void main() {
   });
 
   group('import', () {
+    test(
+      'a second tap cannot start another import during icon reservation',
+      () async {
+        when(() => repository.listEntries(any())).thenAnswer((_) async => []);
+        when(
+          () => repository.importEntriesEncrypted(
+            vaultId: any(named: 'vaultId'),
+            format: any(named: 'format'),
+            creates: any(named: 'creates'),
+            overwrites: any(named: 'overwrites'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+            chunkSize: any(named: 'chunkSize'),
+            onProgress: any(named: 'onProgress'),
+          ),
+        ).thenAnswer(
+          (_) async => const ImportResult(createdCount: 2, updatedCount: 0),
+        );
+        final catalog = _DelayedCatalogRepository();
+        final cubit = build(catalogRepository: catalog);
+        await cubit.parseBytes(_bytes(csv));
+
+        final first = cubit.import(
+          privateKey: privateKey,
+          untitledLabel: 'Untitled',
+        );
+        final second = cubit.import(
+          privateKey: privateKey,
+          untitledLabel: 'Untitled',
+        );
+        catalog.reservation.complete(const {});
+        await Future.wait([first, second]);
+
+        expect(catalog.calls, 1);
+        verify(
+          () => repository.importEntriesEncrypted(
+            vaultId: any(named: 'vaultId'),
+            format: any(named: 'format'),
+            creates: any(named: 'creates'),
+            overwrites: any(named: 'overwrites'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+            chunkSize: any(named: 'chunkSize'),
+            onProgress: any(named: 'onProgress'),
+          ),
+        ).called(1);
+        await cubit.close();
+      },
+    );
+
     test('lock during upload suppresses progress and late success', () async {
       when(() => repository.listEntries(any())).thenAnswer((_) async => []);
       final upload = Completer<ImportResult>();

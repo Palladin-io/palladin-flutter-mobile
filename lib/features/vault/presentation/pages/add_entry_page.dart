@@ -102,6 +102,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
   String _colorHex = EntryVisuals.defaultColorHex;
   bool _pickingIcon = false;
   bool _uploadingIcon = false;
+  bool _reservingIcon = false;
   late final WebsiteIconAutoResolver _websiteIconResolver;
 
   bool _valueObscured = true;
@@ -408,6 +409,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
   }
 
   Future<void> _submit() async {
+    if (_reservingIcon) return;
     if (_type != EntryType.script && !_validateUrl()) return;
     final payload = _buildPayload();
     if (!EntryFormUtils.isPayloadWithinLimit(payload)) {
@@ -429,6 +431,16 @@ class _AddEntryViewState extends State<_AddEntryView> {
         );
       return;
     }
+
+    setState(() => _reservingIcon = true);
+    final reservedReference = _type == EntryType.script
+        ? null
+        : await _websiteIconResolver.ensureNow(_urlController.text);
+    if (!mounted) return;
+    setState(() {
+      if (reservedReference != null) _icon = reservedReference;
+      _reservingIcon = false;
+    });
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
     final hasCustomFile = _icon.startsWith('file://');
@@ -520,7 +532,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
     return BlocBuilder<CreateEntryCubit, CreateEntryState>(
       builder: (context, state) {
-        final isLoading = state is CreateEntryLoading || _uploadingIcon;
+        final isLoading =
+            state is CreateEntryLoading || _uploadingIcon || _reservingIcon;
         final isBusy = isLoading || _pickingIcon;
         final canSubmit = !isBusy && _canSubmit;
 

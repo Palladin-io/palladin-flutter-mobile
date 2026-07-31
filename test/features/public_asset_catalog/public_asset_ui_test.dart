@@ -90,6 +90,28 @@ void main() {
     },
   );
 
+  test(
+    'ensureNow cancels debounce and returns the reference before save',
+    () async {
+      final repository = _AcquiringRepository();
+      final references = <String>[];
+      final resolver = WebsiteIconAutoResolver(
+        service: WebsiteIconService(repository),
+        debounce: const Duration(seconds: 10),
+        onReference: references.add,
+        onResolved: (_) {},
+      );
+
+      resolver.resolve('new.example.com');
+      final reference = await resolver.ensureNow('new.example.com');
+
+      expect(reference, _Repository.asset.reference);
+      expect(references, [_Repository.asset.reference]);
+      expect(repository.calls, 1);
+      resolver.dispose();
+    },
+  );
+
   testWidgets('icon browser exposes manual website icon search', (
     tester,
   ) async {
