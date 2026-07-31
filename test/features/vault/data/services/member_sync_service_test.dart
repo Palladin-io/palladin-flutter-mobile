@@ -138,11 +138,13 @@ void main() {
               );
       });
 
+      final indexUpdate = expectLater(service.indexUpdates, emits('vault'));
       final result = await service.synchronize(
         vaultId: 'vault',
         vaultKey: Uint8List(32),
         minimumMemberKeyGeneration: 1,
       );
+      await indexUpdate;
 
       expect(result.sequence, '7');
       expect(result.entryCount, 2);

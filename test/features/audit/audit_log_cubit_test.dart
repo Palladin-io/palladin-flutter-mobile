@@ -5,6 +5,7 @@ import 'package:mobile_palladin/features/agents/domain/repositories/agents_repos
 import 'package:mobile_palladin/features/audit/domain/entities/audit_log_entry.dart';
 import 'package:mobile_palladin/features/audit/domain/exceptions/audit_exceptions.dart';
 import 'package:mobile_palladin/features/audit/domain/repositories/audit_repository.dart';
+import 'package:mobile_palladin/features/audit/presentation/audit_presentation_resolver.dart';
 import 'package:mobile_palladin/features/audit/presentation/cubit/audit_log_cubit.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_member.dart';
@@ -82,12 +83,17 @@ void main() {
     when(() => vaultMembers.list(any())).thenAnswer((_) async => const []);
   });
 
+  AuditPresentationResolver presentationResolver() =>
+      LocalAuditPresentationResolver(
+        agentsRepository: agents,
+        vaultListCubit: vaults,
+        vaultMembersRepository: vaultMembers,
+        memberIndex: memberIndex,
+      );
+
   AuditLogCubit vaultCubit() => AuditLogCubit(
     auditRepository: audit,
-    agentsRepository: agents,
-    vaultListCubit: vaults,
-    vaultMembersRepository: vaultMembers,
-    memberSync: memberIndex,
+    presentationResolver: presentationResolver(),
     scope: AuditLogScope.vault,
     vaultId: 'v-1',
     entryNameRefreshDelay: Duration.zero,
@@ -95,10 +101,7 @@ void main() {
 
   AuditLogCubit orgCubit() => AuditLogCubit(
     auditRepository: audit,
-    agentsRepository: agents,
-    vaultListCubit: vaults,
-    vaultMembersRepository: vaultMembers,
-    memberSync: memberIndex,
+    presentationResolver: presentationResolver(),
     scope: AuditLogScope.org,
     vaultId: null,
     entryNameRefreshDelay: Duration.zero,
@@ -295,10 +298,7 @@ void main() {
 
         final cubit = AuditLogCubit(
           auditRepository: audit,
-          agentsRepository: agents,
-          vaultListCubit: vaults,
-          vaultMembersRepository: vaultMembers,
-          memberSync: memberIndex,
+          presentationResolver: presentationResolver(),
           scope: AuditLogScope.vault,
           vaultId: 'v-1',
           entryNameRefreshDelay: const Duration(milliseconds: 1),
@@ -512,10 +512,7 @@ void main() {
         });
         final cubit = AuditLogCubit(
           auditRepository: audit,
-          agentsRepository: agents,
-          vaultListCubit: vaults,
-          vaultMembersRepository: vaultMembers,
-          memberSync: memberIndex,
+          presentationResolver: presentationResolver(),
           scope: AuditLogScope.org,
           maximumLoadedEntries: 2,
         );

@@ -28,6 +28,7 @@ import 'features/notifications/data/services/push_notification_service.dart';
 import 'features/notifications/domain/entities/push_message.dart';
 import 'features/notifications/presentation/cubit/notification_center_cubit.dart';
 import 'features/notifications/presentation/cubit/push_navigation_cubit.dart';
+import 'features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'features/dashboard/presentation/cubit/search_session_controller.dart';
 import 'features/vault/data/services/member_sync_service.dart';
 import 'features/vault/data/services/member_entry_list_service.dart';
@@ -75,6 +76,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final MemberEntryListService _memberEntryList =
       getIt<MemberEntryListService>();
   final VaultListCubit _vaultList = getIt<VaultListCubit>();
+  final DashboardCubit _dashboard = getIt<DashboardCubit>();
   final VaultRotationService _vaultRotation = getIt<VaultRotationService>();
   final CanonicalExportService _exportService = getIt<CanonicalExportService>();
   final ProtectedExportStaging _exportStaging = getIt<ProtectedExportStaging>();
@@ -273,6 +275,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
             listener: (_, _) {
               _memberSync.lock();
               _vaultList.lock();
+              _dashboard.lock();
               _searchSession.lock();
               _vaultRotation.pause();
               _exportService.cancel();

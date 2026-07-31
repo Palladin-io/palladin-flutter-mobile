@@ -57,7 +57,14 @@ final class MemberSyncService implements MemberIndexReader {
 
   final Map<String, Map<String, MemberIndexEntry>> _indexes = {};
   final Map<String, Future<MemberSyncResult>> _running = {};
+  final StreamController<String> _indexUpdates =
+      StreamController<String>.broadcast();
   int _lockGeneration = 0;
+
+  /// Emits a Vault id after its unlocked runtime index has been installed or
+  /// refreshed. Consumers use this signal to refresh local presentation only;
+  /// no plaintext leaves the service through the stream.
+  Stream<String> get indexUpdates => _indexUpdates.stream;
 
   /// Synchronizes one Vault. Concurrent callers for the same Vault share work.
   Future<MemberSyncResult> synchronize({
@@ -140,6 +147,7 @@ final class MemberSyncService implements MemberIndexReader {
     }
     _requireCurrent(generation);
     _indexes[vaultId] = rebuilt;
+    _publishIndexUpdate(vaultId);
   }
 
   /// Searches only runtime plaintext and never accesses persistent storage.
@@ -226,6 +234,7 @@ final class MemberSyncService implements MemberIndexReader {
     await _cache.replaceSnapshot(vaultId, baseSequence, pages());
     _requireCurrent(generation);
     _indexes[vaultId] = stagedIndex;
+    _publishIndexUpdate(vaultId);
     return MemberSyncResult(
       sequence: baseSequence,
       entryCount: stagedIndex.length,
@@ -293,6 +302,8 @@ final class MemberSyncService implements MemberIndexReader {
       continuation = page.continuationCursor;
     } while (continuation != null);
 
+    _publishIndexUpdate(vaultId);
+
     return MemberSyncResult(
       sequence: applied,
       entryCount: _indexes[vaultId]!.length,
@@ -310,6 +321,10 @@ final class MemberSyncService implements MemberIndexReader {
     if (generation != _lockGeneration) {
       throw const _MemberSyncInvalidated();
     }
+  }
+
+  void _publishIndexUpdate(String vaultId) {
+    if (!_indexUpdates.isClosed) _indexUpdates.add(vaultId);
   }
 
   Future<List<MemberIndexEntry>> _decryptPage(

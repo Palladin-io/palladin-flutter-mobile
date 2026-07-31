@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,9 +9,15 @@ import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/features/agents/domain/repositories/agents_repository.dart';
 import 'package:mobile_palladin/features/approval/presentation/cubit/pending_grants_cubit.dart';
 import 'package:mobile_palladin/features/audit/domain/repositories/audit_repository.dart';
+import 'package:mobile_palladin/features/audit/presentation/audit_presentation_resolver.dart';
 import 'package:mobile_palladin/features/dashboard/domain/repositories/dashboard_repository.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'package:mobile_palladin/features/notifications/data/services/notification_permission_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/repositories/vault_members_repository.dart';
+import 'package:mobile_palladin/features/vault/presentation/cubit/vault_list_cubit.dart';
 
 // ──────────────────────────────────────────────
 // Mocks
@@ -20,6 +28,18 @@ class MockDashboardRepository extends Mock implements DashboardRepository {}
 class MockAuditRepository extends Mock implements AuditRepository {}
 
 class MockAgentsRepository extends Mock implements AgentsRepository {}
+
+class MockVaultListCubit extends Mock implements VaultListCubit {
+  VaultListState current = const VaultListLoaded([]);
+
+  @override
+  VaultListState get state => current;
+}
+
+class MockMemberIndex extends Mock implements MemberIndexReader {}
+
+class MockVaultMembersRepository extends Mock
+    implements VaultMembersRepository {}
 
 class MockPendingGrantsCubit extends Mock implements PendingGrantsCubit {}
 
@@ -54,6 +74,10 @@ void main() {
   late MockDashboardRepository repository;
   late MockAuditRepository auditRepository;
   late MockAgentsRepository agentsRepository;
+  late MockVaultListCubit vaultListCubit;
+  late MockMemberIndex memberIndex;
+  late MockVaultMembersRepository vaultMembersRepository;
+  late AuditPresentationResolver auditPresentationResolver;
   late MockPendingGrantsCubit pendingGrantsCubit;
   late MockNotificationPermissionService permissionService;
   late MockAnalyticsService analytics;
@@ -66,6 +90,15 @@ void main() {
     repository = MockDashboardRepository();
     auditRepository = MockAuditRepository();
     agentsRepository = MockAgentsRepository();
+    vaultListCubit = MockVaultListCubit();
+    memberIndex = MockMemberIndex();
+    vaultMembersRepository = MockVaultMembersRepository();
+    auditPresentationResolver = LocalAuditPresentationResolver(
+      agentsRepository: agentsRepository,
+      vaultListCubit: vaultListCubit,
+      vaultMembersRepository: vaultMembersRepository,
+      memberIndex: memberIndex,
+    );
     pendingGrantsCubit = MockPendingGrantsCubit();
     permissionService = MockNotificationPermissionService();
     analytics = MockAnalyticsService();
@@ -78,6 +111,11 @@ void main() {
       () => repository.getRecentEntries(any()),
     ).thenAnswer((_) async => const []);
     when(() => agentsRepository.listAgents()).thenAnswer((_) async => const []);
+    when(() => memberIndex.waitForCurrent(any())).thenAnswer((_) async {});
+    when(() => memberIndex.entries(any())).thenReturn(const []);
+    when(
+      () => vaultMembersRepository.list(any()),
+    ).thenAnswer((_) async => const []);
     when(() => pendingGrantsCubit.refresh()).thenAnswer((_) async {});
     when(() => pendingGrantsCubit.state).thenReturn(const PendingGrantsState());
     when(() => analytics.capture(any(), any())).thenAnswer((_) async {});
@@ -88,16 +126,260 @@ void main() {
     ).thenAnswer((_) async => NotificationPermissionStatus.notDetermined);
   });
 
-  DashboardCubit buildCubit() => DashboardCubit(
-    repository: repository,
-    auditRepository: auditRepository,
-    agentsRepository: agentsRepository,
-    pendingGrantsCubit: pendingGrantsCubit,
-    analytics: analytics,
-    notificationPermissionService: permissionService,
-  );
+  DashboardCubit buildCubit({Stream<String>? entryNameUpdates}) =>
+      DashboardCubit(
+        repository: repository,
+        auditRepository: auditRepository,
+        auditPresentationResolver: auditPresentationResolver,
+        pendingGrantsCubit: pendingGrantsCubit,
+        analytics: analytics,
+        notificationPermissionService: permissionService,
+        recentActivityEntryNameUpdates: entryNameUpdates,
+      );
 
   // ── load() ──────────────────────────────────
+
+  group('load() — Recent Activity presentation', () {
+    test(
+      'resolves an Entry label when the relevant MemberIndex becomes ready',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'onboarding_skipped:user-a': true,
+        });
+        vaultListCubit.current = VaultListLoaded([
+          VaultEntity(
+            id: 'vault-1',
+            name: 'Personal',
+            grantMode: GrantMode.granular,
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026),
+            entryCount: 1,
+            activeGrantCount: 0,
+            memberCount: 1,
+          ),
+        ]);
+        var indexReady = false;
+        when(() => memberIndex.entries('vault-1')).thenAnswer(
+          (_) => indexReady
+              ? const [
+                  MemberIndexEntry(
+                    entryId: 'entry-1',
+                    entryType: 1,
+                    memberLabel: 'GitHub token',
+                    searchFields: [],
+                    revision: '1',
+                    state: MemberEntryState.active,
+                  ),
+                ]
+              : const [],
+        );
+        when(
+          () => auditRepository.listOrgLogs(
+            actions: any(named: 'actions'),
+            vaultId: any(named: 'vaultId'),
+            agentId: any(named: 'agentId'),
+            userId: any(named: 'userId'),
+            entryId: any(named: 'entryId'),
+            from: any(named: 'from'),
+            to: any(named: 'to'),
+            cursor: any(named: 'cursor'),
+            pageSize: any(named: 'pageSize'),
+          ),
+        ).thenAnswer(
+          (_) async => AuditLogPage(
+            entries: [
+              AuditLogEntry(
+                id: 'audit-1',
+                eventType: AuditEventType.entryCreated,
+                rawEventType: 'entry.created',
+                actorType: AuditActorType.user,
+                createdAt: DateTime.utc(2026),
+                vaultId: 'vault-1',
+                entryId: 'entry-1',
+              ),
+            ],
+          ),
+        );
+
+        final indexUpdates = StreamController<String>();
+        final cubit = buildCubit(entryNameUpdates: indexUpdates.stream);
+        await cubit.load(canViewAudit: true, userId: 'user-a');
+
+        var loaded = cubit.state as DashboardLoaded;
+        expect(loaded.recentActivity.single.entryLabel, isNull);
+
+        final refreshed = expectLater(
+          cubit.stream,
+          emits(
+            isA<DashboardLoaded>().having(
+              (state) => state.recentActivity.single.entryLabel,
+              'entry label',
+              'GitHub token',
+            ),
+          ),
+        );
+        indexReady = true;
+        indexUpdates.add('vault-1');
+        await refreshed;
+
+        loaded = cubit.state as DashboardLoaded;
+        expect(loaded.recentActivity.single.entryLabel, 'GitHub token');
+        expect(loaded.recentActivity.single.resolvedObjectName, 'GitHub token');
+
+        final removed = expectLater(
+          cubit.stream,
+          emits(
+            isA<DashboardLoaded>().having(
+              (state) => state.recentActivity.single.entryLabel,
+              'removed entry label',
+              isNull,
+            ),
+          ),
+        );
+        indexReady = false;
+        indexUpdates.add('vault-1');
+        await removed;
+
+        cubit.lock();
+        expect(cubit.state, isA<DashboardInitial>());
+        indexReady = true;
+        indexUpdates.add('vault-1');
+        await Future<void>.delayed(Duration.zero);
+        expect(cubit.state, isA<DashboardInitial>());
+        verifyNever(() => vaultMembersRepository.list(any()));
+        await cubit.close();
+        await indexUpdates.close();
+      },
+    );
+
+    test('lock invalidates an in-flight Recent Activity load', () async {
+      final auditPage = Completer<AuditLogPage>();
+      when(
+        () => auditRepository.listOrgLogs(
+          actions: any(named: 'actions'),
+          vaultId: any(named: 'vaultId'),
+          agentId: any(named: 'agentId'),
+          userId: any(named: 'userId'),
+          entryId: any(named: 'entryId'),
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+          cursor: any(named: 'cursor'),
+          pageSize: any(named: 'pageSize'),
+        ),
+      ).thenAnswer((_) => auditPage.future);
+
+      final cubit = buildCubit();
+      final load = cubit.load(canViewAudit: true, userId: 'user-a');
+      await Future<void>.delayed(Duration.zero);
+      cubit.lock();
+      auditPage.complete(
+        AuditLogPage(
+          entries: [
+            AuditLogEntry(
+              id: 'audit-1',
+              eventType: AuditEventType.entryCreated,
+              rawEventType: 'entry.created',
+              actorType: AuditActorType.user,
+              createdAt: DateTime.utc(2026),
+              vaultId: 'vault-1',
+              entryId: 'entry-1',
+            ),
+          ],
+        ),
+      );
+      await load;
+
+      expect(cubit.state, isA<DashboardInitial>());
+      verifyNever(() => agentsRepository.listAgents());
+      await cubit.close();
+    });
+
+    test('applies an index update received while Home is loading', () async {
+      SharedPreferences.setMockInitialValues({
+        'onboarding_skipped:user-a': true,
+      });
+      vaultListCubit.current = VaultListLoaded([
+        VaultEntity(
+          id: 'vault-1',
+          name: 'Personal',
+          grantMode: GrantMode.granular,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+          entryCount: 1,
+          activeGrantCount: 0,
+          memberCount: 1,
+        ),
+      ]);
+      var indexReady = false;
+      var indexReads = 0;
+      final refreshedIndexRead = Completer<void>();
+      when(() => memberIndex.entries('vault-1')).thenAnswer((_) {
+        indexReads++;
+        if (indexReads > 1 && !refreshedIndexRead.isCompleted) {
+          refreshedIndexRead.complete();
+        }
+        return indexReady
+            ? const [
+                MemberIndexEntry(
+                  entryId: 'entry-1',
+                  entryType: 1,
+                  memberLabel: 'GitHub token',
+                  searchFields: [],
+                  revision: '1',
+                  state: MemberEntryState.active,
+                ),
+              ]
+            : const [];
+      });
+      when(
+        () => auditRepository.listOrgLogs(
+          actions: any(named: 'actions'),
+          vaultId: any(named: 'vaultId'),
+          agentId: any(named: 'agentId'),
+          userId: any(named: 'userId'),
+          entryId: any(named: 'entryId'),
+          from: any(named: 'from'),
+          to: any(named: 'to'),
+          cursor: any(named: 'cursor'),
+          pageSize: any(named: 'pageSize'),
+        ),
+      ).thenAnswer(
+        (_) async => AuditLogPage(
+          entries: [
+            AuditLogEntry(
+              id: 'audit-1',
+              eventType: AuditEventType.entryCreated,
+              rawEventType: 'entry.created',
+              actorType: AuditActorType.user,
+              createdAt: DateTime.utc(2026),
+              vaultId: 'vault-1',
+              entryId: 'entry-1',
+            ),
+          ],
+        ),
+      );
+      final pendingRefresh = Completer<void>();
+      when(
+        () => pendingGrantsCubit.refresh(),
+      ).thenAnswer((_) => pendingRefresh.future);
+
+      final indexUpdates = StreamController<String>();
+      final cubit = buildCubit(entryNameUpdates: indexUpdates.stream);
+      final load = cubit.load(canViewAudit: true, userId: 'user-a');
+      await untilCalled(() => pendingGrantsCubit.refresh());
+
+      indexReady = true;
+      indexUpdates.add('vault-1');
+      await refreshedIndexRead.future;
+      pendingRefresh.complete();
+      await load;
+
+      final loaded = cubit.state as DashboardLoaded;
+      expect(loaded.recentActivity.single.entryLabel, 'GitHub token');
+      await cubit.close();
+      await indexUpdates.close();
+    });
+  });
 
   group('load() — notification permission status', () {
     blocTest<DashboardCubit, DashboardState>(

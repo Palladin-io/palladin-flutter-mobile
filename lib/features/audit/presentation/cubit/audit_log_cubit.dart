@@ -1,24 +1,13 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
-import '../../../agents/domain/repositories/agents_repository.dart';
-import '../../../vault/domain/repositories/vault_members_repository.dart';
-import '../../../vault/domain/entities/vault_entity.dart';
-import '../../../vault/data/services/member_sync_service.dart';
-import '../../../vault/presentation/cubit/vault_list_cubit.dart';
 import '../../domain/entities/audit_log_entry.dart';
 import '../../domain/exceptions/audit_exceptions.dart';
 import '../../domain/repositories/audit_repository.dart';
+import '../audit_presentation_resolver.dart';
 import 'audit_log_state.dart';
 
 export 'audit_log_state.dart';
-
-typedef _AuditNames = ({
-  Map<String, String> agents,
-  Map<String, String> vaults,
-  Map<String, String> entries,
-  Map<String, String> members,
-});
 
 /// Drives the vault-scoped Logs tab (CVT-121) and the org-wide Logs screen
 /// (CVT-66).
@@ -30,10 +19,7 @@ typedef _AuditNames = ({
 class AuditLogCubit extends Cubit<AuditLogState> {
   AuditLogCubit({
     required this.auditRepository,
-    required this.agentsRepository,
-    required this.vaultListCubit,
-    required this.vaultMembersRepository,
-    required this.memberSync,
+    required this.presentationResolver,
     required AuditLogScope scope,
     this.vaultId,
     this.maximumLoadedEntries = 2000,
@@ -41,10 +27,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
   }) : super(AuditLogState(scope: scope));
 
   final AuditRepository auditRepository;
-  final AgentsRepository agentsRepository;
-  final VaultListCubit vaultListCubit;
-  final VaultMembersRepository vaultMembersRepository;
-  final MemberIndexReader memberSync;
+  final AuditPresentationResolver presentationResolver;
   final int maximumLoadedEntries;
 
   /// One bounded post-load pass closes the race where the Logs tab mounts
@@ -76,7 +59,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
       emit(
         state.copyWith(
           status: AuditLogStatus.loaded,
-          entries: _resolvePage(accepted, scopedNames),
+          entries: presentationResolver.applyNames(accepted, scopedNames),
           agentNames: scopedNames.agents,
           vaultNames: scopedNames.vaults,
           entryNames: scopedNames.entries,
@@ -119,7 +102,10 @@ class AuditLogCubit extends Cubit<AuditLogState> {
     if (isClosed || generation != _loadGeneration) return;
     final merged = _mergeNames(_namesFromState(), refreshed);
     final retained = _retainNamesForEntries(merged, state.entries);
-    final resolvedEntries = _resolvePage(state.entries, retained);
+    final resolvedEntries = presentationResolver.applyNames(
+      state.entries,
+      retained,
+    );
     final gainedName = resolvedEntries.indexed.any(
       (item) =>
           state.entries[item.$1].entryLabel == null &&
@@ -156,10 +142,13 @@ class AuditLogCubit extends Cubit<AuditLogState> {
       final mergedNames = _mergeNames(_namesFromState(), names);
       final remaining = maximumLoadedEntries - state.entries.length;
       final existingIds = state.entries.map((entry) => entry.id).toSet();
-      final appended = _resolvePage(
-        page.entries.where((entry) => existingIds.add(entry.id)).toList(),
-        mergedNames,
-      ).take(remaining).toList(growable: false);
+      final appended = presentationResolver
+          .applyNames(
+            page.entries.where((entry) => existingIds.add(entry.id)).toList(),
+            mergedNames,
+          )
+          .take(remaining)
+          .toList(growable: false);
       final reachedLimit = appended.length >= remaining;
       final repeatedCursor =
           page.nextCursor == requestedCursor ||
@@ -224,123 +213,26 @@ class AuditLogCubit extends Cubit<AuditLogState> {
     return auditRepository.listOrgLogs(cursor: cursor, pageSize: _pageSize);
   }
 
-  Future<
-    ({
-      Map<String, String> agents,
-      Map<String, String> vaults,
-      Map<String, String> entries,
-      Map<String, String> members,
-    })
-  >
-  _resolveNames(List<AuditLogEntry> page) async {
-    final agents = await _resolveAgentNames();
-    final vaults = await _resolveVaultNames();
-    final requestedAgentIds = page
-        .map((entry) => entry.agentId)
-        .whereType<String>()
-        .toSet();
-    final scopedAgents = Map.fromEntries(
-      agents.entries.where((entry) => requestedAgentIds.contains(entry.key)),
-    );
-    final requestedVaultIds = page
-        .map((entry) => entry.vaultId)
-        .whereType<String>()
-        .toSet();
-    final allowedVaultIds =
-        state.scope == AuditLogScope.vault && vaultId != null
-        ? {vaultId!}
-        : requestedVaultIds.intersection(vaults.keys.toSet());
-    final scopedVaults = Map.fromEntries(
-      vaults.entries.where((entry) => allowedVaultIds.contains(entry.key)),
-    );
-    final entries = <String, String>{};
-    final members = <String, String>{};
-    for (final vId in allowedVaultIds) {
-      try {
-        await memberSync.waitForCurrent(vId);
-        final requestedEntryIds = page
-            .where((entry) => entry.vaultId == vId)
-            .map((entry) => entry.entryId)
-            .whereType<String>()
-            .toSet();
-        for (final entry in memberSync.entries(vId)) {
-          if (!entry.corrupt && requestedEntryIds.contains(entry.entryId)) {
-            entries[entry.entryId] = entry.memberLabel;
-          }
-        }
-      } catch (_) {
-        AppLogger.w('Audit', 'Local entry-name resolution failed');
-      }
-      try {
-        final requestedMemberIds = page
-            .where((entry) => entry.vaultId == vId)
-            .map((entry) => entry.userId)
-            .whereType<String>()
-            .toSet();
-        final directory = await vaultMembersRepository.list(vId);
-        for (final member in directory) {
-          final name = member.name?.trim();
-          if (requestedMemberIds.contains(member.id) &&
-              name != null &&
-              name.isNotEmpty) {
-            members[member.id] = name;
-          }
-        }
-      } catch (_) {
-        AppLogger.w('Audit', 'Local member-name resolution failed');
-      }
-    }
-    return (
-      agents: scopedAgents,
-      vaults: scopedVaults,
-      entries: entries,
-      members: members,
-    );
-  }
+  Future<AuditPresentationNames> _resolveNames(List<AuditLogEntry> page) =>
+      presentationResolver.resolveNames(
+        page,
+        scopedVaultId: state.scope == AuditLogScope.vault ? vaultId : null,
+      );
 
-  ({
-    Map<String, String> agents,
-    Map<String, String> vaults,
-    Map<String, String> entries,
-    Map<String, String> members,
-  })
-  _namesFromState() => (
+  AuditPresentationNames _namesFromState() => AuditPresentationNames(
     agents: state.agentNames,
     vaults: state.vaultNames,
     entries: state.entryNames,
     members: state.memberNames,
   );
 
-  ({
-    Map<String, String> agents,
-    Map<String, String> vaults,
-    Map<String, String> entries,
-    Map<String, String> members,
-  })
-  _mergeNames(
-    ({
-      Map<String, String> agents,
-      Map<String, String> vaults,
-      Map<String, String> entries,
-      Map<String, String> members,
-    })
-    current,
-    ({
-      Map<String, String> agents,
-      Map<String, String> vaults,
-      Map<String, String> entries,
-      Map<String, String> members,
-    })
-    page,
-  ) => (
-    agents: {...current.agents, ...page.agents},
-    vaults: {...current.vaults, ...page.vaults},
-    entries: {...current.entries, ...page.entries},
-    members: {...current.members, ...page.members},
-  );
+  AuditPresentationNames _mergeNames(
+    AuditPresentationNames current,
+    AuditPresentationNames page,
+  ) => current.merge(page);
 
-  _AuditNames _retainNamesForEntries(
-    _AuditNames names,
+  AuditPresentationNames _retainNamesForEntries(
+    AuditPresentationNames names,
     List<AuditLogEntry> entries,
   ) {
     final agentIds = entries
@@ -359,7 +251,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
         .map((entry) => entry.userId)
         .whereType<String>()
         .toSet();
-    return (
+    return AuditPresentationNames(
       agents: Map.fromEntries(
         names.agents.entries.where((entry) => agentIds.contains(entry.key)),
       ),
@@ -373,84 +265,5 @@ class AuditLogCubit extends Cubit<AuditLogState> {
         names.members.entries.where((entry) => memberIds.contains(entry.key)),
       ),
     );
-  }
-
-  List<AuditLogEntry> _resolvePage(
-    List<AuditLogEntry> page,
-    ({
-      Map<String, String> agents,
-      Map<String, String> vaults,
-      Map<String, String> entries,
-      Map<String, String> members,
-    })
-    names,
-  ) => page
-      .map((entry) {
-        final entryName = entry.entryId == null
-            ? null
-            : names.entries[entry.entryId];
-        final vaultName = entry.vaultId == null
-            ? null
-            : names.vaults[entry.vaultId];
-        final agentName = entry.agentId == null
-            ? null
-            : names.agents[entry.agentId];
-        final memberName = entry.userId == null
-            ? null
-            : names.members[entry.userId];
-        return AuditLogEntry(
-          id: entry.id,
-          eventType: entry.eventType,
-          rawEventType: entry.rawEventType,
-          actorType: entry.actorType,
-          result: entry.result,
-          occurredAt: entry.occurredAt,
-          createdAt: entry.createdAt,
-          userId: entry.userId,
-          agentId: entry.agentId,
-          agentName: agentName,
-          actorName: memberName,
-          vaultId: entry.vaultId,
-          entryId: entry.entryId,
-          entryLabel: entryName,
-          // A Vault name is not a valid presentation fallback for an Entry
-          // event. It makes "created entry Personal" falsely identify the
-          // Vault as the created Entry while the local MemberIndex is still
-          // preparing. Leave the Entry unresolved so the formatter uses its
-          // safe Entry identifier fallback until the bounded refresh resolves
-          // the real label.
-          resolvedObjectName: entry.entryId == null ? vaultName : entryName,
-          resolvedVaultName: vaultName,
-          localPresentationOnly: true,
-          metadata: entry.metadata,
-        );
-      })
-      .toList(growable: false);
-
-  Future<Map<String, String>> _resolveAgentNames() async {
-    try {
-      final agents = await agentsRepository.listAgents();
-      return {
-        for (final a in agents)
-          if (a.name != null && a.name!.trim().isNotEmpty)
-            a.agentId: a.name!.trim(),
-      };
-    } catch (_) {
-      AppLogger.w('Audit', 'Local agent-name resolution failed');
-      return const {};
-    }
-  }
-
-  Future<Map<String, String>> _resolveVaultNames() async {
-    try {
-      final vaults = switch (vaultListCubit.state) {
-        VaultListLoaded(:final vaults) => vaults,
-        _ => const <VaultEntity>[],
-      };
-      return {for (final v in vaults) v.id: v.name};
-    } catch (_) {
-      AppLogger.w('Audit', 'Local vault-name resolution failed');
-      return const {};
-    }
   }
 }
