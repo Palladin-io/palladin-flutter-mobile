@@ -25,6 +25,20 @@ void main() {
     resolver.dispose();
   });
 
+  test('ensureNow preserves a selection marked before an edit save', () async {
+    final repository = _AcquiringRepository();
+    final resolver = WebsiteIconAutoResolver(
+      service: WebsiteIconService(repository),
+      onReference: (_) => fail('persisted selection must win'),
+      onResolved: (_) => fail('persisted selection must win'),
+    );
+
+    resolver.markManualSelection();
+    expect(await resolver.ensureNow('example.com'), isNull);
+    expect(repository.calls, 0);
+    resolver.dispose();
+  });
+
   test('auto resolver applies only the latest URL result', () async {
     final repository = _DelayedRepository();
     final references = <String>[];
@@ -46,10 +60,34 @@ void main() {
     repository.complete('first.example', _Repository.asset);
     await Future<void>.delayed(Duration.zero);
 
-    expect(references, ['website:first.example', 'website:second.example']);
-    expect(resolved, ['public-asset:asset-id']);
+    expect(references, [_Repository.asset.reference]);
+    expect(resolved, [_Repository.asset.reference]);
     resolver.dispose();
   });
+
+  test(
+    'auto resolver clears the previous host when the next has no icon',
+    () async {
+      final references = <String>[];
+      var clears = 0;
+      final resolver = WebsiteIconAutoResolver(
+        service: WebsiteIconService(_HostSwitchRepository()),
+        debounce: Duration.zero,
+        onReference: references.add,
+        onResolved: (_) {},
+        onAutomaticCleared: () => clears++,
+      );
+
+      resolver.resolve('first.example');
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      resolver.resolve('missing.example');
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(references, [_Repository.asset.reference]);
+      expect(clears, 1);
+      resolver.dispose();
+    },
+  );
 
   test('KEY URL resolves https://stripe.com to a public asset', () async {
     final resolved = <String>[];
@@ -64,21 +102,19 @@ void main() {
     resolver.resolve('https://stripe.com');
     await Future<void>.delayed(const Duration(milliseconds: 10));
 
-    expect(references, ['website:stripe.com']);
-    expect(resolved, ['public-asset:stripe-icon']);
+    expect(references, [_StripeRepository.asset.reference]);
+    expect(resolved, [_StripeRepository.asset.reference]);
     resolver.dispose();
   });
 
   test(
-    'missing website icon is acquired and picked up by bounded polling',
+    'missing website icon is reserved in one request without polling',
     () async {
       final repository = _AcquiringRepository();
       final resolved = <String>[];
       final resolver = WebsiteIconAutoResolver(
         service: WebsiteIconService(repository),
         debounce: Duration.zero,
-        pollInterval: Duration.zero,
-        maxPollAttempts: 2,
         onReference: (_) {},
         onResolved: resolved.add,
       );
@@ -86,8 +122,30 @@ void main() {
       resolver.resolve('new.example.com');
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      expect(repository.calls, 2);
-      expect(resolved, ['public-asset:asset-id']);
+      expect(repository.calls, 1);
+      expect(resolved, [_Repository.asset.reference]);
+      resolver.dispose();
+    },
+  );
+
+  test(
+    'ensureNow cancels debounce and returns the reference before save',
+    () async {
+      final repository = _AcquiringRepository();
+      final references = <String>[];
+      final resolver = WebsiteIconAutoResolver(
+        service: WebsiteIconService(repository),
+        debounce: const Duration(seconds: 10),
+        onReference: references.add,
+        onResolved: (_) {},
+      );
+
+      resolver.resolve('new.example.com');
+      final reference = await resolver.ensureNow('new.example.com');
+
+      expect(reference, _Repository.asset.reference);
+      expect(references, [_Repository.asset.reference]);
+      expect(repository.calls, 1);
       resolver.dispose();
     },
   );
@@ -168,7 +226,7 @@ class _Repository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => asset;
 
   @override
-  Future<Map<String, PublicAsset>> resolveWebsiteIcons(
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async => {'example.com': asset};
 
@@ -187,12 +245,30 @@ class _DelayedRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
 
   @override
-  Future<Map<String, PublicAsset>> resolveWebsiteIcons(
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) {
     final hostname = hostnames.single;
     return (_resolutions[hostname] ??= Completer<Map<String, PublicAsset>>())
         .future;
+  }
+
+  @override
+  Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
+}
+
+class _HostSwitchRepository implements PublicAssetRepository {
+  @override
+  Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
+
+  @override
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+    Iterable<String> hostnames,
+  ) async {
+    final hostname = hostnames.single;
+    return hostname == 'first.example'
+        ? {hostname: _Repository.asset}
+        : const {};
   }
 
   @override
@@ -206,11 +282,11 @@ class _AcquiringRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
 
   @override
-  Future<Map<String, PublicAsset>> resolveWebsiteIcons(
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     calls++;
-    return calls == 1 ? const {} : {hostnames.single: _Repository.asset};
+    return {hostnames.single: _Repository.asset};
   }
 
   @override
@@ -230,7 +306,7 @@ class _StripeRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => asset;
 
   @override
-  Future<Map<String, PublicAsset>> resolveWebsiteIcons(
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     expect(hostnames, ['stripe.com']);

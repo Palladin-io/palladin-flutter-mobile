@@ -9,23 +9,23 @@ class WebsiteIconAutoResolver {
     WebsiteIconService? service,
     required this.onReference,
     required this.onResolved,
+    this.onAutomaticCleared,
     this.debounce = const Duration(milliseconds: 500),
-    this.pollInterval = const Duration(seconds: 2),
-    this.maxPollAttempts = 30,
   }) : _service = service;
 
   final WebsiteIconService? _service;
   final void Function(String reference) onReference;
   final void Function(String reference) onResolved;
+  final void Function()? onAutomaticCleared;
   final Duration debounce;
-  final Duration pollInterval;
-  final int maxPollAttempts;
   Timer? _timer;
   int _generation = 0;
   bool _manualSelection = false;
+  String? _resolvedHostname;
 
   void markManualSelection() {
     _manualSelection = true;
+    _resolvedHostname = null;
     _generation++;
     _timer?.cancel();
   }
@@ -33,25 +33,41 @@ class WebsiteIconAutoResolver {
   void resolve(String input) {
     if (_manualSelection) return;
     final hostname = PublicHostname.normalize(input);
-    if (hostname == null) return;
-
-    // Persist a stable, environment-independent reference immediately. The
-    // catalog lookup below is only needed to render the preview.
-    onReference('website:$hostname');
-    if (_service == null) return;
     final generation = ++_generation;
     _timer?.cancel();
-    _timer = Timer(debounce, () async {
-      for (var attempt = 0; attempt <= maxPollAttempts; attempt++) {
-        final asset = await _service.resolveOne(hostname);
-        if (_manualSelection || generation != _generation) return;
-        if (asset != null) {
-          onResolved(asset.reference);
-          return;
-        }
-        if (attempt < maxPollAttempts) await Future<void>.delayed(pollInterval);
-      }
-    });
+    _clearAutomaticIconForChangedHostname(hostname);
+    if (hostname == null || _service == null) return;
+    _timer = Timer(debounce, () => _ensure(hostname, generation));
+  }
+
+  /// Cancels the debounce and completes the reservation needed by a save.
+  /// A manual icon selection always wins and stale requests remain ignored.
+  Future<String?> ensureNow(String input) async {
+    if (_manualSelection) return null;
+    final hostname = PublicHostname.normalize(input);
+    _timer?.cancel();
+    final generation = ++_generation;
+    _clearAutomaticIconForChangedHostname(hostname);
+    if (hostname == null || _service == null) return null;
+    return _ensure(hostname, generation);
+  }
+
+  Future<String?> _ensure(String hostname, int generation) async {
+    final asset = await _service!.ensureOne(hostname);
+    if (_manualSelection || generation != _generation || asset == null) {
+      return null;
+    }
+    _resolvedHostname = hostname;
+    onReference(asset.reference);
+    onResolved(asset.reference);
+    return asset.reference;
+  }
+
+  void _clearAutomaticIconForChangedHostname(String? hostname) {
+    final previous = _resolvedHostname;
+    if (previous == null || previous == hostname) return;
+    _resolvedHostname = null;
+    onAutomaticCleared?.call();
   }
 
   void dispose() {

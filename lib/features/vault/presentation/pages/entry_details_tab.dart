@@ -87,15 +87,16 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   ScriptInterpreter _interpreter = ScriptInterpreter.bash;
   String _icon = EntryVisuals.defaultIconName;
   String? _resolvedWebsiteIcon;
-  int _websiteIconGeneration = 0;
   late final WebsiteIconAutoResolver _websiteIconResolver;
   String _colorHex = EntryVisuals.defaultColorHex;
   String? _urlError;
   bool _pickingIcon = false;
   bool _uploadingIcon = false;
+  bool _reservingIcon = false;
   bool _valueObscured = true;
   bool _passwordObscured = true;
   bool _populated = false;
+  int _plaintextEpoch = 0;
   AgentVisibilityPolicy? _agentPolicy;
   String? _agentLabel;
 
@@ -153,6 +154,14 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
           setState(() => _resolvedWebsiteIcon = reference);
         }
       },
+      onAutomaticCleared: () {
+        if (mounted && _editMode) {
+          setState(() {
+            _resolvedWebsiteIcon = null;
+            _icon = EntryVisuals.defaultIconForType(_type);
+          });
+        }
+      },
     );
     _urlController.addListener(_resolveWebsiteIcon);
     WidgetsBinding.instance.addObserver(this);
@@ -207,7 +216,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
 
   @override
   void dispose() {
-    _websiteIconGeneration++;
     _websiteIconResolver.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _clearPlaintextState();
@@ -226,13 +234,21 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
       context.read<EditEntryCubit>().clearSensitiveState();
-      if (mounted) setState(_clearPlaintextState);
+      if (mounted) {
+        setState(() {
+          _editMode = false;
+          _reservingIcon = false;
+          _clearPlaintextState();
+        });
+        widget.editController?.publishEditing(false);
+      }
     } else if (mounted) {
       _requestReveal();
     }
   }
 
   void _clearPlaintextState() {
+    _plaintextEpoch++;
     _payload = null;
     _revealedEntry = null;
     _populated = false;
@@ -276,7 +292,11 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _descriptionController.text = entry.description ?? '';
     _type = entry.type;
     _icon = entry.icon ?? EntryVisuals.defaultIconName;
-    _resolvePersistedWebsiteIcon(_icon);
+    // A persisted glyph, upload, or catalog choice is authoritative. Its
+    // provenance is intentionally not leaked in plaintext, so Edit must never
+    // guess that it was automatic and replace it during an unrelated save.
+    if (entry.icon != null) _websiteIconResolver.markManualSelection();
+    _resolvedWebsiteIcon = null;
     _urlController.text = (payload['url'] as String?) ?? '';
     _notesController.text = (payload['notes'] as String?) ?? '';
     final allFields = CustomField.listFromPayload(payload);
@@ -301,21 +321,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         );
         _refs = ScriptRef.listFromPayload(payload);
     }
-  }
-
-  Future<void> _resolvePersistedWebsiteIcon(String reference) async {
-    final generation = ++_websiteIconGeneration;
-    if (!reference.startsWith('website:') ||
-        !getIt.isRegistered<WebsiteIconService>()) {
-      if (mounted && _resolvedWebsiteIcon != null) {
-        setState(() => _resolvedWebsiteIcon = null);
-      }
-      return;
-    }
-    final hostname = reference.substring('website:'.length);
-    final asset = await getIt<WebsiteIconService>().resolveOne(hostname);
-    if (!mounted || generation != _websiteIconGeneration) return;
-    setState(() => _resolvedWebsiteIcon = asset?.reference);
   }
 
   /// Loads the vault's key/credential entries for a Script entry's
@@ -558,22 +563,54 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   };
 
   Future<void> _submit() async {
+    if (_reservingIcon) return;
     if (_type != EntryType.key && !_validateUrl()) return;
+    final initialAuth = context.read<AuthBloc>().state;
+    if (initialAuth is! AuthAuthenticated || initialAuth.privateKey == null) {
+      _showSnackBar(AppLocalizations.of(context)!.entryErrorCrypto);
+      return;
+    }
+
+    final submissionEpoch = _plaintextEpoch;
+    setState(() => _reservingIcon = true);
+    final reservationType = _type;
+    final reservationUrl = _urlController.text;
+    final reservedReference = reservationType == EntryType.script
+        ? null
+        : await _websiteIconResolver.ensureNow(reservationUrl);
+    if (!mounted) return;
+    final cubit = context.read<EditEntryCubit>();
+    final auth = context.read<AuthBloc>().state;
+    if (submissionEpoch != _plaintextEpoch ||
+        !_editMode ||
+        !_populated ||
+        !cubit.hasCanonicalSnapshot ||
+        auth is! AuthAuthenticated ||
+        auth.privateKey == null) {
+      setState(() => _reservingIcon = false);
+      return;
+    }
+    setState(() {
+      if (reservedReference != null &&
+          _type == reservationType &&
+          _urlController.text == reservationUrl) {
+        _icon = reservedReference;
+      }
+      _reservingIcon = false;
+    });
+
+    // Build the complete write snapshot after the asynchronous reservation
+    // boundary so secret fields and presentation metadata always belong to
+    // the same visible form state. Stale URL responses are ignored above.
     final payload = _buildPayload();
     if (!EntryFormUtils.isPayloadWithinLimit(payload)) {
       _showSnackBar(AppLocalizations.of(context)!.entryTooLarge);
-      return;
-    }
-    final auth = context.read<AuthBloc>().state;
-    if (auth is! AuthAuthenticated || auth.privateKey == null) {
-      _showSnackBar(AppLocalizations.of(context)!.entryErrorCrypto);
       return;
     }
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
     final hasCustomFile = _icon.startsWith('file://');
     final iconForApi = hasCustomFile ? null : _icon;
-    final cubit = context.read<EditEntryCubit>();
     try {
       await cubit.updateEntry(
         vaultId: widget.entry.vaultId,
@@ -1196,7 +1233,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     EditEntryState state,
   ) {
     final accentColor = VaultVisuals.colorFor(_colorHex);
-    final isLoading = state is EditEntryLoading || _uploadingIcon;
+    final isLoading =
+        state is EditEntryLoading || _uploadingIcon || _reservingIcon;
     final isBusy = isLoading || _pickingIcon;
     final canSubmit = !isBusy && _canSubmit;
 

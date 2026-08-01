@@ -102,6 +102,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
   String _colorHex = EntryVisuals.defaultColorHex;
   bool _pickingIcon = false;
   bool _uploadingIcon = false;
+  bool _reservingIcon = false;
   late final WebsiteIconAutoResolver _websiteIconResolver;
 
   bool _valueObscured = true;
@@ -140,6 +141,14 @@ class _AddEntryViewState extends State<_AddEntryView> {
       },
       onResolved: (reference) {
         if (mounted) setState(() => _resolvedWebsiteIcon = reference);
+      },
+      onAutomaticCleared: () {
+        if (mounted) {
+          setState(() {
+            _resolvedWebsiteIcon = null;
+            _icon = EntryVisuals.defaultIconForType(_type);
+          });
+        }
       },
     );
     _urlController.addListener(_resolveWebsiteIcon);
@@ -408,16 +417,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
   }
 
   Future<void> _submit() async {
+    if (_reservingIcon) return;
     if (_type != EntryType.script && !_validateUrl()) return;
-    final payload = _buildPayload();
-    if (!EntryFormUtils.isPayloadWithinLimit(payload)) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.entryTooLarge)),
-        );
-      return;
-    }
     final auth = context.read<AuthBloc>().state;
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
       ScaffoldMessenger.of(context)
@@ -426,6 +427,35 @@ class _AddEntryViewState extends State<_AddEntryView> {
           SnackBar(
             content: Text(AppLocalizations.of(context)!.entryErrorCrypto),
           ),
+        );
+      return;
+    }
+
+    setState(() => _reservingIcon = true);
+    final reservationType = _type;
+    final reservationUrl = _urlController.text;
+    final reservedReference = reservationType == EntryType.script
+        ? null
+        : await _websiteIconResolver.ensureNow(reservationUrl);
+    if (!mounted) return;
+    setState(() {
+      if (reservedReference != null &&
+          _type == reservationType &&
+          _urlController.text == reservationUrl) {
+        _icon = reservedReference;
+      }
+      _reservingIcon = false;
+    });
+
+    // Snapshot all presentation and secret fields after the asynchronous
+    // reservation boundary so one write cannot combine stale payload bytes
+    // with newer metadata. A response for an edited URL is ignored above.
+    final payload = _buildPayload();
+    if (!EntryFormUtils.isPayloadWithinLimit(payload)) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.entryTooLarge)),
         );
       return;
     }
@@ -520,7 +550,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
     return BlocBuilder<CreateEntryCubit, CreateEntryState>(
       builder: (context, state) {
-        final isLoading = state is CreateEntryLoading || _uploadingIcon;
+        final isLoading =
+            state is CreateEntryLoading || _uploadingIcon || _reservingIcon;
         final isBusy = isLoading || _pickingIcon;
         final canSubmit = !isBusy && _canSubmit;
 

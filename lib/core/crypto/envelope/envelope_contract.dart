@@ -150,6 +150,7 @@ final class GrantPurposeData extends EnvelopePurposeData {
     required this.recipientKeyVersion,
     required Uint8List recipientFingerprint,
     required this.methods,
+    required this.deliveryPolicy,
     required Uint8List fieldSetCommitment,
     this.expiresAtSeconds,
     this.expiresAtNanoseconds,
@@ -163,6 +164,7 @@ final class GrantPurposeData extends EnvelopePurposeData {
   Uint8List get recipientFingerprint =>
       Uint8List.fromList(_recipientFingerprint);
   final int methods;
+  final int deliveryPolicy;
   final Uint8List _fieldSetCommitment;
   Uint8List get fieldSetCommitment => Uint8List.fromList(_fieldSetCommitment);
   final int? expiresAtSeconds;
@@ -283,6 +285,7 @@ final class EnvelopeDescriptor {
             data.recipientFingerprint.every((byte) => byte == 0) ||
             data.methods <= 0 ||
             data.methods > _maxUint16 ||
+            (data.deliveryPolicy != 0 && data.deliveryPolicy != 1) ||
             data.fieldSetCommitment.length != 32 ||
             (data.expiresAtSeconds == null) !=
                 (data.expiresAtNanoseconds == null) ||
@@ -357,6 +360,7 @@ final class EnvelopeDescriptor {
         :final recipientKeyVersion,
         :final recipientFingerprint,
         :final methods,
+        :final deliveryPolicy,
         :final fieldSetCommitment,
         :final expiresAtSeconds,
         :final expiresAtNanoseconds,
@@ -368,6 +372,7 @@ final class EnvelopeDescriptor {
           ..u32(recipientKeyVersion)
           ..bytes(recipientFingerprint)
           ..u16(methods)
+          ..u16(deliveryPolicy)
           ..bytes(fieldSetCommitment)
           ..u8(expiresAtSeconds == null ? 0 : 1);
         if (expiresAtSeconds != null) {

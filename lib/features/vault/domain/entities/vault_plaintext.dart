@@ -47,7 +47,8 @@ enum AgentFieldAccess {
 /// Grant-payload result mode derived from [AgentFieldAccess].
 enum GrantFieldMode { value, derived, runtime }
 
-/// Closed encrypted icon reference. Remote URLs are deliberately unsupported.
+/// Closed encrypted icon reference. Catalog URLs are admitted only together
+/// with their immutable catalog identity and revision.
 sealed class VaultPlaintextIcon {
   const VaultPlaintextIcon();
 
@@ -56,11 +57,28 @@ sealed class VaultPlaintextIcon {
   static VaultPlaintextIcon? fromReference(String? value) {
     final reference = value?.trim() ?? '';
     if (reference.isEmpty) return null;
-    if (reference.startsWith('website:') && reference.length > 8) {
-      return WebsiteVaultIcon(reference.substring(8));
-    }
     if (reference.startsWith('public-asset:') && reference.length > 13) {
-      return PublicAssetVaultIcon(reference.substring(13));
+      final parts = reference.substring(13).split('|');
+      if (parts.length != 3) {
+        throw const VaultPlaintextFormatException(
+          'Invalid public asset icon reference.',
+        );
+      }
+      final revision = int.tryParse(parts[1]);
+      Uri? url;
+      try {
+        url = Uri.tryParse(Uri.decodeComponent(parts[2]));
+      } on FormatException {
+        throw const VaultPlaintextFormatException(
+          'Invalid public asset icon reference.',
+        );
+      }
+      if (revision == null || revision < 1 || url == null) {
+        throw const VaultPlaintextFormatException(
+          'Invalid public asset icon reference.',
+        );
+      }
+      return PublicAssetVaultIcon(parts[0], revision, url.toString());
     }
     if (reference.startsWith('asset:') && reference.length > 6) {
       return EncryptedAssetVaultIcon(reference.substring(6));
@@ -81,8 +99,8 @@ sealed class VaultPlaintextIcon {
     final map = _object(value, 'icon');
     final kind = _string(map['kind'], 'icon.kind', min: 1, max: 32);
     _exactKeys(map, switch (kind) {
-      'encryptedAsset' || 'publicAsset' => const {'kind', 'assetId'},
-      'website' => const {'kind', 'hostname'},
+      'encryptedAsset' => const {'kind', 'assetId'},
+      'publicAsset' => const {'kind', 'assetId', 'revision', 'url'},
       _ => const {'kind', 'value'},
     }, 'icon');
     return switch (kind) {
@@ -94,9 +112,8 @@ sealed class VaultPlaintextIcon {
       ),
       'publicAsset' => PublicAssetVaultIcon(
         _string(map['assetId'], 'icon.assetId', min: 1, max: 512),
-      ),
-      'website' => WebsiteVaultIcon(
-        _string(map['hostname'], 'icon.hostname', min: 1, max: 253),
+        _integer(map['revision'], 'icon.revision', min: 1),
+        _publicAssetUrl(map['url']),
       ),
       _ => throw const VaultPlaintextFormatException('Unknown icon kind.'),
     };
@@ -104,19 +121,21 @@ sealed class VaultPlaintextIcon {
 }
 
 final class PublicAssetVaultIcon extends VaultPlaintextIcon {
-  const PublicAssetVaultIcon(this.assetId);
+  const PublicAssetVaultIcon(this.assetId, this.revision, this.url);
   final String assetId;
+  final int revision;
+  final String url;
+
+  String get reference =>
+      'public-asset:$assetId|$revision|${Uri.encodeComponent(url)}';
 
   @override
-  Map<String, Object> toJson() => {'kind': 'publicAsset', 'assetId': assetId};
-}
-
-final class WebsiteVaultIcon extends VaultPlaintextIcon {
-  const WebsiteVaultIcon(this.hostname);
-  final String hostname;
-
-  @override
-  Map<String, Object> toJson() => {'kind': 'website', 'hostname': hostname};
+  Map<String, Object> toJson() => {
+    'kind': 'publicAsset',
+    'assetId': assetId,
+    'revision': revision,
+    'url': url,
+  };
 }
 
 final class GlyphVaultIcon extends VaultPlaintextIcon {
@@ -299,7 +318,7 @@ final class MemberIndex {
       // Web keeps the imported URL-domain projection as a normalized string.
       // It can contain legacy Android/app URLs and is therefore not limited to
       // the DNS hostname ceiling. Hostname normalization happens only when an
-      // optional public icon is resolved.
+      // an optional public icon is reserved before encryption.
       urlDomain: _nullableString(json, 'urlDomain', max: 8192),
       customIndex: custom,
     );
@@ -840,6 +859,24 @@ String _string(
     throw VaultPlaintextFormatException('Invalid $name.');
   }
   return value;
+}
+
+int _integer(Object? value, String name, {required int min}) {
+  if (value is! int || value < min) {
+    throw VaultPlaintextFormatException('Invalid $name.');
+  }
+  return value;
+}
+
+String _publicAssetUrl(Object? value) {
+  final text = _string(value, 'icon.url', min: 1, max: 2048);
+  final uri = Uri.tryParse(text);
+  if (uri == null ||
+      !uri.hasAuthority ||
+      (uri.scheme != 'https' && uri.scheme != 'http')) {
+    throw const VaultPlaintextFormatException('Invalid icon.url.');
+  }
+  return text;
 }
 
 String? _nullableString(

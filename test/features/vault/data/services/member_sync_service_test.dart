@@ -154,7 +154,10 @@ void main() {
       expect(entries, hasLength(2));
       expect(entries.every((entry) => !entry.corrupt), isTrue);
       expect(entries.first.memberLabel, startsWith('Database '));
-      expect(entries.first.iconReference, 'website:example.com');
+      expect(
+        entries.first.iconReference,
+        'public-asset:11111111-1111-4111-8111-111111111111|1|https%3A%2F%2Fassets.palladin.io%2Fexample.png',
+      );
       service.lock();
       expect(service.search('postgres', vaultId: 'vault'), isEmpty);
     },
@@ -395,7 +398,8 @@ void main() {
           'entryType': 1,
           'searchFields': ['Imported $id', 'stripe.com'],
           'autofillDomains': ['stripe.com'],
-          'iconReference': 'website:stripe.com',
+          'iconReference':
+              'public-asset:11111111-1111-4111-8111-111111111111|1|https%3A%2F%2Fassets.palladin.io%2Fstripe.png',
         };
       });
       when(
@@ -429,7 +433,10 @@ void main() {
       expect(entries, hasLength(539));
       expect(entries.every((entry) => !entry.corrupt), isTrue);
       expect(entries.last.memberLabel, contains(_entryId(538)));
-      expect(entries.last.iconReference, 'website:stripe.com');
+      expect(
+        entries.last.iconReference,
+        'public-asset:11111111-1111-4111-8111-111111111111|1|https%3A%2F%2Fassets.palladin.io%2Fstripe.png',
+      );
       expect(entries.last.autofillDomains, ['stripe.com']);
     },
   );
@@ -482,7 +489,12 @@ Map<String, dynamic> _memberIndex(String label) => {
   'entryType': 'credential',
   'memberLabel': label,
   'description': 'Postgres production database',
-  'icon': {'kind': 'website', 'hostname': 'example.com'},
+  'icon': {
+    'kind': 'publicAsset',
+    'assetId': '11111111-1111-4111-8111-111111111111',
+    'revision': 1,
+    'url': 'https://assets.palladin.io/example.png',
+  },
   'color': null,
   'username': 'stage',
   'urlDomain': 'example.com',

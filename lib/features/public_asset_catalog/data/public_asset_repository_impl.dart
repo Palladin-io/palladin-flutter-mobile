@@ -8,7 +8,6 @@ class PublicAssetRepositoryImpl implements PublicAssetRepository {
   PublicAssetRepositoryImpl(this._remote);
   final PublicAssetRemoteDatasource _remote;
   final Map<String, PublicAsset> _assets = {};
-  final Set<String> _acquisitionRequested = {};
 
   @override
   Future<List<PublicAsset>> searchWebsiteIcons(String query) async {
@@ -18,7 +17,7 @@ class PublicAssetRepositoryImpl implements PublicAssetRepository {
   }
 
   @override
-  Future<Map<String, PublicAsset>> resolveWebsiteIcons(
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     final normalized = PublicHostname.unique(hostnames, limit: 10000);
@@ -27,11 +26,7 @@ class PublicAssetRepositoryImpl implements PublicAssetRepository {
     for (var offset = 0; offset < normalized.length; offset += 500) {
       final end = (offset + 500).clamp(0, normalized.length);
       final page = normalized.sublist(offset, end);
-      final acquireMissing = page.any(
-        (hostname) => !_acquisitionRequested.contains(hostname),
-      );
-      final rows = await _remote.resolve(page, acquireMissing: acquireMissing);
-      _acquisitionRequested.addAll(page);
+      final rows = await _remote.ensure(page);
       for (final row in rows) {
         final hostname = PublicHostname.normalize(row['hostname'] as String?);
         final assetValue = row['asset'];

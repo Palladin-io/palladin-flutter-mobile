@@ -31,6 +31,7 @@ class EntryV2CryptoService {
     required Uint8List agentPublicKey,
     required int recipientKeyVersion,
     required int approvedMethods,
+    required int deliveryPolicy,
     required List<String> fieldIds,
     required Map<String, Object?> grantPayload,
     int grantEnvelopeRevision = 1,
@@ -70,6 +71,7 @@ class EntryV2CryptoService {
         recipientKeyVersion: recipientKeyVersion,
         recipientFingerprint: fingerprint,
         methods: approvedMethods,
+        deliveryPolicy: deliveryPolicy,
         fieldSetCommitment: commitment,
         expiresAtSeconds: instant == null
             ? null
@@ -374,6 +376,7 @@ Map<String, Object?> _descriptorJson(EnvelopeDescriptor value) => {
       :final recipientKeyVersion,
       :final recipientFingerprint,
       :final methods,
+      :final deliveryPolicy,
       :final fieldSetCommitment,
       :final expiresAtSeconds,
       :final expiresAtNanoseconds,
@@ -385,6 +388,7 @@ Map<String, Object?> _descriptorJson(EnvelopeDescriptor value) => {
         'recipientKeyVersion': recipientKeyVersion,
         'recipientKeyFingerprint': _b64(recipientFingerprint),
         'approvedMethods': methods,
+        'deliveryPolicy': deliveryPolicy,
         'fieldSetCommitment': _b64(fieldSetCommitment),
         'expiresAt': expiresAtSeconds == null
             ? null

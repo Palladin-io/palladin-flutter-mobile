@@ -200,8 +200,7 @@ class VaultSettingsService {
   String _iconReference(VaultPlaintextIcon icon) => switch (icon) {
     GlyphVaultIcon(:final value) => value,
     EncryptedAssetVaultIcon(:final assetId) => 'asset:$assetId',
-    PublicAssetVaultIcon(:final assetId) => 'public-asset:$assetId',
-    WebsiteVaultIcon(:final hostname) => 'website:$hostname',
+    final PublicAssetVaultIcon icon => icon.reference,
   };
 
   Map<String, dynamic> _fromEntity(VaultEntity vault) => {

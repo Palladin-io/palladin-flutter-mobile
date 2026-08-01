@@ -8,6 +8,8 @@ import '../../../grants/domain/entities/grant.dart';
 import '../../../grants/domain/exceptions/grants_exceptions.dart';
 import '../../../grants/domain/repositories/grants_repository.dart';
 import '../../../public_asset_catalog/domain/services/public_hostname.dart';
+import '../../../public_asset_catalog/domain/entities/public_asset.dart';
+import '../../../public_asset_catalog/domain/services/website_icon_service.dart';
 import '../../data/import/import_engine.dart';
 import '../../data/import/import_models.dart';
 import '../../domain/entities/entry_entity.dart';
@@ -34,12 +36,14 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     required this.repository,
     required this.grantsRepository,
     required this.vaultId,
+    this.websiteIconService,
     AnalyticsService? analytics,
   }) : super(const ImportWizardInitial());
 
   final EntryRepository repository;
   final GrantsRepository grantsRepository;
   final String vaultId;
+  final WebsiteIconService? websiteIconService;
 
   /// Backend field-length limits (import batch is atomic — one over-length
   /// field 400s the whole batch), so clamp defensively client-side.
@@ -154,12 +158,29 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       return;
     }
 
+    final selected = current.items
+        .where((item) => item.effectiveIncluded(current.conflictStrategy))
+        .toList(growable: false);
+    if (selected.isEmpty) {
+      emit(const ImportWizardFailure(ImportFailureReason.noEntries));
+      return;
+    }
+    // Enter a non-interactive state before the optional network reservation,
+    // so a second tap cannot start another import with the same plaintext.
+    emit(ImportWizardImporting(done: 0, total: selected.length));
+
     final creates = <ImportEntryDraft>[];
     final overwrites = <ImportEntryOverwrite>[];
     final existingLabels = _existingByLabel.keys.toSet();
     // Two source rows can collide with the same existing entry — only the
     // first may overwrite it, or the batch issues two PUTs to one entryId.
     final overwrittenIds = <String>{};
+    final publicAssets =
+        await websiteIconService?.ensureBatch(
+          selected.map((item) => item.parsed.urlDomain),
+        ) ??
+        const <String, PublicAsset>{};
+    if (!_isCurrent(epoch)) return;
     for (final item in current.items) {
       if (!item.effectiveIncluded(current.conflictStrategy)) continue;
       final parsed = item.parsed;
@@ -176,7 +197,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
             payload: parsed.toPayload(),
             urlDomain: _clampOrNull(parsed.urlDomain, _maxUrlDomain),
             createdAt: item.conflict!.createdAt,
-            icon: _iconReference(parsed.urlDomain),
+            icon: _iconReference(parsed.urlDomain, publicAssets),
           ),
         );
       } else {
@@ -199,7 +220,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
             type: EntryType.credential,
             payload: parsed.toPayload(),
             urlDomain: _clampOrNull(parsed.urlDomain, _maxUrlDomain),
-            icon: _iconReference(parsed.urlDomain),
+            icon: _iconReference(parsed.urlDomain, publicAssets),
           ),
         );
       }
@@ -211,7 +232,9 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       return;
     }
 
-    emit(ImportWizardImporting(done: 0, total: total));
+    if (total != selected.length) {
+      emit(ImportWizardImporting(done: 0, total: total));
+    }
     try {
       final result = await repository.importEntriesEncrypted(
         vaultId: vaultId,
@@ -249,9 +272,12 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     }
   }
 
-  static String? _iconReference(String? domain) {
+  static String? _iconReference(
+    String? domain,
+    Map<String, PublicAsset> publicAssets,
+  ) {
     final normalized = PublicHostname.normalize(domain);
-    return normalized == null ? null : 'website:$normalized';
+    return normalized == null ? null : publicAssets[normalized]?.reference;
   }
 
   /// Pages through the vault's active grants looking for any FULL-scope

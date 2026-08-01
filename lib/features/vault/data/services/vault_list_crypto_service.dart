@@ -97,8 +97,7 @@ class VaultListCryptoService {
         icon: switch (metadata.icon) {
           GlyphVaultIcon(:final value) => value,
           EncryptedAssetVaultIcon(:final assetId) => 'asset:$assetId',
-          PublicAssetVaultIcon(:final assetId) => 'public-asset:$assetId',
-          WebsiteVaultIcon(:final hostname) => 'website:$hostname',
+          final PublicAssetVaultIcon icon => icon.reference,
           null => null,
         },
         color: metadata.color,

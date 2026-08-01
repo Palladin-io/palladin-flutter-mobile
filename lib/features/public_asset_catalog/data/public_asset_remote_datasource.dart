@@ -17,17 +17,10 @@ class PublicAssetRemoteDatasource {
     return _list(response.data);
   }
 
-  Future<List<Map<String, dynamic>>> resolve(
-    List<String> hostnames, {
-    required bool acquireMissing,
-  }) async {
+  Future<List<Map<String, dynamic>>> ensure(List<String> hostnames) async {
     final response = await _dio.post<Object?>(
-      '/api/public-assets/resolve',
-      data: {
-        'type': 'websiteIcon',
-        'hostnames': hostnames,
-        'acquireMissing': acquireMissing,
-      },
+      '/api/public-assets/website-icons/ensure',
+      data: {'hostnames': hostnames},
     );
     return _list(response.data);
   }
