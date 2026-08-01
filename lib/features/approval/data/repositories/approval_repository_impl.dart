@@ -158,6 +158,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         recipientKeyVersion: candidate.recipientKeyVersion,
         agentPublicKey: Uint8List.fromList(recipientKey),
         approvedMethods: approvedMethods,
+        deliveryPolicy: type == EntryType.script ? 1 : 0,
         fieldIds: fieldIds,
         grantPayload: grantPayload,
         expiresAt: wire.expiresAt == null
@@ -292,6 +293,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
             agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
             recipientKeyVersion: recipientKeyVersion,
             approvedMethods: methodBits,
+            deliveryPolicy: type == EntryType.script ? 1 : 0,
             fieldIds: approved,
             grantPayload: payload,
             expiresAt: wire.expiresAt == null

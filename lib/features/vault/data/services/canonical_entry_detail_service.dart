@@ -1845,6 +1845,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           agentPublicKey: recipient,
           recipientKeyVersion: grant.recipientAgentKeyVersion!,
           approvedMethods: _methodBits(grant.methods),
+          deliveryPolicy: secret.entryType == VaultEntryType.script ? 1 : 0,
           fieldIds: fields,
           grantPayload: VaultPlaintextProjector.grantPayload(
             secret,

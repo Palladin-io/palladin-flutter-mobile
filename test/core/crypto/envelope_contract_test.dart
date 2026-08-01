@@ -104,6 +104,7 @@ void main() {
         recipientKeyVersion: 4,
         recipientFingerprint: Uint8List.fromList(List.filled(32, 0x5a)),
         methods: 3,
+        deliveryPolicy: 0,
         fieldSetCommitment: Uint8List.fromList(List.filled(32, 0xa5)),
         expiresAtSeconds: 1700000000,
         expiresAtNanoseconds: 123456789,
@@ -117,6 +118,7 @@ void main() {
       '123456781234423482341234567890abfedcba98765443218765abcdefabcdef0000000000000007000000030100000009'
       '0000000000000006001d70616c6c6164696e2d7832353531392d7365616c65642d626f782d763100000004'
       '5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a0003'
+      '0000'
       'a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a501000000006553f100075bcd150100000005',
     );
   });
@@ -127,7 +129,7 @@ void main() {
     ).readAsBytesSync();
     expect(
       _hex(Uint8List.fromList(sha256.convert(fixtureBytes).bytes)),
-      '8f632a8f1035fa92e58d95cd079efe3c3e75f7ab0929085f7edf42b99b051b23',
+      'd9a19728bbed572124cbe1d63c2f674f63b20072315158f964f156d9bd966b07',
     );
     final fixture =
         jsonDecode(utf8.decode(fixtureBytes)) as Map<String, dynamic>;
@@ -427,6 +429,7 @@ EnvelopeDescriptor _fixtureGrantDescriptor() => EnvelopeDescriptor(
     recipientKeyVersion: 4,
     recipientFingerprint: Uint8List.fromList(List.filled(32, 0x5a)),
     methods: 3,
+    deliveryPolicy: 0,
     fieldSetCommitment: Uint8List.fromList(List.filled(32, 0xa5)),
     expiresAtSeconds: 1700000000,
     expiresAtNanoseconds: 123456789,
