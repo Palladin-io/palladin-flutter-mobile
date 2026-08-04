@@ -1874,7 +1874,9 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           memberKeyGeneration: memberKeyGeneration,
           agentPublicKey: recipient,
           recipientKeyVersion: grant.recipientAgentKeyVersion!,
-          approvedMethods: _methodBits(grant.methods),
+          approvedMethods: secret.entryType == VaultEntryType.creditCard
+              ? 4
+              : _methodBits(grant.methods),
           deliveryPolicy:
               secret.entryType == VaultEntryType.script ||
                   secret.entryType == VaultEntryType.creditCard
