@@ -277,6 +277,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _descriptionController.clear();
     _notesController.clear();
     _scriptController.clear();
+    _cardholderController.clear();
+    _cardNumberController.clear();
+    _expiryMonthController.clear();
+    _expiryYearController.clear();
+    _securityCodeController.clear();
+    _pinController.clear();
+    _billingAddressController.clear();
     _customFields = const [];
     _totpFields = const [];
     _refs = const [];
