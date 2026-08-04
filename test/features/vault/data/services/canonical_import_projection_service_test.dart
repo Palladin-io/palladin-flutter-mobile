@@ -91,12 +91,14 @@ void main() {
         result.single.keys,
         containsAll([
           'entryId',
+          'entryType',
           'entryKey',
           'memberIndex',
           'memberSecret',
           'agentDiscovery',
         ]),
       );
+      expect(result.single['entryType'], 1);
       expect(
         plaintexts[VaultAadProfile.memberSecret],
         contains('agentVisibilityPolicy'),
