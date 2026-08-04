@@ -244,7 +244,6 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     final grantId = _uuidV4();
     final wire = limit.toWire();
     final methodBits = _methodBits(methods);
-    final submittedMethods = methods.toSet();
     if (methodBits == 0) {
       throw const ApprovalException(ApprovalErrorKind.validation);
     }
@@ -266,8 +265,9 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
             snapshot.secret['entryType'] as int,
           );
           final entryMethodBits = type == EntryType.creditCard ? 4 : methodBits;
-          if (type == EntryType.creditCard) {
-            submittedMethods.add(GrantMethod.inject);
+          if (type == EntryType.creditCard &&
+              !methods.contains(GrantMethod.inject)) {
+            throw const FormatException('Credit-card grants require Inject');
           }
           final policy = AgentVisibilityPolicy.fromJson(
             type,
@@ -353,7 +353,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         entries: wrapped,
         expiresAt: wire.expiresAt,
         queryLimit: wire.queryLimit,
-        methods: serializeGrantMethods(submittedMethods.toList()),
+        methods: serializeGrantMethods(methods),
       );
     } on DioException catch (e, s) {
       AppLogger.e(
