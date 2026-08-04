@@ -22,14 +22,7 @@ List<WellKnownField> wellKnownFieldsFor(EntryType type, AppLocalizations l10n) {
       (wire: 'notes', label: l10n.entryNotesLabel),
     ],
     EntryType.script => const [],
-    EntryType.creditCard => [
-      (wire: 'cardholderName', label: l10n.entryCardholderNameLabel),
-      (wire: 'cardNumber', label: l10n.entryCardNumberLabel),
-      (wire: 'expiryMonth', label: l10n.entryExpiryMonthLabel),
-      (wire: 'expiryYear', label: l10n.entryExpiryYearLabel),
-      (wire: 'securityCode', label: l10n.entrySecurityCodeLabel),
-      (wire: 'pin', label: l10n.entryPinLabel),
-      (wire: 'billingAddress', label: l10n.entryBillingAddressLabel),
-    ],
+    // Cards are Inject-only and must never become script/runtime references.
+    EntryType.creditCard => const [],
   };
 }
