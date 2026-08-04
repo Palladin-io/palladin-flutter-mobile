@@ -27,11 +27,13 @@ class EntryTypeDropdown extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.enabled = true,
+    this.allowCreditCard = true,
   });
 
   final EntryType value;
   final ValueChanged<EntryType?> onChanged;
   final bool enabled;
+  final bool allowCreditCard;
 
   @override
   Widget build(BuildContext context) {
@@ -51,10 +53,11 @@ class EntryTypeDropdown extends StatelessWidget {
           value: EntryType.script,
           child: Text(l10n.entryTypeScript),
         ),
-        DropdownMenuItem(
-          value: EntryType.creditCard,
-          child: Text(l10n.entryTypeCreditCard),
-        ),
+        if (allowCreditCard || value == EntryType.creditCard)
+          DropdownMenuItem(
+            value: EntryType.creditCard,
+            child: Text(l10n.entryTypeCreditCard),
+          ),
       ],
     );
   }

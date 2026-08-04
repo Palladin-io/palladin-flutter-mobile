@@ -294,13 +294,19 @@ final class KeyEntryCreationService {
           'creditCard.expiryMonth': AgentFieldAccess.onGrantRuntime,
           'creditCard.expiryYear': AgentFieldAccess.onGrantRuntime,
           'creditCard.securityCode': AgentFieldAccess.onGrantRuntime,
-          'creditCard.pin': AgentFieldAccess.onGrantRuntime,
-          'creditCard.billingAddress': AgentFieldAccess.onGrantRuntime,
+          'creditCard.pin': raw['pin'] == null
+              ? AgentFieldAccess.never
+              : AgentFieldAccess.onGrantRuntime,
+          'creditCard.billingAddress': raw['billingAddress'] == null
+              ? AgentFieldAccess.never
+              : AgentFieldAccess.onGrantRuntime,
           'notes': AgentFieldAccess.never,
         },
       },
       for (final field in custom)
-        field.fieldId: field.kind == 'totp'
+        field.fieldId: type == EntryType.creditCard
+            ? AgentFieldAccess.onGrantRuntime
+            : field.kind == 'totp'
             ? AgentFieldAccess.onGrantDerived
             : field.includeInMemberIndex
             ? AgentFieldAccess.discovery
