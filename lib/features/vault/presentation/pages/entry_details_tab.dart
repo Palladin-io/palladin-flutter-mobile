@@ -102,6 +102,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   bool _reservingIcon = false;
   bool _valueObscured = true;
   bool _passwordObscured = true;
+  bool _pinObscured = true;
   bool _populated = false;
   int _plaintextEpoch = 0;
   AgentVisibilityPolicy? _agentPolicy;
@@ -421,6 +422,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       _urlError = null;
       _valueObscured = true;
       _passwordObscured = true;
+      _pinObscured = true;
       _editMode = true;
     });
     if (_type == EntryType.script) _ensureVaultEntriesLoaded();
@@ -1373,9 +1375,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         OnboardingTextField(
           label: l10n.entryPinLabel,
           controller: _pinController,
-          obscureText: _passwordObscured,
+          obscureText: _pinObscured,
           keyboardType: TextInputType.number,
           textInputAction: TextInputAction.next,
+          suffixIcon: EntryObscureToggle(
+            obscured: _pinObscured,
+            onPressed: () => setState(() => _pinObscured = !_pinObscured),
+          ),
         ),
         const SizedBox(height: AppSpacing.fieldGap),
         OnboardingTextField(
