@@ -130,6 +130,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   /// Whether the single secret field (password / key value) is unmasked in
   /// the read-only view. Reset every time we return to read-only.
   bool _secretRevealed = false;
+  final Set<String> _revealedCardFields = <String>{};
 
   /// Per-custom-field reveal flags (keyed by field id) in the read-only
   /// view. Reset when returning to read-only.
@@ -267,6 +268,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _revealedEntry = null;
     _populated = false;
     _secretRevealed = false;
+    _revealedCardFields.clear();
     _revealedCustom.clear();
     _valueController.clear();
     _usernameController.clear();
@@ -423,6 +425,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       _syncControllersFromSnapshot();
       _editMode = false;
       _secretRevealed = false;
+      _revealedCardFields.clear();
       _revealedCustom.clear();
       _urlError = null;
     });
@@ -718,6 +721,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       _revealedEntry = entry;
       _payload = _buildPayload();
       _secretRevealed = false;
+      _revealedCardFields.clear();
       _revealedCustom.clear();
       _editMode = false;
     });
@@ -981,9 +985,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
                 icon: item.$3,
                 value: text,
                 isMasked: item.$4,
-                revealed: !item.$4 || _secretRevealed,
+                revealed: !item.$4 || _revealedCardFields.contains(item.$1),
                 onToggleReveal: item.$4
-                    ? () => setState(() => _secretRevealed = !_secretRevealed)
+                    ? () => setState(() {
+                        if (!_revealedCardFields.add(item.$1)) {
+                          _revealedCardFields.remove(item.$1);
+                        }
+                      })
                     : null,
                 onCopy: () => _copy(text, item.$2),
               ),
