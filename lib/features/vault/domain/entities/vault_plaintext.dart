@@ -804,8 +804,16 @@ abstract final class VaultPlaintextProjector {
             throw VaultPlaintextFormatException('Unknown field $id.');
           }
           final kind = switch (id) {
-            'key.value' || 'credential.password' => 'concealed',
+            'key.value' ||
+            'credential.password' ||
+            'creditCard.cardNumber' ||
+            'creditCard.securityCode' ||
+            'creditCard.pin' => 'concealed',
             'credential.username' => 'text',
+            'creditCard.cardholderName' ||
+            'creditCard.expiryMonth' ||
+            'creditCard.expiryYear' ||
+            'creditCard.billingAddress' => 'text',
             'credential.url' => 'url',
             'credential.totp' => 'totp',
             'notes' => 'multiline',

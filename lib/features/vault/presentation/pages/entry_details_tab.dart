@@ -82,6 +82,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   final _urlController = TextEditingController();
   final _notesController = TextEditingController();
   final _scriptController = TextEditingController();
+  final _cardholderController = TextEditingController();
+  final _cardNumberController = TextEditingController();
+  final _expiryMonthController = TextEditingController();
+  final _expiryYearController = TextEditingController();
+  final _securityCodeController = TextEditingController();
+  final _pinController = TextEditingController();
+  final _billingAddressController = TextEditingController();
 
   EntryType _type = EntryType.credential;
   ScriptInterpreter _interpreter = ScriptInterpreter.bash;
@@ -227,6 +234,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _urlController.dispose();
     _notesController.dispose();
     _scriptController.dispose();
+    _cardholderController.dispose();
+    _cardNumberController.dispose();
+    _expiryMonthController.dispose();
+    _expiryYearController.dispose();
+    _securityCodeController.dispose();
+    _pinController.dispose();
+    _billingAddressController.dispose();
     super.dispose();
   }
 
@@ -321,8 +335,16 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         );
         _refs = ScriptRef.listFromPayload(payload);
       case EntryType.creditCard:
-        _usernameController.text = (payload['cardholderName'] as String?) ?? '';
-        _passwordController.text = (payload['cardNumber'] as String?) ?? '';
+        _cardholderController.text =
+            (payload['cardholderName'] as String?) ?? '';
+        _cardNumberController.text = (payload['cardNumber'] as String?) ?? '';
+        _expiryMonthController.text = (payload['expiryMonth'] as String?) ?? '';
+        _expiryYearController.text = (payload['expiryYear'] as String?) ?? '';
+        _securityCodeController.text =
+            (payload['securityCode'] as String?) ?? '';
+        _pinController.text = (payload['pin'] as String?) ?? '';
+        _billingAddressController.text =
+            (payload['billingAddress'] as String?) ?? '';
     }
   }
 
@@ -444,6 +466,11 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         username: _usernameController.text,
         password: _passwordController.text,
         script: _scriptController.text,
+        cardholderName: _cardholderController.text,
+        cardNumber: _cardNumberController.text,
+        expiryMonth: _expiryMonthController.text,
+        expiryYear: _expiryYearController.text,
+        securityCode: _securityCodeController.text,
       );
 
   Map<String, dynamic> _buildPayload() => EntryFormUtils.buildPayload(
@@ -458,6 +485,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     interpreter: _interpreter,
     refs: _refs,
     credentialTotp: _credentialTotp,
+    cardholderName: _cardholderController.text,
+    cardNumber: _cardNumberController.text,
+    expiryMonth: _expiryMonthController.text,
+    expiryYear: _expiryYearController.text,
+    securityCode: _securityCodeController.text,
+    pin: _pinController.text,
+    billingAddress: _billingAddressController.text,
   );
 
   bool _isDiscoverable(String fieldId) =>
@@ -1270,7 +1304,71 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
             onChanged: (refs) => setState(() => _refs = refs),
           ),
       ],
-      EntryType.creditCard => const [],
+      EntryType.creditCard => [
+        OnboardingTextField(
+          label: l10n.entryCardholderNameLabel,
+          controller: _cardholderController,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryCardNumberLabel,
+          controller: _cardNumberController,
+          obscureText: _valueObscured,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _valueObscured,
+            onPressed: () => setState(() => _valueObscured = !_valueObscured),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryExpiryMonthLabel,
+          controller: _expiryMonthController,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryExpiryYearLabel,
+          controller: _expiryYearController,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entrySecurityCodeLabel,
+          controller: _securityCodeController,
+          obscureText: _passwordObscured,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _passwordObscured,
+            onPressed: () =>
+                setState(() => _passwordObscured = !_passwordObscured),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryPinLabel,
+          controller: _pinController,
+          obscureText: _passwordObscured,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryBillingAddressLabel,
+          controller: _billingAddressController,
+          textInputAction: TextInputAction.next,
+        ),
+      ],
     };
   }
 

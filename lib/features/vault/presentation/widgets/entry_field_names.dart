@@ -22,14 +22,14 @@ List<WellKnownField> wellKnownFieldsFor(EntryType type, AppLocalizations l10n) {
       (wire: 'notes', label: l10n.entryNotesLabel),
     ],
     EntryType.script => const [],
-    EntryType.creditCard => const [
-      (wire: 'cardholderName', label: 'Cardholder name'),
-      (wire: 'cardNumber', label: 'Card number'),
-      (wire: 'expiryMonth', label: 'Expiry month'),
-      (wire: 'expiryYear', label: 'Expiry year'),
-      (wire: 'securityCode', label: 'Security code'),
-      (wire: 'pin', label: 'PIN'),
-      (wire: 'billingAddress', label: 'Billing address'),
+    EntryType.creditCard => [
+      (wire: 'cardholderName', label: l10n.entryCardholderNameLabel),
+      (wire: 'cardNumber', label: l10n.entryCardNumberLabel),
+      (wire: 'expiryMonth', label: l10n.entryExpiryMonthLabel),
+      (wire: 'expiryYear', label: l10n.entryExpiryYearLabel),
+      (wire: 'securityCode', label: l10n.entrySecurityCodeLabel),
+      (wire: 'pin', label: l10n.entryPinLabel),
+      (wire: 'billingAddress', label: l10n.entryBillingAddressLabel),
     ],
   };
 }
