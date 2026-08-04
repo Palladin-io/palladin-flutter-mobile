@@ -304,9 +304,7 @@ final class KeyEntryCreationService {
         },
       },
       for (final field in custom)
-        field.fieldId: type == EntryType.creditCard
-            ? AgentFieldAccess.onGrantRuntime
-            : field.kind == 'totp'
+        field.fieldId: field.kind == 'totp'
             ? AgentFieldAccess.onGrantDerived
             : field.includeInMemberIndex
             ? AgentFieldAccess.discovery
