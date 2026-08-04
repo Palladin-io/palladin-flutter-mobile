@@ -6,6 +6,9 @@ import 'package:dio/dio.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/agent_visibility_policy.dart'
     hide AgentFieldAccess;
+import '../../domain/entities/agent_visibility_policy.dart'
+    as visibility
+    show AgentFieldAccess;
 import '../../domain/entities/member_index_entry.dart';
 import '../../domain/entities/vault_plaintext.dart';
 import '../../../grants/data/datasources/grants_remote_datasource.dart';
@@ -785,7 +788,11 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         Map<String, dynamic>.from(previousPolicy),
         content: snapshot.payload,
       );
-      final policy = agentVisibilityPolicy ?? parsedPreviousPolicy;
+      final policy = _policyForUpdatedContent(
+        type,
+        content,
+        agentVisibilityPolicy ?? parsedPreviousPolicy,
+      );
       final policyJson = policy.toJson();
       final memberSecret = <String, dynamic>{
         'schemaVersion': 1,
@@ -1031,7 +1038,11 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         Map<String, dynamic>.from(previousPolicyValue),
         content: snapshot.payload,
       );
-      final policy = policyOverride ?? previousPolicy;
+      final policy = _policyForUpdatedContent(
+        type,
+        content,
+        policyOverride ?? previousPolicy,
+      );
       final nextAgentLabel =
           agentLabelOverride ??
           snapshot.secret['agentLabel'] as String? ??
@@ -2137,6 +2148,22 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     final nested = value[key];
     if (nested is! Map) throw FormatException('$key must be an object');
     return Map<String, dynamic>.from(nested);
+  }
+
+  AgentVisibilityPolicy _policyForUpdatedContent(
+    EntryType type,
+    Map<String, dynamic> content,
+    AgentVisibilityPolicy policy,
+  ) {
+    if (type != EntryType.creditCard) return policy;
+    final fields = Map<String, visibility.AgentFieldAccess>.from(policy.fields);
+    for (final field in const ['pin', 'billingAddress']) {
+      final value = content[field];
+      fields[field] = value is String && value.isNotEmpty
+          ? visibility.AgentFieldAccess.onGrantRuntime
+          : visibility.AgentFieldAccess.never;
+    }
+    return policy.copyWith(fields: fields);
   }
 
   CanonicalEntryDetailError _classifyDio(DioException error) {
