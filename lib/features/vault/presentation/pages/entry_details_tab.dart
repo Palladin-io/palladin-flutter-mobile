@@ -1413,6 +1413,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
               children: [
                 EntryTypeDropdown(
                   value: _type,
+                  enabled: false,
                   onChanged: (next) {
                     if (next == null || next == _type) return;
                     setState(() {

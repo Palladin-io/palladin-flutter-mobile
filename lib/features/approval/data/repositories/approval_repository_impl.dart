@@ -244,6 +244,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     final grantId = _uuidV4();
     final wire = limit.toWire();
     final methodBits = _methodBits(methods);
+    final submittedMethods = methods.toSet();
     if (methodBits == 0) {
       throw const ApprovalException(ApprovalErrorKind.validation);
     }
@@ -264,8 +265,9 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           final type = EntryTypeExtension.fromWire(
             snapshot.secret['entryType'] as int,
           );
-          if (type == EntryType.creditCard && methodBits != 4) {
-            throw const FormatException('Credit-card grants are Inject-only');
+          final entryMethodBits = type == EntryType.creditCard ? 4 : methodBits;
+          if (type == EntryType.creditCard) {
+            submittedMethods.add(GrantMethod.inject);
           }
           final policy = AgentVisibilityPolicy.fromJson(
             type,
@@ -300,7 +302,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
             memberKeyGeneration: snapshot.entry['memberKeyGeneration'] as int,
             agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
             recipientKeyVersion: recipientKeyVersion,
-            approvedMethods: methodBits,
+            approvedMethods: entryMethodBits,
             deliveryPolicy:
                 type == EntryType.script || type == EntryType.creditCard
                 ? 1
@@ -351,7 +353,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         entries: wrapped,
         expiresAt: wire.expiresAt,
         queryLimit: wire.queryLimit,
-        methods: serializeGrantMethods(methods),
+        methods: serializeGrantMethods(submittedMethods.toList()),
       );
     } on DioException catch (e, s) {
       AppLogger.e(
