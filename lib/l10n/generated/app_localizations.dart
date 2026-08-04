@@ -1484,6 +1484,12 @@ abstract class AppLocalizations {
   /// **'Credential'**
   String get entryTypeCredential;
 
+  /// No description provided for @entryTypeCreditCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit card'**
+  String get entryTypeCreditCard;
+
   /// Label for the entry name input field
   ///
   /// In en, this message translates to:

@@ -518,7 +518,7 @@ final class MemberSyncService implements MemberIndexReader {
       field: 'memberLabel',
     );
     final entryType = json['entryType'];
-    if (entryType is! int || entryType < 0 || entryType > 2) {
+    if (entryType is! int || entryType < 0 || entryType > 3) {
       throw const VaultPlaintextFormatException('Invalid entryType.');
     }
     final rawSearchFields = json['searchFields'];

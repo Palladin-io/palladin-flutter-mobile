@@ -231,6 +231,7 @@
   "entryTypeLabel": "Typ wpisu",
   "entryTypeKey": "Klucz",
   "entryTypeCredential": "Login",
+  "entryTypeCreditCard": "Karta płatnicza",
   "entryLabelLabel": "Etykieta",
   "entryLabelHint": "np. Stripe API Key",
   "entryDescriptionLabel": "Opis",

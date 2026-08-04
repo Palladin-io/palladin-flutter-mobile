@@ -566,6 +566,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       'key' => EntryType.key.toWire(),
       'credential' => EntryType.credential.toWire(),
       'script' => EntryType.script.toWire(),
+      'creditCard' => EntryType.creditCard.toWire(),
       _ => throw const FormatException('Unknown canonical Entry type'),
     };
     final policyFields = <String, dynamic>{};
@@ -584,6 +585,13 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         'script.source' => 'script',
         'script.interpreter' => 'interpreter',
         'script.refs' => 'refs',
+        'creditCard.cardholderName' => 'cardholderName',
+        'creditCard.cardNumber' => 'cardNumber',
+        'creditCard.expiryMonth' => 'expiryMonth',
+        'creditCard.expiryYear' => 'expiryYear',
+        'creditCard.securityCode' => 'securityCode',
+        'creditCard.pin' => 'pin',
+        'creditCard.billingAddress' => 'billingAddress',
         final String id when id.startsWith('custom:') => id.substring(7),
         final String id => id,
       };
@@ -1907,6 +1915,17 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     (VaultEntryType.script, 'script') => 'script.source',
     (VaultEntryType.script, 'interpreter') => 'script.interpreter',
     (VaultEntryType.script, 'refs') => 'script.refs',
+    (VaultEntryType.creditCard, final value)
+        when const {
+          'cardholderName',
+          'cardNumber',
+          'expiryMonth',
+          'expiryYear',
+          'securityCode',
+          'pin',
+          'billingAddress',
+        }.contains(value) =>
+      'creditCard.$value',
     (_, final value)
         when value == 'notes' ||
             value == 'description' ||

@@ -208,6 +208,7 @@ class _ArchiveFilters extends StatelessWidget {
             (EntryType.key.toWire(), l10n.entryTypeKey),
             (EntryType.credential.toWire(), l10n.entryTypeCredential),
             (EntryType.script.toWire(), l10n.entryTypeScript),
+            (EntryType.creditCard.toWire(), l10n.entryTypeCreditCard),
           ])
             ChoiceChip(
               selected: state.typeFilter == option.$1,

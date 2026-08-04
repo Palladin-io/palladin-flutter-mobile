@@ -48,6 +48,10 @@ class EntryTypeDropdown extends StatelessWidget {
           value: EntryType.script,
           child: Text(l10n.entryTypeScript),
         ),
+        DropdownMenuItem(
+          value: EntryType.creditCard,
+          child: Text(l10n.entryTypeCreditCard),
+        ),
       ],
     );
   }

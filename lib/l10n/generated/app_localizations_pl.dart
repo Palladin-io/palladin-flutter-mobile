@@ -873,6 +873,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryTypeCredential => 'Login';
 
   @override
+  String get entryTypeCreditCard => 'Karta płatnicza';
+
+  @override
   String get entryLabelLabel => 'Etykieta';
 
   @override

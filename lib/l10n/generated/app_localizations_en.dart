@@ -856,6 +856,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryTypeCredential => 'Credential';
 
   @override
+  String get entryTypeCreditCard => 'Credit card';
+
+  @override
   String get entryLabelLabel => 'Label';
 
   @override

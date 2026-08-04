@@ -957,6 +957,7 @@
     "description": "Dropdown option for the Key entry type — single secret value"
   },
   "entryTypeCredential": "Credential",
+  "entryTypeCreditCard": "Credit card",
   "@entryTypeCredential": {
     "description": "Dropdown option for the Credential entry type — username + password"
   },
