@@ -593,8 +593,16 @@ final class MemberSecret {
       },
       'creditCard.cardholderName' => {
         AgentFieldAccess.never,
-        AgentFieldAccess.discovery,
-        AgentFieldAccess.onGrantValue,
+        AgentFieldAccess.onGrantRuntime,
+      },
+      'creditCard.cardNumber' ||
+      'creditCard.expiryMonth' ||
+      'creditCard.expiryYear' ||
+      'creditCard.securityCode' ||
+      'creditCard.pin' ||
+      'creditCard.billingAddress' => {
+        AgentFieldAccess.never,
+        AgentFieldAccess.onGrantRuntime,
       },
       'credential.totp' => {
         AgentFieldAccess.never,
@@ -624,7 +632,8 @@ final class MemberSecret {
       'totp' => {AgentFieldAccess.never, AgentFieldAccess.onGrantDerived},
       'text' || 'multiline' || 'concealed' => {
         AgentFieldAccess.never,
-        if (entryType == VaultEntryType.script)
+        if (entryType == VaultEntryType.script ||
+            entryType == VaultEntryType.creditCard)
           AgentFieldAccess.onGrantRuntime
         else
           AgentFieldAccess.onGrantValue,
@@ -857,7 +866,7 @@ abstract final class VaultPlaintextProjector {
         VaultEntryType.key => const ['get'],
         VaultEntryType.credential => const ['get', 'inject'],
         VaultEntryType.script => const ['exec'],
-        VaultEntryType.creditCard => const ['get'],
+        VaultEntryType.creditCard => const ['inject'],
       };
 
   static String _grantKind(MemberSecret secret, String id) => switch (id) {

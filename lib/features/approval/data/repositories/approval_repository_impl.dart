@@ -135,6 +135,9 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           (approvedMethods & requestedMethods) != approvedMethods) {
         throw const FormatException('Approval methods exceed request');
       }
+      if (type == EntryType.creditCard && approvedMethods != 4) {
+        throw const FormatException('Credit-card grants are Inject-only');
+      }
       final wire = limit.toWire();
       final grantPayload = AgentVisibilityProjector.grantPayload(
         type: type,
@@ -259,6 +262,9 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           final type = EntryTypeExtension.fromWire(
             snapshot.secret['entryType'] as int,
           );
+          if (type == EntryType.creditCard && methodBits != 4) {
+            throw const FormatException('Credit-card grants are Inject-only');
+          }
           final policy = AgentVisibilityPolicy.fromJson(
             type,
             Map<String, dynamic>.from(

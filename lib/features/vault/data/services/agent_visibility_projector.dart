@@ -120,6 +120,6 @@ abstract final class AgentVisibilityProjector {
     EntryType.key => const ['get', 'exec'],
     EntryType.credential => const ['get', 'exec', 'inject'],
     EntryType.script => const ['exec'],
-    EntryType.creditCard => const ['get'],
+    EntryType.creditCard => const ['inject'],
   };
 }
