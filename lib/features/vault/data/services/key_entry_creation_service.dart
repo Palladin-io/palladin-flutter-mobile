@@ -165,6 +165,7 @@ final class KeyEntryCreationService {
       final request = CreateEntryV2Request(
         vaultId: vaultId,
         entryId: entryId,
+        entryType: type.toWire(),
         envelopes: envelopes,
       ).toJson();
       try {
@@ -303,7 +304,7 @@ final class KeyEntryCreationService {
             ? AgentFieldAccess.onGrantDerived
             : field.includeInMemberIndex
             ? AgentFieldAccess.discovery
-            : type == EntryType.script
+            : type == EntryType.script || type == EntryType.creditCard
             ? AgentFieldAccess.onGrantRuntime
             : AgentFieldAccess.onGrantValue,
     };

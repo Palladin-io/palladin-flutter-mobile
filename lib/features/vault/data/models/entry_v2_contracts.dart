@@ -18,18 +18,21 @@ final class CreateEntryV2Request {
   const CreateEntryV2Request({
     required this.vaultId,
     required this.entryId,
+    required this.entryType,
     required this.envelopes,
     this.grantEnvelopes = const [],
   });
 
   final String vaultId;
   final String entryId;
+  final int entryType;
   final EntryEnvelopeBundleModel envelopes;
   final List<Map<String, Object?>> grantEnvelopes;
 
   Map<String, Object?> toJson() => {
     'vaultId': vaultId,
     'entryId': entryId,
+    'entryType': entryType,
     'entryKey': envelopes.entryKey,
     'memberIndex': envelopes.memberIndex,
     'memberSecret': envelopes.memberSecret,
