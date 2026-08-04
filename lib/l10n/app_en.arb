@@ -3265,5 +3265,12 @@
   "entryHistorySensitiveWarning": "Historical versions may contain previous passwords and TOTP seeds.",
   "entryHistoryLocked": "Unlock the app to decrypt this version.",
   "settingsTwoFactor": "Two-factor authentication",
-  "@settingsTwoFactor": { "description": "Settings drawer item — set up TOTP two-factor auth" }
+  "@settingsTwoFactor": { "description": "Settings drawer item — set up TOTP two-factor auth" },
+  "entryCardholderNameLabel": "Cardholder name",
+  "entryCardNumberLabel": "Card number",
+  "entryExpiryMonthLabel": "Expiry month",
+  "entryExpiryYearLabel": "Expiry year",
+  "entrySecurityCodeLabel": "Security code",
+  "entryPinLabel": "PIN (optional)",
+  "entryBillingAddressLabel": "Billing address (optional)"
 }

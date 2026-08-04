@@ -94,6 +94,13 @@ class _AddEntryViewState extends State<_AddEntryView> {
   final _urlController = TextEditingController();
   final _notesController = TextEditingController();
   final _scriptController = TextEditingController();
+  final _cardholderController = TextEditingController();
+  final _cardNumberController = TextEditingController();
+  final _expiryMonthController = TextEditingController();
+  final _expiryYearController = TextEditingController();
+  final _securityCodeController = TextEditingController();
+  final _pinController = TextEditingController();
+  final _billingAddressController = TextEditingController();
 
   EntryType _type = EntryType.credential;
   ScriptInterpreter _interpreter = ScriptInterpreter.bash;
@@ -168,6 +175,17 @@ class _AddEntryViewState extends State<_AddEntryView> {
     _passwordController.clear();
     _notesController.clear();
     _scriptController.clear();
+    for (final controller in [
+      _cardholderController,
+      _cardNumberController,
+      _expiryMonthController,
+      _expiryYearController,
+      _securityCodeController,
+      _pinController,
+      _billingAddressController,
+    ]) {
+      controller.clear();
+    }
     _labelController.dispose();
     _descriptionController.dispose();
     _valueController.dispose();
@@ -176,6 +194,17 @@ class _AddEntryViewState extends State<_AddEntryView> {
     _urlController.dispose();
     _notesController.dispose();
     _scriptController.dispose();
+    for (final controller in [
+      _cardholderController,
+      _cardNumberController,
+      _expiryMonthController,
+      _expiryYearController,
+      _securityCodeController,
+      _pinController,
+      _billingAddressController,
+    ]) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -188,6 +217,11 @@ class _AddEntryViewState extends State<_AddEntryView> {
         username: _usernameController.text,
         password: _passwordController.text,
         script: _scriptController.text,
+        cardholderName: _cardholderController.text,
+        cardNumber: _cardNumberController.text,
+        expiryMonth: _expiryMonthController.text,
+        expiryYear: _expiryYearController.text,
+        securityCode: _securityCodeController.text,
       );
 
   /// Loads the vault's key/credential entries so a Script entry can point
@@ -236,6 +270,13 @@ class _AddEntryViewState extends State<_AddEntryView> {
     script: _scriptController.text,
     interpreter: _interpreter,
     refs: _refs,
+    cardholderName: _cardholderController.text,
+    cardNumber: _cardNumberController.text,
+    expiryMonth: _expiryMonthController.text,
+    expiryYear: _expiryYearController.text,
+    securityCode: _securityCodeController.text,
+    pin: _pinController.text,
+    billingAddress: _billingAddressController.text,
   );
 
   Widget _urlField(AppLocalizations l10n, {required bool supportsDiscovery}) =>
@@ -354,6 +395,63 @@ class _AddEntryViewState extends State<_AddEntryView> {
             initial: _refs,
             onChanged: (refs) => setState(() => _refs = refs),
           ),
+      ],
+      EntryType.creditCard => [
+        OnboardingTextField(
+          label: l10n.entryCardholderNameLabel,
+          controller: _cardholderController,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryCardNumberLabel,
+          controller: _cardNumberController,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        Row(
+          children: [
+            Expanded(
+              child: OnboardingTextField(
+                label: l10n.entryExpiryMonthLabel,
+                controller: _expiryMonthController,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.innerGap),
+            Expanded(
+              child: OnboardingTextField(
+                label: l10n.entryExpiryYearLabel,
+                controller: _expiryYearController,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entrySecurityCodeLabel,
+          controller: _securityCodeController,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryPinLabel,
+          controller: _pinController,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryBillingAddressLabel,
+          controller: _billingAddressController,
+        ),
       ],
     };
   }

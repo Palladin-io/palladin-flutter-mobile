@@ -835,6 +835,7 @@ class _EntryIconWidget extends StatelessWidget {
       EntryType.key => choices.first.name,
       EntryType.credential => 'lock',
       EntryType.script => 'terminal',
+      EntryType.creditCard => 'credit_card',
     };
     final choice = choices.firstWhere(
       (c) => c.name == (name ?? EntryVisuals.defaultIconName),

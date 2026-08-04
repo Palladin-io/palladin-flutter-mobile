@@ -90,6 +90,13 @@ abstract final class AgentVisibilityProjector {
         'interpreter',
         'script',
         'refs',
+        'cardholderName',
+        'cardNumber',
+        'expiryMonth',
+        'expiryYear',
+        'securityCode',
+        'pin',
+        'billingAddress',
       ])
         if (content[id] != null) id: content[id],
     };
@@ -113,5 +120,6 @@ abstract final class AgentVisibilityProjector {
     EntryType.key => const ['get', 'exec'],
     EntryType.credential => const ['get', 'exec', 'inject'],
     EntryType.script => const ['exec'],
+    EntryType.creditCard => const ['get', 'exec'],
   };
 }

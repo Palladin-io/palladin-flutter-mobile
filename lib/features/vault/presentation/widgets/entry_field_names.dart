@@ -11,16 +11,25 @@ typedef WellKnownField = ({String wire, String label});
 List<WellKnownField> wellKnownFieldsFor(EntryType type, AppLocalizations l10n) {
   return switch (type) {
     EntryType.key => [
-        (wire: 'value', label: l10n.entryValueLabel),
-        (wire: 'url', label: l10n.entryUrlLabel),
-        (wire: 'notes', label: l10n.entryNotesLabel),
-      ],
+      (wire: 'value', label: l10n.entryValueLabel),
+      (wire: 'url', label: l10n.entryUrlLabel),
+      (wire: 'notes', label: l10n.entryNotesLabel),
+    ],
     EntryType.credential => [
-        (wire: 'username', label: l10n.entryUsernameLabel),
-        (wire: 'password', label: l10n.entryPasswordLabel),
-        (wire: 'url', label: l10n.entryUrlLabel),
-        (wire: 'notes', label: l10n.entryNotesLabel),
-      ],
+      (wire: 'username', label: l10n.entryUsernameLabel),
+      (wire: 'password', label: l10n.entryPasswordLabel),
+      (wire: 'url', label: l10n.entryUrlLabel),
+      (wire: 'notes', label: l10n.entryNotesLabel),
+    ],
     EntryType.script => const [],
+    EntryType.creditCard => const [
+      (wire: 'cardholderName', label: 'Cardholder name'),
+      (wire: 'cardNumber', label: 'Card number'),
+      (wire: 'expiryMonth', label: 'Expiry month'),
+      (wire: 'expiryYear', label: 'Expiry year'),
+      (wire: 'securityCode', label: 'Security code'),
+      (wire: 'pin', label: 'PIN'),
+      (wire: 'billingAddress', label: 'Billing address'),
+    ],
   };
 }

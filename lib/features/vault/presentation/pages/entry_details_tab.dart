@@ -320,6 +320,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
           payload['interpreter'] as String?,
         );
         _refs = ScriptRef.listFromPayload(payload);
+      case EntryType.creditCard:
+        _usernameController.text = (payload['cardholderName'] as String?) ?? '';
+        _passwordController.text = (payload['cardNumber'] as String?) ?? '';
     }
   }
 
@@ -910,6 +913,49 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         }
       case EntryType.script:
         _addScriptFields(addField, payload, l10n, brightness);
+      case EntryType.creditCard:
+        for (final item in <(String, String, IconData, bool)>[
+          (
+            'cardholderName',
+            l10n.entryCardholderNameLabel,
+            Icons.person,
+            false,
+          ),
+          ('cardNumber', l10n.entryCardNumberLabel, Icons.credit_card, true),
+          (
+            'expiryMonth',
+            l10n.entryExpiryMonthLabel,
+            Icons.calendar_month,
+            false,
+          ),
+          (
+            'expiryYear',
+            l10n.entryExpiryYearLabel,
+            Icons.calendar_month,
+            false,
+          ),
+          ('securityCode', l10n.entrySecurityCodeLabel, Icons.lock, true),
+          ('pin', l10n.entryPinLabel, Icons.pin, true),
+          ('billingAddress', l10n.entryBillingAddressLabel, Icons.home, false),
+        ]) {
+          final text = payload[item.$1] as String? ?? '';
+          if (text.isEmpty) continue;
+          addField(
+            _ReadOnlyField(
+              label: item.$2,
+              row: EntryFieldRow(
+                icon: item.$3,
+                value: text,
+                isMasked: item.$4,
+                revealed: !item.$4 || _secretRevealed,
+                onToggleReveal: item.$4
+                    ? () => setState(() => _secretRevealed = !_secretRevealed)
+                    : null,
+                onCopy: () => _copy(text, item.$2),
+              ),
+            ),
+          );
+        }
     }
 
     _addCustomFields(addField, payload, l10n, brightness);
@@ -1224,6 +1270,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
             onChanged: (refs) => setState(() => _refs = refs),
           ),
       ],
+      EntryType.creditCard => const [],
     };
   }
 

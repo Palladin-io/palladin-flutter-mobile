@@ -1706,6 +1706,17 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         notes: content['notes'] as String?,
         customFields: custom,
       ),
+      EntryType.creditCard => CreditCardSecretContent(
+        cardholderName: content['cardholderName'] as String,
+        cardNumber: content['cardNumber'] as String,
+        expiryMonth: content['expiryMonth'] as String,
+        expiryYear: content['expiryYear'] as String,
+        securityCode: content['securityCode'] as String,
+        pin: content['pin'] as String?,
+        billingAddress: content['billingAddress'] as String?,
+        notes: content['notes'] as String?,
+        customFields: custom,
+      ),
     };
     String canonicalId(String id) => switch ((type, id)) {
       (EntryType.key, 'value') => 'key.value',
@@ -1717,6 +1728,17 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       (EntryType.script, 'script') => 'script.source',
       (EntryType.script, 'interpreter') => 'script.interpreter',
       (EntryType.script, 'refs') => 'script.refs',
+      (EntryType.creditCard, final value)
+          when const {
+            'cardholderName',
+            'cardNumber',
+            'expiryMonth',
+            'expiryYear',
+            'securityCode',
+            'pin',
+            'billingAddress',
+          }.contains(value) =>
+        'creditCard.$value',
       (_, final value) when custom.any((field) => field.id == value) =>
         'custom:$value',
       _ => id,

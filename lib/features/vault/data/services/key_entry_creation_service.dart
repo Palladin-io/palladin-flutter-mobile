@@ -92,6 +92,27 @@ final class KeyEntryCreationService {
     discoverDescription: discoverDescription,
   );
 
+  Future<EntryEntity> createCreditCard({
+    required String vaultId,
+    required String label,
+    required String description,
+    required String icon,
+    required Map<String, dynamic> content,
+    required Uint8List memberPrivateKey,
+    bool discoverDescription = false,
+  }) => _create(
+    vaultId: vaultId,
+    label: label,
+    description: description,
+    icon: icon,
+    content: content,
+    memberPrivateKey: memberPrivateKey,
+    type: EntryType.creditCard,
+    exposeUsername: false,
+    exposeDomain: false,
+    discoverDescription: discoverDescription,
+  );
+
   Future<EntryEntity> _create({
     required String vaultId,
     required String label,
@@ -222,6 +243,17 @@ final class KeyEntryCreationService {
         notes: raw['notes'] as String?,
         customFields: custom,
       ),
+      EntryType.creditCard => CreditCardSecretContent(
+        cardholderName: raw['cardholderName'] as String,
+        cardNumber: raw['cardNumber'] as String,
+        expiryMonth: raw['expiryMonth'] as String,
+        expiryYear: raw['expiryYear'] as String,
+        securityCode: raw['securityCode'] as String,
+        pin: raw['pin'] as String?,
+        billingAddress: raw['billingAddress'] as String?,
+        notes: raw['notes'] as String?,
+        customFields: custom,
+      ),
     };
     final fields = <String, AgentFieldAccess>{
       'memberLabel': AgentFieldAccess.never,
@@ -253,6 +285,16 @@ final class KeyEntryCreationService {
           'script.source': AgentFieldAccess.onGrantRuntime,
           'script.interpreter': AgentFieldAccess.discovery,
           'script.refs': AgentFieldAccess.onGrantRuntime,
+          'notes': AgentFieldAccess.onGrantValue,
+        },
+        EntryType.creditCard => {
+          'creditCard.cardholderName': AgentFieldAccess.discovery,
+          'creditCard.cardNumber': AgentFieldAccess.onGrantValue,
+          'creditCard.expiryMonth': AgentFieldAccess.onGrantValue,
+          'creditCard.expiryYear': AgentFieldAccess.onGrantValue,
+          'creditCard.securityCode': AgentFieldAccess.onGrantValue,
+          'creditCard.pin': AgentFieldAccess.onGrantValue,
+          'creditCard.billingAddress': AgentFieldAccess.onGrantValue,
           'notes': AgentFieldAccess.onGrantValue,
         },
       },
@@ -287,6 +329,7 @@ final class KeyEntryCreationService {
       EntryType.key => const {0, 'KEY'},
       EntryType.credential => const {1, 'CREDENTIAL'},
       EntryType.script => const {2, 'SCRIPT'},
+      EntryType.creditCard => const {3, 'CREDIT_CARD'},
     };
     if (!acceptedType.contains(content['type'])) {
       throw const FormatException('Entry content type mismatch');
@@ -294,6 +337,14 @@ final class KeyEntryCreationService {
     if (type == EntryType.credential &&
         (content['username'] is! String || content['password'] is! String)) {
       throw const FormatException('Malformed Credential content');
+    }
+    if (type == EntryType.creditCard &&
+        (content['cardholderName'] is! String ||
+            content['cardNumber'] is! String ||
+            content['expiryMonth'] is! String ||
+            content['expiryYear'] is! String ||
+            content['securityCode'] is! String)) {
+      throw const FormatException('Malformed Credit Card content');
     }
     if (type == EntryType.script) {
       if (content['script'] is! String ||
