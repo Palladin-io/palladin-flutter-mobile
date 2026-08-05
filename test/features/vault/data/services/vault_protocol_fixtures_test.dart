@@ -15,7 +15,7 @@ import 'package:sodium_libs/sodium_libs_sumo.dart';
 import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
 
 const _pinnedManifestSha256 =
-    '899ac3f9a5f9dbb00cae3c53c361ab1af34a27ed88a2bc517cd7891332d0a33c';
+    'b3cbd9bee6a663789fae4047931e411abb3ad0c15fa2204a747be6c09b54fd9e';
 
 final _fixtureRoot = Directory('test/fixtures/vault_protocol_2');
 

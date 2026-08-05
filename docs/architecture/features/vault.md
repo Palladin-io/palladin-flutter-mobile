@@ -10,7 +10,7 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 ### Vault protocol 2 crypto foundation
 
 - `data/services/vault_protocol/` owns the frozen protocol primitives: strict canonical bytes/base64url/UUID validation, binary TLV AAD profiles, HKDF-SHA-256 projection keys, XChaCha20-Poly1305 envelopes, bounded X25519 sealed packages and RFC 8785/Ed25519 signatures. Widgets, Cubits and remote datasources must not reproduce these operations.
-- Native fixture tests consume the byte-for-byte public snapshot in `test/fixtures/vault_protocol_2/`, pinned to `Palladin-io/palladin-protocol` commit `6f39860acc680cec3318e9cdf2eeaeb55be77532` and verified against the manifest's SHA-256 list. `PROVENANCE.md` records the exact public source and digests. Tests always use the vendored snapshot, so no parent repository or network checkout is required.
+- Native fixture tests consume the minimal public snapshot in `test/fixtures/vault_protocol_2/`, pinned to source commit `b370b56e4f65ecf5350bc4f9203fee6429572955` and verified against the manifest's SHA-256 list. `PROVENANCE.md` records the source digests and the single deterministic sanitization of an internal label in synthetic metadata. Tests always use the vendored snapshot, so a parent or private repository checkout is never required.
 - All structural aliases, unsupported versions/suites, wrong scopes, stale Member generations, oversize payloads, malformed canonical encodings and authentication failures fail closed before plaintext reaches presentation state. Service-owned key/plaintext copies are disposed or zeroed in `finally` paths.
 
 ### Encrypted Member sync and local search
