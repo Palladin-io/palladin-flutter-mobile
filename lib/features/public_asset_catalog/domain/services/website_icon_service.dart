@@ -16,7 +16,9 @@ class WebsiteIconService {
     final hostname = PublicHostname.normalize(urlOrHostname);
     if (hostname == null) return null;
     try {
-      return (await _repository.ensureWebsiteIcons([hostname]))[hostname];
+      return (await _repository.ensureWebsiteIcons([
+        hostname,
+      ])).assets[hostname];
     } catch (_) {
       return null;
     }
@@ -40,7 +42,7 @@ class WebsiteIconService {
     final unique = PublicHostname.unique(domains, limit: 10000);
     if (unique.isEmpty) return const {};
     try {
-      return await _repository.ensureWebsiteIcons(unique);
+      return (await _repository.ensureWebsiteIcons(unique)).assets;
     } catch (_) {
       return const {};
     }
@@ -55,27 +57,38 @@ class WebsiteIconService {
   }) async {
     final unique = PublicHostname.unique(domains, limit: 10000);
     final ready = <String, PublicAsset>{};
-    void report() => onProgress?.call(ready.length, unique.length);
+    final failed = <String>{};
+    void report() =>
+        onProgress?.call(ready.length + failed.length, unique.length);
     report();
     if (unique.isEmpty || timeout.inMicroseconds <= 0) return ready;
 
     final stopwatch = Stopwatch()..start();
     while (stopwatch.elapsed < timeout) {
       final unresolved = unique
-          .where((hostname) => !ready.containsKey(hostname))
+          .where(
+            (hostname) =>
+                !ready.containsKey(hostname) && !failed.contains(hostname),
+          )
           .toList(growable: false);
       if (unresolved.isEmpty) break;
       final remaining = timeout - stopwatch.elapsed;
       if (remaining.inMicroseconds <= 0) break;
       try {
-        ready.addAll(
-          await _repository.ensureWebsiteIcons(unresolved).timeout(remaining),
+        final result = await _repository
+            .ensureWebsiteIcons(unresolved)
+            .timeout(remaining);
+        ready.addAll(result.assets);
+        failed.addAll(
+          result.statuses.entries
+              .where((entry) => entry.value == WebsiteIconEnsureStatus.failed)
+              .map((entry) => entry.key),
         );
       } catch (_) {
         // Optional enrichment never blocks the credential save/import.
       }
       report();
-      if (ready.length == unique.length) break;
+      if (ready.length + failed.length == unique.length) break;
       final wait = timeout - stopwatch.elapsed;
       if (wait.inMicroseconds <= 0) break;
       await Future<void>.delayed(wait < pollInterval ? wait : pollInterval);

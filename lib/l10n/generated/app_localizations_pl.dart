@@ -2933,7 +2933,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String importPreparingIcons(int done, int total) {
-    return 'Przygotowywanie ikon… $done z $total';
+    return 'Przygotowywanie ikon… $done z $total (maks. 15 sekund)';
   }
 
   @override

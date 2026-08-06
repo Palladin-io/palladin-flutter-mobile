@@ -23,18 +23,27 @@ class _MockGrantsRepository extends Mock implements GrantsRepository {}
 
 class _CatalogRepository implements PublicAssetRepository {
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
-  ) async => {
-    for (final hostname in hostnames)
-      hostname: PublicAsset(
-        id: '11111111-1111-4111-8111-111111111111',
-        type: 'websiteIcon',
-        name: hostname,
-        revision: 1,
-        deliveryUrl: Uri.parse('https://assets.palladin.io/$hostname.png'),
-      ),
-  };
+  ) async {
+    final assets = {
+      for (final hostname in hostnames)
+        hostname: PublicAsset(
+          id: '11111111-1111-4111-8111-111111111111',
+          type: 'websiteIcon',
+          name: hostname,
+          revision: 1,
+          deliveryUrl: Uri.parse('https://assets.palladin.io/$hostname.png'),
+        ),
+    };
+    return WebsiteIconEnsureResult(
+      assets: assets,
+      statuses: {
+        for (final hostname in assets.keys)
+          hostname: WebsiteIconEnsureStatus.ready,
+      },
+    );
+  }
 
   @override
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
@@ -44,11 +53,11 @@ class _CatalogRepository implements PublicAssetRepository {
 }
 
 class _DelayedCatalogRepository implements PublicAssetRepository {
-  final reservation = Completer<Map<String, PublicAsset>>();
+  final reservation = Completer<WebsiteIconEnsureResult>();
   int calls = 0;
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) {
     calls++;
@@ -306,7 +315,7 @@ void main() {
           privateKey: privateKey,
           untitledLabel: 'Untitled',
         );
-        catalog.reservation.complete({
+        final assets = {
           for (final hostname in ['github.com', 'gitlab.com'])
             hostname: PublicAsset(
               id: '11111111-1111-4111-8111-111111111111',
@@ -317,7 +326,16 @@ void main() {
                 'https://assets.palladin.io/$hostname.png',
               ),
             ),
-        });
+        };
+        catalog.reservation.complete(
+          WebsiteIconEnsureResult(
+            assets: assets,
+            statuses: {
+              for (final hostname in assets.keys)
+                hostname: WebsiteIconEnsureStatus.ready,
+            },
+          ),
+        );
         await Future.wait([first, second]);
 
         expect(catalog.calls, 1);

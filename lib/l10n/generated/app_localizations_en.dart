@@ -2901,7 +2901,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String importPreparingIcons(int done, int total) {
-    return 'Preparing icons… $done of $total';
+    return 'Preparing icons… $done of $total (up to 15 seconds)';
   }
 
   @override

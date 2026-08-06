@@ -226,30 +226,30 @@ class _Repository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => asset;
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
-  ) async => {'example.com': asset};
+  ) async => _ready({'example.com': asset});
 
   @override
   Future<List<PublicAsset>> searchWebsiteIcons(String query) async => [asset];
 }
 
 class _DelayedRepository implements PublicAssetRepository {
-  final _resolutions = <String, Completer<Map<String, PublicAsset>>>{};
+  final _resolutions = <String, Completer<WebsiteIconEnsureResult>>{};
 
   void complete(String hostname, PublicAsset asset) {
-    _resolutions[hostname]!.complete({hostname: asset});
+    _resolutions[hostname]!.complete(_ready({hostname: asset}));
   }
 
   @override
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) {
     final hostname = hostnames.single;
-    return (_resolutions[hostname] ??= Completer<Map<String, PublicAsset>>())
+    return (_resolutions[hostname] ??= Completer<WebsiteIconEnsureResult>())
         .future;
   }
 
@@ -262,13 +262,16 @@ class _HostSwitchRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     final hostname = hostnames.single;
     return hostname == 'first.example'
-        ? {hostname: _Repository.asset}
-        : const {};
+        ? _ready({hostname: _Repository.asset})
+        : WebsiteIconEnsureResult(
+            assets: const {},
+            statuses: {hostname: WebsiteIconEnsureStatus.failed},
+          );
   }
 
   @override
@@ -282,11 +285,11 @@ class _AcquiringRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     calls++;
-    return {hostnames.single: _Repository.asset};
+    return _ready({hostnames.single: _Repository.asset});
   }
 
   @override
@@ -306,13 +309,22 @@ class _StripeRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => asset;
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     expect(hostnames, ['stripe.com']);
-    return {'stripe.com': asset};
+    return _ready({'stripe.com': asset});
   }
 
   @override
   Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
 }
+
+WebsiteIconEnsureResult _ready(Map<String, PublicAsset> assets) =>
+    WebsiteIconEnsureResult(
+      assets: assets,
+      statuses: {
+        for (final hostname in assets.keys)
+          hostname: WebsiteIconEnsureStatus.ready,
+      },
+    );

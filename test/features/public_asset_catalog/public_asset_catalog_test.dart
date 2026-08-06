@@ -91,7 +91,7 @@ void main() {
 
       expect(result.keys, ['ready.example.com']);
       expect(progress.first, (0, 2));
-      expect(progress, contains((1, 2)));
+      expect(progress, contains((2, 2)));
     },
   );
 
@@ -116,7 +116,7 @@ void main() {
       );
       final result = await repository.ensureWebsiteIcons(['example.com']);
       expect(
-        result['example.com']?.deliveryUrl.toString(),
+        result.assets['example.com']?.deliveryUrl.toString(),
         'http://bucket.test/icon.webp',
       );
       expect((dio.httpClientAdapter as _FakeAdapter).requestData, {
@@ -131,7 +131,7 @@ class _ThrowingRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) =>
       throw Exception();
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) => throw Exception();
   @override
@@ -143,11 +143,17 @@ class _RecordingRepository implements PublicAssetRepository {
   final List<List<String>> calls = [];
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     calls.add(hostnames.toList(growable: false));
-    return const {};
+    return WebsiteIconEnsureResult(
+      assets: const {},
+      statuses: {
+        for (final hostname in hostnames)
+          hostname: WebsiteIconEnsureStatus.pending,
+      },
+    );
   }
 
   @override
@@ -161,20 +167,33 @@ class _ReadyOnSecondRequestRepository implements PublicAssetRepository {
   int calls = 0;
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     calls++;
-    if (calls == 1) return const {};
-    return {
-      'ready.example.com': PublicAsset(
-        id: 'ready-id',
-        type: 'websiteIcon',
-        name: 'Ready',
-        revision: 1,
-        deliveryUrl: Uri.parse('https://assets.palladin.io/ready.png'),
-      ),
-    };
+    if (calls == 1) {
+      return WebsiteIconEnsureResult(
+        assets: const {},
+        statuses: {
+          for (final hostname in hostnames)
+            hostname: WebsiteIconEnsureStatus.pending,
+        },
+      );
+    }
+    final asset = PublicAsset(
+      id: 'ready-id',
+      type: 'websiteIcon',
+      name: 'Ready',
+      revision: 1,
+      deliveryUrl: Uri.parse('https://assets.palladin.io/ready.png'),
+    );
+    return WebsiteIconEnsureResult(
+      assets: {'ready.example.com': asset},
+      statuses: {
+        'ready.example.com': WebsiteIconEnsureStatus.ready,
+        'missing.example.com': WebsiteIconEnsureStatus.failed,
+      },
+    );
   }
 
   @override
@@ -206,7 +225,7 @@ class _FakeAdapter implements HttpClientAdapter {
   ) async {
     requestData = options.data;
     return ResponseBody.fromString(
-      '{"items":[{"hostname":"example.com","asset":{"id":"asset-id","type":"websiteIcon","name":"Example","revision":2,"url":"http://bucket.test/icon.webp"}}]}',
+      '{"items":[{"hostname":"example.com","status":"ready","asset":{"id":"asset-id","type":"websiteIcon","name":"Example","revision":2,"url":"http://bucket.test/icon.webp"}}]}',
       200,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],

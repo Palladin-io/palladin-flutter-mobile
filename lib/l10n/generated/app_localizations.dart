@@ -5159,7 +5159,7 @@ abstract class AppLocalizations {
   /// Progress label while imported website icons become ready
   ///
   /// In en, this message translates to:
-  /// **'Preparing icons… {done} of {total}'**
+  /// **'Preparing icons… {done} of {total} (up to 15 seconds)'**
   String importPreparingIcons(int done, int total);
 
   /// Heading on the import success step

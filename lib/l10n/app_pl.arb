@@ -859,7 +859,7 @@
   "importNotesBadge": "Notatki",
   "importAction": "Importuj {count, plural, =1{1 wpis} few{{count} wpisy} many{{count} wpisów} other{{count} wpisu}}",
   "importImporting": "Importowanie… {done} z {total}",
-  "importPreparingIcons": "Przygotowywanie ikon… {done} z {total}",
+  "importPreparingIcons": "Przygotowywanie ikon… {done} z {total} (maks. 15 sekund)",
   "importSuccessTitle": "Import zakończony",
   "importSuccessBody": "{created, plural, =1{Dodano 1 wpis} few{Dodano {created} wpisy} many{Dodano {created} wpisów} other{Dodano {created} wpisu}}, {updated, plural, =1{zaktualizowano 1} other{zaktualizowano {updated}}}",
   "importSuccessSkipped": "Pominięto {count}",
