@@ -40,7 +40,7 @@ class WebsiteIconAutoResolver {
     _timer = Timer(debounce, () => _ensure(hostname, generation));
   }
 
-  /// Cancels the debounce and completes the reservation needed by a save.
+  /// Cancels the debounce and waits briefly for a ready asset needed by save.
   /// A manual icon selection always wins and stale requests remain ignored.
   Future<String?> ensureNow(String input) async {
     if (_manualSelection) return null;
@@ -49,11 +49,17 @@ class WebsiteIconAutoResolver {
     final generation = ++_generation;
     _clearAutomaticIconForChangedHostname(hostname);
     if (hostname == null || _service == null) return null;
-    return _ensure(hostname, generation);
+    return _ensure(hostname, generation, waitForReady: true);
   }
 
-  Future<String?> _ensure(String hostname, int generation) async {
-    final asset = await _service!.ensureOne(hostname);
+  Future<String?> _ensure(
+    String hostname,
+    int generation, {
+    bool waitForReady = false,
+  }) async {
+    final asset = waitForReady
+        ? await _service!.ensureOneWithin(hostname)
+        : await _service!.ensureOne(hostname);
     if (_manualSelection || generation != _generation || asset == null) {
       return null;
     }

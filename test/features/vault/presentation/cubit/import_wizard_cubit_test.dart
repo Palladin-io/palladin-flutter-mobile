@@ -306,7 +306,18 @@ void main() {
           privateKey: privateKey,
           untitledLabel: 'Untitled',
         );
-        catalog.reservation.complete(const {});
+        catalog.reservation.complete({
+          for (final hostname in ['github.com', 'gitlab.com'])
+            hostname: PublicAsset(
+              id: '11111111-1111-4111-8111-111111111111',
+              type: 'websiteIcon',
+              name: hostname,
+              revision: 1,
+              deliveryUrl: Uri.parse(
+                'https://assets.palladin.io/$hostname.png',
+              ),
+            ),
+        });
         await Future.wait([first, second]);
 
         expect(catalog.calls, 1);
@@ -394,8 +405,17 @@ void main() {
         isA<ImportWizardPreview>(),
         isA<ImportWizardImporting>()
             .having((s) => s.done, 'done', 0)
-            .having((s) => s.total, 'total', 2),
-        isA<ImportWizardImporting>().having((s) => s.done, 'done', 2),
+            .having((s) => s.total, 'total', 2)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.icons),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'done', 2)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.icons),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'done', 0)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.entries),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'done', 2)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.entries),
         isA<ImportWizardSuccess>()
             .having((s) => s.createdCount, 'created', 2)
             .having((s) => s.updatedCount, 'updated', 0),
@@ -494,7 +514,17 @@ void main() {
       expect: () => [
         isA<ImportWizardParsing>(),
         isA<ImportWizardPreview>(),
-        isA<ImportWizardImporting>(),
+        isA<ImportWizardImporting>().having(
+          (s) => s.phase,
+          'phase',
+          ImportProgressPhase.icons,
+        ),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'ready icons', 2)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.icons),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'imported entries', 0)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.entries),
         isA<ImportWizardFailure>().having(
           (s) => s.reason,
           'reason',

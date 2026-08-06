@@ -2923,6 +2923,8 @@
   "@importAction": { "description": "Commit button on the import preview", "placeholders": { "count": { "type": "int" } } },
   "importImporting": "Importing… {done} of {total}",
   "@importImporting": { "description": "Progress label during import commit", "placeholders": { "done": { "type": "int" }, "total": { "type": "int" } } },
+  "importPreparingIcons": "Preparing icons… {done} of {total}",
+  "@importPreparingIcons": { "description": "Progress label while imported website icons become ready", "placeholders": { "done": { "type": "int" }, "total": { "type": "int" } } },
   "importSuccessTitle": "Import complete",
   "@importSuccessTitle": { "description": "Heading on the import success step" },
   "importSuccessBody": "{created, plural, =1{1 added} other{{created} added}}, {updated, plural, =1{1 updated} other{{updated} updated}}",

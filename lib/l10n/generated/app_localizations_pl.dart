@@ -2932,6 +2932,11 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
+  String importPreparingIcons(int done, int total) {
+    return 'Przygotowywanie ikon… $done z $total';
+  }
+
+  @override
   String get importSuccessTitle => 'Import zakończony';
 
   @override

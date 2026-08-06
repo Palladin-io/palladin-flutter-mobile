@@ -73,6 +73,28 @@ void main() {
     expect(repository.calls.single.last, 'host-538.example.com');
   });
 
+  test(
+    'bounded ensure reports readiness and returns only ready assets',
+    () async {
+      final repository = _ReadyOnSecondRequestRepository();
+      final progress = <(int, int)>[];
+      final service = WebsiteIconService(
+        repository,
+        pollInterval: const Duration(milliseconds: 5),
+      );
+
+      final result = await service.ensureBatchWithin(
+        ['ready.example.com', 'missing.example.com'],
+        timeout: const Duration(milliseconds: 15),
+        onProgress: (ready, total) => progress.add((ready, total)),
+      );
+
+      expect(result.keys, ['ready.example.com']);
+      expect(progress.first, (0, 2));
+      expect(progress, contains((1, 2)));
+    },
+  );
+
   test('repository splits 539 hosts without dropping the final page', () async {
     final remote = _RecordingRemoteDatasource();
     final repository = PublicAssetRepositoryImpl(remote);
@@ -126,6 +148,33 @@ class _RecordingRepository implements PublicAssetRepository {
   ) async {
     calls.add(hostnames.toList(growable: false));
     return const {};
+  }
+
+  @override
+  Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
+
+  @override
+  Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
+}
+
+class _ReadyOnSecondRequestRepository implements PublicAssetRepository {
+  int calls = 0;
+
+  @override
+  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+    Iterable<String> hostnames,
+  ) async {
+    calls++;
+    if (calls == 1) return const {};
+    return {
+      'ready.example.com': PublicAsset(
+        id: 'ready-id',
+        type: 'websiteIcon',
+        name: 'Ready',
+        revision: 1,
+        deliveryUrl: Uri.parse('https://assets.palladin.io/ready.png'),
+      ),
+    };
   }
 
   @override
