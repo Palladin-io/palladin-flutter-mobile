@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../domain/entities/public_asset.dart';
 import '../domain/services/website_icon_service.dart';
 import '../domain/services/public_hostname.dart';
 
@@ -21,6 +22,7 @@ class WebsiteIconAutoResolver {
   final Duration debounce;
   final Duration previewTimeout;
   Timer? _timer;
+  WebsiteIconPreparationCancellation? _activePreparation;
   int _generation = 0;
   bool _manualSelection = false;
   String? _resolvedHostname;
@@ -30,6 +32,7 @@ class WebsiteIconAutoResolver {
     _resolvedHostname = null;
     _generation++;
     _timer?.cancel();
+    _cancelActivePreparation();
   }
 
   void resolve(String input) {
@@ -37,6 +40,7 @@ class WebsiteIconAutoResolver {
     final hostname = PublicHostname.normalize(input);
     final generation = ++_generation;
     _timer?.cancel();
+    _cancelActivePreparation();
     _clearAutomaticIconForChangedHostname(hostname);
     if (hostname == null || _service == null) return;
     _timer = Timer(debounce, () => _ensure(hostname, generation));
@@ -48,6 +52,7 @@ class WebsiteIconAutoResolver {
     if (_manualSelection) return null;
     final hostname = PublicHostname.normalize(input);
     _timer?.cancel();
+    _cancelActivePreparation();
     final generation = ++_generation;
     _clearAutomaticIconForChangedHostname(hostname);
     if (hostname == null || _service == null) return null;
@@ -59,15 +64,26 @@ class WebsiteIconAutoResolver {
     int generation, {
     bool waitForReady = false,
   }) async {
+    if (generation != _generation) return null;
+    final cancellation = WebsiteIconPreparationCancellation();
+    _activePreparation = cancellation;
     // A newly reserved catalog asset starts as Pending. The live form preview
     // gets a short bounded window to observe Ready instead of stopping after
     // the first response and leaving the default type glyph indefinitely.
-    final asset = await _service!.ensureOneWithin(
-      hostname,
-      timeout: waitForReady
-          ? const Duration(milliseconds: 1500)
-          : previewTimeout,
-    );
+    final PublicAsset? asset;
+    try {
+      asset = await _service!.ensureOneWithin(
+        hostname,
+        timeout: waitForReady
+            ? const Duration(milliseconds: 1500)
+            : previewTimeout,
+        cancellation: cancellation,
+      );
+    } finally {
+      if (identical(_activePreparation, cancellation)) {
+        _activePreparation = null;
+      }
+    }
     if (_manualSelection || generation != _generation || asset == null) {
       return null;
     }
@@ -84,8 +100,14 @@ class WebsiteIconAutoResolver {
     onAutomaticCleared?.call();
   }
 
+  void _cancelActivePreparation() {
+    _activePreparation?.cancel();
+    _activePreparation = null;
+  }
+
   void dispose() {
     _generation++;
     _timer?.cancel();
+    _cancelActivePreparation();
   }
 }

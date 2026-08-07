@@ -150,6 +150,29 @@ void main() {
     },
   );
 
+  test('auto resolver cancels polling for a stale URL', () async {
+    final repository = _AlwaysPendingRepository();
+    final resolver = WebsiteIconAutoResolver(
+      service: WebsiteIconService(
+        repository,
+        pollInterval: const Duration(milliseconds: 5),
+      ),
+      debounce: Duration.zero,
+      previewTimeout: const Duration(seconds: 1),
+      onReference: (_) {},
+      onResolved: (_) {},
+    );
+
+    resolver.resolve('first.example.com');
+    await Future<void>.delayed(const Duration(milliseconds: 2));
+    resolver.resolve('second.example.com');
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+
+    expect(repository.calls['first.example.com'], 1);
+    expect(repository.calls['second.example.com'], greaterThan(1));
+    resolver.dispose();
+  });
+
   test(
     'ensureNow cancels debounce and returns the reference before save',
     () async {
@@ -337,6 +360,28 @@ class _PendingThenReadyRepository implements PublicAssetRepository {
       );
     }
     return _ready({hostname: _Repository.asset});
+  }
+
+  @override
+  Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
+}
+
+class _AlwaysPendingRepository implements PublicAssetRepository {
+  final calls = <String, int>{};
+
+  @override
+  Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
+
+  @override
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
+    Iterable<String> hostnames,
+  ) async {
+    final hostname = hostnames.single;
+    calls.update(hostname, (value) => value + 1, ifAbsent: () => 1);
+    return WebsiteIconEnsureResult(
+      assets: const {},
+      statuses: {hostname: WebsiteIconEnsureStatus.pending},
+    );
   }
 
   @override

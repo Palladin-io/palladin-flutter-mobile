@@ -60,6 +60,21 @@ void main() {
     expect(await service.ensureBatch(['example.com']), isEmpty);
   });
 
+  test(
+    'bounded ensure fails fast when the optional catalog is unavailable',
+    () async {
+      final service = WebsiteIconService(_ThrowingRepository());
+      final stopwatch = Stopwatch()..start();
+
+      final result = await service.ensureBatchWithin([
+        'example.com',
+      ], timeout: const Duration(seconds: 15));
+
+      expect(result, isEmpty);
+      expect(stopwatch.elapsed, lessThan(const Duration(seconds: 1)));
+    },
+  );
+
   test('ensure batch sends all 539 hosts to the repository', () async {
     final repository = _RecordingRepository();
     final service = WebsiteIconService(repository);
