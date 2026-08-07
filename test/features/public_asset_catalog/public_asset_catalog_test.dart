@@ -122,6 +122,18 @@ void main() {
     expect(remote.calls.last.last, 'host-538.example.com');
   });
 
+  test('repository rejects ensure responses that omit a requested host', () {
+    final repository = PublicAssetRepositoryImpl(_OmittingRemoteDatasource());
+
+    expect(
+      () => repository.ensureWebsiteIcons([
+        'first.example.com',
+        'second.example.com',
+      ]),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
   test(
     'repository sends the canonical API type and parses the server contract',
     () async {
@@ -225,8 +237,20 @@ class _RecordingRemoteDatasource extends PublicAssetRemoteDatasource {
   @override
   Future<List<Map<String, dynamic>>> ensure(List<String> hostnames) async {
     calls.add(List.of(hostnames));
-    return const [];
+    return [
+      for (final hostname in hostnames)
+        {'hostname': hostname, 'status': 'pending'},
+    ];
   }
+}
+
+class _OmittingRemoteDatasource extends PublicAssetRemoteDatasource {
+  _OmittingRemoteDatasource() : super(Dio());
+
+  @override
+  Future<List<Map<String, dynamic>>> ensure(List<String> hostnames) async => [
+    {'hostname': hostnames.first, 'status': 'pending'},
+  ];
 }
 
 class _FakeAdapter implements HttpClientAdapter {
