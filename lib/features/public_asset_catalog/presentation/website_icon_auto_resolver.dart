@@ -11,6 +11,7 @@ class WebsiteIconAutoResolver {
     required this.onResolved,
     this.onAutomaticCleared,
     this.debounce = const Duration(milliseconds: 500),
+    this.previewTimeout = const Duration(seconds: 5),
   }) : _service = service;
 
   final WebsiteIconService? _service;
@@ -18,6 +19,7 @@ class WebsiteIconAutoResolver {
   final void Function(String reference) onResolved;
   final void Function()? onAutomaticCleared;
   final Duration debounce;
+  final Duration previewTimeout;
   Timer? _timer;
   int _generation = 0;
   bool _manualSelection = false;
@@ -57,9 +59,15 @@ class WebsiteIconAutoResolver {
     int generation, {
     bool waitForReady = false,
   }) async {
-    final asset = waitForReady
-        ? await _service!.ensureOneWithin(hostname)
-        : await _service!.ensureOne(hostname);
+    // A newly reserved catalog asset starts as Pending. The live form preview
+    // gets a short bounded window to observe Ready instead of stopping after
+    // the first response and leaving the default type glyph indefinitely.
+    final asset = await _service!.ensureOneWithin(
+      hostname,
+      timeout: waitForReady
+          ? const Duration(milliseconds: 1500)
+          : previewTimeout,
+    );
     if (_manualSelection || generation != _generation || asset == null) {
       return null;
     }
