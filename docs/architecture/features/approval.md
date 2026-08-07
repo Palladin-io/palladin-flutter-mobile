@@ -9,7 +9,10 @@ Zero-knowledge grant approval/denial — the crypto-sensitive heart of access co
 - **Pending-list refresh:** shell startup, Home, lifecycle resume, push, and an
   open Inbox share the Cubit's current in-flight list operation. This keeps the
   badge live without issuing overlapping `GET /api/dashboard/pending-grants`
-  requests or replacing a visible list with a second loading transition.
+  requests or replacing a visible list with a second loading transition. A
+  push/resume invalidation or an Inbox action received during that operation
+  queues at most one trailing quiet refresh, and callers that must resolve the
+  new grant await that trailing request.
 
 ### Protocol-2 approval review
 

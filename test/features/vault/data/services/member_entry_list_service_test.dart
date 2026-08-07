@@ -152,4 +152,63 @@ void main() {
 
     verify(() => vaults.getMemberVaultKeyContext('vault')).called(1);
   });
+
+  test(
+    'refreshes stale cached key context once before retrying member sync',
+    () async {
+      contexts.install(
+        vaultId: 'vault',
+        memberVaultKey: const {'encodedSuitePayload': 'old-ciphertext'},
+        memberKeyGeneration: 1,
+      );
+      when(() => vaults.getMemberVaultKeyContext('vault')).thenAnswer(
+        (_) async => {
+          'memberVaultKey': <String, dynamic>{
+            'encodedSuitePayload': 'new-ciphertext',
+          },
+          'memberKeyGeneration': 2,
+        },
+      );
+      when(
+        () => sync.synchronize(
+          vaultId: 'vault',
+          vaultKey: any(named: 'vaultKey'),
+          minimumMemberKeyGeneration: 1,
+        ),
+      ).thenThrow(
+        const MemberVaultKeyContextStaleException(requiredGeneration: 2),
+      );
+      when(
+        () => sync.synchronize(
+          vaultId: 'vault',
+          vaultKey: any(named: 'vaultKey'),
+          minimumMemberKeyGeneration: 2,
+        ),
+      ).thenAnswer(
+        (_) async => const MemberSyncResult(
+          sequence: '2',
+          entryCount: 0,
+          usedSnapshot: false,
+        ),
+      );
+
+      await service.load(vaultId: 'vault', memberPrivateKey: Uint8List(32));
+
+      verify(() => vaults.getMemberVaultKeyContext('vault')).called(1);
+      verify(
+        () => sync.synchronize(
+          vaultId: 'vault',
+          vaultKey: any(named: 'vaultKey'),
+          minimumMemberKeyGeneration: 1,
+        ),
+      ).called(1);
+      verify(
+        () => sync.synchronize(
+          vaultId: 'vault',
+          vaultKey: any(named: 'vaultKey'),
+          minimumMemberKeyGeneration: 2,
+        ),
+      ).called(1);
+    },
+  );
 }

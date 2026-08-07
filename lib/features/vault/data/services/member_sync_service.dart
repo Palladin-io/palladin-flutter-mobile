@@ -25,6 +25,18 @@ final class MemberSyncResult {
   final bool usedSnapshot;
 }
 
+/// Signals that the server returned heads from a newer Member key generation
+/// than the encrypted Vault-key context used for this synchronization.
+///
+/// Callers must fetch a fresh authenticated Member Vault key context and retry
+/// instead of advancing the ciphertext cache with projections that cannot be
+/// authenticated by the stale key.
+final class MemberVaultKeyContextStaleException implements Exception {
+  const MemberVaultKeyContextStaleException({required this.requiredGeneration});
+
+  final int requiredGeneration;
+}
+
 /// Coordinates bounded network sync, ciphertext persistence, and the unlocked
 /// in-memory search index. Call [lock] whenever the Vault session is locked.
 abstract interface class MemberIndexReader {
@@ -230,6 +242,7 @@ final class MemberSyncService implements MemberSyncCoordinator {
             page.items.any((item) => item.isTombstone)) {
           throw const FormatException('Inconsistent Member snapshot');
         }
+        _requireKeyContextCovers(page.items, minimumGeneration);
         final decrypted = await _decryptPage(
           page.items,
           vaultId,
@@ -308,6 +321,7 @@ final class MemberSyncService implements MemberSyncCoordinator {
         throw const FormatException('Non-monotonic Member delta');
       }
       final heads = page.items.where((item) => !item.isTombstone).toList();
+      _requireKeyContextCovers(heads, minimumGeneration);
       final decrypted = await _decryptPage(
         heads,
         vaultId,
@@ -350,6 +364,26 @@ final class MemberSyncService implements MemberSyncCoordinator {
   void _validatePageCount(List<MemberSyncItemModel> items) {
     if (items.length > VaultPerformanceBudget.maximumMemberSyncPageItems) {
       throw const FormatException('Member sync page exceeds item limit');
+    }
+  }
+
+  void _requireKeyContextCovers(
+    Iterable<MemberSyncItemModel> items,
+    int currentGeneration,
+  ) {
+    var requiredGeneration = currentGeneration;
+    for (final item in items) {
+      final descriptor = item.entryKey?['descriptor'];
+      if (descriptor is! Map) continue;
+      final generation = descriptor['memberKeyGeneration'];
+      if (generation is int && generation > requiredGeneration) {
+        requiredGeneration = generation;
+      }
+    }
+    if (requiredGeneration > currentGeneration) {
+      throw MemberVaultKeyContextStaleException(
+        requiredGeneration: requiredGeneration,
+      );
     }
   }
 

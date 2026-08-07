@@ -373,6 +373,81 @@ void main() {
   );
 
   test(
+    'delta with a newer generation fails before advancing ciphertext cache',
+    () async {
+      cache
+        ..appliedSequence = '4'
+        ..heads[_oldId] = _head(_oldId);
+      when(
+        () => remote.delta(
+          vaultId: 'vault',
+          afterSequence: any(named: 'afterSequence'),
+          continuationCursor: any(named: 'continuationCursor'),
+          pageSize: any(named: 'pageSize'),
+        ),
+      ).thenAnswer(
+        (_) async => MemberDeltaSuccess(
+          MemberDeltaPage(
+            deltaUpperBound: '5',
+            appliedThroughSequence: '5',
+            items: [_head(_newId, generation: 2)],
+          ),
+        ),
+      );
+
+      await expectLater(
+        service.synchronize(
+          vaultId: 'vault',
+          vaultKey: Uint8List(32),
+          minimumMemberKeyGeneration: 1,
+        ),
+        throwsA(
+          isA<MemberVaultKeyContextStaleException>().having(
+            (error) => error.requiredGeneration,
+            'requiredGeneration',
+            2,
+          ),
+        ),
+      );
+
+      expect(cache.appliedSequence, '4');
+      expect(cache.deltaApplications, 0);
+      expect(service.entries('vault').single.entryId, _oldId);
+    },
+  );
+
+  test(
+    'snapshot with a newer generation fails before replacing ciphertext cache',
+    () async {
+      when(
+        () => remote.snapshot(
+          vaultId: 'vault',
+          cursor: any(named: 'cursor'),
+          pageSize: any(named: 'pageSize'),
+        ),
+      ).thenAnswer(
+        (_) async => MemberSnapshotPage(
+          snapshotBaseSequence: '1',
+          items: [_head(_newId, generation: 2)],
+        ),
+      );
+
+      await expectLater(
+        service.synchronize(
+          vaultId: 'vault',
+          vaultKey: Uint8List(32),
+          minimumMemberKeyGeneration: 1,
+        ),
+        throwsA(isA<MemberVaultKeyContextStaleException>()),
+      );
+
+      expect(cache.snapshotReplacements, 0);
+      expect(cache.appliedSequence, isNull);
+      expect(service.entries('vault'), isEmpty);
+    },
+  );
+
+  test(
     'corrupt projection is isolated while its ciphertext delta advances',
     () async {
       cache
@@ -616,7 +691,7 @@ Map<String, dynamic> _memberIndex(String label) => {
   'customIndex': const <Object>[],
 };
 
-MemberSyncItemModel _head(String id) {
+MemberSyncItemModel _head(String id, {int generation = 1}) {
   Map<String, dynamic> descriptor(
     int purpose, {
     Map<String, dynamic>? binding,
@@ -634,7 +709,7 @@ MemberSyncItemModel _head(String id) {
     },
     'resourceRevision': '1',
     'keyVersion': 1,
-    'memberKeyGeneration': 1,
+    'memberKeyGeneration': generation,
     'binding': binding ?? <String, dynamic>{},
   };
   return MemberSyncItemModel(

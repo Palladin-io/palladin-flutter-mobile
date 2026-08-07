@@ -25,4 +25,34 @@ void main() {
     expect(cubit.state.status, PendingGrantsStatus.loaded);
     await cubit.close();
   });
+
+  test(
+    'event refresh queues exactly one request after an active load',
+    () async {
+      final repository = _Repository();
+      final first = Completer<List<PendingGrant>>();
+      final trailing = Completer<List<PendingGrant>>();
+      var calls = 0;
+      when(repository.listPendingGrants).thenAnswer((_) {
+        calls += 1;
+        return calls == 1 ? first.future : trailing.future;
+      });
+      final cubit = PendingGrantsCubit(repository: repository);
+
+      final load = cubit.load();
+      final fresh = cubit.refresh(ensureFresh: true);
+      final sameFresh = cubit.refresh(ensureFresh: true);
+
+      expect(identical(fresh, sameFresh), isTrue);
+      first.complete(const []);
+      await load;
+      expect(calls, 2);
+
+      trailing.complete(const []);
+      await Future.wait([fresh, sameFresh]);
+
+      verify(repository.listPendingGrants).called(2);
+      await cubit.close();
+    },
+  );
 }

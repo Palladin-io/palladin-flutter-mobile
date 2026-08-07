@@ -9,7 +9,10 @@ Agent lifecycle: approve pending agents, deactivate, reactivate, edit.
 - **Refresh ownership:** `AgentsCubit` is the single in-memory source for list
   presentation and audit name resolution. Initial load, lifecycle refresh,
   push refresh, and audit resolution share one in-flight list operation; audit
-  falls back to the repository only when no Cubit is supplied.
+  falls back to the repository only when no Cubit is supplied. Ordinary
+  concurrent consumers still share that operation, while a push/resume
+  invalidation received during it queues at most one trailing quiet refresh so
+  a response snapshotted before the event cannot leave the list stale.
 - **Exports:** `AgentAvatar` is reused by `grants` and `notifications`; `AgentStatusBadge` shares its shape with `api_keys`' `ApiKeyStatusBadge` (extract `StatusPill`).
 
 **Cross-feature deps:** consumed by `grants`, `notifications` (which reuse `AgentAvatar` + the approve/deactivate sheets).

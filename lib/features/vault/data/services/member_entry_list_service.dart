@@ -50,35 +50,42 @@ final class MemberEntryListService implements MemberEntryListLoader {
     final generation = _lockGeneration;
     final privateKeyCopy = Uint8List.fromList(memberPrivateKey);
     final core = (() async {
-      Uint8List? vaultKey;
       try {
-        var context = _keyContexts.get(vaultId);
-        if (context == null) {
-          final remoteContext = await _vaults.getMemberVaultKeyContext(vaultId);
-          _requireCurrent(generation);
-          _keyContexts.install(
-            vaultId: vaultId,
-            memberVaultKey:
-                remoteContext['memberVaultKey']! as Map<String, dynamic>,
-            memberKeyGeneration: remoteContext['memberKeyGeneration']! as int,
-          );
-          context = _keyContexts.get(vaultId)!;
+        var currentContext =
+            _keyContexts.get(vaultId) ??
+            await _refreshKeyContext(vaultId, generation);
+        for (var attempt = 0; attempt < 2; attempt += 1) {
+          Uint8List? vaultKey;
+          try {
+            vaultKey = await _keys.openMemberVaultKey(
+              currentContext.memberVaultKey,
+              privateKeyCopy,
+            );
+            _requireCurrent(generation);
+            await _sync.synchronize(
+              vaultId: vaultId,
+              vaultKey: vaultKey,
+              minimumMemberKeyGeneration: currentContext.memberKeyGeneration,
+            );
+            _requireCurrent(generation);
+            return _sync.entries(vaultId);
+          } on MemberVaultKeyContextStaleException catch (error) {
+            if (attempt != 0 ||
+                error.requiredGeneration <=
+                    currentContext.memberKeyGeneration) {
+              rethrow;
+            }
+            currentContext = await _refreshKeyContext(vaultId, generation);
+            if (currentContext.memberKeyGeneration < error.requiredGeneration) {
+              rethrow;
+            }
+          } finally {
+            vaultKey?.fillRange(0, vaultKey.length, 0);
+          }
         }
-        vaultKey = await _keys.openMemberVaultKey(
-          context.memberVaultKey,
-          privateKeyCopy,
-        );
-        _requireCurrent(generation);
-        await _sync.synchronize(
-          vaultId: vaultId,
-          vaultKey: vaultKey,
-          minimumMemberKeyGeneration: context.memberKeyGeneration,
-        );
-        _requireCurrent(generation);
-        return _sync.entries(vaultId);
+        throw StateError('Member key context retry exhausted');
       } finally {
         privateKeyCopy.fillRange(0, privateKeyCopy.length, 0);
-        vaultKey?.fillRange(0, vaultKey.length, 0);
       }
     })();
     late final Future<List<MemberIndexEntry>> operation;
@@ -103,6 +110,20 @@ final class MemberEntryListService implements MemberEntryListLoader {
     if (generation != _lockGeneration) {
       throw const _MemberEntryListInvalidated();
     }
+  }
+
+  Future<MemberVaultKeyContext> _refreshKeyContext(
+    String vaultId,
+    int generation,
+  ) async {
+    final remoteContext = await _vaults.getMemberVaultKeyContext(vaultId);
+    _requireCurrent(generation);
+    _keyContexts.install(
+      vaultId: vaultId,
+      memberVaultKey: remoteContext['memberVaultKey']! as Map<String, dynamic>,
+      memberKeyGeneration: remoteContext['memberKeyGeneration']! as int,
+    );
+    return _keyContexts.get(vaultId)!;
   }
 }
 

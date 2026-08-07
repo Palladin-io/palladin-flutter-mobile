@@ -177,8 +177,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   /// authenticated session so we never hit the API while logged out.
   void _refreshLiveData() {
     if (_authBloc.state is! AuthAuthenticated) return;
-    getIt<AgentsCubit>().refresh();
-    getIt<PendingGrantsCubit>().refresh();
+    getIt<AgentsCubit>().refresh(ensureFresh: true);
+    getIt<PendingGrantsCubit>().refresh(ensureFresh: true);
     getIt<NotificationCenterCubit>().refresh();
   }
 
@@ -190,14 +190,14 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     switch (message.type) {
       case PushNotificationType.agentPending:
       case PushNotificationType.agentApproved:
-        getIt<AgentsCubit>().refresh();
+        getIt<AgentsCubit>().refresh(ensureFresh: true);
       case PushNotificationType.grantPending:
       case PushNotificationType.grantApproved:
       case PushNotificationType.grantRevoked:
         // A grant lifecycle change also touches agents and the pending-grants
         // queue used by Inbox actions.
-        getIt<AgentsCubit>().refresh();
-        getIt<PendingGrantsCubit>().refresh();
+        getIt<AgentsCubit>().refresh(ensureFresh: true);
+        getIt<PendingGrantsCubit>().refresh(ensureFresh: true);
       case PushNotificationType.credentialStale:
         // Inbox already refreshed above; nothing else to sync.
         break;

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/painting.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -26,12 +28,18 @@ class AgentsCubit extends Cubit<AgentsState> {
 
   final AgentsRepository repository;
   Future<void>? _listOperation;
+  bool _trailingRefreshQueued = false;
+  Completer<void>? _freshnessCompleter;
 
   /// Drops all loaded agents and transient error / mutation state back to
   /// the initial state. Call on logout or organization switch so the next
   /// session starts clean — the singleton instance is reused, not recreated.
   void reset() {
     _listOperation = null;
+    _trailingRefreshQueued = false;
+    final freshness = _freshnessCompleter;
+    _freshnessCompleter = null;
+    if (freshness != null && !freshness.isCompleted) freshness.complete();
     emit(const AgentsState());
   }
 
@@ -69,16 +77,36 @@ class AgentsCubit extends Cubit<AgentsState> {
   /// to the tab, on app resume, and on an incoming push, so the list stays
   /// live without a jarring skeleton flash. Falls back to [load] when nothing
   /// has been loaded yet; failures are swallowed (best-effort background sync).
-  Future<void> refresh() => _runList(_refreshOnce);
+  Future<void> refresh({bool ensureFresh = false}) =>
+      _runList(_refreshOnce, ensureFresh: ensureFresh);
 
-  Future<void> _runList(Future<void> Function() action) {
+  Future<void> _runList(
+    Future<void> Function() action, {
+    bool ensureFresh = false,
+  }) {
     final active = _listOperation;
-    if (active != null) return active;
+    if (active != null) {
+      if (!ensureFresh) return active;
+      _trailingRefreshQueued = true;
+      return (_freshnessCompleter ??= Completer<void>()).future;
+    }
+    return _startList(action);
+  }
+
+  Future<void> _startList(Future<void> Function() action) {
+    final core = action();
     late final Future<void> operation;
-    operation = action().whenComplete(() {
-      if (identical(_listOperation, operation)) {
-        _listOperation = null;
+    operation = core.whenComplete(() {
+      if (!identical(_listOperation, operation)) return;
+      _listOperation = null;
+      if (_trailingRefreshQueued) {
+        _trailingRefreshQueued = false;
+        _startList(_refreshOnce);
+        return;
       }
+      final freshness = _freshnessCompleter;
+      _freshnessCompleter = null;
+      if (freshness != null && !freshness.isCompleted) freshness.complete();
     });
     _listOperation = operation;
     return operation;
