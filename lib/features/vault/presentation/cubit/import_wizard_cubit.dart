@@ -60,6 +60,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
   /// index rebuilt on each parse.
   Map<String, EntryEntity> _existingByLabel = const {};
   int _sessionEpoch = 0;
+  WebsiteIconPreparationCancellation? _activeIconPreparation;
 
   /// Parses [bytes] (with an optional [fileName] hint), loads the vault's
   /// current entries, and moves to the preview or manual-mapping step.
@@ -189,21 +190,33 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     // first may overwrite it, or the batch issues two PUTs to one entryId.
     final overwrittenIds = <String>{};
     final iconDomains = selected.map((item) => item.parsed.urlDomain);
-    final publicAssets = websiteIconService != null && iconTotal > 0
-        ? await websiteIconService!.ensureBatchWithin(
-            iconDomains,
-            timeout: _iconWait,
-            onProgress: (ready, total) {
-              if (_isCurrent(epoch)) {
-                _emitImportProgress(
-                  done: ready,
-                  total: total,
-                  phase: ImportProgressPhase.icons,
-                );
-              }
-            },
-          )
-        : const <String, PublicAsset>{};
+    final iconPreparation = websiteIconService != null && iconTotal > 0
+        ? WebsiteIconPreparationCancellation()
+        : null;
+    if (iconPreparation != null) _activeIconPreparation = iconPreparation;
+    final Map<String, PublicAsset> publicAssets;
+    try {
+      publicAssets = iconPreparation != null
+          ? await websiteIconService!.ensureBatchWithin(
+              iconDomains,
+              timeout: _iconWait,
+              cancellation: iconPreparation,
+              onProgress: (ready, total) {
+                if (_isCurrent(epoch)) {
+                  _emitImportProgress(
+                    done: ready,
+                    total: total,
+                    phase: ImportProgressPhase.icons,
+                  );
+                }
+              },
+            )
+          : const <String, PublicAsset>{};
+    } finally {
+      if (identical(_activeIconPreparation, iconPreparation)) {
+        _activeIconPreparation = null;
+      }
+    }
     if (!_isCurrent(epoch)) return;
     for (final item in current.items) {
       if (!item.effectiveIncluded(current.conflictStrategy)) continue;
@@ -404,6 +417,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
 
   void clearSensitiveState() {
     _sessionEpoch++;
+    _cancelIconPreparation();
     _clearPlaintextCaches();
     if (!isClosed) emit(const ImportWizardInitial());
   }
@@ -415,9 +429,15 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
 
   bool _isCurrent(int epoch) => !isClosed && epoch == _sessionEpoch;
 
+  void _cancelIconPreparation() {
+    _activeIconPreparation?.cancel();
+    _activeIconPreparation = null;
+  }
+
   @override
   Future<void> close() {
     _sessionEpoch++;
+    _cancelIconPreparation();
     _clearPlaintextCaches();
     return super.close();
   }
