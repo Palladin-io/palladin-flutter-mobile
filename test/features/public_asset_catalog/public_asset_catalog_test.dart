@@ -60,6 +60,21 @@ void main() {
     expect(await service.ensureBatch(['example.com']), isEmpty);
   });
 
+  test(
+    'bounded ensure fails fast when the optional catalog is unavailable',
+    () async {
+      final service = WebsiteIconService(_ThrowingRepository());
+      final stopwatch = Stopwatch()..start();
+
+      final result = await service.ensureBatchWithin([
+        'example.com',
+      ], timeout: const Duration(seconds: 15));
+
+      expect(result, isEmpty);
+      expect(stopwatch.elapsed, lessThan(const Duration(seconds: 1)));
+    },
+  );
+
   test('ensure batch sends all 539 hosts to the repository', () async {
     final repository = _RecordingRepository();
     final service = WebsiteIconService(repository);
@@ -73,6 +88,28 @@ void main() {
     expect(repository.calls.single.last, 'host-538.example.com');
   });
 
+  test(
+    'bounded ensure reports readiness and returns only ready assets',
+    () async {
+      final repository = _ReadyOnSecondRequestRepository();
+      final progress = <(int, int)>[];
+      final service = WebsiteIconService(
+        repository,
+        pollInterval: const Duration(milliseconds: 5),
+      );
+
+      final result = await service.ensureBatchWithin(
+        ['ready.example.com', 'missing.example.com'],
+        timeout: const Duration(milliseconds: 15),
+        onProgress: (ready, total) => progress.add((ready, total)),
+      );
+
+      expect(result.keys, ['ready.example.com']);
+      expect(progress.first, (0, 2));
+      expect(progress, contains((2, 2)));
+    },
+  );
+
   test('repository splits 539 hosts without dropping the final page', () async {
     final remote = _RecordingRemoteDatasource();
     final repository = PublicAssetRepositoryImpl(remote);
@@ -85,6 +122,18 @@ void main() {
     expect(remote.calls.last.last, 'host-538.example.com');
   });
 
+  test('repository rejects ensure responses that omit a requested host', () {
+    final repository = PublicAssetRepositoryImpl(_OmittingRemoteDatasource());
+
+    expect(
+      () => repository.ensureWebsiteIcons([
+        'first.example.com',
+        'second.example.com',
+      ]),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
   test(
     'repository sends the canonical API type and parses the server contract',
     () async {
@@ -94,7 +143,7 @@ void main() {
       );
       final result = await repository.ensureWebsiteIcons(['example.com']);
       expect(
-        result['example.com']?.deliveryUrl.toString(),
+        result.assets['example.com']?.deliveryUrl.toString(),
         'http://bucket.test/icon.webp',
       );
       expect((dio.httpClientAdapter as _FakeAdapter).requestData, {
@@ -109,7 +158,7 @@ class _ThrowingRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) =>
       throw Exception();
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) => throw Exception();
   @override
@@ -121,11 +170,57 @@ class _RecordingRepository implements PublicAssetRepository {
   final List<List<String>> calls = [];
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     calls.add(hostnames.toList(growable: false));
-    return const {};
+    return WebsiteIconEnsureResult(
+      assets: const {},
+      statuses: {
+        for (final hostname in hostnames)
+          hostname: WebsiteIconEnsureStatus.pending,
+      },
+    );
+  }
+
+  @override
+  Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
+
+  @override
+  Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
+}
+
+class _ReadyOnSecondRequestRepository implements PublicAssetRepository {
+  int calls = 0;
+
+  @override
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
+    Iterable<String> hostnames,
+  ) async {
+    calls++;
+    if (calls == 1) {
+      return WebsiteIconEnsureResult(
+        assets: const {},
+        statuses: {
+          for (final hostname in hostnames)
+            hostname: WebsiteIconEnsureStatus.pending,
+        },
+      );
+    }
+    final asset = PublicAsset(
+      id: 'ready-id',
+      type: 'websiteIcon',
+      name: 'Ready',
+      revision: 1,
+      deliveryUrl: Uri.parse('https://assets.palladin.io/ready.png'),
+    );
+    return WebsiteIconEnsureResult(
+      assets: {'ready.example.com': asset},
+      statuses: {
+        'ready.example.com': WebsiteIconEnsureStatus.ready,
+        'missing.example.com': WebsiteIconEnsureStatus.failed,
+      },
+    );
   }
 
   @override
@@ -142,8 +237,20 @@ class _RecordingRemoteDatasource extends PublicAssetRemoteDatasource {
   @override
   Future<List<Map<String, dynamic>>> ensure(List<String> hostnames) async {
     calls.add(List.of(hostnames));
-    return const [];
+    return [
+      for (final hostname in hostnames)
+        {'hostname': hostname, 'status': 'pending'},
+    ];
   }
+}
+
+class _OmittingRemoteDatasource extends PublicAssetRemoteDatasource {
+  _OmittingRemoteDatasource() : super(Dio());
+
+  @override
+  Future<List<Map<String, dynamic>>> ensure(List<String> hostnames) async => [
+    {'hostname': hostnames.first, 'status': 'pending'},
+  ];
 }
 
 class _FakeAdapter implements HttpClientAdapter {
@@ -157,7 +264,7 @@ class _FakeAdapter implements HttpClientAdapter {
   ) async {
     requestData = options.data;
     return ResponseBody.fromString(
-      '{"items":[{"hostname":"example.com","asset":{"id":"asset-id","type":"websiteIcon","name":"Example","revision":2,"url":"http://bucket.test/icon.webp"}}]}',
+      '{"items":[{"hostname":"example.com","status":"ready","asset":{"id":"asset-id","type":"websiteIcon","name":"Example","revision":2,"url":"http://bucket.test/icon.webp"}}]}',
       200,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],

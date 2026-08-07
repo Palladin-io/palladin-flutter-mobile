@@ -129,6 +129,51 @@ void main() {
   );
 
   test(
+    'auto resolver waits briefly for a pending icon to become ready',
+    () async {
+      final repository = _PendingThenReadyRepository();
+      final resolved = <String>[];
+      final resolver = WebsiteIconAutoResolver(
+        service: WebsiteIconService(repository, pollInterval: Duration.zero),
+        debounce: Duration.zero,
+        previewTimeout: const Duration(seconds: 1),
+        onReference: (_) {},
+        onResolved: resolved.add,
+      );
+
+      resolver.resolve('new.example.com');
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(repository.calls, 2);
+      expect(resolved, [_Repository.asset.reference]);
+      resolver.dispose();
+    },
+  );
+
+  test('auto resolver cancels polling for a stale URL', () async {
+    final repository = _AlwaysPendingRepository();
+    final resolver = WebsiteIconAutoResolver(
+      service: WebsiteIconService(
+        repository,
+        pollInterval: const Duration(milliseconds: 5),
+      ),
+      debounce: Duration.zero,
+      previewTimeout: const Duration(seconds: 1),
+      onReference: (_) {},
+      onResolved: (_) {},
+    );
+
+    resolver.resolve('first.example.com');
+    await Future<void>.delayed(const Duration(milliseconds: 2));
+    resolver.resolve('second.example.com');
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+
+    expect(repository.calls['first.example.com'], 1);
+    expect(repository.calls['second.example.com'], greaterThan(1));
+    resolver.dispose();
+  });
+
+  test(
     'ensureNow cancels debounce and returns the reference before save',
     () async {
       final repository = _AcquiringRepository();
@@ -226,30 +271,30 @@ class _Repository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => asset;
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
-  ) async => {'example.com': asset};
+  ) async => _ready({'example.com': asset});
 
   @override
   Future<List<PublicAsset>> searchWebsiteIcons(String query) async => [asset];
 }
 
 class _DelayedRepository implements PublicAssetRepository {
-  final _resolutions = <String, Completer<Map<String, PublicAsset>>>{};
+  final _resolutions = <String, Completer<WebsiteIconEnsureResult>>{};
 
   void complete(String hostname, PublicAsset asset) {
-    _resolutions[hostname]!.complete({hostname: asset});
+    _resolutions[hostname]!.complete(_ready({hostname: asset}));
   }
 
   @override
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) {
     final hostname = hostnames.single;
-    return (_resolutions[hostname] ??= Completer<Map<String, PublicAsset>>())
+    return (_resolutions[hostname] ??= Completer<WebsiteIconEnsureResult>())
         .future;
   }
 
@@ -262,13 +307,16 @@ class _HostSwitchRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     final hostname = hostnames.single;
     return hostname == 'first.example'
-        ? {hostname: _Repository.asset}
-        : const {};
+        ? _ready({hostname: _Repository.asset})
+        : WebsiteIconEnsureResult(
+            assets: const {},
+            statuses: {hostname: WebsiteIconEnsureStatus.failed},
+          );
   }
 
   @override
@@ -282,11 +330,58 @@ class _AcquiringRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     calls++;
-    return {hostnames.single: _Repository.asset};
+    return _ready({hostnames.single: _Repository.asset});
+  }
+
+  @override
+  Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
+}
+
+class _PendingThenReadyRepository implements PublicAssetRepository {
+  int calls = 0;
+
+  @override
+  Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
+
+  @override
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
+    Iterable<String> hostnames,
+  ) async {
+    calls++;
+    final hostname = hostnames.single;
+    if (calls == 1) {
+      return WebsiteIconEnsureResult(
+        assets: const {},
+        statuses: {hostname: WebsiteIconEnsureStatus.pending},
+      );
+    }
+    return _ready({hostname: _Repository.asset});
+  }
+
+  @override
+  Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
+}
+
+class _AlwaysPendingRepository implements PublicAssetRepository {
+  final calls = <String, int>{};
+
+  @override
+  Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
+
+  @override
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
+    Iterable<String> hostnames,
+  ) async {
+    final hostname = hostnames.single;
+    calls.update(hostname, (value) => value + 1, ifAbsent: () => 1);
+    return WebsiteIconEnsureResult(
+      assets: const {},
+      statuses: {hostname: WebsiteIconEnsureStatus.pending},
+    );
   }
 
   @override
@@ -306,13 +401,22 @@ class _StripeRepository implements PublicAssetRepository {
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => asset;
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     expect(hostnames, ['stripe.com']);
-    return {'stripe.com': asset};
+    return _ready({'stripe.com': asset});
   }
 
   @override
   Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
 }
+
+WebsiteIconEnsureResult _ready(Map<String, PublicAsset> assets) =>
+    WebsiteIconEnsureResult(
+      assets: assets,
+      statuses: {
+        for (final hostname in assets.keys)
+          hostname: WebsiteIconEnsureStatus.ready,
+      },
+    );

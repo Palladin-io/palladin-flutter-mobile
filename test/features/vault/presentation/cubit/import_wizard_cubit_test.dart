@@ -23,18 +23,27 @@ class _MockGrantsRepository extends Mock implements GrantsRepository {}
 
 class _CatalogRepository implements PublicAssetRepository {
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
-  ) async => {
-    for (final hostname in hostnames)
-      hostname: PublicAsset(
-        id: '11111111-1111-4111-8111-111111111111',
-        type: 'websiteIcon',
-        name: hostname,
-        revision: 1,
-        deliveryUrl: Uri.parse('https://assets.palladin.io/$hostname.png'),
-      ),
-  };
+  ) async {
+    final assets = {
+      for (final hostname in hostnames)
+        hostname: PublicAsset(
+          id: '11111111-1111-4111-8111-111111111111',
+          type: 'websiteIcon',
+          name: hostname,
+          revision: 1,
+          deliveryUrl: Uri.parse('https://assets.palladin.io/$hostname.png'),
+        ),
+    };
+    return WebsiteIconEnsureResult(
+      assets: assets,
+      statuses: {
+        for (final hostname in assets.keys)
+          hostname: WebsiteIconEnsureStatus.ready,
+      },
+    );
+  }
 
   @override
   Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
@@ -44,11 +53,11 @@ class _CatalogRepository implements PublicAssetRepository {
 }
 
 class _DelayedCatalogRepository implements PublicAssetRepository {
-  final reservation = Completer<Map<String, PublicAsset>>();
+  final reservation = Completer<WebsiteIconEnsureResult>();
   int calls = 0;
 
   @override
-  Future<Map<String, PublicAsset>> ensureWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) {
     calls++;
@@ -306,7 +315,27 @@ void main() {
           privateKey: privateKey,
           untitledLabel: 'Untitled',
         );
-        catalog.reservation.complete(const {});
+        final assets = {
+          for (final hostname in ['github.com', 'gitlab.com'])
+            hostname: PublicAsset(
+              id: '11111111-1111-4111-8111-111111111111',
+              type: 'websiteIcon',
+              name: hostname,
+              revision: 1,
+              deliveryUrl: Uri.parse(
+                'https://assets.palladin.io/$hostname.png',
+              ),
+            ),
+        };
+        catalog.reservation.complete(
+          WebsiteIconEnsureResult(
+            assets: assets,
+            statuses: {
+              for (final hostname in assets.keys)
+                hostname: WebsiteIconEnsureStatus.ready,
+            },
+          ),
+        );
         await Future.wait([first, second]);
 
         expect(catalog.calls, 1);
@@ -325,6 +354,39 @@ void main() {
         await cubit.close();
       },
     );
+
+    test('lock cancels icon preparation and releases import promptly', () async {
+      when(() => repository.listEntries(any())).thenAnswer((_) async => []);
+      final catalog = _DelayedCatalogRepository();
+      final cubit = build(catalogRepository: catalog);
+      await cubit.parseBytes(_bytes(csv));
+
+      final importing = cubit.import(
+        privateKey: privateKey,
+        untitledLabel: 'Untitled',
+      );
+      while (catalog.calls == 0) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      cubit.clearSensitiveState();
+      await importing.timeout(const Duration(seconds: 1));
+
+      expect(cubit.state, isA<ImportWizardInitial>());
+      verifyNever(
+        () => repository.importEntriesEncrypted(
+          vaultId: any(named: 'vaultId'),
+          format: any(named: 'format'),
+          creates: any(named: 'creates'),
+          overwrites: any(named: 'overwrites'),
+          privateKey: any(named: 'privateKey'),
+          wrappedVK: any(named: 'wrappedVK'),
+          chunkSize: any(named: 'chunkSize'),
+          onProgress: any(named: 'onProgress'),
+        ),
+      );
+      await cubit.close();
+    });
 
     test('lock during upload suppresses progress and late success', () async {
       when(() => repository.listEntries(any())).thenAnswer((_) async => []);
@@ -394,8 +456,17 @@ void main() {
         isA<ImportWizardPreview>(),
         isA<ImportWizardImporting>()
             .having((s) => s.done, 'done', 0)
-            .having((s) => s.total, 'total', 2),
-        isA<ImportWizardImporting>().having((s) => s.done, 'done', 2),
+            .having((s) => s.total, 'total', 2)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.icons),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'done', 2)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.icons),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'done', 0)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.entries),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'done', 2)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.entries),
         isA<ImportWizardSuccess>()
             .having((s) => s.createdCount, 'created', 2)
             .having((s) => s.updatedCount, 'updated', 0),
@@ -494,7 +565,17 @@ void main() {
       expect: () => [
         isA<ImportWizardParsing>(),
         isA<ImportWizardPreview>(),
-        isA<ImportWizardImporting>(),
+        isA<ImportWizardImporting>().having(
+          (s) => s.phase,
+          'phase',
+          ImportProgressPhase.icons,
+        ),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'ready icons', 2)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.icons),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'imported entries', 0)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.entries),
         isA<ImportWizardFailure>().having(
           (s) => s.reason,
           'reason',
