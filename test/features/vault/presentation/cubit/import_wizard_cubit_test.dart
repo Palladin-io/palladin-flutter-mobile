@@ -355,6 +355,39 @@ void main() {
       },
     );
 
+    test('lock cancels icon preparation and releases import promptly', () async {
+      when(() => repository.listEntries(any())).thenAnswer((_) async => []);
+      final catalog = _DelayedCatalogRepository();
+      final cubit = build(catalogRepository: catalog);
+      await cubit.parseBytes(_bytes(csv));
+
+      final importing = cubit.import(
+        privateKey: privateKey,
+        untitledLabel: 'Untitled',
+      );
+      while (catalog.calls == 0) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      cubit.clearSensitiveState();
+      await importing.timeout(const Duration(seconds: 1));
+
+      expect(cubit.state, isA<ImportWizardInitial>());
+      verifyNever(
+        () => repository.importEntriesEncrypted(
+          vaultId: any(named: 'vaultId'),
+          format: any(named: 'format'),
+          creates: any(named: 'creates'),
+          overwrites: any(named: 'overwrites'),
+          privateKey: any(named: 'privateKey'),
+          wrappedVK: any(named: 'wrappedVK'),
+          chunkSize: any(named: 'chunkSize'),
+          onProgress: any(named: 'onProgress'),
+        ),
+      );
+      await cubit.close();
+    });
+
     test('lock during upload suppresses progress and late success', () async {
       when(() => repository.listEntries(any())).thenAnswer((_) async => []);
       final upload = Completer<ImportResult>();
