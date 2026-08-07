@@ -29,6 +29,8 @@ class PublicAssetRepositoryImpl implements PublicAssetRepository {
     for (var offset = 0; offset < normalized.length; offset += 500) {
       final end = (offset + 500).clamp(0, normalized.length);
       final page = normalized.sublist(offset, end);
+      final expectedHostnames = page.toSet();
+      final returnedHostnames = <String>{};
       final rows = await _remote.ensure(page);
       for (final row in rows) {
         final hostname = PublicHostname.normalize(row['hostname'] as String?);
@@ -45,11 +47,18 @@ class PublicAssetRepositoryImpl implements PublicAssetRepository {
           assetValue is Map ? Map<String, dynamic>.from(assetValue) : row,
         );
         if (hostname == null ||
+            !expectedHostnames.contains(hostname) ||
+            !returnedHostnames.add(hostname) ||
             (status == WebsiteIconEnsureStatus.ready) != (asset != null)) {
           throw const FormatException('Malformed website icon ensure item');
         }
         statuses[hostname] = status;
         if (asset != null) assets[hostname] = asset;
+      }
+      if (returnedHostnames.length != expectedHostnames.length) {
+        throw const FormatException(
+          'Website icon ensure response omitted a requested hostname',
+        );
       }
     }
     return WebsiteIconEnsureResult(assets: assets, statuses: statuses);
