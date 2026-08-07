@@ -42,8 +42,11 @@ class PendingGrantsCubit extends Cubit<PendingGrantsState> {
     : super(const PendingGrantsState());
 
   final ApprovalRepository repository;
+  Future<void>? _listOperation;
 
-  Future<void> load() async {
+  Future<void> load() => _runList(_load);
+
+  Future<void> _load() async {
     emit(state.copyWith(status: PendingGrantsStatus.loading, clearError: true));
     try {
       final grants = await repository.listPendingGrants();
@@ -71,7 +74,9 @@ class PendingGrantsCubit extends Cubit<PendingGrantsState> {
   /// Quiet refetch that never flips to a loading/skeleton state and swallows
   /// errors — used to keep the nav badge live (from the shell, on SignalR
   /// pushes, on resume / tab taps) without disturbing an open inbox list.
-  Future<void> refresh() async {
+  Future<void> refresh() => _runList(_refresh);
+
+  Future<void> _refresh() async {
     try {
       final grants = await repository.listPendingGrants();
       emit(
@@ -84,6 +89,17 @@ class PendingGrantsCubit extends Cubit<PendingGrantsState> {
     } catch (e) {
       AppLogger.w('Approval', 'pending refresh failed (quiet): $e');
     }
+  }
+
+  Future<void> _runList(Future<void> Function() action) {
+    final active = _listOperation;
+    if (active != null) return active;
+    late final Future<void> operation;
+    operation = action().whenComplete(() {
+      if (identical(_listOperation, operation)) _listOperation = null;
+    });
+    _listOperation = operation;
+    return operation;
   }
 
   /// Removes a grant from the in-memory list after it was approved/denied

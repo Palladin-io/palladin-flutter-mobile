@@ -25,14 +25,20 @@ class AgentsCubit extends Cubit<AgentsState> {
   AgentsCubit({required this.repository}) : super(const AgentsState());
 
   final AgentsRepository repository;
+  Future<void>? _listOperation;
 
   /// Drops all loaded agents and transient error / mutation state back to
   /// the initial state. Call on logout or organization switch so the next
   /// session starts clean — the singleton instance is reused, not recreated.
-  void reset() => emit(const AgentsState());
+  void reset() {
+    _listOperation = null;
+    emit(const AgentsState());
+  }
 
   /// Fetches the agents list — called once on screen mount.
-  Future<void> load() async {
+  Future<void> load() => _runList(_load);
+
+  Future<void> _load() async {
     AppLogger.d('Agents', 'Loading agents');
     emit(state.copyWith(status: AgentsStatus.loading, clearError: true));
     try {
@@ -63,10 +69,26 @@ class AgentsCubit extends Cubit<AgentsState> {
   /// to the tab, on app resume, and on an incoming push, so the list stays
   /// live without a jarring skeleton flash. Falls back to [load] when nothing
   /// has been loaded yet; failures are swallowed (best-effort background sync).
-  Future<void> refresh() async {
+  Future<void> refresh() => _runList(_refreshOnce);
+
+  Future<void> _runList(Future<void> Function() action) {
+    final active = _listOperation;
+    if (active != null) return active;
+    late final Future<void> operation;
+    operation = action().whenComplete(() {
+      if (identical(_listOperation, operation)) {
+        _listOperation = null;
+      }
+    });
+    _listOperation = operation;
+    return operation;
+  }
+
+  Future<void> _refreshOnce() async {
     if (state.status == AgentsStatus.initial ||
         state.status == AgentsStatus.error) {
-      return load();
+      await _load();
+      return;
     }
     AppLogger.d('Agents', 'Refreshing agents (quiet)');
     try {

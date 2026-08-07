@@ -1,5 +1,6 @@
 import '../../../core/utils/app_logger.dart';
 import '../../agents/domain/repositories/agents_repository.dart';
+import '../../agents/presentation/bloc/agents_cubit.dart';
 import '../../vault/data/services/member_sync_service.dart';
 import '../../vault/domain/entities/vault_entity.dart';
 import '../../vault/domain/repositories/vault_members_repository.dart';
@@ -36,6 +37,11 @@ abstract interface class AuditPresentationResolver {
     String? scopedVaultId,
   });
 
+  Future<AuditPresentationNames> resolveEntryNames(
+    List<AuditLogEntry> page, {
+    required String scopedVaultId,
+  });
+
   List<AuditLogEntry> applyNames(
     List<AuditLogEntry> page,
     AuditPresentationNames names,
@@ -46,15 +52,18 @@ final class LocalAuditPresentationResolver
     implements AuditPresentationResolver {
   const LocalAuditPresentationResolver({
     required AgentsRepository agentsRepository,
+    AgentsCubit? agentsCubit,
     required VaultListCubit vaultListCubit,
     required VaultMembersRepository vaultMembersRepository,
     required MemberIndexReader memberIndex,
   }) : _agentsRepository = agentsRepository,
+       _agentsCubit = agentsCubit,
        _vaultListCubit = vaultListCubit,
        _vaultMembersRepository = vaultMembersRepository,
        _memberIndex = memberIndex;
 
   final AgentsRepository _agentsRepository;
+  final AgentsCubit? _agentsCubit;
   final VaultListCubit _vaultListCubit;
   final VaultMembersRepository _vaultMembersRepository;
   final MemberIndexReader _memberIndex;
@@ -65,12 +74,12 @@ final class LocalAuditPresentationResolver
     String? scopedVaultId,
   }) async {
     if (page.isEmpty) return const AuditPresentationNames();
-    final agents = await _resolveAgentNames();
-    final vaults = _resolveVaultNames();
     final requestedAgentIds = page
         .map((entry) => entry.agentId)
         .whereType<String>()
         .toSet();
+    final agents = await _resolveAgentNames(requestedAgentIds);
+    final vaults = _resolveVaultNames();
     final scopedAgents = Map.fromEntries(
       agents.entries.where((entry) => requestedAgentIds.contains(entry.key)),
     );
@@ -93,16 +102,7 @@ final class LocalAuditPresentationResolver
           .whereType<String>()
           .toSet();
       if (requestedEntryIds.isNotEmpty) {
-        try {
-          await _memberIndex.waitForCurrent(vaultId);
-          for (final entry in _memberIndex.entries(vaultId)) {
-            if (!entry.corrupt && requestedEntryIds.contains(entry.entryId)) {
-              entries[entry.entryId] = entry.memberLabel;
-            }
-          }
-        } catch (_) {
-          AppLogger.w('Audit', 'Local entry-name resolution failed');
-        }
+        entries.addAll(await _resolveEntryNames(vaultId, requestedEntryIds));
       }
       final requestedMemberIds = page
           .where((entry) => entry.vaultId == vaultId)
@@ -130,6 +130,22 @@ final class LocalAuditPresentationResolver
       vaults: scopedVaults,
       entries: entries,
       members: members,
+    );
+  }
+
+  @override
+  Future<AuditPresentationNames> resolveEntryNames(
+    List<AuditLogEntry> page, {
+    required String scopedVaultId,
+  }) async {
+    final requestedEntryIds = page
+        .where((entry) => entry.vaultId == scopedVaultId)
+        .map((entry) => entry.entryId)
+        .whereType<String>()
+        .toSet();
+    if (requestedEntryIds.isEmpty) return const AuditPresentationNames();
+    return AuditPresentationNames(
+      entries: await _resolveEntryNames(scopedVaultId, requestedEntryIds),
     );
   }
 
@@ -175,16 +191,43 @@ final class LocalAuditPresentationResolver
       })
       .toList(growable: false);
 
-  Future<Map<String, String>> _resolveAgentNames() async {
+  Future<Map<String, String>> _resolveAgentNames(
+    Set<String> requestedAgentIds,
+  ) async {
+    if (requestedAgentIds.isEmpty) return const {};
     try {
-      final agents = await _agentsRepository.listAgents();
+      final cubit = _agentsCubit;
+      if (cubit != null && cubit.state.status != AgentsStatus.loaded) {
+        await cubit.refresh();
+      }
+      final agents =
+          cubit?.state.agents ?? await _agentsRepository.listAgents();
       return {
         for (final agent in agents)
-          if (agent.name != null && agent.name!.trim().isNotEmpty)
+          if (requestedAgentIds.contains(agent.agentId) &&
+              agent.name != null &&
+              agent.name!.trim().isNotEmpty)
             agent.agentId: agent.name!.trim(),
       };
     } catch (_) {
       AppLogger.w('Audit', 'Local agent-name resolution failed');
+      return const {};
+    }
+  }
+
+  Future<Map<String, String>> _resolveEntryNames(
+    String vaultId,
+    Set<String> requestedEntryIds,
+  ) async {
+    try {
+      await _memberIndex.waitForCurrent(vaultId);
+      return {
+        for (final entry in _memberIndex.entries(vaultId))
+          if (!entry.corrupt && requestedEntryIds.contains(entry.entryId))
+            entry.entryId: entry.memberLabel,
+      };
+    } catch (_) {
+      AppLogger.w('Audit', 'Local entry-name resolution failed');
       return const {};
     }
   }

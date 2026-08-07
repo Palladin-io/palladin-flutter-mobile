@@ -7,6 +7,7 @@ import '../../domain/entities/vault_entity.dart';
 import '../../domain/exceptions/vault_exceptions.dart';
 import '../../domain/repositories/vault_repository.dart';
 import '../../data/services/vault_list_crypto_service.dart';
+import '../../data/services/member_index_preparation_service.dart';
 import 'vault_list_state.dart';
 
 export 'vault_list_state.dart';
@@ -22,17 +23,39 @@ export 'vault_list_state.dart';
 ///
 /// All errors surface as [VaultListError] carrying a typed
 /// [VaultErrorKind] so the UI can render a localized message.
-class VaultListCubit extends Cubit<VaultListState> {
+class VaultListCubit extends Cubit<VaultListState>
+    implements MemberVaultListLoader {
   VaultListCubit({required this.repository, required this.listService})
     : super(const VaultListInitial());
 
   final VaultRepository repository;
   final VaultListCryptoService listService;
   int _loadGeneration = 0;
+  Future<void>? _loadIfNeededOperation;
 
-  Future<void> loadIfNeeded(Uint8List? privateKey) async {
-    if (state is VaultListLoaded) return;
-    await loadVaults(privateKey);
+  Future<void> loadIfNeeded(Uint8List? privateKey) {
+    if (state is VaultListLoaded) return Future<void>.value();
+    final active = _loadIfNeededOperation;
+    if (active != null) return active;
+    late final Future<void> operation;
+    operation = loadVaults(privateKey).whenComplete(() {
+      if (identical(_loadIfNeededOperation, operation)) {
+        _loadIfNeededOperation = null;
+      }
+    });
+    _loadIfNeededOperation = operation;
+    return operation;
+  }
+
+  @override
+  Future<List<VaultEntity>> loadForMemberIndex(
+    Uint8List memberPrivateKey,
+  ) async {
+    await loadIfNeeded(memberPrivateKey);
+    return switch (state) {
+      VaultListLoaded(:final vaults) => List<VaultEntity>.unmodifiable(vaults),
+      _ => const <VaultEntity>[],
+    };
   }
 
   void appendVault(VaultEntity vault) {
@@ -92,6 +115,8 @@ class VaultListCubit extends Cubit<VaultListState> {
   /// Drops every decrypted display value as soon as the screen locks.
   void lock() {
     _loadGeneration++;
+    _loadIfNeededOperation = null;
+    listService.lock();
     emit(const VaultListLocked());
   }
 

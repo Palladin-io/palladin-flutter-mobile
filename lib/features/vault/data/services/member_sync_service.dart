@@ -33,7 +33,17 @@ abstract interface class MemberIndexReader {
   List<MemberIndexEntry> entries(String vaultId);
 }
 
-final class MemberSyncService implements MemberIndexReader {
+abstract interface class MemberSyncCoordinator implements MemberIndexReader {
+  Future<MemberSyncResult> synchronize({
+    required String vaultId,
+    required Uint8List vaultKey,
+    required int minimumMemberKeyGeneration,
+  });
+
+  void lock();
+}
+
+final class MemberSyncService implements MemberSyncCoordinator {
   MemberSyncService({
     required MemberSyncRemote remote,
     required MemberSyncCache cache,
@@ -67,6 +77,7 @@ final class MemberSyncService implements MemberIndexReader {
   Stream<String> get indexUpdates => _indexUpdates.stream;
 
   /// Synchronizes one Vault. Concurrent callers for the same Vault share work.
+  @override
   Future<MemberSyncResult> synchronize({
     required String vaultId,
     required Uint8List vaultKey,
@@ -80,34 +91,45 @@ final class MemberSyncService implements MemberIndexReader {
     final active = _running[vaultId];
     if (active != null) return active;
     final generation = _lockGeneration;
+    final core = _synchronizeOnce(
+      vaultId: vaultId,
+      vaultKey: vaultKey,
+      minimumMemberKeyGeneration: minimumMemberKeyGeneration,
+      generation: generation,
+    );
     late final Future<MemberSyncResult> operation;
-    operation = (() async {
-      try {
-        final sequence = await _cache.sequence(vaultId);
-        _requireCurrent(generation);
-        if (sequence == null) {
-          return _snapshot(
-            vaultId,
-            vaultKey,
-            minimumMemberKeyGeneration,
-            generation,
-          );
-        }
-        return _delta(
-          vaultId,
-          sequence,
-          vaultKey,
-          minimumMemberKeyGeneration,
-          generation,
-        );
-      } finally {
-        if (identical(_running[vaultId], operation)) {
-          _running.remove(vaultId);
-        }
+    operation = core.whenComplete(() {
+      if (identical(_running[vaultId], operation)) {
+        _running.remove(vaultId);
       }
-    })();
+    });
     _running[vaultId] = operation;
     return operation;
+  }
+
+  Future<MemberSyncResult> _synchronizeOnce({
+    required String vaultId,
+    required Uint8List vaultKey,
+    required int minimumMemberKeyGeneration,
+    required int generation,
+  }) async {
+    final sequence = await _cache.sequence(vaultId);
+    _requireCurrent(generation);
+    if (sequence == null) {
+      return _snapshot(
+        vaultId,
+        vaultKey,
+        minimumMemberKeyGeneration,
+        generation,
+      );
+    }
+    return _delta(
+      vaultId,
+      sequence,
+      vaultKey,
+      minimumMemberKeyGeneration,
+      generation,
+    );
   }
 
   /// Rebuilds the runtime index from the last complete ciphertext snapshot.
@@ -181,6 +203,7 @@ final class MemberSyncService implements MemberIndexReader {
       List.unmodifiable(_indexes[vaultId]?.values ?? const []);
 
   /// Drops every decrypted projection immediately on lock/session loss.
+  @override
   void lock() {
     _lockGeneration++;
     _running.clear();
@@ -235,9 +258,16 @@ final class MemberSyncService implements MemberIndexReader {
     _requireCurrent(generation);
     _indexes[vaultId] = stagedIndex;
     _publishIndexUpdate(vaultId);
+    final closed = await _delta(
+      vaultId,
+      baseSequence,
+      vaultKey,
+      minimumGeneration,
+      generation,
+    );
     return MemberSyncResult(
-      sequence: baseSequence,
-      entryCount: stagedIndex.length,
+      sequence: closed.sequence,
+      entryCount: closed.entryCount,
       usedSnapshot: true,
     );
   }
@@ -285,7 +315,13 @@ final class MemberSyncService implements MemberIndexReader {
         minimumGeneration,
       );
       _requireCurrent(generation);
-      await _cache.applyDelta(vaultId, page.appliedThroughSequence, page.items);
+      if (page.items.isNotEmpty || page.appliedThroughSequence != applied) {
+        await _cache.applyDelta(
+          vaultId,
+          page.appliedThroughSequence,
+          page.items,
+        );
+      }
       _requireCurrent(generation);
       final index = _indexes[vaultId]!;
       for (final item in page.items.where((item) => item.isTombstone)) {

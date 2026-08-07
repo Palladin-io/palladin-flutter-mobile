@@ -6,6 +6,10 @@ Agent lifecycle: approve pending agents, deactivate, reactivate, edit.
 - **Pages:** `AgentsPage` (responsive split view at a 720px breakpoint), `AgentDetailPage`.
 - **Widgets:** `AgentCard`, `AgentAvatar`, `AgentStatusBadge`, `AgentDetailBody`, `AgentEditForm`, `ApproveAgentSheet`, `DeactivateAgentSheet`.
 - **Layering:** full data / domain / presentation split.
+- **Refresh ownership:** `AgentsCubit` is the single in-memory source for list
+  presentation and audit name resolution. Initial load, lifecycle refresh,
+  push refresh, and audit resolution share one in-flight list operation; audit
+  falls back to the repository only when no Cubit is supplied.
 - **Exports:** `AgentAvatar` is reused by `grants` and `notifications`; `AgentStatusBadge` shares its shape with `api_keys`' `ApiKeyStatusBadge` (extract `StatusPill`).
 
 **Cross-feature deps:** consumed by `grants`, `notifications` (which reuse `AgentAvatar` + the approve/deactivate sheets).

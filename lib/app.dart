@@ -30,8 +30,7 @@ import 'features/notifications/presentation/cubit/notification_center_cubit.dart
 import 'features/notifications/presentation/cubit/push_navigation_cubit.dart';
 import 'features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'features/dashboard/presentation/cubit/search_session_controller.dart';
-import 'features/vault/data/services/member_sync_service.dart';
-import 'features/vault/data/services/member_entry_list_service.dart';
+import 'features/vault/data/services/member_index_preparation_service.dart';
 import 'features/vault/data/services/encrypted_presentation_asset_service.dart';
 import 'features/vault/data/services/vault_rotation_service.dart';
 import 'features/vault/data/export/canonical_export_service.dart';
@@ -72,9 +71,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final PushNavigationCubit _pushNavigationCubit = getIt<PushNavigationCubit>();
   final PushNotificationService _pushService = getIt<PushNotificationService>();
   final AutoFillCacheService _autoFillCache = getIt<AutoFillCacheService>();
-  final MemberSyncService _memberSync = getIt<MemberSyncService>();
-  final MemberEntryListService _memberEntryList =
-      getIt<MemberEntryListService>();
+  final MemberIndexPreparationService _memberIndexPreparation =
+      getIt<MemberIndexPreparationService>();
   final VaultListCubit _vaultList = getIt<VaultListCubit>();
   final DashboardCubit _dashboard = getIt<DashboardCubit>();
   final VaultRotationService _vaultRotation = getIt<VaultRotationService>();
@@ -273,7 +271,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
                 !previous.isVaultLocked &&
                 (current is! AuthAuthenticated || current.isVaultLocked),
             listener: (_, _) {
-              _memberSync.lock();
+              _memberIndexPreparation.lock();
               _vaultList.lock();
               _dashboard.lock();
               _searchSession.lock();
@@ -333,20 +331,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
 
   Future<void> _prepareLocalSearch(Uint8List privateKey) async {
     try {
-      await _vaultList.loadVaults(privateKey);
-      final state = _vaultList.state;
-      if (state is! VaultListLoaded) return;
-      for (final vault in state.vaults) {
-        final keyCopy = Uint8List.fromList(privateKey);
-        try {
-          await _memberEntryList.load(
-            vaultId: vault.id,
-            memberPrivateKey: keyCopy,
-          );
-        } finally {
-          keyCopy.fillRange(0, keyCopy.length, 0);
-        }
-      }
+      await _memberIndexPreparation.prepare(privateKey);
     } catch (_) {
       // Local search is best effort. Never log transport errors because they
       // may retain the raw query or decrypted projection context.

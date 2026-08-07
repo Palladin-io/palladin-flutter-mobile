@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -79,6 +81,23 @@ void main() {
             .having((s) => s.error, 'error', AgentsErrorKind.networkError),
       ],
     );
+
+    test('concurrent refresh calls share one repository request', () async {
+      final pending = Completer<List<Agent>>();
+      when(() => repository.listAgents()).thenAnswer((_) => pending.future);
+      final cubit = buildCubit();
+
+      final first = cubit.refresh();
+      final second = cubit.refresh();
+
+      expect(identical(first, second), isTrue);
+      pending.complete(mixedList);
+      await Future.wait([first, second]);
+
+      verify(() => repository.listAgents()).called(1);
+      expect(cubit.state.status, AgentsStatus.loaded);
+      await cubit.close();
+    });
   });
 
   group('AgentsState.agentById', () {

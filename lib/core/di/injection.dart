@@ -111,6 +111,8 @@ import '../../features/vault/data/services/encrypted_presentation_asset_service.
 import '../../features/vault/data/services/member_sync_cache.dart';
 import '../../features/vault/data/services/member_sync_service.dart';
 import '../../features/vault/data/services/member_entry_list_service.dart';
+import '../../features/vault/data/services/member_index_preparation_service.dart';
+import '../../features/vault/data/services/member_vault_key_context_store.dart';
 import '../../features/vault/data/services/totp_service.dart';
 import '../../features/vault/data/services/vault_crypto_service.dart';
 import '../../features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
@@ -354,6 +356,9 @@ void configureDependencies(EnvConfig config) {
     () => MemberSyncRemoteDatasource(getIt<Dio>()),
   );
   getIt.registerLazySingleton<MemberSyncCache>(() => SqliteMemberSyncCache());
+  getIt.registerLazySingleton<MemberVaultKeyContextStore>(
+    MemberVaultKeyContextStore.new,
+  );
   getIt.registerLazySingleton<VaultProtocolEnvelopeService>(
     () => VaultProtocolEnvelopeService(),
   );
@@ -372,6 +377,7 @@ void configureDependencies(EnvConfig config) {
       vaults: getIt<VaultRemoteDatasource>(),
       keys: getIt<VaultRotationCryptoService>(),
       sync: getIt<MemberSyncService>(),
+      keyContexts: getIt<MemberVaultKeyContextStore>(),
     ),
   );
   getIt.registerLazySingleton<VaultRotationRemoteDatasource>(
@@ -445,6 +451,7 @@ void configureDependencies(EnvConfig config) {
     () => VaultListCryptoService(
       remote: getIt<VaultRemoteDatasource>(),
       crypto: getIt<VaultCryptoService>(),
+      keyContexts: getIt<MemberVaultKeyContextStore>(),
     ),
   );
   getIt.registerLazySingleton<VaultCreationService>(
@@ -463,6 +470,12 @@ void configureDependencies(EnvConfig config) {
     () => VaultListCubit(
       repository: getIt<VaultRepository>(),
       listService: getIt<VaultListCryptoService>(),
+    ),
+  );
+  getIt.registerLazySingleton<MemberIndexPreparationService>(
+    () => MemberIndexPreparationService(
+      vaults: getIt<VaultListCubit>(),
+      entries: getIt<MemberEntryListService>(),
     ),
   );
   getIt.registerFactory<VaultDetailCubit>(
@@ -499,7 +512,7 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerLazySingleton<AutoFillCacheService>(
     () => AutoFillCacheService(
-      vaultListService: getIt<VaultListCryptoService>(),
+      indexPreparation: getIt<MemberIndexPreparationService>(),
       entryRepository: getIt<EntryRepository>(),
       bridge: getIt<AutoFillCacheBridge>(),
       memberIndex: getIt<MemberSyncService>(),
@@ -738,6 +751,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<AuditPresentationResolver>(
     () => LocalAuditPresentationResolver(
       agentsRepository: getIt<AgentsRepository>(),
+      agentsCubit: getIt<AgentsCubit>(),
       vaultListCubit: getIt<VaultListCubit>(),
       vaultMembersRepository: getIt<VaultMembersRepository>(),
       memberIndex: getIt<MemberSyncService>(),
@@ -840,6 +854,7 @@ void configureDependencies(EnvConfig config) {
       vaults: getIt<VaultListCubit>(),
       memberIndex: getIt<MemberSyncService>(),
       entryLoader: getIt<MemberEntryListService>(),
+      preparation: getIt<MemberIndexPreparationService>(),
     ),
   );
   getIt.registerLazySingleton<SearchSessionController>(

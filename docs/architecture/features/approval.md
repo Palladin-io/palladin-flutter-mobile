@@ -6,6 +6,10 @@ Zero-knowledge grant approval/denial — the crypto-sensitive heart of access co
 - **Pages:** none — **sheets only**, presented over other features.
 - **Widgets:** `ApproveGrantSheet`, `DenyGrantSheet`, `GrantAccessSheet`, `GrantLimitSelector`, `GrantMethodsSelector`, `RegrantSheet`.
 - **Layering:** full data / domain / presentation split. `ApprovalRepositoryImpl` opens the canonical MemberSecret with the process-memory `VaultSessionStore`, projects the exact authorized field scope, and delegates protocol-v2 envelope sealing to `EntryV2CryptoService`. Agent recipient key versions and field scopes are authenticated in AAD; secret buffers are wiped in `finally`.
+- **Pending-list refresh:** shell startup, Home, lifecycle resume, push, and an
+  open Inbox share the Cubit's current in-flight list operation. This keeps the
+  badge live without issuing overlapping `GET /api/dashboard/pending-grants`
+  requests or replacing a visible list with a second loading transition.
 
 ### Protocol-2 approval review
 
