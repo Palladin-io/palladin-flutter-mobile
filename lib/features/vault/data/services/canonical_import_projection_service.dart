@@ -200,7 +200,6 @@ class CanonicalImportProjectionService {
         );
         output.add({
           'entryId': entryId,
-          'entryType': draft.type.toWire(),
           'entryKey': {
             ...wrapperContext,
             'header': {

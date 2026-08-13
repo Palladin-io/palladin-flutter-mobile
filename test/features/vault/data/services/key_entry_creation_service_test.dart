@@ -158,6 +158,7 @@ void main() {
             ).captured.single
             as Map<String, Object?>;
     expect(request['entryId'], entryId);
+    expect(request.containsKey('entryType'), isFalse);
     expect(request.toString(), isNot(contains('super-secret')));
     verify(
       () => entryCrypto.seal(

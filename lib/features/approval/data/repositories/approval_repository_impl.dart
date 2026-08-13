@@ -161,8 +161,10 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         recipientKeyVersion: candidate.recipientKeyVersion,
         agentPublicKey: Uint8List.fromList(recipientKey),
         approvedMethods: approvedMethods,
-        deliveryPolicy: type == EntryType.script || type == EntryType.creditCard
+        deliveryPolicy: type == EntryType.script
             ? 1
+            : type == EntryType.creditCard
+            ? 2
             : 0,
         fieldIds: fieldIds,
         grantPayload: grantPayload,
@@ -303,9 +305,10 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
             agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
             recipientKeyVersion: recipientKeyVersion,
             approvedMethods: entryMethodBits,
-            deliveryPolicy:
-                type == EntryType.script || type == EntryType.creditCard
+            deliveryPolicy: type == EntryType.script
                 ? 1
+                : type == EntryType.creditCard
+                ? 2
                 : 0,
             fieldIds: approved,
             grantPayload: payload,

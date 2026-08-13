@@ -165,7 +165,6 @@ final class KeyEntryCreationService {
       final request = CreateEntryV2Request(
         vaultId: vaultId,
         entryId: entryId,
-        entryType: type.toWire(),
         envelopes: envelopes,
       ).toJson();
       try {

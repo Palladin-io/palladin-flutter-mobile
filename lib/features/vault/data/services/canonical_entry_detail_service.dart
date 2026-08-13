@@ -1888,10 +1888,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           approvedMethods: secret.entryType == VaultEntryType.creditCard
               ? 4
               : _methodBits(grant.methods),
-          deliveryPolicy:
-              secret.entryType == VaultEntryType.script ||
-                  secret.entryType == VaultEntryType.creditCard
+          deliveryPolicy: secret.entryType == VaultEntryType.script
               ? 1
+              : secret.entryType == VaultEntryType.creditCard
+              ? 2
               : 0,
           fieldIds: fields,
           grantPayload: VaultPlaintextProjector.grantPayload(

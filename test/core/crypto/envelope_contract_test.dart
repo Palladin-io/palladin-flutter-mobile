@@ -123,6 +123,37 @@ void main() {
     );
   });
 
+  test('grant descriptor accepts InjectOnly and rejects unknown policies', () {
+    EnvelopeDescriptor descriptor(int deliveryPolicy) => EnvelopeDescriptor(
+      purpose: EnvelopePurpose.grant,
+      scope: EnvelopeScope(
+        organizationId: EnvelopeId.parse(
+          '00112233-4455-6677-8899-aabbccddeeff',
+        ),
+        vaultId: EnvelopeId.parse('11112222-3333-4444-8555-666677778888'),
+        entryId: EnvelopeId.parse('aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'),
+        grantOrRequestId: EnvelopeId.parse(
+          '12345678-1234-4234-8234-1234567890ab',
+        ),
+        agentId: EnvelopeId.parse('fedcba98-7654-4321-8765-abcdefabcdef'),
+      ),
+      resourceRevision: 1,
+      keyVersion: 1,
+      memberKeyGeneration: 1,
+      purposeData: GrantPurposeData(
+        entryRevision: 1,
+        recipientKeyVersion: 1,
+        recipientFingerprint: Uint8List.fromList(List.filled(32, 0x5a)),
+        methods: 4,
+        deliveryPolicy: deliveryPolicy,
+        fieldSetCommitment: Uint8List.fromList(List.filled(32, 0xa5)),
+      ),
+    );
+
+    expect(descriptor(2).encodeAad, returnsNormally);
+    expect(() => descriptor(3).encodeAad(), throwsA(isA<EnvelopeException>()));
+  });
+
   test('copied Rust fixture and Flutter HKDF output remain byte-identical', () {
     final fixtureBytes = File(
       'test/fixtures/crypto/envelope-xchacha-hkdf.json',
