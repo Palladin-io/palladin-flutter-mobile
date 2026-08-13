@@ -114,6 +114,9 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
   bool _valueObscured = true;
   bool _passwordObscured = true;
+  bool _cardNumberObscured = true;
+  bool _securityCodeObscured = true;
+  bool _pinObscured = true;
   bool _discoverDescription = false;
   bool _exposeUsername = true;
   bool _exposeDomain = true;
@@ -406,9 +409,14 @@ class _AddEntryViewState extends State<_AddEntryView> {
         OnboardingTextField(
           label: l10n.entryCardNumberLabel,
           controller: _cardNumberController,
-          obscureText: true,
+          obscureText: _cardNumberObscured,
           keyboardType: TextInputType.number,
           onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _cardNumberObscured,
+            onPressed: () =>
+                setState(() => _cardNumberObscured = !_cardNumberObscured),
+          ),
         ),
         const SizedBox(height: AppSpacing.fieldGap),
         Row(
@@ -436,16 +444,25 @@ class _AddEntryViewState extends State<_AddEntryView> {
         OnboardingTextField(
           label: l10n.entrySecurityCodeLabel,
           controller: _securityCodeController,
-          obscureText: true,
+          obscureText: _securityCodeObscured,
           keyboardType: TextInputType.number,
           onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _securityCodeObscured,
+            onPressed: () =>
+                setState(() => _securityCodeObscured = !_securityCodeObscured),
+          ),
         ),
         const SizedBox(height: AppSpacing.fieldGap),
         OnboardingTextField(
           label: l10n.entryPinLabel,
           controller: _pinController,
-          obscureText: true,
+          obscureText: _pinObscured,
           keyboardType: TextInputType.number,
+          suffixIcon: EntryObscureToggle(
+            obscured: _pinObscured,
+            onPressed: () => setState(() => _pinObscured = !_pinObscured),
+          ),
         ),
         const SizedBox(height: AppSpacing.fieldGap),
         OnboardingTextField(
