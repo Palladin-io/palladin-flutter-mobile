@@ -2157,6 +2157,42 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
   ) {
     if (type != EntryType.creditCard) return policy;
     final fields = Map<String, visibility.AgentFieldAccess>.from(policy.fields);
+    final customFields = <String, visibility.AgentFieldAccess>{};
+    final rawCustomFields = content['fields'];
+    if (rawCustomFields is List) {
+      for (final rawField in rawCustomFields.whereType<Map>()) {
+        final id = rawField['id'];
+        if (id is! String) continue;
+        customFields[id] = switch (rawField['type']) {
+          'totp' => visibility.AgentFieldAccess.onGrantDerived,
+          'text' ||
+          'multiline' ||
+          'concealed' => visibility.AgentFieldAccess.onGrantRuntime,
+          _ => visibility.AgentFieldAccess.never,
+        };
+      }
+    }
+    fields.removeWhere(
+      (id, _) =>
+          !const {
+            'memberLabel',
+            'agentLabel',
+            'description',
+            'icon',
+            'color',
+            'entryType',
+            'notes',
+            'cardholderName',
+            'cardNumber',
+            'expiryMonth',
+            'expiryYear',
+            'securityCode',
+            'pin',
+            'billingAddress',
+          }.contains(id) &&
+          !customFields.containsKey(id),
+    );
+    fields.addAll(customFields);
     for (final field in const ['pin', 'billingAddress']) {
       final value = content[field];
       fields[field] = value is String && value.isNotEmpty
