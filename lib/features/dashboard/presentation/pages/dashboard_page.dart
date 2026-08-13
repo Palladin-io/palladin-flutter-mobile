@@ -1269,7 +1269,9 @@ class _SearchResultListState extends State<_SearchResultList> {
               onTap: () => widget.onTap(widget.results[i]),
               onRevealSecret: switch (widget.results[i]) {
                 final EntrySearchResult entry
-                    when widget.onRevealSecret != null =>
+                    when widget.onRevealSecret != null &&
+                        (entry.entryType == EntryType.key.toWire() ||
+                            entry.entryType == EntryType.credential.toWire()) =>
                   () => widget.onRevealSecret!(entry),
                 _ => null,
               },

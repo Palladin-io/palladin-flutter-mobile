@@ -162,7 +162,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
   }
 
   void _resolveWebsiteIcon() {
-    if (_type != EntryType.script) {
+    if (_type == EntryType.key || _type == EntryType.credential) {
       _websiteIconResolver.resolve(_urlController.text);
     }
   }
@@ -516,7 +516,9 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
   Future<void> _submit() async {
     if (_reservingIcon) return;
-    if (_type != EntryType.script && !_validateUrl()) return;
+    final supportsWebsiteIcon =
+        _type == EntryType.key || _type == EntryType.credential;
+    if (supportsWebsiteIcon && !_validateUrl()) return;
     final auth = context.read<AuthBloc>().state;
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
       ScaffoldMessenger.of(context)
@@ -532,9 +534,9 @@ class _AddEntryViewState extends State<_AddEntryView> {
     setState(() => _reservingIcon = true);
     final reservationType = _type;
     final reservationUrl = _urlController.text;
-    final reservedReference = reservationType == EntryType.script
-        ? null
-        : await _websiteIconResolver.ensureNow(reservationUrl);
+    final reservedReference = supportsWebsiteIcon
+        ? await _websiteIconResolver.ensureNow(reservationUrl)
+        : null;
     if (!mounted) return;
     setState(() {
       if (reservedReference != null &&
@@ -694,8 +696,15 @@ class _AddEntryViewState extends State<_AddEntryView> {
                         value: _type,
                         onChanged: (next) {
                           if (next == null || next == _type) return;
+                          if (next == EntryType.creditCard) {
+                            _websiteIconResolver.resolve('');
+                            _urlController.clear();
+                          }
                           setState(() {
                             _type = next;
+                            if (next == EntryType.creditCard) {
+                              _urlError = null;
+                            }
                             if (EntryVisuals.isCustomUrl(_icon)) return;
                             _icon = EntryVisuals.defaultIconForType(next);
                           });
