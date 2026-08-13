@@ -78,7 +78,6 @@ class CanonicalImportProjectionService {
           'organizationId': organizationId,
           'vaultId': vaultId,
           'entryId': entryId,
-          'entryType': 1,
         };
         Map<String, dynamic> header(int projection, int keyVersion) => {
           'protocolVersion': 2,

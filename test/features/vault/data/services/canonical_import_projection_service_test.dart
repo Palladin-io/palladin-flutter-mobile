@@ -97,7 +97,7 @@ void main() {
           'agentDiscovery',
         ]),
       );
-      expect(result.single.containsKey('entryType'), isFalse);
+      expect(wire, isNot(contains('entryType')));
       expect(
         plaintexts[VaultAadProfile.memberSecret],
         contains('agentVisibilityPolicy'),

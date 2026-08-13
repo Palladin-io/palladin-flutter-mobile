@@ -301,4 +301,59 @@ void main() {
       );
     },
   );
+
+  test('keeps credit-card custom text fields runtime-only', () async {
+    const customId = '44444455-6677-4889-9aab-ccddeeff0011';
+    await service().createCreditCard(
+      vaultId: vaultId,
+      label: 'Travel card',
+      description: '',
+      icon: '',
+      content: {
+        'type': 'CREDIT_CARD',
+        'cardholderName': 'Patryk',
+        'cardNumber': '4111111111111111',
+        'expiryMonth': '12',
+        'expiryYear': '2030',
+        'securityCode': '123',
+        'fields': [
+          {
+            'id': customId,
+            'label': 'Account number',
+            'type': 'text',
+            'value': 'private-account-number',
+            'agentVisible': true,
+          },
+        ],
+      },
+      memberPrivateKey: Uint8List(32),
+    );
+
+    final secret =
+        verify(
+              () => entryCrypto.seal(
+                organizationId: any(named: 'organizationId'),
+                vaultId: any(named: 'vaultId'),
+                entryId: any(named: 'entryId'),
+                revision: any(named: 'revision'),
+                vaultKeyVersion: any(named: 'vaultKeyVersion'),
+                vdkVersion: any(named: 'vdkVersion'),
+                memberKeyGeneration: any(named: 'memberKeyGeneration'),
+                operation: any(named: 'operation'),
+                secret: captureAny(named: 'secret'),
+                vaultKey: any(named: 'vaultKey'),
+                vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+              ),
+            ).captured.single
+            as MemberSecret;
+
+    expect(
+      secret.agentFieldAccess['custom:$customId'],
+      AgentFieldAccess.onGrantRuntime,
+    );
+    expect(
+      VaultPlaintextProjector.agentDiscovery(secret).toString(),
+      isNot(contains('private-account-number')),
+    );
+  });
 }
