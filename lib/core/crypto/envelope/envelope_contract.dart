@@ -285,7 +285,9 @@ final class EnvelopeDescriptor {
             data.recipientFingerprint.every((byte) => byte == 0) ||
             data.methods <= 0 ||
             data.methods > _maxUint16 ||
-            (data.deliveryPolicy != 0 && data.deliveryPolicy != 1) ||
+            (data.deliveryPolicy != 0 &&
+                data.deliveryPolicy != 1 &&
+                data.deliveryPolicy != 2) ||
             data.fieldSetCommitment.length != 32 ||
             (data.expiresAtSeconds == null) !=
                 (data.expiresAtNanoseconds == null) ||

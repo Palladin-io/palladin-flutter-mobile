@@ -873,6 +873,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryTypeCredential => 'Login';
 
   @override
+  String get entryTypeCreditCard => 'Karta płatnicza';
+
+  @override
   String get entryLabelLabel => 'Etykieta';
 
   @override
@@ -3588,4 +3591,25 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get settingsTwoFactor => 'Uwierzytelnianie dwuskładnikowe';
+
+  @override
+  String get entryCardholderNameLabel => 'Imię i nazwisko posiadacza';
+
+  @override
+  String get entryCardNumberLabel => 'Numer karty';
+
+  @override
+  String get entryExpiryMonthLabel => 'Miesiąc ważności';
+
+  @override
+  String get entryExpiryYearLabel => 'Rok ważności';
+
+  @override
+  String get entrySecurityCodeLabel => 'Kod bezpieczeństwa';
+
+  @override
+  String get entryPinLabel => 'PIN (opcjonalnie)';
+
+  @override
+  String get entryBillingAddressLabel => 'Adres rozliczeniowy (opcjonalnie)';
 }

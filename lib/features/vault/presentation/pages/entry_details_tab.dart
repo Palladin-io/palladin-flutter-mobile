@@ -82,6 +82,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   final _urlController = TextEditingController();
   final _notesController = TextEditingController();
   final _scriptController = TextEditingController();
+  final _cardholderController = TextEditingController();
+  final _cardNumberController = TextEditingController();
+  final _expiryMonthController = TextEditingController();
+  final _expiryYearController = TextEditingController();
+  final _securityCodeController = TextEditingController();
+  final _pinController = TextEditingController();
+  final _billingAddressController = TextEditingController();
 
   EntryType _type = EntryType.credential;
   ScriptInterpreter _interpreter = ScriptInterpreter.bash;
@@ -95,6 +102,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   bool _reservingIcon = false;
   bool _valueObscured = true;
   bool _passwordObscured = true;
+  bool _pinObscured = true;
   bool _populated = false;
   int _plaintextEpoch = 0;
   AgentVisibilityPolicy? _agentPolicy;
@@ -123,6 +131,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   /// Whether the single secret field (password / key value) is unmasked in
   /// the read-only view. Reset every time we return to read-only.
   bool _secretRevealed = false;
+  final Set<String> _revealedCardFields = <String>{};
 
   /// Per-custom-field reveal flags (keyed by field id) in the read-only
   /// view. Reset when returning to read-only.
@@ -227,6 +236,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _urlController.dispose();
     _notesController.dispose();
     _scriptController.dispose();
+    _cardholderController.dispose();
+    _cardNumberController.dispose();
+    _expiryMonthController.dispose();
+    _expiryYearController.dispose();
+    _securityCodeController.dispose();
+    _pinController.dispose();
+    _billingAddressController.dispose();
     super.dispose();
   }
 
@@ -253,6 +269,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _revealedEntry = null;
     _populated = false;
     _secretRevealed = false;
+    _revealedCardFields.clear();
     _revealedCustom.clear();
     _valueController.clear();
     _usernameController.clear();
@@ -261,6 +278,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _descriptionController.clear();
     _notesController.clear();
     _scriptController.clear();
+    _cardholderController.clear();
+    _cardNumberController.clear();
+    _expiryMonthController.clear();
+    _expiryYearController.clear();
+    _securityCodeController.clear();
+    _pinController.clear();
+    _billingAddressController.clear();
     _customFields = const [];
     _totpFields = const [];
     _refs = const [];
@@ -320,6 +344,17 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
           payload['interpreter'] as String?,
         );
         _refs = ScriptRef.listFromPayload(payload);
+      case EntryType.creditCard:
+        _cardholderController.text =
+            (payload['cardholderName'] as String?) ?? '';
+        _cardNumberController.text = (payload['cardNumber'] as String?) ?? '';
+        _expiryMonthController.text = (payload['expiryMonth'] as String?) ?? '';
+        _expiryYearController.text = (payload['expiryYear'] as String?) ?? '';
+        _securityCodeController.text =
+            (payload['securityCode'] as String?) ?? '';
+        _pinController.text = (payload['pin'] as String?) ?? '';
+        _billingAddressController.text =
+            (payload['billingAddress'] as String?) ?? '';
     }
   }
 
@@ -387,6 +422,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       _urlError = null;
       _valueObscured = true;
       _passwordObscured = true;
+      _pinObscured = true;
       _editMode = true;
     });
     if (_type == EntryType.script) _ensureVaultEntriesLoaded();
@@ -398,6 +434,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       _syncControllersFromSnapshot();
       _editMode = false;
       _secretRevealed = false;
+      _revealedCardFields.clear();
       _revealedCustom.clear();
       _urlError = null;
     });
@@ -441,6 +478,11 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         username: _usernameController.text,
         password: _passwordController.text,
         script: _scriptController.text,
+        cardholderName: _cardholderController.text,
+        cardNumber: _cardNumberController.text,
+        expiryMonth: _expiryMonthController.text,
+        expiryYear: _expiryYearController.text,
+        securityCode: _securityCodeController.text,
       );
 
   Map<String, dynamic> _buildPayload() => EntryFormUtils.buildPayload(
@@ -455,6 +497,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     interpreter: _interpreter,
     refs: _refs,
     credentialTotp: _credentialTotp,
+    cardholderName: _cardholderController.text,
+    cardNumber: _cardNumberController.text,
+    expiryMonth: _expiryMonthController.text,
+    expiryYear: _expiryYearController.text,
+    securityCode: _securityCodeController.text,
+    pin: _pinController.text,
+    billingAddress: _billingAddressController.text,
   );
 
   bool _isDiscoverable(String fieldId) =>
@@ -681,6 +730,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       _revealedEntry = entry;
       _payload = _buildPayload();
       _secretRevealed = false;
+      _revealedCardFields.clear();
       _revealedCustom.clear();
       _editMode = false;
     });
@@ -910,6 +960,53 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         }
       case EntryType.script:
         _addScriptFields(addField, payload, l10n, brightness);
+      case EntryType.creditCard:
+        for (final item in <(String, String, IconData, bool)>[
+          (
+            'cardholderName',
+            l10n.entryCardholderNameLabel,
+            Icons.person,
+            false,
+          ),
+          ('cardNumber', l10n.entryCardNumberLabel, Icons.credit_card, true),
+          (
+            'expiryMonth',
+            l10n.entryExpiryMonthLabel,
+            Icons.calendar_month,
+            false,
+          ),
+          (
+            'expiryYear',
+            l10n.entryExpiryYearLabel,
+            Icons.calendar_month,
+            false,
+          ),
+          ('securityCode', l10n.entrySecurityCodeLabel, Icons.lock, true),
+          ('pin', l10n.entryPinLabel, Icons.pin, true),
+          ('billingAddress', l10n.entryBillingAddressLabel, Icons.home, false),
+        ]) {
+          final text = payload[item.$1] as String? ?? '';
+          if (text.isEmpty) continue;
+          addField(
+            _ReadOnlyField(
+              label: item.$2,
+              row: EntryFieldRow(
+                icon: item.$3,
+                value: text,
+                isMasked: item.$4,
+                revealed: !item.$4 || _revealedCardFields.contains(item.$1),
+                onToggleReveal: item.$4
+                    ? () => setState(() {
+                        if (!_revealedCardFields.add(item.$1)) {
+                          _revealedCardFields.remove(item.$1);
+                        }
+                      })
+                    : null,
+                onCopy: () => _copy(text, item.$2),
+              ),
+            ),
+          );
+        }
     }
 
     _addCustomFields(addField, payload, l10n, brightness);
@@ -1224,6 +1321,75 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
             onChanged: (refs) => setState(() => _refs = refs),
           ),
       ],
+      EntryType.creditCard => [
+        OnboardingTextField(
+          label: l10n.entryCardholderNameLabel,
+          controller: _cardholderController,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryCardNumberLabel,
+          controller: _cardNumberController,
+          obscureText: _valueObscured,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _valueObscured,
+            onPressed: () => setState(() => _valueObscured = !_valueObscured),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryExpiryMonthLabel,
+          controller: _expiryMonthController,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryExpiryYearLabel,
+          controller: _expiryYearController,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entrySecurityCodeLabel,
+          controller: _securityCodeController,
+          obscureText: _passwordObscured,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _passwordObscured,
+            onPressed: () =>
+                setState(() => _passwordObscured = !_passwordObscured),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryPinLabel,
+          controller: _pinController,
+          obscureText: _pinObscured,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
+          suffixIcon: EntryObscureToggle(
+            obscured: _pinObscured,
+            onPressed: () => setState(() => _pinObscured = !_pinObscured),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryBillingAddressLabel,
+          controller: _billingAddressController,
+          textInputAction: TextInputAction.next,
+        ),
+      ],
     };
   }
 
@@ -1253,6 +1419,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
               children: [
                 EntryTypeDropdown(
                   value: _type,
+                  enabled: _type != EntryType.creditCard,
+                  allowCreditCard: false,
                   onChanged: (next) {
                     if (next == null || next == _type) return;
                     setState(() {

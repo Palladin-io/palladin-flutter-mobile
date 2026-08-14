@@ -135,6 +135,9 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           (approvedMethods & requestedMethods) != approvedMethods) {
         throw const FormatException('Approval methods exceed request');
       }
+      if (type == EntryType.creditCard && approvedMethods != 4) {
+        throw const FormatException('Credit-card grants are Inject-only');
+      }
       final wire = limit.toWire();
       final grantPayload = AgentVisibilityProjector.grantPayload(
         type: type,
@@ -158,7 +161,11 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         recipientKeyVersion: candidate.recipientKeyVersion,
         agentPublicKey: Uint8List.fromList(recipientKey),
         approvedMethods: approvedMethods,
-        deliveryPolicy: type == EntryType.script ? 1 : 0,
+        deliveryPolicy: type == EntryType.script
+            ? 1
+            : type == EntryType.creditCard
+            ? 2
+            : 0,
         fieldIds: fieldIds,
         grantPayload: grantPayload,
         expiresAt: wire.expiresAt == null
@@ -259,6 +266,11 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           final type = EntryTypeExtension.fromWire(
             snapshot.secret['entryType'] as int,
           );
+          final entryMethodBits = type == EntryType.creditCard ? 4 : methodBits;
+          if (type == EntryType.creditCard &&
+              !methods.contains(GrantMethod.inject)) {
+            throw const FormatException('Credit-card grants require Inject');
+          }
           final policy = AgentVisibilityPolicy.fromJson(
             type,
             Map<String, dynamic>.from(
@@ -292,8 +304,12 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
             memberKeyGeneration: snapshot.entry['memberKeyGeneration'] as int,
             agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
             recipientKeyVersion: recipientKeyVersion,
-            approvedMethods: methodBits,
-            deliveryPolicy: type == EntryType.script ? 1 : 0,
+            approvedMethods: entryMethodBits,
+            deliveryPolicy: type == EntryType.script
+                ? 1
+                : type == EntryType.creditCard
+                ? 2
+                : 0,
             fieldIds: approved,
             grantPayload: payload,
             expiresAt: wire.expiresAt == null

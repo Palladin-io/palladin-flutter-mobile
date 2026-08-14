@@ -72,12 +72,18 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 - **Security:** all parsing, projection encryption, and export assembly happen on-device; secrets (`password`, `totp`) never reach request metadata, logs or mobile analytics. Export requires an unlocked session plus an explicit local confirmation. The Member VK and per-record byte buffers are wiped in `finally`; an epoch guard cancels on lock/close. Native staging is app-private, backup-excluded, uses complete file protection on iOS and owner-only permissions on Android, and is cleaned on success/cancel/failure, lock, and startup. Deletion is accurately disclosed as best effort on flash storage, and the selected share recipient owns any copy it creates.
 - **Public website icons:** create/edit and import reserve catalog assets in pages of at most 500 (the coordinated backend contract) before encrypting presentation metadata, then wait only within the explicit save/import window for terminal `Ready`/`Failed` status. Progress counts both statuses as completed; only `Ready` contributes an asset. `MemberSecret` and `MemberIndex` contain the catalog `assetId`, immutable `revision`, and direct delivery `url` only for a published immutable object; pending/failed assets are omitted. Edit treats every persisted icon as authoritative and never replaces a glyph, upload, or manually selected catalog asset during an unrelated save. This is a pre-production clean cutover: test ciphertext containing the retired `{kind: website, hostname}` or id-only public-asset shape is intentionally reset rather than carried into the canonical schema. Catalog failure remains optional and never blocks saving credentials. Entry lists, detail screens, Dashboard and search render that allowlisted URL directly after decryption. They never resolve hostnames or fetch catalog metadata while reading a Vault, and a failed image GET falls back locally without retry or polling. Agent icons may still use ID lookup because their structural contract is separate from encrypted Vault Entry presentation.
 
-### Entry richness — blob schema v2 + TOTP + Script
+### Entry richness — blob schema v2 + TOTP + Script + Credit Card
 
 The decrypted entry blob is **additive v2**: well-known fields stay top-level, a
 `fields[]` array of custom fields is added beside them, and a new `SCRIPT`
 entry type (`EntryType.script`, wire `2`) carries `script` / `interpreter`
 (`bash|sh|node|python`) / `refs[]` (explicit `env → entryId.field` mappings).
+`EntryType.creditCard` (wire `3`) carries cardholder name, PAN, expiry
+month/year, security code, optional PIN and billing address. Its Agent fields
+are runtime-only, Discovery advertises only `inject`, and grant descriptors use
+authenticated delivery policy `2` (`InjectOnly`); `get`/`exec` never receive the
+card envelope. Entry type remains inside encrypted projections and is omitted
+from create/import request metadata.
 Absence of `v` ⇒ legacy v1. Unknown field types (`url`, `date`, … / anything
 future) parse to `CustomFieldType.unknown` and are **held aside and re-emitted
 unchanged** on save so an older client never drops a newer client's fields.

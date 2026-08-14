@@ -6,6 +6,9 @@ import 'package:dio/dio.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/agent_visibility_policy.dart'
     hide AgentFieldAccess;
+import '../../domain/entities/agent_visibility_policy.dart'
+    as visibility
+    show AgentFieldAccess;
 import '../../domain/entities/member_index_entry.dart';
 import '../../domain/entities/vault_plaintext.dart';
 import '../../../grants/data/datasources/grants_remote_datasource.dart';
@@ -566,6 +569,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       'key' => EntryType.key.toWire(),
       'credential' => EntryType.credential.toWire(),
       'script' => EntryType.script.toWire(),
+      'creditCard' => EntryType.creditCard.toWire(),
       _ => throw const FormatException('Unknown canonical Entry type'),
     };
     final policyFields = <String, dynamic>{};
@@ -584,6 +588,13 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         'script.source' => 'script',
         'script.interpreter' => 'interpreter',
         'script.refs' => 'refs',
+        'creditCard.cardholderName' => 'cardholderName',
+        'creditCard.cardNumber' => 'cardNumber',
+        'creditCard.expiryMonth' => 'expiryMonth',
+        'creditCard.expiryYear' => 'expiryYear',
+        'creditCard.securityCode' => 'securityCode',
+        'creditCard.pin' => 'pin',
+        'creditCard.billingAddress' => 'billingAddress',
         final String id when id.startsWith('custom:') => id.substring(7),
         final String id => id,
       };
@@ -777,7 +788,11 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         Map<String, dynamic>.from(previousPolicy),
         content: snapshot.payload,
       );
-      final policy = agentVisibilityPolicy ?? parsedPreviousPolicy;
+      final policy = _policyForUpdatedContent(
+        type,
+        content,
+        agentVisibilityPolicy ?? parsedPreviousPolicy,
+      );
       final policyJson = policy.toJson();
       final memberSecret = <String, dynamic>{
         'schemaVersion': 1,
@@ -1023,7 +1038,11 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         Map<String, dynamic>.from(previousPolicyValue),
         content: snapshot.payload,
       );
-      final policy = policyOverride ?? previousPolicy;
+      final policy = _policyForUpdatedContent(
+        type,
+        content,
+        policyOverride ?? previousPolicy,
+      );
       final nextAgentLabel =
           agentLabelOverride ??
           snapshot.secret['agentLabel'] as String? ??
@@ -1706,6 +1725,17 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         notes: content['notes'] as String?,
         customFields: custom,
       ),
+      EntryType.creditCard => CreditCardSecretContent(
+        cardholderName: content['cardholderName'] as String,
+        cardNumber: content['cardNumber'] as String,
+        expiryMonth: content['expiryMonth'] as String,
+        expiryYear: content['expiryYear'] as String,
+        securityCode: content['securityCode'] as String,
+        pin: content['pin'] as String?,
+        billingAddress: content['billingAddress'] as String?,
+        notes: content['notes'] as String?,
+        customFields: custom,
+      ),
     };
     String canonicalId(String id) => switch ((type, id)) {
       (EntryType.key, 'value') => 'key.value',
@@ -1717,6 +1747,17 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       (EntryType.script, 'script') => 'script.source',
       (EntryType.script, 'interpreter') => 'script.interpreter',
       (EntryType.script, 'refs') => 'script.refs',
+      (EntryType.creditCard, final value)
+          when const {
+            'cardholderName',
+            'cardNumber',
+            'expiryMonth',
+            'expiryYear',
+            'securityCode',
+            'pin',
+            'billingAddress',
+          }.contains(value) =>
+        'creditCard.$value',
       (_, final value) when custom.any((field) => field.id == value) =>
         'custom:$value',
       _ => id,
@@ -1844,8 +1885,14 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           memberKeyGeneration: memberKeyGeneration,
           agentPublicKey: recipient,
           recipientKeyVersion: grant.recipientAgentKeyVersion!,
-          approvedMethods: _methodBits(grant.methods),
-          deliveryPolicy: secret.entryType == VaultEntryType.script ? 1 : 0,
+          approvedMethods: secret.entryType == VaultEntryType.creditCard
+              ? 4
+              : _methodBits(grant.methods),
+          deliveryPolicy: secret.entryType == VaultEntryType.script
+              ? 1
+              : secret.entryType == VaultEntryType.creditCard
+              ? 2
+              : 0,
           fieldIds: fields,
           grantPayload: VaultPlaintextProjector.grantPayload(
             secret,
@@ -1885,6 +1932,17 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     (VaultEntryType.script, 'script') => 'script.source',
     (VaultEntryType.script, 'interpreter') => 'script.interpreter',
     (VaultEntryType.script, 'refs') => 'script.refs',
+    (VaultEntryType.creditCard, final value)
+        when const {
+          'cardholderName',
+          'cardNumber',
+          'expiryMonth',
+          'expiryYear',
+          'securityCode',
+          'pin',
+          'billingAddress',
+        }.contains(value) =>
+      'creditCard.$value',
     (_, final value)
         when value == 'notes' ||
             value == 'description' ||
@@ -2090,6 +2148,58 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     final nested = value[key];
     if (nested is! Map) throw FormatException('$key must be an object');
     return Map<String, dynamic>.from(nested);
+  }
+
+  AgentVisibilityPolicy _policyForUpdatedContent(
+    EntryType type,
+    Map<String, dynamic> content,
+    AgentVisibilityPolicy policy,
+  ) {
+    if (type != EntryType.creditCard) return policy;
+    final fields = Map<String, visibility.AgentFieldAccess>.from(policy.fields);
+    final customFields = <String, visibility.AgentFieldAccess>{};
+    final rawCustomFields = content['fields'];
+    if (rawCustomFields is List) {
+      for (final rawField in rawCustomFields.whereType<Map>()) {
+        final id = rawField['id'];
+        if (id is! String) continue;
+        customFields[id] = switch (rawField['type']) {
+          'totp' => visibility.AgentFieldAccess.onGrantDerived,
+          'text' ||
+          'multiline' ||
+          'concealed' => visibility.AgentFieldAccess.onGrantRuntime,
+          _ => visibility.AgentFieldAccess.never,
+        };
+      }
+    }
+    fields.removeWhere(
+      (id, _) =>
+          !const {
+            'memberLabel',
+            'agentLabel',
+            'description',
+            'icon',
+            'color',
+            'entryType',
+            'notes',
+            'cardholderName',
+            'cardNumber',
+            'expiryMonth',
+            'expiryYear',
+            'securityCode',
+            'pin',
+            'billingAddress',
+          }.contains(id) &&
+          !customFields.containsKey(id),
+    );
+    fields.addAll(customFields);
+    for (final field in const ['pin', 'billingAddress']) {
+      final value = content[field];
+      fields[field] = value is String && value.isNotEmpty
+          ? visibility.AgentFieldAccess.onGrantRuntime
+          : visibility.AgentFieldAccess.never;
+    }
+    return policy.copyWith(fields: fields);
   }
 
   CanonicalEntryDetailError _classifyDio(DioException error) {

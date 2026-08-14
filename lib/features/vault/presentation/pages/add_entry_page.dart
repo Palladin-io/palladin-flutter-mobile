@@ -94,6 +94,13 @@ class _AddEntryViewState extends State<_AddEntryView> {
   final _urlController = TextEditingController();
   final _notesController = TextEditingController();
   final _scriptController = TextEditingController();
+  final _cardholderController = TextEditingController();
+  final _cardNumberController = TextEditingController();
+  final _expiryMonthController = TextEditingController();
+  final _expiryYearController = TextEditingController();
+  final _securityCodeController = TextEditingController();
+  final _pinController = TextEditingController();
+  final _billingAddressController = TextEditingController();
 
   EntryType _type = EntryType.credential;
   ScriptInterpreter _interpreter = ScriptInterpreter.bash;
@@ -107,6 +114,9 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
   bool _valueObscured = true;
   bool _passwordObscured = true;
+  bool _cardNumberObscured = true;
+  bool _securityCodeObscured = true;
+  bool _pinObscured = true;
   bool _discoverDescription = false;
   bool _exposeUsername = true;
   bool _exposeDomain = true;
@@ -155,7 +165,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
   }
 
   void _resolveWebsiteIcon() {
-    if (_type != EntryType.script) {
+    if (_type == EntryType.key || _type == EntryType.credential) {
       _websiteIconResolver.resolve(_urlController.text);
     }
   }
@@ -168,6 +178,17 @@ class _AddEntryViewState extends State<_AddEntryView> {
     _passwordController.clear();
     _notesController.clear();
     _scriptController.clear();
+    for (final controller in [
+      _cardholderController,
+      _cardNumberController,
+      _expiryMonthController,
+      _expiryYearController,
+      _securityCodeController,
+      _pinController,
+      _billingAddressController,
+    ]) {
+      controller.clear();
+    }
     _labelController.dispose();
     _descriptionController.dispose();
     _valueController.dispose();
@@ -176,6 +197,17 @@ class _AddEntryViewState extends State<_AddEntryView> {
     _urlController.dispose();
     _notesController.dispose();
     _scriptController.dispose();
+    for (final controller in [
+      _cardholderController,
+      _cardNumberController,
+      _expiryMonthController,
+      _expiryYearController,
+      _securityCodeController,
+      _pinController,
+      _billingAddressController,
+    ]) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -188,6 +220,11 @@ class _AddEntryViewState extends State<_AddEntryView> {
         username: _usernameController.text,
         password: _passwordController.text,
         script: _scriptController.text,
+        cardholderName: _cardholderController.text,
+        cardNumber: _cardNumberController.text,
+        expiryMonth: _expiryMonthController.text,
+        expiryYear: _expiryYearController.text,
+        securityCode: _securityCodeController.text,
       );
 
   /// Loads the vault's key/credential entries so a Script entry can point
@@ -236,6 +273,13 @@ class _AddEntryViewState extends State<_AddEntryView> {
     script: _scriptController.text,
     interpreter: _interpreter,
     refs: _refs,
+    cardholderName: _cardholderController.text,
+    cardNumber: _cardNumberController.text,
+    expiryMonth: _expiryMonthController.text,
+    expiryYear: _expiryYearController.text,
+    securityCode: _securityCodeController.text,
+    pin: _pinController.text,
+    billingAddress: _billingAddressController.text,
   );
 
   Widget _urlField(AppLocalizations l10n, {required bool supportsDiscovery}) =>
@@ -355,6 +399,77 @@ class _AddEntryViewState extends State<_AddEntryView> {
             onChanged: (refs) => setState(() => _refs = refs),
           ),
       ],
+      EntryType.creditCard => [
+        OnboardingTextField(
+          label: l10n.entryCardholderNameLabel,
+          controller: _cardholderController,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryCardNumberLabel,
+          controller: _cardNumberController,
+          obscureText: _cardNumberObscured,
+          keyboardType: TextInputType.number,
+          onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _cardNumberObscured,
+            onPressed: () =>
+                setState(() => _cardNumberObscured = !_cardNumberObscured),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        Row(
+          children: [
+            Expanded(
+              child: OnboardingTextField(
+                label: l10n.entryExpiryMonthLabel,
+                controller: _expiryMonthController,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.innerGap),
+            Expanded(
+              child: OnboardingTextField(
+                label: l10n.entryExpiryYearLabel,
+                controller: _expiryYearController,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entrySecurityCodeLabel,
+          controller: _securityCodeController,
+          obscureText: _securityCodeObscured,
+          keyboardType: TextInputType.number,
+          onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _securityCodeObscured,
+            onPressed: () =>
+                setState(() => _securityCodeObscured = !_securityCodeObscured),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryPinLabel,
+          controller: _pinController,
+          obscureText: _pinObscured,
+          keyboardType: TextInputType.number,
+          suffixIcon: EntryObscureToggle(
+            obscured: _pinObscured,
+            onPressed: () => setState(() => _pinObscured = !_pinObscured),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryBillingAddressLabel,
+          controller: _billingAddressController,
+        ),
+      ],
     };
   }
 
@@ -418,7 +533,9 @@ class _AddEntryViewState extends State<_AddEntryView> {
 
   Future<void> _submit() async {
     if (_reservingIcon) return;
-    if (_type != EntryType.script && !_validateUrl()) return;
+    final supportsWebsiteIcon =
+        _type == EntryType.key || _type == EntryType.credential;
+    if (supportsWebsiteIcon && !_validateUrl()) return;
     final auth = context.read<AuthBloc>().state;
     if (auth is! AuthAuthenticated || auth.privateKey == null) {
       ScaffoldMessenger.of(context)
@@ -434,9 +551,9 @@ class _AddEntryViewState extends State<_AddEntryView> {
     setState(() => _reservingIcon = true);
     final reservationType = _type;
     final reservationUrl = _urlController.text;
-    final reservedReference = reservationType == EntryType.script
-        ? null
-        : await _websiteIconResolver.ensureNow(reservationUrl);
+    final reservedReference = supportsWebsiteIcon
+        ? await _websiteIconResolver.ensureNow(reservationUrl)
+        : null;
     if (!mounted) return;
     setState(() {
       if (reservedReference != null &&
@@ -596,8 +713,15 @@ class _AddEntryViewState extends State<_AddEntryView> {
                         value: _type,
                         onChanged: (next) {
                           if (next == null || next == _type) return;
+                          if (next == EntryType.creditCard) {
+                            _websiteIconResolver.resolve('');
+                            _urlController.clear();
+                          }
                           setState(() {
                             _type = next;
+                            if (next == EntryType.creditCard) {
+                              _urlError = null;
+                            }
                             if (EntryVisuals.isCustomUrl(_icon)) return;
                             _icon = EntryVisuals.defaultIconForType(next);
                           });

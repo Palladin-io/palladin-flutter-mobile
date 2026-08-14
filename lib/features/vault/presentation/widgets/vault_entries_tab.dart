@@ -732,6 +732,31 @@ class _RevealPanel extends StatelessWidget {
               actionIconSize: 12,
               onCopy: () => onCopy(payload['script'] as String),
             ),
+        ] else if (entry.type == EntryType.creditCard) ...[
+          for (final cardField in <(String, IconData, bool)>[
+            ('cardholderName', Icons.person, false),
+            ('cardNumber', Icons.credit_card, true),
+            ('expiryMonth', Icons.calendar_month, false),
+            ('expiryYear', Icons.event, false),
+            ('securityCode', Icons.lock, true),
+            ('pin', Icons.pin, true),
+            ('billingAddress', Icons.home, false),
+          ])
+            if ((payload[cardField.$1] as String?)?.isNotEmpty ?? false)
+              EntryFieldRow(
+                icon: cardField.$2,
+                value: payload[cardField.$1] as String,
+                isMasked: cardField.$3,
+                revealed:
+                    !cardField.$3 ||
+                    revealedFields.contains('${entry.id}:${cardField.$1}'),
+                onToggleReveal: cardField.$3
+                    ? () => onToggleFieldReveal(entry.id, cardField.$1)
+                    : null,
+                valueFontSize: 10,
+                actionIconSize: 12,
+                onCopy: () => onCopy(payload[cardField.$1] as String),
+              ),
         ] else ...[
           if ((payload['username'] as String?)?.isNotEmpty ?? false)
             EntryFieldRow(
@@ -835,6 +860,7 @@ class _EntryIconWidget extends StatelessWidget {
       EntryType.key => choices.first.name,
       EntryType.credential => 'lock',
       EntryType.script => 'terminal',
+      EntryType.creditCard => 'credit_card',
     };
     final choice = choices.firstWhere(
       (c) => c.name == (name ?? EntryVisuals.defaultIconName),

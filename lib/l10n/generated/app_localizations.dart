@@ -1484,6 +1484,12 @@ abstract class AppLocalizations {
   /// **'Credential'**
   String get entryTypeCredential;
 
+  /// No description provided for @entryTypeCreditCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Credit card'**
+  String get entryTypeCreditCard;
+
   /// Label for the entry name input field
   ///
   /// In en, this message translates to:
@@ -6295,6 +6301,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Two-factor authentication'**
   String get settingsTwoFactor;
+
+  /// No description provided for @entryCardholderNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cardholder name'**
+  String get entryCardholderNameLabel;
+
+  /// No description provided for @entryCardNumberLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Card number'**
+  String get entryCardNumberLabel;
+
+  /// No description provided for @entryExpiryMonthLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Expiry month'**
+  String get entryExpiryMonthLabel;
+
+  /// No description provided for @entryExpiryYearLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Expiry year'**
+  String get entryExpiryYearLabel;
+
+  /// No description provided for @entrySecurityCodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Security code'**
+  String get entrySecurityCodeLabel;
+
+  /// No description provided for @entryPinLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'PIN (optional)'**
+  String get entryPinLabel;
+
+  /// No description provided for @entryBillingAddressLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing address (optional)'**
+  String get entryBillingAddressLabel;
 }
 
 class _AppLocalizationsDelegate

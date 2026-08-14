@@ -11,16 +11,18 @@ typedef WellKnownField = ({String wire, String label});
 List<WellKnownField> wellKnownFieldsFor(EntryType type, AppLocalizations l10n) {
   return switch (type) {
     EntryType.key => [
-        (wire: 'value', label: l10n.entryValueLabel),
-        (wire: 'url', label: l10n.entryUrlLabel),
-        (wire: 'notes', label: l10n.entryNotesLabel),
-      ],
+      (wire: 'value', label: l10n.entryValueLabel),
+      (wire: 'url', label: l10n.entryUrlLabel),
+      (wire: 'notes', label: l10n.entryNotesLabel),
+    ],
     EntryType.credential => [
-        (wire: 'username', label: l10n.entryUsernameLabel),
-        (wire: 'password', label: l10n.entryPasswordLabel),
-        (wire: 'url', label: l10n.entryUrlLabel),
-        (wire: 'notes', label: l10n.entryNotesLabel),
-      ],
+      (wire: 'username', label: l10n.entryUsernameLabel),
+      (wire: 'password', label: l10n.entryPasswordLabel),
+      (wire: 'url', label: l10n.entryUrlLabel),
+      (wire: 'notes', label: l10n.entryNotesLabel),
+    ],
     EntryType.script => const [],
+    // Cards are Inject-only and must never become script/runtime references.
+    EntryType.creditCard => const [],
   };
 }

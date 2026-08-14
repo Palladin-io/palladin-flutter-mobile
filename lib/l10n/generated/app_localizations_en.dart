@@ -856,6 +856,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryTypeCredential => 'Credential';
 
   @override
+  String get entryTypeCreditCard => 'Credit card';
+
+  @override
   String get entryLabelLabel => 'Label';
 
   @override
@@ -3549,4 +3552,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsTwoFactor => 'Two-factor authentication';
+
+  @override
+  String get entryCardholderNameLabel => 'Cardholder name';
+
+  @override
+  String get entryCardNumberLabel => 'Card number';
+
+  @override
+  String get entryExpiryMonthLabel => 'Expiry month';
+
+  @override
+  String get entryExpiryYearLabel => 'Expiry year';
+
+  @override
+  String get entrySecurityCodeLabel => 'Security code';
+
+  @override
+  String get entryPinLabel => 'PIN (optional)';
+
+  @override
+  String get entryBillingAddressLabel => 'Billing address (optional)';
 }

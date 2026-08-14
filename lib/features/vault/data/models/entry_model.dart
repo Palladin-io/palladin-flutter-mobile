@@ -74,6 +74,7 @@ class EntryModel {
       'Key' || 'key' => 0,
       'Credential' || 'credential' => 1,
       'Script' || 'script' => 2,
+      'CreditCard' || 'creditCard' || 'CREDIT_CARD' => 3,
       _ => 1,
     };
   }

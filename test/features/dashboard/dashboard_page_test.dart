@@ -467,6 +467,51 @@ void main() {
       expect(find.text('s3cr3t'), findsNothing);
       expect(find.text('Personal'), findsOneWidget);
     });
+
+    testWidgets('credit-card hits omit unsupported reveal and copy actions', (
+      tester,
+    ) async {
+      when(
+        () => dashboardRepository.globalSearch(
+          any(),
+          limit: any(named: 'limit'),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer(
+        (_) async => const [
+          EntrySearchResult(
+            entryId: 'card-1',
+            displayName: 'Company card',
+            vaultId: 'v1',
+            vaultName: 'Personal',
+            entryType: 3,
+          ),
+        ],
+      );
+      await pumpDashboard(
+        tester,
+        state: const DashboardLoaded(),
+        permissions: 0,
+        privateKey: Uint8List.fromList([1, 2, 3, 4]),
+      );
+
+      await tester.enterText(find.byType(TextField), 'company');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      expect(find.text('Company card'), findsOneWidget);
+      expect(find.byIcon(Icons.visibility), findsNothing);
+      expect(find.byIcon(Icons.content_copy), findsNothing);
+      verifyNever(
+        () => entryRepository.revealEntry(
+          vaultId: any(named: 'vaultId'),
+          entryId: any(named: 'entryId'),
+          privateKey: any(named: 'privateKey'),
+          wrappedVK: any(named: 'wrappedVK'),
+        ),
+      );
+    });
   });
 
   group('pending approvals badge', () {

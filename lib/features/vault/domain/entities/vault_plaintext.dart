@@ -16,12 +16,14 @@ final class VaultPlaintextFormatException implements Exception {
 enum VaultEntryType {
   key,
   credential,
-  script;
+  script,
+  creditCard;
 
   static VaultEntryType parse(Object? value) => switch (value) {
     'key' => key,
     'credential' => credential,
     'script' => script,
+    'creditCard' => creditCard,
     _ => throw VaultPlaintextFormatException('Unknown entryType.'),
   };
 }
@@ -450,6 +452,49 @@ final class ScriptSecretContent extends MemberSecretContent {
   };
 }
 
+final class CreditCardSecretContent extends MemberSecretContent {
+  const CreditCardSecretContent({
+    required this.cardholderName,
+    required this.cardNumber,
+    required this.expiryMonth,
+    required this.expiryYear,
+    required this.securityCode,
+    required this.pin,
+    required this.billingAddress,
+    required this.notes,
+    required super.customFields,
+  });
+  final String cardholderName,
+      cardNumber,
+      expiryMonth,
+      expiryYear,
+      securityCode;
+  final String? pin, billingAddress, notes;
+  @override
+  Map<String, Object?> toJson() => {
+    'cardholderName': cardholderName,
+    'cardNumber': cardNumber,
+    'expiryMonth': expiryMonth,
+    'expiryYear': expiryYear,
+    'securityCode': securityCode,
+    'pin': pin,
+    'billingAddress': billingAddress,
+    'notes': notes,
+    'customFields': customFields.map((field) => field.toJson()).toList(),
+  };
+  @override
+  Map<String, Object?> fieldValues() => {
+    'creditCard.cardholderName': cardholderName,
+    'creditCard.cardNumber': cardNumber,
+    'creditCard.expiryMonth': expiryMonth,
+    'creditCard.expiryYear': expiryYear,
+    'creditCard.securityCode': securityCode,
+    'creditCard.pin': pin,
+    'creditCard.billingAddress': billingAddress,
+    'notes': notes,
+  };
+}
+
 /// Canonical complete Entry state and exact Agent policy.
 final class MemberSecret {
   MemberSecret({
@@ -546,6 +591,19 @@ final class MemberSecret {
         AgentFieldAccess.discovery,
         AgentFieldAccess.onGrantValue,
       },
+      'creditCard.cardholderName' => {
+        AgentFieldAccess.never,
+        AgentFieldAccess.onGrantRuntime,
+      },
+      'creditCard.cardNumber' ||
+      'creditCard.expiryMonth' ||
+      'creditCard.expiryYear' ||
+      'creditCard.securityCode' ||
+      'creditCard.pin' ||
+      'creditCard.billingAddress' => {
+        AgentFieldAccess.never,
+        AgentFieldAccess.onGrantRuntime,
+      },
       'credential.totp' => {
         AgentFieldAccess.never,
         AgentFieldAccess.onGrantDerived,
@@ -574,7 +632,8 @@ final class MemberSecret {
       'totp' => {AgentFieldAccess.never, AgentFieldAccess.onGrantDerived},
       'text' || 'multiline' || 'concealed' => {
         AgentFieldAccess.never,
-        if (entryType == VaultEntryType.script)
+        if (entryType == VaultEntryType.script ||
+            entryType == VaultEntryType.creditCard)
           AgentFieldAccess.onGrantRuntime
         else
           AgentFieldAccess.onGrantValue,
@@ -723,6 +782,18 @@ abstract final class VaultPlaintextProjector {
         'script.interpreter': content['interpreter'],
         'script.refs': content['refs'],
       },
+      if (entryType == 'creditCard') ...{
+        for (final key in const [
+          'cardholderName',
+          'cardNumber',
+          'expiryMonth',
+          'expiryYear',
+          'securityCode',
+          'pin',
+          'billingAddress',
+        ])
+          'creditCard.$key': content[key],
+      },
       'notes': content['notes'],
       for (final field in custom)
         'custom:${field['id'] as String}': field['value'],
@@ -742,8 +813,16 @@ abstract final class VaultPlaintextProjector {
             throw VaultPlaintextFormatException('Unknown field $id.');
           }
           final kind = switch (id) {
-            'key.value' || 'credential.password' => 'concealed',
+            'key.value' ||
+            'credential.password' ||
+            'creditCard.cardNumber' ||
+            'creditCard.securityCode' ||
+            'creditCard.pin' => 'concealed',
             'credential.username' => 'text',
+            'creditCard.cardholderName' ||
+            'creditCard.expiryMonth' ||
+            'creditCard.expiryYear' ||
+            'creditCard.billingAddress' => 'text',
             'credential.url' => 'url',
             'credential.totp' => 'totp',
             'notes' => 'multiline',
@@ -787,6 +866,7 @@ abstract final class VaultPlaintextProjector {
         VaultEntryType.key => const ['get'],
         VaultEntryType.credential => const ['get', 'inject'],
         VaultEntryType.script => const ['exec'],
+        VaultEntryType.creditCard => const ['inject'],
       };
 
   static String _grantKind(MemberSecret secret, String id) => switch (id) {
@@ -794,6 +874,11 @@ abstract final class VaultPlaintextProjector {
     'credential.username' => 'text',
     'credential.url' => 'url',
     'credential.totp' => 'totp',
+    'creditCard.cardholderName' || 'creditCard.billingAddress' => 'text',
+    'creditCard.cardNumber' ||
+    'creditCard.securityCode' ||
+    'creditCard.pin' => 'concealed',
+    'creditCard.expiryMonth' || 'creditCard.expiryYear' => 'text',
     'notes' => 'multiline',
     'script.source' => 'script',
     'script.interpreter' => 'interpreter',
