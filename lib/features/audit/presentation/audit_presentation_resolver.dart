@@ -197,8 +197,12 @@ final class LocalAuditPresentationResolver
     if (requestedAgentIds.isEmpty) return const {};
     try {
       final cubit = _agentsCubit;
-      if (cubit != null && cubit.state.status != AgentsStatus.loaded) {
-        await cubit.refresh();
+      if (cubit != null) {
+        if (cubit.state.status != AgentsStatus.loaded) {
+          await cubit.refresh();
+        } else {
+          await cubit.waitForCurrent();
+        }
       }
       final agents =
           cubit?.state.agents ?? await _agentsRepository.listAgents();
