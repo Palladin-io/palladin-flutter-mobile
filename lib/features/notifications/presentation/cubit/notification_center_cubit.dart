@@ -130,6 +130,17 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     emit(const NotificationCenterState());
   }
 
+  /// Drops decrypted reason text and locally resolved names when Vault access
+  /// is locked, while retaining the structural feed for badge accounting.
+  void lock() {
+    _activeAccountId = null;
+    _activeOrganizationId = null;
+    _activeVaults = const [];
+    final presentationResolver = resolver;
+    if (presentationResolver == null || state.items.isEmpty) return;
+    emit(state.copyWith(items: presentationResolver.redact(state.items)));
+  }
+
   /// Marks a notification read because its card became visible in the list
   /// (mark-on-view). Idempotent and de-duped: no-op for already-read items or
   /// ids already in flight, so it is safe to call from a tile's build. Does

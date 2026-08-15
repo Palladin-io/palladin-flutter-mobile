@@ -1885,14 +1885,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           memberKeyGeneration: memberKeyGeneration,
           agentPublicKey: recipient,
           recipientKeyVersion: grant.recipientAgentKeyVersion!,
-          approvedMethods: secret.entryType == VaultEntryType.creditCard
-              ? 4
-              : _methodBits(grant.methods),
-          deliveryPolicy: secret.entryType == VaultEntryType.script
-              ? 1
-              : secret.entryType == VaultEntryType.creditCard
-              ? 2
-              : 0,
+          approvedMethods: _methodBits(grant.methods),
+          deliveryPolicy: 0,
           fieldIds: fields,
           grantPayload: VaultPlaintextProjector.grantPayload(
             secret,
@@ -2002,13 +1996,17 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       final expiresAt = grant.expiresAt == null
           ? null
           : _canonicalInstant(grant.expiresAt!);
+      final approvedFieldIds = scope.fieldIds;
+      if (approvedFieldIds.isEmpty) {
+        throw const FormatException('Entry has no grantable fields');
+      }
       final payload = AgentVisibilityProjector.grantPayload(
         type: type,
         agentLabel: agentLabel,
         description: description,
         content: content,
         policy: policy,
-        approvedFieldIds: scope.fieldIds,
+        approvedFieldIds: approvedFieldIds,
       );
       plaintext = VaultProtocolBytes.utf8Encode(canonicalizeVaultJson(payload));
       grantKey = await _envelopes.randomKey();
@@ -2064,7 +2062,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         'agentWrappedGrantDek': VaultProtocolBytes.base64UrlEncode(wrappedKey),
         'agentWrapperSuite': 1,
         'agentKeyFingerprint': fingerprintWire,
-        'fieldIds': [...scope.fieldIds]..sort(),
+        'fieldIds': approvedFieldIds,
         'expiresAt': ?expiresAt,
         'remainingUses': ?remainingUses,
       };

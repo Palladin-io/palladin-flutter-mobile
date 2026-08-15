@@ -22,6 +22,7 @@ class GrantModel {
     this.entryId,
     this.entryLabel,
     this.reason,
+    this.encryptedReason,
     this.methods,
     this.expiresAt,
     this.queryLimit,
@@ -29,8 +30,11 @@ class GrantModel {
     this.approvedAt,
     this.approvedByName,
     this.revokedAt,
+    this.createdBy,
     this.createdByName,
+    this.revokedBy,
     this.revokedByName,
+    this.deniedBy,
     this.deniedByName,
     this.denyReason,
     this.canRevoke = false,
@@ -52,6 +56,7 @@ class GrantModel {
   final String? entryId;
   final String? entryLabel;
   final String? reason;
+  final Map<String, dynamic>? encryptedReason;
   final String? methods;
   final String? expiresAt;
   final int? queryLimit;
@@ -59,8 +64,11 @@ class GrantModel {
   final String? approvedAt;
   final String? approvedByName;
   final String? revokedAt;
+  final String? createdBy;
   final String? createdByName;
+  final String? revokedBy;
   final String? revokedByName;
+  final String? deniedBy;
   final String? deniedByName;
   final String? denyReason;
   final bool canRevoke;
@@ -105,6 +113,7 @@ class GrantModel {
       entryId: json['entryId'] as String?,
       entryLabel: json['entryLabel'] as String?,
       reason: json['reason'] as String?,
+      encryptedReason: _encryptedReason(json['encryptedReason']),
       methods: json['methods'] as String?,
       expiresAt: json['expiresAt'] as String?,
       queryLimit: json['queryLimit'] as int?,
@@ -112,8 +121,11 @@ class GrantModel {
       approvedAt: json['approvedAt'] as String?,
       approvedByName: json['approvedByName'] as String?,
       revokedAt: json['revokedAt'] as String?,
+      createdBy: json['createdBy'] as String?,
       createdByName: json['createdByName'] as String?,
+      revokedBy: json['revokedBy'] as String?,
       revokedByName: json['revokedByName'] as String?,
+      deniedBy: json['deniedBy'] as String?,
       deniedByName: json['deniedByName'] as String?,
       denyReason: json['denyReason'] as String?,
       canRevoke: json['canRevoke'] as bool? ?? false,
@@ -121,7 +133,7 @@ class GrantModel {
     );
   }
 
-  Grant toEntity() {
+  Grant toEntity({String? resolvedReason}) {
     DateTime? parse(String? raw) =>
         raw == null ? null : DateTime.parse(raw).toLocal();
 
@@ -139,7 +151,7 @@ class GrantModel {
       scope: GrantScope.fromWire(scope),
       entryId: entryId,
       entryLabel: entryLabel,
-      reason: reason,
+      reason: resolvedReason ?? reason,
       methods: parseGrantMethods(methods),
       createdAt: DateTime.parse(createdAt).toLocal(),
       expiresAt: parse(expiresAt),
@@ -148,14 +160,20 @@ class GrantModel {
       approvedAt: parse(approvedAt),
       approvedByName: approvedByName,
       revokedAt: parse(revokedAt),
+      createdBy: createdBy,
       createdByName: createdByName,
+      revokedBy: revokedBy,
       revokedByName: revokedByName,
+      deniedBy: deniedBy,
       deniedByName: deniedByName,
       denyReason: denyReason,
       canRevoke: canRevoke,
       canGrantAgain: canGrantAgain,
     );
   }
+
+  static Map<String, dynamic>? _encryptedReason(Object? value) =>
+      value is Map ? Map<String, dynamic>.from(value) : null;
 }
 
 /// One page of grants plus the cursor for the next page (cursor-based

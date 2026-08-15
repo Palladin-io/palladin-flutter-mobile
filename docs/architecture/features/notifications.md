@@ -22,6 +22,12 @@ Inbox (notification center) + preferences + push/real-time transport.
 - Card routes use an allowlisted type plus authoritative Inbox metadata.
   `actionDeepLink` from transport or Inbox metadata is never trusted.
 - Notification logs omit payloads, resource identifiers, and raw exceptions.
+- Pending and historical Grant notifications resolve `Reason` from the
+  authoritative grant's encrypted envelope and `By` from its actor id plus the
+  Vault Member directory. Notification metadata never carries plaintext or
+  ciphertext reason, and server-supplied presentation names/free text are
+  discarded. The singleton Inbox state keeps decrypted reason only in memory
+  and redacts it with locally resolved names whenever the Vault session locks.
 
 **Cross-feature deps (heavy):** `agents` (`AgentAvatar`, `ApproveAgentSheet`, `DeactivateAgentSheet`), `grants` (`GrantDetailRow`), `approval` (`ApproveGrantSheet`, `DenyGrantSheet`).
 

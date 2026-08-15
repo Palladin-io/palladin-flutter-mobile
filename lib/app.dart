@@ -275,6 +275,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               _vaultList.lock();
               _dashboard.lock();
               _searchSession.lock();
+              getIt<NotificationCenterCubit>().lock();
               _vaultRotation.pause();
               _exportService.cancel();
               _presentationAssets.lock();

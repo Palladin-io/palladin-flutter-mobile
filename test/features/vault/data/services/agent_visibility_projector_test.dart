@@ -101,38 +101,68 @@ void main() {
     );
   });
 
-  test(
-    'Credit card fields are runtime-only and discovery advertises inject',
-    () {
-      final policy = AgentVisibilityPolicy.fromJson(
+  test('Credit card fields stay runtime-only while methods remain generic', () {
+    final policy = AgentVisibilityPolicy.fromJson(
+      EntryType.creditCard,
+      {
+        'discoverable': true,
+        'fields': {'agentLabel': 'discovery', 'cardNumber': 'onGrantRuntime'},
+      },
+      content: {'cardNumber': '4242424242424242'},
+    );
+    final discovery = AgentVisibilityProjector.discovery(
+      type: EntryType.creditCard,
+      agentLabel: 'Payment card',
+      description: '',
+      content: {'cardNumber': '4242424242424242'},
+      policy: policy,
+    );
+
+    expect(discovery['capabilities'], const ['get', 'exec', 'inject']);
+    expect(discovery.toString(), isNot(contains('4242424242424242')));
+    expect(
+      () => AgentVisibilityPolicy.fromJson(
         EntryType.creditCard,
         {
           'discoverable': true,
-          'fields': {'agentLabel': 'discovery', 'cardNumber': 'onGrantRuntime'},
+          'fields': {'agentLabel': 'discovery', 'cardNumber': 'onGrantValue'},
         },
         content: {'cardNumber': '4242424242424242'},
-      );
-      final discovery = AgentVisibilityProjector.discovery(
-        type: EntryType.creditCard,
-        agentLabel: 'Payment card',
-        description: '',
-        content: {'cardNumber': '4242424242424242'},
-        policy: policy,
-      );
+      ),
+      throwsFormatException,
+    );
+  });
 
-      expect(discovery['capabilities'], const ['inject']);
-      expect(discovery.toString(), isNot(contains('4242424242424242')));
-      expect(
-        () => AgentVisibilityPolicy.fromJson(
-          EntryType.creditCard,
-          {
-            'discoverable': true,
-            'fields': {'agentLabel': 'discovery', 'cardNumber': 'onGrantValue'},
-          },
-          content: {'cardNumber': '4242424242424242'},
-        ),
-        throwsFormatException,
-      );
-    },
-  );
+  test('grantable field set omits an authorized but absent optional value', () {
+    final policy = AgentVisibilityPolicy.fromJson(
+      EntryType.key,
+      {
+        'discoverable': true,
+        'fields': {
+          'agentLabel': 'discovery',
+          'value': 'onGrantValue',
+          'notes': 'onGrantValue',
+        },
+      },
+      content: {'value': 'secret', 'notes': null},
+    );
+
+    final fieldIds = AgentVisibilityProjector.grantableFieldIds(
+      agentLabel: 'API key',
+      description: '',
+      content: {'value': 'secret', 'notes': null},
+      policy: policy,
+    );
+    final payload = AgentVisibilityProjector.grantPayload(
+      type: EntryType.key,
+      agentLabel: 'API key',
+      description: '',
+      content: {'value': 'secret', 'notes': null},
+      policy: policy,
+      approvedFieldIds: fieldIds,
+    );
+
+    expect(fieldIds, ['value']);
+    expect((payload['fields'] as Map).keys, ['value']);
+  });
 }

@@ -2,6 +2,37 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/grants/data/models/grant_model.dart';
 import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
 
+Map<String, dynamic> _encryptedReason() => {
+  'descriptor': {
+    'protocolVersion': 2,
+    'cryptoSuiteId': 'palladin-vault-xchacha-v1',
+    'purpose': 'encryptedReason',
+    'scope': {
+      'organizationId': 'org-1',
+      'vaultId': 'v-1',
+      'entryId': 'e-1',
+      'grantOrRequestId': 'g-1',
+      'agentId': 'a-1',
+      'memberId': null,
+    },
+    'resourceRevision': '1',
+    'keyVersion': 1,
+    'memberKeyGeneration': 1,
+    'binding': {
+      'wrapperSuiteId': 'palladin-x25519-sealed-box-v1',
+      'recipientKeyVersion': 1,
+      'recipientKeyFingerprint': 'fingerprint',
+      'requestedMethods': 1,
+    },
+  },
+  'encodedSuitePayload': 'payload',
+  'wrappedReasonDek': {
+    'descriptor': <String, dynamic>{},
+    'encodedSealedKeyPackage': 'wrapped',
+  },
+  'agentSignature': 'signature',
+};
+
 void main() {
   group('GrantModel.fromJson → toEntity', () {
     test('maps a granular pending grant with reason and entry', () {
@@ -26,6 +57,33 @@ void main() {
       expect(entity.entryId, 'e-1');
       expect(entity.entryLabel, 'Gmail');
       expect(entity.reason, 'Need Gmail to send email');
+    });
+
+    test('retains encrypted reason and actor ids for local history', () {
+      final model = GrantModel.fromJson(<String, dynamic>{
+        'id': 'g-1',
+        'vaultId': 'v-1',
+        'agentId': 'a-1',
+        'status': 'active',
+        'type': 'granular',
+        'methods': 'get',
+        'entryId': 'e-1',
+        'createdAt': '2026-06-01T10:00:00Z',
+        'createdBy': 'member-1',
+        'revokedBy': 'member-2',
+        'deniedBy': 'member-3',
+        'encryptedReason': _encryptedReason(),
+      });
+
+      expect(
+        (model.encryptedReason?['descriptor'] as Map)['resourceRevision'],
+        '1',
+      );
+      final entity = model.toEntity(resolvedReason: 'Local plaintext');
+      expect(entity.reason, 'Local plaintext');
+      expect(entity.createdBy, 'member-1');
+      expect(entity.revokedBy, 'member-2');
+      expect(entity.deniedBy, 'member-3');
     });
 
     test('maps a full active grant with expiry', () {

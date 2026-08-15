@@ -11,6 +11,7 @@ import '../../../vault/data/datasources/vault_remote_datasource.dart';
 import '../../../vault/data/services/canonical_entry_detail_service.dart';
 import '../../../vault/data/services/agent_visibility_projector.dart';
 import '../../../vault/data/services/entry_v2_crypto_service.dart';
+import '../../../vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import '../../../vault/data/datasources/agent_discovery_remote_datasource.dart';
 import '../../../vault/domain/entities/agent_visibility_policy.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
@@ -87,16 +88,19 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required List<String> fieldIds,
     required String reviewedEntryRevision,
   }) async {
+    var stage = 'grant-fetch';
     CanonicalEntrySnapshot? snapshot;
     try {
       final freshGrant = (await _approval.getGrant(
         grant.vaultId,
         grant.grantId,
       )).toEntity();
+      stage = 'request-validation';
       if (freshGrant.encryptedReason.requestRevision !=
           grant.encryptedReason.requestRevision) {
         throw const ApprovalException(ApprovalErrorKind.conflict);
       }
+      stage = 'entry-reveal';
       snapshot = await _canonicalEntries.reveal(
         expected: EntryEntity(
           id: grant.entryId,
@@ -111,13 +115,16 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       if (snapshot.entry['currentRevision'] != reviewedEntryRevision) {
         throw const ApprovalException(ApprovalErrorKind.conflict);
       }
+      stage = 'vault-fetch';
       final vault = await _vaults.getEncryptedVault(grant.vaultId);
+      stage = 'agent-discovery';
       final candidates = (await _discovery.list(grant.vaultId))
           .where((item) => item.agentId == grant.agentId && item.isCurrent)
           .toList(growable: false);
       if (candidates.length != 1) {
         throw const FormatException('Agent identity unavailable');
       }
+      stage = 'scope-projection';
       final candidate = candidates.single;
       final type = EntryTypeExtension.fromWire(
         snapshot.secret['entryType'] as int,
@@ -129,27 +136,50 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         ),
         content: snapshot.payload,
       );
+      final agentLabel =
+          snapshot.secret['agentLabel'] as String? ??
+          snapshot.secret['memberLabel'] as String;
+      final description = snapshot.secret['description'] as String? ?? '';
+      final grantableFieldIds = AgentVisibilityProjector.grantableFieldIds(
+        agentLabel: agentLabel,
+        description: description,
+        content: snapshot.payload,
+        policy: policy,
+      ).toSet();
+      final reviewedFieldIds = fieldIds.toSet();
+      if (reviewedFieldIds.isEmpty ||
+          reviewedFieldIds.length != fieldIds.length ||
+          reviewedFieldIds.length != grantableFieldIds.length ||
+          !reviewedFieldIds.containsAll(grantableFieldIds)) {
+        throw const FormatException('Approved fields differ from review');
+      }
+      final approvedFieldIds = reviewedFieldIds.toList(growable: false)..sort();
+      if (approvedFieldIds.isEmpty) {
+        throw const FormatException('Entry has no grantable fields');
+      }
       final approvedMethods = _methodBits(methods);
       final requestedMethods = grant.encryptedReason.requestedMethods;
       if (approvedMethods == 0 ||
           (approvedMethods & requestedMethods) != approvedMethods) {
         throw const FormatException('Approval methods exceed request');
       }
-      if (type == EntryType.creditCard && approvedMethods != 4) {
-        throw const FormatException('Credit-card grants are Inject-only');
-      }
       final wire = limit.toWire();
       final grantPayload = AgentVisibilityProjector.grantPayload(
         type: type,
-        agentLabel:
-            snapshot.secret['agentLabel'] as String? ??
-            snapshot.secret['memberLabel'] as String,
-        description: snapshot.secret['description'] as String? ?? '',
+        agentLabel: agentLabel,
+        description: description,
         content: snapshot.payload,
         policy: policy,
-        approvedFieldIds: fieldIds,
+        approvedFieldIds: approvedFieldIds,
       );
-      final recipientKey = base64.decode(candidate.x25519PublicKey);
+      final recipientKey = VaultProtocolBytes.base64Decode(
+        candidate.x25519PublicKey,
+        maximumBytes: 32,
+      );
+      if (recipientKey.length != 32) {
+        throw const FormatException('Invalid Agent recipient key');
+      }
+      stage = 'grant-seal';
       final grantEntry = await _crypto.sealGrant(
         organizationId: snapshot.entry['organizationId'] as String,
         vaultId: grant.vaultId,
@@ -161,18 +191,15 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         recipientKeyVersion: candidate.recipientKeyVersion,
         agentPublicKey: Uint8List.fromList(recipientKey),
         approvedMethods: approvedMethods,
-        deliveryPolicy: type == EntryType.script
-            ? 1
-            : type == EntryType.creditCard
-            ? 2
-            : 0,
-        fieldIds: fieldIds,
+        deliveryPolicy: 0,
+        fieldIds: approvedFieldIds,
         grantPayload: grantPayload,
         expiresAt: wire.expiresAt == null
             ? null
             : DateTime.parse(wire.expiresAt!),
         remainingUses: wire.queryLimit,
       );
+      stage = 'entry-revision-check';
       final latest = await _entries.getCanonicalEntry(
         grant.vaultId,
         grant.entryId,
@@ -180,6 +207,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       if (latest['currentRevision'] != reviewedEntryRevision) {
         throw const ApprovalException(ApprovalErrorKind.conflict);
       }
+      stage = 'grant-submit';
       await _approval.approveGrant(
         vaultId: grant.vaultId,
         grantId: grant.grantId,
@@ -189,10 +217,20 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         methods: serializeGrantMethods(methods),
       );
     } on DioException catch (e) {
+      AppLogger.w(
+        'Approval',
+        'Approve failed at $stage (DioException:${e.response?.statusCode ?? 'none'})',
+      );
       throw ApprovalException(_classifyError(e));
     } on ApprovalException {
       rethrow;
-    } catch (_) {
+    } catch (error) {
+      // Stage and exception class are safe operational metadata. Exception
+      // messages may contain parser input and are deliberately not logged.
+      AppLogger.w(
+        'Approval',
+        'Approve failed at $stage (${error.runtimeType})',
+      );
       throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
     } finally {
       snapshot?.clear();
@@ -266,11 +304,6 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           final type = EntryTypeExtension.fromWire(
             snapshot.secret['entryType'] as int,
           );
-          final entryMethodBits = type == EntryType.creditCard ? 4 : methodBits;
-          if (type == EntryType.creditCard &&
-              !methods.contains(GrantMethod.inject)) {
-            throw const FormatException('Credit-card grants require Inject');
-          }
           final policy = AgentVisibilityPolicy.fromJson(
             type,
             Map<String, dynamic>.from(
@@ -304,12 +337,8 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
             memberKeyGeneration: snapshot.entry['memberKeyGeneration'] as int,
             agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
             recipientKeyVersion: recipientKeyVersion,
-            approvedMethods: entryMethodBits,
-            deliveryPolicy: type == EntryType.script
-                ? 1
-                : type == EntryType.creditCard
-                ? 2
-                : 0,
+            approvedMethods: methodBits,
+            deliveryPolicy: 0,
             fieldIds: approved,
             grantPayload: payload,
             expiresAt: wire.expiresAt == null

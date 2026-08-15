@@ -53,6 +53,9 @@ class _ApproveSheetBody extends StatefulWidget {
 
 class _ApproveSheetBodyState extends State<_ApproveSheetBody>
     with WidgetsBindingObserver {
+  late GrantApprovalCubit _approvalCubit;
+  late AuthBloc _authBloc;
+
   GrantLimit _limit = GrantExpiry(
     DateTime.now().add(const Duration(hours: 24)),
   );
@@ -62,54 +65,73 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody>
   late List<GrantMethod> _methods = widget.grant.requestedMethods.isNotEmpty
       ? List.of(widget.grant.requestedMethods)
       : List.of(kDefaultGrantMethods);
-  final Set<String> _selectedFields = {};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final key = _privateKey();
-      if (key == null) {
-        context.read<GrantApprovalCubit>().reportVaultLocked();
-      } else {
-        context.read<GrantApprovalCubit>().loadReview(key);
-      }
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadReview());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _approvalCubit = context.read<GrantApprovalCubit>();
+    _authBloc = context.read<AuthBloc>();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed && mounted) {
-      context.read<GrantApprovalCubit>().clearReview();
-      _selectedFields.clear();
+    if (!mounted) return;
+    if (state == AppLifecycleState.resumed) {
+      // The decrypted review is deliberately wiped whenever the app loses
+      // focus. Re-open it from the in-memory key on resume; otherwise the
+      // sheet remains visible with a permanently disabled Approve button.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadReview());
+      return;
     }
+    _approvalCubit.clearReview();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    context.read<GrantApprovalCubit>().clearReview();
+    _approvalCubit.clearReview();
     super.dispose();
   }
 
   Uint8List? _privateKey() {
-    final auth = context.read<AuthBloc>().state;
+    final auth = _authBloc.state;
     if (auth is AuthAuthenticated && !auth.isVaultLocked) {
       return auth.privateKey;
     }
     return null;
   }
 
-  void _onApprove() {
-    final review = context.read<GrantApprovalCubit>().state.review;
-    final key = _privateKey();
-    if (key == null) {
-      context.read<GrantApprovalCubit>().reportVaultLocked();
+  void _loadReview() {
+    if (!mounted) return;
+    final cubit = _approvalCubit;
+    if (cubit.state.review != null ||
+        cubit.state.status == GrantApprovalStatus.reviewing ||
+        cubit.state.status == GrantApprovalStatus.submitting) {
       return;
     }
-    if (_methods.isEmpty || review == null || _selectedFields.isEmpty) {
+    final key = _privateKey();
+    if (key == null) {
+      cubit.reportVaultLocked();
+    } else {
+      cubit.loadReview(key);
+    }
+  }
+
+  void _onApprove() {
+    final review = _approvalCubit.state.review;
+    final key = _privateKey();
+    if (key == null) {
+      _approvalCubit.reportVaultLocked();
+      return;
+    }
+    if (_methods.isEmpty || review == null || review.fields.isEmpty) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -121,11 +143,11 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody>
         );
       return;
     }
-    context.read<GrantApprovalCubit>().approve(
+    _approvalCubit.approve(
       privateKey: key,
       limit: _limit,
       methods: _methods,
-      fieldIds: _selectedFields.toList(growable: false),
+      fieldIds: review.fields.map((field) => field.id).toList(growable: false),
       reviewedEntryRevision: review.entryRevision,
     );
   }
@@ -155,9 +177,6 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody>
       },
       builder: (context, state) {
         final review = state.review;
-        if (review != null && _selectedFields.isEmpty) {
-          _selectedFields.addAll(review.fields.map((field) => field.id));
-        }
         return Container(
           decoration: BoxDecoration(
             color: AppColors.modalBackground(brightness),
@@ -219,31 +238,6 @@ class _ApproveSheetBodyState extends State<_ApproveSheetBody>
                       ),
                       const SizedBox(height: AppSpacing.innerGap),
                       Text(review.reason),
-                      const SizedBox(height: AppSpacing.lg),
-                      Text(
-                        l10n.entryCustomFieldsLabel,
-                        style: TextStyle(
-                          color: AppColors.onSurfaceSubtle(brightness),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      for (final field in review.fields)
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                          value: _selectedFields.contains(field.id),
-                          title: Text(field.label),
-                          onChanged: state.isSubmitting
-                              ? null
-                              : (selected) => setState(() {
-                                  if (selected ?? false) {
-                                    _selectedFields.add(field.id);
-                                  } else {
-                                    _selectedFields.remove(field.id);
-                                  }
-                                }),
-                        ),
                     ],
                     const SizedBox(height: AppSpacing.lg),
                     Text(

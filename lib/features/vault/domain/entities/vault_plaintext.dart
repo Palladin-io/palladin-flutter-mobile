@@ -861,13 +861,11 @@ abstract final class VaultPlaintextProjector {
     for (final field in secret.content.customFields) field.fieldId: field.value,
   };
 
-  static List<String> _capabilities(MemberSecret secret) =>
-      switch (secret.entryType) {
-        VaultEntryType.key => const ['get'],
-        VaultEntryType.credential => const ['get', 'inject'],
-        VaultEntryType.script => const ['exec'],
-        VaultEntryType.creditCard => const ['inject'],
-      };
+  static List<String> _capabilities(MemberSecret _) => const [
+    'get',
+    'exec',
+    'inject',
+  ];
 
   static String _grantKind(MemberSecret secret, String id) => switch (id) {
     'key.value' || 'credential.password' => 'concealed',
