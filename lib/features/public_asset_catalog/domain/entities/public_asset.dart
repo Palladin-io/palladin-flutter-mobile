@@ -16,5 +16,6 @@ class PublicAsset {
   /// Complete URL selected by the server for the current environment.
   final Uri deliveryUrl;
 
-  String get reference => 'public-asset:$id';
+  String get reference =>
+      'public-asset:$id|$revision|${Uri.encodeComponent(deliveryUrl.toString())}';
 }

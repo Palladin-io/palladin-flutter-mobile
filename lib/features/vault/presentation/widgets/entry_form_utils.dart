@@ -73,6 +73,13 @@ class EntryFormUtils {
     ScriptInterpreter interpreter = ScriptInterpreter.bash,
     List<ScriptRef> refs = const [],
     String? credentialTotp,
+    String cardholderName = '',
+    String cardNumber = '',
+    String expiryMonth = '',
+    String expiryYear = '',
+    String securityCode = '',
+    String pin = '',
+    String billingAddress = '',
   }) {
     final urlOrNull = url.trim().isEmpty ? null : url.trim();
     final notesOrNull = notes.trim().isEmpty ? null : notes.trim();
@@ -98,6 +105,19 @@ class EntryFormUtils {
         refs: refs,
         fields: fields,
       ).toJson(),
+      EntryType.creditCard => CreditCardPayload(
+        cardholderName: cardholderName.trim(),
+        cardNumber: cardNumber.replaceAll(RegExp(r'[ -]'), ''),
+        expiryMonth: expiryMonth,
+        expiryYear: expiryYear,
+        securityCode: securityCode,
+        pin: pin.trim().isEmpty ? null : pin.trim(),
+        billingAddress: billingAddress.trim().isEmpty
+            ? null
+            : billingAddress.trim(),
+        notes: notesOrNull,
+        fields: fields,
+      ).toJson(),
     };
   }
 
@@ -110,6 +130,11 @@ class EntryFormUtils {
     String username = '',
     String password = '',
     String script = '',
+    String cardholderName = '',
+    String cardNumber = '',
+    String expiryMonth = '',
+    String expiryYear = '',
+    String securityCode = '',
   }) {
     if (label.trim().isEmpty) return false;
     return switch (type) {
@@ -117,6 +142,14 @@ class EntryFormUtils {
       EntryType.credential =>
         username.trim().isNotEmpty && password.trim().isNotEmpty,
       EntryType.script => script.trim().isNotEmpty,
+      EntryType.creditCard =>
+        cardholderName.trim().isNotEmpty &&
+            RegExp(
+              r'^\d{12,19}$',
+            ).hasMatch(cardNumber.replaceAll(RegExp(r'[ -]'), '')) &&
+            RegExp(r'^(0[1-9]|1[0-2])$').hasMatch(expiryMonth) &&
+            RegExp(r'^\d{4}$').hasMatch(expiryYear) &&
+            RegExp(r'^\d{3,4}$').hasMatch(securityCode),
     };
   }
 

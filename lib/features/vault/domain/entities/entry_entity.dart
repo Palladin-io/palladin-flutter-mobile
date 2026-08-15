@@ -17,8 +17,10 @@ enum EntryType {
   credential,
 
   /// Executable script with declared credential references (`refs`).
-  /// Delivered to agents under the `exec` method only (spec §5).
   script,
+
+  /// Payment card details stored only inside the encrypted Entry payload.
+  creditCard,
 }
 
 extension EntryTypeExtension on EntryType {
@@ -28,14 +30,67 @@ extension EntryTypeExtension on EntryType {
     EntryType.key => 0,
     EntryType.credential => 1,
     EntryType.script => 2,
+    EntryType.creditCard => 3,
   };
 
   static EntryType fromWire(int value) => switch (value) {
     0 => EntryType.key,
     1 => EntryType.credential,
     2 => EntryType.script,
+    3 => EntryType.creditCard,
     _ => throw FormatException('Unsupported Entry type ordinal: $value'),
   };
+}
+
+/// Plaintext payload for a credit-card Entry. All values remain encrypted.
+class CreditCardPayload {
+  const CreditCardPayload({
+    required this.cardholderName,
+    required this.cardNumber,
+    required this.expiryMonth,
+    required this.expiryYear,
+    required this.securityCode,
+    this.pin,
+    this.billingAddress,
+    this.notes,
+    this.fields = const [],
+  });
+  final String cardholderName;
+  final String cardNumber;
+  final String expiryMonth;
+  final String expiryYear;
+  final String securityCode;
+  final String? pin;
+  final String? billingAddress;
+  final String? notes;
+  final List<CustomField> fields;
+
+  Map<String, dynamic> toJson() => {
+    'v': 2,
+    'type': 'CREDIT_CARD',
+    'cardholderName': cardholderName,
+    'cardNumber': cardNumber,
+    'expiryMonth': expiryMonth,
+    'expiryYear': expiryYear,
+    'securityCode': securityCode,
+    if (pin != null) 'pin': pin,
+    if (billingAddress != null) 'billingAddress': billingAddress,
+    if (notes != null) 'notes': notes,
+    if (fields.isNotEmpty) 'fields': CustomField.listToJson(fields),
+  };
+
+  factory CreditCardPayload.fromJson(Map<String, dynamic> json) =>
+      CreditCardPayload(
+        cardholderName: (json['cardholderName'] as String?) ?? '',
+        cardNumber: (json['cardNumber'] as String?) ?? '',
+        expiryMonth: (json['expiryMonth'] as String?) ?? '',
+        expiryYear: (json['expiryYear'] as String?) ?? '',
+        securityCode: (json['securityCode'] as String?) ?? '',
+        pin: json['pin'] as String?,
+        billingAddress: json['billingAddress'] as String?,
+        notes: json['notes'] as String?,
+        fields: CustomField.listFromPayload(json),
+      );
 }
 
 /// Domain representation of a single vault entry's metadata.

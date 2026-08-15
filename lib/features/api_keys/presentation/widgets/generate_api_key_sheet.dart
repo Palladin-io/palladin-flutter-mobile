@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../config/env_config.dart';
+import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/secure_clipboard.dart';
@@ -23,7 +25,9 @@ import '../bloc/api_keys_cubit.dart';
 /// to SharedPreferences, secure storage, logs, or analytics, and is
 /// discarded when the sheet is dismissed.
 class GenerateApiKeySheet extends StatefulWidget {
-  const GenerateApiKeySheet({super.key});
+  const GenerateApiKeySheet({required this.apiBaseUrl, super.key});
+
+  final String apiBaseUrl;
 
   /// Shows the sheet on the root navigator. The hosting [ApiKeysCubit]
   /// is passed via [BlocProvider.value] so the sheet can create the key
@@ -37,7 +41,7 @@ class GenerateApiKeySheet extends StatefulWidget {
       backgroundColor: Colors.transparent,
       builder: (_) => BlocProvider<ApiKeysCubit>.value(
         value: cubit,
-        child: const GenerateApiKeySheet(),
+        child: GenerateApiKeySheet(apiBaseUrl: getIt<EnvConfig>().apiBaseUrl),
       ),
     );
   }
@@ -140,7 +144,11 @@ class _GenerateApiKeySheetState extends State<GenerateApiKeySheet> {
                 Flexible(
                   child: SingleChildScrollView(
                     child: _isRevealPhase
-                        ? _RevealPhase(newKey: _newKey!, onCopy: _copyKey)
+                        ? _RevealPhase(
+                            newKey: _newKey!,
+                            apiBaseUrl: widget.apiBaseUrl,
+                            onCopy: _copyKey,
+                          )
                         : _NamePhase(
                             controller: _nameController,
                             isSubmitting: _isSubmitting,
@@ -238,12 +246,18 @@ const String _installCommand = 'npm i -g @palladin/agent';
 /// helpers (connect command, install hint, docs link, agent message).
 ///
 /// Stateful because the agent name is editable and the `palladin connect`
-/// command is rebuilt live from it. The command embeds the plaintext secret;
+/// command is rebuilt live from it. The secret is entered separately through
+/// the CLI's masked prompt and must never be placed in process arguments.
 /// it is only rendered on this one-time screen and is never logged.
 class _RevealPhase extends StatefulWidget {
-  const _RevealPhase({required this.newKey, required this.onCopy});
+  const _RevealPhase({
+    required this.newKey,
+    required this.apiBaseUrl,
+    required this.onCopy,
+  });
 
   final NewApiKey newKey;
+  final String apiBaseUrl;
   final VoidCallback onCopy;
 
   @override
@@ -269,7 +283,7 @@ class _RevealPhaseState extends State<_RevealPhase> {
   }
 
   String get _connectCommand =>
-      'palladin connect ${widget.newKey.plaintext} --id "$_agentId"';
+      'palladin connect --host ${_shellQuote(widget.apiBaseUrl)} --name ${_shellQuote(_agentId)}';
 
   Future<void> _copy(String text) async {
     await SecureClipboard.copy(text);
@@ -425,6 +439,8 @@ class _RevealPhaseState extends State<_RevealPhase> {
     );
   }
 }
+
+String _shellQuote(String value) => "'${value.replaceAll("'", "'\"'\"'")}'";
 
 /// A bordered, selectable text box (monospace by default) with an optional
 /// trailing copy affordance. Reused for the secret, the connect command,

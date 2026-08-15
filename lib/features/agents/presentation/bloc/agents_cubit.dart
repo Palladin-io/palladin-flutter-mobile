@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/painting.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -25,14 +27,26 @@ class AgentsCubit extends Cubit<AgentsState> {
   AgentsCubit({required this.repository}) : super(const AgentsState());
 
   final AgentsRepository repository;
+  Future<void>? _listOperation;
+  bool _trailingRefreshQueued = false;
+  Completer<void>? _freshnessCompleter;
 
   /// Drops all loaded agents and transient error / mutation state back to
   /// the initial state. Call on logout or organization switch so the next
   /// session starts clean — the singleton instance is reused, not recreated.
-  void reset() => emit(const AgentsState());
+  void reset() {
+    _listOperation = null;
+    _trailingRefreshQueued = false;
+    final freshness = _freshnessCompleter;
+    _freshnessCompleter = null;
+    if (freshness != null && !freshness.isCompleted) freshness.complete();
+    emit(const AgentsState());
+  }
 
   /// Fetches the agents list — called once on screen mount.
-  Future<void> load() async {
+  Future<void> load() => _runList(_load);
+
+  Future<void> _load() async {
     AppLogger.d('Agents', 'Loading agents');
     emit(state.copyWith(status: AgentsStatus.loading, clearError: true));
     try {
@@ -63,10 +77,52 @@ class AgentsCubit extends Cubit<AgentsState> {
   /// to the tab, on app resume, and on an incoming push, so the list stays
   /// live without a jarring skeleton flash. Falls back to [load] when nothing
   /// has been loaded yet; failures are swallowed (best-effort background sync).
-  Future<void> refresh() async {
+  Future<void> refresh({bool ensureFresh = false}) =>
+      _runList(_refreshOnce, ensureFresh: ensureFresh);
+
+  /// Waits for the newest requested list state without starting a new request.
+  /// If a freshness signal queued a trailing refresh, consumers must await the
+  /// trailing result rather than the older request that was already in flight.
+  Future<void> waitForCurrent() =>
+      _freshnessCompleter?.future ?? _listOperation ?? Future<void>.value();
+
+  Future<void> _runList(
+    Future<void> Function() action, {
+    bool ensureFresh = false,
+  }) {
+    final active = _listOperation;
+    if (active != null) {
+      if (!ensureFresh) return active;
+      _trailingRefreshQueued = true;
+      return (_freshnessCompleter ??= Completer<void>()).future;
+    }
+    return _startList(action);
+  }
+
+  Future<void> _startList(Future<void> Function() action) {
+    final core = action();
+    late final Future<void> operation;
+    operation = core.whenComplete(() {
+      if (!identical(_listOperation, operation)) return;
+      _listOperation = null;
+      if (_trailingRefreshQueued) {
+        _trailingRefreshQueued = false;
+        _startList(_refreshOnce);
+        return;
+      }
+      final freshness = _freshnessCompleter;
+      _freshnessCompleter = null;
+      if (freshness != null && !freshness.isCompleted) freshness.complete();
+    });
+    _listOperation = operation;
+    return operation;
+  }
+
+  Future<void> _refreshOnce() async {
     if (state.status == AgentsStatus.initial ||
         state.status == AgentsStatus.error) {
-      return load();
+      await _load();
+      return;
     }
     AppLogger.d('Agents', 'Refreshing agents (quiet)');
     try {

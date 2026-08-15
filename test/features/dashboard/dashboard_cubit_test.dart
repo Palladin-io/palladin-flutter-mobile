@@ -246,6 +246,7 @@ void main() {
         indexUpdates.add('vault-1');
         await Future<void>.delayed(Duration.zero);
         expect(cubit.state, isA<DashboardInitial>());
+        verifyNever(() => agentsRepository.listAgents());
         verifyNever(() => vaultMembersRepository.list(any()));
         await cubit.close();
         await indexUpdates.close();

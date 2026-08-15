@@ -23,8 +23,6 @@ import '../../../approval/presentation/widgets/approve_grant_sheet.dart';
 import '../../../approval/presentation/widgets/deny_grant_sheet.dart';
 import '../../../audit/presentation/widgets/audit_log_row.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../public_asset_catalog/domain/entities/public_asset.dart';
-import '../../../public_asset_catalog/domain/services/website_icon_service.dart';
 import '../../../public_asset_catalog/presentation/widgets/public_asset_image.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
 import '../../../vault/domain/exceptions/entry_exceptions.dart';
@@ -1237,44 +1235,6 @@ class _SearchResultList extends StatefulWidget {
 }
 
 class _SearchResultListState extends State<_SearchResultList> {
-  Map<String, PublicAsset> _websiteAssets = const {};
-  Set<String> _requestedHostnames = const {};
-
-  @override
-  void initState() {
-    super.initState();
-    _resolveWebsiteIcons();
-  }
-
-  @override
-  void didUpdateWidget(_SearchResultList oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _resolveWebsiteIcons();
-  }
-
-  void _resolveWebsiteIcons() {
-    final hostnames = widget.results
-        .map((result) => result.icon)
-        .whereType<String>()
-        .where((icon) => icon.startsWith('website:'))
-        .map((icon) => icon.substring('website:'.length))
-        .toSet();
-    if (hostnames.isEmpty ||
-        hostnames.difference(_requestedHostnames).isEmpty) {
-      return;
-    }
-    _requestedHostnames = {..._requestedHostnames, ...hostnames};
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted || !getIt.isRegistered<WebsiteIconService>()) return;
-      final resolved = await getIt<WebsiteIconService>().resolveBatch(
-        hostnames,
-      );
-      if (mounted && resolved.isNotEmpty) {
-        setState(() => _websiteAssets = {..._websiteAssets, ...resolved});
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
@@ -1306,11 +1266,12 @@ class _SearchResultListState extends State<_SearchResultList> {
               ),
             _SearchResultRow(
               result: widget.results[i],
-              websiteAssets: _websiteAssets,
               onTap: () => widget.onTap(widget.results[i]),
               onRevealSecret: switch (widget.results[i]) {
                 final EntrySearchResult entry
-                    when widget.onRevealSecret != null =>
+                    when widget.onRevealSecret != null &&
+                        (entry.entryType == EntryType.key.toWire() ||
+                            entry.entryType == EntryType.credential.toWire()) =>
                   () => widget.onRevealSecret!(entry),
                 _ => null,
               },
@@ -1408,13 +1369,11 @@ class _SearchResultRow extends StatefulWidget {
   const _SearchResultRow({
     required this.result,
     required this.onTap,
-    required this.websiteAssets,
     this.onRevealSecret,
   });
 
   final SearchResultEntity result;
   final VoidCallback onTap;
-  final Map<String, PublicAsset> websiteAssets;
 
   /// Decrypts + returns the entry's secret (null on failure). Null for
   /// non-entry hits, which get neither reveal nor copy.
@@ -1535,11 +1494,7 @@ class _SearchResultRowState extends State<_SearchResultRow> {
             ),
             child: Row(
               children: [
-                _SearchResultIcon(
-                  result: result,
-                  websiteAssets: widget.websiteAssets,
-                  color: color,
-                ),
+                _SearchResultIcon(result: result, color: color),
                 const SizedBox(width: AppSpacing.innerGap),
                 Expanded(
                   child: Column(
@@ -1637,14 +1592,9 @@ class _SearchResultRowState extends State<_SearchResultRow> {
 }
 
 class _SearchResultIcon extends StatelessWidget {
-  const _SearchResultIcon({
-    required this.result,
-    required this.websiteAssets,
-    required this.color,
-  });
+  const _SearchResultIcon({required this.result, required this.color});
 
   final SearchResultEntity result;
-  final Map<String, PublicAsset> websiteAssets;
   final Color color;
 
   @override
@@ -1660,19 +1610,6 @@ class _SearchResultIcon extends StatelessWidget {
         height: 32,
         fallback: fallback(),
       );
-    } else if (reference?.startsWith('website:') ?? false) {
-      final hostname = reference!.substring('website:'.length);
-      final asset = websiteAssets[hostname];
-      if (asset != null) {
-        content = Image.network(
-          asset.deliveryUrl.toString(),
-          width: 32,
-          height: 32,
-          fit: BoxFit.cover,
-          gaplessPlayback: true,
-          errorBuilder: (_, _, _) => fallback(),
-        );
-      }
     }
     return Container(
       width: 32,

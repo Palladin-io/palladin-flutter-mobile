@@ -8,7 +8,6 @@ class PublicAssetRepositoryImpl implements PublicAssetRepository {
   PublicAssetRepositoryImpl(this._remote);
   final PublicAssetRemoteDatasource _remote;
   final Map<String, PublicAsset> _assets = {};
-  final Set<String> _acquisitionRequested = {};
 
   @override
   Future<List<PublicAsset>> searchWebsiteIcons(String query) async {
@@ -18,30 +17,51 @@ class PublicAssetRepositoryImpl implements PublicAssetRepository {
   }
 
   @override
-  Future<Map<String, PublicAsset>> resolveWebsiteIcons(
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
     Iterable<String> hostnames,
   ) async {
     final normalized = PublicHostname.unique(hostnames, limit: 10000);
-    if (normalized.isEmpty) return const {};
-    final result = <String, PublicAsset>{};
+    if (normalized.isEmpty) {
+      return const WebsiteIconEnsureResult(assets: {}, statuses: {});
+    }
+    final assets = <String, PublicAsset>{};
+    final statuses = <String, WebsiteIconEnsureStatus>{};
     for (var offset = 0; offset < normalized.length; offset += 500) {
       final end = (offset + 500).clamp(0, normalized.length);
       final page = normalized.sublist(offset, end);
-      final acquireMissing = page.any(
-        (hostname) => !_acquisitionRequested.contains(hostname),
-      );
-      final rows = await _remote.resolve(page, acquireMissing: acquireMissing);
-      _acquisitionRequested.addAll(page);
+      final expectedHostnames = page.toSet();
+      final returnedHostnames = <String>{};
+      final rows = await _remote.ensure(page);
       for (final row in rows) {
         final hostname = PublicHostname.normalize(row['hostname'] as String?);
+        final status = switch (row['status']) {
+          'pending' => WebsiteIconEnsureStatus.pending,
+          'ready' => WebsiteIconEnsureStatus.ready,
+          'failed' => WebsiteIconEnsureStatus.failed,
+          _ => throw const FormatException(
+            'Malformed website icon ensure status',
+          ),
+        };
         final assetValue = row['asset'];
         final asset = _parse(
           assetValue is Map ? Map<String, dynamic>.from(assetValue) : row,
         );
-        if (hostname != null && asset != null) result[hostname] = asset;
+        if (hostname == null ||
+            !expectedHostnames.contains(hostname) ||
+            !returnedHostnames.add(hostname) ||
+            (status == WebsiteIconEnsureStatus.ready) != (asset != null)) {
+          throw const FormatException('Malformed website icon ensure item');
+        }
+        statuses[hostname] = status;
+        if (asset != null) assets[hostname] = asset;
+      }
+      if (returnedHostnames.length != expectedHostnames.length) {
+        throw const FormatException(
+          'Website icon ensure response omitted a requested hostname',
+        );
       }
     }
-    return result;
+    return WebsiteIconEnsureResult(assets: assets, statuses: statuses);
   }
 
   @override

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/agents/domain/entities/agent.dart';
 import 'package:mobile_palladin/features/agents/domain/repositories/agents_repository.dart';
+import 'package:mobile_palladin/features/agents/presentation/bloc/agents_cubit.dart';
 import 'package:mobile_palladin/features/audit/domain/entities/audit_log_entry.dart';
 import 'package:mobile_palladin/features/audit/domain/exceptions/audit_exceptions.dart';
 import 'package:mobile_palladin/features/audit/domain/repositories/audit_repository.dart';
@@ -83,9 +86,10 @@ void main() {
     when(() => vaultMembers.list(any())).thenAnswer((_) async => const []);
   });
 
-  AuditPresentationResolver presentationResolver() =>
+  AuditPresentationResolver presentationResolver({AgentsCubit? agentsCubit}) =>
       LocalAuditPresentationResolver(
         agentsRepository: agents,
+        agentsCubit: agentsCubit,
         vaultListCubit: vaults,
         vaultMembersRepository: vaultMembers,
         memberIndex: memberIndex,
@@ -315,6 +319,33 @@ void main() {
   });
 
   group('org scope', () {
+    test(
+      'waits for an active quiet agent refresh before resolving names',
+      () async {
+        final refresh = Completer<List<Agent>>();
+        var calls = 0;
+        when(() => agents.listAgents()).thenAnswer((_) {
+          calls += 1;
+          return calls == 1
+              ? Future.value([_agent('a-1', 'Old name')])
+              : refresh.future;
+        });
+        final agentsCubit = AgentsCubit(repository: agents);
+        await agentsCubit.load();
+        final activeRefresh = agentsCubit.refresh();
+
+        final names = presentationResolver(
+          agentsCubit: agentsCubit,
+        ).resolveNames([_entry('1', agentId: 'a-1')]);
+        refresh.complete([_agent('a-1', 'Current name')]);
+
+        await activeRefresh;
+        expect((await names).agents['a-1'], 'Current name');
+        verify(() => agents.listAgents()).called(2);
+        await agentsCubit.close();
+      },
+    );
+
     test(
       'prefers scoped local names and preserves canonical metadata',
       () async {

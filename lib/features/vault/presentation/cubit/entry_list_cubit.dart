@@ -62,9 +62,7 @@ class EntryListCubit extends Cubit<EntryListState> {
                   id: entry.entryId,
                   vaultId: vaultId,
                   label: entry.memberLabel,
-                  icon:
-                      entry.iconReference ??
-                      _websiteIconReference(entry.autofillDomains.firstOrNull),
+                  icon: entry.iconReference,
                   type: EntryTypeExtension.fromWire(entry.entryType),
                   urlDomain: _hostname(entry.autofillDomains.firstOrNull),
                   createdAt: epoch,
@@ -88,11 +86,6 @@ class EntryListCubit extends Cubit<EntryListState> {
       );
       emit(const EntryListError(EntryErrorKind.unknown));
     }
-  }
-
-  static String? _websiteIconReference(String? url) {
-    final hostname = _hostname(url);
-    return hostname == null ? null : 'website:$hostname';
   }
 
   static String? _hostname(String? url) {

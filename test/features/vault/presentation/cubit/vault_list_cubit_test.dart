@@ -97,6 +97,27 @@ void main() {
       await cubit.close();
     });
 
+    test('concurrent loadIfNeeded calls share one backend load', () async {
+      final pending = Completer<DecryptedVaultList>();
+      when(
+        () => listService.load(privateKey),
+      ).thenAnswer((_) => pending.future);
+      final cubit = buildCubit();
+
+      final first = cubit.loadIfNeeded(privateKey);
+      final second = cubit.loadIfNeeded(privateKey);
+
+      expect(identical(first, second), isTrue);
+      pending.complete(
+        DecryptedVaultList(vaults: sampleVaults, corruptIds: const []),
+      );
+      await Future.wait([first, second]);
+
+      verify(() => listService.load(privateKey)).called(1);
+      expect(cubit.state, isA<VaultListLoaded>());
+      await cubit.close();
+    });
+
     blocTest<VaultListCubit, VaultListState>(
       'loadVaults emits Loading then Loaded(empty) when no vaults',
       build: () {

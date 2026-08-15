@@ -8,6 +8,9 @@ import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
 import 'package:mobile_palladin/features/grants/domain/exceptions/grants_exceptions.dart';
 import 'package:mobile_palladin/features/grants/domain/repositories/grants_repository.dart';
+import 'package:mobile_palladin/features/public_asset_catalog/domain/entities/public_asset.dart';
+import 'package:mobile_palladin/features/public_asset_catalog/domain/repositories/public_asset_repository.dart';
+import 'package:mobile_palladin/features/public_asset_catalog/domain/services/website_icon_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/import_draft.dart';
 import 'package:mobile_palladin/features/vault/domain/exceptions/entry_exceptions.dart';
@@ -17,6 +20,56 @@ import 'package:mobile_palladin/features/vault/presentation/cubit/import_wizard_
 class _MockRepository extends Mock implements EntryRepository {}
 
 class _MockGrantsRepository extends Mock implements GrantsRepository {}
+
+class _CatalogRepository implements PublicAssetRepository {
+  @override
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
+    Iterable<String> hostnames,
+  ) async {
+    final assets = {
+      for (final hostname in hostnames)
+        hostname: PublicAsset(
+          id: '11111111-1111-4111-8111-111111111111',
+          type: 'websiteIcon',
+          name: hostname,
+          revision: 1,
+          deliveryUrl: Uri.parse('https://assets.palladin.io/$hostname.png'),
+        ),
+    };
+    return WebsiteIconEnsureResult(
+      assets: assets,
+      statuses: {
+        for (final hostname in assets.keys)
+          hostname: WebsiteIconEnsureStatus.ready,
+      },
+    );
+  }
+
+  @override
+  Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
+
+  @override
+  Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
+}
+
+class _DelayedCatalogRepository implements PublicAssetRepository {
+  final reservation = Completer<WebsiteIconEnsureResult>();
+  int calls = 0;
+
+  @override
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
+    Iterable<String> hostnames,
+  ) {
+    calls++;
+    return reservation.future;
+  }
+
+  @override
+  Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
+
+  @override
+  Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
+}
 
 Uint8List _bytes(String s) => Uint8List.fromList(utf8.encode(s));
 
@@ -50,11 +103,15 @@ void main() {
     ).thenAnswer((_) async => const GrantListPage(grants: []));
   });
 
-  ImportWizardCubit build() => ImportWizardCubit(
-    repository: repository,
-    grantsRepository: grantsRepository,
-    vaultId: 'v-1',
-  );
+  ImportWizardCubit build({PublicAssetRepository? catalogRepository}) =>
+      ImportWizardCubit(
+        repository: repository,
+        grantsRepository: grantsRepository,
+        vaultId: 'v-1',
+        websiteIconService: WebsiteIconService(
+          catalogRepository ?? _CatalogRepository(),
+        ),
+      );
 
   Grant grant(GrantScope scope) => Grant(
     id: 'g-1',
@@ -228,6 +285,109 @@ void main() {
   });
 
   group('import', () {
+    test(
+      'a second tap cannot start another import during icon reservation',
+      () async {
+        when(() => repository.listEntries(any())).thenAnswer((_) async => []);
+        when(
+          () => repository.importEntriesEncrypted(
+            vaultId: any(named: 'vaultId'),
+            format: any(named: 'format'),
+            creates: any(named: 'creates'),
+            overwrites: any(named: 'overwrites'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+            chunkSize: any(named: 'chunkSize'),
+            onProgress: any(named: 'onProgress'),
+          ),
+        ).thenAnswer(
+          (_) async => const ImportResult(createdCount: 2, updatedCount: 0),
+        );
+        final catalog = _DelayedCatalogRepository();
+        final cubit = build(catalogRepository: catalog);
+        await cubit.parseBytes(_bytes(csv));
+
+        final first = cubit.import(
+          privateKey: privateKey,
+          untitledLabel: 'Untitled',
+        );
+        final second = cubit.import(
+          privateKey: privateKey,
+          untitledLabel: 'Untitled',
+        );
+        final assets = {
+          for (final hostname in ['github.com', 'gitlab.com'])
+            hostname: PublicAsset(
+              id: '11111111-1111-4111-8111-111111111111',
+              type: 'websiteIcon',
+              name: hostname,
+              revision: 1,
+              deliveryUrl: Uri.parse(
+                'https://assets.palladin.io/$hostname.png',
+              ),
+            ),
+        };
+        catalog.reservation.complete(
+          WebsiteIconEnsureResult(
+            assets: assets,
+            statuses: {
+              for (final hostname in assets.keys)
+                hostname: WebsiteIconEnsureStatus.ready,
+            },
+          ),
+        );
+        await Future.wait([first, second]);
+
+        expect(catalog.calls, 1);
+        verify(
+          () => repository.importEntriesEncrypted(
+            vaultId: any(named: 'vaultId'),
+            format: any(named: 'format'),
+            creates: any(named: 'creates'),
+            overwrites: any(named: 'overwrites'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+            chunkSize: any(named: 'chunkSize'),
+            onProgress: any(named: 'onProgress'),
+          ),
+        ).called(1);
+        await cubit.close();
+      },
+    );
+
+    test('lock cancels icon preparation and releases import promptly', () async {
+      when(() => repository.listEntries(any())).thenAnswer((_) async => []);
+      final catalog = _DelayedCatalogRepository();
+      final cubit = build(catalogRepository: catalog);
+      await cubit.parseBytes(_bytes(csv));
+
+      final importing = cubit.import(
+        privateKey: privateKey,
+        untitledLabel: 'Untitled',
+      );
+      while (catalog.calls == 0) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      cubit.clearSensitiveState();
+      await importing.timeout(const Duration(seconds: 1));
+
+      expect(cubit.state, isA<ImportWizardInitial>());
+      verifyNever(
+        () => repository.importEntriesEncrypted(
+          vaultId: any(named: 'vaultId'),
+          format: any(named: 'format'),
+          creates: any(named: 'creates'),
+          overwrites: any(named: 'overwrites'),
+          privateKey: any(named: 'privateKey'),
+          wrappedVK: any(named: 'wrappedVK'),
+          chunkSize: any(named: 'chunkSize'),
+          onProgress: any(named: 'onProgress'),
+        ),
+      );
+      await cubit.close();
+    });
+
     test('lock during upload suppresses progress and late success', () async {
       when(() => repository.listEntries(any())).thenAnswer((_) async => []);
       final upload = Completer<ImportResult>();
@@ -296,8 +456,17 @@ void main() {
         isA<ImportWizardPreview>(),
         isA<ImportWizardImporting>()
             .having((s) => s.done, 'done', 0)
-            .having((s) => s.total, 'total', 2),
-        isA<ImportWizardImporting>().having((s) => s.done, 'done', 2),
+            .having((s) => s.total, 'total', 2)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.icons),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'done', 2)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.icons),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'done', 0)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.entries),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'done', 2)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.entries),
         isA<ImportWizardSuccess>()
             .having((s) => s.createdCount, 'created', 2)
             .having((s) => s.updatedCount, 'updated', 0),
@@ -319,8 +488,8 @@ void main() {
         final overwrites = captured[1] as List<ImportEntryOverwrite>;
         expect(creates, hasLength(2));
         expect(creates.map((draft) => draft.icon), [
-          'website:github.com',
-          'website:gitlab.com',
+          'public-asset:11111111-1111-4111-8111-111111111111|1|https%3A%2F%2Fassets.palladin.io%2Fgithub.com.png',
+          'public-asset:11111111-1111-4111-8111-111111111111|1|https%3A%2F%2Fassets.palladin.io%2Fgitlab.com.png',
         ]);
         expect(overwrites, isEmpty);
       },
@@ -396,7 +565,17 @@ void main() {
       expect: () => [
         isA<ImportWizardParsing>(),
         isA<ImportWizardPreview>(),
-        isA<ImportWizardImporting>(),
+        isA<ImportWizardImporting>().having(
+          (s) => s.phase,
+          'phase',
+          ImportProgressPhase.icons,
+        ),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'ready icons', 2)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.icons),
+        isA<ImportWizardImporting>()
+            .having((s) => s.done, 'imported entries', 0)
+            .having((s) => s.phase, 'phase', ImportProgressPhase.entries),
         isA<ImportWizardFailure>().having(
           (s) => s.reason,
           'reason',

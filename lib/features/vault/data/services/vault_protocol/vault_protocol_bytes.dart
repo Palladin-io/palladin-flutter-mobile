@@ -10,6 +10,7 @@ abstract final class VaultProtocolBytes {
   );
   static final RegExp _hex = RegExp(r'^[0-9a-f]*$');
   static final RegExp _base64Url = RegExp(r'^[A-Za-z0-9_-]*$');
+  static final RegExp _base64 = RegExp(r'^[A-Za-z0-9+/]*={0,2}$');
 
   static Uint8List concat(Iterable<Uint8List> parts) {
     final length = parts.fold<int>(0, (total, part) => total + part.length);
@@ -105,6 +106,31 @@ abstract final class VaultProtocolBytes {
 
   static String base64UrlEncode(Uint8List value) =>
       base64Url.encode(value).replaceAll('=', '');
+
+  /// Decodes canonical padded RFC 4648 Base64 used by Agent public keys.
+  /// Protocol envelopes use [base64UrlDecode] instead; the formats must not
+  /// be accepted interchangeably.
+  static Uint8List base64Decode(String value, {int? maximumBytes}) {
+    if (!_base64.hasMatch(value) || value.length % 4 != 0) {
+      throw const FormatException('invalid padded base64');
+    }
+    if (maximumBytes != null && value.length > ((maximumBytes + 2) ~/ 3) * 4) {
+      throw const FormatException('base64 payload exceeds limit');
+    }
+    Uint8List decoded;
+    try {
+      decoded = base64.decode(value);
+    } on FormatException {
+      throw const FormatException('invalid padded base64');
+    }
+    if (maximumBytes != null && decoded.length > maximumBytes) {
+      throw const FormatException('decoded payload exceeds limit');
+    }
+    if (base64.encode(decoded) != value) {
+      throw const FormatException('non-canonical padded base64');
+    }
+    return decoded;
+  }
 
   static Uint8List utf8Encode(String value) {
     if (value.contains('\u0000') || unicode.nfc(value) != value) {

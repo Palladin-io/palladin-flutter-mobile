@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 import '../../../../core/crypto/envelope/envelope_contract.dart';
+import '../../../../core/crypto/envelope/envelope_suite.dart';
 import '../../../../core/crypto/sodium_provider.dart';
 import '../../../../core/crypto/x25519_key_wrapper.dart';
 import '../models/vault_rotation_models.dart';
@@ -40,19 +41,60 @@ final class VaultRotationKeys {
   }
 }
 
+EnvelopeId? _optionalEnvelopeId(Object? value) =>
+    value == null ? null : EnvelopeId.parse(value as String);
+
 /// All cryptographic transformations used by the staged rotation engine.
 class VaultRotationCryptoService {
   VaultRotationCryptoService({
     Future<SodiumSumo> Function()? sodiumLoader,
     VaultProtocolEnvelopeService? envelopes,
     VaultProtocolSignatureService? signatures,
+    CryptoSuiteRegistry? cryptoSuites,
   }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance,
        _envelopes = envelopes ?? VaultProtocolEnvelopeService(),
-       _signatures = signatures ?? VaultProtocolSignatureService();
+       _signatures = signatures ?? VaultProtocolSignatureService(),
+       _cryptoSuites =
+           cryptoSuites ??
+           CryptoSuiteRegistry(
+             suites: [
+               XChaChaVaultEnvelopeSuite(
+                 sodiumLoader: sodiumLoader ?? SodiumProvider.instance,
+               ),
+             ],
+           );
 
   final Future<SodiumSumo> Function() _sodiumLoader;
   final VaultProtocolEnvelopeService _envelopes;
   final VaultProtocolSignatureService _signatures;
+  final CryptoSuiteRegistry _cryptoSuites;
+
+  /// Selects one canonical Vault private-key envelope by authenticated
+  /// descriptor fields. The current API does not expose legacy flattened
+  /// `privateKeyKind` / `privateKeyVersion` properties.
+  static Map<String, dynamic> requirePrivateKeyEnvelope({
+    required Object? envelopes,
+    required String purpose,
+    required int keyVersion,
+  }) {
+    if (envelopes is! List || keyVersion <= 0) {
+      throw const FormatException('Malformed Vault private-key directory');
+    }
+    final matches = envelopes
+        .whereType<Map>()
+        .map(Map<String, dynamic>.from)
+        .where((item) {
+          final descriptor = item['descriptor'];
+          if (descriptor is! Map) return false;
+          return descriptor['purpose'] == purpose &&
+              descriptor['keyVersion'] == keyVersion;
+        })
+        .toList(growable: false);
+    if (matches.length != 1) {
+      throw const FormatException('Vault private key is unavailable');
+    }
+    return matches.single;
+  }
 
   Future<VaultRotationKeys> generateKeys() async {
     final sodium = await _sodiumLoader();
@@ -166,6 +208,79 @@ class VaultRotationCryptoService {
     Map<String, dynamic> envelope,
     Uint8List vaultKey,
   ) => _openAead(VaultAadProfile.vaultPrivateKey, envelope, vaultKey);
+
+  /// Opens the current descriptor-based Agent-message private-key envelope
+  /// returned by `GET /api/vaults/{id}`. Rotation claim payloads still use the
+  /// frozen binary-AAD projection handled by [openPrivateKey].
+  Future<Uint8List> openCanonicalAgentMessagePrivateKey(
+    Map<String, dynamic> envelope,
+    Uint8List vaultKey, {
+    required int expectedKeyVersion,
+  }) async {
+    final descriptorJson = envelope['descriptor'];
+    final encodedPayload = envelope['encodedSuitePayload'];
+    if (descriptorJson is! Map || encodedPayload is! String) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
+    final descriptor = Map<String, dynamic>.from(descriptorJson);
+    final scopeJson = descriptor['scope'];
+    final bindingJson = descriptor['binding'];
+    if (scopeJson is! Map || bindingJson is! Map) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
+    final purpose = EnvelopePurpose.parseWire(descriptor['purpose']);
+    final keyVersion = descriptor['keyVersion'];
+    final memberKeyGeneration = descriptor['memberKeyGeneration'];
+    final resourceRevision = descriptor['resourceRevision'];
+    final cryptoSuiteId = descriptor['cryptoSuiteId'];
+    final wrappingVaultKeyVersion = bindingJson['wrappingVaultKeyVersion'];
+    if (purpose != EnvelopePurpose.agentMessagePrivateByVk ||
+        keyVersion is! int ||
+        keyVersion != expectedKeyVersion ||
+        memberKeyGeneration is! int ||
+        resourceRevision is! String ||
+        cryptoSuiteId is! String ||
+        wrappingVaultKeyVersion is! int) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
+    final revisionBytes = VaultProtocolBytes.u64(resourceRevision);
+    revisionBytes.fillRange(0, revisionBytes.length, 0);
+    final scope = Map<String, dynamic>.from(scopeJson);
+    final envelopeDescriptor = EnvelopeDescriptor(
+      protocolVersion: descriptor['protocolVersion'] as int,
+      cryptoSuiteId: CryptoSuiteId.palladinVaultXChaChaV1,
+      purpose: purpose,
+      scope: EnvelopeScope(
+        organizationId: EnvelopeId.parse(scope['organizationId'] as String),
+        vaultId: EnvelopeId.parse(scope['vaultId'] as String),
+        entryId: _optionalEnvelopeId(scope['entryId']),
+        grantOrRequestId: _optionalEnvelopeId(scope['grantOrRequestId']),
+        agentId: _optionalEnvelopeId(scope['agentId']),
+        memberId: _optionalEnvelopeId(scope['memberId']),
+      ),
+      resourceRevision: int.parse(resourceRevision),
+      keyVersion: keyVersion,
+      memberKeyGeneration: memberKeyGeneration,
+      purposeData: WrappingPurposeData(
+        wrappingVaultKeyVersion: wrappingVaultKeyVersion,
+      ),
+    );
+    if (cryptoSuiteId != envelopeDescriptor.cryptoSuiteId.wireValue) {
+      throw const EnvelopeException(EnvelopeErrorKind.unsupportedSuite);
+    }
+    final opened = await _cryptoSuites
+        .resolveWire(cryptoSuiteId)
+        .open(
+          descriptor: envelopeDescriptor,
+          rootKey: vaultKey,
+          payload: EncodedSuitePayload.fromBase64Url(encodedPayload),
+        );
+    if (opened.length != 32) {
+      opened.fillRange(0, opened.length, 0);
+      throw const FormatException('Agent message private key must be 32 bytes');
+    }
+    return opened;
+  }
 
   Future<Uint8List> _openAead(
     VaultAadProfile profile,

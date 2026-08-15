@@ -34,10 +34,10 @@ class ImportPreviewItem {
   bool get hasConflict => conflict != null;
 
   ImportPreviewItem copyWith({bool? included}) => ImportPreviewItem(
-        parsed: parsed,
-        conflict: conflict,
-        included: included ?? this.included,
-      );
+    parsed: parsed,
+    conflict: conflict,
+    included: included ?? this.included,
+  );
 }
 
 sealed class ImportWizardState {
@@ -80,27 +80,34 @@ final class ImportWizardPreview extends ImportWizardState {
   /// Global strategy applied to every conflicting item.
   final ImportConflictStrategy conflictStrategy;
 
-  int get includedCount => items.where((i) => i.effectiveIncluded(conflictStrategy)).length;
+  int get includedCount =>
+      items.where((i) => i.effectiveIncluded(conflictStrategy)).length;
   int get conflictCount => items.where((i) => i.hasConflict).length;
 
   ImportWizardPreview copyWith({
     List<ImportPreviewItem>? items,
     ImportConflictStrategy? conflictStrategy,
-  }) =>
-      ImportWizardPreview(
-        format: format,
-        items: items ?? this.items,
-        skippedCount: skippedCount,
-        conflictStrategy: conflictStrategy ?? this.conflictStrategy,
-      );
+  }) => ImportWizardPreview(
+    format: format,
+    items: items ?? this.items,
+    skippedCount: skippedCount,
+    conflictStrategy: conflictStrategy ?? this.conflictStrategy,
+  );
 }
 
-/// Import in flight — [done] of [total] units committed.
+enum ImportProgressPhase { icons, entries }
+
+/// Import in flight — [done] of [total] units in the current [phase].
 final class ImportWizardImporting extends ImportWizardState {
-  const ImportWizardImporting({required this.done, required this.total});
+  const ImportWizardImporting({
+    required this.done,
+    required this.total,
+    this.phase = ImportProgressPhase.entries,
+  });
 
   final int done;
   final int total;
+  final ImportProgressPhase phase;
 
   double get progress => total == 0 ? 0 : done / total;
 }

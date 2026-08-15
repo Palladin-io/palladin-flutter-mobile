@@ -1,6 +1,9 @@
 import 'dart:typed_data';
 import 'dart:async';
 
+import 'package:bloc_test/bloc_test.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/approval/domain/entities/encrypted_reason.dart';
@@ -8,11 +11,16 @@ import 'package:mobile_palladin/features/approval/data/services/grant_approval_r
 import 'package:mobile_palladin/features/approval/domain/exceptions/approval_exceptions.dart';
 import 'package:mobile_palladin/features/approval/domain/repositories/approval_repository.dart';
 import 'package:mobile_palladin/features/approval/presentation/cubit/grant_approval_cubit.dart';
+import 'package:mobile_palladin/features/approval/presentation/widgets/approve_grant_sheet.dart';
+import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/agent_visibility_policy.dart';
+import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 
 class _Repository extends Mock implements ApprovalRepository {}
 
 class _Reviewer extends Mock implements GrantApprovalReviewer {}
+
+class _AuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
 void main() {
   test(
@@ -26,22 +34,7 @@ void main() {
         agentId: 'agent',
         entryId: 'entry',
         agentPublicKey: 'public',
-        encryptedReason: const EncryptedReason(
-          organizationId: 'org',
-          vaultId: 'vault',
-          entryId: 'entry',
-          grantRequestId: 'grant',
-          agentId: 'agent',
-          requestRevision: '1',
-          header: {},
-          reasonKeyVersion: 1,
-          agentMessageKeyVersion: 1,
-          recipientAgentMessageKeyFingerprint: 'fingerprint',
-          requestedMethods: 1,
-          ciphertext: 'ciphertext',
-          agentMessageWrappedReasonDek: 'wrapped',
-          agentSignature: 'signature',
-        ),
+        encryptedReason: _encryptedReason(),
         createdAt: DateTime.utc(2026),
       );
       final owner = Uint8List.fromList([1, 2, 3, 4]);
@@ -172,6 +165,89 @@ void main() {
       await cubit.close();
     },
   );
+
+  testWidgets('resume re-opens the wiped review and enables approval', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _Repository();
+    final reviewer = _Reviewer();
+    final grant = _grant();
+    var openCount = 0;
+    when(
+      () => reviewer.open(
+        grant: grant,
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
+    ).thenAnswer((_) async {
+      openCount++;
+      return GrantApprovalReview(
+        reason: 'temporary deployment',
+        entryLabel: 'Production',
+        entryRevision: '7',
+        agentName: 'Deploy Agent',
+        fields: [
+          const GrantableApprovalField(
+            id: 'value',
+            label: 'Value',
+            access: AgentFieldAccess.onGrantValue,
+          ),
+        ],
+      );
+    });
+    final cubit = GrantApprovalCubit(
+      repository: repository,
+      reviewService: reviewer,
+      grant: grant,
+    );
+    final auth = _AuthBloc();
+    whenListen(
+      auth,
+      const Stream<AuthState>.empty(),
+      initialState: AuthAuthenticated(
+        userId: 'user',
+        isOnboarded: true,
+        isVaultLocked: false,
+        privateKey: Uint8List.fromList(List<int>.filled(32, 7)),
+      ),
+    );
+    addTearDown(cubit.close);
+    addTearDown(auth.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider<AuthBloc>.value(value: auth),
+            BlocProvider<GrantApprovalCubit>.value(value: cubit),
+          ],
+          child: Scaffold(body: ApproveGrantSheet(grant: grant)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(openCount, 1);
+    expect(cubit.state.review, isNotNull);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    expect(cubit.state.review, isNull);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(openCount, 2);
+    expect(cubit.state.review, isNotNull);
+    final approve = tester.widget<FilledButton>(find.byType(FilledButton));
+    expect(approve.onPressed, isNotNull);
+  });
 }
 
 PendingGrant _grant() => PendingGrant(
@@ -180,21 +256,29 @@ PendingGrant _grant() => PendingGrant(
   agentId: 'agent',
   entryId: 'entry',
   agentPublicKey: 'public',
-  encryptedReason: const EncryptedReason(
-    organizationId: 'org',
-    vaultId: 'vault',
-    entryId: 'entry',
-    grantRequestId: 'grant',
-    agentId: 'agent',
-    requestRevision: '1',
-    header: {},
-    reasonKeyVersion: 1,
-    agentMessageKeyVersion: 1,
-    recipientAgentMessageKeyFingerprint: 'fingerprint',
-    requestedMethods: 1,
-    ciphertext: 'ciphertext',
-    agentMessageWrappedReasonDek: 'wrapped',
-    agentSignature: 'signature',
-  ),
+  encryptedReason: _encryptedReason(),
   createdAt: DateTime.utc(2026),
+);
+
+EncryptedReason _encryptedReason() => EncryptedReason(
+  descriptor: {
+    'scope': {
+      'organizationId': 'org',
+      'vaultId': 'vault',
+      'entryId': 'entry',
+      'grantOrRequestId': 'grant',
+      'agentId': 'agent',
+    },
+    'resourceRevision': '1',
+    'keyVersion': 1,
+    'memberKeyGeneration': 1,
+    'binding': {
+      'recipientKeyVersion': 1,
+      'recipientKeyFingerprint': 'fingerprint',
+      'requestedMethods': 1,
+    },
+  },
+  encodedSuitePayload: 'payload',
+  wrappedReasonDek: const {},
+  agentSignature: 'signature',
 );

@@ -107,7 +107,9 @@ class _ScriptRefsEditorState extends State<ScriptRefsEditor> {
           _RefCard(
             key: ValueKey(draft.id),
             draft: draft,
-            entries: widget.entries,
+            entries: widget.entries
+                .where((entry) => entry.type != EntryType.creditCard)
+                .toList(growable: false),
             selectedEntry: _entryById(draft.entryId),
             l10n: l10n,
             brightness: brightness,
