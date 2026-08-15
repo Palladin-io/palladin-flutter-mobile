@@ -25,6 +25,18 @@ final class MemberSyncResult {
   final bool usedSnapshot;
 }
 
+/// Signals that the server returned heads from a newer Member key generation
+/// than the encrypted Vault-key context used for this synchronization.
+///
+/// Callers must fetch a fresh authenticated Member Vault key context and retry
+/// instead of advancing the ciphertext cache with projections that cannot be
+/// authenticated by the stale key.
+final class MemberVaultKeyContextStaleException implements Exception {
+  const MemberVaultKeyContextStaleException({required this.requiredGeneration});
+
+  final int requiredGeneration;
+}
+
 /// Coordinates bounded network sync, ciphertext persistence, and the unlocked
 /// in-memory search index. Call [lock] whenever the Vault session is locked.
 abstract interface class MemberIndexReader {
@@ -33,7 +45,17 @@ abstract interface class MemberIndexReader {
   List<MemberIndexEntry> entries(String vaultId);
 }
 
-final class MemberSyncService implements MemberIndexReader {
+abstract interface class MemberSyncCoordinator implements MemberIndexReader {
+  Future<MemberSyncResult> synchronize({
+    required String vaultId,
+    required Uint8List vaultKey,
+    required int minimumMemberKeyGeneration,
+  });
+
+  void lock();
+}
+
+final class MemberSyncService implements MemberSyncCoordinator {
   MemberSyncService({
     required MemberSyncRemote remote,
     required MemberSyncCache cache,
@@ -41,10 +63,13 @@ final class MemberSyncService implements MemberIndexReader {
     this.maximumIndexedEntries = VaultPerformanceBudget.maximumIndexedEntries,
     this.decryptConcurrency =
         VaultPerformanceBudget.memberIndexDecryptConcurrency,
+    this.maximumSnapshotRestarts = 2,
   }) : _remote = remote,
        _cache = cache,
        _entryCrypto = entryCrypto {
-    if (maximumIndexedEntries < 1 || decryptConcurrency < 1) {
+    if (maximumIndexedEntries < 1 ||
+        decryptConcurrency < 1 ||
+        maximumSnapshotRestarts < 0) {
       throw ArgumentError('Member sync budgets must be positive');
     }
   }
@@ -54,6 +79,7 @@ final class MemberSyncService implements MemberIndexReader {
   final EntryV2CryptoService _entryCrypto;
   final int maximumIndexedEntries;
   final int decryptConcurrency;
+  final int maximumSnapshotRestarts;
 
   final Map<String, Map<String, MemberIndexEntry>> _indexes = {};
   final Map<String, Future<MemberSyncResult>> _running = {};
@@ -67,6 +93,7 @@ final class MemberSyncService implements MemberIndexReader {
   Stream<String> get indexUpdates => _indexUpdates.stream;
 
   /// Synchronizes one Vault. Concurrent callers for the same Vault share work.
+  @override
   Future<MemberSyncResult> synchronize({
     required String vaultId,
     required Uint8List vaultKey,
@@ -80,34 +107,83 @@ final class MemberSyncService implements MemberIndexReader {
     final active = _running[vaultId];
     if (active != null) return active;
     final generation = _lockGeneration;
+    final core = _synchronizeWithBoundedSnapshots(
+      vaultId: vaultId,
+      vaultKey: vaultKey,
+      minimumMemberKeyGeneration: minimumMemberKeyGeneration,
+      generation: generation,
+    );
     late final Future<MemberSyncResult> operation;
-    operation = (() async {
+    operation = core.whenComplete(() {
+      if (identical(_running[vaultId], operation)) {
+        _running.remove(vaultId);
+      }
+    });
+    _running[vaultId] = operation;
+    return operation;
+  }
+
+  Future<MemberSyncResult> _synchronizeWithBoundedSnapshots({
+    required String vaultId,
+    required Uint8List vaultKey,
+    required int minimumMemberKeyGeneration,
+    required int generation,
+  }) async {
+    var forceSnapshot = false;
+    var snapshotRestarts = 0;
+    while (true) {
       try {
-        final sequence = await _cache.sequence(vaultId);
-        _requireCurrent(generation);
-        if (sequence == null) {
-          return _snapshot(
+        if (forceSnapshot) {
+          return await _snapshot(
             vaultId,
             vaultKey,
             minimumMemberKeyGeneration,
             generation,
           );
         }
-        return _delta(
-          vaultId,
-          sequence,
-          vaultKey,
-          minimumMemberKeyGeneration,
-          generation,
+        return await _synchronizeOnce(
+          vaultId: vaultId,
+          vaultKey: vaultKey,
+          minimumMemberKeyGeneration: minimumMemberKeyGeneration,
+          generation: generation,
         );
-      } finally {
-        if (identical(_running[vaultId], operation)) {
-          _running.remove(vaultId);
+      } on _MemberSnapshotRestartRequired catch (error) {
+        if (error.afterSnapshot) {
+          if (snapshotRestarts >= maximumSnapshotRestarts) {
+            _indexes.remove(vaultId);
+            _publishIndexUpdate(vaultId);
+            throw StateError('Member snapshot restart limit exceeded');
+          }
+          snapshotRestarts += 1;
         }
+        forceSnapshot = true;
       }
-    })();
-    _running[vaultId] = operation;
-    return operation;
+    }
+  }
+
+  Future<MemberSyncResult> _synchronizeOnce({
+    required String vaultId,
+    required Uint8List vaultKey,
+    required int minimumMemberKeyGeneration,
+    required int generation,
+  }) async {
+    final sequence = await _cache.sequence(vaultId);
+    _requireCurrent(generation);
+    if (sequence == null) {
+      return _snapshot(
+        vaultId,
+        vaultKey,
+        minimumMemberKeyGeneration,
+        generation,
+      );
+    }
+    return _delta(
+      vaultId,
+      sequence,
+      vaultKey,
+      minimumMemberKeyGeneration,
+      generation,
+    );
   }
 
   /// Rebuilds the runtime index from the last complete ciphertext snapshot.
@@ -181,6 +257,7 @@ final class MemberSyncService implements MemberIndexReader {
       List.unmodifiable(_indexes[vaultId]?.values ?? const []);
 
   /// Drops every decrypted projection immediately on lock/session loss.
+  @override
   void lock() {
     _lockGeneration++;
     _running.clear();
@@ -207,6 +284,7 @@ final class MemberSyncService implements MemberIndexReader {
             page.items.any((item) => item.isTombstone)) {
           throw const FormatException('Inconsistent Member snapshot');
         }
+        _requireKeyContextCovers(page.items, minimumGeneration);
         final decrypted = await _decryptPage(
           page.items,
           vaultId,
@@ -235,9 +313,17 @@ final class MemberSyncService implements MemberIndexReader {
     _requireCurrent(generation);
     _indexes[vaultId] = stagedIndex;
     _publishIndexUpdate(vaultId);
+    final closed = await _delta(
+      vaultId,
+      baseSequence,
+      vaultKey,
+      minimumGeneration,
+      generation,
+      afterSnapshot: true,
+    );
     return MemberSyncResult(
-      sequence: baseSequence,
-      entryCount: stagedIndex.length,
+      sequence: closed.sequence,
+      entryCount: closed.entryCount,
       usedSnapshot: true,
     );
   }
@@ -247,8 +333,9 @@ final class MemberSyncService implements MemberIndexReader {
     String afterSequence,
     Uint8List vaultKey,
     int minimumGeneration,
-    int generation,
-  ) async {
+    int generation, {
+    bool afterSnapshot = false,
+  }) async {
     if (!_indexes.containsKey(vaultId)) {
       await _unlockCached(
         vaultId: vaultId,
@@ -268,7 +355,7 @@ final class MemberSyncService implements MemberIndexReader {
       );
       _requireCurrent(generation);
       if (result is MemberDeltaResetRequired) {
-        return _snapshot(vaultId, vaultKey, minimumGeneration, generation);
+        throw _MemberSnapshotRestartRequired(afterSnapshot: afterSnapshot);
       }
       final page = (result as MemberDeltaSuccess).page;
       _validatePageCount(page.items);
@@ -278,6 +365,7 @@ final class MemberSyncService implements MemberIndexReader {
         throw const FormatException('Non-monotonic Member delta');
       }
       final heads = page.items.where((item) => !item.isTombstone).toList();
+      _requireKeyContextCovers(heads, minimumGeneration);
       final decrypted = await _decryptPage(
         heads,
         vaultId,
@@ -285,7 +373,13 @@ final class MemberSyncService implements MemberIndexReader {
         minimumGeneration,
       );
       _requireCurrent(generation);
-      await _cache.applyDelta(vaultId, page.appliedThroughSequence, page.items);
+      if (page.items.isNotEmpty || page.appliedThroughSequence != applied) {
+        await _cache.applyDelta(
+          vaultId,
+          page.appliedThroughSequence,
+          page.items,
+        );
+      }
       _requireCurrent(generation);
       final index = _indexes[vaultId]!;
       for (final item in page.items.where((item) => item.isTombstone)) {
@@ -314,6 +408,26 @@ final class MemberSyncService implements MemberIndexReader {
   void _validatePageCount(List<MemberSyncItemModel> items) {
     if (items.length > VaultPerformanceBudget.maximumMemberSyncPageItems) {
       throw const FormatException('Member sync page exceeds item limit');
+    }
+  }
+
+  void _requireKeyContextCovers(
+    Iterable<MemberSyncItemModel> items,
+    int currentGeneration,
+  ) {
+    var requiredGeneration = currentGeneration;
+    for (final item in items) {
+      final descriptor = item.entryKey?['descriptor'];
+      if (descriptor is! Map) continue;
+      final generation = descriptor['memberKeyGeneration'];
+      if (generation is int && generation > requiredGeneration) {
+        requiredGeneration = generation;
+      }
+    }
+    if (requiredGeneration > currentGeneration) {
+      throw MemberVaultKeyContextStaleException(
+        requiredGeneration: requiredGeneration,
+      );
     }
   }
 
@@ -625,6 +739,12 @@ final class MemberSyncService implements MemberIndexReader {
     }
     if (page.isNotEmpty) yield page;
   }
+}
+
+final class _MemberSnapshotRestartRequired implements Exception {
+  const _MemberSnapshotRestartRequired({required this.afterSnapshot});
+
+  final bool afterSnapshot;
 }
 
 final class _MemberSyncInvalidated implements Exception {

@@ -225,7 +225,7 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     final pending = context.read<PendingGrantsCubit>();
     // The Inbox event can arrive before the pending-grants singleton observed
     // the new request, so refresh the source feed first, then resolve it.
-    await pending.refresh();
+    await pending.refresh(ensureFresh: true);
     if (!context.mounted) return;
     _showGrantSheet(item, approve: approve);
   }

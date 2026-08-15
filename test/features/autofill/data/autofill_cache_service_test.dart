@@ -10,12 +10,12 @@ import 'package:mobile_palladin/features/autofill/domain/autofill_record.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
-import 'package:mobile_palladin/features/vault/data/services/vault_list_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/member_index_preparation_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 
-class _MockVaultListCryptoService extends Mock
-    implements VaultListCryptoService {}
+class _MockMemberIndexPreparationService extends Mock
+    implements MemberIndexPreparer {}
 
 class _MockEntryRepository extends Mock implements EntryRepository {}
 
@@ -23,11 +23,8 @@ class _MockBridge extends Mock implements AutoFillCacheBridge {}
 
 class _MockMemberIndex extends Mock implements MemberIndexReader {}
 
-DecryptedVaultList _vaultList([List<VaultEntity> vaults = const []]) =>
-    DecryptedVaultList(vaults: vaults, corruptIds: const []);
-
 void main() {
-  late _MockVaultListCryptoService vaultListService;
+  late _MockMemberIndexPreparationService indexPreparation;
   late _MockEntryRepository entryRepository;
   late _MockBridge bridge;
   late _MockMemberIndex memberIndex;
@@ -39,18 +36,17 @@ void main() {
   });
 
   setUp(() async {
-    vaultListService = _MockVaultListCryptoService();
+    indexPreparation = _MockMemberIndexPreparationService();
     entryRepository = _MockEntryRepository();
     bridge = _MockBridge();
     memberIndex = _MockMemberIndex();
     service = AutoFillCacheService(
-      vaultListService: vaultListService,
+      indexPreparation: indexPreparation,
       entryRepository: entryRepository,
       bridge: bridge,
       memberIndex: memberIndex,
     );
     when(bridge.beginCacheSession).thenAnswer((_) async => 1);
-    when(() => memberIndex.waitForCurrent(any())).thenAnswer((_) async {});
     when(() => memberIndex.entries(any())).thenReturn(const []);
     when(
       () =>
@@ -90,8 +86,8 @@ void main() {
     final vault = _vault();
     final entry = _entry();
     when(
-      () => vaultListService.load(any()),
-    ).thenAnswer((_) async => _vaultList([vault]));
+      () => indexPreparation.prepare(any()),
+    ).thenAnswer((_) async => [vault]);
     when(() => memberIndex.entries(vault.id)).thenReturn(const [
       MemberIndexEntry(
         entryId: 'entry-1',
@@ -145,8 +141,8 @@ void main() {
     () async {
       final vault = _vault();
       when(
-        () => vaultListService.load(any()),
-      ).thenAnswer((_) async => _vaultList([vault]));
+        () => indexPreparation.prepare(any()),
+      ).thenAnswer((_) async => [vault]);
       when(() => memberIndex.entries(vault.id)).thenReturn(const [
         MemberIndexEntry(
           entryId: 'archived',
@@ -202,8 +198,8 @@ void main() {
   test('stale secret revision is rejected after decryption', () async {
     final vault = _vault();
     when(
-      () => vaultListService.load(any()),
-    ).thenAnswer((_) async => _vaultList([vault]));
+      () => indexPreparation.prepare(any()),
+    ).thenAnswer((_) async => [vault]);
     when(() => memberIndex.entries(vault.id)).thenReturn(const [
       MemberIndexEntry(
         entryId: 'entry-1',
@@ -272,8 +268,8 @@ void main() {
 
   test('clears stale cache before a mutation-triggered rebuild', () async {
     when(
-      () => vaultListService.load(any()),
-    ).thenAnswer((_) async => _vaultList());
+      () => indexPreparation.prepare(any(), ensureFresh: true),
+    ).thenAnswer((_) async => const []);
 
     await service.clearAndSynchronize(privateKey: Uint8List(32));
 
@@ -286,8 +282,8 @@ void main() {
 
   test('logout invalidates an active synchronization before replace', () async {
     final listStarted = Completer<void>();
-    final vaults = Completer<DecryptedVaultList>();
-    when(() => vaultListService.load(any())).thenAnswer((_) {
+    final vaults = Completer<List<VaultEntity>>();
+    when(() => indexPreparation.prepare(any())).thenAnswer((_) {
       listStarted.complete();
       return vaults.future;
     });
@@ -295,7 +291,7 @@ void main() {
     final synchronization = service.synchronize(privateKey: Uint8List(32));
     await listStarted.future;
     final logoutClear = service.clear();
-    vaults.complete(_vaultList());
+    vaults.complete(const []);
 
     await Future.wait([synchronization, logoutClear]);
 
@@ -310,8 +306,8 @@ void main() {
 
   test('access revocation bypasses the serialized identity queue', () async {
     final listStarted = Completer<void>();
-    final vaults = Completer<DecryptedVaultList>();
-    when(() => vaultListService.load(any())).thenAnswer((_) {
+    final vaults = Completer<List<VaultEntity>>();
+    when(() => indexPreparation.prepare(any())).thenAnswer((_) {
       listStarted.complete();
       return vaults.future;
     });
@@ -319,7 +315,7 @@ void main() {
     final synchronization = service.synchronize(privateKey: Uint8List(32));
     await listStarted.future;
     await service.revokeAccess();
-    vaults.complete(_vaultList());
+    vaults.complete(const []);
     await synchronization;
 
     verify(bridge.revokeCacheAccess).called(1);
@@ -335,8 +331,8 @@ void main() {
       final replaceStarted = Completer<void>();
       final allowReplace = Completer<void>();
       when(
-        () => vaultListService.load(any()),
-      ).thenAnswer((_) async => _vaultList());
+        () => indexPreparation.prepare(any()),
+      ).thenAnswer((_) async => const []);
       when(
         () => bridge.replaceCache(
           any(),
@@ -368,8 +364,8 @@ void main() {
     final allowReplace = Completer<void>();
     int? replacementToken;
     when(
-      () => vaultListService.load(any()),
-    ).thenAnswer((_) async => _vaultList());
+      () => indexPreparation.prepare(any()),
+    ).thenAnswer((_) async => const []);
     when(
       () =>
           bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
@@ -396,8 +392,8 @@ void main() {
     final releaseFirstReplace = Completer<void>();
     var replaceCalls = 0;
     when(
-      () => vaultListService.load(any()),
-    ).thenAnswer((_) async => _vaultList());
+      () => indexPreparation.prepare(any()),
+    ).thenAnswer((_) async => const []);
     when(
       () =>
           bridge.replaceCache(any(), sessionToken: any(named: 'sessionToken')),
@@ -431,10 +427,10 @@ void main() {
       await service.revokeAccess();
       when(bridge.beginCacheSession).thenAnswer((_) async => 41);
       when(
-        () => vaultListService.load(any()),
-      ).thenAnswer((_) async => _vaultList());
+        () => indexPreparation.prepare(any()),
+      ).thenAnswer((_) async => const []);
       final recreated = AutoFillCacheService(
-        vaultListService: vaultListService,
+        indexPreparation: indexPreparation,
         entryRepository: entryRepository,
         bridge: bridge,
         memberIndex: memberIndex,
