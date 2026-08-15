@@ -58,7 +58,12 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
         if (sessionToken == null) return;
         await _clearNative(sessionToken);
         if (_accessRevoked || generation != _generation) return;
-        await _synchronizeOnce(privateKey, generation, sessionToken);
+        await _synchronizeOnce(
+          privateKey,
+          generation,
+          sessionToken,
+          ensureFreshIndex: false,
+        );
       }),
     );
   }
@@ -105,7 +110,12 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
         if (sessionToken == null) return;
         await _clearNative(sessionToken);
         if (_accessRevoked || generation != _generation) return;
-        await _synchronizeOnce(privateKey, generation, sessionToken);
+        await _synchronizeOnce(
+          privateKey,
+          generation,
+          sessionToken,
+          ensureFreshIndex: true,
+        );
       }),
     );
   }
@@ -172,11 +182,14 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
   Future<void> _synchronizeOnce(
     Uint8List privateKey,
     int generation,
-    int sessionToken,
-  ) async {
+    int sessionToken, {
+    required bool ensureFreshIndex,
+  }) async {
     try {
       final records = <AutoFillRecord>[];
-      final vaults = await _indexPreparation.prepare(privateKey);
+      final vaults = ensureFreshIndex
+          ? await _indexPreparation.prepare(privateKey, ensureFresh: true)
+          : await _indexPreparation.prepare(privateKey);
       for (final vault in vaults) {
         if (_accessRevoked || generation != _generation) return;
         final eligible = {

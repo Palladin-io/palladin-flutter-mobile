@@ -268,7 +268,7 @@ void main() {
 
   test('clears stale cache before a mutation-triggered rebuild', () async {
     when(
-      () => indexPreparation.prepare(any()),
+      () => indexPreparation.prepare(any(), ensureFresh: true),
     ).thenAnswer((_) async => const []);
 
     await service.clearAndSynchronize(privateKey: Uint8List(32));

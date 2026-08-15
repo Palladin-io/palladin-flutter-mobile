@@ -63,10 +63,13 @@ final class MemberSyncService implements MemberSyncCoordinator {
     this.maximumIndexedEntries = VaultPerformanceBudget.maximumIndexedEntries,
     this.decryptConcurrency =
         VaultPerformanceBudget.memberIndexDecryptConcurrency,
+    this.maximumSnapshotRestarts = 2,
   }) : _remote = remote,
        _cache = cache,
        _entryCrypto = entryCrypto {
-    if (maximumIndexedEntries < 1 || decryptConcurrency < 1) {
+    if (maximumIndexedEntries < 1 ||
+        decryptConcurrency < 1 ||
+        maximumSnapshotRestarts < 0) {
       throw ArgumentError('Member sync budgets must be positive');
     }
   }
@@ -76,6 +79,7 @@ final class MemberSyncService implements MemberSyncCoordinator {
   final EntryV2CryptoService _entryCrypto;
   final int maximumIndexedEntries;
   final int decryptConcurrency;
+  final int maximumSnapshotRestarts;
 
   final Map<String, Map<String, MemberIndexEntry>> _indexes = {};
   final Map<String, Future<MemberSyncResult>> _running = {};
@@ -103,7 +107,7 @@ final class MemberSyncService implements MemberSyncCoordinator {
     final active = _running[vaultId];
     if (active != null) return active;
     final generation = _lockGeneration;
-    final core = _synchronizeOnce(
+    final core = _synchronizeWithBoundedSnapshots(
       vaultId: vaultId,
       vaultKey: vaultKey,
       minimumMemberKeyGeneration: minimumMemberKeyGeneration,
@@ -117,6 +121,44 @@ final class MemberSyncService implements MemberSyncCoordinator {
     });
     _running[vaultId] = operation;
     return operation;
+  }
+
+  Future<MemberSyncResult> _synchronizeWithBoundedSnapshots({
+    required String vaultId,
+    required Uint8List vaultKey,
+    required int minimumMemberKeyGeneration,
+    required int generation,
+  }) async {
+    var forceSnapshot = false;
+    var snapshotRestarts = 0;
+    while (true) {
+      try {
+        if (forceSnapshot) {
+          return await _snapshot(
+            vaultId,
+            vaultKey,
+            minimumMemberKeyGeneration,
+            generation,
+          );
+        }
+        return await _synchronizeOnce(
+          vaultId: vaultId,
+          vaultKey: vaultKey,
+          minimumMemberKeyGeneration: minimumMemberKeyGeneration,
+          generation: generation,
+        );
+      } on _MemberSnapshotRestartRequired catch (error) {
+        if (error.afterSnapshot) {
+          if (snapshotRestarts >= maximumSnapshotRestarts) {
+            _indexes.remove(vaultId);
+            _publishIndexUpdate(vaultId);
+            throw StateError('Member snapshot restart limit exceeded');
+          }
+          snapshotRestarts += 1;
+        }
+        forceSnapshot = true;
+      }
+    }
   }
 
   Future<MemberSyncResult> _synchronizeOnce({
@@ -277,6 +319,7 @@ final class MemberSyncService implements MemberSyncCoordinator {
       vaultKey,
       minimumGeneration,
       generation,
+      afterSnapshot: true,
     );
     return MemberSyncResult(
       sequence: closed.sequence,
@@ -290,8 +333,9 @@ final class MemberSyncService implements MemberSyncCoordinator {
     String afterSequence,
     Uint8List vaultKey,
     int minimumGeneration,
-    int generation,
-  ) async {
+    int generation, {
+    bool afterSnapshot = false,
+  }) async {
     if (!_indexes.containsKey(vaultId)) {
       await _unlockCached(
         vaultId: vaultId,
@@ -311,7 +355,7 @@ final class MemberSyncService implements MemberSyncCoordinator {
       );
       _requireCurrent(generation);
       if (result is MemberDeltaResetRequired) {
-        return _snapshot(vaultId, vaultKey, minimumGeneration, generation);
+        throw _MemberSnapshotRestartRequired(afterSnapshot: afterSnapshot);
       }
       final page = (result as MemberDeltaSuccess).page;
       _validatePageCount(page.items);
@@ -695,6 +739,12 @@ final class MemberSyncService implements MemberSyncCoordinator {
     }
     if (page.isNotEmpty) yield page;
   }
+}
+
+final class _MemberSnapshotRestartRequired implements Exception {
+  const _MemberSnapshotRestartRequired({required this.afterSnapshot});
+
+  final bool afterSnapshot;
 }
 
 final class _MemberSyncInvalidated implements Exception {

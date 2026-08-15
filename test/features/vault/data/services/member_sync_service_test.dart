@@ -372,6 +372,56 @@ void main() {
     },
   );
 
+  test('bounds repeated resetRequired responses after snapshots', () async {
+    cache.appliedSequence = '4';
+    when(
+      () => remote.delta(
+        vaultId: 'vault',
+        afterSequence: any(named: 'afterSequence'),
+        continuationCursor: any(named: 'continuationCursor'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).thenAnswer(
+      (_) async => const MemberDeltaResetRequired(
+        MemberSyncReset(currentSequence: '10', minRetainedSequence: '8'),
+      ),
+    );
+    when(
+      () => remote.snapshot(
+        vaultId: 'vault',
+        cursor: any(named: 'cursor'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).thenAnswer(
+      (_) async =>
+          const MemberSnapshotPage(snapshotBaseSequence: '10', items: []),
+    );
+    final bounded = MemberSyncService(
+      remote: remote,
+      cache: cache,
+      entryCrypto: entryCrypto,
+      maximumSnapshotRestarts: 1,
+    );
+
+    await expectLater(
+      bounded.synchronize(
+        vaultId: 'vault',
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: 1,
+      ),
+      throwsA(isA<StateError>()),
+    );
+
+    verify(
+      () => remote.snapshot(
+        vaultId: 'vault',
+        cursor: any(named: 'cursor'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).called(2);
+    expect(bounded.entries('vault'), isEmpty);
+  });
+
   test(
     'delta with a newer generation fails before advancing ciphertext cache',
     () async {

@@ -64,6 +64,33 @@ void main() {
       ).called(1);
     },
   );
+
+  test(
+    'mutation preparation queues one fresh pass after active work',
+    () async {
+      final first = Completer<List<VaultEntity>>();
+      final trailing = Completer<List<VaultEntity>>();
+      var calls = 0;
+      when(() => vaults.loadForMemberIndex(any())).thenAnswer((_) {
+        calls += 1;
+        return calls == 1 ? first.future : trailing.future;
+      });
+
+      final active = service.prepare(Uint8List(32));
+      final fresh = service.prepare(Uint8List(32), ensureFresh: true);
+      final sameFresh = service.prepare(Uint8List(32), ensureFresh: true);
+
+      expect(identical(fresh, sameFresh), isTrue);
+      first.complete([_vault('before')]);
+      await active;
+      expect(calls, 2);
+
+      trailing.complete([_vault('after')]);
+      expect((await fresh).single.id, 'after');
+      await sameFresh;
+      verify(() => vaults.loadForMemberIndex(any())).called(2);
+    },
+  );
 }
 
 VaultEntity _vault(String id) => VaultEntity(
