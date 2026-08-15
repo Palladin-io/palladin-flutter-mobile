@@ -134,7 +134,11 @@ class EntryRepositoryImpl implements EntryRepository {
         content: detail.content,
         vaultKey: vaultKey,
       );
-      return RevealedEntry(entry: detail.summary.toEntity(), payload: payload);
+      final entry = detail.summary.toEntity();
+      if (entry.type == EntryType.creditCard) {
+        CreditCardPayload.fromJson(payload);
+      }
+      return RevealedEntry(entry: entry, payload: payload);
     } finally {
       if (vaultKey != null) {
         vaultKey.fillRange(0, vaultKey.length, 0);
