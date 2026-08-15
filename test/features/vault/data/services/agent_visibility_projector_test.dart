@@ -135,4 +135,37 @@ void main() {
       );
     },
   );
+
+  test('grantable field set omits an authorized but absent optional value', () {
+    final policy = AgentVisibilityPolicy.fromJson(
+      EntryType.key,
+      {
+        'discoverable': true,
+        'fields': {
+          'agentLabel': 'discovery',
+          'value': 'onGrantValue',
+          'notes': 'onGrantValue',
+        },
+      },
+      content: {'value': 'secret', 'notes': null},
+    );
+
+    final fieldIds = AgentVisibilityProjector.grantableFieldIds(
+      agentLabel: 'API key',
+      description: '',
+      content: {'value': 'secret', 'notes': null},
+      policy: policy,
+    );
+    final payload = AgentVisibilityProjector.grantPayload(
+      type: EntryType.key,
+      agentLabel: 'API key',
+      description: '',
+      content: {'value': 'secret', 'notes': null},
+      policy: policy,
+      approvedFieldIds: fieldIds,
+    );
+
+    expect(fieldIds, ['value']);
+    expect((payload['fields'] as Map).keys, ['value']);
+  });
 }

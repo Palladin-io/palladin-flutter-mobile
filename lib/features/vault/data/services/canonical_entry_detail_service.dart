@@ -1858,12 +1858,9 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
             )
             .map((item) => item.key)
             .toSet();
-        final fields = scope.fieldIds
-            .map((id) => _canonicalGrantFieldId(secret.entryType, id))
-            .where(allowed.contains)
-            .toList();
-        if (fields.length != scope.fieldIds.length || fields.isEmpty) {
-          throw const FormatException('Grant scope exceeds policy');
+        final fields = allowed.toList()..sort();
+        if (fields.isEmpty) {
+          throw const FormatException('Entry has no grantable fields');
         }
         final remaining = grant.queryLimit == null
             ? null
@@ -2002,13 +1999,27 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       final expiresAt = grant.expiresAt == null
           ? null
           : _canonicalInstant(grant.expiresAt!);
+      final approvedFieldIds =
+          policy.fields.entries
+              .where(
+                (entry) =>
+                    entry.value == visibility.AgentFieldAccess.onGrantValue ||
+                    entry.value == visibility.AgentFieldAccess.onGrantDerived ||
+                    entry.value == visibility.AgentFieldAccess.onGrantRuntime,
+              )
+              .map((entry) => entry.key)
+              .toList()
+            ..sort();
+      if (approvedFieldIds.isEmpty) {
+        throw const FormatException('Entry has no grantable fields');
+      }
       final payload = AgentVisibilityProjector.grantPayload(
         type: type,
         agentLabel: agentLabel,
         description: description,
         content: content,
         policy: policy,
-        approvedFieldIds: scope.fieldIds,
+        approvedFieldIds: approvedFieldIds,
       );
       plaintext = VaultProtocolBytes.utf8Encode(canonicalizeVaultJson(payload));
       grantKey = await _envelopes.randomKey();
@@ -2064,7 +2075,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         'agentWrappedGrantDek': VaultProtocolBytes.base64UrlEncode(wrappedKey),
         'agentWrapperSuite': 1,
         'agentKeyFingerprint': fingerprintWire,
-        'fieldIds': [...scope.fieldIds]..sort(),
+        'fieldIds': approvedFieldIds,
         'expiresAt': ?expiresAt,
         'remainingUses': ?remainingUses,
       };

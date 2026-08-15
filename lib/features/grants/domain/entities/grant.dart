@@ -103,8 +103,11 @@ class Grant {
     this.approvedAt,
     this.approvedByName,
     this.revokedAt,
+    this.createdBy,
     this.createdByName,
+    this.revokedBy,
     this.revokedByName,
+    this.deniedBy,
     this.deniedByName,
     this.denyReason,
     this.canRevoke = false,
@@ -172,11 +175,20 @@ class Grant {
   final String? approvedByName;
   final DateTime? revokedAt;
 
+  /// Stable id of the Member who created or approved the grant.
+  final String? createdBy;
+
   /// Actor who created the grant (proactive grant / approval). Org listing.
   final String? createdByName;
 
+  /// Stable id of the Member who revoked the grant, when user-initiated.
+  final String? revokedBy;
+
   /// Actor who revoked the grant, when [status] is revoked.
   final String? revokedByName;
+
+  /// Stable id of the Member who denied the request.
+  final String? deniedBy;
 
   /// Actor who denied the grant, when [status] is denied.
   final String? deniedByName;

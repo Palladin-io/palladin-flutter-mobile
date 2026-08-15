@@ -100,12 +100,16 @@ final class WrapperContext {
     final needsParent =
         purpose == WrapperPurpose.reasonDek ||
         purpose == WrapperPurpose.grantDek;
+    final expectedRecipientKeyKind = switch (purpose) {
+      WrapperPurpose.memberVaultKey => 5,
+      WrapperPurpose.agentVdk || WrapperPurpose.grantDek => 1,
+      WrapperPurpose.reasonDek => 4,
+    };
     if (protocolVersion != 2 ||
         !scopeValid ||
         resourceRevision <= 0 ||
         wrappedKeyVersion <= 0 ||
-        recipientKeyKind !=
-            (purpose == WrapperPurpose.memberVaultKey ? 5 : 1) ||
+        recipientKeyKind != expectedRecipientKeyKind ||
         recipientKeyVersion <= 0 ||
         recipientFingerprint.length != 32 ||
         recipientFingerprint.every((byte) => byte == 0) ||

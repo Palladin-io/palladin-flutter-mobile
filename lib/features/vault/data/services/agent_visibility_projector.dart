@@ -3,6 +3,33 @@ import '../../domain/entities/entry_entity.dart';
 
 /// Pure, schema-aware projection boundary for Agent Discovery and grants.
 abstract final class AgentVisibilityProjector {
+  /// Returns only policy-authorized fields that currently have a value.
+  /// Optional fields may remain grant-enabled in the policy while being absent
+  /// from a concrete Entry; those fields must not enter the authenticated grant
+  /// field set until they exist.
+  static List<String> grantableFieldIds({
+    required String agentLabel,
+    required String description,
+    required Map<String, dynamic> content,
+    required AgentVisibilityPolicy policy,
+  }) {
+    final values = _values(
+      agentLabel: agentLabel,
+      description: description,
+      content: content,
+    );
+    return policy.fields.entries
+        .where(
+          (entry) =>
+              entry.value != AgentFieldAccess.never &&
+              entry.value != AgentFieldAccess.discovery &&
+              values.containsKey(entry.key) &&
+              values[entry.key] != null,
+        )
+        .map((entry) => entry.key)
+        .toList(growable: false);
+  }
+
   static Map<String, dynamic> discovery({
     required EntryType type,
     required String agentLabel,

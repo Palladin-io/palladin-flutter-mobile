@@ -1,6 +1,7 @@
 import '../../../grants/domain/entities/grant_method.dart';
 import '../../domain/entities/pending_grant.dart';
 import '../../domain/entities/encrypted_reason.dart';
+import 'encrypted_reason_model.dart';
 
 /// DTO for a pending grant returned by `GET /api/dashboard/pending-grants`.
 ///
@@ -93,39 +94,19 @@ class PendingGrantModel {
   };
 
   static EncryptedReason _encryptedReason(Map<String, dynamic> grant) {
-    final value = grant['encryptedReason'];
-    if (value is! Map) throw const FormatException('Missing encrypted reason');
-    final json = Map<String, dynamic>.from(value);
-    String text(String key) => json[key] as String;
-    int number(String key) => json[key] as int;
-    final result = EncryptedReason(
-      organizationId: text('organizationId'),
-      vaultId: text('vaultId'),
-      entryId: text('entryId'),
-      grantRequestId: text('grantRequestId'),
-      agentId: text('agentId'),
-      requestRevision: text('requestRevision'),
-      header: Map<String, dynamic>.from(json['header'] as Map),
-      reasonKeyVersion: number('reasonKeyVersion'),
-      agentMessageKeyVersion: number('agentMessageKeyVersion'),
-      recipientAgentMessageKeyFingerprint: text(
-        'recipientAgentMessageKeyFingerprint',
-      ),
-      requestedMethods: number('requestedMethods'),
-      ciphertext: text('ciphertext'),
-      agentMessageWrappedReasonDek: text('agentMessageWrappedReasonDek'),
-      agentSignature: text('agentSignature'),
-    );
+    final result = EncryptedReasonModel.fromJson(grant['encryptedReason']);
+    final descriptor = result.descriptor;
+    final scope = Map<String, dynamic>.from(descriptor['scope'] as Map);
+    final binding = Map<String, dynamic>.from(descriptor['binding'] as Map);
     if (result.vaultId != grant['vaultId'] ||
         result.entryId != grant['entryId'] ||
         result.grantRequestId != (grant['grantId'] ?? grant['id']) ||
         result.agentId != grant['agentId'] ||
-        result.header['protocolVersion'] != 2 ||
-        result.header['algorithmSuite'] != 1 ||
-        result.header['resourceKind'] != 3 ||
-        result.header['projectionKind'] != 5 ||
-        result.header['resourceRevision'] != result.requestRevision ||
-        result.header['keyVersion'] != result.reasonKeyVersion ||
+        descriptor['protocolVersion'] != 2 ||
+        descriptor['cryptoSuiteId'] != 'palladin-vault-xchacha-v1' ||
+        !const {'encryptedReason', 9}.contains(descriptor['purpose']) ||
+        scope['memberId'] != null ||
+        binding['wrapperSuiteId'] != 'palladin-x25519-sealed-box-v1' ||
         result.requestedMethods != _methodMask(grant['methods'])) {
       throw const FormatException('Encrypted reason scope mismatch');
     }

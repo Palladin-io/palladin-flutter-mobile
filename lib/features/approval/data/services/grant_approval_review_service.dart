@@ -4,11 +4,12 @@ import 'dart:typed_data';
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 import '../../../../core/crypto/sodium_provider.dart';
+import '../../../../core/utils/app_logger.dart';
 
 import '../../../vault/data/datasources/agent_discovery_remote_datasource.dart';
 import '../../../vault/data/datasources/vault_remote_datasource.dart';
+import '../../../vault/data/services/agent_visibility_projector.dart';
 import '../../../vault/data/services/canonical_entry_detail_service.dart';
-import '../../../vault/data/services/vault_protocol/vault_protocol_aad.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
@@ -16,8 +17,10 @@ import '../../../vault/data/services/vault_protocol/vault_protocol_signature_ser
 import '../../../vault/data/services/vault_rotation_crypto_service.dart';
 import '../../../vault/domain/entities/agent_visibility_policy.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
+import '../../../grants/domain/entities/grant_method.dart';
 import '../datasources/approval_remote_datasource.dart';
 import '../../domain/entities/pending_grant.dart';
+import 'encrypted_reason_crypto_service.dart';
 
 final class GrantableApprovalField {
   const GrantableApprovalField({
@@ -72,43 +75,46 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
     required VaultProtocolSignatureService signatures,
     required AgentDiscoveryRemote discovery,
     required ApprovalRemoteDatasource approval,
+    EncryptedReasonCryptoService? reasonCrypto,
   }) : _vaults = vaults,
        _entries = entries,
        _keys = keys,
-       _envelopes = envelopes,
-       _signatures = signatures,
        _discovery = discovery,
-       _approval = approval;
+       _approval = approval,
+       _reasonCrypto = reasonCrypto ?? EncryptedReasonCryptoService();
 
   final VaultRemoteDatasource _vaults;
   final CanonicalEntryDetailService _entries;
   final VaultRotationCryptoService _keys;
-  final VaultProtocolEnvelopeService _envelopes;
-  final VaultProtocolSignatureService _signatures;
   final AgentDiscoveryRemote _discovery;
   final ApprovalRemoteDatasource _approval;
+  final EncryptedReasonCryptoService _reasonCrypto;
 
   @override
   Future<GrantApprovalReview> open({
     required PendingGrant grant,
     required Uint8List memberPrivateKey,
   }) async {
-    final fresh = (await _approval.getGrant(
-      grant.vaultId,
-      grant.grantId,
-    )).toEntity();
-    final reason = fresh.encryptedReason;
+    var stage = 'grant-fetch';
     Uint8List? vaultKey;
     Uint8List? messagePrivateKey;
     Uint8List? messagePublicKey;
+    Uint8List? signingKey;
     Uint8List? reasonKey;
-    Uint8List? wrappedReasonKey;
     Uint8List? plaintext;
     CanonicalEntrySnapshot? entry;
     try {
+      final freshModel = await _approval.getGrant(grant.vaultId, grant.grantId);
+      stage = 'grant-parse';
+      final fresh = freshModel.toEntity();
+      final reason = fresh.encryptedReason;
+      stage = 'scope-validation';
       _validateScope(fresh);
+      stage = 'vault-fetch';
       final vault = await _vaults.getEncryptedVault(grant.vaultId);
+      stage = 'vault-validation';
       _validateVaultContext(fresh, vault);
+      stage = 'agent-discovery';
       final candidates = (await _discovery.list(grant.vaultId))
           .where((item) => item.agentId == fresh.agentId && item.isCurrent)
           .toList(growable: false);
@@ -116,42 +122,30 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
         throw const FormatException('Agent identity is not current');
       }
       final candidate = candidates.single;
-      final signingKey = VaultProtocolBytes.base64UrlDecode(
+      stage = 'signing-key';
+      signingKey = VaultProtocolBytes.base64Decode(
         candidate.ed25519PublicKey,
         maximumBytes: 32,
       );
-      try {
-        if (!await _signatures.verify(
-          domainPrefix: 'PLDNV2SIG:ENCRYPTED-REASON:',
-          unsignedObject: _unsignedReason(reason),
-          signature: reason.agentSignature,
-          publicKey: signingKey,
-        )) {
-          throw const FormatException('Encrypted reason signature mismatch');
-        }
-      } finally {
-        signingKey.fillRange(0, signingKey.length, 0);
-      }
+      stage = 'vault-key';
       vaultKey = await _keys.openMemberVaultKey(
         Map<String, dynamic>.from(vault['memberVaultKey'] as Map),
         memberPrivateKey,
       );
-      final privateKeys = (vault['vaultPrivateKeys'] as List? ?? const [])
-          .whereType<Map>()
-          .map(Map<String, dynamic>.from)
-          .where(
-            (item) =>
-                item['privateKeyKind'] == 1 &&
-                item['privateKeyVersion'] == reason.agentMessageKeyVersion,
-          )
-          .toList(growable: false);
-      if (privateKeys.length != 1) {
-        throw const FormatException('Message key is unavailable');
-      }
-      final openedMessagePrivateKey = await _keys.openPrivateKey(
-        privateKeys.single,
-        vaultKey,
-      );
+      stage = 'message-key-selection';
+      final messageKeyEnvelope =
+          VaultRotationCryptoService.requirePrivateKeyEnvelope(
+            envelopes: vault['vaultPrivateKeys'],
+            purpose: 'vaultAgentMessagePrivateKey',
+            keyVersion: reason.agentMessageKeyVersion,
+          );
+      stage = 'message-key';
+      final openedMessagePrivateKey = await _keys
+          .openCanonicalAgentMessagePrivateKey(
+            messageKeyEnvelope,
+            vaultKey,
+            expectedKeyVersion: reason.agentMessageKeyVersion,
+          );
       messagePrivateKey = openedMessagePrivateKey;
       final sodium = await SodiumProvider.instance();
       final secret = SecureKey.fromList(sodium, openedMessagePrivateKey);
@@ -171,29 +165,20 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
       if (fingerprint != reason.recipientAgentMessageKeyFingerprint) {
         throw const FormatException('Encrypted reason recipient mismatch');
       }
-      wrappedReasonKey = VaultProtocolBytes.base64UrlDecode(
-        reason.agentMessageWrappedReasonDek,
-        maximumBytes: 128,
-      );
-      reasonKey = await _envelopes.openPackage(
-        ciphertext: wrappedReasonKey,
-        recipientPublicKey: openedMessagePublicKey,
+      stage = 'reason-key';
+      reasonKey = await _reasonCrypto.verifyAndOpenKey(
+        reason: reason,
+        signingPublicKey: signingKey,
         recipientPrivateKey: openedMessagePrivateKey,
       );
       final openedReasonKey = reasonKey;
       if (openedReasonKey.length != 32) {
         throw const FormatException('Invalid ReasonDEK');
       }
-      final envelope = _reasonEnvelope(reason);
-      plaintext = await _envelopes.decrypt(
-        profile: VaultAadProfile.encryptedReason,
-        envelope: envelope,
-        key: openedReasonKey,
-        expected: VaultEnvelopeExpectations(
-          aadContext: envelope,
-          minimumMemberKeyGeneration:
-              reason.header['memberKeyGeneration'] as int,
-        ),
+      stage = 'reason-decrypt';
+      plaintext = await _reasonCrypto.decrypt(
+        reason: reason,
+        reasonKey: openedReasonKey,
       );
       final decoded = jsonDecode(utf8.decode(plaintext, allowMalformed: false));
       if (decoded is! Map ||
@@ -205,6 +190,7 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
       if (reasonText.isEmpty || utf8.encode(reasonText).length > 4096) {
         throw const FormatException('Invalid encrypted reason');
       }
+      stage = 'entry-reveal';
       entry = await _entries.reveal(
         expected: EntryEntity(
           id: grant.entryId,
@@ -224,17 +210,22 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
         Map<String, dynamic>.from(entry.secret['agentVisibilityPolicy'] as Map),
         content: entry.payload,
       );
-      final fields = policy.fields.entries
-          .where(
-            (item) =>
-                item.value != AgentFieldAccess.never &&
-                item.value != AgentFieldAccess.discovery,
-          )
+      final agentLabel =
+          entry.secret['agentLabel'] as String? ??
+          entry.secret['memberLabel'] as String;
+      final description = entry.secret['description'] as String? ?? '';
+      final grantableFieldIds = AgentVisibilityProjector.grantableFieldIds(
+        agentLabel: agentLabel,
+        description: description,
+        content: entry.payload,
+        policy: policy,
+      );
+      final fields = grantableFieldIds
           .map(
-            (item) => GrantableApprovalField(
-              id: item.key,
-              label: _fieldLabel(item.key, entry!.payload),
-              access: item.value,
+            (id) => GrantableApprovalField(
+              id: id,
+              label: _fieldLabel(id, entry!.payload),
+              access: policy.fields[id]!,
             ),
           )
           .toList(growable: true);
@@ -246,14 +237,19 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
         agentName: candidate.agentName,
         fields: fields,
       );
+    } catch (error) {
+      // Stage and exception class are safe operational metadata. Never log
+      // exception messages here: crypto/parser errors may carry input data.
+      AppLogger.w('Approval', 'Review failed at $stage (${error.runtimeType})');
+      rethrow;
     } finally {
       entry?.clear();
       for (final value in [
         vaultKey,
         messagePrivateKey,
         messagePublicKey,
+        signingKey,
         reasonKey,
-        wrappedReasonKey,
         plaintext,
       ]) {
         value?.fillRange(0, value.length, 0);
@@ -279,12 +275,8 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
         reason.entryId != grant.entryId ||
         reason.grantRequestId != grant.grantId ||
         reason.agentId != grant.agentId ||
-        reason.header['resourceRevision'] != reason.requestRevision ||
-        reason.header['keyVersion'] != reason.reasonKeyVersion ||
-        reason.header['protocolVersion'] != 2 ||
-        reason.header['algorithmSuite'] != 1 ||
-        reason.header['resourceKind'] != 3 ||
-        reason.header['projectionKind'] != 5 ||
+        reason.descriptor['protocolVersion'] != 2 ||
+        !const {'encryptedReason', 9}.contains(reason.descriptor['purpose']) ||
         reason.requestedMethods != _methodBits(grant.requestedMethods)) {
       throw const FormatException('Encrypted reason scope mismatch');
     }
@@ -293,44 +285,20 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
   void _validateVaultContext(PendingGrant grant, Map<String, dynamic> vault) {
     final reason = grant.encryptedReason;
     if (reason.organizationId != vault['organizationId'] ||
-        reason.header['memberKeyGeneration'] != vault['memberKeyGeneration']) {
+        reason.memberKeyGeneration != vault['memberKeyGeneration']) {
       throw const FormatException('Encrypted reason Vault context mismatch');
     }
   }
 
-  int _methodBits(Iterable<dynamic> methods) {
+  int _methodBits(Iterable<GrantMethod> methods) {
     var bits = 0;
     for (final method in methods) {
-      bits |= switch (method.name) {
-        'get' => 1,
-        'exec' => 2,
-        'inject' => 4,
-        _ => 0,
+      bits |= switch (method) {
+        GrantMethod.get => 1,
+        GrantMethod.exec => 2,
+        GrantMethod.inject => 4,
       };
     }
     return bits;
   }
-
-  Map<String, Object?> _unsignedReason(dynamic reason) => {
-    'agentId': reason.agentId,
-    'agentMessageKeyVersion': reason.agentMessageKeyVersion,
-    'agentMessageWrappedReasonDek': reason.agentMessageWrappedReasonDek,
-    'ciphertext': reason.ciphertext,
-    'entryId': reason.entryId,
-    'grantRequestId': reason.grantRequestId,
-    'header': reason.header,
-    'organizationId': reason.organizationId,
-    'reasonKeyVersion': reason.reasonKeyVersion,
-    'recipientAgentMessageKeyFingerprint':
-        reason.recipientAgentMessageKeyFingerprint,
-    'requestRevision': reason.requestRevision,
-    'requestedMethods': reason.requestedMethods,
-    'vaultId': reason.vaultId,
-  };
-
-  Map<String, dynamic> _reasonEnvelope(dynamic reason) => {
-    ..._unsignedReason(reason),
-    'header': Map<String, dynamic>.from(reason.header as Map),
-    'ciphertext': reason.ciphertext,
-  };
 }
