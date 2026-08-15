@@ -5,6 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _projectId = 'palladin';
 const _projectNumber = '1006466869105';
+const _webOAuthClientId =
+    '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com';
+const _iosOAuthClientId =
+    '1006466869105-m9lc3djv76vmh7pnhh7opdbbtq9pbhce.apps.googleusercontent.com';
 
 const _androidApps = {
   'io.palladin.mobile.local': '1:1006466869105:android:d78fce556c7b0cfe2eb8d0',
@@ -51,6 +55,9 @@ void main() {
         expect(projectInfo['project_id'], _projectId);
         expect(projectInfo['project_number'], _projectNumber);
         expect(configuredApps, _androidApps);
+        for (final client in clients.cast<Map<String, dynamic>>()) {
+          _expectGeneratedOAuthMetadata(client);
+        }
       });
     }
 
@@ -67,6 +74,28 @@ void main() {
       });
     }
   });
+}
+
+void _expectGeneratedOAuthMetadata(Map<String, dynamic> client) {
+  final oauthClients = (client['oauth_client'] as List<dynamic>)
+      .cast<Map<String, dynamic>>();
+  expect(oauthClients, [
+    {'client_id': _webOAuthClientId, 'client_type': 3},
+  ]);
+
+  final services = client['services'] as Map<String, dynamic>;
+  final appInvite = services['appinvite_service'] as Map<String, dynamic>;
+  final otherClients =
+      (appInvite['other_platform_oauth_client'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+  expect(otherClients, [
+    {'client_id': _webOAuthClientId, 'client_type': 3},
+    {
+      'client_id': _iosOAuthClientId,
+      'client_type': 2,
+      'ios_info': {'bundle_id': 'io.palladin.mobile'},
+    },
+  ]);
 }
 
 String _plistValue(String contents, String key) {
