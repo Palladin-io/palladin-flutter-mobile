@@ -48,3 +48,9 @@ jobs:
       - name: Enforce Vault v2 structural performance budgets
         run: flutter test test/performance/vault_v2_mobile_structural_budget_test.dart
       - run: flutter test
+      - name: Build staging debug APK
+        # Debug builds intentionally use Android's debug signing key. Keep the
+        # release-keystore CI guard enabled for release artifact workflows.
+        env:
+          CI: "false"
+        run: flutter build apk --debug --flavor staging -t lib/main_staging.dart
