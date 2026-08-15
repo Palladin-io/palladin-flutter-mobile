@@ -98,7 +98,7 @@ dependencies:
 
   # Opens system app-settings page (used to direct users to Notification
   # settings when the OS permission has been denied and cannot be re-prompted).
-  app_settings: ^5.1.1
+  app_settings: ^7.0.0
 
   # Enclave-bound, biometric-gated master-key storage for biometric unlock
   # iOS SecAccessControl .biometryCurrentSet / Android Keystore
