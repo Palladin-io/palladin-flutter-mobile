@@ -99,7 +99,7 @@ The application also exposes Flutter's runtime licence registry from Settings â†
 | `get_it` | `8.3.0` | `5af1ce194eb3` |
 | `glob` | `2.1.3` | `3c32b53167c7` |
 | `go_router` | `15.1.3` | `89519eca6f7b` |
-| `google_fonts` | `6.3.3` | `420f7739f169` |
+| `google_fonts` | `8.2.0` | `420f7739f169` |
 | `google_identity_services_web` | `0.3.3+1` | `89519eca6f7b` |
 | `google_sign_in` | `6.3.0` | `89519eca6f7b` |
 | `google_sign_in_android` | `6.2.1` | `89519eca6f7b` |
@@ -32079,7 +32079,7 @@ Applies to: node_preamble 2.0.2 (LICENSE)
 
 SHA-256: `420f7739f169097f0aad1242045169cd643c8f1d94e62866fad265ae4c369b7d`
 
-Applies to: cross_file 0.3.5+2 (LICENSE), file_selector_linux 0.9.4 (LICENSE), file_selector_macos 0.9.5 (LICENSE), file_selector_platform_interface 2.7.0 (LICENSE), file_selector_windows 0.9.3+5 (LICENSE), flutter_plugin_android_lifecycle 2.0.34 (LICENSE), google_fonts 6.3.3 (LICENSE), image_picker_for_web 3.1.1 (LICENSE), image_picker_macos 0.2.2+1 (LICENSE), image_picker_platform_interface 2.11.1 (LICENSE), local_auth_android 1.0.56 (LICENSE), local_auth_platform_interface 1.1.0 (LICENSE), path_provider_android 2.2.22 (LICENSE), path_provider_foundation 2.6.0 (LICENSE), shared_preferences 2.5.5 (LICENSE), shared_preferences_android 2.4.23 (LICENSE), shared_preferences_foundation 2.5.6 (LICENSE), shared_preferences_platform_interface 2.4.2 (LICENSE), url_launcher_android 6.3.30 (LICENSE), url_launcher_ios 6.4.1 (LICENSE), url_launcher_linux 3.2.2 (LICENSE), url_launcher_macos 3.2.5 (LICENSE), url_launcher_windows 3.1.5 (LICENSE)
+Applies to: cross_file 0.3.5+2 (LICENSE), file_selector_linux 0.9.4 (LICENSE), file_selector_macos 0.9.5 (LICENSE), file_selector_platform_interface 2.7.0 (LICENSE), file_selector_windows 0.9.3+5 (LICENSE), flutter_plugin_android_lifecycle 2.0.34 (LICENSE), google_fonts 8.2.0 (LICENSE), image_picker_for_web 3.1.1 (LICENSE), image_picker_macos 0.2.2+1 (LICENSE), image_picker_platform_interface 2.11.1 (LICENSE), local_auth_android 1.0.56 (LICENSE), local_auth_platform_interface 1.1.0 (LICENSE), path_provider_android 2.2.22 (LICENSE), path_provider_foundation 2.6.0 (LICENSE), shared_preferences 2.5.5 (LICENSE), shared_preferences_android 2.4.23 (LICENSE), shared_preferences_foundation 2.5.6 (LICENSE), shared_preferences_platform_interface 2.4.2 (LICENSE), url_launcher_android 6.3.30 (LICENSE), url_launcher_ios 6.4.1 (LICENSE), url_launcher_linux 3.2.2 (LICENSE), url_launcher_macos 3.2.5 (LICENSE), url_launcher_windows 3.1.5 (LICENSE)
 
     Copyright 2013 The Flutter Authors
     
