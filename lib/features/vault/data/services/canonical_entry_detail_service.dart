@@ -205,6 +205,10 @@ class CanonicalEntryExportSession {
       if (value['schemaVersion'] != 1 || payload is! Map) {
         throw const FormatException('Malformed MemberSecret');
       }
+      _owner._rejectRetiredCreditCardFields(
+        entryType: value['entryType'],
+        content: Map<String, dynamic>.from(payload),
+      );
       return CanonicalEntrySnapshot(
         entry: entry,
         secret: value,
@@ -443,6 +447,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       if (value['schemaVersion'] != 1 || content is! Map) {
         throw const FormatException('Malformed historical MemberSecret');
       }
+      _rejectRetiredCreditCardFields(
+        entryType: value['entryType'],
+        content: Map<String, dynamic>.from(content),
+      );
       return CanonicalEntryHistorySnapshot(
         secret: value,
         payload: Map<String, dynamic>.from(content),
@@ -543,6 +551,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       if (value['schemaVersion'] != 1 || payload is! Map) {
         throw const FormatException('Malformed MemberSecret');
       }
+      _rejectRetiredCreditCardFields(
+        entryType: value['entryType'],
+        content: Map<String, dynamic>.from(payload),
+      );
       return CanonicalEntrySnapshot(
         entry: entry,
         secret: value,
@@ -572,6 +584,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       'creditCard' => EntryType.creditCard.toWire(),
       _ => throw const FormatException('Unknown canonical Entry type'),
     };
+    final content = Map<String, dynamic>.from(value['content'] as Map);
+    _rejectRetiredCreditCardFields(entryType: type, content: content);
     final policyFields = <String, dynamic>{};
     for (final field in (value['agentFieldAccess'] as Map).entries) {
       if (field.key is! String) {
@@ -592,8 +606,6 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         'creditCard.cardNumber' => 'cardNumber',
         'creditCard.expiryMonth' => 'expiryMonth',
         'creditCard.expiryYear' => 'expiryYear',
-        'creditCard.securityCode' => 'securityCode',
-        'creditCard.pin' => 'pin',
         'creditCard.billingAddress' => 'billingAddress',
         final String id when id.startsWith('custom:') => id.substring(7),
         final String id => id,
@@ -618,7 +630,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           'public-asset:$id|$revision|${Uri.encodeComponent(url)}',
         _ => null,
       },
-      'content': Map<String, dynamic>.from(value['content'] as Map),
+      'content': content,
       'agentVisibilityPolicy': {
         'discoverable': value['discoverable'],
         'fields': policyFields,
@@ -663,6 +675,9 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     final derived = <Uint8List>[];
     final plaintexts = <Uint8List>[];
     try {
+      if (type == EntryType.creditCard) {
+        CreditCardPayload.rejectRetiredDedicatedFields(content);
+      }
       _validateScope(snapshot.entry, expected);
       final vault = await _vaults.getEncryptedVault(expected.vaultId);
       final organizationId = snapshot.entry['organizationId'] as String;
@@ -1730,8 +1745,6 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         cardNumber: content['cardNumber'] as String,
         expiryMonth: content['expiryMonth'] as String,
         expiryYear: content['expiryYear'] as String,
-        securityCode: content['securityCode'] as String,
-        pin: content['pin'] as String?,
         billingAddress: content['billingAddress'] as String?,
         notes: content['notes'] as String?,
         customFields: custom,
@@ -1753,8 +1766,6 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
             'cardNumber',
             'expiryMonth',
             'expiryYear',
-            'securityCode',
-            'pin',
             'billingAddress',
           }.contains(value) =>
         'creditCard.$value',
@@ -1932,8 +1943,6 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           'cardNumber',
           'expiryMonth',
           'expiryYear',
-          'securityCode',
-          'pin',
           'billingAddress',
         }.contains(value) =>
       'creditCard.$value',
@@ -2148,6 +2157,17 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     return Map<String, dynamic>.from(nested);
   }
 
+  void _rejectRetiredCreditCardFields({
+    required Object? entryType,
+    required Map<String, dynamic> content,
+  }) {
+    if (entryType == EntryType.creditCard.toWire() ||
+        entryType == 'CREDIT_CARD' ||
+        entryType == 'creditCard') {
+      CreditCardPayload.rejectRetiredDedicatedFields(content);
+    }
+  }
+
   AgentVisibilityPolicy _policyForUpdatedContent(
     EntryType type,
     Map<String, dynamic> content,
@@ -2184,14 +2204,12 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
             'cardNumber',
             'expiryMonth',
             'expiryYear',
-            'securityCode',
-            'pin',
             'billingAddress',
           }.contains(id) &&
           !customFields.containsKey(id),
     );
     fields.addAll(customFields);
-    for (final field in const ['pin', 'billingAddress']) {
+    for (final field in const ['billingAddress']) {
       final value = content[field];
       fields[field] = value is String && value.isNotEmpty
           ? visibility.AgentFieldAccess.onGrantRuntime

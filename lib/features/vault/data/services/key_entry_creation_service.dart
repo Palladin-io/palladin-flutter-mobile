@@ -248,8 +248,6 @@ final class KeyEntryCreationService {
         cardNumber: raw['cardNumber'] as String,
         expiryMonth: raw['expiryMonth'] as String,
         expiryYear: raw['expiryYear'] as String,
-        securityCode: raw['securityCode'] as String,
-        pin: raw['pin'] as String?,
         billingAddress: raw['billingAddress'] as String?,
         notes: raw['notes'] as String?,
         customFields: custom,
@@ -292,10 +290,6 @@ final class KeyEntryCreationService {
           'creditCard.cardNumber': AgentFieldAccess.onGrantRuntime,
           'creditCard.expiryMonth': AgentFieldAccess.onGrantRuntime,
           'creditCard.expiryYear': AgentFieldAccess.onGrantRuntime,
-          'creditCard.securityCode': AgentFieldAccess.onGrantRuntime,
-          'creditCard.pin': raw['pin'] == null
-              ? AgentFieldAccess.never
-              : AgentFieldAccess.onGrantRuntime,
           'creditCard.billingAddress': raw['billingAddress'] == null
               ? AgentFieldAccess.never
               : AgentFieldAccess.onGrantRuntime,
@@ -348,9 +342,11 @@ final class KeyEntryCreationService {
         (content['cardholderName'] is! String ||
             content['cardNumber'] is! String ||
             content['expiryMonth'] is! String ||
-            content['expiryYear'] is! String ||
-            content['securityCode'] is! String)) {
+            content['expiryYear'] is! String)) {
       throw const FormatException('Malformed Credit Card content');
+    }
+    if (type == EntryType.creditCard) {
+      CreditCardPayload.rejectRetiredDedicatedFields(content);
     }
     if (type == EntryType.script) {
       if (content['script'] is! String ||

@@ -3566,11 +3566,5 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryExpiryYearLabel => 'Expiry year';
 
   @override
-  String get entrySecurityCodeLabel => 'Security code';
-
-  @override
-  String get entryPinLabel => 'PIN (optional)';
-
-  @override
   String get entryBillingAddressLabel => 'Billing address (optional)';
 }

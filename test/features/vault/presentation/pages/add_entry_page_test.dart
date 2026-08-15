@@ -23,63 +23,46 @@ void main() {
 
   tearDown(() => getIt.reset());
 
-  testWidgets('credit card secrets can be revealed independently', (
-    tester,
-  ) async {
-    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+  testWidgets(
+    'credit card number is masked without dedicated CVV or PIN fields',
+    (tester) async {
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: AddEntryPage(vaultId: 'vault'),
-      ),
-    );
+      await tester.pumpWidget(
+        const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: AddEntryPage(vaultId: 'vault'),
+        ),
+      );
 
-    await tester.tap(find.text(l10n.entryTypeCredential));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(l10n.entryTypeCreditCard).last);
-    await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.entryTypeCredential));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.entryTypeCreditCard).last);
+      await tester.pumpAndSettle();
 
-    Finder field(String label) => find.byWidgetPredicate(
-      (widget) => widget is OnboardingTextField && widget.label == label,
-    );
-    Finder input(String label) =>
-        find.descendant(of: field(label), matching: find.byType(TextField));
-    Finder toggle(String label) => find.descendant(
-      of: field(label),
-      matching: find.byType(EntryObscureToggle),
-    );
-    bool isObscured(String label) =>
-        tester.widget<TextField>(input(label)).obscureText;
+      Finder field(String label) => find.byWidgetPredicate(
+        (widget) => widget is OnboardingTextField && widget.label == label,
+      );
+      Finder input(String label) =>
+          find.descendant(of: field(label), matching: find.byType(TextField));
+      Finder toggle(String label) => find.descendant(
+        of: field(label),
+        matching: find.byType(EntryObscureToggle),
+      );
+      bool isObscured(String label) =>
+          tester.widget<TextField>(input(label)).obscureText;
 
-    final cardNumber = l10n.entryCardNumberLabel;
-    final securityCode = l10n.entrySecurityCodeLabel;
-    final pin = l10n.entryPinLabel;
+      final cardNumber = l10n.entryCardNumberLabel;
 
-    expect(isObscured(cardNumber), isTrue);
-    expect(isObscured(securityCode), isTrue);
-    expect(isObscured(pin), isTrue);
+      expect(isObscured(cardNumber), isTrue);
+      expect(find.text('Security code'), findsNothing);
+      expect(find.text('PIN (optional)'), findsNothing);
 
-    await tester.ensureVisible(toggle(cardNumber));
-    await tester.tap(toggle(cardNumber));
-    await tester.pump();
-    expect(isObscured(cardNumber), isFalse);
-    expect(isObscured(securityCode), isTrue);
-    expect(isObscured(pin), isTrue);
-
-    await tester.ensureVisible(toggle(securityCode));
-    await tester.tap(toggle(securityCode));
-    await tester.pump();
-    expect(isObscured(cardNumber), isFalse);
-    expect(isObscured(securityCode), isFalse);
-    expect(isObscured(pin), isTrue);
-
-    await tester.ensureVisible(toggle(pin));
-    await tester.tap(toggle(pin));
-    await tester.pump();
-    expect(isObscured(cardNumber), isFalse);
-    expect(isObscured(securityCode), isFalse);
-    expect(isObscured(pin), isFalse);
-  });
+      await tester.ensureVisible(toggle(cardNumber));
+      await tester.tap(toggle(cardNumber));
+      await tester.pump();
+      expect(isObscured(cardNumber), isFalse);
+    },
+  );
 }

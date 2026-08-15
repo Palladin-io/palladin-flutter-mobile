@@ -195,6 +195,43 @@ void main() {
     },
   );
 
+  test('credit-card entries are never eligible for AutoFill', () async {
+    final vault = _vault();
+    when(
+      () => indexPreparation.prepare(any()),
+    ).thenAnswer((_) async => [vault]);
+    when(() => memberIndex.entries(vault.id)).thenReturn([
+      MemberIndexEntry(
+        entryId: 'card-entry',
+        entryType: EntryType.creditCard.toWire(),
+        memberLabel: 'Travel card',
+        searchFields: const [],
+        revision: '1',
+        state: MemberEntryState.active,
+        autofillDomains: const ['checkout.example.com'],
+      ),
+    ]);
+
+    await service.synchronize(privateKey: Uint8List(32));
+
+    verifyNever(
+      () => entryRepository.revealAutoFillCredentials(
+        vaultId: any(named: 'vaultId'),
+        privateKey: any(named: 'privateKey'),
+        wrappedVK: any(named: 'wrappedVK'),
+      ),
+    );
+    final records =
+        verify(
+              () => bridge.replaceCache(
+                captureAny(),
+                sessionToken: any(named: 'sessionToken'),
+              ),
+            ).captured.single
+            as List<AutoFillRecord>;
+    expect(records, isEmpty);
+  });
+
   test('stale secret revision is rejected after decryption', () async {
     final vault = _vault();
     when(

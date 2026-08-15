@@ -77,8 +77,6 @@ class EntryFormUtils {
     String cardNumber = '',
     String expiryMonth = '',
     String expiryYear = '',
-    String securityCode = '',
-    String pin = '',
     String billingAddress = '',
   }) {
     final urlOrNull = url.trim().isEmpty ? null : url.trim();
@@ -110,8 +108,6 @@ class EntryFormUtils {
         cardNumber: cardNumber.replaceAll(RegExp(r'[ -]'), ''),
         expiryMonth: expiryMonth,
         expiryYear: expiryYear,
-        securityCode: securityCode,
-        pin: pin.trim().isEmpty ? null : pin.trim(),
         billingAddress: billingAddress.trim().isEmpty
             ? null
             : billingAddress.trim(),
@@ -134,7 +130,6 @@ class EntryFormUtils {
     String cardNumber = '',
     String expiryMonth = '',
     String expiryYear = '',
-    String securityCode = '',
   }) {
     if (label.trim().isEmpty) return false;
     return switch (type) {
@@ -148,8 +143,7 @@ class EntryFormUtils {
               r'^\d{12,19}$',
             ).hasMatch(cardNumber.replaceAll(RegExp(r'[ -]'), '')) &&
             RegExp(r'^(0[1-9]|1[0-2])$').hasMatch(expiryMonth) &&
-            RegExp(r'^\d{4}$').hasMatch(expiryYear) &&
-            RegExp(r'^\d{3,4}$').hasMatch(securityCode),
+            RegExp(r'^\d{4}$').hasMatch(expiryYear),
     };
   }
 

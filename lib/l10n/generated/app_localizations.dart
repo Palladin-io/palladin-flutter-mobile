@@ -6326,18 +6326,6 @@ abstract class AppLocalizations {
   /// **'Expiry year'**
   String get entryExpiryYearLabel;
 
-  /// No description provided for @entrySecurityCodeLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Security code'**
-  String get entrySecurityCodeLabel;
-
-  /// No description provided for @entryPinLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'PIN (optional)'**
-  String get entryPinLabel;
-
   /// No description provided for @entryBillingAddressLabel.
   ///
   /// In en, this message translates to:

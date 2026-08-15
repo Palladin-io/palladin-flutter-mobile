@@ -13,7 +13,6 @@ void main() {
         cardNumber: '4242 4242 4242 4242',
         expiryMonth: '12',
         expiryYear: '2030',
-        securityCode: '123',
       ),
       isTrue,
     );
@@ -23,9 +22,10 @@ void main() {
       cardNumber: '4242 4242 4242 4242',
       expiryMonth: '12',
       expiryYear: '2030',
-      securityCode: '123',
     );
     expect(payload['cardNumber'], '4242424242424242');
+    expect(payload.containsKey('securityCode'), isFalse);
+    expect(payload.containsKey('pin'), isFalse);
     expect(payload['type'], 'CREDIT_CARD');
   });
   test(

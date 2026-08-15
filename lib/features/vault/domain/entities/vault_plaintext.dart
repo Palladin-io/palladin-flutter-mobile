@@ -458,26 +458,18 @@ final class CreditCardSecretContent extends MemberSecretContent {
     required this.cardNumber,
     required this.expiryMonth,
     required this.expiryYear,
-    required this.securityCode,
-    required this.pin,
     required this.billingAddress,
     required this.notes,
     required super.customFields,
   });
-  final String cardholderName,
-      cardNumber,
-      expiryMonth,
-      expiryYear,
-      securityCode;
-  final String? pin, billingAddress, notes;
+  final String cardholderName, cardNumber, expiryMonth, expiryYear;
+  final String? billingAddress, notes;
   @override
   Map<String, Object?> toJson() => {
     'cardholderName': cardholderName,
     'cardNumber': cardNumber,
     'expiryMonth': expiryMonth,
     'expiryYear': expiryYear,
-    'securityCode': securityCode,
-    'pin': pin,
     'billingAddress': billingAddress,
     'notes': notes,
     'customFields': customFields.map((field) => field.toJson()).toList(),
@@ -488,8 +480,6 @@ final class CreditCardSecretContent extends MemberSecretContent {
     'creditCard.cardNumber': cardNumber,
     'creditCard.expiryMonth': expiryMonth,
     'creditCard.expiryYear': expiryYear,
-    'creditCard.securityCode': securityCode,
-    'creditCard.pin': pin,
     'creditCard.billingAddress': billingAddress,
     'notes': notes,
   };
@@ -598,8 +588,6 @@ final class MemberSecret {
       'creditCard.cardNumber' ||
       'creditCard.expiryMonth' ||
       'creditCard.expiryYear' ||
-      'creditCard.securityCode' ||
-      'creditCard.pin' ||
       'creditCard.billingAddress' => {
         AgentFieldAccess.never,
         AgentFieldAccess.onGrantRuntime,
@@ -788,8 +776,6 @@ abstract final class VaultPlaintextProjector {
           'cardNumber',
           'expiryMonth',
           'expiryYear',
-          'securityCode',
-          'pin',
           'billingAddress',
         ])
           'creditCard.$key': content[key],
@@ -815,9 +801,7 @@ abstract final class VaultPlaintextProjector {
           final kind = switch (id) {
             'key.value' ||
             'credential.password' ||
-            'creditCard.cardNumber' ||
-            'creditCard.securityCode' ||
-            'creditCard.pin' => 'concealed',
+            'creditCard.cardNumber' => 'concealed',
             'credential.username' => 'text',
             'creditCard.cardholderName' ||
             'creditCard.expiryMonth' ||
@@ -873,9 +857,7 @@ abstract final class VaultPlaintextProjector {
     'credential.url' => 'url',
     'credential.totp' => 'totp',
     'creditCard.cardholderName' || 'creditCard.billingAddress' => 'text',
-    'creditCard.cardNumber' ||
-    'creditCard.securityCode' ||
-    'creditCard.pin' => 'concealed',
+    'creditCard.cardNumber' => 'concealed',
     'creditCard.expiryMonth' || 'creditCard.expiryYear' => 'text',
     'notes' => 'multiline',
     'script.source' => 'script',

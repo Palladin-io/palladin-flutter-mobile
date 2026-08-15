@@ -249,6 +249,42 @@ void main() {
   });
 
   test(
+    'retired dedicated card fields fail before challenge or crypto',
+    () async {
+      for (final retired in const {
+        'securityCode': '123',
+        'pin': '4321',
+      }.entries) {
+        await expectLater(
+          service().createCreditCard(
+            vaultId: vaultId,
+            label: 'Legacy card',
+            description: '',
+            icon: '',
+            content: {
+              'type': 'CREDIT_CARD',
+              'cardholderName': 'Ada Lovelace',
+              'cardNumber': '4242424242424242',
+              'expiryMonth': '12',
+              'expiryYear': '2030',
+              retired.key: retired.value,
+            },
+            memberPrivateKey: Uint8List(32),
+          ),
+          throwsFormatException,
+        );
+      }
+      verifyNever(() => entries.issueCreationChallenge(vaultId));
+      verifyNever(
+        () => vaultCrypto.openVaultProjection(
+          json: any(named: 'json'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      );
+    },
+  );
+
+  test(
     'persists create-form Discovery choices in the first revision',
     () async {
       await service().createCredential(
@@ -315,7 +351,6 @@ void main() {
         'cardNumber': '4111111111111111',
         'expiryMonth': '12',
         'expiryYear': '2030',
-        'securityCode': '123',
         'fields': [
           {
             'id': customId,
