@@ -158,12 +158,14 @@ dart run tool/generate_third_party_notices.dart --check
 flutter analyze
 flutter test test/performance/vault_v2_mobile_structural_budget_test.dart
 flutter test
+CI=false flutter build apk --debug --flavor staging -t lib/main_staging.dart
 ```
 
 The test workflow uses only repository contents and read-only GitHub
 permissions, so it is safe to run for pull requests from public forks. Store
 builds are separate, maintainer-triggered workflows and require protected
-signing secrets.
+signing secrets. The staging APK check uses Android's debug signing key and
+does not produce or upload a release artifact.
 
 CI runs Gitleaks 8.30.1 against the current tree. The repository configuration
 extends the default rules and contains exact-path exceptions for synthetic
