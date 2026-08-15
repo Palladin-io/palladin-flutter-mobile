@@ -180,7 +180,7 @@ void main() {
     );
     when(() => vaults.state).thenReturn(VaultListLoaded([_vault, secondVault]));
     when(
-      () => vaults.loadForMemberIndex(any()),
+      () => vaults.loadForMemberIndex(any(), ensureFresh: false),
     ).thenAnswer((_) async => [_vault, secondVault]);
     when(
       () => loader.load(
@@ -195,7 +195,9 @@ void main() {
       entryLoader: loader,
     ).prepare(privateKey);
 
-    verify(() => vaults.loadForMemberIndex(any())).called(1);
+    verify(
+      () => vaults.loadForMemberIndex(any(), ensureFresh: false),
+    ).called(1);
     verify(
       () => loader.load(
         vaultId: 'v1',

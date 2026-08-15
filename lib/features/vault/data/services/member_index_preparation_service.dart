@@ -5,7 +5,10 @@ import '../../domain/entities/vault_entity.dart';
 import 'member_entry_list_service.dart';
 
 abstract interface class MemberVaultListLoader {
-  Future<List<VaultEntity>> loadForMemberIndex(Uint8List memberPrivateKey);
+  Future<List<VaultEntity>> loadForMemberIndex(
+    Uint8List memberPrivateKey, {
+    bool ensureFresh = false,
+  });
 }
 
 /// Builds every unlocked MemberIndex once and shares concurrent consumers such
@@ -54,13 +57,22 @@ final class MemberIndexPreparationService implements MemberIndexPreparer {
       return (_freshnessCompleter ??= Completer<List<VaultEntity>>()).future;
     }
 
-    return _start(Uint8List.fromList(memberPrivateKey));
+    return _start(
+      Uint8List.fromList(memberPrivateKey),
+      ensureFresh: ensureFresh,
+    );
   }
 
-  Future<List<VaultEntity>> _start(Uint8List keyCopy) {
+  Future<List<VaultEntity>> _start(
+    Uint8List keyCopy, {
+    required bool ensureFresh,
+  }) {
     final generation = _generation;
     final core = (() async {
-      final vaults = await _vaults.loadForMemberIndex(keyCopy);
+      final vaults = await _vaults.loadForMemberIndex(
+        keyCopy,
+        ensureFresh: ensureFresh,
+      );
       _requireCurrent(generation);
       for (final vault in vaults) {
         await _entries.load(vaultId: vault.id, memberPrivateKey: keyCopy);
@@ -90,7 +102,7 @@ final class MemberIndexPreparationService implements MemberIndexPreparer {
     Completer<List<VaultEntity>> completer,
   ) async {
     try {
-      completer.complete(await _start(keyCopy));
+      completer.complete(await _start(keyCopy, ensureFresh: true));
     } catch (error, stackTrace) {
       completer.completeError(error, stackTrace);
     }

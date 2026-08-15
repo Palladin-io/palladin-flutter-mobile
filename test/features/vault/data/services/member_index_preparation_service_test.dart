@@ -36,7 +36,9 @@ void main() {
     'concurrent dashboard and AutoFill preparation shares all work',
     () async {
       final pending = Completer<void>();
-      when(() => vaults.loadForMemberIndex(any())).thenAnswer((_) async {
+      when(
+        () => vaults.loadForMemberIndex(any(), ensureFresh: false),
+      ).thenAnswer((_) async {
         await pending.future;
         return [_vault('first'), _vault('second')];
       });
@@ -49,7 +51,9 @@ void main() {
       final results = await Future.wait([first, second]);
 
       expect(results.first.map((vault) => vault.id), ['first', 'second']);
-      verify(() => vaults.loadForMemberIndex(any())).called(1);
+      verify(
+        () => vaults.loadForMemberIndex(any(), ensureFresh: false),
+      ).called(1);
       verify(
         () => entries.load(
           vaultId: 'first',
@@ -71,7 +75,12 @@ void main() {
       final first = Completer<List<VaultEntity>>();
       final trailing = Completer<List<VaultEntity>>();
       var calls = 0;
-      when(() => vaults.loadForMemberIndex(any())).thenAnswer((_) {
+      when(
+        () => vaults.loadForMemberIndex(
+          any(),
+          ensureFresh: any(named: 'ensureFresh'),
+        ),
+      ).thenAnswer((invocation) {
         calls += 1;
         return calls == 1 ? first.future : trailing.future;
       });
@@ -88,7 +97,12 @@ void main() {
       trailing.complete([_vault('after')]);
       expect((await fresh).single.id, 'after');
       await sameFresh;
-      verify(() => vaults.loadForMemberIndex(any())).called(2);
+      verify(
+        () => vaults.loadForMemberIndex(any(), ensureFresh: false),
+      ).called(1);
+      verify(
+        () => vaults.loadForMemberIndex(any(), ensureFresh: true),
+      ).called(1);
     },
   );
 }

@@ -128,6 +128,35 @@ void main() {
         await cubit.close();
       },
     );
+
+    test('waitForCurrent waits for a queued freshness refresh', () async {
+      final first = Completer<List<Agent>>();
+      final trailing = Completer<List<Agent>>();
+      var calls = 0;
+      when(() => repository.listAgents()).thenAnswer((_) {
+        calls += 1;
+        return calls == 1 ? first.future : trailing.future;
+      });
+      final cubit = buildCubit();
+
+      final load = cubit.load();
+      cubit.refresh(ensureFresh: true);
+      var waiterCompleted = false;
+      final waiter = cubit.waitForCurrent().then((_) {
+        waiterCompleted = true;
+      });
+
+      first.complete(pendingList);
+      await load;
+      await Future<void>.delayed(Duration.zero);
+      expect(waiterCompleted, isFalse);
+
+      trailing.complete(activeList);
+      await waiter;
+
+      expect(cubit.state.agents.single.status, AgentStatus.active);
+      await cubit.close();
+    });
   });
 
   group('AgentsState.agentById', () {

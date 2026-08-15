@@ -49,9 +49,14 @@ class VaultListCubit extends Cubit<VaultListState>
 
   @override
   Future<List<VaultEntity>> loadForMemberIndex(
-    Uint8List memberPrivateKey,
-  ) async {
-    await loadIfNeeded(memberPrivateKey);
+    Uint8List memberPrivateKey, {
+    bool ensureFresh = false,
+  }) async {
+    if (ensureFresh) {
+      await loadVaults(memberPrivateKey);
+    } else {
+      await loadIfNeeded(memberPrivateKey);
+    }
     return switch (state) {
       VaultListLoaded(:final vaults) => List<VaultEntity>.unmodifiable(vaults),
       _ => const <VaultEntity>[],

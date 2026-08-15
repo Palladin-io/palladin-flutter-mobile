@@ -80,10 +80,11 @@ class AgentsCubit extends Cubit<AgentsState> {
   Future<void> refresh({bool ensureFresh = false}) =>
       _runList(_refreshOnce, ensureFresh: ensureFresh);
 
-  /// Waits for the currently running list request without starting a new one.
-  /// Consumers that read [state.agents] after a quiet refresh should await
-  /// this so they do not resolve names from the previous snapshot.
-  Future<void> waitForCurrent() => _listOperation ?? Future<void>.value();
+  /// Waits for the newest requested list state without starting a new request.
+  /// If a freshness signal queued a trailing refresh, consumers must await the
+  /// trailing result rather than the older request that was already in flight.
+  Future<void> waitForCurrent() =>
+      _freshnessCompleter?.future ?? _listOperation ?? Future<void>.value();
 
   Future<void> _runList(
     Future<void> Function() action, {
