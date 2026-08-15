@@ -578,7 +578,7 @@ void main() {
       expect(envelope['grantEnvelopeRevision'], '5');
       expect(envelope['grantKeyVersion'], 6);
       expect(envelope['remainingUses'], 8);
-      expect(envelope['fieldIds'], ['notes', 'password']);
+      expect(envelope['fieldIds'], ['password']);
       final encryptedGrant = envelopes.encrypted.singleWhere(
         (value) => value.profile == VaultAadProfile.grantPayload,
       );
@@ -587,10 +587,7 @@ void main() {
         'access': 'onGrantValue',
         'value': 'new-secret',
       });
-      expect((payload['fields'] as Map)['notes'], {
-        'access': 'onGrantValue',
-        'value': 'new note',
-      });
+      expect((payload['fields'] as Map).containsKey('notes'), isFalse);
     },
   );
 }

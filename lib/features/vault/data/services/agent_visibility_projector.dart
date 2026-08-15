@@ -143,10 +143,9 @@ abstract final class AgentVisibilityProjector {
     return values;
   }
 
-  static List<String> _capabilities(EntryType type) => switch (type) {
-    EntryType.key => const ['get', 'exec'],
-    EntryType.credential => const ['get', 'exec', 'inject'],
-    EntryType.script => const ['exec'],
-    EntryType.creditCard => const ['inject'],
-  };
+  static List<String> _capabilities(EntryType _) => const [
+    'get',
+    'exec',
+    'inject',
+  ];
 }

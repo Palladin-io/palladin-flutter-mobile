@@ -1858,9 +1858,12 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
             )
             .map((item) => item.key)
             .toSet();
-        final fields = allowed.toList()..sort();
-        if (fields.isEmpty) {
-          throw const FormatException('Entry has no grantable fields');
+        final fields = scope.fieldIds
+            .map((id) => _canonicalGrantFieldId(secret.entryType, id))
+            .where(allowed.contains)
+            .toList();
+        if (fields.length != scope.fieldIds.length || fields.isEmpty) {
+          throw const FormatException('Grant scope exceeds policy');
         }
         final remaining = grant.queryLimit == null
             ? null
@@ -1882,14 +1885,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           memberKeyGeneration: memberKeyGeneration,
           agentPublicKey: recipient,
           recipientKeyVersion: grant.recipientAgentKeyVersion!,
-          approvedMethods: secret.entryType == VaultEntryType.creditCard
-              ? 4
-              : _methodBits(grant.methods),
-          deliveryPolicy: secret.entryType == VaultEntryType.script
-              ? 1
-              : secret.entryType == VaultEntryType.creditCard
-              ? 2
-              : 0,
+          approvedMethods: _methodBits(grant.methods),
+          deliveryPolicy: 0,
           fieldIds: fields,
           grantPayload: VaultPlaintextProjector.grantPayload(
             secret,
@@ -1999,17 +1996,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       final expiresAt = grant.expiresAt == null
           ? null
           : _canonicalInstant(grant.expiresAt!);
-      final approvedFieldIds =
-          policy.fields.entries
-              .where(
-                (entry) =>
-                    entry.value == visibility.AgentFieldAccess.onGrantValue ||
-                    entry.value == visibility.AgentFieldAccess.onGrantDerived ||
-                    entry.value == visibility.AgentFieldAccess.onGrantRuntime,
-              )
-              .map((entry) => entry.key)
-              .toList()
-            ..sort();
+      final approvedFieldIds = scope.fieldIds;
       if (approvedFieldIds.isEmpty) {
         throw const FormatException('Entry has no grantable fields');
       }

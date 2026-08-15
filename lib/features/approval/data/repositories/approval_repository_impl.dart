@@ -304,11 +304,6 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           final type = EntryTypeExtension.fromWire(
             snapshot.secret['entryType'] as int,
           );
-          final entryMethodBits = type == EntryType.creditCard ? 4 : methodBits;
-          if (type == EntryType.creditCard &&
-              !methods.contains(GrantMethod.inject)) {
-            throw const FormatException('Credit-card grants require Inject');
-          }
           final policy = AgentVisibilityPolicy.fromJson(
             type,
             Map<String, dynamic>.from(
@@ -342,12 +337,8 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
             memberKeyGeneration: snapshot.entry['memberKeyGeneration'] as int,
             agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
             recipientKeyVersion: recipientKeyVersion,
-            approvedMethods: entryMethodBits,
-            deliveryPolicy: type == EntryType.script
-                ? 1
-                : type == EntryType.creditCard
-                ? 2
-                : 0,
+            approvedMethods: methodBits,
+            deliveryPolicy: 0,
             fieldIds: approved,
             grantPayload: payload,
             expiresAt: wire.expiresAt == null

@@ -17,7 +17,6 @@ enum EntryType {
   credential,
 
   /// Executable script with declared credential references (`refs`).
-  /// Delivered to agents under the `exec` method only (spec §5).
   script,
 
   /// Payment card details stored only inside the encrypted Entry payload.
