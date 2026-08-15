@@ -51,6 +51,11 @@
    local MemberIndex first, ignores corrupt/archived/deleted entries, and
    rejects stale revealed revisions. Legacy entries without an explicit
    `autofillDomains` MemberIndex policy remain unavailable until re-projected.
+   AutoFill and Dashboard search use the same `MemberIndexPreparationService`
+   single-flight operation, so simultaneous unlock listeners cannot start a
+   second Vault-list request or a second snapshot chain. AutoFill awaits that
+   complete operation before reading the runtime index, preventing an empty-cache
+   race while the first sync is still starting.
 2. Create, update, delete, vault create, and vault delete clear the old cache
    before rebuilding it. Multi-step import invalidates after its first
    successful write and rebuilds only after all completed writes are visible.

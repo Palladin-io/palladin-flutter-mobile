@@ -957,6 +957,7 @@
     "description": "Dropdown option for the Key entry type — single secret value"
   },
   "entryTypeCredential": "Credential",
+  "entryTypeCreditCard": "Credit card",
   "@entryTypeCredential": {
     "description": "Dropdown option for the Credential entry type — username + password"
   },
@@ -2923,6 +2924,8 @@
   "@importAction": { "description": "Commit button on the import preview", "placeholders": { "count": { "type": "int" } } },
   "importImporting": "Importing… {done} of {total}",
   "@importImporting": { "description": "Progress label during import commit", "placeholders": { "done": { "type": "int" }, "total": { "type": "int" } } },
+  "importPreparingIcons": "Preparing icons… {done} of {total} (up to 15 seconds)",
+  "@importPreparingIcons": { "description": "Progress label while imported website icons become ready", "placeholders": { "done": { "type": "int" }, "total": { "type": "int" } } },
   "importSuccessTitle": "Import complete",
   "@importSuccessTitle": { "description": "Heading on the import success step" },
   "importSuccessBody": "{created, plural, =1{1 added} other{{created} added}}, {updated, plural, =1{1 updated} other{{updated} updated}}",
@@ -3263,5 +3266,12 @@
   "entryHistorySensitiveWarning": "Historical versions may contain previous passwords and TOTP seeds.",
   "entryHistoryLocked": "Unlock the app to decrypt this version.",
   "settingsTwoFactor": "Two-factor authentication",
-  "@settingsTwoFactor": { "description": "Settings drawer item — set up TOTP two-factor auth" }
+  "@settingsTwoFactor": { "description": "Settings drawer item — set up TOTP two-factor auth" },
+  "entryCardholderNameLabel": "Cardholder name",
+  "entryCardNumberLabel": "Card number",
+  "entryExpiryMonthLabel": "Expiry month",
+  "entryExpiryYearLabel": "Expiry year",
+  "entrySecurityCodeLabel": "Security code",
+  "entryPinLabel": "PIN (optional)",
+  "entryBillingAddressLabel": "Billing address (optional)"
 }

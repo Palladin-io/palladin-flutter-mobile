@@ -1,18 +1,41 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/approval/data/models/pending_grant_model.dart';
 
-Map<String, dynamic> _reason(String grantId, String vaultId, String agentId, String entryId) => {
-      'organizationId': '00000000-0000-0000-0000-000000000001',
-      'vaultId': vaultId, 'entryId': entryId, 'grantRequestId': grantId, 'agentId': agentId,
-      'requestRevision': '1',
-      'header': {'protocolVersion': 2, 'algorithmSuite': 1, 'resourceKind': 3,
-        'projectionKind': 5, 'resourceRevision': '1', 'keyVersion': 1,
-        'memberKeyGeneration': 1, 'nonce': 'nonce'},
-      'reasonKeyVersion': 1, 'agentMessageKeyVersion': 1,
-      'recipientAgentMessageKeyFingerprint': 'fingerprint', 'requestedMethods': 1,
-      'ciphertext': 'ciphertext', 'agentMessageWrappedReasonDek': 'wrapped',
-      'agentSignature': 'signature',
-    };
+Map<String, dynamic> _reason(
+  String grantId,
+  String vaultId,
+  String agentId,
+  String entryId,
+) => {
+  'descriptor': {
+    'protocolVersion': 2,
+    'cryptoSuiteId': 'palladin-vault-xchacha-v1',
+    'purpose': 'encryptedReason',
+    'scope': {
+      'organizationId': '00000000-0000-4000-8000-000000000001',
+      'vaultId': vaultId,
+      'entryId': entryId,
+      'grantOrRequestId': grantId,
+      'agentId': agentId,
+      'memberId': null,
+    },
+    'resourceRevision': '1',
+    'keyVersion': 1,
+    'memberKeyGeneration': 1,
+    'binding': {
+      'wrapperSuiteId': 'palladin-x25519-sealed-box-v1',
+      'recipientKeyVersion': 1,
+      'recipientKeyFingerprint': 'fingerprint',
+      'requestedMethods': 1,
+    },
+  },
+  'encodedSuitePayload': 'payload',
+  'wrappedReasonDek': {
+    'descriptor': <String, dynamic>{},
+    'encodedSealedKeyPackage': 'wrapped',
+  },
+  'agentSignature': 'signature',
+};
 
 void main() {
   group('PendingGrantModel.fromJson → toEntity', () {
@@ -61,20 +84,23 @@ void main() {
       expect(entity.entryLabel, isNull);
     });
 
-    test('defaults isAgentRegistered to true when `agentRegistered` absent', () {
-      final entity = PendingGrantModel.fromJson(<String, dynamic>{
-        'grantId': 'g-3',
-        'vaultId': 'v-3',
-        'agentId': 'a-3',
-        'entryId': 'e-3',
-        'agentPublicKey': 'a2V5',
-        'methods': 1,
-        'encryptedReason': _reason('g-3', 'v-3', 'a-3', 'e-3'),
-        'createdAt': '2026-06-02T08:00:00Z',
-      }).toEntity();
+    test(
+      'defaults isAgentRegistered to true when `agentRegistered` absent',
+      () {
+        final entity = PendingGrantModel.fromJson(<String, dynamic>{
+          'grantId': 'g-3',
+          'vaultId': 'v-3',
+          'agentId': 'a-3',
+          'entryId': 'e-3',
+          'agentPublicKey': 'a2V5',
+          'methods': 1,
+          'encryptedReason': _reason('g-3', 'v-3', 'a-3', 'e-3'),
+          'createdAt': '2026-06-02T08:00:00Z',
+        }).toEntity();
 
-      expect(entity.isAgentRegistered, isTrue);
-    });
+        expect(entity.isAgentRegistered, isTrue);
+      },
+    );
 
     test('maps `agentRegistered: false` for an unknown agent request', () {
       final entity = PendingGrantModel.fromJson(<String, dynamic>{
@@ -95,8 +121,12 @@ void main() {
     test('rejects a reason envelope substituted from another request', () {
       expect(
         () => PendingGrantModel.fromJson(<String, dynamic>{
-          'grantId': 'g-5', 'vaultId': 'v-5', 'agentId': 'a-5',
-          'entryId': 'e-5', 'agentPublicKey': 'a2V5', 'methods': 1,
+          'grantId': 'g-5',
+          'vaultId': 'v-5',
+          'agentId': 'a-5',
+          'entryId': 'e-5',
+          'agentPublicKey': 'a2V5',
+          'methods': 1,
           'encryptedReason': _reason('other', 'v-5', 'a-5', 'e-5'),
           'createdAt': '2026-06-02T08:00:00Z',
         }),
@@ -105,12 +135,16 @@ void main() {
     });
 
     test('rejects a reason envelope with widened requested methods', () {
-      final reason = _reason('g-6', 'v-6', 'a-6', 'e-6')
-        ..['requestedMethods'] = 3;
+      final reason = _reason('g-6', 'v-6', 'a-6', 'e-6');
+      ((reason['descriptor'] as Map)['binding'] as Map)['requestedMethods'] = 3;
       expect(
         () => PendingGrantModel.fromJson(<String, dynamic>{
-          'grantId': 'g-6', 'vaultId': 'v-6', 'agentId': 'a-6',
-          'entryId': 'e-6', 'agentPublicKey': 'a2V5', 'methods': 1,
+          'grantId': 'g-6',
+          'vaultId': 'v-6',
+          'agentId': 'a-6',
+          'entryId': 'e-6',
+          'agentPublicKey': 'a2V5',
+          'methods': 1,
           'encryptedReason': reason,
           'createdAt': '2026-06-02T08:00:00Z',
         }),

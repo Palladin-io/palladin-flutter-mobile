@@ -94,6 +94,16 @@ class CreateEntryCubit extends Cubit<CreateEntryState> {
               memberPrivateKey: privateKey,
               discoverDescription: discoverDescription,
             )
+          : type == EntryType.creditCard && keyCreationService != null
+          ? await keyCreationService!.createCreditCard(
+              vaultId: vaultId,
+              label: label.trim(),
+              description: _trimToNull(description) ?? '',
+              icon: _trimToNull(icon) ?? '',
+              content: payload,
+              memberPrivateKey: privateKey,
+              discoverDescription: discoverDescription,
+            )
           : await repository.createEntryEncrypted(
               vaultId: vaultId,
               label: label.trim(),

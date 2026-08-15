@@ -228,6 +228,7 @@ abstract final class EntryVisuals {
     EntryType.key => 'vpn_key',
     EntryType.credential => 'language',
     EntryType.script => 'terminal',
+    EntryType.creditCard => 'credit_card',
   };
 
   static const List<VaultIconChoice> iconChoices = <VaultIconChoice>[

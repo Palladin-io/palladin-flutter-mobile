@@ -333,6 +333,144 @@ void main() {
   );
 
   test(
+    'credit card update reconciles custom runtime and derived policy fields',
+    () async {
+      const removedId = '44444444-4444-4444-8444-444444444444';
+      const runtimeId = '55555555-5555-4555-8555-555555555555';
+      const derivedId = '66666666-6666-4666-8666-666666666666';
+      when(
+        () => entries.updateCanonicalEntry(vaultId, entryId, any()),
+      ).thenAnswer(
+        (_) async => Response(
+          requestOptions: RequestOptions(path: '/update'),
+          statusCode: 200,
+        ),
+      );
+      final snapshot = CanonicalEntrySnapshot(
+        entry: head(),
+        secret: {
+          'agentLabel': 'Card',
+          'description': null,
+          'agentVisibilityPolicy': {
+            'discoverable': true,
+            'fields': {
+              'agentLabel': 'discovery',
+              'cardholderName': 'onGrantRuntime',
+              'cardNumber': 'onGrantRuntime',
+              'expiryMonth': 'onGrantRuntime',
+              'expiryYear': 'onGrantRuntime',
+              'securityCode': 'onGrantRuntime',
+              'pin': 'onGrantRuntime',
+              'billingAddress': 'onGrantRuntime',
+              'notes': 'never',
+              removedId: 'onGrantRuntime',
+            },
+          },
+        },
+        payload: {
+          'type': 'CREDIT_CARD',
+          'cardholderName': 'Old name',
+          'cardNumber': '4111111111111111',
+          'expiryMonth': '12',
+          'expiryYear': '2030',
+          'securityCode': '123',
+          'pin': '1234',
+          'billingAddress': 'Old address',
+          'notes': null,
+          'fields': [
+            {
+              'id': removedId,
+              'label': 'Removed',
+              'type': 'concealed',
+              'value': 'old',
+            },
+          ],
+        },
+      );
+
+      await service.update(
+        snapshot: snapshot,
+        expected: EntryEntity(
+          id: entryId,
+          vaultId: vaultId,
+          label: 'Card',
+          type: EntryType.creditCard,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+        label: 'Card',
+        description: '',
+        icon: '',
+        type: EntryType.creditCard,
+        content: {
+          'type': 'CREDIT_CARD',
+          'cardholderName': 'New name',
+          'cardNumber': '5555555555554444',
+          'expiryMonth': '01',
+          'expiryYear': '2032',
+          'securityCode': '456',
+          'pin': null,
+          'billingAddress': 'New address',
+          'notes': null,
+          'fields': [
+            {
+              'id': runtimeId,
+              'label': 'Account reference',
+              'type': 'text',
+              'value': 'primary',
+            },
+            {
+              'id': derivedId,
+              'label': 'Card TOTP',
+              'type': 'totp',
+              'value': {
+                'secret': 'JBSWY3DPEHPK3PXP',
+                'algorithm': 'SHA1',
+                'digits': 6,
+                'period': 30,
+              },
+            },
+          ],
+        },
+        memberPrivateKey: Uint8List(32),
+      );
+
+      final captured =
+          verify(
+                () => crypto.seal(
+                  organizationId: orgId,
+                  vaultId: vaultId,
+                  entryId: entryId,
+                  revision: 8,
+                  entryKeyRevision: 4,
+                  memberIndexRevision: 4,
+                  agentDiscoveryRevision: 6,
+                  entryKeyVersion: 2,
+                  vaultKeyVersion: 4,
+                  vdkVersion: 6,
+                  memberKeyGeneration: 3,
+                  operation: 2,
+                  secret: captureAny(named: 'secret'),
+                  vaultKey: any(named: 'vaultKey'),
+                  vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+                  existingEntryDek: any(named: 'existingEntryDek'),
+                ),
+              ).captured.single
+              as MemberSecret;
+      expect(
+        captured.agentFieldAccess['custom:$runtimeId'],
+        AgentFieldAccess.onGrantRuntime,
+      );
+      expect(
+        captured.agentFieldAccess['custom:$derivedId'],
+        AgentFieldAccess.onGrantDerived,
+      );
+      expect(captured.agentFieldAccess, isNot(contains(removedId)));
+      expect(captured.agentFieldAccess, isNot(contains('custom:$removedId')));
+    },
+  );
+
+  test(
     'canonical restore emits operation 4 and retries identical request',
     () async {
       when(

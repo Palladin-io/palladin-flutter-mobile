@@ -4,10 +4,15 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
+import 'package:mobile_palladin/core/crypto/envelope/envelope_suite.dart';
+import 'package:mobile_palladin/core/crypto/x25519_key_wrapper.dart';
 import 'package:mobile_palladin/features/approval/data/services/grant_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_aad.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/agent_visibility_policy.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
@@ -275,6 +280,143 @@ void main() {
         ),
         throwsFormatException,
       );
+    },
+  );
+
+  test(
+    'canonical grant preserves expiry precision and opens for the Agent',
+    () async {
+      final crypto = sodium;
+      if (crypto == null) {
+        markTestSkipped('libsodium unavailable');
+        return;
+      }
+      const organizationId = '11111111-1111-4111-8111-111111111111';
+      const vaultId = '22222222-2222-4222-8222-222222222222';
+      const entryId = '33333333-3333-4333-8333-333333333333';
+      const agentId = '55555555-5555-4555-8555-555555555555';
+      const grantId = '77777777-7777-4777-8777-777777777777';
+      const fieldIds = ['key.value'];
+      const payload = {
+        'schema': 'palladin.grant-payload.v1',
+        'fields': {
+          'key.value': {'access': 'onGrantValue', 'value': 'secret'},
+        },
+      };
+      final expiry = DateTime.utc(2026, 8, 8, 12, 34, 56, 123, 456);
+      final agent = crypto.crypto.box.keyPair();
+      final agentPrivateKey = agent.secretKey.extractBytes();
+      final fingerprint = vaultPublicKeyFingerprint(
+        VaultPublicKeyKind.agentX25519,
+        agent.publicKey,
+      );
+      final commitment = computeFieldSetCommitment(fieldIds);
+      Uint8List? grantKey;
+      Uint8List? opened;
+      try {
+        final service = EntryV2CryptoService(sodiumLoader: () async => crypto);
+        final envelope = await service.sealGrant(
+          organizationId: organizationId,
+          vaultId: vaultId,
+          entryId: entryId,
+          grantId: grantId,
+          agentId: agentId,
+          entryRevision: 7,
+          memberKeyGeneration: 4,
+          agentPublicKey: agent.publicKey,
+          recipientKeyVersion: 3,
+          approvedMethods: 2,
+          deliveryPolicy: 0,
+          fieldIds: fieldIds,
+          grantPayload: payload,
+          expiresAt: expiry,
+        );
+        final descriptorJson = Map<String, dynamic>.from(
+          envelope['descriptor']! as Map,
+        );
+        final binding = Map<String, dynamic>.from(
+          descriptorJson['binding'] as Map,
+        );
+        final serializedScope = Map<String, dynamic>.from(
+          descriptorJson['scope'] as Map,
+        );
+        expect(serializedScope['organizationId'], organizationId);
+        expect(serializedScope['vaultId'], vaultId);
+        expect(serializedScope['entryId'], entryId);
+        expect(serializedScope['grantOrRequestId'], grantId);
+        expect(serializedScope['agentId'], agentId);
+        expect(serializedScope['memberId'], isNull);
+        expect(binding['expiresAt'], expiry.toIso8601String());
+
+        final scope = EnvelopeScope(
+          organizationId: EnvelopeId.parse(organizationId),
+          vaultId: EnvelopeId.parse(vaultId),
+          entryId: EnvelopeId.parse(entryId),
+          grantOrRequestId: EnvelopeId.parse(grantId),
+          agentId: EnvelopeId.parse(agentId),
+        );
+        final expiryMicros = expiry.microsecondsSinceEpoch;
+        final descriptor = EnvelopeDescriptor(
+          purpose: EnvelopePurpose.grant,
+          scope: scope,
+          resourceRevision: 1,
+          keyVersion: 1,
+          memberKeyGeneration: 4,
+          purposeData: GrantPurposeData(
+            entryRevision: 7,
+            recipientKeyVersion: 3,
+            recipientFingerprint: fingerprint,
+            methods: 2,
+            deliveryPolicy: 0,
+            fieldSetCommitment: commitment,
+            expiresAtSeconds: expiryMicros ~/ Duration.microsecondsPerSecond,
+            expiresAtNanoseconds:
+                (expiryMicros % Duration.microsecondsPerSecond) * 1000,
+          ),
+        );
+        final wrapper = WrapperContext(
+          purpose: WrapperPurpose.grantDek,
+          scope: scope,
+          resourceRevision: 1,
+          wrappedKeyVersion: 1,
+          memberKeyGeneration: 4,
+          recipientKeyVersion: 3,
+          recipientFingerprint: fingerprint,
+          parentDescriptorHash: WrapperContext.hashParent(descriptor),
+        );
+        final wrappedJson = Map<String, dynamic>.from(
+          envelope['wrappedGrantDek']! as Map,
+        );
+        grantKey =
+            await X25519SealedBoxKeyWrapper(
+              sodiumLoader: () async => crypto,
+            ).open(
+              wrapped: VaultProtocolBytes.base64UrlDecode(
+                wrappedJson['encodedSealedKeyPackage'] as String,
+              ),
+              context: wrapper,
+              recipientSecretKey: agentPrivateKey,
+            );
+        opened =
+            await XChaChaVaultEnvelopeSuite(
+              sodiumLoader: () async => crypto,
+            ).open(
+              descriptor: descriptor,
+              rootKey: grantKey,
+              payload: EncodedSuitePayload.fromBase64Url(
+                envelope['encodedSuitePayload']! as String,
+              ),
+            );
+
+        expect(jsonDecode(utf8.decode(opened)), payload);
+      } finally {
+        grantKey?.fillRange(0, grantKey.length, 0);
+        opened?.fillRange(0, opened.length, 0);
+        agentPrivateKey.fillRange(0, agentPrivateKey.length, 0);
+        fingerprint.fillRange(0, fingerprint.length, 0);
+        commitment.fillRange(0, commitment.length, 0);
+        agent.dispose();
+      }
     },
   );
 

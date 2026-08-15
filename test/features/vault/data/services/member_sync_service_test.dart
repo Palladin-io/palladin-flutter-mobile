@@ -113,6 +113,24 @@ void main() {
       final scope = (envelope['descriptor'] as Map)['scope'] as Map;
       return _memberIndex('Database ${scope['entryId']}');
     });
+    when(
+      () => remote.delta(
+        vaultId: any(named: 'vaultId'),
+        afterSequence: any(named: 'afterSequence'),
+        continuationCursor: any(named: 'continuationCursor'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).thenAnswer((invocation) async {
+      final afterSequence =
+          invocation.namedArguments[#afterSequence] as String? ?? '0';
+      return MemberDeltaSuccess(
+        MemberDeltaPage(
+          deltaUpperBound: afterSequence,
+          appliedThroughSequence: afterSequence,
+          items: const [],
+        ),
+      );
+    });
   });
 
   test(
@@ -154,7 +172,10 @@ void main() {
       expect(entries, hasLength(2));
       expect(entries.every((entry) => !entry.corrupt), isTrue);
       expect(entries.first.memberLabel, startsWith('Database '));
-      expect(entries.first.iconReference, 'website:example.com');
+      expect(
+        entries.first.iconReference,
+        'public-asset:11111111-1111-4111-8111-111111111111|1|https%3A%2F%2Fassets.palladin.io%2Fexample.png',
+      );
       service.lock();
       expect(service.search('postgres', vaultId: 'vault'), isEmpty);
     },
@@ -188,6 +209,92 @@ void main() {
     },
   );
 
+  test('concurrent synchronization shares one snapshot chain', () async {
+    final pending = Completer<MemberSnapshotPage>();
+    when(
+      () => remote.snapshot(
+        vaultId: 'vault',
+        cursor: any(named: 'cursor'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).thenAnswer((_) => pending.future);
+
+    final first = service.synchronize(
+      vaultId: 'vault',
+      vaultKey: Uint8List(32),
+      minimumMemberKeyGeneration: 1,
+    );
+    final second = service.synchronize(
+      vaultId: 'vault',
+      vaultKey: Uint8List(32),
+      minimumMemberKeyGeneration: 1,
+    );
+
+    expect(identical(first, second), isTrue);
+    pending.complete(
+      MemberSnapshotPage(snapshotBaseSequence: '1', items: [_head(_firstId)]),
+    );
+    await Future.wait([first, second]);
+
+    verify(
+      () => remote.snapshot(
+        vaultId: 'vault',
+        cursor: any(named: 'cursor'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).called(1);
+  });
+
+  test('snapshot is closed with delta from its base sequence', () async {
+    when(
+      () => remote.snapshot(
+        vaultId: 'vault',
+        cursor: any(named: 'cursor'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).thenAnswer(
+      (_) async => MemberSnapshotPage(
+        snapshotBaseSequence: '7',
+        items: [_head(_firstId)],
+      ),
+    );
+    when(
+      () => remote.delta(
+        vaultId: 'vault',
+        afterSequence: '7',
+        continuationCursor: null,
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).thenAnswer(
+      (_) async => MemberDeltaSuccess(
+        MemberDeltaPage(
+          deltaUpperBound: '8',
+          appliedThroughSequence: '8',
+          items: [_head(_secondId)],
+        ),
+      ),
+    );
+
+    final result = await service.synchronize(
+      vaultId: 'vault',
+      vaultKey: Uint8List(32),
+      minimumMemberKeyGeneration: 1,
+    );
+
+    expect(result.sequence, '8');
+    expect(result.usedSnapshot, isTrue);
+    expect(result.entryCount, 2);
+    expect(cache.appliedSequence, '8');
+    verify(
+      () => remote.delta(
+        vaultId: 'vault',
+        afterSequence: '7',
+        continuationCursor: null,
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).called(1);
+  });
+
   test('lock invalidates an in-flight cached-index rebuild', () async {
     final blockingCache = _BlockingReadCache();
     final guarded = MemberSyncService(
@@ -216,6 +323,7 @@ void main() {
       cache
         ..appliedSequence = '4'
         ..heads[_oldId] = _head(_oldId);
+      var deltaCalls = 0;
       when(
         () => remote.delta(
           vaultId: 'vault',
@@ -223,11 +331,21 @@ void main() {
           continuationCursor: any(named: 'continuationCursor'),
           pageSize: any(named: 'pageSize'),
         ),
-      ).thenAnswer(
-        (_) async => const MemberDeltaResetRequired(
-          MemberSyncReset(currentSequence: '10', minRetainedSequence: '8'),
-        ),
-      );
+      ).thenAnswer((_) async {
+        deltaCalls += 1;
+        if (deltaCalls == 1) {
+          return const MemberDeltaResetRequired(
+            MemberSyncReset(currentSequence: '10', minRetainedSequence: '8'),
+          );
+        }
+        return MemberDeltaSuccess(
+          const MemberDeltaPage(
+            deltaUpperBound: '10',
+            appliedThroughSequence: '10',
+            items: [],
+          ),
+        );
+      });
       when(
         () => remote.snapshot(
           vaultId: 'vault',
@@ -251,6 +369,131 @@ void main() {
       expect(cache.snapshotReplacements, 1);
       expect(cache.deltaApplications, 0);
       expect(cache.heads.keys, [_newId]);
+    },
+  );
+
+  test('bounds repeated resetRequired responses after snapshots', () async {
+    cache.appliedSequence = '4';
+    when(
+      () => remote.delta(
+        vaultId: 'vault',
+        afterSequence: any(named: 'afterSequence'),
+        continuationCursor: any(named: 'continuationCursor'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).thenAnswer(
+      (_) async => const MemberDeltaResetRequired(
+        MemberSyncReset(currentSequence: '10', minRetainedSequence: '8'),
+      ),
+    );
+    when(
+      () => remote.snapshot(
+        vaultId: 'vault',
+        cursor: any(named: 'cursor'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).thenAnswer(
+      (_) async =>
+          const MemberSnapshotPage(snapshotBaseSequence: '10', items: []),
+    );
+    final bounded = MemberSyncService(
+      remote: remote,
+      cache: cache,
+      entryCrypto: entryCrypto,
+      maximumSnapshotRestarts: 1,
+    );
+
+    await expectLater(
+      bounded.synchronize(
+        vaultId: 'vault',
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: 1,
+      ),
+      throwsA(isA<StateError>()),
+    );
+
+    verify(
+      () => remote.snapshot(
+        vaultId: 'vault',
+        cursor: any(named: 'cursor'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).called(2);
+    expect(bounded.entries('vault'), isEmpty);
+  });
+
+  test(
+    'delta with a newer generation fails before advancing ciphertext cache',
+    () async {
+      cache
+        ..appliedSequence = '4'
+        ..heads[_oldId] = _head(_oldId);
+      when(
+        () => remote.delta(
+          vaultId: 'vault',
+          afterSequence: any(named: 'afterSequence'),
+          continuationCursor: any(named: 'continuationCursor'),
+          pageSize: any(named: 'pageSize'),
+        ),
+      ).thenAnswer(
+        (_) async => MemberDeltaSuccess(
+          MemberDeltaPage(
+            deltaUpperBound: '5',
+            appliedThroughSequence: '5',
+            items: [_head(_newId, generation: 2)],
+          ),
+        ),
+      );
+
+      await expectLater(
+        service.synchronize(
+          vaultId: 'vault',
+          vaultKey: Uint8List(32),
+          minimumMemberKeyGeneration: 1,
+        ),
+        throwsA(
+          isA<MemberVaultKeyContextStaleException>().having(
+            (error) => error.requiredGeneration,
+            'requiredGeneration',
+            2,
+          ),
+        ),
+      );
+
+      expect(cache.appliedSequence, '4');
+      expect(cache.deltaApplications, 0);
+      expect(service.entries('vault').single.entryId, _oldId);
+    },
+  );
+
+  test(
+    'snapshot with a newer generation fails before replacing ciphertext cache',
+    () async {
+      when(
+        () => remote.snapshot(
+          vaultId: 'vault',
+          cursor: any(named: 'cursor'),
+          pageSize: any(named: 'pageSize'),
+        ),
+      ).thenAnswer(
+        (_) async => MemberSnapshotPage(
+          snapshotBaseSequence: '1',
+          items: [_head(_newId, generation: 2)],
+        ),
+      );
+
+      await expectLater(
+        service.synchronize(
+          vaultId: 'vault',
+          vaultKey: Uint8List(32),
+          minimumMemberKeyGeneration: 1,
+        ),
+        throwsA(isA<MemberVaultKeyContextStaleException>()),
+      );
+
+      expect(cache.snapshotReplacements, 0);
+      expect(cache.appliedSequence, isNull);
+      expect(service.entries('vault'), isEmpty);
     },
   );
 
@@ -395,7 +638,8 @@ void main() {
           'entryType': 1,
           'searchFields': ['Imported $id', 'stripe.com'],
           'autofillDomains': ['stripe.com'],
-          'iconReference': 'website:stripe.com',
+          'iconReference':
+              'public-asset:11111111-1111-4111-8111-111111111111|1|https%3A%2F%2Fassets.palladin.io%2Fstripe.png',
         };
       });
       when(
@@ -429,7 +673,10 @@ void main() {
       expect(entries, hasLength(539));
       expect(entries.every((entry) => !entry.corrupt), isTrue);
       expect(entries.last.memberLabel, contains(_entryId(538)));
-      expect(entries.last.iconReference, 'website:stripe.com');
+      expect(
+        entries.last.iconReference,
+        'public-asset:11111111-1111-4111-8111-111111111111|1|https%3A%2F%2Fassets.palladin.io%2Fstripe.png',
+      );
       expect(entries.last.autofillDomains, ['stripe.com']);
     },
   );
@@ -482,14 +729,19 @@ Map<String, dynamic> _memberIndex(String label) => {
   'entryType': 'credential',
   'memberLabel': label,
   'description': 'Postgres production database',
-  'icon': {'kind': 'website', 'hostname': 'example.com'},
+  'icon': {
+    'kind': 'publicAsset',
+    'assetId': '11111111-1111-4111-8111-111111111111',
+    'revision': 1,
+    'url': 'https://assets.palladin.io/example.png',
+  },
   'color': null,
   'username': 'stage',
   'urlDomain': 'example.com',
   'customIndex': const <Object>[],
 };
 
-MemberSyncItemModel _head(String id) {
+MemberSyncItemModel _head(String id, {int generation = 1}) {
   Map<String, dynamic> descriptor(
     int purpose, {
     Map<String, dynamic>? binding,
@@ -507,7 +759,7 @@ MemberSyncItemModel _head(String id) {
     },
     'resourceRevision': '1',
     'keyVersion': 1,
-    'memberKeyGeneration': 1,
+    'memberKeyGeneration': generation,
     'binding': binding ?? <String, dynamic>{},
   };
   return MemberSyncItemModel(

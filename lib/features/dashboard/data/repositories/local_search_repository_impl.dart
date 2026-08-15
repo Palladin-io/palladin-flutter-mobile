@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../../../vault/data/services/member_entry_list_service.dart';
+import '../../../vault/data/services/member_index_preparation_service.dart';
 import '../../../vault/data/services/member_sync_service.dart';
 import '../../../vault/domain/entities/member_index_entry.dart';
 import '../../../vault/domain/entities/vault_performance_budget.dart';
@@ -15,14 +16,17 @@ final class LocalSearchRepositoryImpl implements LocalSearchRepository {
     required VaultListCubit vaults,
     required MemberIndexReader memberIndex,
     required MemberEntryListLoader entryLoader,
+    MemberIndexPreparationService? preparation,
     this.maximumCandidates = VaultPerformanceBudget.maximumIndexedEntries,
   }) : _vaults = vaults,
        _memberIndex = memberIndex,
-       _entryLoader = entryLoader;
+       _preparation =
+           preparation ??
+           MemberIndexPreparationService(vaults: vaults, entries: entryLoader);
 
   final VaultListCubit _vaults;
   final MemberIndexReader _memberIndex;
-  final MemberEntryListLoader _entryLoader;
+  final MemberIndexPreparationService _preparation;
   final int maximumCandidates;
 
   @override
@@ -30,15 +34,7 @@ final class LocalSearchRepositoryImpl implements LocalSearchRepository {
     if (memberPrivateKey.length != 32) {
       throw const FormatException('Member private key must be 32 bytes');
     }
-    await _vaults.loadIfNeeded(memberPrivateKey);
-    final state = _vaults.state;
-    if (state is! VaultListLoaded) return;
-    for (final vault in state.vaults) {
-      await _entryLoader.load(
-        vaultId: vault.id,
-        memberPrivateKey: memberPrivateKey,
-      );
-    }
+    await _preparation.prepare(memberPrivateKey);
   }
 
   @override

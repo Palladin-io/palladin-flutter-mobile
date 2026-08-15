@@ -16,12 +16,14 @@ final class VaultPlaintextFormatException implements Exception {
 enum VaultEntryType {
   key,
   credential,
-  script;
+  script,
+  creditCard;
 
   static VaultEntryType parse(Object? value) => switch (value) {
     'key' => key,
     'credential' => credential,
     'script' => script,
+    'creditCard' => creditCard,
     _ => throw VaultPlaintextFormatException('Unknown entryType.'),
   };
 }
@@ -47,7 +49,8 @@ enum AgentFieldAccess {
 /// Grant-payload result mode derived from [AgentFieldAccess].
 enum GrantFieldMode { value, derived, runtime }
 
-/// Closed encrypted icon reference. Remote URLs are deliberately unsupported.
+/// Closed encrypted icon reference. Catalog URLs are admitted only together
+/// with their immutable catalog identity and revision.
 sealed class VaultPlaintextIcon {
   const VaultPlaintextIcon();
 
@@ -56,11 +59,28 @@ sealed class VaultPlaintextIcon {
   static VaultPlaintextIcon? fromReference(String? value) {
     final reference = value?.trim() ?? '';
     if (reference.isEmpty) return null;
-    if (reference.startsWith('website:') && reference.length > 8) {
-      return WebsiteVaultIcon(reference.substring(8));
-    }
     if (reference.startsWith('public-asset:') && reference.length > 13) {
-      return PublicAssetVaultIcon(reference.substring(13));
+      final parts = reference.substring(13).split('|');
+      if (parts.length != 3) {
+        throw const VaultPlaintextFormatException(
+          'Invalid public asset icon reference.',
+        );
+      }
+      final revision = int.tryParse(parts[1]);
+      Uri? url;
+      try {
+        url = Uri.tryParse(Uri.decodeComponent(parts[2]));
+      } on FormatException {
+        throw const VaultPlaintextFormatException(
+          'Invalid public asset icon reference.',
+        );
+      }
+      if (revision == null || revision < 1 || url == null) {
+        throw const VaultPlaintextFormatException(
+          'Invalid public asset icon reference.',
+        );
+      }
+      return PublicAssetVaultIcon(parts[0], revision, url.toString());
     }
     if (reference.startsWith('asset:') && reference.length > 6) {
       return EncryptedAssetVaultIcon(reference.substring(6));
@@ -81,8 +101,8 @@ sealed class VaultPlaintextIcon {
     final map = _object(value, 'icon');
     final kind = _string(map['kind'], 'icon.kind', min: 1, max: 32);
     _exactKeys(map, switch (kind) {
-      'encryptedAsset' || 'publicAsset' => const {'kind', 'assetId'},
-      'website' => const {'kind', 'hostname'},
+      'encryptedAsset' => const {'kind', 'assetId'},
+      'publicAsset' => const {'kind', 'assetId', 'revision', 'url'},
       _ => const {'kind', 'value'},
     }, 'icon');
     return switch (kind) {
@@ -94,9 +114,8 @@ sealed class VaultPlaintextIcon {
       ),
       'publicAsset' => PublicAssetVaultIcon(
         _string(map['assetId'], 'icon.assetId', min: 1, max: 512),
-      ),
-      'website' => WebsiteVaultIcon(
-        _string(map['hostname'], 'icon.hostname', min: 1, max: 253),
+        _integer(map['revision'], 'icon.revision', min: 1),
+        _publicAssetUrl(map['url']),
       ),
       _ => throw const VaultPlaintextFormatException('Unknown icon kind.'),
     };
@@ -104,19 +123,21 @@ sealed class VaultPlaintextIcon {
 }
 
 final class PublicAssetVaultIcon extends VaultPlaintextIcon {
-  const PublicAssetVaultIcon(this.assetId);
+  const PublicAssetVaultIcon(this.assetId, this.revision, this.url);
   final String assetId;
+  final int revision;
+  final String url;
+
+  String get reference =>
+      'public-asset:$assetId|$revision|${Uri.encodeComponent(url)}';
 
   @override
-  Map<String, Object> toJson() => {'kind': 'publicAsset', 'assetId': assetId};
-}
-
-final class WebsiteVaultIcon extends VaultPlaintextIcon {
-  const WebsiteVaultIcon(this.hostname);
-  final String hostname;
-
-  @override
-  Map<String, Object> toJson() => {'kind': 'website', 'hostname': hostname};
+  Map<String, Object> toJson() => {
+    'kind': 'publicAsset',
+    'assetId': assetId,
+    'revision': revision,
+    'url': url,
+  };
 }
 
 final class GlyphVaultIcon extends VaultPlaintextIcon {
@@ -299,7 +320,7 @@ final class MemberIndex {
       // Web keeps the imported URL-domain projection as a normalized string.
       // It can contain legacy Android/app URLs and is therefore not limited to
       // the DNS hostname ceiling. Hostname normalization happens only when an
-      // optional public icon is resolved.
+      // an optional public icon is reserved before encryption.
       urlDomain: _nullableString(json, 'urlDomain', max: 8192),
       customIndex: custom,
     );
@@ -431,6 +452,49 @@ final class ScriptSecretContent extends MemberSecretContent {
   };
 }
 
+final class CreditCardSecretContent extends MemberSecretContent {
+  const CreditCardSecretContent({
+    required this.cardholderName,
+    required this.cardNumber,
+    required this.expiryMonth,
+    required this.expiryYear,
+    required this.securityCode,
+    required this.pin,
+    required this.billingAddress,
+    required this.notes,
+    required super.customFields,
+  });
+  final String cardholderName,
+      cardNumber,
+      expiryMonth,
+      expiryYear,
+      securityCode;
+  final String? pin, billingAddress, notes;
+  @override
+  Map<String, Object?> toJson() => {
+    'cardholderName': cardholderName,
+    'cardNumber': cardNumber,
+    'expiryMonth': expiryMonth,
+    'expiryYear': expiryYear,
+    'securityCode': securityCode,
+    'pin': pin,
+    'billingAddress': billingAddress,
+    'notes': notes,
+    'customFields': customFields.map((field) => field.toJson()).toList(),
+  };
+  @override
+  Map<String, Object?> fieldValues() => {
+    'creditCard.cardholderName': cardholderName,
+    'creditCard.cardNumber': cardNumber,
+    'creditCard.expiryMonth': expiryMonth,
+    'creditCard.expiryYear': expiryYear,
+    'creditCard.securityCode': securityCode,
+    'creditCard.pin': pin,
+    'creditCard.billingAddress': billingAddress,
+    'notes': notes,
+  };
+}
+
 /// Canonical complete Entry state and exact Agent policy.
 final class MemberSecret {
   MemberSecret({
@@ -527,6 +591,19 @@ final class MemberSecret {
         AgentFieldAccess.discovery,
         AgentFieldAccess.onGrantValue,
       },
+      'creditCard.cardholderName' => {
+        AgentFieldAccess.never,
+        AgentFieldAccess.onGrantRuntime,
+      },
+      'creditCard.cardNumber' ||
+      'creditCard.expiryMonth' ||
+      'creditCard.expiryYear' ||
+      'creditCard.securityCode' ||
+      'creditCard.pin' ||
+      'creditCard.billingAddress' => {
+        AgentFieldAccess.never,
+        AgentFieldAccess.onGrantRuntime,
+      },
       'credential.totp' => {
         AgentFieldAccess.never,
         AgentFieldAccess.onGrantDerived,
@@ -555,7 +632,8 @@ final class MemberSecret {
       'totp' => {AgentFieldAccess.never, AgentFieldAccess.onGrantDerived},
       'text' || 'multiline' || 'concealed' => {
         AgentFieldAccess.never,
-        if (entryType == VaultEntryType.script)
+        if (entryType == VaultEntryType.script ||
+            entryType == VaultEntryType.creditCard)
           AgentFieldAccess.onGrantRuntime
         else
           AgentFieldAccess.onGrantValue,
@@ -704,6 +782,18 @@ abstract final class VaultPlaintextProjector {
         'script.interpreter': content['interpreter'],
         'script.refs': content['refs'],
       },
+      if (entryType == 'creditCard') ...{
+        for (final key in const [
+          'cardholderName',
+          'cardNumber',
+          'expiryMonth',
+          'expiryYear',
+          'securityCode',
+          'pin',
+          'billingAddress',
+        ])
+          'creditCard.$key': content[key],
+      },
       'notes': content['notes'],
       for (final field in custom)
         'custom:${field['id'] as String}': field['value'],
@@ -723,8 +813,16 @@ abstract final class VaultPlaintextProjector {
             throw VaultPlaintextFormatException('Unknown field $id.');
           }
           final kind = switch (id) {
-            'key.value' || 'credential.password' => 'concealed',
+            'key.value' ||
+            'credential.password' ||
+            'creditCard.cardNumber' ||
+            'creditCard.securityCode' ||
+            'creditCard.pin' => 'concealed',
             'credential.username' => 'text',
+            'creditCard.cardholderName' ||
+            'creditCard.expiryMonth' ||
+            'creditCard.expiryYear' ||
+            'creditCard.billingAddress' => 'text',
             'credential.url' => 'url',
             'credential.totp' => 'totp',
             'notes' => 'multiline',
@@ -763,18 +861,22 @@ abstract final class VaultPlaintextProjector {
     for (final field in secret.content.customFields) field.fieldId: field.value,
   };
 
-  static List<String> _capabilities(MemberSecret secret) =>
-      switch (secret.entryType) {
-        VaultEntryType.key => const ['get'],
-        VaultEntryType.credential => const ['get', 'inject'],
-        VaultEntryType.script => const ['exec'],
-      };
+  static List<String> _capabilities(MemberSecret _) => const [
+    'get',
+    'exec',
+    'inject',
+  ];
 
   static String _grantKind(MemberSecret secret, String id) => switch (id) {
     'key.value' || 'credential.password' => 'concealed',
     'credential.username' => 'text',
     'credential.url' => 'url',
     'credential.totp' => 'totp',
+    'creditCard.cardholderName' || 'creditCard.billingAddress' => 'text',
+    'creditCard.cardNumber' ||
+    'creditCard.securityCode' ||
+    'creditCard.pin' => 'concealed',
+    'creditCard.expiryMonth' || 'creditCard.expiryYear' => 'text',
     'notes' => 'multiline',
     'script.source' => 'script',
     'script.interpreter' => 'interpreter',
@@ -840,6 +942,24 @@ String _string(
     throw VaultPlaintextFormatException('Invalid $name.');
   }
   return value;
+}
+
+int _integer(Object? value, String name, {required int min}) {
+  if (value is! int || value < min) {
+    throw VaultPlaintextFormatException('Invalid $name.');
+  }
+  return value;
+}
+
+String _publicAssetUrl(Object? value) {
+  final text = _string(value, 'icon.url', min: 1, max: 2048);
+  final uri = Uri.tryParse(text);
+  if (uri == null ||
+      !uri.hasAuthority ||
+      (uri.scheme != 'https' && uri.scheme != 'http')) {
+    throw const VaultPlaintextFormatException('Invalid icon.url.');
+  }
+  return text;
 }
 
 String? _nullableString(

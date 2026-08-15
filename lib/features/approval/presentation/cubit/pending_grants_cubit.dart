@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
@@ -42,8 +44,13 @@ class PendingGrantsCubit extends Cubit<PendingGrantsState> {
     : super(const PendingGrantsState());
 
   final ApprovalRepository repository;
+  Future<void>? _listOperation;
+  bool _trailingRefreshQueued = false;
+  Completer<void>? _freshnessCompleter;
 
-  Future<void> load() async {
+  Future<void> load() => _runList(_load);
+
+  Future<void> _load() async {
     emit(state.copyWith(status: PendingGrantsStatus.loading, clearError: true));
     try {
       final grants = await repository.listPendingGrants();
@@ -71,7 +78,10 @@ class PendingGrantsCubit extends Cubit<PendingGrantsState> {
   /// Quiet refetch that never flips to a loading/skeleton state and swallows
   /// errors — used to keep the nav badge live (from the shell, on SignalR
   /// pushes, on resume / tab taps) without disturbing an open inbox list.
-  Future<void> refresh() async {
+  Future<void> refresh({bool ensureFresh = false}) =>
+      _runList(_refresh, ensureFresh: ensureFresh);
+
+  Future<void> _refresh() async {
     try {
       final grants = await repository.listPendingGrants();
       emit(
@@ -84,6 +94,38 @@ class PendingGrantsCubit extends Cubit<PendingGrantsState> {
     } catch (e) {
       AppLogger.w('Approval', 'pending refresh failed (quiet): $e');
     }
+  }
+
+  Future<void> _runList(
+    Future<void> Function() action, {
+    bool ensureFresh = false,
+  }) {
+    final active = _listOperation;
+    if (active != null) {
+      if (!ensureFresh) return active;
+      _trailingRefreshQueued = true;
+      return (_freshnessCompleter ??= Completer<void>()).future;
+    }
+    return _startList(action);
+  }
+
+  Future<void> _startList(Future<void> Function() action) {
+    final core = action();
+    late final Future<void> operation;
+    operation = core.whenComplete(() {
+      if (!identical(_listOperation, operation)) return;
+      _listOperation = null;
+      if (_trailingRefreshQueued) {
+        _trailingRefreshQueued = false;
+        _startList(_refresh);
+        return;
+      }
+      final freshness = _freshnessCompleter;
+      _freshnessCompleter = null;
+      if (freshness != null && !freshness.isCompleted) freshness.complete();
+    });
+    _listOperation = operation;
+    return operation;
   }
 
   /// Removes a grant from the in-memory list after it was approved/denied

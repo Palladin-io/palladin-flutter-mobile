@@ -14,6 +14,7 @@ class EnvConfig {
     required this.flavor,
     required this.appName,
     required this.apiBaseUrl,
+    required this.publicAssetBaseUrl,
     required this.posthogKey,
     required this.posthogHost,
     required this.googleServerClientId,
@@ -23,6 +24,7 @@ class EnvConfig {
   final AppFlavor flavor;
   final String appName;
   final String apiBaseUrl;
+  final String publicAssetBaseUrl;
   final String posthogKey;
   final String posthogHost;
 
@@ -44,6 +46,7 @@ class EnvConfig {
       flavor: AppFlavor.local,
       appName: 'Palladin (Local)',
       apiBaseUrl: 'http://$host:5000',
+      publicAssetBaseUrl: 'http://$host:4566/palladin-local-public-assets',
       posthogKey: '',
       posthogHost: 'https://app.posthog.com',
       // Staging Firebase project used for local development
@@ -58,6 +61,7 @@ class EnvConfig {
       flavor: AppFlavor.staging,
       appName: 'Palladin (Stage)',
       apiBaseUrl: 'https://api.stage.palladin.io',
+      publicAssetBaseUrl: 'https://assets.palladin.io',
       posthogKey: '', // TODO: Add PostHog staging project key
       posthogHost: 'https://app.posthog.com',
       googleServerClientId:
@@ -76,6 +80,7 @@ class EnvConfig {
       apiBaseUrl: useStagingBackend
           ? 'https://api.stage.palladin.io'
           : 'https://api.palladin.io',
+      publicAssetBaseUrl: 'https://assets.palladin.io',
       posthogKey: '', // TODO: Add PostHog production project key
       posthogHost: 'https://app.posthog.com',
       googleServerClientId:

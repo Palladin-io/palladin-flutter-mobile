@@ -39,5 +39,7 @@ gitleaks dir . --config .gitleaks.toml --redact --no-banner
 paths only: deterministic cryptographic fixtures, synthetic test credentials,
 dependency checksums, cryptographic documentation, and the Firebase client
 configuration described in [`docs/firebase-config.md`](docs/firebase-config.md).
-Do not add value-based or repository-wide exceptions. A new finding must be
-removed, rotated, or documented and constrained to the narrowest safe path.
+`.gitleaksignore` contains one historical exception constrained to an exact
+commit, path, rule, and line fingerprint for a synthetic UI mock. Do not add
+value-based or repository-wide exceptions. A new finding must be removed,
+rotated, or documented and constrained to the narrowest safe scope.

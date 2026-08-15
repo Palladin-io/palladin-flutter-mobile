@@ -312,7 +312,7 @@ class DashboardCubit extends Cubit<DashboardState> {
               .toList(growable: false);
           if (scopedPage.isEmpty) continue;
           refreshed = refreshed.merge(
-            await auditPresentationResolver.resolveNames(
+            await auditPresentationResolver.resolveEntryNames(
               scopedPage,
               scopedVaultId: vaultId,
             ),

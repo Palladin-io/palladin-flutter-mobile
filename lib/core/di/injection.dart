@@ -42,6 +42,7 @@ import '../../features/approval/data/datasources/approval_remote_datasource.dart
 import '../../features/approval/data/repositories/approval_repository_impl.dart';
 import '../../features/vault/data/services/entry_v2_crypto_service.dart';
 import '../../features/approval/data/services/grant_approval_review_service.dart';
+import '../../features/approval/data/services/grant_history_reason_resolver.dart';
 import '../../features/approval/domain/repositories/approval_repository.dart';
 import '../../features/approval/presentation/cubit/grant_access_cubit.dart';
 import '../../features/approval/presentation/cubit/grant_approval_cubit.dart';
@@ -63,6 +64,7 @@ import '../../features/dashboard/presentation/cubit/search_cubit.dart';
 import '../../features/dashboard/presentation/cubit/search_session_controller.dart';
 import '../../features/grants/data/datasources/grants_remote_datasource.dart';
 import '../../features/grants/data/repositories/grants_repository_impl.dart';
+import '../../features/grants/data/services/grant_reason_resolver.dart';
 import '../../features/grants/domain/repositories/grants_repository.dart';
 import '../../features/grants/presentation/cubit/org_grants_cubit.dart';
 import '../../features/notifications/data/datasources/notification_center_remote_datasource.dart';
@@ -111,6 +113,8 @@ import '../../features/vault/data/services/encrypted_presentation_asset_service.
 import '../../features/vault/data/services/member_sync_cache.dart';
 import '../../features/vault/data/services/member_sync_service.dart';
 import '../../features/vault/data/services/member_entry_list_service.dart';
+import '../../features/vault/data/services/member_index_preparation_service.dart';
+import '../../features/vault/data/services/member_vault_key_context_store.dart';
 import '../../features/vault/data/services/totp_service.dart';
 import '../../features/vault/data/services/vault_crypto_service.dart';
 import '../../features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
@@ -354,6 +358,9 @@ void configureDependencies(EnvConfig config) {
     () => MemberSyncRemoteDatasource(getIt<Dio>()),
   );
   getIt.registerLazySingleton<MemberSyncCache>(() => SqliteMemberSyncCache());
+  getIt.registerLazySingleton<MemberVaultKeyContextStore>(
+    MemberVaultKeyContextStore.new,
+  );
   getIt.registerLazySingleton<VaultProtocolEnvelopeService>(
     () => VaultProtocolEnvelopeService(),
   );
@@ -372,6 +379,7 @@ void configureDependencies(EnvConfig config) {
       vaults: getIt<VaultRemoteDatasource>(),
       keys: getIt<VaultRotationCryptoService>(),
       sync: getIt<MemberSyncService>(),
+      keyContexts: getIt<MemberVaultKeyContextStore>(),
     ),
   );
   getIt.registerLazySingleton<VaultRotationRemoteDatasource>(
@@ -445,6 +453,7 @@ void configureDependencies(EnvConfig config) {
     () => VaultListCryptoService(
       remote: getIt<VaultRemoteDatasource>(),
       crypto: getIt<VaultCryptoService>(),
+      keyContexts: getIt<MemberVaultKeyContextStore>(),
     ),
   );
   getIt.registerLazySingleton<VaultCreationService>(
@@ -463,6 +472,12 @@ void configureDependencies(EnvConfig config) {
     () => VaultListCubit(
       repository: getIt<VaultRepository>(),
       listService: getIt<VaultListCryptoService>(),
+    ),
+  );
+  getIt.registerLazySingleton<MemberIndexPreparationService>(
+    () => MemberIndexPreparationService(
+      vaults: getIt<VaultListCubit>(),
+      entries: getIt<MemberEntryListService>(),
     ),
   );
   getIt.registerFactory<VaultDetailCubit>(
@@ -499,7 +514,7 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerLazySingleton<AutoFillCacheService>(
     () => AutoFillCacheService(
-      vaultListService: getIt<VaultListCryptoService>(),
+      indexPreparation: getIt<MemberIndexPreparationService>(),
       entryRepository: getIt<EntryRepository>(),
       bridge: getIt<AutoFillCacheBridge>(),
       memberIndex: getIt<MemberSyncService>(),
@@ -570,6 +585,7 @@ void configureDependencies(EnvConfig config) {
       repository: getIt<EntryRepository>(),
       grantsRepository: getIt<GrantsRepository>(),
       vaultId: vaultId,
+      websiteIconService: getIt<WebsiteIconService>(),
     ),
   );
 
@@ -651,7 +667,12 @@ void configureDependencies(EnvConfig config) {
     ),
   );
   getIt.registerLazySingleton<NotificationPresentationResolver>(
-    () => NotificationPresentationResolver(index: getIt<MemberSyncService>()),
+    () => NotificationPresentationResolver(
+      index: getIt<MemberSyncService>(),
+      grants: getIt<GrantsRepository>(),
+      agents: getIt<AgentsRepository>(),
+      vaultMembers: getIt<VaultMembersRepository>(),
+    ),
   );
   // Singleton: the shell reads summary state for the Inbox badge while the
   // Inbox page owns the same cached list.
@@ -717,8 +738,19 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<GrantsRemoteDatasource>(
     () => GrantsRemoteDatasource(getIt<Dio>()),
   );
+  getIt.registerLazySingleton<GrantReasonResolver>(
+    () => LocalGrantReasonResolver(
+      vaults: getIt<VaultRemoteDatasource>(),
+      keys: getIt<VaultRotationCryptoService>(),
+      discovery: getIt<AgentDiscoveryRemoteDatasource>(),
+    ),
+  );
   getIt.registerLazySingleton<GrantsRepository>(
-    () => GrantsRepositoryImpl(getIt<GrantsRemoteDatasource>()),
+    () => GrantsRepositoryImpl(
+      getIt<GrantsRemoteDatasource>(),
+      reasonResolver: getIt<GrantReasonResolver>(),
+      vaultSessionStore: getIt<VaultSessionStore>(),
+    ),
   );
 
   // OrgGrantsCubit: factory per Approvals "history" segment mount so filter /
@@ -737,6 +769,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<AuditPresentationResolver>(
     () => LocalAuditPresentationResolver(
       agentsRepository: getIt<AgentsRepository>(),
+      agentsCubit: getIt<AgentsCubit>(),
       vaultListCubit: getIt<VaultListCubit>(),
       vaultMembersRepository: getIt<VaultMembersRepository>(),
       memberIndex: getIt<MemberSyncService>(),
@@ -839,6 +872,7 @@ void configureDependencies(EnvConfig config) {
       vaults: getIt<VaultListCubit>(),
       memberIndex: getIt<MemberSyncService>(),
       entryLoader: getIt<MemberEntryListService>(),
+      preparation: getIt<MemberIndexPreparationService>(),
     ),
   );
   getIt.registerLazySingleton<SearchSessionController>(

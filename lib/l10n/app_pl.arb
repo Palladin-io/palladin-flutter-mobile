@@ -231,6 +231,7 @@
   "entryTypeLabel": "Typ wpisu",
   "entryTypeKey": "Klucz",
   "entryTypeCredential": "Login",
+  "entryTypeCreditCard": "Karta płatnicza",
   "entryLabelLabel": "Etykieta",
   "entryLabelHint": "np. Stripe API Key",
   "entryDescriptionLabel": "Opis",
@@ -859,6 +860,7 @@
   "importNotesBadge": "Notatki",
   "importAction": "Importuj {count, plural, =1{1 wpis} few{{count} wpisy} many{{count} wpisów} other{{count} wpisu}}",
   "importImporting": "Importowanie… {done} z {total}",
+  "importPreparingIcons": "Przygotowywanie ikon… {done} z {total} (maks. 15 sekund)",
   "importSuccessTitle": "Import zakończony",
   "importSuccessBody": "{created, plural, =1{Dodano 1 wpis} few{Dodano {created} wpisy} many{Dodano {created} wpisów} other{Dodano {created} wpisu}}, {updated, plural, =1{zaktualizowano 1} other{zaktualizowano {updated}}}",
   "importSuccessSkipped": "Pominięto {count}",
@@ -1057,5 +1059,12 @@
   "entryHistoryRestored": "Historyczna treść została przywrócona jako nowa aktualna wersja.",
   "entryHistorySensitiveWarning": "Historyczne wersje mogą zawierać poprzednie hasła i nasiona TOTP.",
   "entryHistoryLocked": "Odblokuj aplikację, aby odszyfrować tę wersję.",
-  "settingsTwoFactor": "Uwierzytelnianie dwuskładnikowe"
+  "settingsTwoFactor": "Uwierzytelnianie dwuskładnikowe",
+  "entryCardholderNameLabel": "Imię i nazwisko posiadacza",
+  "entryCardNumberLabel": "Numer karty",
+  "entryExpiryMonthLabel": "Miesiąc ważności",
+  "entryExpiryYearLabel": "Rok ważności",
+  "entrySecurityCodeLabel": "Kod bezpieczeństwa",
+  "entryPinLabel": "PIN (opcjonalnie)",
+  "entryBillingAddressLabel": "Adres rozliczeniowy (opcjonalnie)"
 }

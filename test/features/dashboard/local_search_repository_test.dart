@@ -32,6 +32,10 @@ void main() {
   late MockMemberIndexReader index;
   late MockMemberEntryListLoader loader;
 
+  setUpAll(() {
+    registerFallbackValue(Uint8List(0));
+  });
+
   setUp(() {
     vaults = MockVaultListCubit();
     index = MockMemberIndexReader();
@@ -175,11 +179,13 @@ void main() {
       memberCount: 1,
     );
     when(() => vaults.state).thenReturn(VaultListLoaded([_vault, secondVault]));
-    when(() => vaults.loadIfNeeded(privateKey)).thenAnswer((_) async {});
+    when(
+      () => vaults.loadForMemberIndex(any(), ensureFresh: false),
+    ).thenAnswer((_) async => [_vault, secondVault]);
     when(
       () => loader.load(
         vaultId: any(named: 'vaultId'),
-        memberPrivateKey: privateKey,
+        memberPrivateKey: any(named: 'memberPrivateKey'),
       ),
     ).thenAnswer((_) async => const []);
 
@@ -189,12 +195,20 @@ void main() {
       entryLoader: loader,
     ).prepare(privateKey);
 
-    verify(() => vaults.loadIfNeeded(privateKey)).called(1);
     verify(
-      () => loader.load(vaultId: 'v1', memberPrivateKey: privateKey),
+      () => vaults.loadForMemberIndex(any(), ensureFresh: false),
     ).called(1);
     verify(
-      () => loader.load(vaultId: 'v2', memberPrivateKey: privateKey),
+      () => loader.load(
+        vaultId: 'v1',
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
+    ).called(1);
+    verify(
+      () => loader.load(
+        vaultId: 'v2',
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
     ).called(1);
   });
 }

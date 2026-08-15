@@ -73,7 +73,8 @@ void main() {
               revision: '1',
               state: MemberEntryState.active,
               autofillDomains: ['https://discord.com/login'],
-              iconReference: 'public-asset:chosen-by-user',
+              iconReference:
+                  'public-asset:11111111-1111-4111-8111-111111111111|1|https%3A%2F%2Fassets.palladin.io%2Fchosen.png',
             ),
             MemberIndexEntry(
               entryId: 'legacy',
@@ -98,7 +99,10 @@ void main() {
         isA<EntryListLoaded>().having(
           (state) => state.entries.map((entry) => entry.icon).toList(),
           'icon references',
-          ['public-asset:chosen-by-user', 'website:www.binance.com'],
+          [
+            'public-asset:11111111-1111-4111-8111-111111111111|1|https%3A%2F%2Fassets.palladin.io%2Fchosen.png',
+            null,
+          ],
         ),
       ],
     );

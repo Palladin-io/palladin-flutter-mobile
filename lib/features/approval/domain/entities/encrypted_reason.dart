@@ -1,34 +1,31 @@
-/// Authenticated protocol-2 envelope carrying an Agent's encrypted reason.
+/// Canonical protocol-2 envelope carrying an Agent's encrypted reason.
 final class EncryptedReason {
   const EncryptedReason({
-    required this.organizationId,
-    required this.vaultId,
-    required this.entryId,
-    required this.grantRequestId,
-    required this.agentId,
-    required this.requestRevision,
-    required this.header,
-    required this.reasonKeyVersion,
-    required this.agentMessageKeyVersion,
-    required this.recipientAgentMessageKeyFingerprint,
-    required this.requestedMethods,
-    required this.ciphertext,
-    required this.agentMessageWrappedReasonDek,
+    required this.descriptor,
+    required this.encodedSuitePayload,
+    required this.wrappedReasonDek,
     required this.agentSignature,
   });
 
-  final String organizationId;
-  final String vaultId;
-  final String entryId;
-  final String grantRequestId;
-  final String agentId;
-  final String requestRevision;
-  final Map<String, dynamic> header;
-  final int reasonKeyVersion;
-  final int agentMessageKeyVersion;
-  final String recipientAgentMessageKeyFingerprint;
-  final int requestedMethods;
-  final String ciphertext;
-  final String agentMessageWrappedReasonDek;
+  final Map<String, dynamic> descriptor;
+  final String encodedSuitePayload;
+  final Map<String, dynamic> wrappedReasonDek;
   final String agentSignature;
+
+  Map<String, dynamic> get scope =>
+      Map<String, dynamic>.from(descriptor['scope'] as Map);
+  Map<String, dynamic> get binding =>
+      Map<String, dynamic>.from(descriptor['binding'] as Map);
+  String get organizationId => scope['organizationId'] as String;
+  String get vaultId => scope['vaultId'] as String;
+  String get entryId => scope['entryId'] as String;
+  String get grantRequestId => scope['grantOrRequestId'] as String;
+  String get agentId => scope['agentId'] as String;
+  String get requestRevision => descriptor['resourceRevision'] as String;
+  int get reasonKeyVersion => descriptor['keyVersion'] as int;
+  int get memberKeyGeneration => descriptor['memberKeyGeneration'] as int;
+  int get agentMessageKeyVersion => binding['recipientKeyVersion'] as int;
+  String get recipientAgentMessageKeyFingerprint =>
+      binding['recipientKeyFingerprint'] as String;
+  int get requestedMethods => binding['requestedMethods'] as int;
 }
