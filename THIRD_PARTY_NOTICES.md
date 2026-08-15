@@ -25,7 +25,7 @@ The application also exposes Flutter's runtime licence registry from Settings â†
 | `app_links_linux` | `1.0.3` | `c71d239df917` |
 | `app_links_platform_interface` | `2.0.2` | `c71d239df917` |
 | `app_links_web` | `1.0.4` | `c71d239df917` |
-| `app_settings` | `5.2.0` | `18bd137285f4` |
+| `app_settings` | `7.0.0` | `18bd137285f4` |
 | `archive` | `3.6.1` | `9755813fa151` |
 | `args` | `2.7.0` | `dfb09c74e293` |
 | `async` | `2.13.0` | `ff15faa32a2e` |
@@ -776,7 +776,7 @@ Applies to: sodium 3.4.6 (LICENSE), sodium_libs 3.4.6+4 (LICENSE)
 
 SHA-256: `18bd137285f49767ff0e0de0a08e3459feeb5644db65cfa8738430c02bfb719b`
 
-Applies to: app_settings 5.2.0 (LICENSE)
+Applies to: app_settings 7.0.0 (LICENSE)
 
     MIT License
     
