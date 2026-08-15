@@ -427,6 +427,19 @@ void main() {
       () => VaultProtocolBytes.utf8Encode(String.fromCharCode(0xd800)),
       throwsFormatException,
     );
+    final publicKey = Uint8List.fromList(List<int>.generate(32, (i) => i));
+    final padded = base64.encode(publicKey);
+    expect(
+      VaultProtocolBytes.base64Decode(padded, maximumBytes: 32),
+      publicKey,
+    );
+    expect(
+      () => VaultProtocolBytes.base64Decode(
+        padded.replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', ''),
+        maximumBytes: 32,
+      ),
+      throwsFormatException,
+    );
     expect(canonicalizeVaultJson({'value': '🔐'}), '{"value":"🔐"}');
     expect(
       () => vaultSignatureInput('PLDNV2SIG:UNKNOWN:', const {}),

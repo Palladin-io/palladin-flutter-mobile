@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -79,6 +81,82 @@ void main() {
             .having((s) => s.error, 'error', AgentsErrorKind.networkError),
       ],
     );
+
+    test('concurrent refresh calls share one repository request', () async {
+      final pending = Completer<List<Agent>>();
+      when(() => repository.listAgents()).thenAnswer((_) => pending.future);
+      final cubit = buildCubit();
+
+      final first = cubit.refresh();
+      final second = cubit.refresh();
+
+      expect(identical(first, second), isTrue);
+      pending.complete(mixedList);
+      await Future.wait([first, second]);
+
+      verify(() => repository.listAgents()).called(1);
+      expect(cubit.state.status, AgentsStatus.loaded);
+      await cubit.close();
+    });
+
+    test(
+      'event refresh queues exactly one request after an active load',
+      () async {
+        final first = Completer<List<Agent>>();
+        final trailing = Completer<List<Agent>>();
+        var calls = 0;
+        when(() => repository.listAgents()).thenAnswer((_) {
+          calls += 1;
+          return calls == 1 ? first.future : trailing.future;
+        });
+        final cubit = buildCubit();
+
+        final load = cubit.load();
+        final fresh = cubit.refresh(ensureFresh: true);
+        final sameFresh = cubit.refresh(ensureFresh: true);
+
+        expect(identical(fresh, sameFresh), isTrue);
+        first.complete(pendingList);
+        await load;
+        expect(calls, 2);
+
+        trailing.complete(activeList);
+        await Future.wait([fresh, sameFresh]);
+
+        verify(() => repository.listAgents()).called(2);
+        expect(cubit.state.agents.single.status, AgentStatus.active);
+        await cubit.close();
+      },
+    );
+
+    test('waitForCurrent waits for a queued freshness refresh', () async {
+      final first = Completer<List<Agent>>();
+      final trailing = Completer<List<Agent>>();
+      var calls = 0;
+      when(() => repository.listAgents()).thenAnswer((_) {
+        calls += 1;
+        return calls == 1 ? first.future : trailing.future;
+      });
+      final cubit = buildCubit();
+
+      final load = cubit.load();
+      cubit.refresh(ensureFresh: true);
+      var waiterCompleted = false;
+      final waiter = cubit.waitForCurrent().then((_) {
+        waiterCompleted = true;
+      });
+
+      first.complete(pendingList);
+      await load;
+      await Future<void>.delayed(Duration.zero);
+      expect(waiterCompleted, isFalse);
+
+      trailing.complete(activeList);
+      await waiter;
+
+      expect(cubit.state.agents.single.status, AgentStatus.active);
+      await cubit.close();
+    });
   });
 
   group('AgentsState.agentById', () {

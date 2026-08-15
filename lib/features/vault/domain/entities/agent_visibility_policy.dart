@@ -88,10 +88,8 @@ final class AgentVisibilityPolicy {
         AgentFieldAccess.discovery,
         AgentFieldAccess.onGrantValue,
       },
-      'notes' when type == EntryType.script => const {
-        AgentFieldAccess.never,
-        AgentFieldAccess.onGrantRuntime,
-      },
+      'notes' when type == EntryType.script || type == EntryType.creditCard =>
+        const {AgentFieldAccess.never, AgentFieldAccess.onGrantRuntime},
       'notes' => const {AgentFieldAccess.never, AgentFieldAccess.onGrantValue},
       'value' when type == EntryType.key => const {
         AgentFieldAccess.never,
@@ -119,6 +117,19 @@ final class AgentVisibilityPolicy {
         AgentFieldAccess.discovery,
       },
       'script' || 'refs' when type == EntryType.script => const {
+        AgentFieldAccess.never,
+        AgentFieldAccess.onGrantRuntime,
+      },
+      'cardholderName' when type == EntryType.creditCard => const {
+        AgentFieldAccess.never,
+        AgentFieldAccess.onGrantRuntime,
+      },
+      'cardNumber' ||
+      'expiryMonth' ||
+      'expiryYear' ||
+      'securityCode' ||
+      'pin' ||
+      'billingAddress' when type == EntryType.creditCard => const {
         AgentFieldAccess.never,
         AgentFieldAccess.onGrantRuntime,
       },
@@ -150,7 +161,7 @@ final class AgentVisibilityPolicy {
         fieldType != 'concealed') {
       return const {AgentFieldAccess.never};
     }
-    return type == EntryType.script
+    return type == EntryType.script || type == EntryType.creditCard
         ? const {AgentFieldAccess.never, AgentFieldAccess.onGrantRuntime}
         : const {
             AgentFieldAccess.never,

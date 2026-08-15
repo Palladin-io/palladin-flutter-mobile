@@ -103,19 +103,25 @@ PendingGrant _grant() => PendingGrant(
   entryId: 'e1',
   agentPublicKey: 'pk',
   encryptedReason: const EncryptedReason(
-    organizationId: 'org',
-    vaultId: 'v1',
-    entryId: 'e1',
-    grantRequestId: 'g1',
-    agentId: 'ag1',
-    requestRevision: '1',
-    header: {},
-    reasonKeyVersion: 1,
-    agentMessageKeyVersion: 1,
-    recipientAgentMessageKeyFingerprint: 'fp',
-    requestedMethods: 1,
-    ciphertext: 'ct',
-    agentMessageWrappedReasonDek: 'dek',
+    descriptor: {
+      'scope': {
+        'organizationId': 'org',
+        'vaultId': 'v1',
+        'entryId': 'e1',
+        'grantOrRequestId': 'g1',
+        'agentId': 'ag1',
+      },
+      'resourceRevision': '1',
+      'keyVersion': 1,
+      'memberKeyGeneration': 1,
+      'binding': {
+        'recipientKeyVersion': 1,
+        'recipientKeyFingerprint': 'fp',
+        'requestedMethods': 1,
+      },
+    },
+    encodedSuitePayload: 'payload',
+    wrappedReasonDek: {},
     agentSignature: 'sig',
   ),
   agentName: 'Scraper Bot',
@@ -466,6 +472,51 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('s3cr3t'), findsNothing);
       expect(find.text('Personal'), findsOneWidget);
+    });
+
+    testWidgets('credit-card hits omit unsupported reveal and copy actions', (
+      tester,
+    ) async {
+      when(
+        () => dashboardRepository.globalSearch(
+          any(),
+          limit: any(named: 'limit'),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer(
+        (_) async => const [
+          EntrySearchResult(
+            entryId: 'card-1',
+            displayName: 'Company card',
+            vaultId: 'v1',
+            vaultName: 'Personal',
+            entryType: 3,
+          ),
+        ],
+      );
+      await pumpDashboard(
+        tester,
+        state: const DashboardLoaded(),
+        permissions: 0,
+        privateKey: Uint8List.fromList([1, 2, 3, 4]),
+      );
+
+      await tester.enterText(find.byType(TextField), 'company');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+
+      expect(find.text('Company card'), findsOneWidget);
+      expect(find.byIcon(Icons.visibility), findsNothing);
+      expect(find.byIcon(Icons.content_copy), findsNothing);
+      verifyNever(
+        () => entryRepository.revealEntry(
+          vaultId: any(named: 'vaultId'),
+          entryId: any(named: 'entryId'),
+          privateKey: any(named: 'privateKey'),
+          wrappedVK: any(named: 'wrappedVK'),
+        ),
+      );
     });
   });
 

@@ -86,12 +86,8 @@ void main() {
 
   test('icon references preserve their canonical namespace', () {
     expect(
-      VaultPlaintextIcon.fromReference('website:stripe.com'),
-      isA<WebsiteVaultIcon>(),
-    );
-    expect(
       VaultPlaintextIcon.fromReference(
-        'public-asset:11111111-1111-4111-8111-111111111111',
+        'public-asset:11111111-1111-4111-8111-111111111111|1|https%3A%2F%2Fassets.palladin.io%2Fstripe.png',
       ),
       isA<PublicAssetVaultIcon>(),
     );

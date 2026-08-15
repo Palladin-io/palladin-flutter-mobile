@@ -325,7 +325,9 @@ class _ProgressStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            l10n.importImporting(state.done, state.total),
+            state.phase == ImportProgressPhase.icons
+                ? l10n.importPreparingIcons(state.done, state.total)
+                : l10n.importImporting(state.done, state.total),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppColors.onSurface(brightness),
@@ -337,7 +339,9 @@ class _ProgressStep extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: state.progress,
+              value: state.phase == ImportProgressPhase.icons && state.done == 0
+                  ? null
+                  : state.progress,
               minHeight: 6,
               backgroundColor: AppColors.cardFill(brightness),
               color: AppColors.brandRed,

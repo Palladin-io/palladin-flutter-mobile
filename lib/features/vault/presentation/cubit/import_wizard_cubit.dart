@@ -8,6 +8,8 @@ import '../../../grants/domain/entities/grant.dart';
 import '../../../grants/domain/exceptions/grants_exceptions.dart';
 import '../../../grants/domain/repositories/grants_repository.dart';
 import '../../../public_asset_catalog/domain/services/public_hostname.dart';
+import '../../../public_asset_catalog/domain/entities/public_asset.dart';
+import '../../../public_asset_catalog/domain/services/website_icon_service.dart';
 import '../../data/import/import_engine.dart';
 import '../../data/import/import_models.dart';
 import '../../domain/entities/entry_entity.dart';
@@ -34,18 +36,21 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     required this.repository,
     required this.grantsRepository,
     required this.vaultId,
+    this.websiteIconService,
     AnalyticsService? analytics,
   }) : super(const ImportWizardInitial());
 
   final EntryRepository repository;
   final GrantsRepository grantsRepository;
   final String vaultId;
+  final WebsiteIconService? websiteIconService;
 
   /// Backend field-length limits (import batch is atomic — one over-length
   /// field 400s the whole batch), so clamp defensively client-side.
   static const int _maxLabel = 200;
   static const int _maxDescription = 2000;
   static const int _maxUrlDomain = 255;
+  static const Duration _iconWait = Duration(seconds: 15);
 
   /// Cached table for the manual-mapping step so [applyMapping] can
   /// re-parse without re-reading the file.
@@ -55,6 +60,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
   /// index rebuilt on each parse.
   Map<String, EntryEntity> _existingByLabel = const {};
   int _sessionEpoch = 0;
+  WebsiteIconPreparationCancellation? _activeIconPreparation;
 
   /// Parses [bytes] (with an optional [fileName] hint), loads the vault's
   /// current entries, and moves to the preview or manual-mapping step.
@@ -154,12 +160,64 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       return;
     }
 
+    final selected = current.items
+        .where((item) => item.effectiveIncluded(current.conflictStrategy))
+        .toList(growable: false);
+    if (selected.isEmpty) {
+      emit(const ImportWizardFailure(ImportFailureReason.noEntries));
+      return;
+    }
+    // Enter a non-interactive state before the optional network reservation,
+    // so a second tap cannot start another import with the same plaintext.
+    final iconTotal = PublicHostname.unique(
+      selected.map((item) => item.parsed.urlDomain),
+      limit: 10000,
+    ).length;
+    _emitImportProgress(
+      done: 0,
+      total: websiteIconService != null && iconTotal > 0
+          ? iconTotal
+          : selected.length,
+      phase: websiteIconService != null && iconTotal > 0
+          ? ImportProgressPhase.icons
+          : ImportProgressPhase.entries,
+    );
+
     final creates = <ImportEntryDraft>[];
     final overwrites = <ImportEntryOverwrite>[];
     final existingLabels = _existingByLabel.keys.toSet();
     // Two source rows can collide with the same existing entry — only the
     // first may overwrite it, or the batch issues two PUTs to one entryId.
     final overwrittenIds = <String>{};
+    final iconDomains = selected.map((item) => item.parsed.urlDomain);
+    final iconPreparation = websiteIconService != null && iconTotal > 0
+        ? WebsiteIconPreparationCancellation()
+        : null;
+    if (iconPreparation != null) _activeIconPreparation = iconPreparation;
+    final Map<String, PublicAsset> publicAssets;
+    try {
+      publicAssets = iconPreparation != null
+          ? await websiteIconService!.ensureBatchWithin(
+              iconDomains,
+              timeout: _iconWait,
+              cancellation: iconPreparation,
+              onProgress: (ready, total) {
+                if (_isCurrent(epoch)) {
+                  _emitImportProgress(
+                    done: ready,
+                    total: total,
+                    phase: ImportProgressPhase.icons,
+                  );
+                }
+              },
+            )
+          : const <String, PublicAsset>{};
+    } finally {
+      if (identical(_activeIconPreparation, iconPreparation)) {
+        _activeIconPreparation = null;
+      }
+    }
+    if (!_isCurrent(epoch)) return;
     for (final item in current.items) {
       if (!item.effectiveIncluded(current.conflictStrategy)) continue;
       final parsed = item.parsed;
@@ -176,7 +234,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
             payload: parsed.toPayload(),
             urlDomain: _clampOrNull(parsed.urlDomain, _maxUrlDomain),
             createdAt: item.conflict!.createdAt,
-            icon: _iconReference(parsed.urlDomain),
+            icon: _iconReference(parsed.urlDomain, publicAssets),
           ),
         );
       } else {
@@ -199,7 +257,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
             type: EntryType.credential,
             payload: parsed.toPayload(),
             urlDomain: _clampOrNull(parsed.urlDomain, _maxUrlDomain),
-            icon: _iconReference(parsed.urlDomain),
+            icon: _iconReference(parsed.urlDomain, publicAssets),
           ),
         );
       }
@@ -211,7 +269,11 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       return;
     }
 
-    emit(ImportWizardImporting(done: 0, total: total));
+    _emitImportProgress(
+      done: 0,
+      total: total,
+      phase: ImportProgressPhase.entries,
+    );
     try {
       final result = await repository.importEntriesEncrypted(
         vaultId: vaultId,
@@ -222,7 +284,11 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
         wrappedVK: wrappedVK,
         onProgress: (done, t) {
           if (_isCurrent(epoch)) {
-            emit(ImportWizardImporting(done: done, total: t));
+            _emitImportProgress(
+              done: done,
+              total: t,
+              phase: ImportProgressPhase.entries,
+            );
           }
         },
       );
@@ -249,9 +315,27 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     }
   }
 
-  static String? _iconReference(String? domain) {
+  static String? _iconReference(
+    String? domain,
+    Map<String, PublicAsset> publicAssets,
+  ) {
     final normalized = PublicHostname.normalize(domain);
-    return normalized == null ? null : 'website:$normalized';
+    return normalized == null ? null : publicAssets[normalized]?.reference;
+  }
+
+  void _emitImportProgress({
+    required int done,
+    required int total,
+    required ImportProgressPhase phase,
+  }) {
+    final current = state;
+    if (current is ImportWizardImporting &&
+        current.done == done &&
+        current.total == total &&
+        current.phase == phase) {
+      return;
+    }
+    emit(ImportWizardImporting(done: done, total: total, phase: phase));
   }
 
   /// Pages through the vault's active grants looking for any FULL-scope
@@ -333,6 +417,7 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
 
   void clearSensitiveState() {
     _sessionEpoch++;
+    _cancelIconPreparation();
     _clearPlaintextCaches();
     if (!isClosed) emit(const ImportWizardInitial());
   }
@@ -344,9 +429,15 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
 
   bool _isCurrent(int epoch) => !isClosed && epoch == _sessionEpoch;
 
+  void _cancelIconPreparation() {
+    _activeIconPreparation?.cancel();
+    _activeIconPreparation = null;
+  }
+
   @override
   Future<void> close() {
     _sessionEpoch++;
+    _cancelIconPreparation();
     _clearPlaintextCaches();
     return super.close();
   }

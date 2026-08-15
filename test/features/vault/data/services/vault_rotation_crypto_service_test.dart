@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/crypto/asymmetric_keys.dart';
 import 'package:mobile_palladin/core/crypto/envelope/envelope_contract.dart';
+import 'package:mobile_palladin/core/crypto/envelope/envelope_suite.dart';
 import 'package:mobile_palladin/core/crypto/x25519_key_wrapper.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_aad.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_bytes.dart';
@@ -16,6 +17,95 @@ import 'package:mobile_palladin/features/vault/data/services/vault_rotation_cryp
 import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
 
 void main() {
+  test('opens the canonical Agent-message private-key contract', () async {
+    final suite = _RecordingSuite(Uint8List(32));
+    final service = VaultRotationCryptoService(
+      cryptoSuites: CryptoSuiteRegistry(suites: [suite]),
+    );
+    final opened = await service.openCanonicalAgentMessagePrivateKey(
+      {
+        'descriptor': {
+          'protocolVersion': 2,
+          'cryptoSuiteId': 'palladin-vault-xchacha-v1',
+          'purpose': 'vaultAgentMessagePrivateKey',
+          'scope': {
+            'organizationId': '11111111-1111-4111-8111-111111111111',
+            'vaultId': '22222222-2222-4222-8222-222222222222',
+            'entryId': null,
+            'grantOrRequestId': null,
+            'agentId': null,
+            'memberId': null,
+          },
+          'resourceRevision': '1',
+          'keyVersion': 3,
+          'memberKeyGeneration': 4,
+          'binding': {'wrappingVaultKeyVersion': 2},
+        },
+        'encodedSuitePayload': VaultProtocolBytes.base64UrlEncode(
+          Uint8List(40),
+        ),
+      },
+      Uint8List(32),
+      expectedKeyVersion: 3,
+    );
+
+    expect(opened, hasLength(32));
+    expect(suite.descriptor?.purpose, EnvelopePurpose.agentMessagePrivateByVk);
+    expect(suite.descriptor?.keyVersion, 3);
+    expect(
+      (suite.descriptor?.purposeData as WrappingPurposeData)
+          .wrappingVaultKeyVersion,
+      2,
+    );
+  });
+
+  test('selects canonical Vault private key from its descriptor', () {
+    final message = <String, dynamic>{
+      'descriptor': {'purpose': 'vaultAgentMessagePrivateKey', 'keyVersion': 3},
+      'encodedSuitePayload': 'opaque',
+    };
+    final signing = <String, dynamic>{
+      'descriptor': {
+        'purpose': 'vaultManifestSigningPrivateKey',
+        'keyVersion': 3,
+      },
+      'encodedSuitePayload': 'opaque',
+    };
+
+    expect(
+      VaultRotationCryptoService.requirePrivateKeyEnvelope(
+        envelopes: [message, signing],
+        purpose: 'vaultAgentMessagePrivateKey',
+        keyVersion: 3,
+      ),
+      message,
+    );
+  });
+
+  test('rejects legacy flattened or ambiguous Vault private keys', () {
+    expect(
+      () => VaultRotationCryptoService.requirePrivateKeyEnvelope(
+        envelopes: const [
+          {'privateKeyKind': 1, 'privateKeyVersion': 1},
+        ],
+        purpose: 'vaultAgentMessagePrivateKey',
+        keyVersion: 1,
+      ),
+      throwsFormatException,
+    );
+    final canonical = {
+      'descriptor': {'purpose': 'vaultAgentMessagePrivateKey', 'keyVersion': 1},
+    };
+    expect(
+      () => VaultRotationCryptoService.requirePrivateKeyEnvelope(
+        envelopes: [canonical, canonical],
+        purpose: 'vaultAgentMessagePrivateKey',
+        keyVersion: 1,
+      ),
+      throwsFormatException,
+    );
+  });
+
   test('accepts only the canonical nested Member Vault key contract', () async {
     final service = VaultRotationCryptoService(
       sodiumLoader: () async => throw StateError('sodium-reached'),
@@ -226,6 +316,34 @@ void main() {
     opened.fillRange(0, opened.length, 0);
     targetKey.fillRange(0, targetKey.length, 0);
   });
+}
+
+final class _RecordingSuite implements ClientEnvelopeSuite {
+  _RecordingSuite(this.result);
+
+  final Uint8List result;
+  EnvelopeDescriptor? descriptor;
+
+  @override
+  CryptoSuiteId get id => CryptoSuiteId.palladinVaultXChaChaV1;
+
+  @override
+  Future<Uint8List> open({
+    required EnvelopeDescriptor descriptor,
+    required Uint8List rootKey,
+    required EncodedSuitePayload payload,
+  }) async {
+    this.descriptor = descriptor;
+    return Uint8List.fromList(result);
+  }
+
+  @override
+  Future<EncodedSuitePayload> seal({
+    required EnvelopeDescriptor descriptor,
+    required Uint8List rootKey,
+    required Uint8List plaintext,
+    Uint8List? nonce,
+  }) => throw UnimplementedError();
 }
 
 Future<sodium_ffi.SodiumSumo?> _loadSodium(String? library) async {

@@ -31,6 +31,7 @@ class EntryV2CryptoService {
     required Uint8List agentPublicKey,
     required int recipientKeyVersion,
     required int approvedMethods,
+    required int deliveryPolicy,
     required List<String> fieldIds,
     required Map<String, Object?> grantPayload,
     int grantEnvelopeRevision = 1,
@@ -59,6 +60,7 @@ class EntryV2CryptoService {
       agentId: EnvelopeId.parse(agentId),
     );
     final instant = expiresAt?.toUtc();
+    final instantMicros = instant?.microsecondsSinceEpoch;
     final descriptor = EnvelopeDescriptor(
       purpose: EnvelopePurpose.grant,
       scope: scope,
@@ -70,13 +72,14 @@ class EntryV2CryptoService {
         recipientKeyVersion: recipientKeyVersion,
         recipientFingerprint: fingerprint,
         methods: approvedMethods,
+        deliveryPolicy: deliveryPolicy,
         fieldSetCommitment: commitment,
-        expiresAtSeconds: instant == null
+        expiresAtSeconds: instantMicros == null
             ? null
-            : instant.millisecondsSinceEpoch ~/ 1000,
-        expiresAtNanoseconds: instant == null
+            : instantMicros ~/ Duration.microsecondsPerSecond,
+        expiresAtNanoseconds: instantMicros == null
             ? null
-            : (instant.millisecondsSinceEpoch % 1000) * 1000000,
+            : (instantMicros % Duration.microsecondsPerSecond) * 1000,
         remainingUses: remainingUses,
       ),
     );
@@ -356,10 +359,14 @@ Map<String, Object?> _descriptorJson(EnvelopeDescriptor value) => {
   'scope': {
     'organizationId': _id(value.scope.organizationId),
     'vaultId': _id(value.scope.vaultId),
-    'entryId': _id(value.scope.entryId!),
-    'grantOrRequestId': null,
-    'agentId': null,
-    'memberId': null,
+    'entryId': value.scope.entryId == null ? null : _id(value.scope.entryId!),
+    'grantOrRequestId': value.scope.grantOrRequestId == null
+        ? null
+        : _id(value.scope.grantOrRequestId!),
+    'agentId': value.scope.agentId == null ? null : _id(value.scope.agentId!),
+    'memberId': value.scope.memberId == null
+        ? null
+        : _id(value.scope.memberId!),
   },
   'resourceRevision': value.resourceRevision.toString(),
   'keyVersion': value.keyVersion,
@@ -374,6 +381,7 @@ Map<String, Object?> _descriptorJson(EnvelopeDescriptor value) => {
       :final recipientKeyVersion,
       :final recipientFingerprint,
       :final methods,
+      :final deliveryPolicy,
       :final fieldSetCommitment,
       :final expiresAtSeconds,
       :final expiresAtNanoseconds,
@@ -385,12 +393,13 @@ Map<String, Object?> _descriptorJson(EnvelopeDescriptor value) => {
         'recipientKeyVersion': recipientKeyVersion,
         'recipientKeyFingerprint': _b64(recipientFingerprint),
         'approvedMethods': methods,
+        'deliveryPolicy': deliveryPolicy,
         'fieldSetCommitment': _b64(fieldSetCommitment),
         'expiresAt': expiresAtSeconds == null
             ? null
-            : DateTime.fromMillisecondsSinceEpoch(
-                expiresAtSeconds * 1000 +
-                    (expiresAtNanoseconds ?? 0) ~/ 1000000,
+            : DateTime.fromMicrosecondsSinceEpoch(
+                expiresAtSeconds * Duration.microsecondsPerSecond +
+                    (expiresAtNanoseconds ?? 0) ~/ 1000,
                 isUtc: true,
               ).toIso8601String(),
         'remainingUses': remainingUses,

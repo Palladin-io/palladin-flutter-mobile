@@ -4,6 +4,7 @@ import '../../domain/entities/vault_entity.dart';
 import '../../domain/entities/vault_plaintext.dart';
 import '../datasources/vault_remote_datasource.dart';
 import '../models/encrypted_vault_summary_model.dart';
+import 'member_vault_key_context_store.dart';
 import 'vault_crypto_service.dart';
 
 final class DecryptedVaultList {
@@ -17,12 +18,15 @@ class VaultListCryptoService {
   VaultListCryptoService({
     required VaultRemoteDatasource remote,
     required VaultCryptoService crypto,
+    MemberVaultKeyContextStore? keyContexts,
     this.maximumVaults = 2000,
   }) : _remote = remote,
-       _crypto = crypto;
+       _crypto = crypto,
+       _keyContexts = keyContexts ?? MemberVaultKeyContextStore();
 
   final VaultRemoteDatasource _remote;
   final VaultCryptoService _crypto;
+  final MemberVaultKeyContextStore _keyContexts;
   final int maximumVaults;
 
   /// Loads and opens one canonical encrypted Vault projection.
@@ -90,6 +94,11 @@ class VaultListCryptoService {
         memberPrivateKey: privateKeyCopy,
       );
       final metadata = opened.metadata;
+      _keyContexts.install(
+        vaultId: summary.id,
+        memberVaultKey: summary.memberVaultKey,
+        memberKeyGeneration: summary.memberKeyGeneration,
+      );
       return VaultEntity(
         id: summary.id,
         name: metadata.name,
@@ -97,8 +106,7 @@ class VaultListCryptoService {
         icon: switch (metadata.icon) {
           GlyphVaultIcon(:final value) => value,
           EncryptedAssetVaultIcon(:final assetId) => 'asset:$assetId',
-          PublicAssetVaultIcon(:final assetId) => 'public-asset:$assetId',
-          WebsiteVaultIcon(:final hostname) => 'website:$hostname',
+          final PublicAssetVaultIcon icon => icon.reference,
           null => null,
         },
         color: metadata.color,
@@ -121,4 +129,6 @@ class VaultListCryptoService {
       );
     }
   }
+
+  void lock() => _keyContexts.clear();
 }

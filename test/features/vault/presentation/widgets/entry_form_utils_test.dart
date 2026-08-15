@@ -4,6 +4,30 @@ import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart
 import 'package:mobile_palladin/features/vault/presentation/widgets/entry_form_utils.dart';
 
 void main() {
+  test('credit card payload is normalized and validated', () {
+    expect(
+      EntryFormUtils.canSubmit(
+        type: EntryType.creditCard,
+        label: 'Travel card',
+        cardholderName: 'Ada',
+        cardNumber: '4242 4242 4242 4242',
+        expiryMonth: '12',
+        expiryYear: '2030',
+        securityCode: '123',
+      ),
+      isTrue,
+    );
+    final payload = EntryFormUtils.buildPayload(
+      type: EntryType.creditCard,
+      cardholderName: ' Ada ',
+      cardNumber: '4242 4242 4242 4242',
+      expiryMonth: '12',
+      expiryYear: '2030',
+      securityCode: '123',
+    );
+    expect(payload['cardNumber'], '4242424242424242');
+    expect(payload['type'], 'CREDIT_CARD');
+  });
   test(
     'Key payload never accepts a URL outside the frozen canonical schema',
     () {

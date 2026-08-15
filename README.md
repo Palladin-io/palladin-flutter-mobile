@@ -166,9 +166,12 @@ builds are separate, maintainer-triggered workflows and require protected
 signing secrets.
 
 CI runs Gitleaks 8.30.1 against the current tree. The repository configuration
-extends the default rules and contains only exact-path exceptions for synthetic
+extends the default rules and contains exact-path exceptions for synthetic
 crypto tests and fixtures, dependency checksums, cryptographic documentation,
-and the documented public Firebase client configuration.
+and the documented public Firebase client configuration. A separate
+`.gitleaksignore` contains one commit-, path-, rule-, and line-specific
+fingerprint for a historical synthetic Stripe-shaped UI mock; it does not
+suppress current-tree findings.
 
 Vault protocol 2 tests consume a vendored, synthetic, hash-verified fixture
 snapshot. Its exact source commit, path, manifest digest, and file digests are

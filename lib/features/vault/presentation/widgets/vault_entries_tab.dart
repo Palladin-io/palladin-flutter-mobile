@@ -1,7 +1,7 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -11,9 +11,6 @@ import '../../../../core/widgets/app_search_field.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../public_asset_catalog/presentation/widgets/public_asset_image.dart';
-import '../../../public_asset_catalog/domain/entities/public_asset.dart';
-import '../../../public_asset_catalog/domain/services/website_icon_service.dart';
-import '../../../../core/di/injection.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/member_index_entry.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
@@ -47,31 +44,14 @@ class VaultEntriesTab extends StatefulWidget {
   State<VaultEntriesTab> createState() => _VaultEntriesTabState();
 }
 
-@visibleForTesting
-List<String> websiteIconHostnames(Iterable<EntryEntity> entries) {
-  final hostnames = entries
-      .map((entry) => entry.icon)
-      .whereType<String>()
-      .where((reference) => reference.startsWith('website:'))
-      .map((reference) => reference.substring('website:'.length))
-      .toSet()
-      .toList(growable: false);
-  hostnames.sort();
-  return hostnames;
-}
-
 class _VaultEntriesTabState extends State<VaultEntriesTab> {
   static const _initialRenderLimit = 100;
   static const _renderIncrement = 100;
-  static const _maxWebsitePollAttempts = 30;
 
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _expanded = <String>{};
   final Set<String> _revealedFields = <String>{}; // composite "$entryId:$field"
-  final Map<String, PublicAsset> _websiteAssets = <String, PublicAsset>{};
-  Timer? _websiteAssetPoll;
   Timer? _searchDebounce;
-  Set<String> _scheduledWebsiteHostnames = const {};
   String _searchQuery = '';
   int _renderLimit = _initialRenderLimit;
   int _filteredCount = 0;
@@ -81,52 +61,9 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
 
   @override
   void dispose() {
-    _websiteAssetPoll?.cancel();
     _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
-  }
-
-  void _scheduleWebsiteAssets(List<EntryEntity> entries) {
-    final hostnames = websiteIconHostnames(entries);
-    final hostnameSet = hostnames.toSet();
-    if (setEquals(hostnameSet, _scheduledWebsiteHostnames)) return;
-    _scheduledWebsiteHostnames = hostnameSet;
-    _websiteAssetPoll?.cancel();
-    if (hostnames.isEmpty) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && setEquals(hostnameSet, _scheduledWebsiteHostnames)) {
-        _resolveWebsiteAssets(hostnames, hostnameSet, 0);
-      }
-    });
-  }
-
-  Future<void> _resolveWebsiteAssets(
-    List<String> hostnames,
-    Set<String> scheduledHostnames,
-    int attempt,
-  ) async {
-    if (!getIt.isRegistered<WebsiteIconService>()) return;
-    final unresolved = hostnames
-        .where((hostname) => !_websiteAssets.containsKey(hostname))
-        .toList(growable: false);
-    if (unresolved.isEmpty) return;
-    final resolved = await getIt<WebsiteIconService>().resolveBatch(unresolved);
-    if (!mounted ||
-        !setEquals(scheduledHostnames, _scheduledWebsiteHostnames)) {
-      return;
-    }
-    if (resolved.isNotEmpty) {
-      setState(() => _websiteAssets.addAll(resolved));
-    }
-    if (_websiteAssets.keys.toSet().containsAll(hostnames) ||
-        attempt >= _maxWebsitePollAttempts) {
-      return;
-    }
-    _websiteAssetPoll = Timer(
-      const Duration(seconds: 2),
-      () => _resolveWebsiteAssets(hostnames, scheduledHostnames, attempt + 1),
-    );
   }
 
   List<EntryEntity> _filter(List<EntryEntity> entries) {
@@ -290,7 +227,6 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
               const SizedBox(height: AppSpacing.cardGap),
           itemBuilder: (context, i) => _EntryCard(
             entry: entries[i],
-            websiteAssets: _websiteAssets,
             isExpanded: _expanded.contains(entries[i].id),
             payload: revealedEntries[entries[i].id],
             revealedFields: _revealedFields,
@@ -395,11 +331,6 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
   List<EntryEntity> _prepareEntries(List<EntryEntity> entries) {
     final filtered = _filter(entries);
     _filteredCount = filtered.length;
-    // Resolve every distinct hostname represented by the decrypted member
-    // index, not merely the first rendered window. Rendering stays bounded,
-    // while the repository pages catalog requests in backend-sized chunks.
-    // This makes icon coverage independent of entry count and scroll order.
-    _scheduleWebsiteAssets(filtered);
     final visible = filtered.take(_renderLimit).toList(growable: false);
     return visible;
   }
@@ -579,7 +510,6 @@ class _ErrorSliver extends StatelessWidget {
 class _EntryCard extends StatelessWidget {
   const _EntryCard({
     required this.entry,
-    required this.websiteAssets,
     required this.isExpanded,
     required this.payload,
     required this.revealedFields,
@@ -590,7 +520,6 @@ class _EntryCard extends StatelessWidget {
   });
 
   final EntryEntity entry;
-  final Map<String, PublicAsset> websiteAssets;
   final bool isExpanded;
   final Map<String, dynamic>? payload;
   final Set<String> revealedFields;
@@ -645,10 +574,7 @@ class _EntryCard extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    _EntryIconWidget(
-                      entry: entry,
-                      websiteAssets: websiteAssets,
-                    ),
+                    _EntryIconWidget(entry: entry),
                     const SizedBox(width: AppSpacing.cardGap),
                     Expanded(
                       child: Column(
@@ -806,6 +732,31 @@ class _RevealPanel extends StatelessWidget {
               actionIconSize: 12,
               onCopy: () => onCopy(payload['script'] as String),
             ),
+        ] else if (entry.type == EntryType.creditCard) ...[
+          for (final cardField in <(String, IconData, bool)>[
+            ('cardholderName', Icons.person, false),
+            ('cardNumber', Icons.credit_card, true),
+            ('expiryMonth', Icons.calendar_month, false),
+            ('expiryYear', Icons.event, false),
+            ('securityCode', Icons.lock, true),
+            ('pin', Icons.pin, true),
+            ('billingAddress', Icons.home, false),
+          ])
+            if ((payload[cardField.$1] as String?)?.isNotEmpty ?? false)
+              EntryFieldRow(
+                icon: cardField.$2,
+                value: payload[cardField.$1] as String,
+                isMasked: cardField.$3,
+                revealed:
+                    !cardField.$3 ||
+                    revealedFields.contains('${entry.id}:${cardField.$1}'),
+                onToggleReveal: cardField.$3
+                    ? () => onToggleFieldReveal(entry.id, cardField.$1)
+                    : null,
+                valueFontSize: 10,
+                actionIconSize: 12,
+                onCopy: () => onCopy(payload[cardField.$1] as String),
+              ),
         ] else ...[
           if ((payload['username'] as String?)?.isNotEmpty ?? false)
             EntryFieldRow(
@@ -855,10 +806,9 @@ class _RevealPanel extends StatelessWidget {
 /// preset names map to the matching [EntryVisuals] palette color.
 /// Falls back to a type-based icon when `entry.icon` is null.
 class _EntryIconWidget extends StatelessWidget {
-  const _EntryIconWidget({required this.entry, required this.websiteAssets});
+  const _EntryIconWidget({required this.entry});
 
   final EntryEntity entry;
-  final Map<String, PublicAsset> websiteAssets;
 
   @override
   Widget build(BuildContext context) {
@@ -897,26 +847,6 @@ class _EntryIconWidget extends StatelessWidget {
       );
     }
 
-    if (icon?.startsWith('website:') ?? false) {
-      final asset = websiteAssets[icon!.substring('website:'.length)];
-      if (asset != null) {
-        return SizedBox(
-          width: 40,
-          height: 40,
-          child: ClipOval(
-            child: Image.network(
-              asset.deliveryUrl.toString(),
-              width: 40,
-              height: 40,
-              fit: BoxFit.cover,
-              gaplessPlayback: true,
-              errorBuilder: (_, _, _) => _presetIcon(null),
-            ),
-          ),
-        );
-      }
-    }
-
     if (!EntryVisuals.isCustomUrl(icon)) {
       return _presetIcon(icon);
     }
@@ -930,6 +860,7 @@ class _EntryIconWidget extends StatelessWidget {
       EntryType.key => choices.first.name,
       EntryType.credential => 'lock',
       EntryType.script => 'terminal',
+      EntryType.creditCard => 'credit_card',
     };
     final choice = choices.firstWhere(
       (c) => c.name == (name ?? EntryVisuals.defaultIconName),

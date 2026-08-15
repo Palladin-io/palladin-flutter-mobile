@@ -28,7 +28,9 @@ void main() {
         home: Scaffold(
           body: BlocProvider<ApiKeysCubit>.value(
             value: cubit,
-            child: const GenerateApiKeySheet(),
+            child: const GenerateApiKeySheet(
+              apiBaseUrl: 'http://localhost:5000',
+            ),
           ),
         ),
       ),
@@ -58,10 +60,16 @@ void main() {
       // Title is Title Case, with the API acronym intact.
       expect(find.text('API Key Created'), findsOneWidget);
 
-      // The connect command embeds the plaintext and the agent name.
+      // The connect command leaves the secret to the CLI's masked prompt.
       expect(
-        find.textContaining('palladin connect pl_secret_xyz --id "My Agent"'),
+        find.textContaining(
+          "palladin connect --host 'http://localhost:5000' --name 'My Agent'",
+        ),
         findsOneWidget,
+      );
+      expect(
+        find.textContaining('palladin connect pl_secret_xyz'),
+        findsNothing,
       );
 
       // The connect section is present (default-open collapsible header).
@@ -93,7 +101,9 @@ void main() {
     await tester.pump();
 
     expect(
-      find.textContaining('palladin connect pl_abc --id "Renamed"'),
+      find.textContaining(
+        "palladin connect --host 'http://localhost:5000' --name 'Renamed'",
+      ),
       findsOneWidget,
     );
   });
