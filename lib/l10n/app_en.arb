@@ -3271,7 +3271,5 @@
   "entryCardNumberLabel": "Card number",
   "entryExpiryMonthLabel": "Expiry month",
   "entryExpiryYearLabel": "Expiry year",
-  "entrySecurityCodeLabel": "Security code",
-  "entryPinLabel": "PIN (optional)",
   "entryBillingAddressLabel": "Billing address (optional)"
 }

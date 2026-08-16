@@ -130,6 +130,16 @@ void main() {
       expect(result.entries.first.folder, 'Dev');
     });
 
+    test('NordPass card-only rows including CVC are skipped', () {
+      const csv =
+          'name,url,username,password,note,cardholdername,cardnumber,cvc,expirydate,zipcode,folder\n'
+          'Travel card,,,,,Ada Lovelace,4242424242424242,123,12/30,00-001,Wallet';
+      final result = _parsed(csv);
+      expect(result.format, ImportFormat.nordpassCsv);
+      expect(result.entries, isEmpty);
+      expect(result.skippedCount, 1);
+    });
+
     test('RoboForm CSV', () {
       const csv = 'Name,Url,Login,Pwd,Note,Folder\n'
           'GitHub,https://github.com,octocat,S3cr3t!,note,Dev';

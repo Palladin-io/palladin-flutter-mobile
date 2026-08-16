@@ -49,8 +49,6 @@ class CreditCardPayload {
     required this.cardNumber,
     required this.expiryMonth,
     required this.expiryYear,
-    required this.securityCode,
-    this.pin,
     this.billingAddress,
     this.notes,
     this.fields = const [],
@@ -59,11 +57,23 @@ class CreditCardPayload {
   final String cardNumber;
   final String expiryMonth;
   final String expiryYear;
-  final String securityCode;
-  final String? pin;
   final String? billingAddress;
   final String? notes;
   final List<CustomField> fields;
+
+  /// Rejects the retired dedicated card-verification fields.
+  ///
+  /// The pre-production cutover deliberately has no compatibility path for
+  /// the former top-level CVV/CVC or PIN values. A neutral custom field may
+  /// still use any user-selected label because only its stable `fields[]`
+  /// shape is interpreted.
+  static void rejectRetiredDedicatedFields(Map<String, dynamic> json) {
+    if (json.containsKey('securityCode') || json.containsKey('pin')) {
+      throw const FormatException(
+        'Retired dedicated Credit Card field is not supported',
+      );
+    }
+  }
 
   Map<String, dynamic> toJson() => {
     'v': 2,
@@ -72,25 +82,23 @@ class CreditCardPayload {
     'cardNumber': cardNumber,
     'expiryMonth': expiryMonth,
     'expiryYear': expiryYear,
-    'securityCode': securityCode,
-    if (pin != null) 'pin': pin,
     if (billingAddress != null) 'billingAddress': billingAddress,
     if (notes != null) 'notes': notes,
     if (fields.isNotEmpty) 'fields': CustomField.listToJson(fields),
   };
 
-  factory CreditCardPayload.fromJson(Map<String, dynamic> json) =>
-      CreditCardPayload(
-        cardholderName: (json['cardholderName'] as String?) ?? '',
-        cardNumber: (json['cardNumber'] as String?) ?? '',
-        expiryMonth: (json['expiryMonth'] as String?) ?? '',
-        expiryYear: (json['expiryYear'] as String?) ?? '',
-        securityCode: (json['securityCode'] as String?) ?? '',
-        pin: json['pin'] as String?,
-        billingAddress: json['billingAddress'] as String?,
-        notes: json['notes'] as String?,
-        fields: CustomField.listFromPayload(json),
-      );
+  factory CreditCardPayload.fromJson(Map<String, dynamic> json) {
+    rejectRetiredDedicatedFields(json);
+    return CreditCardPayload(
+      cardholderName: (json['cardholderName'] as String?) ?? '',
+      cardNumber: (json['cardNumber'] as String?) ?? '',
+      expiryMonth: (json['expiryMonth'] as String?) ?? '',
+      expiryYear: (json['expiryYear'] as String?) ?? '',
+      billingAddress: json['billingAddress'] as String?,
+      notes: json['notes'] as String?,
+      fields: CustomField.listFromPayload(json),
+    );
+  }
 }
 
 /// Domain representation of a single vault entry's metadata.

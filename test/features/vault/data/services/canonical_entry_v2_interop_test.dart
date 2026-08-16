@@ -359,8 +359,6 @@ void main() {
               'cardNumber': 'onGrantRuntime',
               'expiryMonth': 'onGrantRuntime',
               'expiryYear': 'onGrantRuntime',
-              'securityCode': 'onGrantRuntime',
-              'pin': 'onGrantRuntime',
               'billingAddress': 'onGrantRuntime',
               'notes': 'never',
               removedId: 'onGrantRuntime',
@@ -373,8 +371,6 @@ void main() {
           'cardNumber': '4111111111111111',
           'expiryMonth': '12',
           'expiryYear': '2030',
-          'securityCode': '123',
-          'pin': '1234',
           'billingAddress': 'Old address',
           'notes': null,
           'fields': [
@@ -408,8 +404,6 @@ void main() {
           'cardNumber': '5555555555554444',
           'expiryMonth': '01',
           'expiryYear': '2032',
-          'securityCode': '456',
-          'pin': null,
           'billingAddress': 'New address',
           'notes': null,
           'fields': [
@@ -469,6 +463,63 @@ void main() {
       expect(captured.agentFieldAccess, isNot(contains('custom:$removedId')));
     },
   );
+
+  test('canonical reveal rejects the retired strict card payload', () async {
+    when(
+      () => entries.getCanonicalEntry(vaultId, entryId),
+    ).thenAnswer((_) async => head());
+    when(
+      () => crypto.openMemberSecret(
+        entryKey: any(named: 'entryKey'),
+        memberSecret: any(named: 'memberSecret'),
+        vaultKey: any(named: 'vaultKey'),
+      ),
+    ).thenAnswer(
+      (_) async => <String, dynamic>{
+        'schema': MemberSecret.schema,
+        'entryType': 'creditCard',
+        'memberLabel': 'Legacy card',
+        'agentLabel': 'Legacy card',
+        'description': null,
+        'icon': null,
+        'color': null,
+        'discoverable': true,
+        'content': {
+          'cardholderName': 'Ada Lovelace',
+          'cardNumber': '4242424242424242',
+          'expiryMonth': '12',
+          'expiryYear': '2030',
+          'securityCode': '123',
+          'pin': '4321',
+          'billingAddress': null,
+          'notes': null,
+          'customFields': const <Object?>[],
+        },
+        'agentFieldAccess': const <String, String>{},
+      },
+    );
+
+    await expectLater(
+      service.reveal(
+        expected: EntryEntity(
+          id: entryId,
+          vaultId: vaultId,
+          label: 'Legacy card',
+          type: EntryType.creditCard,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+        memberPrivateKey: Uint8List(32),
+      ),
+      throwsA(
+        isA<CanonicalEntryDetailException>().having(
+          (error) => error.kind,
+          'kind',
+          CanonicalEntryDetailError.corrupt,
+        ),
+      ),
+    );
+  });
 
   test(
     'canonical restore emits operation 4 and retries identical request',

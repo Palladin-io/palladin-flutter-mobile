@@ -121,8 +121,6 @@ abstract final class AgentVisibilityProjector {
         'cardNumber',
         'expiryMonth',
         'expiryYear',
-        'securityCode',
-        'pin',
         'billingAddress',
       ])
         if (content[id] != null) id: content[id],

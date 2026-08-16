@@ -738,8 +738,6 @@ class _RevealPanel extends StatelessWidget {
             ('cardNumber', Icons.credit_card, true),
             ('expiryMonth', Icons.calendar_month, false),
             ('expiryYear', Icons.event, false),
-            ('securityCode', Icons.lock, true),
-            ('pin', Icons.pin, true),
             ('billingAddress', Icons.home, false),
           ])
             if ((payload[cardField.$1] as String?)?.isNotEmpty ?? false)

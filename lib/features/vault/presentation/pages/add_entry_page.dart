@@ -98,8 +98,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
   final _cardNumberController = TextEditingController();
   final _expiryMonthController = TextEditingController();
   final _expiryYearController = TextEditingController();
-  final _securityCodeController = TextEditingController();
-  final _pinController = TextEditingController();
   final _billingAddressController = TextEditingController();
 
   EntryType _type = EntryType.credential;
@@ -115,8 +113,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
   bool _valueObscured = true;
   bool _passwordObscured = true;
   bool _cardNumberObscured = true;
-  bool _securityCodeObscured = true;
-  bool _pinObscured = true;
   bool _discoverDescription = false;
   bool _exposeUsername = true;
   bool _exposeDomain = true;
@@ -183,8 +179,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
       _cardNumberController,
       _expiryMonthController,
       _expiryYearController,
-      _securityCodeController,
-      _pinController,
       _billingAddressController,
     ]) {
       controller.clear();
@@ -202,8 +196,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
       _cardNumberController,
       _expiryMonthController,
       _expiryYearController,
-      _securityCodeController,
-      _pinController,
       _billingAddressController,
     ]) {
       controller.dispose();
@@ -224,7 +216,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
         cardNumber: _cardNumberController.text,
         expiryMonth: _expiryMonthController.text,
         expiryYear: _expiryYearController.text,
-        securityCode: _securityCodeController.text,
       );
 
   /// Loads the vault's key/credential entries so a Script entry can point
@@ -277,8 +268,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
     cardNumber: _cardNumberController.text,
     expiryMonth: _expiryMonthController.text,
     expiryYear: _expiryYearController.text,
-    securityCode: _securityCodeController.text,
-    pin: _pinController.text,
     billingAddress: _billingAddressController.text,
   );
 
@@ -439,30 +428,6 @@ class _AddEntryViewState extends State<_AddEntryView> {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: AppSpacing.fieldGap),
-        OnboardingTextField(
-          label: l10n.entrySecurityCodeLabel,
-          controller: _securityCodeController,
-          obscureText: _securityCodeObscured,
-          keyboardType: TextInputType.number,
-          onChanged: (_) => setState(() {}),
-          suffixIcon: EntryObscureToggle(
-            obscured: _securityCodeObscured,
-            onPressed: () =>
-                setState(() => _securityCodeObscured = !_securityCodeObscured),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.fieldGap),
-        OnboardingTextField(
-          label: l10n.entryPinLabel,
-          controller: _pinController,
-          obscureText: _pinObscured,
-          keyboardType: TextInputType.number,
-          suffixIcon: EntryObscureToggle(
-            obscured: _pinObscured,
-            onPressed: () => setState(() => _pinObscured = !_pinObscured),
-          ),
         ),
         const SizedBox(height: AppSpacing.fieldGap),
         OnboardingTextField(

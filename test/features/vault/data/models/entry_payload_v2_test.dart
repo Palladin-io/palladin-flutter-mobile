@@ -219,6 +219,60 @@ void main() {
     });
   });
 
+  group('CreditCardPayload v2', () {
+    test('round-trips canonical fields and neutral custom fields', () {
+      final payload = CreditCardPayload(
+        cardholderName: 'Ada Lovelace',
+        cardNumber: '4242424242424242',
+        expiryMonth: '12',
+        expiryYear: '2030',
+        billingAddress: '1 Example Street',
+        notes: 'Travel card',
+        fields: [
+          CustomField.concealed(id: 'card-cvv', label: 'CVV', value: '123'),
+          CustomField.concealed(id: 'card-pin', label: 'PIN', value: '4321'),
+        ],
+      );
+
+      final json = payload.toJson();
+      expect(json.containsKey('securityCode'), isFalse);
+      expect(json.containsKey('pin'), isFalse);
+
+      final parsed = CreditCardPayload.fromJson(json);
+      expect(parsed.cardholderName, 'Ada Lovelace');
+      expect(parsed.cardNumber, '4242424242424242');
+      expect(parsed.expiryMonth, '12');
+      expect(parsed.expiryYear, '2030');
+      expect(parsed.billingAddress, '1 Example Street');
+      expect(parsed.notes, 'Travel card');
+      expect(parsed.fields.map((field) => field.label), ['CVV', 'PIN']);
+    });
+
+    test('rejects the retired strict payload instead of adapting it', () {
+      final canonical = <String, dynamic>{
+        'v': 2,
+        'type': 'CREDIT_CARD',
+        'cardholderName': 'Ada Lovelace',
+        'cardNumber': '4242424242424242',
+        'expiryMonth': '12',
+        'expiryYear': '2030',
+      };
+
+      for (final retired in const {
+        'securityCode': '123',
+        'pin': '4321',
+      }.entries) {
+        expect(
+          () => CreditCardPayload.fromJson({
+            ...canonical,
+            retired.key: retired.value,
+          }),
+          throwsFormatException,
+        );
+      }
+    });
+  });
+
   group('ScriptPayload v2', () {
     test('round-trips script, interpreter, refs and fields', () {
       final payload = ScriptPayload(

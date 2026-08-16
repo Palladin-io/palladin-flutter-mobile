@@ -3605,11 +3605,5 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryExpiryYearLabel => 'Rok ważności';
 
   @override
-  String get entrySecurityCodeLabel => 'Kod bezpieczeństwa';
-
-  @override
-  String get entryPinLabel => 'PIN (opcjonalnie)';
-
-  @override
   String get entryBillingAddressLabel => 'Adres rozliczeniowy (opcjonalnie)';
 }

@@ -80,7 +80,9 @@ The decrypted entry blob is **additive v2**: well-known fields stay top-level, a
 entry type (`EntryType.script`, wire `2`) carries `script` / `interpreter`
 (`bash|sh|node|python`) / `refs[]` (explicit `env → entryId.field` mappings).
 `EntryType.creditCard` (wire `3`) carries cardholder name, PAN, expiry
-month/year, security code, optional PIN and billing address. Its Agent fields
+month/year and optional billing address. It has no dedicated CVV/CVC or PIN
+field. General custom fields remain neutral and are not detected, promoted, or
+autofilled as card-verification data. Its Agent fields
 are runtime-only, Discovery advertises only `inject`, and grant descriptors use
 authenticated delivery policy `2` (`InjectOnly`); `get`/`exec` never receive the
 card envelope. Entry type remains inside encrypted projections and is omitted

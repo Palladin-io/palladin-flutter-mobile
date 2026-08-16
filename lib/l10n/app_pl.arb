@@ -1064,7 +1064,5 @@
   "entryCardNumberLabel": "Numer karty",
   "entryExpiryMonthLabel": "Miesiąc ważności",
   "entryExpiryYearLabel": "Rok ważności",
-  "entrySecurityCodeLabel": "Kod bezpieczeństwa",
-  "entryPinLabel": "PIN (opcjonalnie)",
   "entryBillingAddressLabel": "Adres rozliczeniowy (opcjonalnie)"
 }

@@ -124,15 +124,9 @@ final class AgentVisibilityPolicy {
         AgentFieldAccess.never,
         AgentFieldAccess.onGrantRuntime,
       },
-      'cardNumber' ||
-      'expiryMonth' ||
-      'expiryYear' ||
-      'securityCode' ||
-      'pin' ||
-      'billingAddress' when type == EntryType.creditCard => const {
-        AgentFieldAccess.never,
-        AgentFieldAccess.onGrantRuntime,
-      },
+      'cardNumber' || 'expiryMonth' || 'expiryYear' || 'billingAddress'
+          when type == EntryType.creditCard =>
+        const {AgentFieldAccess.never, AgentFieldAccess.onGrantRuntime},
       _ => _customAllowed(type, id, content),
     };
   }

@@ -86,8 +86,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   final _cardNumberController = TextEditingController();
   final _expiryMonthController = TextEditingController();
   final _expiryYearController = TextEditingController();
-  final _securityCodeController = TextEditingController();
-  final _pinController = TextEditingController();
   final _billingAddressController = TextEditingController();
 
   EntryType _type = EntryType.credential;
@@ -102,7 +100,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   bool _reservingIcon = false;
   bool _valueObscured = true;
   bool _passwordObscured = true;
-  bool _pinObscured = true;
   bool _populated = false;
   int _plaintextEpoch = 0;
   AgentVisibilityPolicy? _agentPolicy;
@@ -240,8 +237,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _cardNumberController.dispose();
     _expiryMonthController.dispose();
     _expiryYearController.dispose();
-    _securityCodeController.dispose();
-    _pinController.dispose();
     _billingAddressController.dispose();
     super.dispose();
   }
@@ -282,8 +277,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _cardNumberController.clear();
     _expiryMonthController.clear();
     _expiryYearController.clear();
-    _securityCodeController.clear();
-    _pinController.clear();
     _billingAddressController.clear();
     _customFields = const [];
     _totpFields = const [];
@@ -350,9 +343,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         _cardNumberController.text = (payload['cardNumber'] as String?) ?? '';
         _expiryMonthController.text = (payload['expiryMonth'] as String?) ?? '';
         _expiryYearController.text = (payload['expiryYear'] as String?) ?? '';
-        _securityCodeController.text =
-            (payload['securityCode'] as String?) ?? '';
-        _pinController.text = (payload['pin'] as String?) ?? '';
         _billingAddressController.text =
             (payload['billingAddress'] as String?) ?? '';
     }
@@ -422,7 +412,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       _urlError = null;
       _valueObscured = true;
       _passwordObscured = true;
-      _pinObscured = true;
       _editMode = true;
     });
     if (_type == EntryType.script) _ensureVaultEntriesLoaded();
@@ -482,7 +471,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         cardNumber: _cardNumberController.text,
         expiryMonth: _expiryMonthController.text,
         expiryYear: _expiryYearController.text,
-        securityCode: _securityCodeController.text,
       );
 
   Map<String, dynamic> _buildPayload() => EntryFormUtils.buildPayload(
@@ -501,8 +489,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     cardNumber: _cardNumberController.text,
     expiryMonth: _expiryMonthController.text,
     expiryYear: _expiryYearController.text,
-    securityCode: _securityCodeController.text,
-    pin: _pinController.text,
     billingAddress: _billingAddressController.text,
   );
 
@@ -981,8 +967,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
             Icons.calendar_month,
             false,
           ),
-          ('securityCode', l10n.entrySecurityCodeLabel, Icons.lock, true),
-          ('pin', l10n.entryPinLabel, Icons.pin, true),
           ('billingAddress', l10n.entryBillingAddressLabel, Icons.home, false),
         ]) {
           final text = payload[item.$1] as String? ?? '';
@@ -1356,32 +1340,6 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
           keyboardType: TextInputType.number,
           textInputAction: TextInputAction.next,
           onChanged: (_) => setState(() {}),
-        ),
-        const SizedBox(height: AppSpacing.fieldGap),
-        OnboardingTextField(
-          label: l10n.entrySecurityCodeLabel,
-          controller: _securityCodeController,
-          obscureText: _passwordObscured,
-          keyboardType: TextInputType.number,
-          textInputAction: TextInputAction.next,
-          onChanged: (_) => setState(() {}),
-          suffixIcon: EntryObscureToggle(
-            obscured: _passwordObscured,
-            onPressed: () =>
-                setState(() => _passwordObscured = !_passwordObscured),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.fieldGap),
-        OnboardingTextField(
-          label: l10n.entryPinLabel,
-          controller: _pinController,
-          obscureText: _pinObscured,
-          keyboardType: TextInputType.number,
-          textInputAction: TextInputAction.next,
-          suffixIcon: EntryObscureToggle(
-            obscured: _pinObscured,
-            onPressed: () => setState(() => _pinObscured = !_pinObscured),
-          ),
         ),
         const SizedBox(height: AppSpacing.fieldGap),
         OnboardingTextField(
