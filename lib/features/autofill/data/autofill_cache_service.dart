@@ -34,13 +34,16 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
   Future<void> _sessionActivation = Future<void>.value();
   int _generation = 0;
   bool _accessRevoked = true;
+  bool _nativeBridgeUnavailable = false;
   int? _sessionToken;
   int? _cleanupToken;
 
   Future<void> beginSession() {
     final generation = ++_generation;
     _accessRevoked = false;
+    _nativeBridgeUnavailable = false;
     _sessionToken = null;
+    _cleanupToken = null;
     final activation = _activateSession(generation);
     _sessionActivation = activation;
     return _bestEffort(activation);
@@ -79,9 +82,11 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
       // key/file revocation against a replacement but does not wait for the
       // credential-identity API, which may never call back on a broken host.
       _cleanupToken = await _bridge.revokeCacheAccess();
+      _nativeBridgeUnavailable = false;
     } on MissingPluginException {
       // Test hosts and unsupported platforms have no credential provider, so
       // there is no native cache or key left to revoke.
+      _nativeBridgeUnavailable = true;
     }
     // Detach future sessions from an identity-maintenance call that may still
     // be waiting for an OS callback. Native session tokens make every late
@@ -90,11 +95,18 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
   }
 
   @override
-  Future<void> clear() {
+  Future<void> clear() async {
+    // A mutation can race the fire-and-forget unlock synchronization. Await
+    // the raw activation future so a failed native session cannot turn this
+    // security boundary into a successful no-op.
+    await _sessionActivation;
     ++_generation;
     final token = _sessionToken ?? _cleanupToken;
-    if (token == null) return Future<void>.value();
-    return _enqueue(() => _clearNative(token));
+    if (token == null) {
+      if (_nativeBridgeUnavailable) return;
+      throw StateError('AutoFill cache session is unavailable');
+    }
+    await _enqueue(() => _clearNative(token));
   }
 
   Future<void> clearAndSynchronize({required Uint8List privateKey}) {
@@ -128,11 +140,19 @@ class AutoFillCacheService implements AutoFillCacheInvalidator {
         return;
       }
       _cleanupToken = null;
+      _nativeBridgeUnavailable = false;
       _sessionToken = token;
     } on MissingPluginException {
+      if (generation == _generation) {
+        _accessRevoked = true;
+        _nativeBridgeUnavailable = true;
+      }
       return;
     } catch (_) {
-      if (generation == _generation) _accessRevoked = true;
+      if (generation == _generation) {
+        _accessRevoked = true;
+        _nativeBridgeUnavailable = false;
+      }
       rethrow;
     }
   }

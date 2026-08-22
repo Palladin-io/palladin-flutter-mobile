@@ -58,7 +58,9 @@
    race while the first sync is still starting.
 2. Canonical create, update, restore, delete/archive, and permanent purge, plus
    multi-step import, await successful native cache clearing before sending the
-   first remote mutation. A failed clear aborts the remote transition. Rebuild
+   first remote mutation. Cache clearing awaits native session activation; a
+   failed activation or missing token fails closed instead of acknowledging a
+   no-op. A failed clear aborts the remote transition. Rebuild
    occurs only after a definitive HTTP result; a final transport failure is
    ambiguous, so the cache remains empty until the next authoritative
    synchronization. Overlapping cache-sensitive mutations form one

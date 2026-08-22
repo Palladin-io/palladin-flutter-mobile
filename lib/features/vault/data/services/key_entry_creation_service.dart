@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../../../autofill/data/autofill_mutation_notifier.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/vault_plaintext.dart';
+import '../../domain/exceptions/entry_exceptions.dart';
 import '../datasources/entry_remote_datasource.dart';
 import '../datasources/vault_remote_datasource.dart';
 import '../models/entry_v2_contracts.dart';
@@ -202,7 +203,14 @@ final class KeyEntryCreationService {
     // If both attempts fail without an HTTP response, the outcome is
     // ambiguous and AutoFill intentionally remains empty until the next
     // authoritative synchronization.
-    final mutation = await _autoFillMutationNotifier.beginMutation();
+    late final AutoFillMutationLease mutation;
+    try {
+      mutation = await _autoFillMutationNotifier.beginMutation();
+    } catch (_) {
+      // The remote transition has not started. Preserve the typed retryable
+      // contract used by CreateEntryCubit without exposing platform details.
+      throw const EntryException(EntryErrorKind.networkError);
+    }
     for (var attempt = 0; attempt < 2; attempt += 1) {
       try {
         await _entries.createCanonicalEntry(vaultId, request);

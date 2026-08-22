@@ -492,6 +492,33 @@ void main() {
     ).called(3);
   });
 
+  test('failed native session activation makes mutation clear fail', () async {
+    when(
+      bridge.beginCacheSession,
+    ).thenThrow(PlatformException(code: 'AUTOFILL_CACHE_ERROR'));
+
+    await service.beginSession();
+
+    await expectLater(service.clear(), throwsA(isA<PlatformException>()));
+    verifyNever(
+      () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
+    );
+  });
+
+  test(
+    'missing native plugin keeps mutation clear a supported no-op',
+    () async {
+      when(bridge.beginCacheSession).thenThrow(MissingPluginException());
+
+      await service.beginSession();
+      await service.clear();
+
+      verifyNever(
+        () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
+      );
+    },
+  );
+
   test('failed pre-sync clear never writes a replacement cache', () async {
     when(
       () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),

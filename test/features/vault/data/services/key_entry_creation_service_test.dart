@@ -12,6 +12,7 @@ import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_ser
 import 'package:mobile_palladin/features/vault/data/services/key_entry_creation_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
+import 'package:mobile_palladin/features/vault/domain/exceptions/entry_exceptions.dart';
 import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 
 class _Entries extends Mock implements EntryRemoteDatasource {}
@@ -259,7 +260,13 @@ void main() {
         content: {'type': 'KEY', 'value': 'secret'},
         memberPrivateKey: Uint8List(32),
       ),
-      throwsStateError,
+      throwsA(
+        isA<EntryException>().having(
+          (error) => error.kind,
+          'kind',
+          EntryErrorKind.networkError,
+        ),
+      ),
     );
 
     verifyNever(() => entries.createCanonicalEntry(vaultId, any()));
