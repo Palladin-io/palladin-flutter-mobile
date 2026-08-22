@@ -8,6 +8,14 @@ bytes as Extract salt derives separate AuthCredential and master-key outputs.
 Only AuthCredential crosses TLS. There is no Account Secret, legacy profile,
 migration endpoint, fallback, or persistent client KDF secret.
 
+When password verification returns a TOTP challenge, `LoginCubit` retains only
+the opaque challenge token, account id, and derived master key in memory. An
+invalid code or HTTP 429 keeps that same challenge retryable; the UI localizes
+the typed failure and may use `Retry-After` without re-running Argon2id. A
+successful session, any non-retryable failure, or closing the cubit clears the
+challenge and zeroes the owned master-key buffer. None of this pending material
+is written to token storage, logs, analytics, or widget state.
+
 OAuth 2.0 login (Google, Apple, X via `flutter_appauth`).
 
 - **BLoC:** `AuthBloc` / `AuthEvent` / `AuthState`.
