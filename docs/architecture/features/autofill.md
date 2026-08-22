@@ -90,8 +90,11 @@
 
 ## Required device QA
 
-- Android: Chrome login form, biometric success/cancel/failure, stale-cache
-  mutation test, logout wipe, biometric enrollment change.
+- Android: select Palladin as the system AutoFill provider. On Chrome versions
+  that expose their own `Autofill services` preference, also select `Autofill
+  using another service` and restart Chrome before testing the login form.
+  Then verify biometric success/cancel/failure, stale-cache mutation, logout
+  wipe, and biometric enrollment change.
 - iOS: Safari login form, identity selection, biometric success/cancel/failure,
   stale-cache mutation test, logout wipe, biometric enrollment change.
 - Native Android application forms return datasets only for exact hosts backed
