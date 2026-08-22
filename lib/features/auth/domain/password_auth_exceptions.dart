@@ -44,7 +44,9 @@ class InvalidCredentialsException implements Exception {
 /// Thrown when the login attempt is rate-limited / the account is locked
 /// after too many failures (HTTP 429).
 class LoginRateLimitedException implements Exception {
-  const LoginRateLimitedException();
+  const LoginRateLimitedException({this.retryAfterSeconds});
+
+  final int? retryAfterSeconds;
 
   @override
   String toString() => 'LoginRateLimitedException';

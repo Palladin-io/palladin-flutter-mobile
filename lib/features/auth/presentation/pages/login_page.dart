@@ -326,8 +326,10 @@ class _LoginViewState extends State<_LoginView> {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     final isVerifying = state is LoginTotpVerifying;
+    final challengeError = state is LoginTotpChallenge ? state.error : null;
     final hasError =
-        state is LoginTotpChallenge && state.error is TotpInvalidException;
+        challengeError is TotpInvalidException ||
+        challengeError is LoginRateLimitedException;
     final canSubmit = !isVerifying && _codeController.text.trim().isNotEmpty;
 
     return Column(
@@ -379,7 +381,9 @@ class _LoginViewState extends State<_LoginView> {
                 feedbackVisible: hasError,
                 feedbackReserveSpace: false,
                 feedbackChild: Text(
-                  l10n.authTotpInvalid,
+                  challengeError is LoginRateLimitedException
+                      ? l10n.authRateLimited
+                      : l10n.authTotpInvalid,
                   style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.brandRed,

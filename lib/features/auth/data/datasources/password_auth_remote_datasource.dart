@@ -37,6 +37,7 @@ class PasswordAuthRemoteDatasource {
       );
       return LoginKdfBootstrap.fromJson(_requireBody(response));
     } on DioException catch (e) {
+      if (e.response?.statusCode == 429) throw _rateLimited(e);
       throw PasswordAuthServerException(_classify(e));
     }
   }
@@ -79,14 +80,14 @@ class PasswordAuthRemoteDatasource {
     } on DioException catch (e) {
       final status = e.response?.statusCode;
       if (status == 401) throw const InvalidCredentialsException();
-      if (status == 429) throw const LoginRateLimitedException();
+      if (status == 429) throw _rateLimited(e);
       throw PasswordAuthServerException(_classify(e));
     }
   }
 
   /// `POST /api/auth/login/totp` — completes the TOTP challenge with a
   /// 6-digit code or a recovery code. Throws [TotpInvalidException] on a
-  /// wrong / expired code.
+  /// wrong / expired code and [LoginRateLimitedException] on 429.
   Future<PasswordSessionModel> loginTotp({
     required String challengeToken,
     required String code,
@@ -100,6 +101,7 @@ class PasswordAuthRemoteDatasource {
     } on DioException catch (e) {
       final status = e.response?.statusCode;
       if (status == 401 || status == 400) throw const TotpInvalidException();
+      if (status == 429) throw _rateLimited(e);
       throw PasswordAuthServerException(_classify(e));
     }
   }
@@ -227,6 +229,26 @@ class PasswordAuthRemoteDatasource {
       return VerificationTokenErrorKind.invalid;
     }
     return null;
+  }
+
+  LoginRateLimitedException _rateLimited(DioException error) {
+    final value = error.response?.headers.value(HttpHeaders.retryAfterHeader);
+    if (value == null) return const LoginRateLimitedException();
+
+    final seconds = int.tryParse(value);
+    if (seconds != null && seconds > 0) {
+      return LoginRateLimitedException(retryAfterSeconds: seconds);
+    }
+
+    try {
+      final retryAt = HttpDate.parse(value).toUtc();
+      final remaining = retryAt.difference(DateTime.now().toUtc()).inSeconds;
+      return LoginRateLimitedException(
+        retryAfterSeconds: remaining > 0 ? remaining : 1,
+      );
+    } on FormatException {
+      return const LoginRateLimitedException();
+    }
   }
 
   PasswordAuthServerErrorKind _classify(DioException e) {

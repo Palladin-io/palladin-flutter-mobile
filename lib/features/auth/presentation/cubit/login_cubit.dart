@@ -134,6 +134,9 @@ class LoginCubit extends Cubit<LoginState> {
     } on TotpInvalidException {
       AppLogger.w('Login', 'TOTP code rejected');
       emit(const LoginTotpChallenge(error: TotpInvalidException()));
+    } on LoginRateLimitedException catch (error) {
+      AppLogger.w('Login', 'TOTP verification rate-limited');
+      emit(LoginTotpChallenge(error: error));
     } catch (e, s) {
       AppLogger.w('Login', 'TOTP verification failed: ${e.runtimeType}');
       _clearSecrets();
