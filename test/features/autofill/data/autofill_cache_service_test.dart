@@ -492,6 +492,33 @@ void main() {
     ).called(3);
   });
 
+  test('failed native session activation makes mutation clear fail', () async {
+    when(
+      bridge.beginCacheSession,
+    ).thenThrow(PlatformException(code: 'AUTOFILL_CACHE_ERROR'));
+
+    await service.beginSession();
+
+    await expectLater(service.clear(), throwsA(isA<PlatformException>()));
+    verifyNever(
+      () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
+    );
+  });
+
+  test(
+    'missing native plugin keeps mutation clear a supported no-op',
+    () async {
+      when(bridge.beginCacheSession).thenThrow(MissingPluginException());
+
+      await service.beginSession();
+      await service.clear();
+
+      verifyNever(
+        () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
+      );
+    },
+  );
+
   test('failed pre-sync clear never writes a replacement cache', () async {
     when(
       () => bridge.clearCache(sessionToken: any(named: 'sessionToken')),
@@ -515,10 +542,109 @@ void main() {
       ]),
     );
 
-    notifier.notifyInvalidated();
-    notifier.notifyChanged();
+    await notifier.notifyInvalidated();
+    await notifier.notifyChanged();
 
     await events;
+  });
+
+  test('beginMutation waits for the native invalidation handler', () async {
+    final notifier = AutoFillMutationNotifier();
+    final invalidation = Completer<void>();
+    notifier.attachHandler((action) async {
+      if (action == AutoFillMutationAction.invalidate) {
+        await invalidation.future;
+      }
+    });
+    addTearDown(notifier.detachHandler);
+
+    var leaseCreated = false;
+    final pendingLease = notifier.beginMutation().then((lease) {
+      leaseCreated = true;
+      return lease;
+    });
+    await Future<void>.delayed(Duration.zero);
+
+    expect(leaseCreated, isFalse);
+
+    invalidation.complete();
+    final lease = await pendingLease;
+    expect(leaseCreated, isTrue);
+    await lease.complete();
+  });
+
+  test(
+    'overlapping mutations rebuild only after the whole batch is definitive',
+    () async {
+      final notifier = AutoFillMutationNotifier();
+      final actions = <AutoFillMutationAction>[];
+      final subscription = notifier.changes.listen(actions.add);
+      addTearDown(subscription.cancel);
+
+      final first = await notifier.beginMutation();
+      final second = await notifier.beginMutation();
+      await first.complete();
+      await notifier.notifyChanged();
+
+      expect(actions, [
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.invalidate,
+      ]);
+
+      await second.complete();
+
+      expect(actions, [
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.rebuild,
+      ]);
+    },
+  );
+
+  test(
+    'an ambiguous overlapping mutation suppresses the batch rebuild',
+    () async {
+      final notifier = AutoFillMutationNotifier();
+      final actions = <AutoFillMutationAction>[];
+      final subscription = notifier.changes.listen(actions.add);
+      addTearDown(subscription.cancel);
+
+      final first = await notifier.beginMutation();
+      final second = await notifier.beginMutation();
+      await first.complete();
+      await second.leaveAmbiguous();
+
+      expect(actions, [
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.invalidate,
+      ]);
+
+      final recovery = await notifier.beginMutation();
+      await recovery.complete();
+
+      expect(actions, [
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.rebuild,
+      ]);
+    },
+  );
+
+  test('standalone definitive change starts fresh after ambiguity', () async {
+    final notifier = AutoFillMutationNotifier();
+    final actions = <AutoFillMutationAction>[];
+    final subscription = notifier.changes.listen(actions.add);
+    addTearDown(subscription.cancel);
+
+    final ambiguous = await notifier.beginMutation();
+    await ambiguous.leaveAmbiguous();
+    await notifier.notifyChanged();
+
+    expect(actions, [
+      AutoFillMutationAction.invalidate,
+      AutoFillMutationAction.rebuild,
+    ]);
   });
 }
 

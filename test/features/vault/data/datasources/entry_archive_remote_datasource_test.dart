@@ -5,10 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/entry_remote_datasource.dart';
 
 class _RecordingAdapter implements HttpClientAdapter {
-  _RecordingAdapter({this.statusCode = 200, this.response});
+  _RecordingAdapter({this.statusCode = 200, this.response, this.rawBody});
 
   final int statusCode;
   final Object? response;
+  final String? rawBody;
   RequestOptions? request;
   List<int> body = const [];
 
@@ -23,7 +24,8 @@ class _RecordingAdapter implements HttpClientAdapter {
       body = await requestStream.expand((chunk) => chunk).toList();
     }
     return ResponseBody.fromString(
-      jsonEncode(response ?? {'state': 'Active', 'currentRevision': '9'}),
+      rawBody ??
+          jsonEncode(response ?? {'state': 'Active', 'currentRevision': '9'}),
       statusCode,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
@@ -36,6 +38,24 @@ class _RecordingAdapter implements HttpClientAdapter {
 }
 
 void main() {
+  test(
+    'canonical create accepts a definitive empty success response',
+    () async {
+      final adapter = _RecordingAdapter(statusCode: 201, rawBody: '');
+      final datasource = EntryRemoteDatasource(
+        Dio()..httpClientAdapter = adapter,
+      );
+
+      await datasource.createCanonicalEntry('vault-id', {
+        'entryId': 'entry-id',
+        'memberSecret': {'ciphertext': 'opaque'},
+      });
+
+      expect(adapter.request?.path, '/api/vaults/vault-id/entries');
+      expect(adapter.request?.method, 'POST');
+    },
+  );
+
   test('restore sends only the versioned opaque transition payload', () async {
     final adapter = _RecordingAdapter();
     final datasource = EntryRemoteDatasource(

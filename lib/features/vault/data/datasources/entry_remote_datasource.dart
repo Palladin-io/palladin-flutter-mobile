@@ -127,16 +127,14 @@ class EntryRemoteDatasource {
         .toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> createCanonicalEntry(
+  Future<void> createCanonicalEntry(
     String vaultId,
     Map<String, dynamic> payload,
   ) async {
-    final response = await _dio.post<Map<String, dynamic>>(
+    await _dio.post<Map<String, dynamic>>(
       '/api/vaults/$vaultId/entries',
       data: payload,
     );
-    return response.data ??
-        (throw const FormatException('Empty canonical Entry response'));
   }
 
   /// `GET /api/vaults/{vaultId}/entries` → list of entry summaries

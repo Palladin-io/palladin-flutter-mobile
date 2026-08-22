@@ -82,8 +82,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
       getIt<EncryptedPresentationAssetService>();
   final SearchSessionController _searchSession =
       getIt<SearchSessionController>();
-  late final StreamSubscription<AutoFillMutationAction>
-  _autoFillMutationSubscription;
+  late final AutoFillMutationNotifier _autoFillMutationNotifier;
 
   // In-app real-time channel (foreground). Works on the simulator too, unlike
   // FCM. Connected while authenticated; FCM/APNs covers the background.
@@ -107,8 +106,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     _pushService.onMessageReceived = _onForegroundPush;
     // In-app real-time over SignalR → same refresh handler.
     _signalR.onNotification = _onSignalRNotification;
-    _autoFillMutationSubscription = getIt<AutoFillMutationNotifier>().changes
-        .listen((action) => unawaited(_onAutoFillMutation(action)));
+    _autoFillMutationNotifier = getIt<AutoFillMutationNotifier>();
+    _autoFillMutationNotifier.attachHandler(_onAutoFillMutation);
     // Handle a cold start triggered by a notification tap. Guard on `mounted`
     // — if the app is torn down before the future resolves, the cubit may
     // already be closed (Bad state: Cubit is already closed).
@@ -132,7 +131,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _autoFillMutationSubscription.cancel();
+    _autoFillMutationNotifier.detachHandler();
     _deepLink.dispose();
     _signalR.disconnect();
     _authBloc.close();
@@ -363,12 +362,6 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   }
 
   Future<void> _onAutoFillMutation(AutoFillMutationAction action) async {
-    final state = _authBloc.state;
-    if (state is! AuthAuthenticated ||
-        state.isVaultLocked ||
-        state.privateKey == null) {
-      return;
-    }
     switch (action) {
       case AutoFillMutationAction.invalidate:
         try {
@@ -378,8 +371,15 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
             'AutoFill',
             'Mutation cache invalidation failed: ${error.runtimeType}',
           );
+          rethrow;
         }
       case AutoFillMutationAction.rebuild:
+        final state = _authBloc.state;
+        if (state is! AuthAuthenticated ||
+            state.isVaultLocked ||
+            state.privateKey == null) {
+          return;
+        }
         // A mutation invalidates the previous cache before rebuilding. If the
         // rebuild fails, leaving AutoFill empty is safer than serving stale data.
         await _autoFillCache.clearAndSynchronize(privateKey: state.privateKey!);
