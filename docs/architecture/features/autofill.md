@@ -15,7 +15,9 @@
 - Android accepts `webDomain` only when Android 12+ reports an OS-verified App
   Link for the requesting package and exact host, or when the requester is the
   explicitly allowlisted system Chrome package authenticated by its system-app
-  identity. Other native apps and sideloaded browser lookalikes fail closed.
+  identity. The manifest exposes only `com.android.chrome` to package queries
+  needed for that identity check; it does not request `QUERY_ALL_PACKAGES`.
+  Other native apps and sideloaded browser lookalikes fail closed.
 
 ## Security contract
 
