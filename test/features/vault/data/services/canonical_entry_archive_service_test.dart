@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
 import 'package:mobile_palladin/features/grants/data/datasources/grants_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/entry_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
@@ -111,6 +112,8 @@ void main() {
   late _Vaults vaults;
   late _Keys keys;
   late _RestoreCryptography cryptography;
+  late AutoFillMutationNotifier autoFillMutationNotifier;
+  late List<AutoFillMutationAction> autoFillActions;
   late CanonicalEntryDetailService service;
 
   Map<String, dynamic> header(int projection, int keyVersion) => {
@@ -165,12 +168,19 @@ void main() {
     vaults = _Vaults();
     keys = _Keys();
     cryptography = _RestoreCryptography();
+    autoFillMutationNotifier = AutoFillMutationNotifier();
+    autoFillActions = [];
+    final subscription = autoFillMutationNotifier.changes.listen(
+      autoFillActions.add,
+    );
+    addTearDown(subscription.cancel);
     service = CanonicalEntryDetailService(
       entries: entries,
       vaults: vaults,
       keys: keys,
       envelopes: cryptography,
       grants: _Grants(),
+      autoFillMutationNotifier: autoFillMutationNotifier,
     );
     when(
       () => entries.getCanonicalEntry(vaultId, entryId),
@@ -232,6 +242,10 @@ void main() {
       ]),
     );
     expect(cryptography.issuedPlaintexts, everyElement(everyElement(0)));
+    expect(autoFillActions, [
+      AutoFillMutationAction.invalidate,
+      AutoFillMutationAction.rebuild,
+    ]);
   });
 
   test('ambiguous transport retry reuses the exact prepared payload', () async {
@@ -264,6 +278,10 @@ void main() {
       canonicalizeVaultJson(requests.first),
       canonicalizeVaultJson(requests.last),
     );
+    expect(autoFillActions, [
+      AutoFillMutationAction.invalidate,
+      AutoFillMutationAction.rebuild,
+    ]);
   });
 
   test('409 is an explicit conflict and is not retried', () async {
@@ -293,6 +311,41 @@ void main() {
     verify(
       () => entries.restoreCanonicalEntry(vaultId, entryId, any()),
     ).called(1);
+    expect(autoFillActions, [
+      AutoFillMutationAction.invalidate,
+      AutoFillMutationAction.rebuild,
+    ]);
+  });
+
+  test('ambiguous restore failure leaves AutoFill invalidated', () async {
+    when(
+      () => entries.restoreCanonicalEntry(vaultId, entryId, any()),
+    ).thenThrow(
+      DioException(
+        requestOptions: RequestOptions(path: '/restore'),
+        type: DioExceptionType.connectionError,
+      ),
+    );
+
+    await expectLater(
+      service.restoreArchived(
+        vaultId: vaultId,
+        archived: archived,
+        memberPrivateKey: Uint8List(32),
+      ),
+      throwsA(
+        isA<CanonicalEntryDetailException>().having(
+          (error) => error.kind,
+          'kind',
+          CanonicalEntryDetailError.network,
+        ),
+      ),
+    );
+
+    verify(
+      () => entries.restoreCanonicalEntry(vaultId, entryId, any()),
+    ).called(2);
+    expect(autoFillActions, [AutoFillMutationAction.invalidate]);
   });
 
   test(
@@ -347,8 +400,13 @@ void main() {
       await service.purgeDeleted(vaultId: vaultId, entryId: entryId);
       verify(() => entries.destroyEntry(vaultId, entryId)).called(1);
       verifyNever(() => entries.getCanonicalEntry(any(), any()));
+      expect(autoFillActions, [
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.rebuild,
+      ]);
 
       reset(entries);
+      autoFillActions.clear();
       when(() => entries.destroyEntry(vaultId, entryId)).thenAnswer(
         (_) async => Response<void>(
           requestOptions: RequestOptions(path: '/destroy'),
@@ -365,6 +423,33 @@ void main() {
           ),
         ),
       );
+      expect(autoFillActions, [
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.rebuild,
+      ]);
     },
   );
+
+  test('ambiguous purge failure leaves AutoFill invalidated', () async {
+    when(() => entries.destroyEntry(vaultId, entryId)).thenThrow(
+      DioException(
+        requestOptions: RequestOptions(path: '/destroy'),
+        type: DioExceptionType.connectionError,
+      ),
+    );
+
+    await expectLater(
+      service.purgeDeleted(vaultId: vaultId, entryId: entryId),
+      throwsA(
+        isA<CanonicalEntryDetailException>().having(
+          (error) => error.kind,
+          'kind',
+          CanonicalEntryDetailError.network,
+        ),
+      ),
+    );
+
+    verify(() => entries.destroyEntry(vaultId, entryId)).called(2);
+    expect(autoFillActions, [AutoFillMutationAction.invalidate]);
+  });
 }

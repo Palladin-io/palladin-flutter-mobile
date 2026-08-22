@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
@@ -11,6 +12,7 @@ import 'package:mobile_palladin/features/vault/data/repositories/entry_repositor
 import 'package:mobile_palladin/features/vault/data/services/entry_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/import_draft.dart';
+import 'package:mobile_palladin/features/vault/domain/exceptions/entry_exceptions.dart';
 
 class _MockEntryRemoteDatasource extends Mock
     implements EntryRemoteDatasource {}
@@ -89,4 +91,60 @@ void main() {
       await subscription.cancel();
     },
   );
+
+  test(
+    'delete invalidates before the lifecycle mutation and rebuilds',
+    () async {
+      final entryDatasource = _MockEntryRemoteDatasource();
+      final notifier = AutoFillMutationNotifier();
+      final actions = <AutoFillMutationAction>[];
+      final subscription = notifier.changes.listen(actions.add);
+      addTearDown(subscription.cancel);
+      when(() => entryDatasource.deleteEntry('vault-1', 'entry-1')).thenAnswer((
+        _,
+      ) async {
+        expect(actions, [AutoFillMutationAction.invalidate]);
+      });
+      final repository = EntryRepositoryImpl(
+        entryDatasource: entryDatasource,
+        vaultDatasource: _MockVaultRemoteDatasource(),
+        cryptoService: _MockEntryCryptoService(),
+        autoFillMutationNotifier: notifier,
+      );
+
+      await repository.deleteEntry(vaultId: 'vault-1', entryId: 'entry-1');
+
+      expect(actions, [
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.rebuild,
+      ]);
+    },
+  );
+
+  test('ambiguous delete failure leaves AutoFill invalidated', () async {
+    final entryDatasource = _MockEntryRemoteDatasource();
+    final notifier = AutoFillMutationNotifier();
+    final actions = <AutoFillMutationAction>[];
+    final subscription = notifier.changes.listen(actions.add);
+    addTearDown(subscription.cancel);
+    when(() => entryDatasource.deleteEntry('vault-1', 'entry-1')).thenThrow(
+      DioException(
+        requestOptions: RequestOptions(path: '/entries/entry-1'),
+        type: DioExceptionType.connectionError,
+      ),
+    );
+    final repository = EntryRepositoryImpl(
+      entryDatasource: entryDatasource,
+      vaultDatasource: _MockVaultRemoteDatasource(),
+      cryptoService: _MockEntryCryptoService(),
+      autoFillMutationNotifier: notifier,
+    );
+
+    await expectLater(
+      repository.deleteEntry(vaultId: 'vault-1', entryId: 'entry-1'),
+      throwsA(isA<EntryException>()),
+    );
+
+    expect(actions, [AutoFillMutationAction.invalidate]);
+  });
 }

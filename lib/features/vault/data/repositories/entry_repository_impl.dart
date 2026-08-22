@@ -100,13 +100,22 @@ class EntryRepositoryImpl implements EntryRepository {
     required String vaultId,
     required String entryId,
   }) async {
+    final mutation = autoFillMutationNotifier?.beginMutation();
     try {
       AppLogger.d('Entry', 'DELETE /api/vaults/$vaultId/entries/$entryId');
       await entryDatasource.deleteEntry(vaultId, entryId);
-      autoFillMutationNotifier?.notifyChanged();
+      mutation?.complete();
     } on DioException catch (e, s) {
+      if (e.response != null) {
+        mutation?.complete();
+      } else {
+        mutation?.leaveAmbiguous();
+      }
       AppLogger.e('Entry', 'deleteEntry failed', error: e, stackTrace: s);
       throw EntryException(_classifyError(e));
+    } catch (_) {
+      mutation?.leaveAmbiguous();
+      rethrow;
     }
   }
 

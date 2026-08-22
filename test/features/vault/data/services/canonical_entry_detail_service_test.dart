@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/entry_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
 import 'package:mobile_palladin/features/grants/data/datasources/grants_remote_datasource.dart';
@@ -134,6 +135,8 @@ void main() {
   late _Keys keys;
   late _Grants grants;
   late _RecordingEnvelopes envelopes;
+  late AutoFillMutationNotifier autoFillMutationNotifier;
+  late List<AutoFillMutationAction> autoFillActions;
   late CanonicalEntryDetailService service;
 
   Map<String, dynamic> header(int projection, int keyVersion) => {
@@ -221,12 +224,19 @@ void main() {
     keys = _Keys();
     grants = _Grants();
     envelopes = _RecordingEnvelopes();
+    autoFillMutationNotifier = AutoFillMutationNotifier();
+    autoFillActions = [];
+    final subscription = autoFillMutationNotifier.changes.listen(
+      autoFillActions.add,
+    );
+    addTearDown(subscription.cancel);
     service = CanonicalEntryDetailService(
       entries: entries,
       vaults: vaults,
       keys: keys,
       envelopes: envelopes,
       grants: grants,
+      autoFillMutationNotifier: autoFillMutationNotifier,
     );
     when(
       () => grants.listGrants(
@@ -284,6 +294,7 @@ void main() {
           keys: keys,
           envelopes: crypto,
           grants: grants,
+          autoFillMutationNotifier: autoFillMutationNotifier,
         );
 
     setUp(() {
@@ -419,6 +430,10 @@ void main() {
       verify(
         () => entries.updateCanonicalEntry(vaultId, entryId, any()),
       ).called(1);
+      expect(autoFillActions, [
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.rebuild,
+      ]);
     },
   );
 
@@ -458,6 +473,45 @@ void main() {
     verify(
       () => entries.updateCanonicalEntry(vaultId, entryId, any()),
     ).called(1);
+    expect(autoFillActions, [
+      AutoFillMutationAction.invalidate,
+      AutoFillMutationAction.rebuild,
+    ]);
+  });
+
+  test('ambiguous update failure leaves AutoFill invalidated', () async {
+    when(() => entries.updateCanonicalEntry(vaultId, entryId, any())).thenThrow(
+      DioException(
+        requestOptions: RequestOptions(path: '/entries'),
+        type: DioExceptionType.connectionError,
+      ),
+    );
+
+    await expectLater(
+      service.update(
+        snapshot: snapshot(),
+        expected: entry,
+        label: 'New label',
+        description: '',
+        icon: '',
+        type: EntryType.credential,
+        content: {
+          'type': 'CREDENTIAL',
+          'username': 'new@example.com',
+          'password': 'new-secret',
+        },
+        memberPrivateKey: Uint8List.fromList(List<int>.filled(32, 7)),
+      ),
+      throwsA(
+        isA<CanonicalEntryDetailException>().having(
+          (error) => error.kind,
+          'kind',
+          CanonicalEntryDetailError.network,
+        ),
+      ),
+    );
+
+    expect(autoFillActions, [AutoFillMutationAction.invalidate]);
   });
 
   test(

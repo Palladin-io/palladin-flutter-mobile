@@ -56,10 +56,16 @@
    second Vault-list request or a second snapshot chain. AutoFill awaits that
    complete operation before reading the runtime index, preventing an empty-cache
    race while the first sync is still starting.
-2. Create, update, delete, vault create, and vault delete clear the old cache
-   before rebuilding it. Multi-step import invalidates after its first
-   successful write and rebuilds only after all completed writes are visible.
-   A failed rebuild therefore leaves no stale password available to AutoFill.
+2. Canonical create, update, restore, delete/archive, and permanent purge, plus
+   vault create and vault delete, clear the old cache before sending the remote
+   mutation and rebuild it only after a definitive HTTP result. A final
+   transport failure is ambiguous, so the cache remains empty until the next
+   authoritative synchronization. Overlapping canonical mutations form one
+   process-local invalidation batch: rebuild waits for every result, and one
+   ambiguous result suppresses the whole batch rebuild. Multi-step import
+   invalidates after its first successful write and rebuilds only after all
+   completed writes are visible. A failed rebuild therefore leaves no stale
+   password available to AutoFill.
 3. Ordinary vault lock keeps the encrypted cache so AutoFill can operate after
    a fresh OS biometric challenge. The Flutter private key is never copied into
    the native provider.

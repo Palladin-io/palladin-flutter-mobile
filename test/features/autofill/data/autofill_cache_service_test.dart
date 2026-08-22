@@ -520,6 +520,61 @@ void main() {
 
     await events;
   });
+
+  test(
+    'overlapping mutations rebuild only after the whole batch is definitive',
+    () {
+      final notifier = AutoFillMutationNotifier();
+      final actions = <AutoFillMutationAction>[];
+      final subscription = notifier.changes.listen(actions.add);
+      addTearDown(subscription.cancel);
+
+      final first = notifier.beginMutation();
+      final second = notifier.beginMutation();
+      first.complete();
+      notifier.notifyChanged();
+
+      expect(actions, [
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.invalidate,
+      ]);
+
+      second.complete();
+
+      expect(actions, [
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.rebuild,
+      ]);
+    },
+  );
+
+  test('an ambiguous overlapping mutation suppresses the batch rebuild', () {
+    final notifier = AutoFillMutationNotifier();
+    final actions = <AutoFillMutationAction>[];
+    final subscription = notifier.changes.listen(actions.add);
+    addTearDown(subscription.cancel);
+
+    final first = notifier.beginMutation();
+    final second = notifier.beginMutation();
+    first.complete();
+    second.leaveAmbiguous();
+
+    expect(actions, [
+      AutoFillMutationAction.invalidate,
+      AutoFillMutationAction.invalidate,
+    ]);
+
+    final recovery = notifier.beginMutation();
+    recovery.complete();
+
+    expect(actions, [
+      AutoFillMutationAction.invalidate,
+      AutoFillMutationAction.invalidate,
+      AutoFillMutationAction.invalidate,
+      AutoFillMutationAction.rebuild,
+    ]);
+  });
 }
 
 VaultEntity _vault() => VaultEntity(
