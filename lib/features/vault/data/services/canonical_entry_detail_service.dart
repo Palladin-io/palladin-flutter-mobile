@@ -2225,7 +2225,17 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     // canonical transition may already have committed. A concrete HTTP
     // response is definitive and permits an authoritative rebuild; a final
     // transport failure is ambiguous and intentionally leaves the cache empty.
-    final mutation = await _autoFillMutationNotifier.beginMutation();
+    late final AutoFillMutationLease mutation;
+    try {
+      mutation = await _autoFillMutationNotifier.beginMutation();
+    } catch (_) {
+      // Native cache invalidation is a retryable local infrastructure
+      // failure. The remote transition has not started, but callers still
+      // require this service's typed error contract to clear pending UI state.
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.network,
+      );
+    }
     for (var attempt = 0; attempt < attempts; attempt += 1) {
       try {
         final response = await operation();

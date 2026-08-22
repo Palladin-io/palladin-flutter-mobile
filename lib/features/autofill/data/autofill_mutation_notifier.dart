@@ -53,10 +53,12 @@ class AutoFillMutationNotifier {
 
   /// Rebuilds the cache after the persisted mutation is complete.
   Future<void> notifyChanged() {
-    if (_activeMutations.isEmpty && !_batchAmbiguous) {
-      return _dispatch(AutoFillMutationAction.rebuild);
-    }
-    return Future<void>.value();
+    if (_activeMutations.isNotEmpty) return Future<void>.value();
+    // A standalone definitive mutation starts a fresh batch. A previous
+    // ambiguous batch must not suppress a later authoritative rebuild.
+    _batchAmbiguous = false;
+    _batchHasDefinitiveResult = false;
+    return _dispatch(AutoFillMutationAction.rebuild);
   }
 
   /// Starts one potentially overlapping remote mutation.

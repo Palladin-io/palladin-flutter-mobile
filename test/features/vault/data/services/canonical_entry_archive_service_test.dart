@@ -452,4 +452,27 @@ void main() {
     verify(() => entries.destroyEntry(vaultId, entryId)).called(2);
     expect(autoFillActions, [AutoFillMutationAction.invalidate]);
   });
+
+  test('cache clear failure is typed and blocks permanent purge', () async {
+    autoFillMutationNotifier.attachHandler((action) async {
+      if (action == AutoFillMutationAction.invalidate) {
+        throw StateError('native clear failed');
+      }
+    });
+    addTearDown(autoFillMutationNotifier.detachHandler);
+
+    await expectLater(
+      service.purgeDeleted(vaultId: vaultId, entryId: entryId),
+      throwsA(
+        isA<CanonicalEntryDetailException>().having(
+          (error) => error.kind,
+          'kind',
+          CanonicalEntryDetailError.network,
+        ),
+      ),
+    );
+
+    verifyNever(() => entries.destroyEntry(any(), any()));
+    expect(autoFillActions, [AutoFillMutationAction.invalidate]);
+  });
 }

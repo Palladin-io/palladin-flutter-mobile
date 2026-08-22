@@ -603,6 +603,22 @@ void main() {
       ]);
     },
   );
+
+  test('standalone definitive change starts fresh after ambiguity', () async {
+    final notifier = AutoFillMutationNotifier();
+    final actions = <AutoFillMutationAction>[];
+    final subscription = notifier.changes.listen(actions.add);
+    addTearDown(subscription.cancel);
+
+    final ambiguous = await notifier.beginMutation();
+    await ambiguous.leaveAmbiguous();
+    await notifier.notifyChanged();
+
+    expect(actions, [
+      AutoFillMutationAction.invalidate,
+      AutoFillMutationAction.rebuild,
+    ]);
+  });
 }
 
 VaultEntity _vault() => VaultEntity(
