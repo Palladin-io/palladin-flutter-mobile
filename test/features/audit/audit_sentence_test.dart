@@ -50,6 +50,25 @@ void main() {
       spans.where((s) => s.bold).map((s) => s.text.trim()).toList();
 
   group('auditEventSentence — who + action + object', () {
+    test('failed login does not present the target account as the actor', () {
+      final spans = auditEventSentence(
+        en,
+        _entry(
+          AuditEventType.loginFailed,
+          actorType: AuditActorType.system,
+          metadata: const {
+            'factor': 'password',
+            'targetUserId': 'target-user-id',
+          },
+        ),
+        const {},
+      )!;
+
+      expect(plain(spans), 'Failed login attempt');
+      expect(bold(spans), isEmpty);
+      expect(plain(spans), isNot(contains('target-user-id')));
+    });
+
     test('vault.created with a name reads actor + action + bold object', () {
       final spans = auditEventSentence(
         en,

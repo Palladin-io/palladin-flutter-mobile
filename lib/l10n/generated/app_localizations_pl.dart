@@ -2561,6 +2561,9 @@ class AppLocalizationsPl extends AppLocalizations {
       'Ukończono odzyskiwanie konta';
 
   @override
+  String get auditEventLoginFailed => 'Nieudane logowanie';
+
+  @override
   String get auditEventUnknown => 'Aktywność';
 
   @override
@@ -2665,6 +2668,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String auditSentenceAccountRecoveryCompleted(String actor) {
     return '$actor: ukończono odzyskiwanie konta';
   }
+
+  @override
+  String get auditSentenceLoginFailed => 'Nieudana próba logowania';
 
   @override
   String auditSentenceAgentEnrolled(String agent) {
