@@ -8,6 +8,11 @@ bytes as Extract salt derives separate AuthCredential and master-key outputs.
 Only AuthCredential crosses TLS. There is no Account Secret, legacy profile,
 migration endpoint, fallback, or persistent client KDF secret.
 
+The anonymous login bootstrap is shape-identical for registered and unknown
+emails. Unknown emails receive a stable deterministic UUIDv4 AccountId and KDF
+salt; the client runs the same full KDF and submits AuthCredential before the
+backend rejects the login. It never substitutes a local sentinel identifier.
+
 When password verification returns a TOTP challenge, `LoginCubit` retains only
 the opaque challenge token, account id, and derived master key in memory. An
 invalid code or HTTP 429 keeps that same challenge retryable; the UI localizes

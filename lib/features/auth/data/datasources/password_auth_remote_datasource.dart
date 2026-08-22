@@ -248,6 +248,8 @@ class PasswordAuthRemoteDatasource {
       );
     } on FormatException {
       return const LoginRateLimitedException();
+    } on HttpException {
+      return const LoginRateLimitedException();
     }
   }
 
@@ -280,7 +282,7 @@ final class LoginKdfBootstrap {
     required this.parallelism,
   });
 
-  final String? accountId;
+  final String accountId;
   final String profileId;
   final int securityVersion;
   final String kdfSalt;
@@ -290,7 +292,7 @@ final class LoginKdfBootstrap {
 
   factory LoginKdfBootstrap.fromJson(Map<String, dynamic> json) =>
       LoginKdfBootstrap(
-        accountId: json['accountId'] as String?,
+        accountId: json['accountId'] as String,
         profileId: json['profileId'] as String,
         securityVersion: json['securityVersion'] as int,
         kdfSalt: json['kdfSalt'] as String,

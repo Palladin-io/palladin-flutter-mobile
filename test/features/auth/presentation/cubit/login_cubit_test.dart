@@ -130,11 +130,12 @@ void main() {
   );
 
   test('unknown account still performs the KDF and backend login', () async {
+    const pseudoAccountId = 'ffeeddcc-bbaa-4a99-8877-665544332211';
     when(
       () => datasource.fetchLoginKdf(any(), profileId: any(named: 'profileId')),
     ).thenAnswer(
       (_) async => const LoginKdfBootstrap(
-        accountId: null,
+        accountId: pseudoAccountId,
         profileId: IdentityKdfProfile.id,
         securityVersion: IdentityKdfProfile.securityVersion,
         kdfSalt: 'AAECAwQFBgcICQoLDA0ODw',
@@ -165,7 +166,7 @@ void main() {
     verify(
       () => identityKdfService.derive(
         password: 'password',
-        accountId: '00000000-0000-4000-8000-000000000000',
+        accountId: pseudoAccountId,
         kdfSalt: any(named: 'kdfSalt'),
       ),
     ).called(1);

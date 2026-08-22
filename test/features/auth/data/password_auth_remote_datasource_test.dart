@@ -6,6 +6,10 @@ import 'package:mobile_palladin/features/auth/data/datasources/password_auth_rem
 import 'package:mobile_palladin/features/auth/domain/password_auth_exceptions.dart';
 
 class _RateLimitedAdapter implements HttpClientAdapter {
+  _RateLimitedAdapter([this.retryAfter = '45']);
+
+  final String retryAfter;
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -16,7 +20,7 @@ class _RateLimitedAdapter implements HttpClientAdapter {
     429,
     headers: {
       Headers.contentTypeHeader: ['application/json'],
-      'retry-after': ['45'],
+      'retry-after': [retryAfter],
     },
   );
 
@@ -71,4 +75,26 @@ void main() {
       throwsA(isA<LoginRateLimitedException>()),
     );
   });
+
+  for (final retryAfter in ['not-an-http-date', '0']) {
+    test('malformed Retry-After "$retryAfter" remains a typed 429', () async {
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test'));
+      dio.httpClientAdapter = _RateLimitedAdapter(retryAfter);
+      final malformedDatasource = PasswordAuthRemoteDatasource(dio);
+
+      await expectLater(
+        malformedDatasource.loginTotp(
+          challengeToken: 'challenge',
+          code: '123456',
+        ),
+        throwsA(
+          isA<LoginRateLimitedException>().having(
+            (error) => error.retryAfterSeconds,
+            'retryAfterSeconds',
+            isNull,
+          ),
+        ),
+      );
+    });
+  }
 }
