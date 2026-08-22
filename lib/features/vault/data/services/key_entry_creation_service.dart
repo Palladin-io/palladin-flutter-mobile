@@ -202,26 +202,26 @@ final class KeyEntryCreationService {
     // If both attempts fail without an HTTP response, the outcome is
     // ambiguous and AutoFill intentionally remains empty until the next
     // authoritative synchronization.
-    final mutation = _autoFillMutationNotifier.beginMutation();
+    final mutation = await _autoFillMutationNotifier.beginMutation();
     for (var attempt = 0; attempt < 2; attempt += 1) {
       try {
         await _entries.createCanonicalEntry(vaultId, request);
-        mutation.complete();
+        await mutation.complete();
         return;
       } on DioException catch (error) {
         if (error.response != null) {
           // A concrete HTTP rejection did not leave an ambiguous mutation.
-          mutation.complete();
+          await mutation.complete();
           rethrow;
         }
         if (attempt == 1) {
-          mutation.leaveAmbiguous();
+          await mutation.leaveAmbiguous();
           rethrow;
         }
         // Retry the byte-identical immutable transition. The backend
         // recognizes an exact-create retry after a lost 201 response.
       } catch (_) {
-        mutation.leaveAmbiguous();
+        await mutation.leaveAmbiguous();
         rethrow;
       }
     }

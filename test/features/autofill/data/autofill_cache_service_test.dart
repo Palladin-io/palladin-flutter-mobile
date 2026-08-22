@@ -515,31 +515,56 @@ void main() {
       ]),
     );
 
-    notifier.notifyInvalidated();
-    notifier.notifyChanged();
+    await notifier.notifyInvalidated();
+    await notifier.notifyChanged();
 
     await events;
   });
 
+  test('beginMutation waits for the native invalidation handler', () async {
+    final notifier = AutoFillMutationNotifier();
+    final invalidation = Completer<void>();
+    notifier.attachHandler((action) async {
+      if (action == AutoFillMutationAction.invalidate) {
+        await invalidation.future;
+      }
+    });
+    addTearDown(notifier.detachHandler);
+
+    var leaseCreated = false;
+    final pendingLease = notifier.beginMutation().then((lease) {
+      leaseCreated = true;
+      return lease;
+    });
+    await Future<void>.delayed(Duration.zero);
+
+    expect(leaseCreated, isFalse);
+
+    invalidation.complete();
+    final lease = await pendingLease;
+    expect(leaseCreated, isTrue);
+    await lease.complete();
+  });
+
   test(
     'overlapping mutations rebuild only after the whole batch is definitive',
-    () {
+    () async {
       final notifier = AutoFillMutationNotifier();
       final actions = <AutoFillMutationAction>[];
       final subscription = notifier.changes.listen(actions.add);
       addTearDown(subscription.cancel);
 
-      final first = notifier.beginMutation();
-      final second = notifier.beginMutation();
-      first.complete();
-      notifier.notifyChanged();
+      final first = await notifier.beginMutation();
+      final second = await notifier.beginMutation();
+      await first.complete();
+      await notifier.notifyChanged();
 
       expect(actions, [
         AutoFillMutationAction.invalidate,
         AutoFillMutationAction.invalidate,
       ]);
 
-      second.complete();
+      await second.complete();
 
       expect(actions, [
         AutoFillMutationAction.invalidate,
@@ -549,32 +574,35 @@ void main() {
     },
   );
 
-  test('an ambiguous overlapping mutation suppresses the batch rebuild', () {
-    final notifier = AutoFillMutationNotifier();
-    final actions = <AutoFillMutationAction>[];
-    final subscription = notifier.changes.listen(actions.add);
-    addTearDown(subscription.cancel);
+  test(
+    'an ambiguous overlapping mutation suppresses the batch rebuild',
+    () async {
+      final notifier = AutoFillMutationNotifier();
+      final actions = <AutoFillMutationAction>[];
+      final subscription = notifier.changes.listen(actions.add);
+      addTearDown(subscription.cancel);
 
-    final first = notifier.beginMutation();
-    final second = notifier.beginMutation();
-    first.complete();
-    second.leaveAmbiguous();
+      final first = await notifier.beginMutation();
+      final second = await notifier.beginMutation();
+      await first.complete();
+      await second.leaveAmbiguous();
 
-    expect(actions, [
-      AutoFillMutationAction.invalidate,
-      AutoFillMutationAction.invalidate,
-    ]);
+      expect(actions, [
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.invalidate,
+      ]);
 
-    final recovery = notifier.beginMutation();
-    recovery.complete();
+      final recovery = await notifier.beginMutation();
+      await recovery.complete();
 
-    expect(actions, [
-      AutoFillMutationAction.invalidate,
-      AutoFillMutationAction.invalidate,
-      AutoFillMutationAction.invalidate,
-      AutoFillMutationAction.rebuild,
-    ]);
-  });
+      expect(actions, [
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.rebuild,
+      ]);
+    },
+  );
 }
 
 VaultEntity _vault() => VaultEntity(

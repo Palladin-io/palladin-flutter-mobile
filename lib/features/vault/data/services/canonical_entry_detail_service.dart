@@ -2225,23 +2225,23 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     // canonical transition may already have committed. A concrete HTTP
     // response is definitive and permits an authoritative rebuild; a final
     // transport failure is ambiguous and intentionally leaves the cache empty.
-    final mutation = _autoFillMutationNotifier.beginMutation();
+    final mutation = await _autoFillMutationNotifier.beginMutation();
     for (var attempt = 0; attempt < attempts; attempt += 1) {
       try {
         final response = await operation();
-        mutation.complete();
+        await mutation.complete();
         return response;
       } on DioException catch (error) {
         if (error.response != null) {
-          mutation.complete();
+          await mutation.complete();
           rethrow;
         }
         if (attempt + 1 == attempts) {
-          mutation.leaveAmbiguous();
+          await mutation.leaveAmbiguous();
           rethrow;
         }
       } catch (_) {
-        mutation.leaveAmbiguous();
+        await mutation.leaveAmbiguous();
         rethrow;
       }
     }

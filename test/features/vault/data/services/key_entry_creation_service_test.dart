@@ -141,7 +141,7 @@ void main() {
     );
     when(
       () => entries.createCanonicalEntry(vaultId, any()),
-    ).thenAnswer((_) async => {});
+    ).thenAnswer((_) async {});
   });
 
   KeyEntryCreationService service() => KeyEntryCreationService(
@@ -209,7 +209,6 @@ void main() {
             type: DioExceptionType.connectionError,
           );
         }
-        return {};
       });
       await service().create(
         vaultId: vaultId,
@@ -242,6 +241,30 @@ void main() {
       ]);
     },
   );
+
+  test('failed cache invalidation prevents the remote create', () async {
+    autoFillMutationNotifier.attachHandler((action) async {
+      if (action == AutoFillMutationAction.invalidate) {
+        throw StateError('native clear failed');
+      }
+    });
+    addTearDown(autoFillMutationNotifier.detachHandler);
+
+    await expectLater(
+      service().create(
+        vaultId: vaultId,
+        label: 'Key',
+        description: '',
+        icon: '',
+        content: {'type': 'KEY', 'value': 'secret'},
+        memberPrivateKey: Uint8List(32),
+      ),
+      throwsStateError,
+    );
+
+    verifyNever(() => entries.createCanonicalEntry(vaultId, any()));
+    expect(autoFillActions, [AutoFillMutationAction.invalidate]);
+  });
 
   test('ambiguous create failure leaves AutoFill invalidated', () async {
     when(() => entries.createCanonicalEntry(vaultId, any())).thenThrow(

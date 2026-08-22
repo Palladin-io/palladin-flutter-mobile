@@ -87,7 +87,7 @@ class EntryRepositoryImpl implements EntryRepository {
           agentFields: agentFields,
         ),
       );
-      autoFillMutationNotifier?.notifyChanged();
+      await autoFillMutationNotifier?.notifyChanged();
       return model.toEntity();
     } on DioException catch (e, s) {
       AppLogger.e('Entry', 'createEntry failed', error: e, stackTrace: s);
@@ -100,21 +100,21 @@ class EntryRepositoryImpl implements EntryRepository {
     required String vaultId,
     required String entryId,
   }) async {
-    final mutation = autoFillMutationNotifier?.beginMutation();
+    final mutation = await autoFillMutationNotifier?.beginMutation();
     try {
       AppLogger.d('Entry', 'DELETE /api/vaults/$vaultId/entries/$entryId');
       await entryDatasource.deleteEntry(vaultId, entryId);
-      mutation?.complete();
+      await mutation?.complete();
     } on DioException catch (e, s) {
       if (e.response != null) {
-        mutation?.complete();
+        await mutation?.complete();
       } else {
-        mutation?.leaveAmbiguous();
+        await mutation?.leaveAmbiguous();
       }
       AppLogger.e('Entry', 'deleteEntry failed', error: e, stackTrace: s);
       throw EntryException(_classifyError(e));
     } catch (_) {
-      mutation?.leaveAmbiguous();
+      await mutation?.leaveAmbiguous();
       rethrow;
     }
   }
@@ -245,7 +245,7 @@ class EntryRepositoryImpl implements EntryRepository {
             agentFields: agentFields,
           ),
         );
-        autoFillMutationNotifier?.notifyChanged();
+        await autoFillMutationNotifier?.notifyChanged();
       } on DioException catch (e, s) {
         AppLogger.e('Entry', 'updateEntry failed', error: e, stackTrace: s);
         throw EntryException(_classifyError(e));
@@ -305,16 +305,15 @@ class EntryRepositoryImpl implements EntryRepository {
     final vk = wrappedVK ?? await _fetchWrappedVK(vaultId);
     final total = creates.length + overwrites.length;
     var done = 0;
-    var mutated = false;
+    AutoFillMutationLease? autoFillMutation;
+    var remoteOutcomeAmbiguous = false;
 
-    void markMutated() {
-      if (!mutated) {
-        // A multi-step import can continue for a long time after its first
-        // successful write. Revoke the old cache immediately; the finally
-        // block rebuilds it once all successful writes are visible.
-        autoFillMutationNotifier?.notifyInvalidated();
+    Future<void> beginAutoFillMutation() async {
+      if (autoFillMutation != null) return;
+      final notifier = autoFillMutationNotifier;
+      if (notifier != null) {
+        autoFillMutation = await notifier.beginMutation();
       }
-      mutated = true;
     }
 
     Uint8List? vaultKey;
@@ -346,13 +345,16 @@ class EntryRepositoryImpl implements EntryRepository {
             ),
           );
         }
+        await beginAutoFillMutation();
+        remoteOutcomeAmbiguous = true;
         try {
           createdCount += await entryDatasource.importEntries(
             vaultId,
             ImportEntriesRequest(format: format, entries: items),
           );
-          markMutated();
+          remoteOutcomeAmbiguous = false;
         } on DioException catch (e, s) {
+          if (e.response != null) remoteOutcomeAmbiguous = false;
           AppLogger.e(
             'Entry',
             'importEntries chunk failed',
@@ -371,6 +373,8 @@ class EntryRepositoryImpl implements EntryRepository {
           payload: overwrite.payload,
           vaultKey: vaultKey,
         );
+        await beginAutoFillMutation();
+        remoteOutcomeAmbiguous = true;
         try {
           await entryDatasource.updateEntry(
             vaultId,
@@ -384,9 +388,10 @@ class EntryRepositoryImpl implements EntryRepository {
               icon: overwrite.icon,
             ),
           );
+          remoteOutcomeAmbiguous = false;
           updatedCount++;
-          markMutated();
         } on DioException catch (e, s) {
+          if (e.response != null) remoteOutcomeAmbiguous = false;
           AppLogger.e(
             'Entry',
             'import overwrite failed',
@@ -408,9 +413,19 @@ class EntryRepositoryImpl implements EntryRepository {
         updatedCount: updatedCount,
       );
     } finally {
-      if (mutated) autoFillMutationNotifier?.notifyChanged();
-      if (vaultKey != null) {
-        vaultKey.fillRange(0, vaultKey.length, 0);
+      try {
+        final mutation = autoFillMutation;
+        if (mutation != null) {
+          if (remoteOutcomeAmbiguous) {
+            await mutation.leaveAmbiguous();
+          } else {
+            await mutation.complete();
+          }
+        }
+      } finally {
+        if (vaultKey != null) {
+          vaultKey.fillRange(0, vaultKey.length, 0);
+        }
       }
     }
   }
@@ -436,6 +451,17 @@ class EntryRepositoryImpl implements EntryRepository {
       _canonicalImports[vaultId] = progress;
     }
     var start = progress.committedRows;
+    AutoFillMutationLease? autoFillMutation;
+    var remoteOutcomeAmbiguous = false;
+
+    Future<void> beginAutoFillMutation() async {
+      if (autoFillMutation != null) return;
+      final notifier = autoFillMutationNotifier;
+      if (notifier != null) {
+        autoFillMutation = await notifier.beginMutation();
+      }
+    }
+
     onProgress?.call(start, creates.length);
     try {
       while (start < creates.length) {
@@ -459,32 +485,45 @@ class EntryRepositoryImpl implements EntryRepository {
           format: format,
           entries: pending.entries,
         );
+        await beginAutoFillMutation();
+        remoteOutcomeAmbiguous = true;
         try {
           await entryDatasource.importEntries(vaultId, request);
+          remoteOutcomeAmbiguous = false;
         } on DioException catch (error) {
           if (error.response != null) {
+            remoteOutcomeAmbiguous = false;
             throw EntryException(_classifyError(error));
           }
           // Lost response: retry the exact same ids, nonces and ciphertext.
           try {
             await entryDatasource.importEntries(vaultId, request);
+            remoteOutcomeAmbiguous = false;
           } on DioException catch (retryError) {
+            if (retryError.response != null) remoteOutcomeAmbiguous = false;
             throw EntryException(_classifyError(retryError));
           }
         }
         progress.committedRows = end;
         progress.pending = null;
         start = end;
-        autoFillMutationNotifier?.notifyInvalidated();
         onProgress?.call(start, creates.length);
       }
       _canonicalImports.remove(vaultId);
-      autoFillMutationNotifier?.notifyChanged();
       return ImportResult(createdCount: creates.length, updatedCount: 0);
     } catch (_) {
       // Keep only the current unconfirmed ciphertext batch plus committed row
       // count. A retry resumes without rebuilding successful transitions.
       rethrow;
+    } finally {
+      final mutation = autoFillMutation;
+      if (mutation != null) {
+        if (remoteOutcomeAmbiguous) {
+          await mutation.leaveAmbiguous();
+        } else {
+          await mutation.complete();
+        }
+      }
     }
   }
 

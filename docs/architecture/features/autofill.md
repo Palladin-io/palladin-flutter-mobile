@@ -57,15 +57,15 @@
    complete operation before reading the runtime index, preventing an empty-cache
    race while the first sync is still starting.
 2. Canonical create, update, restore, delete/archive, and permanent purge, plus
-   vault create and vault delete, clear the old cache before sending the remote
-   mutation and rebuild it only after a definitive HTTP result. A final
-   transport failure is ambiguous, so the cache remains empty until the next
-   authoritative synchronization. Overlapping canonical mutations form one
+   multi-step import, await successful native cache clearing before sending the
+   first remote mutation. A failed clear aborts the remote transition. Rebuild
+   occurs only after a definitive HTTP result; a final transport failure is
+   ambiguous, so the cache remains empty until the next authoritative
+   synchronization. Overlapping cache-sensitive mutations form one
    process-local invalidation batch: rebuild waits for every result, and one
-   ambiguous result suppresses the whole batch rebuild. Multi-step import
-   invalidates after its first successful write and rebuilds only after all
-   completed writes are visible. A failed rebuild therefore leaves no stale
-   password available to AutoFill.
+   ambiguous result suppresses the whole batch rebuild. Vault create and vault
+   delete also rebuild the cache after their definitive mutation. A failed
+   rebuild therefore leaves no stale password available to AutoFill.
 3. Ordinary vault lock keeps the encrypted cache so AutoFill can operate after
    a fresh OS biometric challenge. The Flutter private key is never copied into
    the native provider.

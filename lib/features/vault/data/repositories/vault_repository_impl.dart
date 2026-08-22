@@ -24,7 +24,7 @@ class VaultRepositoryImpl implements VaultRepository {
     try {
       AppLogger.d('Vault', 'DELETE /api/vaults/$id');
       await _datasource.deleteVault(id);
-      autoFillMutationNotifier?.notifyChanged();
+      await autoFillMutationNotifier?.notifyChanged();
     } on DioException catch (e, s) {
       AppLogger.e('Vault', 'deleteVault failed', error: e, stackTrace: s);
       throw VaultException(_classifyError(e));
