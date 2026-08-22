@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
+import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
 import 'package:mobile_palladin/features/grants/data/datasources/grants_remote_datasource.dart';
 import 'package:mobile_palladin/features/grants/data/models/grant_model.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/entry_remote_datasource.dart';
@@ -176,6 +177,7 @@ void main() {
       envelopes: _UnusedEnvelopes(),
       grants: grants,
       entryV2: crypto,
+      autoFillMutationNotifier: AutoFillMutationNotifier(),
     );
     when(() => vaults.getEncryptedVault(vaultId)).thenAnswer(
       (_) async => {

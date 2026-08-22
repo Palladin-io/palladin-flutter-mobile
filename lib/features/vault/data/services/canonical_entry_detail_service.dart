@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../../../autofill/data/autofill_mutation_notifier.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/agent_visibility_policy.dart'
     hide AgentFieldAccess;
@@ -291,13 +292,15 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     required VaultEnvelopeCryptography envelopes,
     required GrantsRemoteDatasource grants,
     EntryV2CryptoService? entryV2,
+    required AutoFillMutationNotifier autoFillMutationNotifier,
   }) : _entries = entries,
        _vaults = vaults,
        _keys = keys,
        _vaultCrypto = vaultCrypto,
        _envelopes = envelopes,
        _grants = grants,
-       _entryV2 = entryV2;
+       _entryV2 = entryV2,
+       _autoFillMutationNotifier = autoFillMutationNotifier;
 
   final EntryRemoteDatasource _entries;
   final VaultRemoteDatasource _vaults;
@@ -306,6 +309,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
   final VaultEnvelopeCryptography _envelopes;
   final GrantsRemoteDatasource _grants;
   final EntryV2CryptoService? _entryV2;
+  final AutoFillMutationNotifier _autoFillMutationNotifier;
 
   /// Opens the Vault key once for a bounded export. The returned session owns
   /// that key and must be closed in `finally`.
@@ -969,16 +973,17 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         content: canonicalContent,
         policy: policy,
       );
-      final response = await _entries
-          .updateCanonicalEntry(expected.vaultId, expected.id, {
-            'baseRevision': snapshot.entry['currentRevision'],
-            'newEntryKey': ?newEntryKey,
-            'memberSecret': secretEnvelope,
-            'memberIndex': indexEnvelope,
-            'agentDiscoveryChanged': discoveryChanged,
-            'agentDiscovery': ?discoveryEnvelope,
-            'grantEnvelopes': grantEnvelopes,
-          });
+      final response = await _commitAutoFillAwareMutation(
+        () => _entries.updateCanonicalEntry(expected.vaultId, expected.id, {
+          'baseRevision': snapshot.entry['currentRevision'],
+          'newEntryKey': ?newEntryKey,
+          'memberSecret': secretEnvelope,
+          'memberIndex': indexEnvelope,
+          'agentDiscoveryChanged': discoveryChanged,
+          'agentDiscovery': ?discoveryEnvelope,
+          'grantEnvelopes': grantEnvelopes,
+        }),
+      );
       if (response.statusCode == 409) {
         throw const CanonicalEntryDetailException(
           CanonicalEntryDetailError.conflict,
@@ -1126,16 +1131,17 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         memberKeyGeneration: generation,
         secret: canonicalSecret,
       );
-      final response = await _entries
-          .updateCanonicalEntry(expected.vaultId, expected.id, {
-            'baseRevision': snapshot.entry['currentRevision'],
-            if (rewrap) 'newEntryKey': bundle.entryKey,
-            'memberSecret': bundle.memberSecret,
-            'memberIndex': bundle.memberIndex,
-            'agentDiscoveryChanged': discoveryChanged,
-            if (discoveryChanged) 'agentDiscovery': bundle.agentDiscovery,
-            'grantEnvelopes': grantEnvelopes,
-          });
+      final response = await _commitAutoFillAwareMutation(
+        () => _entries.updateCanonicalEntry(expected.vaultId, expected.id, {
+          'baseRevision': snapshot.entry['currentRevision'],
+          if (rewrap) 'newEntryKey': bundle.entryKey,
+          'memberSecret': bundle.memberSecret,
+          'memberIndex': bundle.memberIndex,
+          'agentDiscoveryChanged': discoveryChanged,
+          if (discoveryChanged) 'agentDiscovery': bundle.agentDiscovery,
+          'grantEnvelopes': grantEnvelopes,
+        }),
+      );
       if (response.statusCode == 409) {
         throw const CanonicalEntryDetailException(
           CanonicalEntryDetailError.conflict,
@@ -1447,25 +1453,17 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           revision: nextDiscoveryRevision,
         ),
       };
-      Response<Map<String, dynamic>>? response;
-      for (var attempt = 0; attempt < 2; attempt += 1) {
-        try {
-          response = await _entries.restoreCanonicalEntry(
-            vaultId,
-            archived.entryId,
-            request,
-          );
-          break;
-        } on DioException catch (error) {
-          if (attempt == 1 || error.response != null) rethrow;
-        }
-      }
-      if (response?.statusCode == 409) {
+      final response = await _commitAutoFillAwareMutation(
+        () =>
+            _entries.restoreCanonicalEntry(vaultId, archived.entryId, request),
+        attempts: 2,
+      );
+      if (response.statusCode == 409) {
         throw const CanonicalEntryDetailException(
           CanonicalEntryDetailError.conflict,
         );
       }
-      if (response?.statusCode != 200) {
+      if (response.statusCode != 200) {
         throw const CanonicalEntryDetailException(
           CanonicalEntryDetailError.corrupt,
         );
@@ -1577,25 +1575,17 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         'agentDiscovery': bundle.agentDiscovery,
         'grantEnvelopes': grants,
       };
-      Response<Map<String, dynamic>>? response;
-      for (var attempt = 0; attempt < 2; attempt += 1) {
-        try {
-          response = await _entries.restoreCanonicalEntry(
-            vaultId,
-            archived.entryId,
-            request,
-          );
-          break;
-        } on DioException catch (error) {
-          if (attempt == 1 || error.response != null) rethrow;
-        }
-      }
-      if (response?.statusCode == 409) {
+      final response = await _commitAutoFillAwareMutation(
+        () =>
+            _entries.restoreCanonicalEntry(vaultId, archived.entryId, request),
+        attempts: 2,
+      );
+      if (response.statusCode == 409) {
         throw const CanonicalEntryDetailException(
           CanonicalEntryDetailError.conflict,
         );
       }
-      if (response?.statusCode != 200) {
+      if (response.statusCode != 200) {
         throw const CanonicalEntryDetailException(
           CanonicalEntryDetailError.corrupt,
         );
@@ -1610,23 +1600,22 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     required String vaultId,
     required String entryId,
   }) async {
-    for (var attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        final response = await _entries.destroyEntry(vaultId, entryId);
-        if (response.statusCode == 204 || response.statusCode == 404) return;
-        if (response.statusCode == 409) {
-          throw const CanonicalEntryDetailException(
-            CanonicalEntryDetailError.conflict,
-          );
-        }
+    try {
+      final response = await _commitAutoFillAwareMutation(
+        () => _entries.destroyEntry(vaultId, entryId),
+        attempts: 2,
+      );
+      if (response.statusCode == 204 || response.statusCode == 404) return;
+      if (response.statusCode == 409) {
         throw const CanonicalEntryDetailException(
-          CanonicalEntryDetailError.corrupt,
+          CanonicalEntryDetailError.conflict,
         );
-      } on DioException catch (error) {
-        if (attempt == 1 || error.response != null) {
-          throw CanonicalEntryDetailException(_classifyDio(error));
-        }
       }
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.corrupt,
+      );
+    } on DioException catch (error) {
+      throw CanonicalEntryDetailException(_classifyDio(error));
     }
   }
 
@@ -2226,6 +2215,47 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       409 => CanonicalEntryDetailError.conflict,
       _ => CanonicalEntryDetailError.corrupt,
     };
+  }
+
+  Future<Response<T>> _commitAutoFillAwareMutation<T>(
+    Future<Response<T>> Function() operation, {
+    int attempts = 1,
+  }) async {
+    // An AutoFill provider must never retain a pre-mutation password while a
+    // canonical transition may already have committed. A concrete HTTP
+    // response is definitive and permits an authoritative rebuild; a final
+    // transport failure is ambiguous and intentionally leaves the cache empty.
+    late final AutoFillMutationLease mutation;
+    try {
+      mutation = await _autoFillMutationNotifier.beginMutation();
+    } catch (_) {
+      // Native cache invalidation is a retryable local infrastructure
+      // failure. The remote transition has not started, but callers still
+      // require this service's typed error contract to clear pending UI state.
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.network,
+      );
+    }
+    for (var attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        final response = await operation();
+        await mutation.complete();
+        return response;
+      } on DioException catch (error) {
+        if (error.response != null) {
+          await mutation.complete();
+          rethrow;
+        }
+        if (attempt + 1 == attempts) {
+          await mutation.leaveAmbiguous();
+          rethrow;
+        }
+      } catch (_) {
+        await mutation.leaveAmbiguous();
+        rethrow;
+      }
+    }
+    throw StateError('Canonical mutation attempt budget exhausted');
   }
 
   void _wipe(Iterable<Uint8List?> values) {

@@ -2,8 +2,10 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../../../autofill/data/autofill_mutation_notifier.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/vault_plaintext.dart';
+import '../../domain/exceptions/entry_exceptions.dart';
 import '../datasources/entry_remote_datasource.dart';
 import '../datasources/vault_remote_datasource.dart';
 import '../models/entry_v2_contracts.dart';
@@ -17,15 +19,18 @@ final class KeyEntryCreationService {
     required VaultRemoteDatasource vaults,
     required VaultCryptoService vaultCrypto,
     required EntryV2CryptoService entryCrypto,
+    required AutoFillMutationNotifier autoFillMutationNotifier,
   }) : _entries = entries,
        _vaults = vaults,
        _vaultCrypto = vaultCrypto,
-       _entryCrypto = entryCrypto;
+       _entryCrypto = entryCrypto,
+       _autoFillMutationNotifier = autoFillMutationNotifier;
 
   final EntryRemoteDatasource _entries;
   final VaultRemoteDatasource _vaults;
   final VaultCryptoService _vaultCrypto;
   final EntryV2CryptoService _entryCrypto;
+  final AutoFillMutationNotifier _autoFillMutationNotifier;
 
   Future<EntryEntity> create({
     required String vaultId,
@@ -167,14 +172,7 @@ final class KeyEntryCreationService {
         entryId: entryId,
         envelopes: envelopes,
       ).toJson();
-      try {
-        await _entries.createCanonicalEntry(vaultId, request);
-      } on DioException catch (error) {
-        if (error.response != null) rethrow;
-        // Retry the exact same immutable transition. The backend recognizes
-        // exact-create retries, so a lost 201 cannot create a second head.
-        await _entries.createCanonicalEntry(vaultId, request);
-      }
+      await _commitCanonicalCreate(vaultId, request);
       final now = DateTime.now().toUtc();
       return EntryEntity(
         id: entryId,
@@ -194,6 +192,46 @@ final class KeyEntryCreationService {
         opened.vaultDiscoveryKey!.length,
         0,
       );
+    }
+  }
+
+  Future<void> _commitCanonicalCreate(
+    String vaultId,
+    Map<String, dynamic> request,
+  ) async {
+    // Clear the old provider cache before the server can advance the Entry.
+    // If both attempts fail without an HTTP response, the outcome is
+    // ambiguous and AutoFill intentionally remains empty until the next
+    // authoritative synchronization.
+    late final AutoFillMutationLease mutation;
+    try {
+      mutation = await _autoFillMutationNotifier.beginMutation();
+    } catch (_) {
+      // The remote transition has not started. Preserve the typed retryable
+      // contract used by CreateEntryCubit without exposing platform details.
+      throw const EntryException(EntryErrorKind.networkError);
+    }
+    for (var attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        await _entries.createCanonicalEntry(vaultId, request);
+        await mutation.complete();
+        return;
+      } on DioException catch (error) {
+        if (error.response != null) {
+          // A concrete HTTP rejection did not leave an ambiguous mutation.
+          await mutation.complete();
+          rethrow;
+        }
+        if (attempt == 1) {
+          await mutation.leaveAmbiguous();
+          rethrow;
+        }
+        // Retry the byte-identical immutable transition. The backend
+        // recognizes an exact-create retry after a lost 201 response.
+      } catch (_) {
+        await mutation.leaveAmbiguous();
+        rethrow;
+      }
     }
   }
 

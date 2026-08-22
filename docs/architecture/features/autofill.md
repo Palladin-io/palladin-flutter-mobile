@@ -15,7 +15,9 @@
 - Android accepts `webDomain` only when Android 12+ reports an OS-verified App
   Link for the requesting package and exact host, or when the requester is the
   explicitly allowlisted system Chrome package authenticated by its system-app
-  identity. Other native apps and sideloaded browser lookalikes fail closed.
+  identity. The manifest exposes only `com.android.chrome` to package queries
+  needed for that identity check; it does not request `QUERY_ALL_PACKAGES`.
+  Other native apps and sideloaded browser lookalikes fail closed.
 
 ## Security contract
 
@@ -56,10 +58,18 @@
    second Vault-list request or a second snapshot chain. AutoFill awaits that
    complete operation before reading the runtime index, preventing an empty-cache
    race while the first sync is still starting.
-2. Create, update, delete, vault create, and vault delete clear the old cache
-   before rebuilding it. Multi-step import invalidates after its first
-   successful write and rebuilds only after all completed writes are visible.
-   A failed rebuild therefore leaves no stale password available to AutoFill.
+2. Canonical create, update, restore, delete/archive, and permanent purge, plus
+   multi-step import, await successful native cache clearing before sending the
+   first remote mutation. Cache clearing awaits native session activation; a
+   failed activation or missing token fails closed instead of acknowledging a
+   no-op. A failed clear aborts the remote transition. Rebuild
+   occurs only after a definitive HTTP result; a final transport failure is
+   ambiguous, so the cache remains empty until the next authoritative
+   synchronization. Overlapping cache-sensitive mutations form one
+   process-local invalidation batch: rebuild waits for every result, and one
+   ambiguous result suppresses the whole batch rebuild. Vault create and vault
+   delete also rebuild the cache after their definitive mutation. A failed
+   rebuild therefore leaves no stale password available to AutoFill.
 3. Ordinary vault lock keeps the encrypted cache so AutoFill can operate after
    a fresh OS biometric challenge. The Flutter private key is never copied into
    the native provider.
@@ -82,8 +92,11 @@
 
 ## Required device QA
 
-- Android: Chrome login form, biometric success/cancel/failure, stale-cache
-  mutation test, logout wipe, biometric enrollment change.
+- Android: select Palladin as the system AutoFill provider. On Chrome versions
+  that expose their own `Autofill services` preference, also select `Autofill
+  using another service` and restart Chrome before testing the login form.
+  Then verify biometric success/cancel/failure, stale-cache mutation, logout
+  wipe, and biometric enrollment change.
 - iOS: Safari login form, identity selection, biometric success/cancel/failure,
   stale-cache mutation test, logout wipe, biometric enrollment change.
 - Native Android application forms return datasets only for exact hosts backed

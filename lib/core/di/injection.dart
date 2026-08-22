@@ -417,6 +417,7 @@ void configureDependencies(EnvConfig config) {
       vaults: getIt<VaultRemoteDatasource>(),
       vaultCrypto: getIt<VaultCryptoService>(),
       entryCrypto: getIt<EntryV2CryptoService>(),
+      autoFillMutationNotifier: getIt<AutoFillMutationNotifier>(),
     ),
   );
   getIt.registerLazySingleton<CanonicalEntryDetailService>(
@@ -428,6 +429,7 @@ void configureDependencies(EnvConfig config) {
       envelopes: getIt<VaultProtocolEnvelopeService>(),
       grants: getIt<GrantsRemoteDatasource>(),
       entryV2: getIt<EntryV2CryptoService>(),
+      autoFillMutationNotifier: getIt<AutoFillMutationNotifier>(),
     ),
   );
   getIt.registerLazySingleton<CanonicalImportProjectionService>(

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/entry_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/models/entry_v2_contracts.dart';
@@ -11,6 +12,7 @@ import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_ser
 import 'package:mobile_palladin/features/vault/data/services/key_entry_creation_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
+import 'package:mobile_palladin/features/vault/domain/exceptions/entry_exceptions.dart';
 import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 
 class _Entries extends Mock implements EntryRemoteDatasource {}
@@ -28,6 +30,8 @@ void main() {
   late _Vaults vaults;
   late _VaultCrypto vaultCrypto;
   late _EntryCrypto entryCrypto;
+  late AutoFillMutationNotifier autoFillMutationNotifier;
+  late List<AutoFillMutationAction> autoFillActions;
   late Uint8List vaultKey;
   late Uint8List discoveryKey;
 
@@ -66,6 +70,12 @@ void main() {
     vaults = _Vaults();
     vaultCrypto = _VaultCrypto();
     entryCrypto = _EntryCrypto();
+    autoFillMutationNotifier = AutoFillMutationNotifier();
+    autoFillActions = [];
+    final subscription = autoFillMutationNotifier.changes.listen(
+      autoFillActions.add,
+    );
+    addTearDown(subscription.cancel);
     vaultKey = Uint8List(32)..fillRange(0, 32, 4);
     discoveryKey = Uint8List(32)..fillRange(0, 32, 5);
     when(
@@ -132,7 +142,7 @@ void main() {
     );
     when(
       () => entries.createCanonicalEntry(vaultId, any()),
-    ).thenAnswer((_) async => {});
+    ).thenAnswer((_) async {});
   });
 
   KeyEntryCreationService service() => KeyEntryCreationService(
@@ -140,6 +150,7 @@ void main() {
     vaults: vaults,
     vaultCrypto: vaultCrypto,
     entryCrypto: entryCrypto,
+    autoFillMutationNotifier: autoFillMutationNotifier,
   );
 
   test('uses canonical projection opener and Entry v2 sealer', () async {
@@ -178,6 +189,10 @@ void main() {
     expect(privateKey, everyElement(9));
     expect(vaultKey, everyElement(0));
     expect(discoveryKey, everyElement(0));
+    expect(autoFillActions, [
+      AutoFillMutationAction.invalidate,
+      AutoFillMutationAction.rebuild,
+    ]);
   });
 
   test(
@@ -195,7 +210,6 @@ void main() {
             type: DioExceptionType.connectionError,
           );
         }
-        return {};
       });
       await service().create(
         vaultId: vaultId,
@@ -222,8 +236,66 @@ void main() {
           vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
         ),
       ).called(1);
+      expect(autoFillActions, [
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.rebuild,
+      ]);
     },
   );
+
+  test('failed cache invalidation prevents the remote create', () async {
+    autoFillMutationNotifier.attachHandler((action) async {
+      if (action == AutoFillMutationAction.invalidate) {
+        throw StateError('native clear failed');
+      }
+    });
+    addTearDown(autoFillMutationNotifier.detachHandler);
+
+    await expectLater(
+      service().create(
+        vaultId: vaultId,
+        label: 'Key',
+        description: '',
+        icon: '',
+        content: {'type': 'KEY', 'value': 'secret'},
+        memberPrivateKey: Uint8List(32),
+      ),
+      throwsA(
+        isA<EntryException>().having(
+          (error) => error.kind,
+          'kind',
+          EntryErrorKind.networkError,
+        ),
+      ),
+    );
+
+    verifyNever(() => entries.createCanonicalEntry(vaultId, any()));
+    expect(autoFillActions, [AutoFillMutationAction.invalidate]);
+  });
+
+  test('ambiguous create failure leaves AutoFill invalidated', () async {
+    when(() => entries.createCanonicalEntry(vaultId, any())).thenThrow(
+      DioException(
+        requestOptions: RequestOptions(path: '/entries'),
+        type: DioExceptionType.connectionError,
+      ),
+    );
+
+    await expectLater(
+      service().create(
+        vaultId: vaultId,
+        label: 'Key',
+        description: '',
+        icon: '',
+        content: {'type': 'KEY', 'value': 'secret'},
+        memberPrivateKey: Uint8List(32),
+      ),
+      throwsA(isA<DioException>()),
+    );
+
+    verify(() => entries.createCanonicalEntry(vaultId, any())).called(2);
+    expect(autoFillActions, [AutoFillMutationAction.invalidate]);
+  });
 
   test('malformed credential fails before challenge or crypto', () async {
     await expectLater(
@@ -239,6 +311,7 @@ void main() {
       ),
       throwsFormatException,
     );
+    expect(autoFillActions, isEmpty);
     verifyNever(() => entries.issueCreationChallenge(vaultId));
     verifyNever(
       () => vaultCrypto.openVaultProjection(
