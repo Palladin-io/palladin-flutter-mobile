@@ -9,6 +9,10 @@ void main() {
   group('AuditEventType wire parsing — extended taxonomy', () {
     test('parses every new event type from its wire string', () {
       expect(
+        AuditEventType.fromWire('auth.login-failed'),
+        AuditEventType.loginFailed,
+      );
+      expect(
         AuditEventType.fromWire('apikey.created'),
         AuditEventType.apikeyCreated,
       );
@@ -66,6 +70,7 @@ void main() {
         AuditEventGroup.agentLifecycle,
       );
       expect(AuditEventType.apikeyCreated.group, AuditEventGroup.apiKeys);
+      expect(AuditEventType.loginFailed.group, AuditEventGroup.orgAccount);
       expect(AuditEventType.userSignedUp.group, AuditEventGroup.orgAccount);
     });
 
@@ -101,6 +106,7 @@ void main() {
 
     test('destructive/denied events are red', () {
       for (final type in [
+        AuditEventType.loginFailed,
         AuditEventType.credentialAccessDenied,
         AuditEventType.grantDenied,
         AuditEventType.grantRevoked,

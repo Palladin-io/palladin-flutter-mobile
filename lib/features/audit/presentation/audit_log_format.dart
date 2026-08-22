@@ -14,6 +14,7 @@ String auditEventLabel(
   String rawEventType,
 ) {
   return switch (eventType) {
+    AuditEventType.loginFailed => l10n.auditEventLoginFailed,
     AuditEventType.grantCreated => l10n.auditEventGrantCreated,
     AuditEventType.grantRequested => l10n.auditEventGrantRequested,
     AuditEventType.grantApproved => l10n.auditEventGrantApproved,
@@ -67,6 +68,7 @@ Color auditEventColor(AuditEventType eventType) {
     AuditEventType.accountSetupCompleted ||
     AuditEventType.accountRecoveryCompleted => AppColors.positiveAccent,
     // Destructive / denied — red.
+    AuditEventType.loginFailed ||
     AuditEventType.credentialAccessDenied ||
     AuditEventType.grantDenied ||
     AuditEventType.grantRevoked ||
@@ -244,6 +246,7 @@ List<AuditSentenceSpan>? auditEventSentence(
   final apiKey = obj(l10n.auditObjectApiKeyNamed, l10n.auditObjectApiKey);
 
   final raw = switch (entry.eventType) {
+    AuditEventType.loginFailed => l10n.auditSentenceLoginFailed,
     AuditEventType.vaultCreated => l10n.auditSentenceCreated(actor, vault),
     AuditEventType.vaultUpdated => l10n.auditSentenceUpdated(actor, vault),
     AuditEventType.vaultDeleted => l10n.auditSentenceDeleted(actor, vault),

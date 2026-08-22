@@ -2538,6 +2538,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get auditEventAccountRecoveryCompleted => 'Account recovery completed';
 
   @override
+  String get auditEventLoginFailed => 'Login failed';
+
+  @override
   String get auditEventUnknown => 'Activity';
 
   @override
@@ -2641,6 +2644,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String auditSentenceAccountRecoveryCompleted(String actor) {
     return '$actor completed account recovery';
   }
+
+  @override
+  String get auditSentenceLoginFailed => 'Failed login attempt';
 
   @override
   String auditSentenceAgentEnrolled(String agent) {

@@ -754,6 +754,7 @@
   "auditEventUserSignedUp": "Rejestracja użytkownika",
   "auditEventAccountSetupCompleted": "Ukończono konfigurację konta",
   "auditEventAccountRecoveryCompleted": "Ukończono odzyskiwanie konta",
+  "auditEventLoginFailed": "Nieudane logowanie",
   "auditEventUnknown": "Aktywność",
   "auditScreenTitle": "Dziennik audytu",
   "@auditScreenTitle": {
@@ -784,6 +785,7 @@
   "auditSentenceUserSignedUp": "{actor}: rejestracja w systemie",
   "auditSentenceAccountSetupCompleted": "{actor}: ukończono konfigurację konta",
   "auditSentenceAccountRecoveryCompleted": "{actor}: ukończono odzyskiwanie konta",
+  "auditSentenceLoginFailed": "Nieudana próba logowania",
   "auditSentenceAgentEnrolled": "{agent}: rejestracja w systemie",
   "auditObjectVaultNamed": "sejf {name}",
   "auditObjectEntryNamed": "wpis {name}",

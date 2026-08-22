@@ -64,6 +64,7 @@ enum AuditEventGroup {
 /// Unknown / future event types parse to [unknown] so a new backend event
 /// never crashes the list — it simply renders with a neutral style.
 enum AuditEventType {
+  loginFailed('auth.login-failed', AuditEventGroup.orgAccount),
   grantRequested('grant.requested', AuditEventGroup.grants),
   grantCreated('grant.created', AuditEventGroup.grants),
   grantApproved('grant.approved', AuditEventGroup.grants),

@@ -4586,6 +4586,12 @@ abstract class AppLocalizations {
   /// **'Account recovery completed'**
   String get auditEventAccountRecoveryCompleted;
 
+  /// No description provided for @auditEventLoginFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Login failed'**
+  String get auditEventLoginFailed;
+
   /// No description provided for @auditEventUnknown.
   ///
   /// In en, this message translates to:
@@ -4747,6 +4753,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{actor} completed account recovery'**
   String auditSentenceAccountRecoveryCompleted(String actor);
+
+  /// No description provided for @auditSentenceLoginFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed login attempt'**
+  String get auditSentenceLoginFailed;
 
   /// No description provided for @auditSentenceAgentEnrolled.
   ///

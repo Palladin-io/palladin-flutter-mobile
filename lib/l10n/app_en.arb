@@ -2682,6 +2682,7 @@
   "auditEventUserSignedUp": "User signed up",
   "auditEventAccountSetupCompleted": "Account setup completed",
   "auditEventAccountRecoveryCompleted": "Account recovery completed",
+  "auditEventLoginFailed": "Login failed",
   "auditEventUnknown": "Activity",
   "auditScreenTitle": "Audit Log",
   "@auditScreenTitle": {
@@ -2773,6 +2774,7 @@
   "@auditSentenceAccountRecoveryCompleted": {
     "placeholders": { "actor": { "type": "String" } }
   },
+  "auditSentenceLoginFailed": "Failed login attempt",
   "auditSentenceAgentEnrolled": "{agent} enrolled in the system",
   "@auditSentenceAgentEnrolled": {
     "placeholders": { "agent": { "type": "String" } }
