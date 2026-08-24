@@ -111,6 +111,38 @@ class VaultRotationCryptoService {
     }
   }
 
+  Future<Map<String, Object?>> sealAgentVaultKey({
+    required RotationFullGrantRecipient recipient,
+    required String organizationId,
+    required String vaultId,
+    required int vaultKeyVersion,
+    required Uint8List vaultKey,
+  }) async {
+    final publicKey = VaultProtocolBytes.base64UrlDecode(
+      recipient.x25519PublicKey,
+    );
+    try {
+      if (_fingerprint(VaultPublicKeyKind.agentX25519, publicKey) !=
+          recipient.recipientKeyFingerprint) {
+        throw const FormatException('Agent recipient fingerprint mismatch');
+      }
+      return await buildAgentWrappedVaultKeyContract(
+        vaultKey: vaultKey,
+        organizationId: organizationId,
+        vaultId: vaultId,
+        grantId: recipient.grantId,
+        agentId: recipient.agentId,
+        agentAccessEpoch: recipient.agentAccessEpoch,
+        vaultKeyVersion: vaultKeyVersion,
+        agentPublicKey: publicKey,
+        recipientKeyVersion: recipient.recipientKeyVersion,
+        sodiumLoader: _sodiumLoader,
+      );
+    } finally {
+      publicKey.fillRange(0, publicKey.length, 0);
+    }
+  }
+
   Future<Uint8List> openMemberVaultKey(
     Map<String, dynamic> envelope,
     Uint8List memberPrivateKey,

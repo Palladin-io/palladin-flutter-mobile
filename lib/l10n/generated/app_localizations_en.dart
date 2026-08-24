@@ -2102,6 +2102,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Could not create the grant. Please try again.';
 
   @override
+  String get grantAccessFullTrustTitle => 'FULL VAULT TRUST';
+
+  @override
+  String get grantAccessFullTrustBody =>
+      'This grants cryptographic access to every current and future entry in this vault. Revoking blocks new online delivery but cannot erase a key copied by a compromised agent; rotate the Vault Key after suspected compromise.';
+
+  @override
   String get grantAddGrant => 'Add grant';
 
   @override
@@ -2969,10 +2976,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get importErrorNetwork =>
       'Couldn\'t reach the server. Check your connection and try again.';
-
-  @override
-  String get importErrorFullGrants =>
-      'This vault has agents with full access. Importing to it isn\'t supported on mobile yet — revoke the full-access grants first, or import from the web panel.';
 
   @override
   String get importErrorUnknown => 'Something went wrong. Please try again.';

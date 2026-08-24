@@ -46,8 +46,8 @@ class ApprovalRemoteDatasource {
   /// `POST /api/vaults/{vaultId}/grants` — proactively (re-)grant access.
   ///
   /// [type] is `"granular"` or `"full"`; [entryId] is set only for granular.
-  /// [entries] carries one on-device-produced envelope per covered entry
-  /// (exactly one for granular, every vault entry for full). At most one of
+  /// [entries] carries exactly one on-device-produced envelope for GRANULAR;
+  /// [agentWrappedVaultKey] carries the one current VK wrapper for FULL. At most one of
   /// [expiresAt] / [queryLimit] is sent (neither = lifetime). Returns the new
   /// grant id.
   Future<String> createGrant({
@@ -56,7 +56,8 @@ class ApprovalRemoteDatasource {
     required String agentId,
     required String type,
     String? entryId,
-    required List<({String entryId, Map<String, dynamic> envelope})> entries,
+    List<({String entryId, Map<String, dynamic> envelope})> entries = const [],
+    Map<String, Object?>? agentWrappedVaultKey,
     String? expiresAt,
     int? queryLimit,
     String? methods,
@@ -67,6 +68,7 @@ class ApprovalRemoteDatasource {
       'type': type,
       'entryId': ?entryId,
       'grantEntries': [for (final e in entries) e.envelope],
+      'agentWrappedVaultKey': ?agentWrappedVaultKey,
       'expiresAt': ?expiresAt,
       'queryLimit': ?queryLimit,
       'methods': ?methods,

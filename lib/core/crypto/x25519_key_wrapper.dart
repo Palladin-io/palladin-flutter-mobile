@@ -21,7 +21,8 @@ enum WrapperPurpose {
   memberVaultKey(1),
   agentVdk(2),
   reasonDek(3),
-  grantDek(4);
+  grantDek(4),
+  agentVaultKey(5);
 
   const WrapperPurpose(this.id);
   final int id;
@@ -32,6 +33,7 @@ enum WrapperPurpose {
       'agentDiscoveryVdk': WrapperPurpose.agentVdk,
       'reasonDek': WrapperPurpose.reasonDek,
       'grantDek': WrapperPurpose.grantDek,
+      'agentVaultKey': WrapperPurpose.agentVaultKey,
     };
     if (value is String) {
       final purpose = names[value];
@@ -96,6 +98,8 @@ final class WrapperContext {
         !hasEntry && !hasGrant && hasAgent && !hasMember,
       WrapperPurpose.reasonDek ||
       WrapperPurpose.grantDek => hasEntry && hasGrant && hasAgent && !hasMember,
+      WrapperPurpose.agentVaultKey =>
+        !hasEntry && hasGrant && hasAgent && !hasMember,
     };
     final needsParent =
         purpose == WrapperPurpose.reasonDek ||
@@ -104,6 +108,13 @@ final class WrapperContext {
       WrapperPurpose.memberVaultKey => 5,
       WrapperPurpose.agentVdk || WrapperPurpose.grantDek => 1,
       WrapperPurpose.reasonDek => 4,
+      WrapperPurpose.agentVaultKey => 1,
+    };
+    final needsGeneration = switch (purpose) {
+      WrapperPurpose.memberVaultKey ||
+      WrapperPurpose.reasonDek ||
+      WrapperPurpose.grantDek => true,
+      WrapperPurpose.agentVdk || WrapperPurpose.agentVaultKey => false,
     };
     if (protocolVersion != 2 ||
         !scopeValid ||
@@ -114,6 +125,7 @@ final class WrapperContext {
         recipientFingerprint.length != 32 ||
         recipientFingerprint.every((byte) => byte == 0) ||
         (memberKeyGeneration != null && memberKeyGeneration! <= 0) ||
+        needsGeneration != (memberKeyGeneration != null) ||
         (parentDescriptorHash != null && parentDescriptorHash!.length != 32) ||
         needsParent != (parentDescriptorHash != null)) {
       throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
@@ -223,6 +235,82 @@ final class X25519SealedBoxKeyWrapper {
       plaintext?.fillRange(0, plaintext.length, 0);
       secret.dispose();
     }
+  }
+}
+
+/// Builds the sole ciphertext material added by a FULL grant. The plaintext
+/// Vault key is copied only into the native sealed-box call and is never
+/// returned by this helper.
+Future<Map<String, Object?>> buildAgentWrappedVaultKeyContract({
+  required Uint8List vaultKey,
+  required String organizationId,
+  required String vaultId,
+  required String grantId,
+  required String agentId,
+  required int agentAccessEpoch,
+  required int vaultKeyVersion,
+  required Uint8List agentPublicKey,
+  required int recipientKeyVersion,
+  Future<SodiumSumo> Function()? sodiumLoader,
+}) async {
+  final fingerprint = Uint8List.fromList(
+    sha256.convert([
+      ...ascii.encode('PLDNV2FP'),
+      ..._u16(2),
+      ..._u16(1),
+      ...agentPublicKey,
+    ]).bytes,
+  );
+  final context = WrapperContext(
+    purpose: WrapperPurpose.agentVaultKey,
+    scope: EnvelopeScope(
+      organizationId: EnvelopeId.parse(organizationId),
+      vaultId: EnvelopeId.parse(vaultId),
+      grantOrRequestId: EnvelopeId.parse(grantId),
+      agentId: EnvelopeId.parse(agentId),
+    ),
+    resourceRevision: agentAccessEpoch,
+    wrappedKeyVersion: vaultKeyVersion,
+    recipientKeyVersion: recipientKeyVersion,
+    recipientFingerprint: fingerprint,
+  );
+  Uint8List? sealed;
+  try {
+    sealed = await X25519SealedBoxKeyWrapper(sodiumLoader: sodiumLoader).seal(
+      key: vaultKey,
+      context: context,
+      recipient: X25519PublicKey(agentPublicKey),
+    );
+    return {
+      'wrappedVaultKey': {
+        'descriptor': {
+          'protocolVersion': context.protocolVersion,
+          'wrapperSuiteId': context.suiteId.wireValue,
+          'purpose': context.purpose.id,
+          'scope': {
+            'organizationId': organizationId,
+            'vaultId': vaultId,
+            'entryId': null,
+            'grantOrRequestId': grantId,
+            'agentId': agentId,
+            'memberId': null,
+          },
+          'resourceRevision': agentAccessEpoch.toString(),
+          'wrappedKeyVersion': vaultKeyVersion,
+          'memberKeyGeneration': null,
+          'recipientKeyKind': 1,
+          'recipientKeyVersion': recipientKeyVersion,
+          'recipientFingerprint': base64UrlEncode(
+            fingerprint,
+          ).replaceAll('=', ''),
+          'parentDescriptorHash': null,
+        },
+        'encodedSealedKeyPackage': base64UrlEncode(sealed).replaceAll('=', ''),
+      },
+    };
+  } finally {
+    fingerprint.fillRange(0, fingerprint.length, 0);
+    sealed?.fillRange(0, sealed.length, 0);
   }
 }
 

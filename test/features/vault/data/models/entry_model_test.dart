@@ -108,6 +108,7 @@ void main() {
         description: 'prod',
         icon: 'code',
         type: 0,
+        deliveryPolicy: 'standard',
         content: EntryContentModel(
           encryptedBlob: 'Y2lwaGVy',
           nonce: 'bm9uY2U=',
@@ -131,6 +132,7 @@ void main() {
       const request = CreateEntryRequest(
         label: 'Stripe',
         type: 0,
+        deliveryPolicy: 'standard',
         content: EntryContentModel(
           encryptedBlob: 'Y2lwaGVy',
           nonce: 'bm9uY2U=',

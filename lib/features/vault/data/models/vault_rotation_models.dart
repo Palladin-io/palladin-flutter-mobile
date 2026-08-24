@@ -155,6 +155,34 @@ final class RotationMemberRecipient {
   final String x25519PublicKey;
 }
 
+final class RotationFullGrantRecipient {
+  const RotationFullGrantRecipient({
+    required this.grantId,
+    required this.agentId,
+    required this.agentAccessEpoch,
+    required this.recipientKeyVersion,
+    required this.recipientKeyFingerprint,
+    required this.x25519PublicKey,
+  });
+
+  factory RotationFullGrantRecipient.fromJson(Map<String, dynamic> json) =>
+      RotationFullGrantRecipient(
+        grantId: _string(json, 'grantId'),
+        agentId: _string(json, 'agentId'),
+        agentAccessEpoch: _uint(json, 'agentAccessEpoch'),
+        recipientKeyVersion: _uint(json, 'recipientKeyVersion'),
+        recipientKeyFingerprint: _string(json, 'recipientKeyFingerprint'),
+        x25519PublicKey: _string(json, 'x25519PublicKey'),
+      );
+
+  final String grantId;
+  final String agentId;
+  final int agentAccessEpoch;
+  final int recipientKeyVersion;
+  final String recipientKeyFingerprint;
+  final String x25519PublicKey;
+}
+
 final class RotationDiscoverySource {
   const RotationDiscoverySource({
     required this.sourceRevision,

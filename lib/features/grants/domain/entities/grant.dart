@@ -91,6 +91,7 @@ class Grant {
     this.agentIconKey,
     this.agentPublicKey,
     this.recipientAgentKeyVersion,
+    this.agentAccessEpoch,
     this.entryScopes = const [],
     this.vaultName,
     this.entryId,
@@ -133,6 +134,9 @@ class Grant {
 
   /// Current public recipient-key version used for a refreshed envelope.
   final int? recipientAgentKeyVersion;
+
+  /// Access generation captured by this grant and its Agent-bound wrappers.
+  final int? agentAccessEpoch;
 
   /// Durable field scope and current envelope counters. Contains no secrets.
   final List<GrantEntryScope> entryScopes;

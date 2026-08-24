@@ -11,6 +11,7 @@ import '../../../vault/data/datasources/vault_remote_datasource.dart';
 import '../../../vault/data/services/canonical_entry_detail_service.dart';
 import '../../../vault/data/services/agent_visibility_projector.dart';
 import '../../../vault/data/services/entry_v2_crypto_service.dart';
+import '../../../vault/data/services/vault_rotation_crypto_service.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import '../../../vault/data/datasources/agent_discovery_remote_datasource.dart';
 import '../../../vault/domain/entities/agent_visibility_policy.dart';
@@ -38,12 +39,14 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required EntryRemoteDatasource entryDatasource,
     required VaultRemoteDatasource vaultDatasource,
     required EntryV2CryptoService cryptoService,
+    required VaultRotationCryptoService vaultKeys,
     required CanonicalEntryDetailService canonicalEntries,
     required AgentDiscoveryRemote discovery,
   }) : _approval = approvalDatasource,
        _entries = entryDatasource,
        _vaults = vaultDatasource,
        _crypto = cryptoService,
+       _vaultKeys = vaultKeys,
        _canonicalEntries = canonicalEntries,
        _discovery = discovery;
 
@@ -51,6 +54,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
   final EntryRemoteDatasource _entries;
   final VaultRemoteDatasource _vaults;
   final EntryV2CryptoService _crypto;
+  final VaultRotationCryptoService _vaultKeys;
   final CanonicalEntryDetailService _canonicalEntries;
   final AgentDiscoveryRemote _discovery;
 
@@ -191,7 +195,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         recipientKeyVersion: candidate.recipientKeyVersion,
         agentPublicKey: Uint8List.fromList(recipientKey),
         approvedMethods: approvedMethods,
-        deliveryPolicy: 0,
+        deliveryPolicy: type.deliveryPolicyCode(),
         fieldIds: approvedFieldIds,
         grantPayload: grantPayload,
         expiresAt: wire.expiresAt == null
@@ -254,32 +258,19 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required String agentId,
     required String agentPublicKey,
     required int recipientKeyVersion,
+    required int agentAccessEpoch,
     required bool isFull,
     String? entryId,
     required Uint8List privateKey,
     required GrantLimit limit,
     required List<GrantMethod> methods,
   }) async {
-    // Resolve every exact canonical Entry head covered by the new grant.
-    final List<String> entryIds;
-    try {
-      AppLogger.d('Approval', 'Fetching canonical entries for re-grant');
-      if (isFull) {
-        final entries = await _entries.listEntries(vaultId);
-        entryIds = entries.map((e) => e.id).toList(growable: false);
-      } else {
-        entryIds = [entryId!];
-      }
-    } on DioException catch (e, s) {
-      AppLogger.e('Approval', 're-grant fetch failed', error: e, stackTrace: s);
-      throw ApprovalException(_classifyError(e));
-    }
-
-    if (entryIds.isEmpty) {
+    if (recipientKeyVersion <= 0 ||
+        agentAccessEpoch <= 0 ||
+        (!isFull && entryId == null)) {
       throw const ApprovalException(ApprovalErrorKind.validation);
     }
 
-    // 2. Produce one envelope per entry on-device (zero-knowledge).
     final wrapped = <({String entryId, Map<String, dynamic> envelope})>[];
     final grantId = _uuidV4();
     final wire = limit.toWire();
@@ -287,8 +278,63 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     if (methodBits == 0) {
       throw const ApprovalException(ApprovalErrorKind.validation);
     }
+
+    if (isFull) {
+      Uint8List? vaultKey;
+      try {
+        final vault = await _vaults.getEncryptedVault(vaultId);
+        final memberEnvelope = Map<String, dynamic>.from(
+          vault['memberVaultKey'] as Map,
+        );
+        vaultKey = await _vaultKeys.openMemberVaultKey(
+          memberEnvelope,
+          privateKey,
+        );
+        final epoch = Map<String, dynamic>.from(
+          vault['currentKeyEpoch'] as Map,
+        );
+        final agentWrappedVaultKey = await _crypto.sealAgentVaultKey(
+          vaultKey: vaultKey,
+          organizationId: vault['organizationId'] as String,
+          vaultId: vaultId,
+          grantId: grantId,
+          agentId: agentId,
+          agentAccessEpoch: agentAccessEpoch,
+          vaultKeyVersion: epoch['vaultKeyVersion'] as int,
+          agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
+          recipientKeyVersion: recipientKeyVersion,
+        );
+        await _approval.createGrant(
+          vaultId: vaultId,
+          grantId: grantId,
+          agentId: agentId,
+          type: 'full',
+          agentWrappedVaultKey: agentWrappedVaultKey,
+          expiresAt: wire.expiresAt,
+          queryLimit: wire.queryLimit,
+          methods: serializeGrantMethods(methods),
+        );
+        return;
+      } on DioException catch (e) {
+        throw ApprovalException(_classifyError(e));
+      } on ApprovalException {
+        rethrow;
+      } catch (e, s) {
+        AppLogger.e(
+          'Approval',
+          'FULL re-grant failed',
+          error: e,
+          stackTrace: s,
+        );
+        throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
+      } finally {
+        vaultKey?.fillRange(0, vaultKey.length, 0);
+      }
+    }
+
+    // GRANULAR retains one revision/field/method-bound envelope.
     try {
-      for (final id in entryIds) {
+      for (final id in [entryId!]) {
         final snapshot = await _canonicalEntries.reveal(
           expected: EntryEntity(
             id: id,
@@ -338,7 +384,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
             agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
             recipientKeyVersion: recipientKeyVersion,
             approvedMethods: methodBits,
-            deliveryPolicy: 0,
+            deliveryPolicy: type.deliveryPolicyCode(),
             fieldIds: approved,
             grantPayload: payload,
             expiresAt: wire.expiresAt == null
@@ -381,7 +427,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         grantId: grantId,
         agentId: agentId,
         type: isFull ? 'full' : 'granular',
-        entryId: isFull ? null : entryId,
+        entryId: entryId,
         entries: wrapped,
         expiresAt: wire.expiresAt,
         queryLimit: wire.queryLimit,
