@@ -59,6 +59,7 @@ class RegrantCubit extends Cubit<RegrantState> {
     required Uint8List privateKey,
     required GrantLimit limit,
     required List<GrantMethod> methods,
+    bool isScriptExecution = false,
   }) async {
     emit(state.copyWith(status: RegrantStatus.submitting, clearError: true));
     try {
@@ -69,6 +70,7 @@ class RegrantCubit extends Cubit<RegrantState> {
         recipientKeyVersion: args.recipientKeyVersion,
         agentAccessEpoch: args.agentAccessEpoch,
         isFull: args.isFull,
+        isScriptExecution: isScriptExecution,
         entryId: args.entryId,
         privateKey: privateKey,
         limit: limit,

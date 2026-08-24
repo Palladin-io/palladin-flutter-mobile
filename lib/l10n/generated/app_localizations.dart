@@ -1862,6 +1862,114 @@ abstract class AppLocalizations {
   /// **'Map an environment variable to a field on another entry.'**
   String get entryScriptRefsHint;
 
+  /// No description provided for @entryScriptParametersLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'CLI parameters'**
+  String get entryScriptParametersLabel;
+
+  /// No description provided for @entryScriptParameterAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add parameter'**
+  String get entryScriptParameterAdd;
+
+  /// No description provided for @entryScriptParameterName.
+  ///
+  /// In en, this message translates to:
+  /// **'Parameter name'**
+  String get entryScriptParameterName;
+
+  /// No description provided for @entryScriptParameterNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. team_id'**
+  String get entryScriptParameterNameHint;
+
+  /// No description provided for @entryScriptParameterDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get entryScriptParameterDescription;
+
+  /// No description provided for @entryScriptParameterType.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get entryScriptParameterType;
+
+  /// No description provided for @entryScriptParameterRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Required'**
+  String get entryScriptParameterRequired;
+
+  /// No description provided for @entryScriptParameterRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove parameter'**
+  String get entryScriptParameterRemove;
+
+  /// No description provided for @entryScriptParameterTypeString.
+  ///
+  /// In en, this message translates to:
+  /// **'Text'**
+  String get entryScriptParameterTypeString;
+
+  /// No description provided for @entryScriptParameterTypeInteger.
+  ///
+  /// In en, this message translates to:
+  /// **'Integer'**
+  String get entryScriptParameterTypeInteger;
+
+  /// No description provided for @entryScriptParameterTypeNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Number'**
+  String get entryScriptParameterTypeNumber;
+
+  /// No description provided for @entryScriptParameterTypeBoolean.
+  ///
+  /// In en, this message translates to:
+  /// **'Boolean'**
+  String get entryScriptParameterTypeBoolean;
+
+  /// No description provided for @entryScriptReturnResultLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Return result to the Agent'**
+  String get entryScriptReturnResultLabel;
+
+  /// No description provided for @entryScriptReturnResultHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The script\'s standard output becomes available to the Agent or LLM. Secrets remain injected locally and must not be printed.'**
+  String get entryScriptReturnResultHint;
+
+  /// No description provided for @entryScriptImpactTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Agents will receive this change'**
+  String get entryScriptImpactTitle;
+
+  /// No description provided for @entryScriptImpactMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This Script is available to {effective} Agents: {direct} directly and {full} through FULL Exec access. Saving refreshes their executable package. Newly referenced secrets become available only inside local execution.'**
+  String entryScriptImpactMessage(int effective, int direct, int full);
+
+  /// No description provided for @entryScriptImpactConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Save and refresh access'**
+  String get entryScriptImpactConfirm;
+
+  /// No description provided for @entryScriptImpactCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not verify which Agents use this Script. Nothing was saved.'**
+  String get entryScriptImpactCheckFailed;
+
   /// Button that appends a new credential reference to a script
   ///
   /// In en, this message translates to:
@@ -3097,6 +3205,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Single entry'**
   String get grantScopeGranular;
+
+  /// No description provided for @grantScopeScriptExecution.
+  ///
+  /// In en, this message translates to:
+  /// **'Whole Script execution'**
+  String get grantScopeScriptExecution;
+
+  /// No description provided for @grantAccessScriptTrustTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'ONE SCRIPT EXECUTION GRANT'**
+  String get grantAccessScriptTrustTitle;
+
+  /// No description provided for @grantAccessScriptTrustBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This grants Exec access to the complete Script package: source plus every referenced field, resolved locally in one request. Adding a reference later expands what this Agent can use. CLI parameter values never reach the backend.'**
+  String get grantAccessScriptTrustBody;
 
   /// Approvals screen segment — pending approval inbox
   ///

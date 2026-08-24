@@ -62,11 +62,6 @@ void main() {
           fields: const {'agentLabel': 'discovery', 'password': 'onGrantValue'},
         ),
         (
-          type: EntryType.script,
-          content: const {'script': 'echo safe'},
-          fields: const {'agentLabel': 'discovery', 'script': 'onGrantRuntime'},
-        ),
-        (
           type: EntryType.creditCard,
           content: const {'cardNumber': '4242424242424242'},
           fields: const {
@@ -76,7 +71,7 @@ void main() {
         ),
       ]) {
     test(
-      '${fixture.type.name} preserves selected methods and defaults policy to standard',
+      '${fixture.type.name} preserves selected methods and canonical delivery policy',
       () async {
         final approval = _Approval();
         final entries = _Entries();
@@ -173,7 +168,7 @@ void main() {
         );
 
         expect(approvedMethods, 3);
-        expect(deliveryPolicy, 0);
+        expect(deliveryPolicy, fixture.type.deliveryPolicyCode());
       },
     );
   }

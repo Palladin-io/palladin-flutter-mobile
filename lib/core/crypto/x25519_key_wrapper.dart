@@ -22,7 +22,8 @@ enum WrapperPurpose {
   agentVdk(2),
   reasonDek(3),
   grantDek(4),
-  agentVaultKey(5);
+  agentVaultKey(5),
+  scriptExecutionDek(6);
 
   const WrapperPurpose(this.id);
   final int id;
@@ -34,6 +35,7 @@ enum WrapperPurpose {
       'reasonDek': WrapperPurpose.reasonDek,
       'grantDek': WrapperPurpose.grantDek,
       'agentVaultKey': WrapperPurpose.agentVaultKey,
+      'scriptExecutionDek': WrapperPurpose.scriptExecutionDek,
     };
     if (value is String) {
       final purpose = names[value];
@@ -97,16 +99,21 @@ final class WrapperContext {
       WrapperPurpose.agentVdk =>
         !hasEntry && !hasGrant && hasAgent && !hasMember,
       WrapperPurpose.reasonDek ||
-      WrapperPurpose.grantDek => hasEntry && hasGrant && hasAgent && !hasMember,
+      WrapperPurpose.grantDek ||
+      WrapperPurpose.scriptExecutionDek =>
+        hasEntry && hasGrant && hasAgent && !hasMember,
       WrapperPurpose.agentVaultKey =>
         !hasEntry && hasGrant && hasAgent && !hasMember,
     };
     final needsParent =
         purpose == WrapperPurpose.reasonDek ||
-        purpose == WrapperPurpose.grantDek;
+        purpose == WrapperPurpose.grantDek ||
+        purpose == WrapperPurpose.scriptExecutionDek;
     final expectedRecipientKeyKind = switch (purpose) {
       WrapperPurpose.memberVaultKey => 5,
-      WrapperPurpose.agentVdk || WrapperPurpose.grantDek => 1,
+      WrapperPurpose.agentVdk ||
+      WrapperPurpose.grantDek ||
+      WrapperPurpose.scriptExecutionDek => 1,
       WrapperPurpose.reasonDek => 4,
       WrapperPurpose.agentVaultKey => 1,
     };
@@ -114,7 +121,9 @@ final class WrapperContext {
       WrapperPurpose.memberVaultKey ||
       WrapperPurpose.reasonDek ||
       WrapperPurpose.grantDek => true,
-      WrapperPurpose.agentVdk || WrapperPurpose.agentVaultKey => false,
+      WrapperPurpose.agentVdk ||
+      WrapperPurpose.agentVaultKey ||
+      WrapperPurpose.scriptExecutionDek => false,
     };
     if (protocolVersion != 2 ||
         !scopeValid ||

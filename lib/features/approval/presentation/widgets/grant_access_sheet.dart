@@ -15,6 +15,7 @@ import '../../../agents/domain/repositories/agents_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../grants/domain/entities/grant_method.dart';
 import '../../../vault/presentation/cubit/vault_list_cubit.dart';
+import '../../../vault/domain/entities/entry_entity.dart';
 import '../cubit/grant_access_cubit.dart';
 import 'approval_format.dart';
 import 'grant_limit_selector.dart';
@@ -34,9 +35,14 @@ class GrantForVault extends GrantAccessMode {
 
 /// From an entry's Agents tab: pick an agent → GRANULAR grant on the entry.
 class GrantForEntry extends GrantAccessMode {
-  const GrantForEntry({required this.vaultId, required this.entryId});
+  const GrantForEntry({
+    required this.vaultId,
+    required this.entryId,
+    required this.entryType,
+  });
   final String vaultId;
   final String entryId;
+  final EntryType entryType;
 }
 
 /// From an agent's Grants tab: pick a vault → FULL grant for the agent.
@@ -97,9 +103,14 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
   );
   late List<GrantMethod> _methods = List.of(kDefaultGrantMethods);
 
+  bool get _isScriptExecution =>
+      widget.mode is GrantForEntry &&
+      (widget.mode as GrantForEntry).entryType == EntryType.script;
+
   @override
   void initState() {
     super.initState();
+    if (_isScriptExecution) _methods = const [GrantMethod.exec];
     _loadOptions();
   }
 
@@ -172,27 +183,36 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
     // Resolve the parameters for each mode. The Agent's full public key comes from the
     // authoritative single-Agent endpoint; FULL seals VK, GRANULAR seals its GrantDEK.
     final cubit = context.read<GrantAccessCubit>();
-    final ({String agentId, String vaultId, bool isFull, String? entryId}) r =
-        switch (widget.mode) {
-          GrantForVault(:final vaultId) => (
-            agentId: _selectedId!,
-            vaultId: vaultId,
-            isFull: true,
-            entryId: null,
-          ),
-          GrantForEntry(:final vaultId, :final entryId) => (
-            agentId: _selectedId!,
-            vaultId: vaultId,
-            isFull: false,
-            entryId: entryId,
-          ),
-          GrantForAgent(:final agentId) => (
-            agentId: agentId,
-            vaultId: _selectedId!,
-            isFull: true,
-            entryId: null,
-          ),
-        };
+    final ({
+      String agentId,
+      String vaultId,
+      bool isFull,
+      bool isScript,
+      String? entryId,
+    })
+    r = switch (widget.mode) {
+      GrantForVault(:final vaultId) => (
+        agentId: _selectedId!,
+        vaultId: vaultId,
+        isFull: true,
+        isScript: false,
+        entryId: null,
+      ),
+      GrantForEntry(:final vaultId, :final entryId, :final entryType) => (
+        agentId: _selectedId!,
+        vaultId: vaultId,
+        isFull: false,
+        isScript: entryType == EntryType.script,
+        entryId: entryId,
+      ),
+      GrantForAgent(:final agentId) => (
+        agentId: agentId,
+        vaultId: _selectedId!,
+        isFull: true,
+        isScript: false,
+        entryId: null,
+      ),
+    };
 
     final String agentPublicKey;
     final int recipientKeyVersion;
@@ -215,6 +235,7 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
       recipientKeyVersion: recipientKeyVersion,
       agentAccessEpoch: agentAccessEpoch,
       isFull: r.isFull,
+      isScriptExecution: r.isScript,
       entryId: r.entryId,
       privateKey: key,
       limit: _limit,
@@ -316,6 +337,13 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
                             message: l10n.grantAccessFullTrustBody,
                           ),
                         ],
+                        if (_isScriptExecution) ...[
+                          const SizedBox(height: AppSpacing.lg),
+                          WarningZone(
+                            title: l10n.grantAccessScriptTrustTitle,
+                            message: l10n.grantAccessScriptTrustBody,
+                          ),
+                        ],
                         const SizedBox(height: AppSpacing.lg),
                         Text(
                           l10n.approvalAccessType,
@@ -343,7 +371,7 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
                         const SizedBox(height: AppSpacing.innerGap),
                         GrantMethodsSelector(
                           value: _methods,
-                          enabled: !state.isSubmitting,
+                          enabled: !state.isSubmitting && !_isScriptExecution,
                           onChanged: (m) => setState(() => _methods = m),
                         ),
                       ],

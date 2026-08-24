@@ -6,6 +6,7 @@ Org-wide grant history feed + per-context grants tab (vault / entry / agent).
 - **Pages:** none standalone — `ContextGrantsTab` is embedded inside vault/entry/agent detail screens.
 - **Widgets:** `OrgGrantCard`, `ContextGrantsTab`, `RevokeGrantSheet`, and `GrantDetailRow` (exported, also used by `notifications`).
 - **Layering:** full data / domain / presentation split. Holds the grant domain entities consumed by `approval`.
+- **Scopes:** `Granular`, `Full`, and `ScriptExecution` are separate domain cases. Script grants expose only value-free structural `scriptScopes` and `scriptPackageRevision` to Member UI; ciphertext is never returned by list/detail endpoints. Grant cards and re-grant sheets label Script execution explicitly and lock its method to `Exec`.
 - **Encrypted history reasons:** list/detail DTOs retain the backend's canonical
   `EncryptedReason` envelope only in the data layer. `GrantReasonResolver`
   authenticates the Agent signing identity and Vault message-key fingerprint,

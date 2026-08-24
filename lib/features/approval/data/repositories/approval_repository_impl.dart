@@ -13,6 +13,7 @@ import '../../../vault/data/services/agent_visibility_projector.dart';
 import '../../../vault/data/services/entry_v2_crypto_service.dart';
 import '../../../vault/data/services/vault_rotation_crypto_service.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_bytes.dart';
+import '../services/script_execution_package_service.dart';
 import '../../../vault/data/datasources/agent_discovery_remote_datasource.dart';
 import '../../../vault/domain/entities/agent_visibility_policy.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
@@ -42,13 +43,15 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required VaultRotationCryptoService vaultKeys,
     required CanonicalEntryDetailService canonicalEntries,
     required AgentDiscoveryRemote discovery,
+    ScriptExecutionPackageService? scriptPackages,
   }) : _approval = approvalDatasource,
        _entries = entryDatasource,
        _vaults = vaultDatasource,
        _crypto = cryptoService,
        _vaultKeys = vaultKeys,
        _canonicalEntries = canonicalEntries,
-       _discovery = discovery;
+       _discovery = discovery,
+       _scriptPackages = scriptPackages ?? ScriptExecutionPackageService();
 
   final ApprovalRemoteDatasource _approval;
   final EntryRemoteDatasource _entries;
@@ -57,6 +60,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
   final VaultRotationCryptoService _vaultKeys;
   final CanonicalEntryDetailService _canonicalEntries;
   final AgentDiscoveryRemote _discovery;
+  final ScriptExecutionPackageService _scriptPackages;
 
   @override
   Future<List<PendingGrant>> listPendingGrants() async {
@@ -260,6 +264,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required int recipientKeyVersion,
     required int agentAccessEpoch,
     required bool isFull,
+    bool isScriptExecution = false,
     String? entryId,
     required Uint8List privateKey,
     required GrantLimit limit,
@@ -267,7 +272,8 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
   }) async {
     if (recipientKeyVersion <= 0 ||
         agentAccessEpoch <= 0 ||
-        (!isFull && entryId == null)) {
+        (!isFull && entryId == null) ||
+        (isFull && isScriptExecution)) {
       throw const ApprovalException(ApprovalErrorKind.validation);
     }
 
@@ -277,6 +283,104 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     final methodBits = _methodBits(methods);
     if (methodBits == 0) {
       throw const ApprovalException(ApprovalErrorKind.validation);
+    }
+
+    if (isScriptExecution) {
+      if (methodBits != 2 || entryId == null) {
+        throw const ApprovalException(ApprovalErrorKind.validation);
+      }
+      CanonicalEntrySnapshot? script;
+      final references = <CanonicalEntrySnapshot>[];
+      final encodedReferences = <ScriptExecutionPackageEntryInput>[];
+      try {
+        script = await _canonicalEntries.reveal(
+          expected: EntryEntity(
+            id: entryId,
+            vaultId: vaultId,
+            label: '',
+            type: EntryType.script,
+            createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+            updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+          ),
+          memberPrivateKey: privateKey,
+        );
+        if (script.secret['entryType'] != EntryType.script.toWire()) {
+          throw const FormatException('Script grant targets a non-Script');
+        }
+        final ids = ScriptRef.listFromPayload(
+          script.payload,
+        ).map((ref) => ref.entryId).toSet().toList()..sort();
+        for (final id in ids) {
+          references.add(
+            await _canonicalEntries.reveal(
+              expected: EntryEntity(
+                id: id,
+                vaultId: vaultId,
+                label: '',
+                type: EntryType.key,
+                createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+                updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+              ),
+              memberPrivateKey: privateKey,
+            ),
+          );
+        }
+        for (final snapshot in references) {
+          encodedReferences.add(
+            ScriptExecutionPackageEntryInput(
+              entryId: snapshot.entry['id'] as String,
+              entryRevision: snapshot.entry['currentRevision'] as String,
+              encodedMemberSecret: _canonicalEntries
+                  .encodeCanonicalMemberSecret(snapshot),
+            ),
+          );
+        }
+        final package = await _scriptPackages.seal(
+          grantId: grantId,
+          packageRevision: 1,
+          agentId: agentId,
+          agentAccessEpoch: agentAccessEpoch,
+          agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
+          recipientAgentKeyVersion: recipientKeyVersion,
+          scriptEntry: script.entry,
+          scriptPayload: script.payload,
+          referencedEntries: encodedReferences,
+        );
+        await _approval.createGrant(
+          vaultId: vaultId,
+          grantId: grantId,
+          agentId: agentId,
+          type: 'scriptExecution',
+          scriptEntryId: entryId,
+          scriptPackage: package,
+          expiresAt: wire.expiresAt,
+          queryLimit: wire.queryLimit,
+          methods: serializeGrantMethods(const [GrantMethod.exec]),
+        );
+        return;
+      } on DioException catch (e) {
+        throw ApprovalException(_classifyError(e));
+      } on ApprovalException {
+        rethrow;
+      } catch (error) {
+        AppLogger.w(
+          'Approval',
+          'Script execution grant failed (${error.runtimeType})',
+        );
+        throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
+      } finally {
+        script?.clear();
+        for (final snapshot in references) {
+          snapshot.clear();
+        }
+        for (final entry in encodedReferences) {
+          entry.encodedMemberSecret.fillRange(
+            0,
+            entry.encodedMemberSecret.length,
+            0,
+          );
+        }
+      }
     }
 
     if (isFull) {
@@ -350,6 +454,9 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           final type = EntryTypeExtension.fromWire(
             snapshot.secret['entryType'] as int,
           );
+          if (type == EntryType.script) {
+            throw const ApprovalException(ApprovalErrorKind.validation);
+          }
           final policy = AgentVisibilityPolicy.fromJson(
             type,
             Map<String, dynamic>.from(

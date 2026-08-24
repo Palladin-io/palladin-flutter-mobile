@@ -101,7 +101,7 @@ void main() {
     );
   });
 
-  test('Credit card fields stay runtime-only while methods remain generic', () {
+  test('Credit card fields stay runtime-only and support inject only', () {
     final policy = AgentVisibilityPolicy.fromJson(
       EntryType.creditCard,
       {
@@ -118,7 +118,7 @@ void main() {
       policy: policy,
     );
 
-    expect(discovery['capabilities'], const ['get', 'exec', 'inject']);
+    expect(discovery['capabilities'], const ['inject']);
     expect(discovery.toString(), isNot(contains('4242424242424242')));
     expect(
       () => AgentVisibilityPolicy.fromJson(

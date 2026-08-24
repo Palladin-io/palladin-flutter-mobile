@@ -33,11 +33,19 @@ extension EntryTypeExtension on EntryType {
     EntryType.creditCard => 3,
   };
 
-  /// Default server-owned policy discriminator. Entry type never narrows the
-  /// methods selected by the user for a grant.
-  String deliveryPolicyWire() => 'standard';
+  /// Script source is never delivered through a regular Get grant. The
+  /// runtime receives it only through the atomic Script execution package.
+  String deliveryPolicyWire() => switch (this) {
+    EntryType.script => 'execOnly',
+    EntryType.creditCard => 'injectOnly',
+    _ => 'standard',
+  };
 
-  int deliveryPolicyCode() => 0;
+  int deliveryPolicyCode() => switch (this) {
+    EntryType.script => 1,
+    EntryType.creditCard => 2,
+    _ => 0,
+  };
 
   static EntryType fromWire(int value) => switch (value) {
     0 => EntryType.key,
@@ -318,15 +326,15 @@ class ScriptRef {
   /// grant).
   final String entryId;
 
-  /// Field on the target entry (`value`, `username`, `password`, `url`,
-  /// `notes`, or a custom field label).
+  /// Canonical field identifier on the target entry (`key.value`,
+  /// `credential.password`, `notes`, or `custom:{uuid}`).
   final String field;
 
   Map<String, dynamic> toJson() => {
     'env': env,
     if (vaultId != null && vaultId!.isNotEmpty) 'vaultId': vaultId,
     'entryId': entryId,
-    'field': field,
+    'fieldId': field,
   };
 
   factory ScriptRef.fromJson(Map<String, dynamic> json) => ScriptRef(
@@ -335,7 +343,7 @@ class ScriptRef {
     env: (json['env'] as String?) ?? (json['placeholder'] as String?) ?? '',
     vaultId: json['vaultId'] as String?,
     entryId: (json['entryId'] as String?) ?? '',
-    field: (json['field'] as String?) ?? '',
+    field: (json['fieldId'] as String?) ?? (json['field'] as String?) ?? '',
   );
 
   static List<ScriptRef> listFromPayload(Map<String, dynamic> payload) {
@@ -353,6 +361,271 @@ class ScriptRef {
   }
 }
 
+enum ScriptParameterType {
+  string,
+  integer,
+  number,
+  boolean;
+
+  static ScriptParameterType fromWire(Object? raw) => switch (raw) {
+    'string' => ScriptParameterType.string,
+    'integer' => ScriptParameterType.integer,
+    'number' => ScriptParameterType.number,
+    'boolean' => ScriptParameterType.boolean,
+    _ => throw FormatException('Unsupported Script parameter type: $raw'),
+  };
+}
+
+/// A value-free, Agent-visible definition of one local execution parameter.
+/// Parameter values are supplied to the CLI at runtime and never sent to the
+/// Palladin backend.
+class ScriptParameterDefinition {
+  const ScriptParameterDefinition({
+    required this.name,
+    required this.description,
+    required this.type,
+    required this.required,
+    this.minimum,
+    this.maximum,
+    this.minLength,
+    this.maxLength,
+    this.allowedValues = const [],
+  });
+
+  final String name;
+  final String description;
+  final ScriptParameterType type;
+  final bool required;
+  final num? minimum;
+  final num? maximum;
+  final int? minLength;
+  final int? maxLength;
+  final List<Object> allowedValues;
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'description': description,
+    'type': type.name,
+    'required': required,
+    if (type == ScriptParameterType.string) ...{
+      if (minLength != null) 'minLength': minLength,
+      if (maxLength != null) 'maxLength': maxLength,
+    } else ...{
+      if (minimum != null) 'minimum': minimum,
+      if (maximum != null) 'maximum': maximum,
+    },
+    if (allowedValues.isNotEmpty) 'enum': allowedValues,
+  };
+
+  factory ScriptParameterDefinition.fromJson(Map<String, dynamic> json) {
+    if (json['name'] is! String ||
+        json['description'] is! String ||
+        json['required'] is! bool) {
+      throw const FormatException('Malformed Script parameter');
+    }
+    final type = ScriptParameterType.fromWire(json['type']);
+    final allowedKeys = <String>{
+      'name',
+      'description',
+      'type',
+      'required',
+      'enum',
+      if (type == ScriptParameterType.string) ...{'minLength', 'maxLength'},
+      if (type == ScriptParameterType.integer ||
+          type == ScriptParameterType.number) ...{
+        'minimum',
+        'maximum',
+      },
+    };
+    if (json.keys.any((key) => !allowedKeys.contains(key))) {
+      throw const FormatException('Unknown Script parameter field');
+    }
+    final rawEnum = json['enum'];
+    if (rawEnum is List && (rawEnum.isEmpty || rawEnum.length > 128)) {
+      throw const FormatException('Invalid Script parameter enum');
+    }
+    return ScriptParameterDefinition(
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      type: type,
+      required: json['required'] as bool? ?? false,
+      minimum: json['minimum'] as num?,
+      maximum: json['maximum'] as num?,
+      minLength: json['minLength'] as int?,
+      maxLength: json['maxLength'] as int?,
+      allowedValues: rawEnum is List
+          ? rawEnum.whereType<Object>().toList(growable: false)
+          : const [],
+    );
+  }
+}
+
+class ScriptExecutionMetadata {
+  const ScriptExecutionMetadata({
+    required this.description,
+    this.parameters = const [],
+    required this.returnResultToAgent,
+  });
+
+  static const int contractVersion = 1;
+  final String description;
+  final List<ScriptParameterDefinition> parameters;
+  final bool returnResultToAgent;
+
+  Map<String, dynamic> toJson() => {
+    'contractVersion': contractVersion,
+    'description': description.trim(),
+    'parameters': parameters.map((value) => value.toJson()).toList(),
+    'returnResultToAgent': returnResultToAgent,
+  };
+
+  factory ScriptExecutionMetadata.fromJson(Map<String, dynamic> json) {
+    if (json.keys.any(
+          (key) => !const {
+            'contractVersion',
+            'description',
+            'parameters',
+            'returnResultToAgent',
+          }.contains(key),
+        ) ||
+        json['description'] is! String ||
+        json['parameters'] is! List ||
+        (json.containsKey('returnResultToAgent') &&
+            json['returnResultToAgent'] is! bool)) {
+      throw const FormatException('Malformed Script execution metadata');
+    }
+    if (json['contractVersion'] != contractVersion) {
+      throw const FormatException('Unsupported Script execution metadata');
+    }
+    final value = ScriptExecutionMetadata(
+      description: json['description'] as String? ?? '',
+      parameters: (json['parameters'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map(
+            (value) => ScriptParameterDefinition.fromJson(
+              Map<String, dynamic>.from(value),
+            ),
+          )
+          .toList(growable: false),
+      // Missing on a legacy Script intentionally fails closed.
+      returnResultToAgent: json['returnResultToAgent'] as bool? ?? false,
+    );
+    value.validate();
+    return value;
+  }
+
+  void validate() {
+    if (description.trim().isEmpty || description.length > 4096) {
+      throw const FormatException('Invalid Script execution description');
+    }
+    if (parameters.length > 32) {
+      throw const FormatException('Too many Script parameters');
+    }
+    final names = <String>{};
+    for (final parameter in parameters) {
+      if (!isScriptIdentifier(parameter.name) ||
+          !names.add(parameter.name.toUpperCase()) ||
+          parameter.description.trim().isEmpty ||
+          parameter.description.length > 1024) {
+        throw const FormatException('Invalid Script parameter');
+      }
+      if (parameter.minimum != null &&
+          parameter.maximum != null &&
+          parameter.minimum! > parameter.maximum!) {
+        throw const FormatException('Invalid Script parameter range');
+      }
+      if (parameter.minLength != null &&
+          parameter.maxLength != null &&
+          parameter.minLength! > parameter.maxLength!) {
+        throw const FormatException('Invalid Script parameter length');
+      }
+      if (parameter.type == ScriptParameterType.integer &&
+          <num?>[
+            parameter.minimum,
+            parameter.maximum,
+            ...parameter.allowedValues.whereType<num>(),
+          ].whereType<num>().any((value) => value != value.roundToDouble())) {
+        throw const FormatException('Invalid integer Script parameter');
+      }
+      if (parameter.minLength != null &&
+              (parameter.minLength! < 0 || parameter.minLength! > 8192) ||
+          parameter.maxLength != null &&
+              (parameter.maxLength! < 0 || parameter.maxLength! > 8192)) {
+        throw const FormatException('Invalid Script parameter length');
+      }
+      if (parameter.allowedValues.length > 128) {
+        throw const FormatException('Invalid Script parameter enum');
+      }
+      final values = <String>{};
+      for (final value in parameter.allowedValues) {
+        final valid = switch (parameter.type) {
+          ScriptParameterType.string => value is String && value.length <= 8192,
+          ScriptParameterType.integer =>
+            value is int && value.abs() <= 9007199254740991,
+          ScriptParameterType.number => value is num && value.isFinite,
+          ScriptParameterType.boolean => value is bool,
+        };
+        if (!valid || !values.add(value.toString())) {
+          throw const FormatException('Invalid Script parameter enum');
+        }
+      }
+    }
+  }
+}
+
+const _reservedScriptEnvironmentNames = <String>{
+  'BASHOPTS',
+  'BASH_ENV',
+  'CDPATH',
+  'ENV',
+  'GCONV_PATH',
+  'GLOBIGNORE',
+  'HOME',
+  'HOSTALIASES',
+  'IFS',
+  'LD_PRELOAD',
+  'LOCPATH',
+  'LOGNAME',
+  'NLSPATH',
+  'NODE_OPTIONS',
+  'NODE_PATH',
+  'PATH',
+  'PERL5LIB',
+  'PERL5OPT',
+  'PYTHONHOME',
+  'PYTHONINSPECT',
+  'PYTHONPATH',
+  'PYTHONSTARTUP',
+  'RUBYOPT',
+  'SHELL',
+  'SHELLOPTS',
+  'TEMP',
+  'TMP',
+  'TMPDIR',
+  'USER',
+};
+
+const _reservedScriptEnvironmentPrefixes = <String>[
+  'CLAW_',
+  'DYLD_',
+  'LD_',
+  'PALLADIN_',
+];
+
+bool isScriptIdentifier(String value) =>
+    value.length <= 64 && RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(value);
+
+bool isAllowedScriptReferenceEnvironment(String value) {
+  if (!isScriptIdentifier(value)) return false;
+  final normalized = value.toUpperCase();
+  return !_reservedScriptEnvironmentNames.contains(normalized) &&
+      !_reservedScriptEnvironmentPrefixes.any(normalized.startsWith);
+}
+
+bool isScriptReferenceFieldId(String value) => RegExp(
+  r'^(?:memberLabel|agentLabel|description|icon|color|entryType|key\.value|credential\.(?:username|password|url|urlDomain|totp)|creditCard\.(?:cardholderName|cardNumber|expiryMonth|expiryYear|billingAddress)|notes|script\.(?:source|interpreter|refs)|custom:[0-9a-fA-F-]{36})$',
+).hasMatch(value);
+
 /// Plaintext payload shape for a `SCRIPT` entry (spec §5). Lives only in
 /// memory after decryption — never persisted in plaintext.
 class ScriptPayload {
@@ -362,6 +635,7 @@ class ScriptPayload {
     this.notes,
     this.refs = const [],
     this.fields = const [],
+    this.execution,
   });
 
   /// The script body. Shown to the human owner; delivered to agents only
@@ -376,6 +650,7 @@ class ScriptPayload {
 
   /// User-defined custom fields (blob schema v2).
   final List<CustomField> fields;
+  final ScriptExecutionMetadata? execution;
 
   Map<String, dynamic> toJson() => {
     'v': 2,
@@ -385,6 +660,7 @@ class ScriptPayload {
     if (notes != null) 'notes': notes,
     if (refs.isNotEmpty)
       'refs': refs.map((r) => r.toJson()).toList(growable: false),
+    if (execution != null) 'execution': execution!.toJson(),
     if (fields.isNotEmpty) 'fields': CustomField.listToJson(fields),
   };
 
@@ -394,5 +670,10 @@ class ScriptPayload {
     notes: json['notes'] as String?,
     refs: ScriptRef.listFromPayload(json),
     fields: CustomField.listFromPayload(json),
+    execution: json['execution'] is Map
+        ? ScriptExecutionMetadata.fromJson(
+            Map<String, dynamic>.from(json['execution'] as Map),
+          )
+        : null,
   );
 }

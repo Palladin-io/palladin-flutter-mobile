@@ -9,7 +9,9 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_screen.dart';
+import '../../../../core/widgets/app_toggle.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
+import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -28,6 +30,7 @@ import '../widgets/entry_form_widgets.dart';
 import '../widgets/entry_icon_tile.dart';
 import '../widgets/entry_notes_section.dart';
 import '../widgets/script_editor_field.dart';
+import '../widgets/script_parameters_editor.dart';
 import '../widgets/script_refs_editor.dart';
 import '../widgets/totp_section.dart';
 import '../widgets/vault_visuals.dart';
@@ -126,6 +129,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
   List<CustomField> _totpFields = const [];
 
   List<ScriptRef> _refs = const [];
+  List<ScriptParameterDefinition> _scriptParameters = const [];
+  bool _returnResultToAgent = true;
 
   /// Every custom field in display order — 2FA first, then the rest.
   List<CustomField> get _allCustomFields => [..._totpFields, ..._customFields];
@@ -212,6 +217,9 @@ class _AddEntryViewState extends State<_AddEntryView> {
         username: _usernameController.text,
         password: _passwordController.text,
         script: _scriptController.text,
+        description: _descriptionController.text,
+        refs: _refs,
+        scriptParameters: _scriptParameters,
         cardholderName: _cardholderController.text,
         cardNumber: _cardNumberController.text,
         expiryMonth: _expiryMonthController.text,
@@ -264,6 +272,9 @@ class _AddEntryViewState extends State<_AddEntryView> {
     script: _scriptController.text,
     interpreter: _interpreter,
     refs: _refs,
+    scriptDescription: _descriptionController.text,
+    scriptParameters: _scriptParameters,
+    returnResultToAgent: _returnResultToAgent,
     cardholderName: _cardholderController.text,
     cardNumber: _cardNumberController.text,
     expiryMonth: _expiryMonthController.text,
@@ -363,6 +374,32 @@ class _AddEntryViewState extends State<_AddEntryView> {
           onInterpreterChanged: (next) => setState(() => _interpreter = next),
           onChanged: () => setState(() {}),
         ),
+        const SizedBox(height: AppSpacing.section),
+        EntrySectionHeader(label: l10n.entryScriptParametersLabel),
+        const SizedBox(height: AppSpacing.innerGap),
+        ScriptParametersEditor(
+          initial: _scriptParameters,
+          onChanged: (parameters) =>
+              setState(() => _scriptParameters = parameters),
+        ),
+        const SizedBox(height: AppSpacing.section),
+        Row(
+          children: [
+            Expanded(child: Text(l10n.entryScriptReturnResultLabel)),
+            AppToggle(
+              value: _returnResultToAgent,
+              onChanged: (value) =>
+                  setState(() => _returnResultToAgent = value),
+            ),
+          ],
+        ),
+        if (_returnResultToAgent) ...[
+          const SizedBox(height: AppSpacing.innerGap),
+          WarningZone(
+            title: l10n.entryScriptReturnResultLabel.toUpperCase(),
+            message: l10n.entryScriptReturnResultHint,
+          ),
+        ],
         const SizedBox(height: AppSpacing.section),
         EntrySectionHeader(label: l10n.entryInjectedDataLabel),
         const SizedBox(height: AppSpacing.innerGap),

@@ -426,12 +426,14 @@ final class ScriptSecretContent extends MemberSecretContent {
     required this.source,
     required this.interpreter,
     required this.refs,
+    required this.execution,
     required this.notes,
     required super.customFields,
   });
   final String source;
   final String interpreter;
   final List<Map<String, Object?>> refs;
+  final Map<String, Object?>? execution;
   final String? notes;
 
   @override
@@ -439,6 +441,7 @@ final class ScriptSecretContent extends MemberSecretContent {
     'source': source,
     'interpreter': interpreter,
     'refs': refs,
+    if (execution != null) 'execution': execution,
     'notes': notes,
     'customFields': customFields.map((field) => field.toJson()).toList(),
   };
@@ -708,6 +711,8 @@ abstract final class VaultPlaintextProjector {
       'agentLabel': secret.agentLabel,
       'capabilities': _capabilities(secret),
       'fields': fields.map((field) => field.toJson()).toList(),
+      if (secret.content case ScriptSecretContent(execution: final value?))
+        'execution': value,
     };
   }
 
@@ -845,11 +850,12 @@ abstract final class VaultPlaintextProjector {
     for (final field in secret.content.customFields) field.fieldId: field.value,
   };
 
-  static List<String> _capabilities(MemberSecret _) => const [
-    'get',
-    'exec',
-    'inject',
-  ];
+  static List<String> _capabilities(MemberSecret secret) =>
+      switch (secret.entryType) {
+        VaultEntryType.script => const ['exec'],
+        VaultEntryType.creditCard => const ['inject'],
+        _ => const ['get', 'exec', 'inject'],
+      };
 
   static String _grantKind(MemberSecret secret, String id) => switch (id) {
     'key.value' || 'credential.password' => 'concealed',

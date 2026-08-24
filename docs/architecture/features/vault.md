@@ -61,7 +61,7 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 
 - Entry Details decrypts the authenticated canonical policy only while unlocked and exposes Discovery as small, tooltip-labelled agent icons beside eligible inputs. The policy is saved in the same optimistic canonical transition as the Entry edit. The Entry Agents tab contains only actual scoped grants plus the host add-grant CTA; it never exposes protocol field ids or access-mode dropdowns. TOTP source fields accept only `never`/`onGrantDerived`; Script source and refs accept only `never`/`onGrantRuntime`. VK, VDK, EntryDEK and source secrets never enter widget state or copy actions.
 - A policy save creates one immutable canonical revision. Discovery advances only when its effective projection changes; private-only policy changes do not leak through the Discovery cursor.
-- Before GRANULAR grant encryption, the local projector proves every approved field is still within the Entry policy. Every active GRANULAR grant on that Entry is fetched with bounded cursor pagination, refreshed to the exact new Entry revision with a fresh GrantDEK, and submitted in the same optimistic Entry transaction. FULL grants require no per-Entry material because they carry one Vault-key wrapper. Missing, extra, stale or widening GRANULAR scope fails closed and the backend commits all heads/envelopes or none.
+- Before GRANULAR grant encryption, the local projector proves every approved field is still within the Entry policy. Every active GRANULAR grant on that Entry is fetched with bounded cursor pagination, refreshed to the exact new Entry revision with a fresh GrantDEK, and submitted in the same optimistic Entry transaction. Every direct `ScriptExecution` package whose structural scope contains the edited Entry is also rebuilt locally and submitted in that transaction. FULL grants require no per-Entry material because they carry one Vault-key wrapper. Missing, extra, stale or widening scope fails closed and the backend commits all heads/envelopes/packages or none.
 - Lock, background, conflict and successful save clear the decrypted snapshot. Member keys, GrantDEKs, plaintext payload bytes, recipient-key copies and sealed-package buffers are wiped in `finally` paths.
 
 ### Import / Export
@@ -78,7 +78,10 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 The decrypted entry blob is **additive v2**: well-known fields stay top-level, a
 `fields[]` array of custom fields is added beside them, and a new `SCRIPT`
 entry type (`EntryType.script`, wire `2`) carries `script` / `interpreter`
-(`bash|sh|node|python`) / `refs[]` (explicit `env → entryId.field` mappings).
+(`bash|sh|node|python`) / `refs[]` (explicit `env → entryId.fieldId` mappings)
+plus execution metadata: required description, up to 32 typed CLI parameter
+definitions, and `returnResultToAgent`. New Scripts default the result flag to
+`true`; an absent legacy flag is interpreted as `false`.
 `EntryType.creditCard` (wire `3`) carries cardholder name, PAN, expiry
 month/year and optional billing address. It has no dedicated CVV/CVC or PIN
 field. General custom fields remain neutral and are not detected, promoted, or
@@ -94,8 +97,11 @@ unchanged** on save so an older client never drops a newer client's fields.
 - **Models** (`domain/entities/`): `custom_field.dart` (`CustomField` +
   `CustomFieldType`), `totp_config.dart` (`TotpConfig` — parses `otpauth://`
   URIs and base32, RFC defaults SHA1/6/30), and `ScriptPayload` / `ScriptRef` /
-  `ScriptInterpreter` in `entry_entity.dart`. `KeyPayload` / `CredentialPayload`
-  gained `fields`.
+  `ScriptInterpreter`, `ScriptExecutionMetadata`, and typed parameter
+  definitions in `entry_entity.dart`. Reference environment names are unique
+  case-insensitively and reject process-control names/prefixes such as
+  `NODE_OPTIONS`, `LD_*`, `DYLD_*`, and `PALLADIN_*`. `KeyPayload` /
+  `CredentialPayload` gained `fields`.
 - **TOTP** (`data/services/totp_service.dart`): stateless RFC 6238 generator
   (HMAC via `crypto`, local base32 decoder); tested against the RFC 6238
   vectors. Never inline TOTP maths in a widget. `TotpDisplay` shows the live
@@ -104,14 +110,16 @@ unchanged** on save so an older client never drops a newer client's fields.
 - **Custom fields UI**: `CustomFieldsEditor` (reorderable rows: name + type +
   value/TOTP) on Add/Edit; the read-only detail renders each field with the
   Locked Value Pattern (concealed/totp masked until revealed).
-- **Script UI**: `ScriptRefsEditor` (env ← entry.field rows, backed by
-  `entry_field_names.dart` well-known field options) + the `WarningZone`
-  exec-only notice; Script entries hide the URL field and show a `terminal`
-  glyph in the list. `OnboardingTextField` gained a `monospace` flag for the
-  script body.
-- **Crypto is unchanged** — `fields` / `script` / `refs` live inside the same
-  opaque `crypto_secretbox` blob, so the existing encrypt / edit / re-wrap path
-  covers them with no new endpoints.
+- **Script UI**: `ScriptRefsEditor` (env ← entry.fieldId rows),
+  `ScriptParametersEditor`, a result-delivery toggle and a warning explaining
+  that stdout can reach the Agent/LLM. Before saving a changed Script, the
+  value-free access-impact endpoint returns effective/direct/FULL Agent counts;
+  the user must confirm and a failed impact check blocks the save. Script
+  entries hide URL and use the `terminal` glyph.
+- **Crypto:** Script metadata remains inside the canonical MemberSecret and its
+  value-free subset enters AgentDiscovery. Direct execution additionally uses
+  one Agent-sealed Script execution package; parameter values remain local to
+  the CLI and never enter backend requests.
 
 ### Add/Edit redesign + agent-visible fields (mockup parity)
 

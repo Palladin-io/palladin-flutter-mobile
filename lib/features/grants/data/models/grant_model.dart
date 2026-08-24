@@ -19,6 +19,8 @@ class GrantModel {
     this.recipientAgentKeyVersion,
     this.agentAccessEpoch,
     this.entryScopes = const [],
+    this.scriptScopes = const [],
+    this.scriptPackageRevision,
     this.vaultName,
     this.entryId,
     this.entryLabel,
@@ -51,6 +53,8 @@ class GrantModel {
   final int? recipientAgentKeyVersion;
   final int? agentAccessEpoch;
   final List<GrantEntryScope> entryScopes;
+  final List<ScriptExecutionGrantScope> scriptScopes;
+  final String? scriptPackageRevision;
   final String? vaultName;
   final Object? status;
   final Object? scope;
@@ -107,6 +111,17 @@ class GrantModel {
             ),
           )
           .toList(growable: false),
+      scriptScopes: (json['scriptScopes'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map(
+            (scope) => ScriptExecutionGrantScope(
+              entryId: scope['entryId'] as String,
+              entryRevision: scope['entryRevision'] as String,
+              isScript: scope['isScript'] as bool,
+            ),
+          )
+          .toList(growable: false),
+      scriptPackageRevision: json['scriptPackageRevision'] as String?,
       vaultName: json['vaultName'] as String?,
       status: json['status'],
       // Org listing returns `type` (full/granular); the per-vault list uses
@@ -150,6 +165,8 @@ class GrantModel {
       recipientAgentKeyVersion: recipientAgentKeyVersion,
       agentAccessEpoch: agentAccessEpoch,
       entryScopes: entryScopes,
+      scriptScopes: scriptScopes,
+      scriptPackageRevision: scriptPackageRevision,
       vaultName: vaultName,
       status: GrantStatus.fromWire(status),
       scope: GrantScope.fromWire(scope),

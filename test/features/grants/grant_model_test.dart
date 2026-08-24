@@ -139,6 +139,7 @@ void main() {
       expect(GrantStatus.fromWire(6), GrantStatus.denied);
       expect(GrantScope.fromWire(1), GrantScope.granular);
       expect(GrantScope.fromWire(2), GrantScope.full);
+      expect(GrantScope.fromWire(3), GrantScope.scriptExecution);
     });
 
     test('accepts a grant whose referenced agent has been removed', () {

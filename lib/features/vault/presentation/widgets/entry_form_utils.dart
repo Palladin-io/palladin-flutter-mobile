@@ -72,6 +72,9 @@ class EntryFormUtils {
     String script = '',
     ScriptInterpreter interpreter = ScriptInterpreter.bash,
     List<ScriptRef> refs = const [],
+    String scriptDescription = '',
+    List<ScriptParameterDefinition> scriptParameters = const [],
+    bool returnResultToAgent = true,
     String? credentialTotp,
     String cardholderName = '',
     String cardNumber = '',
@@ -102,6 +105,11 @@ class EntryFormUtils {
         notes: notesOrNull,
         refs: refs,
         fields: fields,
+        execution: ScriptExecutionMetadata(
+          description: scriptDescription.trim(),
+          parameters: scriptParameters,
+          returnResultToAgent: returnResultToAgent,
+        ),
       ).toJson(),
       EntryType.creditCard => CreditCardPayload(
         cardholderName: cardholderName.trim(),
@@ -126,6 +134,9 @@ class EntryFormUtils {
     String username = '',
     String password = '',
     String script = '',
+    String description = '',
+    List<ScriptRef> refs = const [],
+    List<ScriptParameterDefinition> scriptParameters = const [],
     String cardholderName = '',
     String cardNumber = '',
     String expiryMonth = '',
@@ -136,7 +147,10 @@ class EntryFormUtils {
       EntryType.key => value.trim().isNotEmpty,
       EntryType.credential =>
         username.trim().isNotEmpty && password.trim().isNotEmpty,
-      EntryType.script => script.trim().isNotEmpty,
+      EntryType.script =>
+        script.trim().isNotEmpty &&
+            description.trim().isNotEmpty &&
+            _validScriptDefinitions(refs, scriptParameters),
       EntryType.creditCard =>
         cardholderName.trim().isNotEmpty &&
             RegExp(
@@ -145,6 +159,32 @@ class EntryFormUtils {
             RegExp(r'^(0[1-9]|1[0-2])$').hasMatch(expiryMonth) &&
             RegExp(r'^\d{4}$').hasMatch(expiryYear),
     };
+  }
+
+  static bool _validScriptDefinitions(
+    List<ScriptRef> refs,
+    List<ScriptParameterDefinition> parameters,
+  ) {
+    if (refs.length > 64 || parameters.length > 32) return false;
+    final environmentNames = <String>{};
+    for (final ref in refs) {
+      if (!isAllowedScriptReferenceEnvironment(ref.env) ||
+          !isScriptReferenceFieldId(ref.field) ||
+          ref.entryId.isEmpty ||
+          !environmentNames.add(ref.env.toUpperCase())) {
+        return false;
+      }
+    }
+    try {
+      ScriptExecutionMetadata(
+        description: 'validation',
+        parameters: parameters,
+        returnResultToAgent: false,
+      ).validate();
+      return true;
+    } on FormatException {
+      return false;
+    }
   }
 
   /// Soft ceiling on the plaintext payload in bytes. The backend caps the

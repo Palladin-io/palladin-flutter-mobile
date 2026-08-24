@@ -47,6 +47,7 @@ String grantScopeLabel(AppLocalizations l10n, GrantScope scope) {
   return switch (scope) {
     GrantScope.full => l10n.grantScopeFull,
     GrantScope.granular => l10n.grantScopeGranular,
+    GrantScope.scriptExecution => l10n.grantScopeScriptExecution,
   };
 }
 
