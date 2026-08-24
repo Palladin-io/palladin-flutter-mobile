@@ -4,9 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
 import '../../../../core/utils/app_logger.dart';
-import '../../../grants/domain/entities/grant.dart';
-import '../../../grants/domain/exceptions/grants_exceptions.dart';
-import '../../../grants/domain/repositories/grants_repository.dart';
 import '../../../public_asset_catalog/domain/services/public_hostname.dart';
 import '../../../public_asset_catalog/domain/entities/public_asset.dart';
 import '../../../public_asset_catalog/domain/services/website_icon_service.dart';
@@ -34,14 +31,12 @@ export 'import_wizard_state.dart';
 class ImportWizardCubit extends Cubit<ImportWizardState> {
   ImportWizardCubit({
     required this.repository,
-    required this.grantsRepository,
     required this.vaultId,
     this.websiteIconService,
     AnalyticsService? analytics,
   }) : super(const ImportWizardInitial());
 
   final EntryRepository repository;
-  final GrantsRepository grantsRepository;
   final String vaultId;
   final WebsiteIconService? websiteIconService;
 
@@ -68,15 +63,6 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     final epoch = _sessionEpoch;
     emit(const ImportWizardParsing());
     try {
-      // The backend requires per-entry re-wrap material for every active
-      // FULL grant on the vault. The mobile create/import flow can't produce
-      // it, so block up-front rather than fail the atomic batch server-side.
-      if (await _hasActiveFullGrants()) {
-        if (!_isCurrent(epoch)) return;
-        _trackFailed('full-grants-blocked');
-        emit(const ImportWizardFailure(ImportFailureReason.fullGrantsBlocked));
-        return;
-      }
       await _loadExistingEntries();
       if (!_isCurrent(epoch)) return;
       final outcome = ImportEngine.parse(bytes, fileName: fileName);
@@ -91,18 +77,6 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
           _trackFailed('unsupported');
           emit(ImportWizardFailure(_mapUnsupported(reason)));
       }
-    } on GrantsException catch (e) {
-      if (!_isCurrent(epoch)) return;
-      // Grant lookup runs before we touch the file, so a wire failure here
-      // must not be reported as an unrecognised file.
-      _trackFailed(e.kind.name);
-      emit(
-        ImportWizardFailure(
-          e.kind == GrantsErrorKind.networkError
-              ? ImportFailureReason.network
-              : ImportFailureReason.unknown,
-        ),
-      );
     } on EntryException catch (e) {
       if (!_isCurrent(epoch)) return;
       _trackFailed(e.kind.name);
@@ -336,28 +310,6 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       return;
     }
     emit(ImportWizardImporting(done: done, total: total, phase: phase));
-  }
-
-  /// Pages through the vault's active grants looking for any FULL-scope
-  /// grant. Bounded in practice (active grants per vault are few); the loop
-  /// guards against a FULL grant sitting past the first page.
-  Future<bool> _hasActiveFullGrants() async {
-    final seenCursors = <String>{};
-    String? cursor;
-    do {
-      final page = await grantsRepository.listGrants(
-        vaultId,
-        status: 'active',
-        cursor: cursor,
-        pageSize: 50,
-      );
-      if (page.grants.any((g) => g.scope == GrantScope.full)) return true;
-      cursor = page.nextCursor;
-      // Stop if the backend ever repeats a cursor (broken pagination) so we
-      // can't spin forever.
-      if (cursor != null && !seenCursors.add(cursor)) break;
-    } while (cursor != null);
-    return false;
   }
 
   static String _clamp(String value, int max) =>

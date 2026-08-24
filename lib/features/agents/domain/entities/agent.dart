@@ -59,6 +59,7 @@ class Agent {
     this.publicKeyPrefix = '',
     this.publicKey = '',
     this.recipientKeyVersion = 1,
+    this.accessEpoch = 1,
     this.enrolledAt,
     this.enrolledByName,
     this.deactivatedAt,
@@ -101,6 +102,9 @@ class Agent {
 
   /// Version of the current Agent X25519 recipient key.
   final int recipientKeyVersion;
+
+  /// Current server-issued access generation used to bind Agent ciphertext.
+  final int accessEpoch;
 
   /// Short suffix of the agent's public key, shown in monospace so an
   /// operator can visually identify the enrolled key.

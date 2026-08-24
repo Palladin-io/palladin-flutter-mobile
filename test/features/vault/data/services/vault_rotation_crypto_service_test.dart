@@ -14,6 +14,7 @@ import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vaul
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/data/models/vault_rotation_models.dart';
 import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
 
 void main() {
@@ -263,6 +264,83 @@ void main() {
     fingerprint.fillRange(0, fingerprint.length, 0);
     sealed.fillRange(0, sealed.length, 0);
     recipient.dispose();
+  });
+
+  test('seals the whole Vault key once for an active FULL grant', () async {
+    final library = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
+    final sodium = await _loadSodium(library);
+    if (sodium == null) {
+      markTestSkipped('libsodium is unavailable on this test host');
+      return;
+    }
+    const organizationId = '11111111-1111-4111-8111-111111111111';
+    const vaultId = '22222222-2222-4222-8222-222222222222';
+    const grantId = '33333333-3333-4333-8333-333333333333';
+    const agentId = '44444444-4444-4444-8444-444444444444';
+    final keyPair = sodium.crypto.box.keyPair();
+    final privateKey = keyPair.secretKey.extractBytes();
+    final fingerprint = vaultPublicKeyFingerprint(
+      VaultPublicKeyKind.agentX25519,
+      keyPair.publicKey,
+    );
+    final vaultKey = Uint8List.fromList(
+      List<int>.generate(32, (index) => index + 1),
+    );
+    final service = VaultRotationCryptoService(
+      sodiumLoader: () async => sodium,
+    );
+    final contract = await service.sealAgentVaultKey(
+      recipient: RotationFullGrantRecipient(
+        grantId: grantId,
+        agentId: agentId,
+        agentAccessEpoch: 7,
+        recipientKeyVersion: 2,
+        recipientKeyFingerprint: VaultProtocolBytes.base64UrlEncode(
+          fingerprint,
+        ),
+        x25519PublicKey: VaultProtocolBytes.base64UrlEncode(keyPair.publicKey),
+      ),
+      organizationId: organizationId,
+      vaultId: vaultId,
+      vaultKeyVersion: 3,
+      vaultKey: vaultKey,
+    );
+    final wrapped = Map<String, Object?>.from(
+      contract['wrappedVaultKey']! as Map,
+    );
+    final descriptor = Map<String, Object?>.from(wrapped['descriptor']! as Map);
+
+    expect(descriptor['purpose'], WrapperPurpose.agentVaultKey.id);
+    expect(descriptor['resourceRevision'], '7');
+    expect(descriptor['wrappedKeyVersion'], 3);
+    expect(descriptor['memberKeyGeneration'], isNull);
+    final opened =
+        await X25519SealedBoxKeyWrapper(sodiumLoader: () async => sodium).open(
+          wrapped: VaultProtocolBytes.base64UrlDecode(
+            wrapped['encodedSealedKeyPackage']! as String,
+          ),
+          context: WrapperContext(
+            purpose: WrapperPurpose.agentVaultKey,
+            scope: EnvelopeScope(
+              organizationId: EnvelopeId.parse(organizationId),
+              vaultId: EnvelopeId.parse(vaultId),
+              grantOrRequestId: EnvelopeId.parse(grantId),
+              agentId: EnvelopeId.parse(agentId),
+            ),
+            resourceRevision: 7,
+            wrappedKeyVersion: 3,
+            recipientKeyVersion: 2,
+            recipientFingerprint: fingerprint,
+          ),
+          recipientSecretKey: privateKey,
+        );
+    expect(opened, vaultKey);
+
+    opened.fillRange(0, opened.length, 0);
+    privateKey.fillRange(0, privateKey.length, 0);
+    fingerprint.fillRange(0, fingerprint.length, 0);
+    vaultKey.fillRange(0, vaultKey.length, 0);
+    keyPair.dispose();
   });
 
   test('rewraps a canonical Entry DEK into the target generation', () async {

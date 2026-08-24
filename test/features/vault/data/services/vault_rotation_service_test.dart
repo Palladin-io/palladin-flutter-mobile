@@ -82,6 +82,10 @@ void main() {
       ),
     ).thenAnswer((_) async => const RotationPage(items: []));
     when(
+      () =>
+          remote.fullGrants(rotation.vaultId, rotation.id, any(), any(), any()),
+    ).thenAnswer((_) async => const RotationPage(items: []));
+    when(
       () => remote.agents(rotation.vaultId, any(), any()),
     ).thenAnswer((_) async => const RotationPage(items: []));
     when(

@@ -171,6 +171,7 @@ final class KeyEntryCreationService {
         vaultId: vaultId,
         entryId: entryId,
         envelopes: envelopes,
+        deliveryPolicy: type.deliveryPolicyWire(),
       ).toJson();
       await _commitCanonicalCreate(vaultId, request);
       final now = DateTime.now().toUtc();

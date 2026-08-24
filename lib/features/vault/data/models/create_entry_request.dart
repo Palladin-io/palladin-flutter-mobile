@@ -14,6 +14,7 @@ class CreateEntryRequest {
     this.icon,
     required this.type,
     required this.content,
+    required this.deliveryPolicy,
     this.urlDomain,
     this.agentFields,
   });
@@ -28,6 +29,7 @@ class CreateEntryRequest {
   /// JSONB envelope holding the base64-encoded ciphertext and matching
   /// nonce.
   final EntryContentModel content;
+  final String deliveryPolicy;
 
   /// Optional plaintext URL domain (`stripe.com`) shown in the entry
   /// row's meta line. The full URL belongs inside the encrypted payload.
@@ -44,6 +46,7 @@ class CreateEntryRequest {
       if (icon != null) 'icon': icon,
       'type': type,
       'content': content.toJson(),
+      'deliveryPolicy': deliveryPolicy,
       if (urlDomain != null) 'urlDomain': urlDomain,
       if (agentFields != null)
         'agentFields': agentFields!.map((f) => f.toJson()).toList(),

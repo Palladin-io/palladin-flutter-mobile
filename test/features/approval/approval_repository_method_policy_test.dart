@@ -13,6 +13,7 @@ import 'package:mobile_palladin/features/vault/data/datasources/entry_remote_dat
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 
 class _Approval extends Mock implements ApprovalRemoteDatasource {}
@@ -22,6 +23,8 @@ class _Entries extends Mock implements EntryRemoteDatasource {}
 class _Vaults extends Mock implements VaultRemoteDatasource {}
 
 class _Crypto extends Mock implements EntryV2CryptoService {}
+
+class _VaultKeys extends Mock implements VaultRotationCryptoService {}
 
 class _CanonicalEntries extends Mock implements CanonicalEntryDetailService {}
 
@@ -73,12 +76,13 @@ void main() {
         ),
       ]) {
     test(
-      '${fixture.type.name} preserves selected methods and standard delivery policy',
+      '${fixture.type.name} preserves selected methods and defaults policy to standard',
       () async {
         final approval = _Approval();
         final entries = _Entries();
         final vaults = _Vaults();
         final crypto = _Crypto();
+        final vaultKeys = _VaultKeys();
         final canonical = _CanonicalEntries();
         final discovery = _Discovery();
         int? approvedMethods;
@@ -151,6 +155,7 @@ void main() {
           entryDatasource: entries,
           vaultDatasource: vaults,
           cryptoService: crypto,
+          vaultKeys: vaultKeys,
           canonicalEntries: canonical,
           discovery: discovery,
         );
@@ -159,6 +164,7 @@ void main() {
           agentId: agentId,
           agentPublicKey: base64.encode(List<int>.filled(32, 4)),
           recipientKeyVersion: 3,
+          agentAccessEpoch: 1,
           isFull: false,
           entryId: entryId,
           privateKey: Uint8List.fromList(List<int>.filled(32, 7)),

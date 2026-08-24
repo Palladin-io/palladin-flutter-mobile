@@ -420,6 +420,38 @@ final class VaultRotationService {
         afterId = page.nextAfterId;
         afterVersion = page.nextAfterVersion;
       } while (afterId != null);
+
+      String? afterGrantId;
+      do {
+        await _renew(lease, memberPrivateKey, secrets, seedEstablished, token);
+        final page = await _remote.fullGrants(
+          rotation.vaultId,
+          rotation.id,
+          lease.token,
+          afterGrantId,
+          token,
+        );
+        final wrappers = <Map<String, Object?>>[];
+        for (final recipient in page.items) {
+          wrappers.add(
+            await _crypto.sealAgentVaultKey(
+              recipient: recipient,
+              organizationId:
+                  lease.claim.currentMemberVaultKey['organizationId']!
+                      as String,
+              vaultId: rotation.vaultId,
+              vaultKeyVersion: rotation.targetKeyEpoch.vaultKeyVersion,
+              vaultKey: secrets.targetVaultKey,
+            ),
+          );
+        }
+        if (wrappers.isNotEmpty) {
+          await _remote.prepare(rotation.vaultId, rotation.id, lease.token, {
+            'agentWrappedVaultKeys': wrappers,
+          }, token);
+        }
+        afterGrantId = page.nextAfterId;
+      } while (afterGrantId != null);
     }
 
     if (rotation.rotates('Vdk')) {

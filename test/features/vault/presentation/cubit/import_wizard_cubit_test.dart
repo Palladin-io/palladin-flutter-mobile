@@ -5,9 +5,6 @@ import 'dart:typed_data';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
-import 'package:mobile_palladin/features/grants/domain/exceptions/grants_exceptions.dart';
-import 'package:mobile_palladin/features/grants/domain/repositories/grants_repository.dart';
 import 'package:mobile_palladin/features/public_asset_catalog/domain/entities/public_asset.dart';
 import 'package:mobile_palladin/features/public_asset_catalog/domain/repositories/public_asset_repository.dart';
 import 'package:mobile_palladin/features/public_asset_catalog/domain/services/website_icon_service.dart';
@@ -18,8 +15,6 @@ import 'package:mobile_palladin/features/vault/domain/repositories/entry_reposit
 import 'package:mobile_palladin/features/vault/presentation/cubit/import_wizard_cubit.dart';
 
 class _MockRepository extends Mock implements EntryRepository {}
-
-class _MockGrantsRepository extends Mock implements GrantsRepository {}
 
 class _CatalogRepository implements PublicAssetRepository {
   @override
@@ -75,7 +70,6 @@ Uint8List _bytes(String s) => Uint8List.fromList(utf8.encode(s));
 
 void main() {
   late _MockRepository repository;
-  late _MockGrantsRepository grantsRepository;
 
   const csv =
       'name,url,username,password,note\n'
@@ -91,36 +85,16 @@ void main() {
 
   setUp(() {
     repository = _MockRepository();
-    grantsRepository = _MockGrantsRepository();
-    when(
-      () => grantsRepository.listGrants(
-        any(),
-        status: any(named: 'status'),
-        agentId: any(named: 'agentId'),
-        cursor: any(named: 'cursor'),
-        pageSize: any(named: 'pageSize'),
-      ),
-    ).thenAnswer((_) async => const GrantListPage(grants: []));
   });
 
   ImportWizardCubit build({PublicAssetRepository? catalogRepository}) =>
       ImportWizardCubit(
         repository: repository,
-        grantsRepository: grantsRepository,
         vaultId: 'v-1',
         websiteIconService: WebsiteIconService(
           catalogRepository ?? _CatalogRepository(),
         ),
       );
-
-  Grant grant(GrantScope scope) => Grant(
-    id: 'g-1',
-    vaultId: 'v-1',
-    agentId: 'a-1',
-    status: GrantStatus.active,
-    scope: scope,
-    createdAt: DateTime.utc(2026, 1, 1),
-  );
 
   EntryEntity existing(String label) => EntryEntity(
     id: 'e-$label',
@@ -133,22 +107,15 @@ void main() {
 
   group('parseBytes', () {
     test('lock clears state and suppresses a late parse result', () async {
-      final grants = Completer<GrantListPage>();
+      final entries = Completer<List<EntryEntity>>();
       when(
-        () => grantsRepository.listGrants(
-          any(),
-          status: any(named: 'status'),
-          agentId: any(named: 'agentId'),
-          cursor: any(named: 'cursor'),
-          pageSize: any(named: 'pageSize'),
-        ),
-      ).thenAnswer((_) => grants.future);
-      when(() => repository.listEntries(any())).thenAnswer((_) async => []);
+        () => repository.listEntries(any()),
+      ).thenAnswer((_) => entries.future);
       final cubit = build();
       final parse = cubit.parseBytes(_bytes(csv));
 
       cubit.clearSensitiveState();
-      grants.complete(const GrantListPage(grants: []));
+      entries.complete(const []);
       await parse;
 
       expect(cubit.state, isA<ImportWizardInitial>());
@@ -185,83 +152,6 @@ void main() {
           (s) => s.conflictCount,
           'conflicts',
           1,
-        ),
-      ],
-    );
-
-    blocTest<ImportWizardCubit, ImportWizardState>(
-      'blocks the import when the vault has an active FULL grant',
-      build: () {
-        when(
-          () => grantsRepository.listGrants(
-            any(),
-            status: any(named: 'status'),
-            agentId: any(named: 'agentId'),
-            cursor: any(named: 'cursor'),
-            pageSize: any(named: 'pageSize'),
-          ),
-        ).thenAnswer(
-          (_) async => GrantListPage(grants: [grant(GrantScope.full)]),
-        );
-        return build();
-      },
-      act: (c) => c.parseBytes(_bytes(csv)),
-      expect: () => [
-        isA<ImportWizardParsing>(),
-        isA<ImportWizardFailure>().having(
-          (s) => s.reason,
-          'reason',
-          ImportFailureReason.fullGrantsBlocked,
-        ),
-      ],
-      verify: (_) => verifyNever(() => repository.listEntries(any())),
-    );
-
-    blocTest<ImportWizardCubit, ImportWizardState>(
-      'a granular grant does not block the import',
-      build: () {
-        when(
-          () => grantsRepository.listGrants(
-            any(),
-            status: any(named: 'status'),
-            agentId: any(named: 'agentId'),
-            cursor: any(named: 'cursor'),
-            pageSize: any(named: 'pageSize'),
-          ),
-        ).thenAnswer(
-          (_) async => GrantListPage(grants: [grant(GrantScope.granular)]),
-        );
-        when(() => repository.listEntries(any())).thenAnswer((_) async => []);
-        return build();
-      },
-      act: (c) => c.parseBytes(_bytes(csv)),
-      expect: () => [
-        isA<ImportWizardParsing>(),
-        isA<ImportWizardPreview>().having((s) => s.items.length, 'items', 2),
-      ],
-    );
-
-    blocTest<ImportWizardCubit, ImportWizardState>(
-      'maps a grant-lookup network failure to network, not unrecognised file',
-      build: () {
-        when(
-          () => grantsRepository.listGrants(
-            any(),
-            status: any(named: 'status'),
-            agentId: any(named: 'agentId'),
-            cursor: any(named: 'cursor'),
-            pageSize: any(named: 'pageSize'),
-          ),
-        ).thenThrow(const GrantsException(GrantsErrorKind.networkError));
-        return build();
-      },
-      act: (c) => c.parseBytes(_bytes(csv)),
-      expect: () => [
-        isA<ImportWizardParsing>(),
-        isA<ImportWizardFailure>().having(
-          (s) => s.reason,
-          'reason',
-          ImportFailureReason.network,
         ),
       ],
     );
@@ -355,38 +245,41 @@ void main() {
       },
     );
 
-    test('lock cancels icon preparation and releases import promptly', () async {
-      when(() => repository.listEntries(any())).thenAnswer((_) async => []);
-      final catalog = _DelayedCatalogRepository();
-      final cubit = build(catalogRepository: catalog);
-      await cubit.parseBytes(_bytes(csv));
+    test(
+      'lock cancels icon preparation and releases import promptly',
+      () async {
+        when(() => repository.listEntries(any())).thenAnswer((_) async => []);
+        final catalog = _DelayedCatalogRepository();
+        final cubit = build(catalogRepository: catalog);
+        await cubit.parseBytes(_bytes(csv));
 
-      final importing = cubit.import(
-        privateKey: privateKey,
-        untitledLabel: 'Untitled',
-      );
-      while (catalog.calls == 0) {
-        await Future<void>.delayed(Duration.zero);
-      }
+        final importing = cubit.import(
+          privateKey: privateKey,
+          untitledLabel: 'Untitled',
+        );
+        while (catalog.calls == 0) {
+          await Future<void>.delayed(Duration.zero);
+        }
 
-      cubit.clearSensitiveState();
-      await importing.timeout(const Duration(seconds: 1));
+        cubit.clearSensitiveState();
+        await importing.timeout(const Duration(seconds: 1));
 
-      expect(cubit.state, isA<ImportWizardInitial>());
-      verifyNever(
-        () => repository.importEntriesEncrypted(
-          vaultId: any(named: 'vaultId'),
-          format: any(named: 'format'),
-          creates: any(named: 'creates'),
-          overwrites: any(named: 'overwrites'),
-          privateKey: any(named: 'privateKey'),
-          wrappedVK: any(named: 'wrappedVK'),
-          chunkSize: any(named: 'chunkSize'),
-          onProgress: any(named: 'onProgress'),
-        ),
-      );
-      await cubit.close();
-    });
+        expect(cubit.state, isA<ImportWizardInitial>());
+        verifyNever(
+          () => repository.importEntriesEncrypted(
+            vaultId: any(named: 'vaultId'),
+            format: any(named: 'format'),
+            creates: any(named: 'creates'),
+            overwrites: any(named: 'overwrites'),
+            privateKey: any(named: 'privateKey'),
+            wrappedVK: any(named: 'wrappedVK'),
+            chunkSize: any(named: 'chunkSize'),
+            onProgress: any(named: 'onProgress'),
+          ),
+        );
+        await cubit.close();
+      },
+    );
 
     test('lock during upload suppresses progress and late success', () async {
       when(() => repository.listEntries(any())).thenAnswer((_) async => []);

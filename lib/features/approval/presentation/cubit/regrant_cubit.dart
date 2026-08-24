@@ -17,6 +17,7 @@ typedef RegrantArgs = ({
   String agentId,
   String agentPublicKey,
   int recipientKeyVersion,
+  int agentAccessEpoch,
   bool isFull,
   String? entryId,
 });
@@ -66,6 +67,7 @@ class RegrantCubit extends Cubit<RegrantState> {
         agentId: args.agentId,
         agentPublicKey: args.agentPublicKey,
         recipientKeyVersion: args.recipientKeyVersion,
+        agentAccessEpoch: args.agentAccessEpoch,
         isFull: args.isFull,
         entryId: args.entryId,
         privateKey: privateKey,

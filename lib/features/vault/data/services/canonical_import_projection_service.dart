@@ -234,7 +234,7 @@ class CanonicalImportProjectionService {
             keyVersion: vdkVersion,
             revisionField: 'agentDiscoveryRevision',
           ),
-          'grantEnvelopes': const <Object>[],
+          'deliveryPolicy': 'standard',
         });
       }
       return output;

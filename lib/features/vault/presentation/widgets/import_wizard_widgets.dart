@@ -34,25 +34,22 @@ class ImportWizardCopy {
   static String failureMessage(
     AppLocalizations l10n,
     ImportFailureReason reason,
-  ) =>
-      switch (reason) {
-        ImportFailureReason.emptyFile => l10n.importErrorEmpty,
-        ImportFailureReason.encryptedFile => l10n.importErrorEncrypted,
-        ImportFailureReason.unrecognisedFile => l10n.importErrorUnrecognised,
-        ImportFailureReason.noEntries => l10n.importErrorNoEntries,
-        ImportFailureReason.crypto => l10n.importErrorCrypto,
-        ImportFailureReason.network => l10n.importErrorNetwork,
-        ImportFailureReason.fullGrantsBlocked => l10n.importErrorFullGrants,
-        ImportFailureReason.unknown => l10n.importErrorUnknown,
-      };
+  ) => switch (reason) {
+    ImportFailureReason.emptyFile => l10n.importErrorEmpty,
+    ImportFailureReason.encryptedFile => l10n.importErrorEncrypted,
+    ImportFailureReason.unrecognisedFile => l10n.importErrorUnrecognised,
+    ImportFailureReason.noEntries => l10n.importErrorNoEntries,
+    ImportFailureReason.crypto => l10n.importErrorCrypto,
+    ImportFailureReason.network => l10n.importErrorNetwork,
+    ImportFailureReason.unknown => l10n.importErrorUnknown,
+  };
 
   static String conflictStrategyLabel(
     AppLocalizations l10n,
     ImportConflictStrategy strategy,
-  ) =>
-      switch (strategy) {
-        ImportConflictStrategy.skip => l10n.importStrategySkip,
-        ImportConflictStrategy.overwrite => l10n.importStrategyOverwrite,
-        ImportConflictStrategy.rename => l10n.importStrategyRename,
-      };
+  ) => switch (strategy) {
+    ImportConflictStrategy.skip => l10n.importStrategySkip,
+    ImportConflictStrategy.overwrite => l10n.importStrategyOverwrite,
+    ImportConflictStrategy.rename => l10n.importStrategyRename,
+  };
 }

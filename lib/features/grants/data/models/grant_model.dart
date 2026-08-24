@@ -17,6 +17,7 @@ class GrantModel {
     this.agentIconKey,
     this.agentPublicKey,
     this.recipientAgentKeyVersion,
+    this.agentAccessEpoch,
     this.entryScopes = const [],
     this.vaultName,
     this.entryId,
@@ -49,6 +50,7 @@ class GrantModel {
   final String? agentIconKey;
   final String? agentPublicKey;
   final int? recipientAgentKeyVersion;
+  final int? agentAccessEpoch;
   final List<GrantEntryScope> entryScopes;
   final String? vaultName;
   final Object? status;
@@ -88,6 +90,7 @@ class GrantModel {
       agentIconKey: json['agentIconKey'] as String?,
       agentPublicKey: json['agentPublicKey'] as String?,
       recipientAgentKeyVersion: json['recipientAgentKeyVersion'] as int?,
+      agentAccessEpoch: json['agentAccessEpoch'] as int?,
       entryScopes: (json['entryScopes'] as List<dynamic>? ?? const [])
           .whereType<Map>()
           .map(
@@ -151,6 +154,7 @@ class GrantModel {
       agentIconKey: agentIconKey,
       agentPublicKey: agentPublicKey,
       recipientAgentKeyVersion: recipientAgentKeyVersion,
+      agentAccessEpoch: agentAccessEpoch,
       entryScopes: entryScopes,
       vaultName: vaultName,
       status: GrantStatus.fromWire(status),

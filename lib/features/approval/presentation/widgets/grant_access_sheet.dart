@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_autocomplete_field.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
+import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/domain/entities/agent.dart';
 import '../../../agents/domain/repositories/agents_repository.dart';
@@ -168,8 +169,8 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
       return;
     }
 
-    // Resolve the parameters for each mode. The agent's full public key (needed to seal the DEK)
-    // comes from the single-agent endpoint.
+    // Resolve the parameters for each mode. The Agent's full public key comes from the
+    // authoritative single-Agent endpoint; FULL seals VK, GRANULAR seals its GrantDEK.
     final cubit = context.read<GrantAccessCubit>();
     final ({String agentId, String vaultId, bool isFull, String? entryId}) r =
         switch (widget.mode) {
@@ -195,10 +196,12 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
 
     final String agentPublicKey;
     final int recipientKeyVersion;
+    final int agentAccessEpoch;
     try {
       final agent = await getIt<AgentsRepository>().getAgent(r.agentId);
       agentPublicKey = agent.publicKey;
       recipientKeyVersion = agent.recipientKeyVersion;
+      agentAccessEpoch = agent.accessEpoch;
     } catch (_) {
       if (mounted) _snack(l10n.grantAccessError);
       return;
@@ -210,6 +213,7 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
       agentId: r.agentId,
       agentPublicKey: agentPublicKey,
       recipientKeyVersion: recipientKeyVersion,
+      agentAccessEpoch: agentAccessEpoch,
       isFull: r.isFull,
       entryId: r.entryId,
       privateKey: key,
@@ -305,6 +309,13 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
                           onChanged: (id) => setState(() => _selectedId = id),
                         ),
                         // ^ null when the typed text matches no option.
+                        if (widget.mode is! GrantForEntry) ...[
+                          const SizedBox(height: AppSpacing.lg),
+                          WarningZone(
+                            title: l10n.grantAccessFullTrustTitle,
+                            message: l10n.grantAccessFullTrustBody,
+                          ),
+                        ],
                         const SizedBox(height: AppSpacing.lg),
                         Text(
                           l10n.approvalAccessType,

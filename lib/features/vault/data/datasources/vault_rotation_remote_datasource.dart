@@ -74,6 +74,21 @@ class VaultRotationRemoteDatasource {
     (json) => json,
   );
 
+  Future<RotationPage<RotationFullGrantRecipient>> fullGrants(
+    String vaultId,
+    String rotationId,
+    String fencingToken,
+    String? afterId,
+    CancelToken cancelToken,
+  ) => _sourcePage(
+    '/api/vaults/$vaultId/key-rotations/$rotationId/source/full-grants',
+    fencingToken,
+    afterId,
+    null,
+    cancelToken,
+    RotationFullGrantRecipient.fromJson,
+  );
+
   Future<RotationPage<RotationDiscoverySource>> discoveries(
     String vaultId,
     String rotationId,
@@ -152,6 +167,7 @@ class VaultRotationRemoteDatasource {
       'entryDiscoveries': const <dynamic>[],
       'agentDiscoveries': const <dynamic>[],
       'vaultPrivateKeys': const <dynamic>[],
+      'agentWrappedVaultKeys': const <dynamic>[],
       ...batch,
     };
     final count =
@@ -165,6 +181,7 @@ class VaultRotationRemoteDatasource {
           'entryDiscoveries',
           'agentDiscoveries',
           'vaultPrivateKeys',
+          'agentWrappedVaultKeys',
         ].fold<int>(0, (sum, key) => sum + (data[key]! as List).length);
     if (count < 1 || count > 100) {
       throw const FormatException('Rotation batch exceeds item limit');

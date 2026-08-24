@@ -17,6 +17,7 @@ void main() {
     agentId: 'agent-1',
     agentPublicKey: 'public-key',
     recipientKeyVersion: 3,
+    agentAccessEpoch: 1,
     isFull: false,
     entryId: 'entry-1',
   );
@@ -43,6 +44,7 @@ void main() {
           agentId: any(named: 'agentId'),
           agentPublicKey: any(named: 'agentPublicKey'),
           recipientKeyVersion: any(named: 'recipientKeyVersion'),
+          agentAccessEpoch: any(named: 'agentAccessEpoch'),
           isFull: any(named: 'isFull'),
           entryId: any(named: 'entryId'),
           privateKey: any(named: 'privateKey'),
@@ -63,6 +65,7 @@ void main() {
           agentId: 'agent-1',
           agentPublicKey: 'public-key',
           recipientKeyVersion: 3,
+          agentAccessEpoch: 1,
           isFull: false,
           entryId: 'entry-1',
           privateKey: any(named: 'privateKey'),

@@ -89,6 +89,7 @@ abstract interface class ApprovalRepository {
     required String agentId,
     required String agentPublicKey,
     required int recipientKeyVersion,
+    required int agentAccessEpoch,
     required bool isFull,
     String? entryId,
     required Uint8List privateKey,

@@ -585,7 +585,6 @@ void configureDependencies(EnvConfig config) {
   getIt.registerFactoryParam<ImportWizardCubit, String, void>(
     (vaultId, _) => ImportWizardCubit(
       repository: getIt<EntryRepository>(),
-      grantsRepository: getIt<GrantsRepository>(),
       vaultId: vaultId,
       websiteIconService: getIt<WebsiteIconService>(),
     ),
@@ -826,6 +825,7 @@ void configureDependencies(EnvConfig config) {
       entryDatasource: getIt<EntryRemoteDatasource>(),
       vaultDatasource: getIt<VaultRemoteDatasource>(),
       cryptoService: getIt<EntryV2CryptoService>(),
+      vaultKeys: getIt<VaultRotationCryptoService>(),
       canonicalEntries: getIt<CanonicalEntryDetailService>(),
       discovery: getIt<AgentDiscoveryRemoteDatasource>(),
     ),

@@ -19,6 +19,34 @@ class EntryV2CryptoService {
 
   final Future<SodiumSumo> Function() _sodiumLoader;
 
+  /// Seals the current 32-byte Vault key to one authoritative Agent identity.
+  /// The returned package is grant/Agent/access-epoch/VK-version bound and is
+  /// the only extra ciphertext stored for a FULL grant.
+  Future<Map<String, Object?>> sealAgentVaultKey({
+    required Uint8List vaultKey,
+    required String organizationId,
+    required String vaultId,
+    required String grantId,
+    required String agentId,
+    required int agentAccessEpoch,
+    required int vaultKeyVersion,
+    required Uint8List agentPublicKey,
+    required int recipientKeyVersion,
+  }) async {
+    return buildAgentWrappedVaultKeyContract(
+      vaultKey: vaultKey,
+      organizationId: organizationId,
+      vaultId: vaultId,
+      grantId: grantId,
+      agentId: agentId,
+      agentAccessEpoch: agentAccessEpoch,
+      vaultKeyVersion: vaultKeyVersion,
+      agentPublicKey: agentPublicKey,
+      recipientKeyVersion: recipientKeyVersion,
+      sodiumLoader: _sodiumLoader,
+    );
+  }
+
   /// Seals one canonical Grant payload and its DEK to an Agent recipient.
   Future<Map<String, Object?>> sealGrant({
     required String organizationId,
@@ -422,10 +450,14 @@ Map<String, Object?> _wrapperJson(WrapperContext value) => {
   'scope': {
     'organizationId': _id(value.scope.organizationId),
     'vaultId': _id(value.scope.vaultId),
-    'entryId': _id(value.scope.entryId!),
-    'grantOrRequestId': _id(value.scope.grantOrRequestId!),
-    'agentId': _id(value.scope.agentId!),
-    'memberId': null,
+    'entryId': value.scope.entryId == null ? null : _id(value.scope.entryId!),
+    'grantOrRequestId': value.scope.grantOrRequestId == null
+        ? null
+        : _id(value.scope.grantOrRequestId!),
+    'agentId': value.scope.agentId == null ? null : _id(value.scope.agentId!),
+    'memberId': value.scope.memberId == null
+        ? null
+        : _id(value.scope.memberId!),
   },
   'resourceRevision': value.resourceRevision.toString(),
   'wrappedKeyVersion': value.wrappedKeyVersion,
@@ -433,7 +465,9 @@ Map<String, Object?> _wrapperJson(WrapperContext value) => {
   'recipientKeyKind': value.recipientKeyKind,
   'recipientKeyVersion': value.recipientKeyVersion,
   'recipientFingerprint': _b64(value.recipientFingerprint),
-  'parentDescriptorHash': _b64(value.parentDescriptorHash!),
+  'parentDescriptorHash': value.parentDescriptorHash == null
+      ? null
+      : _b64(value.parentDescriptorHash!),
 };
 
 String _b64(List<int> value) => base64UrlEncode(value).replaceAll('=', '');

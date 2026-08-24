@@ -7,6 +7,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
+import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../grants/domain/entities/grant.dart';
@@ -29,7 +30,8 @@ class RegrantSheet extends StatelessWidget {
   static bool canRegrant(Grant grant) =>
       grant.agentPublicKey != null &&
       grant.agentPublicKey!.isNotEmpty &&
-      grant.recipientAgentKeyVersion != null;
+      grant.recipientAgentKeyVersion != null &&
+      grant.agentAccessEpoch != null;
 
   static Future<bool?> show(BuildContext context, Grant grant) {
     final args = (
@@ -37,6 +39,7 @@ class RegrantSheet extends StatelessWidget {
       agentId: grant.agentId,
       agentPublicKey: grant.agentPublicKey ?? '',
       recipientKeyVersion: grant.recipientAgentKeyVersion,
+      agentAccessEpoch: grant.agentAccessEpoch,
       isFull: grant.scope == GrantScope.full,
       entryId: grant.entryId,
     );
@@ -170,6 +173,13 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
                     ),
                     const SizedBox(height: AppSpacing.innerGap),
                     _Subtitle(grant: widget.grant),
+                    if (widget.grant.scope == GrantScope.full) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      WarningZone(
+                        title: l10n.grantAccessFullTrustTitle,
+                        message: l10n.grantAccessFullTrustBody,
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.lg),
                     Text(
                       l10n.approvalAccessType,
