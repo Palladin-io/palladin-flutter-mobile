@@ -287,24 +287,10 @@ class _Footer extends StatelessWidget {
     if (grant.status == GrantStatus.pending) {
       return _FooterShell(
         brightness: brightness,
-        child: SizedBox(
-          width: double.infinity,
-          height: 36,
-          child: FilledButton(
-            onPressed: onReviewPending,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.brandRed,
-              foregroundColor: AppColors.onBrandRed,
-              padding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: Text(
-              l10n.orgGrantReviewRequest,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ),
+        child: _FilledFooterAction(
+          label: l10n.orgGrantReviewRequest,
+          onPressed: onReviewPending,
+          backgroundColor: AppColors.brandRed,
         ),
       );
     }
@@ -319,7 +305,11 @@ class _Footer extends StatelessWidget {
     if (grant.canGrantAgain) {
       return _FooterShell(
         brightness: brightness,
-        child: _RegrantButton(onRegrant: onRegrant),
+        child: _FilledFooterAction(
+          label: l10n.approvalRegrant,
+          onPressed: onRegrant,
+          backgroundColor: AppColors.positiveAccent,
+        ),
       );
     }
 
@@ -400,27 +390,32 @@ class _FooterInfoAction extends StatelessWidget {
   }
 }
 
-class _RegrantButton extends StatelessWidget {
-  const _RegrantButton({required this.onRegrant});
+class _FilledFooterAction extends StatelessWidget {
+  const _FilledFooterAction({
+    required this.label,
+    required this.onPressed,
+    required this.backgroundColor,
+  });
 
-  final VoidCallback onRegrant;
+  final String label;
+  final VoidCallback onPressed;
+  final Color backgroundColor;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     return SizedBox(
       width: double.infinity,
       height: 36,
       child: FilledButton(
-        onPressed: onRegrant,
+        onPressed: onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.positiveAccent,
+          backgroundColor: backgroundColor,
           foregroundColor: AppColors.onBrandRed,
           padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Text(
-          l10n.approvalRegrant,
+          label,
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
       ),
