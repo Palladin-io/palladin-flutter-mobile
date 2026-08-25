@@ -112,6 +112,7 @@ class Grant {
     this.denyReason,
     this.canRevoke = false,
     this.canGrantAgain = false,
+    this.activeCoveringGrantIds = const [],
   });
 
   /// Stable, server-issued grant identifier.
@@ -201,6 +202,10 @@ class Grant {
   /// action is wrongly offered (e.g. revoking an already-expired grant).
   final bool canRevoke;
   final bool canGrantAgain;
+
+  /// Newer active grants that currently cover the same access. Empty when
+  /// re-granting is blocked for another reason, such as an inactive Agent.
+  final List<String> activeCoveringGrantIds;
 }
 
 /// One Entry covered by a grant, with ciphertext-only refresh metadata.

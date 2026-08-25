@@ -1813,7 +1813,22 @@ class AppLocalizationsPl extends AppLocalizations {
   }
 
   @override
-  String get orgGrantAlreadyActive => 'Już aktywny';
+  String get orgGrantAlreadyActive => 'Aktywny w nowszym grancie';
+
+  @override
+  String get orgGrantShowActive => 'Pokaż aktywny grant';
+
+  @override
+  String get orgGrantRegrantUnavailable => 'Ponowne przyznanie niedostępne';
+
+  @override
+  String get orgGrantViewAgent => 'Zobacz Agenta';
+
+  @override
+  String get orgGrantViewVault => 'Zobacz sejf';
+
+  @override
+  String get orgGrantReviewRequest => 'Rozpatrz prośbę';
 
   @override
   String get grantDetailTitle => 'Dostęp';

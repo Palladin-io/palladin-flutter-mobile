@@ -26,6 +26,7 @@ void main() {
         'revokeReason': null,
         'canRevoke': false,
         'canGrantAgain': true,
+        'activeCoveringGrantIds': ['newer-grant'],
       }).toEntity();
 
       expect(entity.status, GrantStatus.consumed);
@@ -36,6 +37,7 @@ void main() {
       expect(entity.createdByName, 'Alice');
       expect(entity.canRevoke, isFalse);
       expect(entity.canGrantAgain, isTrue);
+      expect(entity.activeCoveringGrantIds, ['newer-grant']);
       expect(entity.status.isTerminal, isTrue);
     });
 
@@ -51,6 +53,7 @@ void main() {
 
       expect(entity.canRevoke, isFalse);
       expect(entity.canGrantAgain, isFalse);
+      expect(entity.activeCoveringGrantIds, isEmpty);
       expect(entity.scope, GrantScope.full);
       expect(entity.status.isTerminal, isFalse);
     });

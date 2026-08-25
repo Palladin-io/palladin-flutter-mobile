@@ -13,6 +13,14 @@ Org-wide grant history feed + per-context grants tab (vault / entry / agent).
   mapping it into the in-memory `Grant` presentation entity. Temporary key and
   plaintext byte buffers are wiped; failures hide only the reason, never the
   structural grant row. No plaintext reason is persisted or logged.
+- **Server-authoritative history footers:** `Grant` carries `canRevoke`,
+  `canGrantAgain`, and `activeCoveringGrantIds`. Active cards revoke; terminal
+  expired/consumed/denied/revoked cards re-grant when allowed. Coverage-blocked
+  cards open the exact newer active Grant in a detail sheet, including its
+  revoke action. An active FULL Grant can be resolved even when the source card
+  came from an Entry-scoped list. Other unavailable terminal records link to
+  the related Agent or Vault instead of presenting a dead footer. Pending rows
+  visible in a context tab link back to the Inbox review queue.
 
 **Cross-feature deps:** `agents` (`AgentAvatar`), `approval` (consumes grant entities). Embedded by `vault`.
 

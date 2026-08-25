@@ -3221,8 +3221,38 @@ abstract class AppLocalizations {
   /// Footer on a terminal grant whose agent already holds active coverage
   ///
   /// In en, this message translates to:
-  /// **'Already active'**
+  /// **'Active in a newer grant'**
   String get orgGrantAlreadyActive;
+
+  /// Action that opens the newer active grant covering terminal history
+  ///
+  /// In en, this message translates to:
+  /// **'Show active grant'**
+  String get orgGrantShowActive;
+
+  /// Footer when terminal access cannot be re-granted because the Agent or target is unavailable
+  ///
+  /// In en, this message translates to:
+  /// **'Grant again unavailable'**
+  String get orgGrantRegrantUnavailable;
+
+  /// Action opening the Agent associated with terminal grant history
+  ///
+  /// In en, this message translates to:
+  /// **'View agent'**
+  String get orgGrantViewAgent;
+
+  /// Fallback action opening the Vault when terminal grant history has no Agent
+  ///
+  /// In en, this message translates to:
+  /// **'View vault'**
+  String get orgGrantViewVault;
+
+  /// Action on a pending grant card that opens the Inbox approval queue
+  ///
+  /// In en, this message translates to:
+  /// **'Review request'**
+  String get orgGrantReviewRequest;
 
   /// Title of the grant detail screen
   ///

@@ -1790,7 +1790,22 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get orgGrantAlreadyActive => 'Already active';
+  String get orgGrantAlreadyActive => 'Active in a newer grant';
+
+  @override
+  String get orgGrantShowActive => 'Show active grant';
+
+  @override
+  String get orgGrantRegrantUnavailable => 'Grant again unavailable';
+
+  @override
+  String get orgGrantViewAgent => 'View agent';
+
+  @override
+  String get orgGrantViewVault => 'View vault';
+
+  @override
+  String get orgGrantReviewRequest => 'Review request';
 
   @override
   String get grantDetailTitle => 'Grant';
