@@ -6,6 +6,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/sheet_drag_handle.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../approval/presentation/widgets/regrant_sheet.dart';
 import '../../../grants/presentation/widgets/revoke_grant_sheet.dart';
@@ -115,7 +116,7 @@ class _ContextGrantsView extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       useRootNavigator: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (sheetContext) {
         final brightness = Theme.of(sheetContext).brightness;
         return Container(
@@ -135,16 +136,7 @@ class _ContextGrantsView extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.onSurfaceSubtle(
-                        brightness,
-                      ).withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+                  const SheetDragHandle(),
                   const SizedBox(height: AppSpacing.headerGap),
                   OrgGrantCard(
                     grant: activeGrant,
