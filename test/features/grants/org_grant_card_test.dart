@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_palladin/core/theme/app_colors.dart';
 import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
 import 'package:mobile_palladin/features/grants/presentation/widgets/org_grant_card.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
@@ -89,6 +90,13 @@ void main() {
     );
 
     expect(find.text('Active in a newer grant'), findsOneWidget);
+    final action = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Show active grant'),
+    );
+    expect(
+      action.style?.foregroundColor?.resolve(<WidgetState>{}),
+      AppColors.brandRed,
+    );
     await tester.tap(find.text('Show active grant'));
     expect(opened, isTrue);
   });

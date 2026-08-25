@@ -79,8 +79,10 @@ class OrgGrantsCubit extends Cubit<OrgGrantsState> {
     try {
       return await repository.getGrant(vaultId, grantId);
     } on GrantsException catch (e) {
+      if (isClosed) return null;
       emit(state.copyWith(mutationError: e.kind));
     } catch (e, s) {
+      if (isClosed) return null;
       AppLogger.e(
         'Grants',
         'getGrant failed unexpectedly',

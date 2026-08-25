@@ -97,6 +97,13 @@ class _ContextGrantsView extends StatelessWidget {
     if (done == true) await cubit.reload();
   }
 
+  Future<void> _reviewPending(BuildContext context) async {
+    final cubit = context.read<OrgGrantsCubit>();
+    await context.push<void>('/inbox');
+    if (!context.mounted || cubit.isClosed) return;
+    await cubit.reload();
+  }
+
   Future<void> _showActiveGrant(BuildContext context, Grant source) async {
     final coveringId = source.activeCoveringGrantIds.firstOrNull;
     if (coveringId == null) return;
@@ -223,7 +230,7 @@ class _ContextGrantsView extends StatelessWidget {
                         isRevoking: state.revokingGrantId == state.grants[i].id,
                         onRevoke: () => _revoke(context, state.grants[i]),
                         onRegrant: () => _regrant(context, state.grants[i]),
-                        onReviewPending: () => context.push('/inbox'),
+                        onReviewPending: () => _reviewPending(context),
                         onShowActiveGrant: () =>
                             _showActiveGrant(context, state.grants[i]),
                         onViewContext: () =>

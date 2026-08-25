@@ -376,7 +376,7 @@ class _FooterInfoAction extends StatelessWidget {
         TextButton(
           onPressed: onPressed,
           style: TextButton.styleFrom(
-            foregroundColor: color,
+            foregroundColor: AppColors.brandRed,
             minimumSize: const Size(0, 36),
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           ),
