@@ -186,6 +186,7 @@ final class _CanonicalGrantProjectionParser {
     'credential.password' ||
     'creditCard.cardNumber' => 'concealed',
     'credential.username' ||
+    'credential.urlDomain' ||
     'creditCard.cardholderName' ||
     'creditCard.expiryMonth' ||
     'creditCard.expiryYear' ||

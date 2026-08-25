@@ -36,6 +36,42 @@ Future<SodiumSumo?> _loadSodium() async {
 }
 
 void main() {
+  test(
+    'missing references represents the canonical empty Script ref list',
+    () async {
+      await expectLater(
+        ScriptExecutionPackageService(
+          sodiumLoader: () async => throw StateError('crypto reached'),
+        ).seal(
+          grantId: '44444444-4444-4444-8444-444444444444',
+          packageRevision: 1,
+          agentId: '55555555-5555-4555-8555-555555555555',
+          agentAccessEpoch: 1,
+          agentPublicKey: Uint8List(32),
+          recipientAgentKeyVersion: 1,
+          vaultSigningKeyVersion: 1,
+          vaultSigningPrivateKey: Uint8List(32),
+          scriptEntry: const {
+            'organizationId': '11111111-1111-4111-8111-111111111111',
+            'vaultId': '22222222-2222-4222-8222-222222222222',
+            'id': '33333333-3333-4333-8333-333333333333',
+            'currentRevision': '1',
+          },
+          scriptPayload: {
+            'script': 'echo ok',
+            'interpreter': 'bash',
+            'execution': const ScriptExecutionMetadata(
+              description: 'Run without injected secrets',
+              returnResultToAgent: true,
+            ).toJson(),
+          },
+          referencedEntries: const [],
+        ),
+        throwsA(isA<StateError>()),
+      );
+    },
+  );
+
   test('malformed raw references fail before cryptography', () async {
     await expectLater(
       ScriptExecutionPackageService(
@@ -69,6 +105,43 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test(
+    'an explicitly null reference collection fails before cryptography',
+    () async {
+      await expectLater(
+        ScriptExecutionPackageService(
+          sodiumLoader: () async => throw StateError('crypto reached'),
+        ).seal(
+          grantId: '44444444-4444-4444-8444-444444444444',
+          packageRevision: 1,
+          agentId: '55555555-5555-4555-8555-555555555555',
+          agentAccessEpoch: 1,
+          agentPublicKey: Uint8List(32),
+          recipientAgentKeyVersion: 1,
+          vaultSigningKeyVersion: 1,
+          vaultSigningPrivateKey: Uint8List(32),
+          scriptEntry: const {
+            'organizationId': '11111111-1111-4111-8111-111111111111',
+            'vaultId': '22222222-2222-4222-8222-222222222222',
+            'id': '33333333-3333-4333-8333-333333333333',
+            'currentRevision': '1',
+          },
+          scriptPayload: {
+            'script': 'echo ok',
+            'interpreter': 'bash',
+            'refs': null,
+            'execution': const ScriptExecutionMetadata(
+              description: 'Run a safe test',
+              returnResultToAgent: true,
+            ).toJson(),
+          },
+          referencedEntries: const [],
+        ),
+        throwsFormatException,
+      );
+    },
+  );
 
   test('four references produce one complete Agent-openable package', () async {
     final sodium = await _loadSodium();

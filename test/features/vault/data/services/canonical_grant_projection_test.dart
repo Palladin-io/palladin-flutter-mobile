@@ -93,4 +93,35 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('projects a grant-authorized credential URL domain as text', () {
+    final withGrantableDomain = <String, Object?>{
+      ...memberSecret,
+      'agentFieldAccess': {
+        ...(memberSecret['agentFieldAccess']! as Map<String, Object?>),
+        'credential.urlDomain': 'onGrantValue',
+      },
+    };
+
+    final result = projectCanonicalGrantPayload(
+      canonicalVaultJson(withGrantableDomain),
+      {'credential.urlDomain'},
+    );
+
+    expect(
+      result,
+      canonicalVaultJson({
+        'schema': 'palladin.grant-payload.v1',
+        'entryType': 'credential',
+        'fields': [
+          {
+            'id': 'credential.urlDomain',
+            'kind': 'text',
+            'mode': 'value',
+            'value': 'db.internal',
+          },
+        ],
+      }),
+    );
+  });
 }

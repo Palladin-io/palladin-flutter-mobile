@@ -69,11 +69,11 @@ class ScriptExecutionPackageService {
       Map<String, dynamic>.from(executionRaw),
     );
     final rawRefs = scriptPayload['refs'];
-    if (rawRefs is! List) {
+    if (scriptPayload.containsKey('refs') && rawRefs is! List) {
       throw const FormatException('Malformed Script references');
     }
     final refs = <ScriptRef>[];
-    for (final rawRef in rawRefs) {
+    for (final rawRef in rawRefs as List? ?? const <Object?>[]) {
       if (rawRef is! Map) {
         throw const FormatException('Malformed Script reference');
       }

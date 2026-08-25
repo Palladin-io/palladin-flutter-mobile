@@ -111,16 +111,7 @@ class GrantModel {
             ),
           )
           .toList(growable: false),
-      scriptScopes: (json['scriptScopes'] as List<dynamic>? ?? const [])
-          .whereType<Map>()
-          .map(
-            (scope) => ScriptExecutionGrantScope(
-              entryId: scope['entryId'] as String,
-              entryRevision: scope['entryRevision'] as String,
-              isScript: scope['isScript'] as bool,
-            ),
-          )
-          .toList(growable: false),
+      scriptScopes: _scriptScopes(json['scriptScopes']),
       scriptPackageRevision: json['scriptPackageRevision'] as String?,
       vaultName: json['vaultName'] as String?,
       status: json['status'],
@@ -149,6 +140,25 @@ class GrantModel {
       canRevoke: json['canRevoke'] as bool? ?? false,
       canGrantAgain: json['canGrantAgain'] as bool? ?? false,
     );
+  }
+
+  static List<ScriptExecutionGrantScope> _scriptScopes(Object? raw) {
+    if (raw == null) return const [];
+    if (raw is! List) {
+      throw const FormatException('Malformed Script grant scopes');
+    }
+    return raw
+        .map((scope) {
+          if (scope is! Map) {
+            throw const FormatException('Malformed Script grant scope');
+          }
+          return ScriptExecutionGrantScope(
+            entryId: scope['entryId'] as String,
+            entryRevision: scope['entryRevision'] as String,
+            isScript: scope['isScript'] as bool,
+          );
+        })
+        .toList(growable: false);
   }
 
   Grant toEntity({String? resolvedReason}) {
