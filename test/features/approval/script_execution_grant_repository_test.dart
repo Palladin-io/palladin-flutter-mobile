@@ -62,11 +62,34 @@ void main() {
       final approval = _Approval();
       final canonical = _Canonical();
       final packages = _Packages();
+      final vaults = _Vaults();
+      final vaultKeys = _VaultKeys();
       final package = <String, dynamic>{
         'contractVersion': 1,
         'encodedPackageCiphertext': 'opaque',
       };
       var packageCalls = 0;
+      when(() => vaults.getEncryptedVault(vaultId)).thenAnswer(
+        (_) async => {
+          'currentKeyEpoch': {'manifestSigningKeyVersion': 5},
+          'memberVaultKey': <String, dynamic>{},
+          'vaultPrivateKeys': [
+            {
+              'descriptor': {'purpose': 4},
+            },
+          ],
+        },
+      );
+      when(
+        () => vaultKeys.openMemberVaultKey(any(), any()),
+      ).thenAnswer((_) async => Uint8List(32));
+      when(
+        () => vaultKeys.openCanonicalManifestSigningPrivateKey(
+          any(),
+          any(),
+          expectedKeyVersion: any(named: 'expectedKeyVersion'),
+        ),
+      ).thenAnswer((_) async => Uint8List(32));
       when(
         () => canonical.reveal(
           expected: any(named: 'expected'),
@@ -120,6 +143,8 @@ void main() {
           agentAccessEpoch: any(named: 'agentAccessEpoch'),
           agentPublicKey: any(named: 'agentPublicKey'),
           recipientAgentKeyVersion: any(named: 'recipientAgentKeyVersion'),
+          vaultSigningKeyVersion: any(named: 'vaultSigningKeyVersion'),
+          vaultSigningPrivateKey: any(named: 'vaultSigningPrivateKey'),
           scriptEntry: any(named: 'scriptEntry'),
           scriptPayload: any(named: 'scriptPayload'),
           referencedEntries: any(named: 'referencedEntries'),
@@ -149,9 +174,9 @@ void main() {
       final repository = ApprovalRepositoryImpl(
         approvalDatasource: approval,
         entryDatasource: _Entries(),
-        vaultDatasource: _Vaults(),
+        vaultDatasource: vaults,
         cryptoService: _Crypto(),
-        vaultKeys: _VaultKeys(),
+        vaultKeys: vaultKeys,
         canonicalEntries: canonical,
         discovery: _Discovery(),
         scriptPackages: packages,

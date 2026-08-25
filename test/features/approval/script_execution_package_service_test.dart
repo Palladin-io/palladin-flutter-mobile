@@ -10,6 +10,7 @@ import 'package:mobile_palladin/core/crypto/x25519_key_wrapper.dart';
 import 'package:mobile_palladin/features/approval/data/services/script_execution_package_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
 import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
@@ -60,21 +61,34 @@ void main() {
       'key.value',
     ];
     final agent = sodium.crypto.box.keyPair();
+    final signer = sodium.crypto.sign.keyPair();
     final agentPrivateKey = agent.secretKey.extractBytes();
+    final signingPrivateKey = signer.secretKey.extractBytes();
     final entries = <ScriptExecutionPackageEntryInput>[];
     final entryPlaintexts = <Uint8List>[];
     for (var index = 0; index < referenceIds.length; index++) {
+      final isKey = index == 3;
       final plaintext = canonicalVaultJson({
         'schema': 'palladin.member-secret.v1',
-        'entryType': index == 3 ? 'key' : 'credential',
+        'entryType': isKey ? 'key' : 'credential',
         'memberLabel': 'Reference $index',
         'agentLabel': 'Reference $index',
         'description': null,
         'icon': null,
         'color': null,
         'discoverable': true,
-        'content': {'testSecret': 'value-$index'},
-        'agentFieldAccess': const <String, Object?>{},
+        'content': isKey
+            ? {'value': '5432', 'notes': null, 'customFields': const []}
+            : {
+                'username': 'fixture_user',
+                'password': 'fixture_password',
+                'url': 'postgresql://fixture.invalid',
+                'urlDomain': 'fixture.invalid',
+                'totp': null,
+                'notes': null,
+                'customFields': const [],
+              },
+        'agentFieldAccess': {fieldIds[index]: 'onGrantValue'},
       });
       entryPlaintexts.add(plaintext);
       entries.add(
@@ -104,6 +118,8 @@ void main() {
             agentAccessEpoch: 3,
             agentPublicKey: agent.publicKey,
             recipientAgentKeyVersion: 4,
+            vaultSigningKeyVersion: 5,
+            vaultSigningPrivateKey: signingPrivateKey,
             scriptEntry: const {
               'organizationId': organizationId,
               'vaultId': vaultId,
@@ -140,10 +156,28 @@ void main() {
 
       expect(package['grantId'], grantId);
       expect(package['packageRevision'], '1');
+      expect(package['vaultSigningKeyVersion'], 5);
       expect(package['scopes'], hasLength(5));
+      final unsignedPackage = <String, Object?>{
+        for (final item in package.entries)
+          if (item.key != 'producerSignature') item.key: item.value,
+      };
+      expect(
+        await VaultProtocolSignatureService(
+          sodiumLoader: () async => sodium,
+        ).verify(
+          domainPrefix: 'PLDNV2SIG:SCRIPT-EXECUTION-PACKAGE:',
+          unsignedObject: unsignedPackage,
+          signature: package['producerSignature'] as String,
+          publicKey: signer.publicKey,
+        ),
+        isTrue,
+      );
       final transport = <String, Object?>{
         for (final item in package.entries)
-          if (item.key != 'encodedPackageCiphertext') item.key: item.value,
+          if (item.key != 'encodedPackageCiphertext' &&
+              item.key != 'producerSignature')
+            item.key: item.value,
       };
       aad = canonicalVaultJson(transport);
       parentInput = Uint8List.fromList([
@@ -215,7 +249,28 @@ void main() {
           'type': 'string',
         },
       ]);
-      expect(payload['entries'], hasLength(4));
+      final payloadEntries = (payload['entries'] as List).cast<Map>();
+      expect(payloadEntries, hasLength(4));
+      for (var index = 0; index < payloadEntries.length; index++) {
+        expect(payloadEntries[index].keys, {
+          'entryId',
+          'entryRevision',
+          'encodedGrantPayload',
+        });
+        final projection =
+            jsonDecode(
+                  utf8.decode(
+                    VaultProtocolBytes.base64UrlDecode(
+                      payloadEntries[index]['encodedGrantPayload'] as String,
+                    ),
+                  ),
+                )
+                as Map<String, dynamic>;
+        expect(projection['schema'], 'palladin.grant-payload.v1');
+        final fields = (projection['fields'] as List).cast<Map>();
+        expect(fields, hasLength(1));
+        expect(fields.single['id'], fieldIds[index]);
+      }
       expect((payload['binding'] as Map)['authorization'], {
         'grantId': grantId,
         'source': 'scriptExecution',
@@ -236,7 +291,9 @@ void main() {
         value?.fillRange(0, value.length, 0);
       }
       agentPrivateKey.fillRange(0, agentPrivateKey.length, 0);
+      signingPrivateKey.fillRange(0, signingPrivateKey.length, 0);
       agent.dispose();
+      signer.dispose();
     }
   });
 }

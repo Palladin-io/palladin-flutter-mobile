@@ -40,6 +40,7 @@ Uint8List vaultSignatureInput(String domainPrefix, Object unsignedObject) {
   if (!{
     'PLDNV2SIG:VAULT-MANIFEST:',
     'PLDNV2SIG:ENCRYPTED-REASON:',
+    'PLDNV2SIG:SCRIPT-EXECUTION-PACKAGE:',
   }.contains(domainPrefix)) {
     throw const FormatException('unsupported Vault signature domain');
   }

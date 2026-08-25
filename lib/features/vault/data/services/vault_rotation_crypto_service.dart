@@ -248,6 +248,32 @@ class VaultRotationCryptoService {
     Map<String, dynamic> envelope,
     Uint8List vaultKey, {
     required int expectedKeyVersion,
+  }) => _openCanonicalVaultPrivateKey(
+    envelope,
+    vaultKey,
+    expectedKeyVersion: expectedKeyVersion,
+    expectedPurpose: EnvelopePurpose.agentMessagePrivateByVk,
+    label: 'Agent message private key',
+  );
+
+  Future<Uint8List> openCanonicalManifestSigningPrivateKey(
+    Map<String, dynamic> envelope,
+    Uint8List vaultKey, {
+    required int expectedKeyVersion,
+  }) => _openCanonicalVaultPrivateKey(
+    envelope,
+    vaultKey,
+    expectedKeyVersion: expectedKeyVersion,
+    expectedPurpose: EnvelopePurpose.manifestPrivateByVk,
+    label: 'Vault manifest signing seed',
+  );
+
+  Future<Uint8List> _openCanonicalVaultPrivateKey(
+    Map<String, dynamic> envelope,
+    Uint8List vaultKey, {
+    required int expectedKeyVersion,
+    required EnvelopePurpose expectedPurpose,
+    required String label,
   }) async {
     final descriptorJson = envelope['descriptor'];
     final encodedPayload = envelope['encodedSuitePayload'];
@@ -266,7 +292,7 @@ class VaultRotationCryptoService {
     final resourceRevision = descriptor['resourceRevision'];
     final cryptoSuiteId = descriptor['cryptoSuiteId'];
     final wrappingVaultKeyVersion = bindingJson['wrappingVaultKeyVersion'];
-    if (purpose != EnvelopePurpose.agentMessagePrivateByVk ||
+    if (purpose != expectedPurpose ||
         keyVersion is! int ||
         keyVersion != expectedKeyVersion ||
         memberKeyGeneration is! int ||
@@ -309,7 +335,7 @@ class VaultRotationCryptoService {
         );
     if (opened.length != 32) {
       opened.fillRange(0, opened.length, 0);
-      throw const FormatException('Agent message private key must be 32 bytes');
+      throw FormatException('$label must be 32 bytes');
     }
     return opened;
   }

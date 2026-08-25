@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../vault/data/datasources/entry_remote_datasource.dart';
 import '../../../vault/data/datasources/vault_remote_datasource.dart';
@@ -290,9 +291,35 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         throw const ApprovalException(ApprovalErrorKind.validation);
       }
       CanonicalEntrySnapshot? script;
+      Uint8List? vaultKey;
+      Uint8List? vaultSigningPrivateKey;
       final references = <CanonicalEntrySnapshot>[];
       final encodedReferences = <ScriptExecutionPackageEntryInput>[];
       try {
+        final vault = await _vaults.getEncryptedVault(vaultId);
+        final epoch = Map<String, dynamic>.from(
+          vault['currentKeyEpoch'] as Map,
+        );
+        vaultKey = await _vaultKeys.openMemberVaultKey(
+          Map<String, dynamic>.from(vault['memberVaultKey'] as Map),
+          privateKey,
+        );
+        final signingEnvelope = (vault['vaultPrivateKeys'] as List)
+            .whereType<Map>()
+            .map((value) => Map<String, dynamic>.from(value))
+            .singleWhere(
+              (value) =>
+                  EnvelopePurpose.parseWire(
+                    (value['descriptor'] as Map)['purpose'],
+                  ) ==
+                  EnvelopePurpose.manifestPrivateByVk,
+            );
+        vaultSigningPrivateKey = await _vaultKeys
+            .openCanonicalManifestSigningPrivateKey(
+              signingEnvelope,
+              vaultKey,
+              expectedKeyVersion: epoch['manifestSigningKeyVersion'] as int,
+            );
         script = await _canonicalEntries.reveal(
           expected: EntryEntity(
             id: entryId,
@@ -342,6 +369,8 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           agentAccessEpoch: agentAccessEpoch,
           agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
           recipientAgentKeyVersion: recipientKeyVersion,
+          vaultSigningKeyVersion: epoch['manifestSigningKeyVersion'] as int,
+          vaultSigningPrivateKey: vaultSigningPrivateKey,
           scriptEntry: script.entry,
           scriptPayload: script.payload,
           referencedEntries: encodedReferences,
@@ -369,6 +398,8 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         );
         throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
       } finally {
+        vaultKey?.fillRange(0, vaultKey.length, 0);
+        vaultSigningPrivateKey?.fillRange(0, vaultSigningPrivateKey.length, 0);
         script?.clear();
         for (final snapshot in references) {
           snapshot.clear();

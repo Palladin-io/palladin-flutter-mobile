@@ -9,6 +9,7 @@ import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/crypto/sodium_provider.dart';
 import '../../../../core/crypto/x25519_key_wrapper.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_fingerprint.dart';
+import '../../../vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
 import '../../../vault/domain/entities/vault_plaintext.dart';
 
@@ -38,6 +39,8 @@ class ScriptExecutionPackageService {
     required int agentAccessEpoch,
     required Uint8List agentPublicKey,
     required int recipientAgentKeyVersion,
+    required int vaultSigningKeyVersion,
+    required Uint8List vaultSigningPrivateKey,
     required Map<String, dynamic> scriptEntry,
     required Map<String, dynamic> scriptPayload,
     required List<ScriptExecutionPackageEntryInput> referencedEntries,
@@ -45,7 +48,10 @@ class ScriptExecutionPackageService {
     if (packageRevision <= 0 ||
         agentAccessEpoch <= 0 ||
         recipientAgentKeyVersion <= 0 ||
+        vaultSigningKeyVersion <= 0 ||
         agentPublicKey.length != 32 ||
+        (vaultSigningPrivateKey.length != 32 &&
+            vaultSigningPrivateKey.length != 64) ||
         referencedEntries.length > 64) {
       throw const FormatException('Invalid Script package context');
     }
@@ -115,6 +121,9 @@ class ScriptExecutionPackageService {
     Uint8List? manifestBytes;
     Uint8List? digestInput;
     Uint8List? fingerprint;
+    Uint8List? vaultSigningPublicKey;
+    Uint8List? normalizedVaultSigningPrivateKey;
+    Uint8List? vaultSigningFingerprint;
     Uint8List? aad;
     Uint8List? parentHashInput;
     Uint8List? parentHash;
@@ -124,6 +133,7 @@ class ScriptExecutionPackageService {
     Uint8List? suitePayload;
     Uint8List? sealedDek;
     Uint8List? containerBytes;
+    final projectedPayloads = <Uint8List>[];
     try {
       manifestBytes = canonicalVaultJson(manifest);
       digestInput = Uint8List.fromList([
@@ -184,6 +194,14 @@ class ScriptExecutionPackageService {
         VaultPublicKeyKind.agentX25519,
         agentPublicKey,
       );
+      final sodium = await _sodiumLoader();
+      final signing = _normalizeSigningKey(sodium, vaultSigningPrivateKey);
+      vaultSigningPublicKey = signing.publicKey;
+      normalizedVaultSigningPrivateKey = signing.privateKey;
+      vaultSigningFingerprint = vaultPublicKeyFingerprint(
+        VaultPublicKeyKind.vaultSigningEd25519,
+        vaultSigningPublicKey,
+      );
       final transport = <String, Object?>{
         'contractVersion': contractVersion,
         'organizationId': organizationId,
@@ -196,17 +214,39 @@ class ScriptExecutionPackageService {
         'packageRevision': packageRevision.toString(),
         'recipientAgentKeyVersion': recipientAgentKeyVersion,
         'recipientAgentKeyFingerprint': _b64(fingerprint),
+        'vaultSigningKeyVersion': vaultSigningKeyVersion,
+        'vaultSigningKeyFingerprint': _b64(vaultSigningFingerprint),
         'manifestDigest': manifestDigest,
         'scopes': transportScopes,
       };
       final entries = <Map<String, Object?>>[];
       final sortedEntries = [...referencedEntries]
         ..sort((left, right) => left.entryId.compareTo(right.entryId));
+      final fieldIdsByEntry = <String, Set<String>>{};
+      for (final ref in refs) {
+        fieldIdsByEntry
+            .putIfAbsent(ref.entryId, () => <String>{})
+            .add(ref.field);
+      }
       for (final entry in sortedEntries) {
+        final decoded = jsonDecode(utf8.decode(entry.encodedMemberSecret));
+        if (decoded is! Map) {
+          throw const FormatException('Referenced MemberSecret is invalid');
+        }
+        final fieldIds = fieldIdsByEntry[entry.entryId];
+        if (fieldIds == null) {
+          throw const FormatException('Referenced field projection is missing');
+        }
+        final projection = VaultPlaintextProjector.grantPayloadFromJson(
+          Map<String, dynamic>.from(decoded),
+          fieldIds,
+        );
+        final encodedProjection = canonicalVaultJson(projection);
+        projectedPayloads.add(encodedProjection);
         entries.add({
           'entryId': entry.entryId,
           'entryRevision': entry.entryRevision,
-          'encodedMemberSecret': _b64(entry.encodedMemberSecret),
+          'encodedGrantPayload': _b64(encodedProjection),
         });
       }
       plaintext = canonicalVaultJson({
@@ -224,7 +264,6 @@ class ScriptExecutionPackageService {
         ...aad,
       ]);
       parentHash = Uint8List.fromList(sha256.convert(parentHashInput).bytes);
-      final sodium = await _sodiumLoader();
       packageDek = sodium.randombytes.buf(32);
       nonce = sodium.randombytes.buf(24);
       final key = SecureKey.fromList(sodium, packageDek);
@@ -270,15 +309,28 @@ class ScriptExecutionPackageService {
       if (containerBytes.length > 2 * 1024 * 1024) {
         throw const FormatException('Script package exceeds transport limit');
       }
-      return <String, dynamic>{
+      final unsignedPackage = <String, Object?>{
         ...transport,
         'encodedPackageCiphertext': _b64(containerBytes),
+      };
+      final producerSignature =
+          await VaultProtocolSignatureService(sodiumLoader: _sodiumLoader).sign(
+            domainPrefix: 'PLDNV2SIG:SCRIPT-EXECUTION-PACKAGE:',
+            unsignedObject: unsignedPackage,
+            privateKey: normalizedVaultSigningPrivateKey,
+          );
+      return <String, dynamic>{
+        ...unsignedPackage,
+        'producerSignature': producerSignature,
       };
     } finally {
       for (final bytes in [
         manifestBytes,
         digestInput,
         fingerprint,
+        vaultSigningPublicKey,
+        normalizedVaultSigningPrivateKey,
+        vaultSigningFingerprint,
         aad,
         parentHashInput,
         parentHash,
@@ -290,6 +342,9 @@ class ScriptExecutionPackageService {
         containerBytes,
       ]) {
         bytes?.fillRange(0, bytes.length, 0);
+      }
+      for (final bytes in projectedPayloads) {
+        bytes.fillRange(0, bytes.length, 0);
       }
     }
   }
@@ -321,4 +376,38 @@ class ScriptExecutionPackageService {
       '${value['vaultId']}\u0000${value['entryId']}\u0000${value['fieldId']}\u0000${value['entryRevision']}';
 
   String _b64(List<int> value) => base64UrlEncode(value).replaceAll('=', '');
+
+  ({Uint8List publicKey, Uint8List privateKey}) _normalizeSigningKey(
+    SodiumSumo sodium,
+    Uint8List value,
+  ) {
+    if (value.length == sodium.crypto.sign.seedBytes) {
+      final seed = SecureKey.fromList(sodium, value);
+      try {
+        final pair = sodium.crypto.sign.seedKeyPair(seed);
+        try {
+          return (
+            publicKey: Uint8List.fromList(pair.publicKey),
+            privateKey: Uint8List.fromList(pair.secretKey.extractBytes()),
+          );
+        } finally {
+          pair.secretKey.dispose();
+        }
+      } finally {
+        seed.dispose();
+      }
+    }
+    if (value.length != sodium.crypto.sign.secretKeyBytes) {
+      throw const FormatException('Vault signing key length is invalid');
+    }
+    final secretKey = SecureKey.fromList(sodium, value);
+    try {
+      return (
+        publicKey: Uint8List.fromList(sodium.crypto.sign.skToPk(secretKey)),
+        privateKey: Uint8List.fromList(value),
+      );
+    } finally {
+      secretKey.dispose();
+    }
+  }
 }

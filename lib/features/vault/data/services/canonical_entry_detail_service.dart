@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../approval/data/services/script_execution_package_service.dart';
 
 import '../../../autofill/data/autofill_mutation_notifier.dart';
@@ -2035,7 +2036,31 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
 
     final opened = <String, CanonicalEntrySnapshot>{};
     final encoded = <Uint8List>[];
+    Uint8List? vaultKey;
+    Uint8List? vaultSigningPrivateKey;
     try {
+      final vault = await _vaults.getEncryptedVault(vaultId);
+      final epoch = Map<String, dynamic>.from(vault['currentKeyEpoch'] as Map);
+      vaultKey = await _keys.openMemberVaultKey(
+        Map<String, dynamic>.from(vault['memberVaultKey'] as Map),
+        memberPrivateKey,
+      );
+      final signingEnvelope = (vault['vaultPrivateKeys'] as List)
+          .whereType<Map>()
+          .map((value) => Map<String, dynamic>.from(value))
+          .singleWhere(
+            (value) =>
+                EnvelopePurpose.parseWire(
+                  (value['descriptor'] as Map)['purpose'],
+                ) ==
+                EnvelopePurpose.manifestPrivateByVk,
+          );
+      vaultSigningPrivateKey = await _keys
+          .openCanonicalManifestSigningPrivateKey(
+            signingEnvelope,
+            vaultKey,
+            expectedKeyVersion: epoch['manifestSigningKeyVersion'] as int,
+          );
       Future<CanonicalEntrySnapshot> revealEntry(String entryId) async {
         final cached = opened[entryId];
         if (cached != null) return cached;
@@ -2127,6 +2152,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
             agentAccessEpoch: accessEpoch,
             agentPublicKey: Uint8List.fromList(base64.decode(publicKey)),
             recipientAgentKeyVersion: recipientVersion,
+            vaultSigningKeyVersion: epoch['manifestSigningKeyVersion'] as int,
+            vaultSigningPrivateKey: vaultSigningPrivateKey,
             scriptEntry: scriptEntry,
             scriptPayload: scriptPayload,
             referencedEntries: referenceInputs,
@@ -2135,6 +2162,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       }
       return result;
     } finally {
+      vaultKey?.fillRange(0, vaultKey.length, 0);
+      vaultSigningPrivateKey?.fillRange(0, vaultSigningPrivateKey.length, 0);
       for (final snapshot in opened.values) {
         snapshot.clear();
       }
