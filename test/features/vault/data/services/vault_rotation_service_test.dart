@@ -37,7 +37,14 @@ void main() {
       () => remote.claim(rotation.vaultId, rotation.id, any()),
     ).thenAnswer((_) async => claim);
     when(
-      () => crypto.openMemberVaultKey(any(), any()),
+      () => crypto.openMemberVaultKey(
+        any(),
+        any(),
+        expectedOrganizationId: any(named: 'expectedOrganizationId'),
+        expectedVaultId: any(named: 'expectedVaultId'),
+        expectedVaultKeyVersion: any(named: 'expectedVaultKeyVersion'),
+        expectedMemberKeyGeneration: any(named: 'expectedMemberKeyGeneration'),
+      ),
     ).thenAnswer((_) async => Uint8List(32));
     when(() => crypto.generateKeys()).thenAnswer(
       (_) async => VaultRotationKeys(
@@ -117,7 +124,46 @@ void main() {
         any(),
       ),
     ).called(1);
+    verify(
+      () => crypto.openMemberVaultKey(
+        claim.currentMemberVaultKey,
+        any(),
+        expectedOrganizationId: '11111111-1111-4111-8111-111111111111',
+        expectedVaultId: rotation.vaultId,
+        expectedVaultKeyVersion: rotation.baseKeyEpoch.vaultKeyVersion,
+        expectedMemberKeyGeneration: rotation.baseMemberKeyGeneration,
+      ),
+    ).called(1);
   });
+
+  test(
+    'binds a resumed pending Vault key to the target rotation epoch',
+    () async {
+      rotation = _rotation(scope: const []);
+      final pending = _memberVaultKeyEnvelope();
+      claim = _claim(rotation, pendingMemberVaultKey: pending);
+      when(() => remote.listPending(any())).thenAnswer((_) async => [rotation]);
+      when(
+        () => remote.claim(rotation.vaultId, rotation.id, any()),
+      ).thenAnswer((_) async => claim);
+
+      await service.resumeAfterUnlock(
+        memberId: '44444444-4444-4444-8444-444444444444',
+        memberPrivateKey: Uint8List(32),
+      );
+
+      verify(
+        () => crypto.openMemberVaultKey(
+          pending,
+          any(),
+          expectedOrganizationId: '11111111-1111-4111-8111-111111111111',
+          expectedVaultId: rotation.vaultId,
+          expectedVaultKeyVersion: rotation.targetKeyEpoch.vaultKeyVersion,
+          expectedMemberKeyGeneration: rotation.targetMemberKeyGeneration,
+        ),
+      ).called(1);
+    },
+  );
 
   test('fails closed when claim changes the listed plan', () async {
     final changed = _rotation(targetGeneration: 9);
@@ -169,11 +215,14 @@ void main() {
   );
 }
 
-VaultRotationModel _rotation({int targetGeneration = 2}) => VaultRotationModel(
+VaultRotationModel _rotation({
+  int targetGeneration = 2,
+  List<String> scope = const ['Vdk'],
+}) => VaultRotationModel(
   id: '22222222-2222-4222-8222-222222222221',
   vaultId: '22222222-2222-4222-8222-222222222222',
   status: 'Pending',
-  scope: const ['Vdk'],
+  scope: scope,
   baseMemberKeyGeneration: 1,
   targetMemberKeyGeneration: targetGeneration,
   baseKeyEpoch: const VaultKeyEpochModel(
@@ -190,18 +239,27 @@ VaultRotationModel _rotation({int targetGeneration = 2}) => VaultRotationModel(
   ),
 );
 
-VaultRotationClaimModel _claim(VaultRotationModel rotation) =>
-    VaultRotationClaimModel(
-      rotation: rotation,
-      fencingToken: '33333333-3333-4333-8333-333333333333',
-      currentMemberVaultKey: const {
-        'organizationId': '11111111-1111-4111-8111-111111111111',
-      },
-      currentDiscoveryKey: const {'ciphertext': 'current'},
-      currentVaultPrivateKeys: const [
-        {'privateKeyKind': 1},
-        {'privateKeyKind': 2},
-      ],
-      pendingVaultPrivateKeys: const [],
-      preparedMaterialReset: false,
-    );
+VaultRotationClaimModel _claim(
+  VaultRotationModel rotation, {
+  Map<String, dynamic>? pendingMemberVaultKey,
+}) => VaultRotationClaimModel(
+  rotation: rotation,
+  fencingToken: '33333333-3333-4333-8333-333333333333',
+  currentMemberVaultKey: _memberVaultKeyEnvelope(),
+  currentDiscoveryKey: const {'ciphertext': 'current'},
+  currentVaultPrivateKeys: const [
+    {'privateKeyKind': 1},
+    {'privateKeyKind': 2},
+  ],
+  pendingVaultPrivateKeys: const [],
+  pendingMemberVaultKey: pendingMemberVaultKey,
+  preparedMaterialReset: false,
+);
+
+Map<String, dynamic> _memberVaultKeyEnvelope() => {
+  'wrappedVaultKey': {
+    'descriptor': {
+      'scope': {'organizationId': '11111111-1111-4111-8111-111111111111'},
+    },
+  },
+};

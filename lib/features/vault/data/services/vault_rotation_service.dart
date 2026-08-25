@@ -18,6 +18,7 @@ final class VaultRotationException implements Exception {
 
 final class _RotationSecrets {
   _RotationSecrets({
+    required this.organizationId,
     required this.currentVaultKey,
     required this.targetVaultKey,
     required this.currentVdk,
@@ -28,6 +29,7 @@ final class _RotationSecrets {
     required this.pendingPrivateKeys,
   });
 
+  final String organizationId;
   final Uint8List currentVaultKey;
   final Uint8List targetVaultKey;
   final Uint8List currentVdk;
@@ -144,8 +146,7 @@ final class VaultRotationService {
         );
         final envelope = await _crypto.sealMemberVaultKey(
           recipient: self,
-          organizationId:
-              lease.claim.currentMemberVaultKey['organizationId']! as String,
+          organizationId: secrets.organizationId,
           vaultId: listed.vaultId,
           vkVersion: listed.targetKeyEpoch.vaultKeyVersion,
           memberKeyGeneration: listed.targetMemberKeyGeneration,
@@ -198,9 +199,16 @@ final class VaultRotationService {
     Uint8List memberPrivateKey,
   ) async {
     final rotation = claim.rotation;
+    final organizationId = _memberVaultKeyOrganizationId(
+      claim.currentMemberVaultKey,
+    );
     final currentVaultKey = await _crypto.openMemberVaultKey(
       claim.currentMemberVaultKey,
       memberPrivateKey,
+      expectedOrganizationId: organizationId,
+      expectedVaultId: rotation.vaultId,
+      expectedVaultKeyVersion: rotation.baseKeyEpoch.vaultKeyVersion,
+      expectedMemberKeyGeneration: rotation.baseMemberKeyGeneration,
     );
     final generated = await _crypto.generateKeys();
     Uint8List? targetVaultKey;
@@ -213,6 +221,10 @@ final class VaultRotationService {
           ? await _crypto.openMemberVaultKey(
               claim.pendingMemberVaultKey!,
               memberPrivateKey,
+              expectedOrganizationId: organizationId,
+              expectedVaultId: rotation.vaultId,
+              expectedVaultKeyVersion: rotation.targetKeyEpoch.vaultKeyVersion,
+              expectedMemberKeyGeneration: rotation.targetMemberKeyGeneration,
             )
           : Uint8List.fromList(
               rotation.rotates('VaultKey')
@@ -307,6 +319,7 @@ final class VaultRotationService {
         );
       }
       return _RotationSecrets(
+        organizationId: organizationId,
         currentVaultKey: currentVaultKey,
         targetVaultKey: targetVaultKey,
         currentVdk: currentVdk,
@@ -357,9 +370,7 @@ final class VaultRotationService {
           envelopes.add(
             await _crypto.sealMemberVaultKey(
               recipient: recipient,
-              organizationId:
-                  lease.claim.currentMemberVaultKey['organizationId']!
-                      as String,
+              organizationId: secrets.organizationId,
               vaultId: rotation.vaultId,
               vkVersion: rotation.targetKeyEpoch.vaultKeyVersion,
               memberKeyGeneration: rotation.targetMemberKeyGeneration,
@@ -436,9 +447,7 @@ final class VaultRotationService {
           wrappers.add(
             await _crypto.sealAgentVaultKey(
               recipient: recipient,
-              organizationId:
-                  lease.claim.currentMemberVaultKey['organizationId']!
-                      as String,
+              organizationId: secrets.organizationId,
               vaultId: rotation.vaultId,
               vaultKeyVersion: rotation.targetKeyEpoch.vaultKeyVersion,
               vaultKey: secrets.targetVaultKey,
@@ -500,9 +509,7 @@ final class VaultRotationService {
           items.add(
             await _crypto.createAgentMaterial(
               agent: agent,
-              organizationId:
-                  lease.claim.currentMemberVaultKey['organizationId']!
-                      as String,
+              organizationId: secrets.organizationId,
               vaultId: rotation.vaultId,
               epoch: rotation.targetKeyEpoch,
               vdk: secrets.targetVdk,
@@ -590,6 +597,12 @@ final class VaultRotationService {
           await _crypto.openMemberVaultKey(
             claim.pendingMemberVaultKey!,
             memberPrivateKey,
+            expectedOrganizationId: secrets.organizationId,
+            expectedVaultId: claim.rotation.vaultId,
+            expectedVaultKeyVersion:
+                claim.rotation.targetKeyEpoch.vaultKeyVersion,
+            expectedMemberKeyGeneration:
+                claim.rotation.targetMemberKeyGeneration,
           ),
         );
         _assertSame(opened.last, secrets.targetVaultKey);
@@ -640,5 +653,16 @@ final class VaultRotationService {
     if (!VaultProtocolBytes.constantTimeEquals(left, right)) {
       throw const VaultRotationException('rotation-seed-changed');
     }
+  }
+
+  String _memberVaultKeyOrganizationId(Map<String, dynamic> envelope) {
+    final wrapped = envelope['wrappedVaultKey'];
+    final descriptor = wrapped is Map ? wrapped['descriptor'] : null;
+    final scope = descriptor is Map ? descriptor['scope'] : null;
+    final organizationId = scope is Map ? scope['organizationId'] : null;
+    if (organizationId is! String || organizationId.isEmpty) {
+      throw const VaultRotationException('member-vault-key-scope-invalid');
+    }
+    return organizationId;
   }
 }
