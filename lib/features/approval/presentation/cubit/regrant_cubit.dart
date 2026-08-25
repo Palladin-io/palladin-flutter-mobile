@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../agents/domain/repositories/agents_repository.dart';
 import '../../../grants/domain/entities/grant_method.dart';
 import '../../domain/exceptions/approval_exceptions.dart';
 import '../../domain/repositories/approval_repository.dart';
@@ -15,9 +16,6 @@ export '../../domain/repositories/approval_repository.dart'
 typedef RegrantArgs = ({
   String vaultId,
   String agentId,
-  String agentPublicKey,
-  int recipientKeyVersion,
-  int agentAccessEpoch,
   bool isFull,
   String? entryId,
 });
@@ -49,10 +47,14 @@ class RegrantState {
 /// proactive create endpoint. The owner's [privateKey] is passed at call
 /// time and never stored.
 class RegrantCubit extends Cubit<RegrantState> {
-  RegrantCubit({required this.repository, required this.args})
-    : super(const RegrantState());
+  RegrantCubit({
+    required this.repository,
+    required this.agentsRepository,
+    required this.args,
+  }) : super(const RegrantState());
 
   final ApprovalRepository repository;
+  final AgentsRepository agentsRepository;
   final RegrantArgs args;
 
   Future<void> submit({
@@ -62,12 +64,16 @@ class RegrantCubit extends Cubit<RegrantState> {
   }) async {
     emit(state.copyWith(status: RegrantStatus.submitting, clearError: true));
     try {
+      // A terminal Grant carries the binding that was valid when it was
+      // created. Resolve the Agent again so a re-grant can never seal to a
+      // rotated recipient key or stale access epoch.
+      final agent = await agentsRepository.getAgent(args.agentId);
       await repository.createGrant(
         vaultId: args.vaultId,
         agentId: args.agentId,
-        agentPublicKey: args.agentPublicKey,
-        recipientKeyVersion: args.recipientKeyVersion,
-        agentAccessEpoch: args.agentAccessEpoch,
+        agentPublicKey: agent.publicKey,
+        recipientKeyVersion: agent.recipientKeyVersion,
+        agentAccessEpoch: agent.accessEpoch,
         isFull: args.isFull,
         entryId: args.entryId,
         privateKey: privateKey,

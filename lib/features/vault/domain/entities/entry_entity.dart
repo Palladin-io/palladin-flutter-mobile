@@ -35,9 +35,15 @@ extension EntryTypeExtension on EntryType {
 
   /// Default server-owned policy discriminator. Entry type never narrows the
   /// methods selected by the user for a grant.
-  String deliveryPolicyWire() => 'standard';
+  String deliveryPolicyWire() => switch (this) {
+    EntryType.creditCard => 'injectOnly',
+    _ => 'standard',
+  };
 
-  int deliveryPolicyCode() => 0;
+  int deliveryPolicyCode() => switch (this) {
+    EntryType.creditCard => 2,
+    _ => 0,
+  };
 
   static EntryType fromWire(int value) => switch (value) {
     0 => EntryType.key,

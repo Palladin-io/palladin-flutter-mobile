@@ -76,7 +76,7 @@ void main() {
         ),
       ]) {
     test(
-      '${fixture.type.name} preserves selected methods and defaults policy to standard',
+      '${fixture.type.name} preserves selected methods and its delivery policy',
       () async {
         final approval = _Approval();
         final entries = _Entries();
@@ -173,7 +173,7 @@ void main() {
         );
 
         expect(approvedMethods, 3);
-        expect(deliveryPolicy, 0);
+        expect(deliveryPolicy, fixture.type.deliveryPolicyCode());
       },
     );
   }

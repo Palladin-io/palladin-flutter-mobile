@@ -4,20 +4,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/approval/domain/repositories/approval_repository.dart';
 import 'package:mobile_palladin/features/approval/presentation/cubit/regrant_cubit.dart';
+import 'package:mobile_palladin/features/agents/domain/entities/agent.dart';
+import 'package:mobile_palladin/features/agents/domain/repositories/agents_repository.dart';
 import 'package:mobile_palladin/features/grants/domain/entities/grant_method.dart';
 
 class _MockApprovalRepository extends Mock implements ApprovalRepository {}
 
+class _MockAgentsRepository extends Mock implements AgentsRepository {}
+
 void main() {
   late ApprovalRepository repository;
+  late AgentsRepository agentsRepository;
   late RegrantCubit cubit;
 
   const args = (
     vaultId: 'vault-1',
     agentId: 'agent-1',
-    agentPublicKey: 'public-key',
-    recipientKeyVersion: 3,
-    agentAccessEpoch: 1,
     isFull: false,
     entryId: 'entry-1',
   );
@@ -30,13 +32,30 @@ void main() {
 
   setUp(() {
     repository = _MockApprovalRepository();
-    cubit = RegrantCubit(repository: repository, args: args);
+    agentsRepository = _MockAgentsRepository();
+    when(() => agentsRepository.getAgent('agent-1')).thenAnswer(
+      (_) async => Agent(
+        agentId: 'agent-1',
+        name: 'Agent',
+        status: AgentStatus.active,
+        publicKeySuffix: 'suffix',
+        publicKey: 'fresh-public-key',
+        recipientKeyVersion: 8,
+        accessEpoch: 5,
+        createdAt: DateTime.utc(2026),
+      ),
+    );
+    cubit = RegrantCubit(
+      repository: repository,
+      agentsRepository: agentsRepository,
+      args: args,
+    );
   });
 
   tearDown(() => cubit.close());
 
   test(
-    'passes the owner-selected methods without replacing them with defaults',
+    'uses the current Agent binding and preserves owner-selected methods',
     () async {
       when(
         () => repository.createGrant(
@@ -63,9 +82,9 @@ void main() {
         () => repository.createGrant(
           vaultId: 'vault-1',
           agentId: 'agent-1',
-          agentPublicKey: 'public-key',
-          recipientKeyVersion: 3,
-          agentAccessEpoch: 1,
+          agentPublicKey: 'fresh-public-key',
+          recipientKeyVersion: 8,
+          agentAccessEpoch: 5,
           isFull: false,
           entryId: 'entry-1',
           privateKey: any(named: 'privateKey'),
@@ -73,6 +92,7 @@ void main() {
           methods: const [GrantMethod.get],
         ),
       ).called(1);
+      verify(() => agentsRepository.getAgent('agent-1')).called(1);
     },
   );
 }

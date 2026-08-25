@@ -27,20 +27,10 @@ class RegrantSheet extends StatelessWidget {
 
   final Grant grant;
 
-  /// Whether [grant] can be re-granted on-device (needs the agent public key).
-  static bool canRegrant(Grant grant) =>
-      grant.agentPublicKey != null &&
-      grant.agentPublicKey!.isNotEmpty &&
-      grant.recipientAgentKeyVersion != null &&
-      grant.agentAccessEpoch != null;
-
   static Future<bool?> show(BuildContext context, Grant grant) {
     final args = (
       vaultId: grant.vaultId,
       agentId: grant.agentId,
-      agentPublicKey: grant.agentPublicKey ?? '',
-      recipientKeyVersion: grant.recipientAgentKeyVersion,
-      agentAccessEpoch: grant.agentAccessEpoch,
       isFull: grant.scope == GrantScope.full,
       entryId: grant.entryId,
     );

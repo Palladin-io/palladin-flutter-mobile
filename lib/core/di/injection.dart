@@ -852,8 +852,11 @@ void configureDependencies(EnvConfig config) {
   // RegrantCubit: factory per "Grant again" sheet; param1 = the re-grant args
   // derived from the terminal grant.
   getIt.registerFactoryParam<RegrantCubit, RegrantArgs, void>(
-    (args, _) =>
-        RegrantCubit(repository: getIt<ApprovalRepository>(), args: args),
+    (args, _) => RegrantCubit(
+      repository: getIt<ApprovalRepository>(),
+      agentsRepository: getIt<AgentsRepository>(),
+      args: args,
+    ),
   );
 
   // GrantAccessCubit: factory per "Add agent / Add grant" sheet. The subject
