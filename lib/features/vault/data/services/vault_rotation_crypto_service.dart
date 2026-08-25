@@ -69,6 +69,58 @@ class VaultRotationCryptoService {
            );
 
   final Future<SodiumSumo> Function() _sodiumLoader;
+
+  Future<Map<String, Map<String, Object>>> createPublicTrustAnchors({
+    required Uint8List agentMessagePrivateKey,
+    required Uint8List manifestSigningPrivateKey,
+    required int agentMessageKeyVersion,
+    required int manifestSigningKeyVersion,
+  }) async {
+    if (agentMessageKeyVersion <= 0 || manifestSigningKeyVersion <= 0) {
+      throw const FormatException('Invalid Vault public-key version');
+    }
+    final sodium = await _sodiumLoader();
+    final messageSecret = SecureKey.fromList(sodium, agentMessagePrivateKey);
+    final signing = _normalizeSigningKey(sodium, manifestSigningPrivateKey);
+    Uint8List? messagePublic;
+    try {
+      messagePublic = Uint8List.fromList(
+        sodium.crypto.scalarmult.base(n: messageSecret),
+      );
+      return {
+        'agentMessage': {
+          'protocolVersion': 2,
+          'schemeId': 'palladin-x25519-v1',
+          'keyKind': 1,
+          'keyVersion': agentMessageKeyVersion,
+          'encodedPublicKey': VaultProtocolBytes.base64UrlEncode(messagePublic),
+          'fingerprint': _fingerprint(
+            VaultPublicKeyKind.vaultMessageX25519,
+            messagePublic,
+          ),
+        },
+        'manifestSigning': {
+          'protocolVersion': 2,
+          'schemeId': 'palladin-ed25519-v1',
+          'keyKind': 2,
+          'keyVersion': manifestSigningKeyVersion,
+          'encodedPublicKey': VaultProtocolBytes.base64UrlEncode(
+            signing.publicKey,
+          ),
+          'fingerprint': _fingerprint(
+            VaultPublicKeyKind.vaultSigningEd25519,
+            signing.publicKey,
+          ),
+        },
+      };
+    } finally {
+      messageSecret.dispose();
+      messagePublic?.fillRange(0, messagePublic.length, 0);
+      signing.publicKey.fillRange(0, signing.publicKey.length, 0);
+      signing.privateKey.fillRange(0, signing.privateKey.length, 0);
+    }
+  }
+
   final VaultProtocolEnvelopeService _envelopes;
   final VaultProtocolSignatureService _signatures;
   final CryptoSuiteRegistry _cryptoSuites;

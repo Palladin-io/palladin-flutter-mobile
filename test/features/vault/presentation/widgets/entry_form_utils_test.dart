@@ -79,6 +79,43 @@ void main() {
     );
   });
 
+  test('Script parameters preserve bounds and reject malformed enums', () {
+    final definition = ScriptParameterDefinition.fromJson({
+      'name': 'team_id',
+      'description': 'Team identifier',
+      'type': 'string',
+      'required': true,
+      'minLength': 3,
+      'maxLength': 32,
+      'enum': ['ops', 'platform'],
+    });
+    expect(definition.toJson(), {
+      'name': 'team_id',
+      'description': 'Team identifier',
+      'type': 'string',
+      'required': true,
+      'minLength': 3,
+      'maxLength': 32,
+      'enum': ['ops', 'platform'],
+    });
+    for (final malformed in <Object?>[
+      'ops',
+      const [],
+      [null],
+    ]) {
+      expect(
+        () => ScriptParameterDefinition.fromJson({
+          'name': 'team_id',
+          'description': 'Team identifier',
+          'type': 'string',
+          'required': true,
+          'enum': malformed,
+        }),
+        throwsFormatException,
+      );
+    }
+  });
+
   test('Script validates the actual description bounds', () {
     expect(
       EntryFormUtils.canSubmit(

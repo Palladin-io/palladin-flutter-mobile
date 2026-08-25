@@ -169,6 +169,11 @@ final class _ParameterDraft {
     String description = '',
     this.type = ScriptParameterType.string,
     this.required = true,
+    this.minimum,
+    this.maximum,
+    this.minLength,
+    this.maxLength,
+    this.allowedValues = const [],
   }) : id = _nextId++,
        name = TextEditingController(text: name),
        description = TextEditingController(text: description);
@@ -179,6 +184,11 @@ final class _ParameterDraft {
         description: value.description,
         type: value.type,
         required: value.required,
+        minimum: value.minimum,
+        maximum: value.maximum,
+        minLength: value.minLength,
+        maxLength: value.maxLength,
+        allowedValues: List<Object>.from(value.allowedValues),
       );
 
   static int _nextId = 0;
@@ -187,12 +197,22 @@ final class _ParameterDraft {
   final TextEditingController description;
   ScriptParameterType type;
   bool required;
+  final num? minimum;
+  final num? maximum;
+  final int? minLength;
+  final int? maxLength;
+  final List<Object> allowedValues;
 
   ScriptParameterDefinition get definition => ScriptParameterDefinition(
     name: name.text.trim(),
     description: description.text.trim(),
     type: type,
     required: required,
+    minimum: minimum,
+    maximum: maximum,
+    minLength: minLength,
+    maxLength: maxLength,
+    allowedValues: List<Object>.from(allowedValues),
   );
 
   void dispose() {

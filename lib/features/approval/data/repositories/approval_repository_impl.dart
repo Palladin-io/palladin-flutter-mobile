@@ -18,8 +18,6 @@ import '../services/script_execution_package_service.dart';
 import '../../../vault/data/datasources/agent_discovery_remote_datasource.dart';
 import '../../../vault/domain/entities/agent_visibility_policy.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
-import '../../../vault/domain/entities/vault_plaintext.dart'
-    show VaultPlaintextProjector, canonicalVaultJson;
 import '../../../grants/domain/entities/grant_method.dart';
 import '../../domain/entities/pending_grant.dart';
 import '../../domain/exceptions/approval_exceptions.dart';
@@ -295,7 +293,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       CanonicalEntrySnapshot? script;
       Uint8List? vaultKey;
       Uint8List? vaultSigningPrivateKey;
-      final references = <CanonicalEntrySnapshot>[];
+      final references = <CanonicalGrantFieldProjection>[];
       final encodedReferences = <ScriptExecutionPackageEntryInput>[];
       try {
         final vault = await _vaults.getEncryptedVault(vaultId);
@@ -346,7 +344,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         final ids = fieldIdsByEntry.keys.toList()..sort();
         for (final id in ids) {
           references.add(
-            await _canonicalEntries.reveal(
+            await _canonicalEntries.projectGrantFields(
               expected: EntryEntity(
                 id: id,
                 vaultId: vaultId,
@@ -356,24 +354,17 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
                 updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
               ),
               memberPrivateKey: privateKey,
+              fieldIds: fieldIdsByEntry[id]!,
             ),
           );
         }
-        for (final snapshot in references) {
-          final entryId = snapshot.entry['id'] as String;
-          final fieldIds = fieldIdsByEntry[entryId]!.toList()..sort();
-          final projection = canonicalVaultJson(
-            VaultPlaintextProjector.grantPayloadFromJson(
-              snapshot.secret,
-              fieldIds.toSet(),
-            ),
-          );
+        for (final projection in references) {
           encodedReferences.add(
             ScriptExecutionPackageEntryInput(
-              entryId: entryId,
-              entryRevision: snapshot.entry['currentRevision'] as String,
-              fieldIds: fieldIds,
-              encodedGrantPayload: projection,
+              entryId: projection.entryId,
+              entryRevision: projection.entryRevision,
+              fieldIds: projection.fieldIds,
+              encodedGrantPayload: projection.encodedGrantPayload,
             ),
           );
         }
@@ -416,15 +407,8 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         vaultKey?.fillRange(0, vaultKey.length, 0);
         vaultSigningPrivateKey?.fillRange(0, vaultSigningPrivateKey.length, 0);
         script?.clear();
-        for (final snapshot in references) {
-          snapshot.clear();
-        }
-        for (final entry in encodedReferences) {
-          entry.encodedGrantPayload.fillRange(
-            0,
-            entry.encodedGrantPayload.length,
-            0,
-          );
+        for (final projection in references) {
+          projection.clear();
         }
       }
     }

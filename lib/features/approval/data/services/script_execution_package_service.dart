@@ -68,7 +68,17 @@ class ScriptExecutionPackageService {
     final execution = ScriptExecutionMetadata.fromJson(
       Map<String, dynamic>.from(executionRaw),
     );
-    final refs = ScriptRef.listFromPayload(scriptPayload);
+    final rawRefs = scriptPayload['refs'];
+    if (rawRefs is! List) {
+      throw const FormatException('Malformed Script references');
+    }
+    final refs = <ScriptRef>[];
+    for (final rawRef in rawRefs) {
+      if (rawRef is! Map) {
+        throw const FormatException('Malformed Script reference');
+      }
+      refs.add(ScriptRef.fromJson(Map<String, dynamic>.from(rawRef)));
+    }
     _validateReferences(refs, vaultId, scriptEntryId);
 
     final snapshotsById = <String, ScriptExecutionPackageEntryInput>{

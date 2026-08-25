@@ -164,6 +164,21 @@ final class VaultRotationService {
           'vaultPrivateKeys': secrets.pendingPrivateKeys,
         }, token);
       }
+      if (listed.rotates('AgentMessage') || listed.rotates('ManifestSigning')) {
+        final anchors = await _crypto.createPublicTrustAnchors(
+          agentMessagePrivateKey: secrets.targetMessagePrivateKey,
+          manifestSigningPrivateKey: secrets.targetSigningSeed,
+          agentMessageKeyVersion: listed.targetKeyEpoch.agentMessageKeyVersion,
+          manifestSigningKeyVersion:
+              listed.targetKeyEpoch.manifestSigningKeyVersion,
+        );
+        await _remote.prepare(listed.vaultId, listed.id, lease.token, {
+          if (listed.rotates('AgentMessage'))
+            'vaultAgentMessagePublicKey': anchors['agentMessage'],
+          if (listed.rotates('ManifestSigning'))
+            'vaultManifestSigningPublicKey': anchors['manifestSigning'],
+        }, token);
+      }
       seedEstablished = true;
       for (
         var attempt = 0;
@@ -420,7 +435,9 @@ final class VaultRotationService {
         afterId = page.nextAfterId;
         afterVersion = page.nextAfterVersion;
       } while (afterId != null);
+    }
 
+    if (rotation.rotates('VaultKey') || rotation.rotates('ManifestSigning')) {
       String? afterGrantId;
       do {
         await _renew(lease, memberPrivateKey, secrets, seedEstablished, token);

@@ -343,6 +343,21 @@ class EntryV2CryptoService {
     }
   }
 
+  /// Opens authenticated MemberSecret bytes without decoding the complete
+  /// secret object. Callers own and must wipe the returned buffer.
+  Future<Uint8List> openMemberSecretBytes({
+    required Map<String, dynamic> entryKey,
+    required Map<String, dynamic> memberSecret,
+    required Uint8List vaultKey,
+  }) async {
+    final dek = await _open(entryKey, vaultKey, EnvelopePurpose.entryDekByVk);
+    try {
+      return await _open(memberSecret, dek, EnvelopePurpose.memberSecret);
+    } finally {
+      dek.fillRange(0, dek.length, 0);
+    }
+  }
+
   Future<Uint8List> openEntryDek({
     required Map<String, dynamic> entryKey,
     required Uint8List vaultKey,

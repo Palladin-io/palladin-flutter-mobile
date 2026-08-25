@@ -441,7 +441,13 @@ class ScriptParameterDefinition {
       throw const FormatException('Unknown Script parameter field');
     }
     final rawEnum = json['enum'];
-    if (rawEnum is List && (rawEnum.isEmpty || rawEnum.length > 128)) {
+    if (json.containsKey('enum') && rawEnum is! List) {
+      throw const FormatException('Invalid Script parameter enum');
+    }
+    if (rawEnum is List &&
+        (rawEnum.isEmpty ||
+            rawEnum.length > 128 ||
+            rawEnum.any((value) => value == null))) {
       throw const FormatException('Invalid Script parameter enum');
     }
     return ScriptParameterDefinition(
@@ -454,7 +460,7 @@ class ScriptParameterDefinition {
       minLength: json['minLength'] as int?,
       maxLength: json['maxLength'] as int?,
       allowedValues: rawEnum is List
-          ? rawEnum.whereType<Object>().toList(growable: false)
+          ? List<Object>.from(rawEnum, growable: false)
           : const [],
     );
   }
