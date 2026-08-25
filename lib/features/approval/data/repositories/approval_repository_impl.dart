@@ -283,24 +283,38 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       Uint8List? vaultKey;
       try {
         final vault = await _vaults.getEncryptedVault(vaultId);
+        final organizationId = vault['organizationId'];
+        final memberKeyGeneration = vault['memberKeyGeneration'];
+        final epochValue = vault['currentKeyEpoch'];
+        if (organizationId is! String ||
+            memberKeyGeneration is! int ||
+            epochValue is! Map) {
+          throw const FormatException('Malformed encrypted Vault key context');
+        }
+        final epoch = Map<String, dynamic>.from(epochValue);
+        final vaultKeyVersion = epoch['vaultKeyVersion'];
+        if (vaultKeyVersion is! int) {
+          throw const FormatException('Malformed encrypted Vault key epoch');
+        }
         final memberEnvelope = Map<String, dynamic>.from(
           vault['memberVaultKey'] as Map,
         );
         vaultKey = await _vaultKeys.openMemberVaultKey(
           memberEnvelope,
           privateKey,
-        );
-        final epoch = Map<String, dynamic>.from(
-          vault['currentKeyEpoch'] as Map,
+          expectedOrganizationId: organizationId,
+          expectedVaultId: vaultId,
+          expectedVaultKeyVersion: vaultKeyVersion,
+          expectedMemberKeyGeneration: memberKeyGeneration,
         );
         final agentWrappedVaultKey = await _crypto.sealAgentVaultKey(
           vaultKey: vaultKey,
-          organizationId: vault['organizationId'] as String,
+          organizationId: organizationId,
           vaultId: vaultId,
           grantId: grantId,
           agentId: agentId,
           agentAccessEpoch: agentAccessEpoch,
-          vaultKeyVersion: epoch['vaultKeyVersion'] as int,
+          vaultKeyVersion: vaultKeyVersion,
           agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
           recipientKeyVersion: recipientKeyVersion,
         );
