@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/sheet_drag_handle.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../approval/presentation/widgets/regrant_sheet.dart';
 import '../../../grants/presentation/widgets/revoke_grant_sheet.dart';
@@ -94,6 +97,83 @@ class _ContextGrantsView extends StatelessWidget {
     if (done == true) await cubit.reload();
   }
 
+  Future<void> _reviewPending(BuildContext context) async {
+    final cubit = context.read<OrgGrantsCubit>();
+    await context.push<void>('/inbox');
+    if (!context.mounted || cubit.isClosed) return;
+    await cubit.reload();
+  }
+
+  Future<void> _showActiveGrant(BuildContext context, Grant source) async {
+    final coveringId = source.activeCoveringGrantIds.firstOrNull;
+    if (coveringId == null) return;
+    final cubit = context.read<OrgGrantsCubit>();
+    Grant? active;
+    for (final candidate in cubit.state.grants) {
+      if (candidate.id == coveringId) {
+        active = candidate;
+        break;
+      }
+    }
+    active ??= await cubit.getGrant(source.vaultId, coveringId);
+    if (active == null || !context.mounted) return;
+    final activeGrant = active;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useRootNavigator: true,
+      backgroundColor: AppColors.transparent,
+      builder: (sheetContext) {
+        final brightness = Theme.of(sheetContext).brightness;
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.modalBackground(brightness),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenH,
+            AppSpacing.sm,
+            AppSpacing.screenH,
+            AppSpacing.xl,
+          ),
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SheetDragHandle(),
+                  const SizedBox(height: AppSpacing.headerGap),
+                  OrgGrantCard(
+                    grant: activeGrant,
+                    onRevoke: () {
+                      Navigator.of(sheetContext).pop();
+                      _revoke(context, activeGrant);
+                    },
+                    onRegrant: () {},
+                    onReviewPending: () {},
+                    onShowActiveGrant: () {},
+                    onViewContext: () => _viewContext(context, activeGrant),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _viewContext(BuildContext context, Grant grant) {
+    final agentId = grant.agentId;
+    context.push(
+      agentId != null
+          ? AppRoutes.agentDetail(agentId)
+          : AppRoutes.vaultDetail(grant.vaultId),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -150,6 +230,11 @@ class _ContextGrantsView extends StatelessWidget {
                         isRevoking: state.revokingGrantId == state.grants[i].id,
                         onRevoke: () => _revoke(context, state.grants[i]),
                         onRegrant: () => _regrant(context, state.grants[i]),
+                        onReviewPending: () => _reviewPending(context),
+                        onShowActiveGrant: () =>
+                            _showActiveGrant(context, state.grants[i]),
+                        onViewContext: () =>
+                            _viewContext(context, state.grants[i]),
                       ),
                     ),
                   ),

@@ -72,6 +72,28 @@ class OrgGrantsCubit extends Cubit<OrgGrantsState> {
   Future<void> reload() =>
       load(agentId: _agentId, vaultId: _vaultId, entryId: _entryId);
 
+  /// Resolves a newer covering grant for the history-card detail sheet. It may
+  /// be outside the current Entry-scoped list when a FULL grant provides the
+  /// active coverage.
+  Future<Grant?> getGrant(String vaultId, String grantId) async {
+    try {
+      return await repository.getGrant(vaultId, grantId);
+    } on GrantsException catch (e) {
+      if (isClosed) return null;
+      emit(state.copyWith(mutationError: e.kind));
+    } catch (e, s) {
+      if (isClosed) return null;
+      AppLogger.e(
+        'Grants',
+        'getGrant failed unexpectedly',
+        error: e,
+        stackTrace: s,
+      );
+      emit(state.copyWith(mutationError: GrantsErrorKind.unknown));
+    }
+    return null;
+  }
+
   /// Toggles a status in the client-side filter (no refetch).
   void toggleStatus(GrantStatus status) {
     final next = Set<GrantStatus>.from(state.statusFilter);

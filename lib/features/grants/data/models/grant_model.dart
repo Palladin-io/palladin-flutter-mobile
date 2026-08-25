@@ -39,6 +39,7 @@ class GrantModel {
     this.denyReason,
     this.canRevoke = false,
     this.canGrantAgain = false,
+    this.activeCoveringGrantIds = const [],
   });
 
   final String id;
@@ -73,6 +74,7 @@ class GrantModel {
   final String? denyReason;
   final bool canRevoke;
   final bool canGrantAgain;
+  final List<String> activeCoveringGrantIds;
 
   factory GrantModel.fromJson(
     Map<String, dynamic> json, {
@@ -130,6 +132,10 @@ class GrantModel {
       denyReason: json['denyReason'] as String?,
       canRevoke: json['canRevoke'] as bool? ?? false,
       canGrantAgain: json['canGrantAgain'] as bool? ?? false,
+      activeCoveringGrantIds:
+          (json['activeCoveringGrantIds'] as List<dynamic>? ?? const [])
+              .whereType<String>()
+              .toList(growable: false),
     );
   }
 
@@ -169,6 +175,7 @@ class GrantModel {
       denyReason: denyReason,
       canRevoke: canRevoke,
       canGrantAgain: canGrantAgain,
+      activeCoveringGrantIds: activeCoveringGrantIds,
     );
   }
 
