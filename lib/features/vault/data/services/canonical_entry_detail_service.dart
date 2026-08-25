@@ -2117,29 +2117,46 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         }
 
         final referenceInputs = <ScriptExecutionPackageEntryInput>[];
-        final referenceIds = ScriptRef.listFromPayload(
-          scriptPayload,
-        ).map((reference) => reference.entryId).toSet().toList()..sort();
+        final fieldIdsByEntry = <String, Set<String>>{};
+        for (final reference in ScriptRef.listFromPayload(scriptPayload)) {
+          fieldIdsByEntry
+              .putIfAbsent(reference.entryId, () => <String>{})
+              .add(reference.field);
+        }
+        final referenceIds = fieldIdsByEntry.keys.toList()..sort();
         for (final referenceId in referenceIds) {
+          final fieldIds = fieldIdsByEntry[referenceId]!.toList()..sort();
           if (referenceId == updatedEntryId) {
-            final bytes = canonicalVaultJson(updatedSecret.toJson());
+            final bytes = canonicalVaultJson(
+              VaultPlaintextProjector.grantPayloadFromJson(
+                updatedSecret.toJson(),
+                fieldIds.toSet(),
+              ),
+            );
             encoded.add(bytes);
             referenceInputs.add(
               ScriptExecutionPackageEntryInput(
                 entryId: referenceId,
                 entryRevision: updatedEntryRevision,
-                encodedMemberSecret: bytes,
+                fieldIds: fieldIds,
+                encodedGrantPayload: bytes,
               ),
             );
           } else {
             final snapshot = await revealEntry(referenceId);
-            final bytes = encodeCanonicalMemberSecret(snapshot);
+            final bytes = canonicalVaultJson(
+              VaultPlaintextProjector.grantPayloadFromJson(
+                snapshot.secret,
+                fieldIds.toSet(),
+              ),
+            );
             encoded.add(bytes);
             referenceInputs.add(
               ScriptExecutionPackageEntryInput(
                 entryId: referenceId,
                 entryRevision: snapshot.entry['currentRevision'] as String,
-                encodedMemberSecret: bytes,
+                fieldIds: fieldIds,
+                encodedGrantPayload: bytes,
               ),
             );
           }

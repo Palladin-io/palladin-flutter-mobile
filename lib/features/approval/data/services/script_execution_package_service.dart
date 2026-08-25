@@ -17,12 +17,14 @@ final class ScriptExecutionPackageEntryInput {
   const ScriptExecutionPackageEntryInput({
     required this.entryId,
     required this.entryRevision,
-    required this.encodedMemberSecret,
+    required this.fieldIds,
+    required this.encodedGrantPayload,
   });
 
   final String entryId;
   final String entryRevision;
-  final Uint8List encodedMemberSecret;
+  final List<String> fieldIds;
+  final Uint8List encodedGrantPayload;
 }
 
 class ScriptExecutionPackageService {
@@ -133,7 +135,6 @@ class ScriptExecutionPackageService {
     Uint8List? suitePayload;
     Uint8List? sealedDek;
     Uint8List? containerBytes;
-    final projectedPayloads = <Uint8List>[];
     try {
       manifestBytes = canonicalVaultJson(manifest);
       digestInput = Uint8List.fromList([
@@ -229,24 +230,19 @@ class ScriptExecutionPackageService {
             .add(ref.field);
       }
       for (final entry in sortedEntries) {
-        final decoded = jsonDecode(utf8.decode(entry.encodedMemberSecret));
-        if (decoded is! Map) {
-          throw const FormatException('Referenced MemberSecret is invalid');
-        }
         final fieldIds = fieldIdsByEntry[entry.entryId];
-        if (fieldIds == null) {
+        final declaredFieldIds = [...entry.fieldIds]..sort();
+        if (fieldIds == null ||
+            declaredFieldIds.length != fieldIds.length ||
+            !declaredFieldIds.toSet().containsAll(fieldIds) ||
+            entry.encodedGrantPayload.isEmpty ||
+            entry.encodedGrantPayload.length > 1024 * 1024) {
           throw const FormatException('Referenced field projection is missing');
         }
-        final projection = VaultPlaintextProjector.grantPayloadFromJson(
-          Map<String, dynamic>.from(decoded),
-          fieldIds,
-        );
-        final encodedProjection = canonicalVaultJson(projection);
-        projectedPayloads.add(encodedProjection);
         entries.add({
           'entryId': entry.entryId,
           'entryRevision': entry.entryRevision,
-          'encodedGrantPayload': _b64(encodedProjection),
+          'encodedGrantPayload': _b64(entry.encodedGrantPayload),
         });
       }
       plaintext = canonicalVaultJson({
@@ -342,9 +338,6 @@ class ScriptExecutionPackageService {
         containerBytes,
       ]) {
         bytes?.fillRange(0, bytes.length, 0);
-      }
-      for (final bytes in projectedPayloads) {
-        bytes.fillRange(0, bytes.length, 0);
       }
     }
   }

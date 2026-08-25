@@ -53,7 +53,11 @@ class VaultRotationCryptoService {
     CryptoSuiteRegistry? cryptoSuites,
   }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance,
        _envelopes = envelopes ?? VaultProtocolEnvelopeService(),
-       _signatures = signatures ?? VaultProtocolSignatureService(),
+       _signatures =
+           signatures ??
+           VaultProtocolSignatureService(
+             sodiumLoader: sodiumLoader ?? SodiumProvider.instance,
+           ),
        _cryptoSuites =
            cryptoSuites ??
            CryptoSuiteRegistry(
@@ -117,9 +121,17 @@ class VaultRotationCryptoService {
     required String vaultId,
     required int vaultKeyVersion,
     required Uint8List vaultKey,
+    required int vaultSigningKeyVersion,
+    required Uint8List vaultSigningPrivateKey,
   }) async {
     final publicKey = VaultProtocolBytes.base64UrlDecode(
       recipient.x25519PublicKey,
+    );
+    final sodium = await _sodiumLoader();
+    final signing = _normalizeSigningKey(sodium, vaultSigningPrivateKey);
+    final signingFingerprint = vaultPublicKeyFingerprint(
+      VaultPublicKeyKind.vaultSigningEd25519,
+      signing.publicKey,
     );
     try {
       if (_fingerprint(VaultPublicKeyKind.agentX25519, publicKey) !=
@@ -136,10 +148,54 @@ class VaultRotationCryptoService {
         vaultKeyVersion: vaultKeyVersion,
         agentPublicKey: publicKey,
         recipientKeyVersion: recipient.recipientKeyVersion,
+        vaultSigningKeyVersion: vaultSigningKeyVersion,
+        vaultSigningKeyFingerprint: signingFingerprint,
+        signProducer: (unsigned) => _signatures.sign(
+          domainPrefix: 'PLDNV2SIG:AGENT-WRAPPED-VAULT-KEY:',
+          unsignedObject: unsigned,
+          privateKey: signing.privateKey,
+        ),
         sodiumLoader: _sodiumLoader,
       );
     } finally {
       publicKey.fillRange(0, publicKey.length, 0);
+      signing.publicKey.fillRange(0, signing.publicKey.length, 0);
+      signing.privateKey.fillRange(0, signing.privateKey.length, 0);
+      signingFingerprint.fillRange(0, signingFingerprint.length, 0);
+    }
+  }
+
+  ({Uint8List publicKey, Uint8List privateKey}) _normalizeSigningKey(
+    SodiumSumo sodium,
+    Uint8List value,
+  ) {
+    if (value.length == sodium.crypto.sign.seedBytes) {
+      final seed = SecureKey.fromList(sodium, value);
+      try {
+        final pair = sodium.crypto.sign.seedKeyPair(seed);
+        try {
+          return (
+            publicKey: Uint8List.fromList(pair.publicKey),
+            privateKey: Uint8List.fromList(pair.secretKey.extractBytes()),
+          );
+        } finally {
+          pair.secretKey.dispose();
+        }
+      } finally {
+        seed.dispose();
+      }
+    }
+    if (value.length != sodium.crypto.sign.secretKeyBytes) {
+      throw const FormatException('Vault signing key length is invalid');
+    }
+    final secretKey = SecureKey.fromList(sodium, value);
+    try {
+      return (
+        publicKey: Uint8List.fromList(sodium.crypto.sign.skToPk(secretKey)),
+        privateKey: Uint8List.fromList(value),
+      );
+    } finally {
+      secretKey.dispose();
     }
   }
 

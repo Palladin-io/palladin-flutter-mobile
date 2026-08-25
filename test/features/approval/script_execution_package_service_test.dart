@@ -91,11 +91,19 @@ void main() {
         'agentFieldAccess': {fieldIds[index]: 'onGrantValue'},
       });
       entryPlaintexts.add(plaintext);
+      final projection = canonicalVaultJson(
+        VaultPlaintextProjector.grantPayloadFromJson(
+          Map<String, dynamic>.from(jsonDecode(utf8.decode(plaintext)) as Map),
+          {fieldIds[index]},
+        ),
+      );
+      entryPlaintexts.add(projection);
       entries.add(
         ScriptExecutionPackageEntryInput(
           entryId: referenceIds[index],
           entryRevision: '${index + 2}',
-          encodedMemberSecret: plaintext,
+          fieldIds: [fieldIds[index]],
+          encodedGrantPayload: projection,
         ),
       );
     }

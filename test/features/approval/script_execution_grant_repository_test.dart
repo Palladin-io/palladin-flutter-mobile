@@ -129,6 +129,14 @@ void main() {
                 ? EntryType.script.toWire()
                 : EntryType.key.toWire(),
             'memberLabel': isScript ? 'Script' : 'Reference',
+            if (!isScript) ...{
+              'content': {
+                'value': 'secret',
+                'notes': null,
+                'customFields': const <Object?>[],
+              },
+              'agentFieldAccess': const {'key.value': 'onGrantValue'},
+            },
           },
         );
       });

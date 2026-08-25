@@ -59,6 +59,38 @@ void main() {
     expect(metadata.returnResultToAgent, isFalse);
   });
 
+  test('Script metadata rejects a malformed parameter array', () {
+    expect(
+      () => ScriptExecutionMetadata.fromJson({
+        'contractVersion': 1,
+        'description': 'Lists users',
+        'parameters': [
+          {
+            'name': 'team_id',
+            'description': 'Team identifier',
+            'type': 'string',
+            'required': true,
+          },
+          'malformed',
+        ],
+        'returnResultToAgent': true,
+      }),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('Script validates the actual description bounds', () {
+    expect(
+      EntryFormUtils.canSubmit(
+        type: EntryType.script,
+        label: 'Users',
+        description: 'x' * 4097,
+        script: 'echo ok',
+      ),
+      isFalse,
+    );
+  });
+
   test('credit card payload is normalized and validated', () {
     expect(
       EntryFormUtils.canSubmit(

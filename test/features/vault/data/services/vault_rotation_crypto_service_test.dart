@@ -286,6 +286,8 @@ void main() {
     final vaultKey = Uint8List.fromList(
       List<int>.generate(32, (index) => index + 1),
     );
+    final signingPair = sodium.crypto.sign.keyPair();
+    final signingPrivateKey = signingPair.secretKey.extractBytes();
     final service = VaultRotationCryptoService(
       sodiumLoader: () async => sodium,
     );
@@ -304,6 +306,8 @@ void main() {
       vaultId: vaultId,
       vaultKeyVersion: 3,
       vaultKey: vaultKey,
+      vaultSigningKeyVersion: 4,
+      vaultSigningPrivateKey: signingPrivateKey,
     );
     final wrapped = Map<String, Object?>.from(
       contract['wrappedVaultKey']! as Map,
@@ -314,6 +318,21 @@ void main() {
     expect(descriptor['resourceRevision'], '7');
     expect(descriptor['wrappedKeyVersion'], 3);
     expect(descriptor['memberKeyGeneration'], isNull);
+    expect(contract['vaultSigningKeyVersion'], 4);
+    expect(contract['producerSignature'], isA<String>());
+    final unsigned = Map<String, Object?>.from(contract)
+      ..remove('producerSignature');
+    expect(
+      await VaultProtocolSignatureService(
+        sodiumLoader: () async => sodium,
+      ).verify(
+        domainPrefix: 'PLDNV2SIG:AGENT-WRAPPED-VAULT-KEY:',
+        unsignedObject: unsigned,
+        signature: contract['producerSignature']! as String,
+        publicKey: Uint8List.fromList(signingPair.publicKey),
+      ),
+      isTrue,
+    );
     final opened =
         await X25519SealedBoxKeyWrapper(sodiumLoader: () async => sodium).open(
           wrapped: VaultProtocolBytes.base64UrlDecode(
@@ -340,6 +359,8 @@ void main() {
     privateKey.fillRange(0, privateKey.length, 0);
     fingerprint.fillRange(0, fingerprint.length, 0);
     vaultKey.fillRange(0, vaultKey.length, 0);
+    signingPrivateKey.fillRange(0, signingPrivateKey.length, 0);
+    signingPair.dispose();
     keyPair.dispose();
   });
 

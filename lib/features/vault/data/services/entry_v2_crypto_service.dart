@@ -11,6 +11,10 @@ import '../../../../core/crypto/sodium_provider.dart';
 import '../../../../core/crypto/x25519_key_wrapper.dart';
 import '../../domain/entities/vault_plaintext.dart';
 import '../models/entry_v2_contracts.dart';
+import 'vault_protocol/vault_protocol_signature_service.dart';
+
+const _agentWrappedVaultKeySignatureDomain =
+    'PLDNV2SIG:AGENT-WRAPPED-VAULT-KEY:';
 
 /// Canonical protocol-v2 crypto pipeline for Entry projections and secrets.
 class EntryV2CryptoService {
@@ -32,19 +36,83 @@ class EntryV2CryptoService {
     required int vaultKeyVersion,
     required Uint8List agentPublicKey,
     required int recipientKeyVersion,
+    required int vaultSigningKeyVersion,
+    required Uint8List vaultSigningPrivateKey,
   }) async {
-    return buildAgentWrappedVaultKeyContract(
-      vaultKey: vaultKey,
-      organizationId: organizationId,
-      vaultId: vaultId,
-      grantId: grantId,
-      agentId: agentId,
-      agentAccessEpoch: agentAccessEpoch,
-      vaultKeyVersion: vaultKeyVersion,
-      agentPublicKey: agentPublicKey,
-      recipientKeyVersion: recipientKeyVersion,
+    final sodium = await _sodiumLoader();
+    final signing = _normalizeSigningKey(sodium, vaultSigningPrivateKey);
+    final signingFingerprint = Uint8List.fromList(
+      sha256.convert([
+        ...ascii.encode('PLDNV2FP'),
+        0,
+        2,
+        0,
+        3,
+        ...signing.publicKey,
+      ]).bytes,
+    );
+    final signatures = VaultProtocolSignatureService(
       sodiumLoader: _sodiumLoader,
     );
+    try {
+      return await buildAgentWrappedVaultKeyContract(
+        vaultKey: vaultKey,
+        organizationId: organizationId,
+        vaultId: vaultId,
+        grantId: grantId,
+        agentId: agentId,
+        agentAccessEpoch: agentAccessEpoch,
+        vaultKeyVersion: vaultKeyVersion,
+        agentPublicKey: agentPublicKey,
+        recipientKeyVersion: recipientKeyVersion,
+        vaultSigningKeyVersion: vaultSigningKeyVersion,
+        vaultSigningKeyFingerprint: signingFingerprint,
+        signProducer: (unsigned) => signatures.sign(
+          domainPrefix: _agentWrappedVaultKeySignatureDomain,
+          unsignedObject: unsigned,
+          privateKey: signing.privateKey,
+        ),
+        sodiumLoader: _sodiumLoader,
+      );
+    } finally {
+      signing.publicKey.fillRange(0, signing.publicKey.length, 0);
+      signing.privateKey.fillRange(0, signing.privateKey.length, 0);
+      signingFingerprint.fillRange(0, signingFingerprint.length, 0);
+    }
+  }
+
+  ({Uint8List publicKey, Uint8List privateKey}) _normalizeSigningKey(
+    SodiumSumo sodium,
+    Uint8List value,
+  ) {
+    if (value.length == sodium.crypto.sign.seedBytes) {
+      final seed = SecureKey.fromList(sodium, value);
+      try {
+        final pair = sodium.crypto.sign.seedKeyPair(seed);
+        try {
+          return (
+            publicKey: Uint8List.fromList(pair.publicKey),
+            privateKey: Uint8List.fromList(pair.secretKey.extractBytes()),
+          );
+        } finally {
+          pair.secretKey.dispose();
+        }
+      } finally {
+        seed.dispose();
+      }
+    }
+    if (value.length != sodium.crypto.sign.secretKeyBytes) {
+      throw const FormatException('Vault signing key length is invalid');
+    }
+    final secretKey = SecureKey.fromList(sodium, value);
+    try {
+      return (
+        publicKey: Uint8List.fromList(sodium.crypto.sign.skToPk(secretKey)),
+        privateKey: Uint8List.fromList(value),
+      );
+    } finally {
+      secretKey.dispose();
+    }
   }
 
   /// Seals one canonical Grant payload and its DEK to an Agent recipient.

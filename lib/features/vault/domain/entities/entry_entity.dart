@@ -497,10 +497,14 @@ class ScriptExecutionMetadata {
     if (json['contractVersion'] != contractVersion) {
       throw const FormatException('Unsupported Script execution metadata');
     }
+    final rawParameters = json['parameters'] as List<dynamic>? ?? const [];
+    if (rawParameters.any((value) => value is! Map)) {
+      throw const FormatException('Malformed Script parameter definition');
+    }
     final value = ScriptExecutionMetadata(
       description: json['description'] as String? ?? '',
-      parameters: (json['parameters'] as List<dynamic>? ?? const [])
-          .whereType<Map>()
+      parameters: rawParameters
+          .cast<Map>()
           .map(
             (value) => ScriptParameterDefinition.fromJson(
               Map<String, dynamic>.from(value),

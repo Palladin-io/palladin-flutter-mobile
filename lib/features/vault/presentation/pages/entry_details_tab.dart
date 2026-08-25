@@ -669,7 +669,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       _showSnackBar(AppLocalizations.of(context)!.entryTooLarge);
       return;
     }
-    if (_type == EntryType.script &&
+    if ((widget.entry.type == EntryType.script || _type == EntryType.script) &&
         jsonEncode(payload) != jsonEncode(_payload) &&
         !await _confirmScriptImpact()) {
       return;

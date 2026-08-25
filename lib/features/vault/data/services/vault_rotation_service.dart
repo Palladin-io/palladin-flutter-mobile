@@ -442,6 +442,9 @@ final class VaultRotationService {
               vaultId: rotation.vaultId,
               vaultKeyVersion: rotation.targetKeyEpoch.vaultKeyVersion,
               vaultKey: secrets.targetVaultKey,
+              vaultSigningKeyVersion:
+                  rotation.targetKeyEpoch.manifestSigningKeyVersion,
+              vaultSigningPrivateKey: secrets.targetSigningSeed,
             ),
           );
         }

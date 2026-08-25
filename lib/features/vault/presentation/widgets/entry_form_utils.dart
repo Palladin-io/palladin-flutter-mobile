@@ -150,7 +150,7 @@ class EntryFormUtils {
       EntryType.script =>
         script.trim().isNotEmpty &&
             description.trim().isNotEmpty &&
-            _validScriptDefinitions(refs, scriptParameters),
+            _validScriptDefinitions(description, refs, scriptParameters),
       EntryType.creditCard =>
         cardholderName.trim().isNotEmpty &&
             RegExp(
@@ -162,6 +162,7 @@ class EntryFormUtils {
   }
 
   static bool _validScriptDefinitions(
+    String description,
     List<ScriptRef> refs,
     List<ScriptParameterDefinition> parameters,
   ) {
@@ -177,7 +178,7 @@ class EntryFormUtils {
     }
     try {
       ScriptExecutionMetadata(
-        description: 'validation',
+        description: description,
         parameters: parameters,
         returnResultToAgent: false,
       ).validate();

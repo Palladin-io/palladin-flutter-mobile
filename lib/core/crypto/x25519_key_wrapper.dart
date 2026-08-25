@@ -260,8 +260,15 @@ Future<Map<String, Object?>> buildAgentWrappedVaultKeyContract({
   required int vaultKeyVersion,
   required Uint8List agentPublicKey,
   required int recipientKeyVersion,
+  required int vaultSigningKeyVersion,
+  required Uint8List vaultSigningKeyFingerprint,
+  required Future<String> Function(Map<String, Object?> unsignedContract)
+  signProducer,
   Future<SodiumSumo> Function()? sodiumLoader,
 }) async {
+  if (vaultSigningKeyVersion <= 0 || vaultSigningKeyFingerprint.length != 32) {
+    throw const FormatException('Vault signing producer binding is invalid');
+  }
   final fingerprint = Uint8List.fromList(
     sha256.convert([
       ...ascii.encode('PLDNV2FP'),
@@ -290,7 +297,11 @@ Future<Map<String, Object?>> buildAgentWrappedVaultKeyContract({
       context: context,
       recipient: X25519PublicKey(agentPublicKey),
     );
-    return {
+    final unsigned = <String, Object?>{
+      'vaultSigningKeyFingerprint': base64UrlEncode(
+        vaultSigningKeyFingerprint,
+      ).replaceAll('=', ''),
+      'vaultSigningKeyVersion': vaultSigningKeyVersion,
       'wrappedVaultKey': {
         'descriptor': {
           'protocolVersion': context.protocolVersion,
@@ -317,6 +328,20 @@ Future<Map<String, Object?>> buildAgentWrappedVaultKeyContract({
         'encodedSealedKeyPackage': base64UrlEncode(sealed).replaceAll('=', ''),
       },
     };
+    final producerSignature = await signProducer(unsigned);
+    final signatureBytes = base64Url.decode(
+      base64Url.normalize(producerSignature),
+    );
+    try {
+      if (signatureBytes.length != 64) {
+        throw const FormatException(
+          'Vault wrapper producer signature is invalid',
+        );
+      }
+    } finally {
+      signatureBytes.fillRange(0, signatureBytes.length, 0);
+    }
+    return {...unsigned, 'producerSignature': producerSignature};
   } finally {
     fingerprint.fillRange(0, fingerprint.length, 0);
     sealed?.fillRange(0, sealed.length, 0);
