@@ -11,7 +11,7 @@ class GrantModel {
     required this.vaultId,
     this.agentId,
     required this.status,
-    required this.scope,
+    required this.type,
     required this.createdAt,
     this.agentName,
     this.agentIconKey,
@@ -56,7 +56,7 @@ class GrantModel {
   final List<GrantEntryScope> entryScopes;
   final String? vaultName;
   final Object? status;
-  final Object? scope;
+  final GrantScope type;
   final String createdAt;
   final String? entryId;
   final String? entryLabel;
@@ -115,9 +115,7 @@ class GrantModel {
           .toList(growable: false),
       vaultName: json['vaultName'] as String?,
       status: json['status'],
-      // Org listing returns `type` (full/granular); the per-vault list uses
-      // `mode`. Accept both so one model serves every grants endpoint.
-      scope: json['type'] ?? json['mode'] ?? json['scope'] ?? json['grantMode'],
+      type: GrantScope.fromWire(json['type']),
       createdAt: json['createdAt'] as String,
       entryId: json['entryId'] as String?,
       entryLabel: json['entryLabel'] as String?,
@@ -164,7 +162,7 @@ class GrantModel {
       entryScopes: entryScopes,
       vaultName: vaultName,
       status: GrantStatus.fromWire(status),
-      scope: GrantScope.fromWire(scope),
+      scope: type,
       entryId: entryId,
       entryLabel: entryLabel,
       reason: resolvedReason ?? reason,

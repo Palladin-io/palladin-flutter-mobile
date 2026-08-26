@@ -62,8 +62,8 @@ enum GrantStatus {
       this != GrantStatus.active && this != GrantStatus.pending;
 }
 
-/// Access scope of a grant. Mirrors the backend `GrantMode` enum
-/// (`Full = 1`, `Granular = 2`).
+/// Access scope of a grant. Mirrors the backend `GrantType` enum
+/// (`Granular = 1`, `Full = 2`).
 enum GrantScope {
   /// Agent can read every entry in the vault.
   full,
@@ -75,7 +75,7 @@ enum GrantScope {
     return switch (raw) {
       'full' || 2 => GrantScope.full,
       'granular' || 1 => GrantScope.granular,
-      _ => GrantScope.granular,
+      _ => throw const FormatException('Unsupported grant type.'),
     };
   }
 }

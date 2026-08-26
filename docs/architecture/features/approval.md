@@ -6,6 +6,7 @@ Zero-knowledge grant approval/denial — the crypto-sensitive heart of access co
 - **Pages:** none — **sheets only**, presented over other features.
 - **Widgets:** `ApproveGrantSheet`, `DenyGrantSheet`, `GrantAccessSheet`, `GrantLimitSelector`, `GrantMethodsSelector`, `RegrantSheet`.
 - **Layering:** full data / domain / presentation split. `ApprovalRepositoryImpl` opens the canonical MemberSecret with the process-memory `VaultSessionStore`, projects the exact authorized field scope, and delegates protocol-v2 envelope sealing to `EntryV2CryptoService`. Agent recipient key versions and field scopes are authenticated in AAD; secret buffers are wiped in `finally`.
+- **Type-specific creation:** GRANULAR creation posts one revision-bound Entry envelope to the dedicated Entry endpoint. FULL creation opens the process-memory VK, seals it once to the current Agent X25519 identity as `AgentWrappedVaultKey`, and posts it to the dedicated FULL endpoint. The flows do not branch one generic request by a type flag and FULL remains O(1) in Vault size.
 - **Pending-list refresh:** shell startup, Home, lifecycle resume, push, and an
   open Inbox share the Cubit's current in-flight list operation. This keeps the
   badge live without issuing overlapping `GET /api/dashboard/pending-grants`

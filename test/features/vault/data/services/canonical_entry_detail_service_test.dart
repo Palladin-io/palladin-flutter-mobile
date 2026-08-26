@@ -570,7 +570,7 @@ void main() {
         vaultId: vaultId,
         agentId: '55555555-5555-4555-8555-555555555555',
         status: 'active',
-        scope: 'granular',
+        type: GrantScope.granular,
         createdAt: '2026-07-01T00:00:00Z',
         agentPublicKey: base64.encode(List<int>.filled(32, 4)),
         recipientAgentKeyVersion: 3,

@@ -41,7 +41,7 @@ void main() {
         'agentId': 'a-1',
         'agentName': 'Deploy Bot',
         'status': 'pending',
-        'mode': 'granular',
+        'type': 'granular',
         'entryId': 'e-1',
         'entryLabel': 'Gmail',
         'reason': 'Need Gmail to send email',
@@ -92,7 +92,7 @@ void main() {
         'vaultId': 'v-2',
         'agentId': 'a-2',
         'status': 'active',
-        'mode': 'full',
+        'type': 'full',
         'expiresAt': '2026-07-01T00:00:00Z',
         'createdAt': '2026-06-01T10:00:00Z',
         'approvedAt': '2026-06-01T11:00:00Z',
@@ -112,7 +112,7 @@ void main() {
         'vaultId': 'v-3',
         'agentId': 'a-3',
         'status': 2,
-        'mode': 1,
+        'type': 1,
         'queryLimit': 10,
         'queryCount': 3,
         'createdAt': '2026-06-01T10:00:00Z',
@@ -128,6 +128,44 @@ void main() {
     test('unknown status fails closed to revoked', () {
       expect(GrantStatus.fromWire('???'), GrantStatus.revoked);
       expect(GrantStatus.fromWire(null), GrantStatus.revoked);
+    });
+
+    test('requires the authoritative grant type discriminator', () {
+      expect(
+        () => GrantModel.fromJson(<String, dynamic>{
+          'id': 'g-missing-type',
+          'vaultId': 'v-1',
+          'agentId': 'a-1',
+          'status': 'active',
+          'createdAt': '2026-06-01T10:00:00Z',
+        }),
+        throwsFormatException,
+      );
+    });
+
+    test('does not infer grant type from legacy aliases', () {
+      expect(
+        () => GrantModel.fromJson(<String, dynamic>{
+          'id': 'g-legacy-mode',
+          'vaultId': 'v-1',
+          'agentId': 'a-1',
+          'status': 'active',
+          'mode': 'full',
+          'createdAt': '2026-06-01T10:00:00Z',
+        }),
+        throwsFormatException,
+      );
+      expect(
+        () => GrantModel.fromJson(<String, dynamic>{
+          'id': 'g-unknown-type',
+          'vaultId': 'v-1',
+          'agentId': 'a-1',
+          'status': 'active',
+          'type': 'vault-wide',
+          'createdAt': '2026-06-01T10:00:00Z',
+        }),
+        throwsFormatException,
+      );
     });
 
     test('numeric enum values match the canonical backend ordinals', () {

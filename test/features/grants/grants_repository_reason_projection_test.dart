@@ -7,6 +7,7 @@ import 'package:mobile_palladin/features/grants/data/datasources/grants_remote_d
 import 'package:mobile_palladin/features/grants/data/models/grant_model.dart';
 import 'package:mobile_palladin/features/grants/data/repositories/grants_repository_impl.dart';
 import 'package:mobile_palladin/features/grants/data/services/grant_reason_resolver.dart';
+import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
 
 class _Remote extends Mock implements GrantsRemoteDatasource {}
 
@@ -24,7 +25,7 @@ void main() {
       vaultId: 'vault',
       agentId: 'agent',
       status: 'active',
-      scope: 'granular',
+      type: GrantScope.granular,
       createdAt: '2026-08-07T10:00:00Z',
       entryId: 'entry',
     );
