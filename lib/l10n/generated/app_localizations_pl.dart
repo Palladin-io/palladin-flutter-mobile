@@ -1742,6 +1742,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get grantStatusConsumed => 'Wykorzystany';
 
   @override
+  String get grantStatusSuperseded => 'Zastąpiony';
+
+  @override
   String get grantScopeFull => 'Wszystkie wpisy';
 
   @override
@@ -1792,6 +1795,9 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get orgGrantRowDenyReason => 'Powód odmowy';
+
+  @override
+  String get orgGrantSupersededReason => 'Zastąpiony przez grant FULL';
 
   @override
   String get orgGrantRowRevokeReason => 'Powód odebrania';
@@ -2514,6 +2520,9 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get auditEventGrantExpired => 'Nadanie wygasło';
+
+  @override
+  String get auditEventGrantSuperseded => 'Nadanie zastąpione';
 
   @override
   String get auditEventCredentialAccessed => 'Odczytano dane';

@@ -137,13 +137,12 @@ void main() {
           return <String, Object?>{'sealed': true};
         });
         when(
-          () => approval.createGrant(
+          () => approval.createGranularGrant(
             vaultId: any(named: 'vaultId'),
+            entryId: any(named: 'entryId'),
             grantId: any(named: 'grantId'),
             agentId: any(named: 'agentId'),
-            type: any(named: 'type'),
-            entryId: any(named: 'entryId'),
-            entries: any(named: 'entries'),
+            grantEntry: any(named: 'grantEntry'),
             expiresAt: any(named: 'expiresAt'),
             queryLimit: any(named: 'queryLimit'),
             methods: any(named: 'methods'),

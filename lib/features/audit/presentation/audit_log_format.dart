@@ -22,6 +22,7 @@ String auditEventLabel(
     AuditEventType.grantRevoked => l10n.auditEventGrantRevoked,
     AuditEventType.grantConsumed => l10n.auditEventGrantConsumed,
     AuditEventType.grantExpired => l10n.auditEventGrantExpired,
+    AuditEventType.grantSuperseded => l10n.auditEventGrantSuperseded,
     AuditEventType.credentialAccessed => l10n.auditEventCredentialAccessed,
     AuditEventType.credentialAccessDenied =>
       l10n.auditEventCredentialAccessDenied,
@@ -94,6 +95,7 @@ Color auditEventColor(AuditEventType eventType) {
     // Terminal / inert — grey.
     AuditEventType.grantConsumed ||
     AuditEventType.grantExpired ||
+    AuditEventType.grantSuperseded ||
     AuditEventType.unknown => AppColors.textTertiary,
   };
 }

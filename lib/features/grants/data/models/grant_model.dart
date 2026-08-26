@@ -35,6 +35,8 @@ class GrantModel {
     this.createdByName,
     this.revokedBy,
     this.revokedByName,
+    this.supersededAt,
+    this.supersededByGrantId,
     this.deniedBy,
     this.deniedByName,
     this.denyReason,
@@ -71,6 +73,8 @@ class GrantModel {
   final String? createdByName;
   final String? revokedBy;
   final String? revokedByName;
+  final String? supersededAt;
+  final String? supersededByGrantId;
   final String? deniedBy;
   final String? deniedByName;
   final String? denyReason;
@@ -130,6 +134,8 @@ class GrantModel {
       createdByName: json['createdByName'] as String?,
       revokedBy: json['revokedBy'] as String?,
       revokedByName: json['revokedByName'] as String?,
+      supersededAt: json['supersededAt'] as String?,
+      supersededByGrantId: json['supersededByGrantId'] as String?,
       deniedBy: json['deniedBy'] as String?,
       deniedByName: json['deniedByName'] as String?,
       denyReason: json['denyReason'] as String?,
@@ -174,6 +180,8 @@ class GrantModel {
       createdByName: createdByName,
       revokedBy: revokedBy,
       revokedByName: revokedByName,
+      supersededAt: parse(supersededAt),
+      supersededByGrantId: supersededByGrantId,
       deniedBy: deniedBy,
       deniedByName: deniedByName,
       denyReason: denyReason,

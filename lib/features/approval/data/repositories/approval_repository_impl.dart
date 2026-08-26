@@ -271,7 +271,6 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       throw const ApprovalException(ApprovalErrorKind.validation);
     }
 
-    final wrapped = <({String entryId, Map<String, dynamic> envelope})>[];
     final grantId = _uuidV4();
     final wire = limit.toWire();
     final methodBits = _methodBits(methods);
@@ -318,11 +317,10 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
           recipientKeyVersion: recipientKeyVersion,
         );
-        await _approval.createGrant(
+        await _approval.createFullGrant(
           vaultId: vaultId,
           grantId: grantId,
           agentId: agentId,
-          type: 'full',
           agentWrappedVaultKey: agentWrappedVaultKey,
           expiresAt: wire.expiresAt,
           queryLimit: wire.queryLimit,
@@ -406,10 +404,16 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
                 : DateTime.parse(wire.expiresAt!),
             remainingUses: wire.queryLimit,
           );
-          wrapped.add((
+          await _approval.createGranularGrant(
+            vaultId: vaultId,
             entryId: id,
-            envelope: Map<String, dynamic>.from(envelope),
-          ));
+            grantId: grantId,
+            agentId: agentId,
+            grantEntry: Map<String, dynamic>.from(envelope),
+            expiresAt: wire.expiresAt,
+            queryLimit: wire.queryLimit,
+            methods: serializeGrantMethods(methods),
+          );
         } finally {
           snapshot.clear();
         }
@@ -419,7 +423,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     } on DioException catch (e, s) {
       AppLogger.e(
         'Approval',
-        're-grant fetch entry failed',
+        'GRANULAR re-grant failed',
         error: e,
         stackTrace: s,
       );
@@ -432,29 +436,6 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         stackTrace: s,
       );
       throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
-    }
-
-    // 3. Submit the new grant.
-    try {
-      await _approval.createGrant(
-        vaultId: vaultId,
-        grantId: grantId,
-        agentId: agentId,
-        type: isFull ? 'full' : 'granular',
-        entryId: entryId,
-        entries: wrapped,
-        expiresAt: wire.expiresAt,
-        queryLimit: wire.queryLimit,
-        methods: serializeGrantMethods(methods),
-      );
-    } on DioException catch (e, s) {
-      AppLogger.e(
-        'Approval',
-        're-grant submit failed',
-        error: e,
-        stackTrace: s,
-      );
-      throw ApprovalException(_classifyError(e));
     }
   }
 

@@ -78,11 +78,12 @@ abstract interface class ApprovalRepository {
   Future<void> denyGrant({required PendingGrant grant});
 
   /// Proactively (re-)grants an agent access — the "Grant again" / re-access
-  /// flow. Produces the zero-knowledge envelope(s) on-device and POSTs a new
-  /// grant: one entry for granular ([entryId] set), or every vault entry for
-  /// full ([isFull] true, [entryId] null).
+  /// flow. Produces the zero-knowledge material on-device and POSTs a new
+  /// grant: one revision-bound Entry envelope for GRANULAR ([entryId] set),
+  /// or one Vault-key wrapper for FULL ([isFull] true, [entryId] null). FULL
+  /// does not fan out per Entry.
   ///
-  /// [agentPublicKey] seals the per-entry DEK; [privateKey] is the owner's
+  /// [agentPublicKey] seals the per-entry DEK or Vault key; [privateKey] is the owner's
   /// in-memory X25519 key (unwraps the VK). Never persisted/logged.
   Future<void> createGrant({
     required String vaultId,

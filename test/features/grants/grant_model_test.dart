@@ -137,8 +137,27 @@ void main() {
       expect(GrantStatus.fromWire(4), GrantStatus.revoked);
       expect(GrantStatus.fromWire(5), GrantStatus.consumed);
       expect(GrantStatus.fromWire(6), GrantStatus.denied);
+      expect(GrantStatus.fromWire(7), GrantStatus.superseded);
       expect(GrantScope.fromWire(1), GrantScope.granular);
       expect(GrantScope.fromWire(2), GrantScope.full);
+    });
+
+    test('retains the structured FULL replacement relationship', () {
+      final entity = GrantModel.fromJson(<String, dynamic>{
+        'id': 'g-old',
+        'vaultId': 'v-1',
+        'agentId': 'a-1',
+        'status': 'superseded',
+        'type': 'granular',
+        'entryId': 'e-1',
+        'createdAt': '2026-06-01T10:00:00Z',
+        'supersededAt': '2026-06-02T10:00:00Z',
+        'supersededByGrantId': 'g-full',
+      }).toEntity();
+
+      expect(entity.status, GrantStatus.superseded);
+      expect(entity.supersededAt, isNotNull);
+      expect(entity.supersededByGrantId, 'g-full');
     });
 
     test('accepts a grant whose referenced agent has been removed', () {

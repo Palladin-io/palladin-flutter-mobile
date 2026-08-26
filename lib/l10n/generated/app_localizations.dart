@@ -3086,6 +3086,12 @@ abstract class AppLocalizations {
   /// **'Consumed'**
   String get grantStatusConsumed;
 
+  /// Terminal grant status: replaced by a FULL Vault grant
+  ///
+  /// In en, this message translates to:
+  /// **'Superseded'**
+  String get grantStatusSuperseded;
+
   /// Grant scope label — full vault access
   ///
   /// In en, this message translates to:
@@ -3187,6 +3193,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Deny reason'**
   String get orgGrantRowDenyReason;
+
+  /// No description provided for @orgGrantSupersededReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Replaced by a FULL grant'**
+  String get orgGrantSupersededReason;
 
   /// Org grant card row label — owner's revoke reason
   ///
@@ -4495,6 +4507,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Grant expired'**
   String get auditEventGrantExpired;
+
+  /// No description provided for @auditEventGrantSuperseded.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant superseded'**
+  String get auditEventGrantSuperseded;
 
   /// No description provided for @auditEventCredentialAccessed.
   ///

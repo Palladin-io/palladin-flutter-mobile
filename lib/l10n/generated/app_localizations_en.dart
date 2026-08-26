@@ -1719,6 +1719,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get grantStatusConsumed => 'Consumed';
 
   @override
+  String get grantStatusSuperseded => 'Superseded';
+
+  @override
   String get grantScopeFull => 'All entries';
 
   @override
@@ -1769,6 +1772,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get orgGrantRowDenyReason => 'Deny reason';
+
+  @override
+  String get orgGrantSupersededReason => 'Replaced by a FULL grant';
 
   @override
   String get orgGrantRowRevokeReason => 'Revoke reason';
@@ -2492,6 +2498,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get auditEventGrantExpired => 'Grant expired';
+
+  @override
+  String get auditEventGrantSuperseded => 'Grant superseded';
 
   @override
   String get auditEventCredentialAccessed => 'Credential accessed';
