@@ -85,6 +85,7 @@ final class VaultKeyEpochModel {
 
 final class VaultRotationClaimModel {
   const VaultRotationClaimModel({
+    required this.organizationId,
     required this.rotation,
     required this.fencingToken,
     required this.currentMemberVaultKey,
@@ -99,6 +100,7 @@ final class VaultRotationClaimModel {
   factory VaultRotationClaimModel.fromJson(
     Map<String, dynamic> json,
   ) => VaultRotationClaimModel(
+    organizationId: _string(json, 'organizationId'),
     rotation: VaultRotationModel.fromJson(_map(json, 'rotation')),
     fencingToken: _string(json, 'fencingToken'),
     currentMemberVaultKey: _map(json, 'currentMemberVaultKey'),
@@ -110,6 +112,7 @@ final class VaultRotationClaimModel {
     preparedMaterialReset: json['preparedMaterialReset'] as bool,
   );
 
+  final String organizationId;
   final VaultRotationModel rotation;
   final String fencingToken;
   final Map<String, dynamic> currentMemberVaultKey;

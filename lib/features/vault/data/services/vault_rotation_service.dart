@@ -199,9 +199,7 @@ final class VaultRotationService {
     Uint8List memberPrivateKey,
   ) async {
     final rotation = claim.rotation;
-    final organizationId = _memberVaultKeyOrganizationId(
-      claim.currentMemberVaultKey,
-    );
+    final organizationId = claim.organizationId;
     final currentVaultKey = await _crypto.openMemberVaultKey(
       claim.currentMemberVaultKey,
       memberPrivateKey,
@@ -571,6 +569,9 @@ final class VaultRotationService {
     if (!lease.claim.rotation.samePlan(renewed.rotation)) {
       throw const VaultRotationException('rotation-plan-changed');
     }
+    if (renewed.organizationId != secrets.organizationId) {
+      throw const VaultRotationException('rotation-organization-changed');
+    }
     if (seedEstablished && renewed.preparedMaterialReset) {
       throw const VaultRotationException('rotation-seed-reset');
     }
@@ -653,16 +654,5 @@ final class VaultRotationService {
     if (!VaultProtocolBytes.constantTimeEquals(left, right)) {
       throw const VaultRotationException('rotation-seed-changed');
     }
-  }
-
-  String _memberVaultKeyOrganizationId(Map<String, dynamic> envelope) {
-    final wrapped = envelope['wrappedVaultKey'];
-    final descriptor = wrapped is Map ? wrapped['descriptor'] : null;
-    final scope = descriptor is Map ? descriptor['scope'] : null;
-    final organizationId = scope is Map ? scope['organizationId'] : null;
-    if (organizationId is! String || organizationId.isEmpty) {
-      throw const VaultRotationException('member-vault-key-scope-invalid');
-    }
-    return organizationId;
   }
 }

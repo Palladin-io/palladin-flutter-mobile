@@ -165,6 +165,40 @@ void main() {
     },
   );
 
+  test(
+    'binds the current Vault key to the authoritative claim organization',
+    () async {
+      final wrongEnvelope = _memberVaultKeyEnvelope(
+        organizationId: '99999999-9999-4999-8999-999999999999',
+      );
+      claim = _claim(rotation, currentMemberVaultKey: wrongEnvelope);
+      when(
+        () => remote.claim(rotation.vaultId, rotation.id, any()),
+      ).thenAnswer((_) async => claim);
+      when(
+        () => crypto.openMemberVaultKey(
+          wrongEnvelope,
+          any(),
+          expectedOrganizationId: '11111111-1111-4111-8111-111111111111',
+          expectedVaultId: rotation.vaultId,
+          expectedVaultKeyVersion: rotation.baseKeyEpoch.vaultKeyVersion,
+          expectedMemberKeyGeneration: rotation.baseMemberKeyGeneration,
+        ),
+      ).thenThrow(const FormatException('organization mismatch'));
+
+      await expectLater(
+        service.resumeAfterUnlock(
+          memberId: '44444444-4444-4444-8444-444444444444',
+          memberPrivateKey: Uint8List(32),
+        ),
+        throwsFormatException,
+      );
+
+      verifyNever(() => crypto.generateKeys());
+      verifyNever(() => remote.prepare(any(), any(), any(), any(), any()));
+    },
+  );
+
   test('fails closed when claim changes the listed plan', () async {
     final changed = _rotation(targetGeneration: 9);
     when(
@@ -241,11 +275,13 @@ VaultRotationModel _rotation({
 
 VaultRotationClaimModel _claim(
   VaultRotationModel rotation, {
+  Map<String, dynamic>? currentMemberVaultKey,
   Map<String, dynamic>? pendingMemberVaultKey,
 }) => VaultRotationClaimModel(
+  organizationId: '11111111-1111-4111-8111-111111111111',
   rotation: rotation,
   fencingToken: '33333333-3333-4333-8333-333333333333',
-  currentMemberVaultKey: _memberVaultKeyEnvelope(),
+  currentMemberVaultKey: currentMemberVaultKey ?? _memberVaultKeyEnvelope(),
   currentDiscoveryKey: const {'ciphertext': 'current'},
   currentVaultPrivateKeys: const [
     {'privateKeyKind': 1},
@@ -256,10 +292,12 @@ VaultRotationClaimModel _claim(
   preparedMaterialReset: false,
 );
 
-Map<String, dynamic> _memberVaultKeyEnvelope() => {
+Map<String, dynamic> _memberVaultKeyEnvelope({
+  String organizationId = '11111111-1111-4111-8111-111111111111',
+}) => {
   'wrappedVaultKey': {
     'descriptor': {
-      'scope': {'organizationId': '11111111-1111-4111-8111-111111111111'},
+      'scope': {'organizationId': organizationId},
     },
   },
 };
