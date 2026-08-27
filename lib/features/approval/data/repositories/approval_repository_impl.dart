@@ -253,21 +253,17 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
   );
 
   @override
-  Future<void> createGrant({
+  Future<void> createFullGrant({
     required String vaultId,
     required String agentId,
     required String agentPublicKey,
     required int recipientKeyVersion,
     required int agentAccessEpoch,
-    required bool isFull,
-    String? entryId,
     required Uint8List privateKey,
     required GrantLimit limit,
     required List<GrantMethod> methods,
   }) async {
-    if (recipientKeyVersion <= 0 ||
-        agentAccessEpoch <= 0 ||
-        (!isFull && entryId == null)) {
+    if (recipientKeyVersion <= 0 || agentAccessEpoch <= 0) {
       throw const ApprovalException(ApprovalErrorKind.validation);
     }
 
@@ -278,145 +274,157 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       throw const ApprovalException(ApprovalErrorKind.validation);
     }
 
-    if (isFull) {
-      Uint8List? vaultKey;
-      try {
-        final vault = await _vaults.getEncryptedVault(vaultId);
-        final organizationId = vault['organizationId'];
-        final memberKeyGeneration = vault['memberKeyGeneration'];
-        final epochValue = vault['currentKeyEpoch'];
-        if (organizationId is! String ||
-            memberKeyGeneration is! int ||
-            epochValue is! Map) {
-          throw const FormatException('Malformed encrypted Vault key context');
-        }
-        final epoch = Map<String, dynamic>.from(epochValue);
-        final vaultKeyVersion = epoch['vaultKeyVersion'];
-        if (vaultKeyVersion is! int) {
-          throw const FormatException('Malformed encrypted Vault key epoch');
-        }
-        final memberEnvelope = Map<String, dynamic>.from(
-          vault['memberVaultKey'] as Map,
-        );
-        vaultKey = await _vaultKeys.openMemberVaultKey(
-          memberEnvelope,
-          privateKey,
-          expectedOrganizationId: organizationId,
-          expectedVaultId: vaultId,
-          expectedVaultKeyVersion: vaultKeyVersion,
-          expectedMemberKeyGeneration: memberKeyGeneration,
-        );
-        final agentWrappedVaultKey = await _crypto.sealAgentVaultKey(
-          vaultKey: vaultKey,
-          organizationId: organizationId,
-          vaultId: vaultId,
-          grantId: grantId,
-          agentId: agentId,
-          agentAccessEpoch: agentAccessEpoch,
-          vaultKeyVersion: vaultKeyVersion,
-          agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
-          recipientKeyVersion: recipientKeyVersion,
-        );
-        await _approval.createFullGrant(
-          vaultId: vaultId,
-          grantId: grantId,
-          agentId: agentId,
-          agentWrappedVaultKey: agentWrappedVaultKey,
-          expiresAt: wire.expiresAt,
-          queryLimit: wire.queryLimit,
-          methods: serializeGrantMethods(methods),
-        );
-        return;
-      } on DioException catch (e) {
-        throw ApprovalException(_classifyError(e));
-      } on ApprovalException {
-        rethrow;
-      } catch (e, s) {
-        AppLogger.e(
-          'Approval',
-          'FULL re-grant failed',
-          error: e,
-          stackTrace: s,
-        );
-        throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
-      } finally {
-        vaultKey?.fillRange(0, vaultKey.length, 0);
+    Uint8List? vaultKey;
+    try {
+      final vault = await _vaults.getEncryptedVault(vaultId);
+      final organizationId = vault['organizationId'];
+      final memberKeyGeneration = vault['memberKeyGeneration'];
+      final epochValue = vault['currentKeyEpoch'];
+      if (organizationId is! String ||
+          memberKeyGeneration is! int ||
+          epochValue is! Map) {
+        throw const FormatException('Malformed encrypted Vault key context');
       }
+      final epoch = Map<String, dynamic>.from(epochValue);
+      final vaultKeyVersion = epoch['vaultKeyVersion'];
+      if (vaultKeyVersion is! int) {
+        throw const FormatException('Malformed encrypted Vault key epoch');
+      }
+      final memberEnvelope = Map<String, dynamic>.from(
+        vault['memberVaultKey'] as Map,
+      );
+      vaultKey = await _vaultKeys.openMemberVaultKey(
+        memberEnvelope,
+        privateKey,
+        expectedOrganizationId: organizationId,
+        expectedVaultId: vaultId,
+        expectedVaultKeyVersion: vaultKeyVersion,
+        expectedMemberKeyGeneration: memberKeyGeneration,
+      );
+      final agentWrappedVaultKey = await _crypto.sealAgentVaultKey(
+        vaultKey: vaultKey,
+        organizationId: organizationId,
+        vaultId: vaultId,
+        grantId: grantId,
+        agentId: agentId,
+        agentAccessEpoch: agentAccessEpoch,
+        vaultKeyVersion: vaultKeyVersion,
+        agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
+        recipientKeyVersion: recipientKeyVersion,
+      );
+      await _approval.createFullGrant(
+        vaultId: vaultId,
+        grantId: grantId,
+        agentId: agentId,
+        agentWrappedVaultKey: agentWrappedVaultKey,
+        expiresAt: wire.expiresAt,
+        queryLimit: wire.queryLimit,
+        methods: serializeGrantMethods(methods),
+      );
+    } on DioException catch (e) {
+      throw ApprovalException(_classifyError(e));
+    } on ApprovalException {
+      rethrow;
+    } catch (e, s) {
+      AppLogger.e('Approval', 'FULL re-grant failed', error: e, stackTrace: s);
+      throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
+    } finally {
+      vaultKey?.fillRange(0, vaultKey.length, 0);
+    }
+  }
+
+  @override
+  Future<void> createGranularGrant({
+    required String vaultId,
+    required String entryId,
+    required String agentId,
+    required String agentPublicKey,
+    required int recipientKeyVersion,
+    required int agentAccessEpoch,
+    required Uint8List privateKey,
+    required GrantLimit limit,
+    required List<GrantMethod> methods,
+  }) async {
+    if (recipientKeyVersion <= 0 || agentAccessEpoch <= 0) {
+      throw const ApprovalException(ApprovalErrorKind.validation);
+    }
+
+    final grantId = _uuidV4();
+    final wire = limit.toWire();
+    final methodBits = _methodBits(methods);
+    if (methodBits == 0) {
+      throw const ApprovalException(ApprovalErrorKind.validation);
     }
 
     // GRANULAR retains one revision/field/method-bound envelope.
     try {
-      for (final id in [entryId!]) {
-        final snapshot = await _canonicalEntries.reveal(
-          expected: EntryEntity(
-            id: id,
-            vaultId: vaultId,
-            label: '',
-            type: EntryType.key,
-            createdAt: DateTime.fromMillisecondsSinceEpoch(0),
-            updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
-          ),
-          memberPrivateKey: privateKey,
+      final snapshot = await _canonicalEntries.reveal(
+        expected: EntryEntity(
+          id: entryId,
+          vaultId: vaultId,
+          label: '',
+          type: EntryType.key,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+          updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+        ),
+        memberPrivateKey: privateKey,
+      );
+      try {
+        final type = EntryTypeExtension.fromWire(
+          snapshot.secret['entryType'] as int,
         );
-        try {
-          final type = EntryTypeExtension.fromWire(
-            snapshot.secret['entryType'] as int,
-          );
-          final policy = AgentVisibilityPolicy.fromJson(
-            type,
-            Map<String, dynamic>.from(
-              snapshot.secret['agentVisibilityPolicy'] as Map,
-            ),
-            content: snapshot.payload,
-          );
-          final approved = policy.fields.entries
-              .where((item) => item.value != AgentFieldAccess.never)
-              .map((item) => item.key)
-              .toList(growable: false);
-          final payload = AgentVisibilityProjector.grantPayload(
-            type: type,
-            agentLabel:
-                snapshot.secret['agentLabel'] as String? ??
-                snapshot.secret['memberLabel'] as String,
-            description: snapshot.secret['description'] as String? ?? '',
-            content: snapshot.payload,
-            policy: policy,
-            approvedFieldIds: approved,
-          );
-          final envelope = await _crypto.sealGrant(
-            organizationId: snapshot.entry['organizationId'] as String,
-            vaultId: vaultId,
-            entryId: id,
-            grantId: grantId,
-            agentId: agentId,
-            entryRevision: int.parse(
-              snapshot.entry['currentRevision'] as String,
-            ),
-            memberKeyGeneration: snapshot.entry['memberKeyGeneration'] as int,
-            agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
-            recipientKeyVersion: recipientKeyVersion,
-            approvedMethods: methodBits,
-            deliveryPolicy: type.deliveryPolicyCode(),
-            fieldIds: approved,
-            grantPayload: payload,
-            expiresAt: wire.expiresAt == null
-                ? null
-                : DateTime.parse(wire.expiresAt!),
-            remainingUses: wire.queryLimit,
-          );
-          await _approval.createGranularGrant(
-            vaultId: vaultId,
-            entryId: id,
-            grantId: grantId,
-            agentId: agentId,
-            grantEntry: Map<String, dynamic>.from(envelope),
-            expiresAt: wire.expiresAt,
-            queryLimit: wire.queryLimit,
-            methods: serializeGrantMethods(methods),
-          );
-        } finally {
-          snapshot.clear();
-        }
+        final policy = AgentVisibilityPolicy.fromJson(
+          type,
+          Map<String, dynamic>.from(
+            snapshot.secret['agentVisibilityPolicy'] as Map,
+          ),
+          content: snapshot.payload,
+        );
+        final approved = policy.fields.entries
+            .where((item) => item.value != AgentFieldAccess.never)
+            .map((item) => item.key)
+            .toList(growable: false);
+        final payload = AgentVisibilityProjector.grantPayload(
+          type: type,
+          agentLabel:
+              snapshot.secret['agentLabel'] as String? ??
+              snapshot.secret['memberLabel'] as String,
+          description: snapshot.secret['description'] as String? ?? '',
+          content: snapshot.payload,
+          policy: policy,
+          approvedFieldIds: approved,
+        );
+        final envelope = await _crypto.sealGrant(
+          organizationId: snapshot.entry['organizationId'] as String,
+          vaultId: vaultId,
+          entryId: entryId,
+          grantId: grantId,
+          agentId: agentId,
+          entryRevision: int.parse(snapshot.entry['currentRevision'] as String),
+          memberKeyGeneration: snapshot.entry['memberKeyGeneration'] as int,
+          agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
+          recipientKeyVersion: recipientKeyVersion,
+          approvedMethods: methodBits,
+          deliveryPolicy: type.deliveryPolicyCode(),
+          fieldIds: approved,
+          grantPayload: payload,
+          expiresAt: wire.expiresAt == null
+              ? null
+              : DateTime.parse(wire.expiresAt!),
+          remainingUses: wire.queryLimit,
+        );
+        await _approval.createGranularGrant(
+          vaultId: vaultId,
+          entryId: entryId,
+          grantId: grantId,
+          agentId: agentId,
+          grantEntry: Map<String, dynamic>.from(envelope),
+          expiresAt: wire.expiresAt,
+          queryLimit: wire.queryLimit,
+          methods: serializeGrantMethods(methods),
+        );
+      } finally {
+        snapshot.clear();
       }
     } on ApprovalException {
       rethrow;

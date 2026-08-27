@@ -170,36 +170,29 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
       return;
     }
 
-    // Resolve the parameters for each mode. The Agent's full public key comes from the
-    // authoritative single-Agent endpoint; FULL seals VK, GRANULAR seals its GrantDEK.
+    // Resolve only the shared subject identity before entering a mode-specific
+    // feature flow. The authoritative Agent binding is refreshed for both.
     final cubit = context.read<GrantAccessCubit>();
-    final ({String agentId, String vaultId, bool isFull, String? entryId}) r =
-        switch (widget.mode) {
-          GrantForVault(:final vaultId) => (
-            agentId: _selectedId!,
-            vaultId: vaultId,
-            isFull: true,
-            entryId: null,
-          ),
-          GrantForEntry(:final vaultId, :final entryId) => (
-            agentId: _selectedId!,
-            vaultId: vaultId,
-            isFull: false,
-            entryId: entryId,
-          ),
-          GrantForAgent(:final agentId) => (
-            agentId: agentId,
-            vaultId: _selectedId!,
-            isFull: true,
-            entryId: null,
-          ),
-        };
+    final ({String agentId, String vaultId}) subject = switch (widget.mode) {
+      GrantForVault(:final vaultId) => (
+        agentId: _selectedId!,
+        vaultId: vaultId,
+      ),
+      GrantForEntry(:final vaultId) => (
+        agentId: _selectedId!,
+        vaultId: vaultId,
+      ),
+      GrantForAgent(:final agentId) => (
+        agentId: agentId,
+        vaultId: _selectedId!,
+      ),
+    };
 
     final String agentPublicKey;
     final int recipientKeyVersion;
     final int agentAccessEpoch;
     try {
-      final agent = await getIt<AgentsRepository>().getAgent(r.agentId);
+      final agent = await getIt<AgentsRepository>().getAgent(subject.agentId);
       agentPublicKey = agent.publicKey;
       recipientKeyVersion = agent.recipientKeyVersion;
       agentAccessEpoch = agent.accessEpoch;
@@ -209,18 +202,31 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
     }
     if (!mounted) return;
 
-    await cubit.submit(
-      vaultId: r.vaultId,
-      agentId: r.agentId,
-      agentPublicKey: agentPublicKey,
-      recipientKeyVersion: recipientKeyVersion,
-      agentAccessEpoch: agentAccessEpoch,
-      isFull: r.isFull,
-      entryId: r.entryId,
-      privateKey: key,
-      limit: _limit,
-      methods: _methods,
-    );
+    switch (widget.mode) {
+      case GrantForEntry(:final entryId):
+        await cubit.submitGranular(
+          vaultId: subject.vaultId,
+          entryId: entryId,
+          agentId: subject.agentId,
+          agentPublicKey: agentPublicKey,
+          recipientKeyVersion: recipientKeyVersion,
+          agentAccessEpoch: agentAccessEpoch,
+          privateKey: key,
+          limit: _limit,
+          methods: _methods,
+        );
+      case GrantForVault() || GrantForAgent():
+        await cubit.submitFull(
+          vaultId: subject.vaultId,
+          agentId: subject.agentId,
+          agentPublicKey: agentPublicKey,
+          recipientKeyVersion: recipientKeyVersion,
+          agentAccessEpoch: agentAccessEpoch,
+          privateKey: key,
+          limit: _limit,
+          methods: _methods,
+        );
+    }
   }
 
   void _snack(String msg) {

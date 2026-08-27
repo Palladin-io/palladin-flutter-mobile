@@ -77,22 +77,30 @@ abstract interface class ApprovalRepository {
   /// Denies [grant] without any plaintext request or denial reason.
   Future<void> denyGrant({required PendingGrant grant});
 
-  /// Proactively (re-)grants an agent access — the "Grant again" / re-access
-  /// flow. Produces the zero-knowledge material on-device and POSTs a new
-  /// grant: one revision-bound Entry envelope for GRANULAR ([entryId] set),
-  /// or one Vault-key wrapper for FULL ([isFull] true, [entryId] null). FULL
-  /// does not fan out per Entry.
-  ///
-  /// [agentPublicKey] seals the per-entry DEK or Vault key; [privateKey] is the owner's
-  /// in-memory X25519 key (unwraps the VK). Never persisted/logged.
-  Future<void> createGrant({
+  /// Proactively creates FULL access with one current Vault-key wrapper.
+  /// [privateKey] is the owner's in-memory X25519 key and is never persisted
+  /// or logged. This contract cannot accept per-Entry material.
+  Future<void> createFullGrant({
     required String vaultId,
     required String agentId,
     required String agentPublicKey,
     required int recipientKeyVersion,
     required int agentAccessEpoch,
-    required bool isFull,
-    String? entryId,
+    required Uint8List privateKey,
+    required GrantLimit limit,
+    required List<GrantMethod> methods,
+  });
+
+  /// Proactively creates GRANULAR access with one revision-bound Entry
+  /// envelope. [privateKey] is used in memory only. This contract cannot
+  /// accept whole-Vault key material.
+  Future<void> createGranularGrant({
+    required String vaultId,
+    required String entryId,
+    required String agentId,
+    required String agentPublicKey,
+    required int recipientKeyVersion,
+    required int agentAccessEpoch,
     required Uint8List privateKey,
     required GrantLimit limit,
     required List<GrantMethod> methods,

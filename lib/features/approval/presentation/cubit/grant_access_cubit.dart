@@ -35,47 +35,72 @@ class GrantAccessState {
 /// Drives the proactive "Add agent / Add grant" flow — the mobile counterpart
 /// of the web `GrantAccessDialog` create. Unlike [RegrantCubit] the subject
 /// (agent / vault / entry) is chosen inside the sheet, so it is supplied to
-/// [submit] rather than at construction. Produces the zero-knowledge envelope
-/// via [ApprovalRepository.createGrant]; the owner's [privateKey] is passed
-/// at call time and never stored.
+/// the mode-specific submit method rather than at construction. The owner's
+/// [privateKey] is passed at call time and never stored.
 class GrantAccessCubit extends Cubit<GrantAccessState> {
   GrantAccessCubit({required this.repository})
     : super(const GrantAccessState());
 
   final ApprovalRepository repository;
 
-  Future<void> submit({
+  Future<void> submitFull({
     required String vaultId,
     required String agentId,
     required String agentPublicKey,
     required int recipientKeyVersion,
     required int agentAccessEpoch,
-    required bool isFull,
-    String? entryId,
     required Uint8List privateKey,
     required GrantLimit limit,
     required List<GrantMethod> methods,
+  }) => _submit(
+    operation: () => repository.createFullGrant(
+      vaultId: vaultId,
+      agentId: agentId,
+      agentPublicKey: agentPublicKey,
+      recipientKeyVersion: recipientKeyVersion,
+      agentAccessEpoch: agentAccessEpoch,
+      privateKey: privateKey,
+      limit: limit,
+      methods: methods,
+    ),
+    successMessage: 'Granted FULL access to agent $agentId',
+  );
+
+  Future<void> submitGranular({
+    required String vaultId,
+    required String entryId,
+    required String agentId,
+    required String agentPublicKey,
+    required int recipientKeyVersion,
+    required int agentAccessEpoch,
+    required Uint8List privateKey,
+    required GrantLimit limit,
+    required List<GrantMethod> methods,
+  }) => _submit(
+    operation: () => repository.createGranularGrant(
+      vaultId: vaultId,
+      entryId: entryId,
+      agentId: agentId,
+      agentPublicKey: agentPublicKey,
+      recipientKeyVersion: recipientKeyVersion,
+      agentAccessEpoch: agentAccessEpoch,
+      privateKey: privateKey,
+      limit: limit,
+      methods: methods,
+    ),
+    successMessage: 'Granted GRANULAR access to agent $agentId',
+  );
+
+  Future<void> _submit({
+    required Future<void> Function() operation,
+    required String successMessage,
   }) async {
     emit(
       state.copyWith(status: GrantAccessStatus.submitting, clearError: true),
     );
     try {
-      await repository.createGrant(
-        vaultId: vaultId,
-        agentId: agentId,
-        agentPublicKey: agentPublicKey,
-        recipientKeyVersion: recipientKeyVersion,
-        agentAccessEpoch: agentAccessEpoch,
-        isFull: isFull,
-        entryId: entryId,
-        privateKey: privateKey,
-        limit: limit,
-        methods: methods,
-      );
-      AppLogger.i(
-        'Approval',
-        'Granted access to agent $agentId (full=$isFull)',
-      );
+      await operation();
+      AppLogger.i('Approval', successMessage);
       emit(state.copyWith(status: GrantAccessStatus.done));
     } on ApprovalException catch (e) {
       AppLogger.w('Approval', 'grant access failed: ${e.kind.name}');

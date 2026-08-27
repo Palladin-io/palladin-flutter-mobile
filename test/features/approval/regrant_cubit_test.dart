@@ -17,10 +17,9 @@ void main() {
   late AgentsRepository agentsRepository;
   late RegrantCubit cubit;
 
-  const args = (
+  const args = GranularRegrantArgs(
     vaultId: 'vault-1',
     agentId: 'agent-1',
-    isFull: false,
     entryId: 'entry-1',
   );
 
@@ -45,10 +44,12 @@ void main() {
         createdAt: DateTime.utc(2026),
       ),
     );
-    cubit = RegrantCubit(
+    cubit = GranularRegrantCubit(
       repository: repository,
       agentsRepository: agentsRepository,
-      args: args,
+      vaultId: args.vaultId,
+      agentId: args.agentId,
+      entryId: args.entryId,
     );
   });
 
@@ -58,14 +59,13 @@ void main() {
     'uses the current Agent binding and preserves owner-selected methods',
     () async {
       when(
-        () => repository.createGrant(
+        () => repository.createGranularGrant(
           vaultId: any(named: 'vaultId'),
+          entryId: any(named: 'entryId'),
           agentId: any(named: 'agentId'),
           agentPublicKey: any(named: 'agentPublicKey'),
           recipientKeyVersion: any(named: 'recipientKeyVersion'),
           agentAccessEpoch: any(named: 'agentAccessEpoch'),
-          isFull: any(named: 'isFull'),
-          entryId: any(named: 'entryId'),
           privateKey: any(named: 'privateKey'),
           limit: any(named: 'limit'),
           methods: any(named: 'methods'),
@@ -79,14 +79,13 @@ void main() {
       );
 
       verify(
-        () => repository.createGrant(
+        () => repository.createGranularGrant(
           vaultId: 'vault-1',
+          entryId: 'entry-1',
           agentId: 'agent-1',
           agentPublicKey: 'fresh-public-key',
           recipientKeyVersion: 8,
           agentAccessEpoch: 5,
-          isFull: false,
-          entryId: 'entry-1',
           privateKey: any(named: 'privateKey'),
           limit: any(named: 'limit'),
           methods: const [GrantMethod.get],
@@ -95,4 +94,58 @@ void main() {
       verify(() => agentsRepository.getAgent('agent-1')).called(1);
     },
   );
+
+  test('FULL flow cannot carry an Entry contract', () async {
+    await cubit.close();
+    cubit = FullRegrantCubit(
+      repository: repository,
+      agentsRepository: agentsRepository,
+      vaultId: 'vault-1',
+      agentId: 'agent-1',
+    );
+    when(
+      () => repository.createFullGrant(
+        vaultId: any(named: 'vaultId'),
+        agentId: any(named: 'agentId'),
+        agentPublicKey: any(named: 'agentPublicKey'),
+        recipientKeyVersion: any(named: 'recipientKeyVersion'),
+        agentAccessEpoch: any(named: 'agentAccessEpoch'),
+        privateKey: any(named: 'privateKey'),
+        limit: any(named: 'limit'),
+        methods: any(named: 'methods'),
+      ),
+    ).thenAnswer((_) async {});
+
+    await cubit.submit(
+      privateKey: Uint8List.fromList([1, 2, 3]),
+      limit: const GrantLifetime(),
+      methods: const [GrantMethod.inject],
+    );
+
+    verify(
+      () => repository.createFullGrant(
+        vaultId: 'vault-1',
+        agentId: 'agent-1',
+        agentPublicKey: 'fresh-public-key',
+        recipientKeyVersion: 8,
+        agentAccessEpoch: 5,
+        privateKey: any(named: 'privateKey'),
+        limit: any(named: 'limit'),
+        methods: const [GrantMethod.inject],
+      ),
+    ).called(1);
+    verifyNever(
+      () => repository.createGranularGrant(
+        vaultId: any(named: 'vaultId'),
+        entryId: any(named: 'entryId'),
+        agentId: any(named: 'agentId'),
+        agentPublicKey: any(named: 'agentPublicKey'),
+        recipientKeyVersion: any(named: 'recipientKeyVersion'),
+        agentAccessEpoch: any(named: 'agentAccessEpoch'),
+        privateKey: any(named: 'privateKey'),
+        limit: any(named: 'limit'),
+        methods: any(named: 'methods'),
+      ),
+    );
+  });
 }

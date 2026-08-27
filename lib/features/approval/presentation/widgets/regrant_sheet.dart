@@ -28,12 +28,22 @@ class RegrantSheet extends StatelessWidget {
   final Grant grant;
 
   static Future<bool?> show(BuildContext context, Grant grant) {
-    final args = (
-      vaultId: grant.vaultId,
-      agentId: grant.agentId,
-      isFull: grant.scope == GrantScope.full,
-      entryId: grant.entryId,
-    );
+    final agentId = grant.agentId;
+    if (agentId == null) {
+      throw StateError('Agent re-grant requires an Agent');
+    }
+    final RegrantArgs args = switch ((grant.scope, grant.entryId)) {
+      (GrantScope.full, _) => FullRegrantArgs(
+        vaultId: grant.vaultId,
+        agentId: agentId,
+      ),
+      (GrantScope.granular, final String entryId) => GranularRegrantArgs(
+        vaultId: grant.vaultId,
+        agentId: agentId,
+        entryId: entryId,
+      ),
+      _ => throw StateError('GRANULAR re-grant requires an Entry'),
+    };
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,

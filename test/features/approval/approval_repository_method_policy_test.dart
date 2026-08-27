@@ -158,14 +158,13 @@ void main() {
           canonicalEntries: canonical,
           discovery: discovery,
         );
-        await repository.createGrant(
+        await repository.createGranularGrant(
           vaultId: vaultId,
+          entryId: entryId,
           agentId: agentId,
           agentPublicKey: base64.encode(List<int>.filled(32, 4)),
           recipientKeyVersion: 3,
           agentAccessEpoch: 1,
-          isFull: false,
-          entryId: entryId,
           privateKey: Uint8List.fromList(List<int>.filled(32, 7)),
           limit: const GrantLifetime(),
           methods: const [GrantMethod.get, GrantMethod.exec],
