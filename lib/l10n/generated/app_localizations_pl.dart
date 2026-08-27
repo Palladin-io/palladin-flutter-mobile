@@ -1742,6 +1742,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get grantStatusConsumed => 'Wykorzystany';
 
   @override
+  String get grantStatusSuperseded => 'Zastąpiony';
+
+  @override
   String get grantScopeFull => 'Wszystkie wpisy';
 
   @override
@@ -1792,6 +1795,9 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get orgGrantRowDenyReason => 'Powód odmowy';
+
+  @override
+  String get orgGrantSupersededReason => 'Zastąpiony przez grant FULL';
 
   @override
   String get orgGrantRowRevokeReason => 'Powód odebrania';
@@ -2138,6 +2144,13 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get grantAccessError =>
       'Nie udało się utworzyć grantu. Spróbuj ponownie.';
+
+  @override
+  String get grantAccessFullTrustTitle => 'PEŁNE ZAUFANIE DO SEJFU';
+
+  @override
+  String get grantAccessFullTrustBody =>
+      'Ten grant daje kryptograficzny dostęp do wszystkich bieżących i przyszłych wpisów w sejfie. Odebranie grantu blokuje nowe operacje online, ale nie wymazuje klucza skopiowanego przez przejętego agenta; po podejrzeniu kompromitacji obróć klucz sejfu.';
 
   @override
   String get grantAddGrant => 'Dodaj grant';
@@ -2507,6 +2520,9 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get auditEventGrantExpired => 'Nadanie wygasło';
+
+  @override
+  String get auditEventGrantSuperseded => 'Nadanie zastąpione';
 
   @override
   String get auditEventCredentialAccessed => 'Odczytano dane';
@@ -3018,10 +3034,6 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get importErrorNetwork =>
       'Nie można połączyć się z serwerem. Sprawdź połączenie i spróbuj ponownie.';
-
-  @override
-  String get importErrorFullGrants =>
-      'Ten sejf ma agentów z pełnym dostępem. Import na telefonie nie jest jeszcze dla niego obsługiwany — najpierw cofnij granty pełnego dostępu albo zaimportuj z panelu web.';
 
   @override
   String get importErrorUnknown => 'Coś poszło nie tak. Spróbuj ponownie.';

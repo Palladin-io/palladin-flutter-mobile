@@ -19,13 +19,13 @@ final class CreateEntryV2Request {
     required this.vaultId,
     required this.entryId,
     required this.envelopes,
-    this.grantEnvelopes = const [],
+    required this.deliveryPolicy,
   });
 
   final String vaultId;
   final String entryId;
   final EntryEnvelopeBundleModel envelopes;
-  final List<Map<String, Object?>> grantEnvelopes;
+  final String deliveryPolicy;
 
   Map<String, Object?> toJson() => {
     'vaultId': vaultId,
@@ -34,7 +34,7 @@ final class CreateEntryV2Request {
     'memberIndex': envelopes.memberIndex,
     'memberSecret': envelopes.memberSecret,
     'agentDiscovery': envelopes.agentDiscovery,
-    'grantEnvelopes': grantEnvelopes,
+    'deliveryPolicy': deliveryPolicy,
   };
 }
 
@@ -46,6 +46,7 @@ final class UpdateEntryV2Request {
     required this.baseRevision,
     required this.envelopes,
     required this.agentDiscoveryChanged,
+    required this.deliveryPolicy,
     this.grantEnvelopes = const [],
   });
 
@@ -54,6 +55,7 @@ final class UpdateEntryV2Request {
   final String baseRevision;
   final EntryEnvelopeBundleModel envelopes;
   final bool agentDiscoveryChanged;
+  final String deliveryPolicy;
   final List<Map<String, Object?>> grantEnvelopes;
 
   Map<String, Object?> toJson() => {
@@ -65,6 +67,7 @@ final class UpdateEntryV2Request {
     'memberSecret': envelopes.memberSecret,
     'agentDiscoveryChanged': agentDiscoveryChanged,
     'agentDiscovery': envelopes.agentDiscovery,
+    'deliveryPolicy': deliveryPolicy,
     'grantEnvelopes': grantEnvelopes,
   };
 }

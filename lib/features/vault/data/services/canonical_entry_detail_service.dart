@@ -981,6 +981,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           'memberIndex': indexEnvelope,
           'agentDiscoveryChanged': discoveryChanged,
           'agentDiscovery': ?discoveryEnvelope,
+          'deliveryPolicy': type.deliveryPolicyWire(),
           'grantEnvelopes': grantEnvelopes,
         }),
       );
@@ -1139,6 +1140,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           'memberIndex': bundle.memberIndex,
           'agentDiscoveryChanged': discoveryChanged,
           if (discoveryChanged) 'agentDiscovery': bundle.agentDiscovery,
+          'deliveryPolicy': type.deliveryPolicyWire(),
           'grantEnvelopes': grantEnvelopes,
         }),
       );
@@ -1654,6 +1656,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     final result = <Map<String, dynamic>>[];
     for (final model in active) {
       final grant = model.toEntity();
+      if (grant.scope != GrantScope.granular) continue;
       final scopes = grant.entryScopes
           .where((scope) => scope.entryId == entryId)
           .toList(growable: false);
@@ -1835,6 +1838,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     final result = <Map<String, dynamic>>[];
     for (final model in active) {
       final grant = model.toEntity();
+      if (grant.scope != GrantScope.granular) continue;
       final scopes = grant.entryScopes
           .where((scope) => scope.entryId == entryId)
           .toList();

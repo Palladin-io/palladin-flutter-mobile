@@ -1719,6 +1719,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get grantStatusConsumed => 'Consumed';
 
   @override
+  String get grantStatusSuperseded => 'Superseded';
+
+  @override
   String get grantScopeFull => 'All entries';
 
   @override
@@ -1769,6 +1772,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get orgGrantRowDenyReason => 'Deny reason';
+
+  @override
+  String get orgGrantSupersededReason => 'Replaced by a FULL grant';
 
   @override
   String get orgGrantRowRevokeReason => 'Revoke reason';
@@ -2115,6 +2121,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get grantAccessError =>
       'Could not create the grant. Please try again.';
+
+  @override
+  String get grantAccessFullTrustTitle => 'FULL VAULT TRUST';
+
+  @override
+  String get grantAccessFullTrustBody =>
+      'This grants cryptographic access to every current and future entry in this vault. Revoking blocks new online delivery but cannot erase a key copied by a compromised agent; rotate the Vault Key after suspected compromise.';
 
   @override
   String get grantAddGrant => 'Add grant';
@@ -2485,6 +2498,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get auditEventGrantExpired => 'Grant expired';
+
+  @override
+  String get auditEventGrantSuperseded => 'Grant superseded';
 
   @override
   String get auditEventCredentialAccessed => 'Credential accessed';
@@ -2984,10 +3000,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get importErrorNetwork =>
       'Couldn\'t reach the server. Check your connection and try again.';
-
-  @override
-  String get importErrorFullGrants =>
-      'This vault has agents with full access. Importing to it isn\'t supported on mobile yet — revoke the full-access grants first, or import from the web panel.';
 
   @override
   String get importErrorUnknown => 'Something went wrong. Please try again.';

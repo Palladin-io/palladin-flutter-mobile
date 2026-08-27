@@ -17,6 +17,7 @@ class AgentModel {
     this.publicKeyPrefix = '',
     this.publicKey = '',
     this.recipientKeyVersion = 1,
+    this.accessEpoch = 1,
     this.enrolledAt,
     this.enrolledByName,
     this.deactivatedAt,
@@ -56,6 +57,7 @@ class AgentModel {
   /// exposed the suffix.
   final String publicKey;
   final int recipientKeyVersion;
+  final int accessEpoch;
 
   final String publicKeySuffix;
   final String createdAt;
@@ -100,6 +102,7 @@ class AgentModel {
       publicKeyPrefix: (json['publicKeyPrefix'] as String?) ?? '',
       publicKey: (json['publicKey'] as String?) ?? '',
       recipientKeyVersion: (json['recipientKeyVersion'] as num?)?.toInt() ?? 1,
+      accessEpoch: (json['accessEpoch'] as num).toInt(),
       publicKeySuffix: (json['publicKeySuffix'] as String?) ?? '',
       createdAt: json['createdAt'] as String,
       enrolledAt: json['enrolledAt'] as String?,
@@ -124,6 +127,7 @@ class AgentModel {
       publicKeyPrefix: publicKeyPrefix,
       publicKey: publicKey,
       recipientKeyVersion: recipientKeyVersion,
+      accessEpoch: accessEpoch,
       publicKeySuffix: publicKeySuffix,
       createdAt: DateTime.parse(createdAt),
       enrolledAt: enrolledAt != null ? DateTime.parse(enrolledAt!) : null,

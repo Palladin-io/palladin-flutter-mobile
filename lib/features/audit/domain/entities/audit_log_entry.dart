@@ -72,6 +72,7 @@ enum AuditEventType {
   grantRevoked('grant.revoked', AuditEventGroup.grants),
   grantConsumed('grant.consumed', AuditEventGroup.grants),
   grantExpired('grant.expired', AuditEventGroup.grants),
+  grantSuperseded('grant.superseded', AuditEventGroup.grants),
   credentialAccessed('credential.accessed', AuditEventGroup.credentialAccess),
   credentialAccessDenied(
     'credential.access-denied',

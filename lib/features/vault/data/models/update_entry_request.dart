@@ -15,6 +15,7 @@ class UpdateEntryRequest {
     this.icon,
     required this.type,
     required this.content,
+    required this.deliveryPolicy,
     this.urlDomain,
     this.agentFields,
   });
@@ -28,6 +29,7 @@ class UpdateEntryRequest {
 
   /// Re-encrypted JSONB envelope (new plaintext, same VK).
   final EntryContentModel content;
+  final String deliveryPolicy;
 
   final String? urlDomain;
 
@@ -38,16 +40,17 @@ class UpdateEntryRequest {
   final List<AgentField>? agentFields;
 
   Map<String, dynamic> toJson() => {
-        'label': label,
-        if (description != null) 'description': description,
-        // Omit `icon` entirely when null — patch semantics on the backend
-        // treat missing fields as "no change", which is exactly what we
-        // want during the custom-icon two-step flow.
-        if (icon != null) 'icon': icon,
-        'type': type,
-        'content': content.toJson(),
-        if (urlDomain != null) 'urlDomain': urlDomain,
-        if (agentFields != null)
-          'agentFields': agentFields!.map((f) => f.toJson()).toList(),
-      };
+    'label': label,
+    if (description != null) 'description': description,
+    // Omit `icon` entirely when null — patch semantics on the backend
+    // treat missing fields as "no change", which is exactly what we
+    // want during the custom-icon two-step flow.
+    if (icon != null) 'icon': icon,
+    'type': type,
+    'content': content.toJson(),
+    'deliveryPolicy': deliveryPolicy,
+    if (urlDomain != null) 'urlDomain': urlDomain,
+    if (agentFields != null)
+      'agentFields': agentFields!.map((f) => f.toJson()).toList(),
+  };
 }

@@ -44,6 +44,11 @@ The **shared widget catalog lives in this file** (see "## Shared Widget Catalog"
 | api_keys | `docs/architecture/features/api_keys.md` |
 | autofill | `docs/architecture/features/autofill.md` |
 
+## Explicit variants and contracts
+
+- When variants materially differ in authorization, validation, cryptographic material, lifecycle, or transaction semantics, keep separate repository methods and feature flows instead of branching one generic operation by a type flag. Share only focused mechanics.
+- When the backend provides an authoritative discriminator such as `GrantType`, require and consume that exact field at the data boundary. Never infer it from nullable fields, payload shape, endpoint, aliases, or current UI behavior.
+
 ## Build & Run
 
 ```bash

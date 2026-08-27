@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../agents/domain/repositories/agents_repository.dart';
 import '../../../grants/domain/entities/grant_method.dart';
 import '../../domain/exceptions/approval_exceptions.dart';
 import '../../domain/repositories/approval_repository.dart';
@@ -10,16 +11,28 @@ import '../../domain/repositories/approval_repository.dart';
 export '../../domain/repositories/approval_repository.dart'
     show GrantLimit, GrantExpiry, GrantUseLimit, GrantLifetime;
 
-/// Identifiers a re-grant ("Grant again") needs — built from the terminal
-/// grant being re-issued. Passed as the DI factory param.
-typedef RegrantArgs = ({
-  String vaultId,
-  String agentId,
-  String agentPublicKey,
-  int recipientKeyVersion,
-  bool isFull,
-  String? entryId,
-});
+/// Closed, mode-specific inputs for a re-grant. Invalid FULL/Entry
+/// combinations are not representable at the DI boundary.
+sealed class RegrantArgs {
+  const RegrantArgs({required this.vaultId, required this.agentId});
+
+  final String vaultId;
+  final String agentId;
+}
+
+final class FullRegrantArgs extends RegrantArgs {
+  const FullRegrantArgs({required super.vaultId, required super.agentId});
+}
+
+final class GranularRegrantArgs extends RegrantArgs {
+  const GranularRegrantArgs({
+    required super.vaultId,
+    required super.agentId,
+    required this.entryId,
+  });
+
+  final String entryId;
+}
 
 enum RegrantStatus { idle, submitting, done, error }
 
@@ -47,12 +60,18 @@ class RegrantState {
 /// Mirrors [GrantApprovalCubit] but creates a brand-new grant via the
 /// proactive create endpoint. The owner's [privateKey] is passed at call
 /// time and never stored.
-class RegrantCubit extends Cubit<RegrantState> {
-  RegrantCubit({required this.repository, required this.args})
-    : super(const RegrantState());
+abstract class RegrantCubit extends Cubit<RegrantState> {
+  RegrantCubit({
+    required this.repository,
+    required this.agentsRepository,
+    required this.vaultId,
+    required this.agentId,
+  }) : super(const RegrantState());
 
   final ApprovalRepository repository;
-  final RegrantArgs args;
+  final AgentsRepository agentsRepository;
+  final String vaultId;
+  final String agentId;
 
   Future<void> submit({
     required Uint8List privateKey,
@@ -61,18 +80,19 @@ class RegrantCubit extends Cubit<RegrantState> {
   }) async {
     emit(state.copyWith(status: RegrantStatus.submitting, clearError: true));
     try {
-      await repository.createGrant(
-        vaultId: args.vaultId,
-        agentId: args.agentId,
-        agentPublicKey: args.agentPublicKey,
-        recipientKeyVersion: args.recipientKeyVersion,
-        isFull: args.isFull,
-        entryId: args.entryId,
+      // A terminal Grant carries the binding that was valid when it was
+      // created. Resolve the Agent again so a re-grant can never seal to a
+      // rotated recipient key or stale access epoch.
+      final agent = await agentsRepository.getAgent(agentId);
+      await _createGrant(
+        agentPublicKey: agent.publicKey,
+        recipientKeyVersion: agent.recipientKeyVersion,
+        agentAccessEpoch: agent.accessEpoch,
         privateKey: privateKey,
         limit: limit,
         methods: methods,
       );
-      AppLogger.i('Approval', 'Re-granted agent ${args.agentId}');
+      AppLogger.i('Approval', 'Re-granted agent $agentId');
       emit(state.copyWith(status: RegrantStatus.done));
     } on ApprovalException catch (e) {
       AppLogger.w('Approval', 're-grant failed: ${e.kind.name}');
@@ -107,4 +127,73 @@ class RegrantCubit extends Cubit<RegrantState> {
     if (state.error == null) return;
     emit(state.copyWith(clearError: true, status: RegrantStatus.idle));
   }
+
+  Future<void> _createGrant({
+    required String agentPublicKey,
+    required int recipientKeyVersion,
+    required int agentAccessEpoch,
+    required Uint8List privateKey,
+    required GrantLimit limit,
+    required List<GrantMethod> methods,
+  });
+}
+
+final class FullRegrantCubit extends RegrantCubit {
+  FullRegrantCubit({
+    required super.repository,
+    required super.agentsRepository,
+    required super.vaultId,
+    required super.agentId,
+  });
+
+  @override
+  Future<void> _createGrant({
+    required String agentPublicKey,
+    required int recipientKeyVersion,
+    required int agentAccessEpoch,
+    required Uint8List privateKey,
+    required GrantLimit limit,
+    required List<GrantMethod> methods,
+  }) => repository.createFullGrant(
+    vaultId: vaultId,
+    agentId: agentId,
+    agentPublicKey: agentPublicKey,
+    recipientKeyVersion: recipientKeyVersion,
+    agentAccessEpoch: agentAccessEpoch,
+    privateKey: privateKey,
+    limit: limit,
+    methods: methods,
+  );
+}
+
+final class GranularRegrantCubit extends RegrantCubit {
+  GranularRegrantCubit({
+    required super.repository,
+    required super.agentsRepository,
+    required super.vaultId,
+    required super.agentId,
+    required this.entryId,
+  });
+
+  final String entryId;
+
+  @override
+  Future<void> _createGrant({
+    required String agentPublicKey,
+    required int recipientKeyVersion,
+    required int agentAccessEpoch,
+    required Uint8List privateKey,
+    required GrantLimit limit,
+    required List<GrantMethod> methods,
+  }) => repository.createGranularGrant(
+    vaultId: vaultId,
+    entryId: entryId,
+    agentId: agentId,
+    agentPublicKey: agentPublicKey,
+    recipientKeyVersion: recipientKeyVersion,
+    agentAccessEpoch: agentAccessEpoch,
+    privateKey: privateKey,
+    limit: limit,
+    methods: methods,
+  );
 }

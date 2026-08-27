@@ -2059,6 +2059,10 @@
   "@grantStatusConsumed": {
     "description": "Grant status label — query limit exhausted"
   },
+  "grantStatusSuperseded": "Superseded",
+  "@grantStatusSuperseded": {
+    "description": "Terminal grant status: replaced by a FULL Vault grant"
+  },
   "grantScopeFull": "All entries",
   "@grantScopeFull": {
     "description": "Grant scope label — full vault access"
@@ -2127,6 +2131,7 @@
   "@orgGrantRowDenyReason": {
     "description": "Org grant card row label — owner's deny reason"
   },
+  "orgGrantSupersededReason": "Replaced by a FULL grant",
   "orgGrantRowRevokeReason": "Revoke reason",
   "@orgGrantRowRevokeReason": {
     "description": "Org grant card row label — owner's revoke reason"
@@ -2555,6 +2560,14 @@
   "grantAccessConfirm": "Grant access",
   "grantAccessGranting": "Granting…",
   "grantAccessError": "Could not create the grant. Please try again.",
+  "grantAccessFullTrustTitle": "FULL VAULT TRUST",
+  "@grantAccessFullTrustTitle": {
+    "description": "Warning-zone title shown before creating a FULL vault grant"
+  },
+  "grantAccessFullTrustBody": "This grants cryptographic access to every current and future entry in this vault. Revoking blocks new online delivery but cannot erase a key copied by a compromised agent; rotate the Vault Key after suspected compromise.",
+  "@grantAccessFullTrustBody": {
+    "description": "Security warning explaining the cryptographic trust and revocation limit of a FULL grant"
+  },
   "grantAddGrant": "Add grant",
   "approvalMethodGetDesc": "Returns the secret as plaintext to the agent.",
   "approvalMethodExecDesc": "Runs a command with the secret in its environment — never enters the agent's context.",
@@ -2679,6 +2692,7 @@
   "auditEventGrantRevoked": "Access revoked",
   "auditEventGrantConsumed": "Grant consumed",
   "auditEventGrantExpired": "Grant expired",
+  "auditEventGrantSuperseded": "Grant superseded",
   "auditEventCredentialAccessed": "Credential accessed",
   "auditEventCredentialAccessDenied": "Access denied",
   "auditEventAgentEnrolled": "Agent enrolled",
@@ -2972,8 +2986,6 @@
   "@importErrorCrypto": { "description": "Import error — crypto failure" },
   "importErrorNetwork": "Couldn't reach the server. Check your connection and try again.",
   "@importErrorNetwork": { "description": "Import error — network failure" },
-  "importErrorFullGrants": "This vault has agents with full access. Importing to it isn't supported on mobile yet — revoke the full-access grants first, or import from the web panel.",
-  "@importErrorFullGrants": { "description": "Import error — vault has active FULL grants that mobile cannot re-wrap" },
   "importErrorUnknown": "Something went wrong. Please try again.",
   "@importErrorUnknown": { "description": "Import error — unknown" },
   "importColumnMapTitle": "Map columns",

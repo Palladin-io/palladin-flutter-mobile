@@ -585,7 +585,6 @@ void configureDependencies(EnvConfig config) {
   getIt.registerFactoryParam<ImportWizardCubit, String, void>(
     (vaultId, _) => ImportWizardCubit(
       repository: getIt<EntryRepository>(),
-      grantsRepository: getIt<GrantsRepository>(),
       vaultId: vaultId,
       websiteIconService: getIt<WebsiteIconService>(),
     ),
@@ -826,6 +825,7 @@ void configureDependencies(EnvConfig config) {
       entryDatasource: getIt<EntryRemoteDatasource>(),
       vaultDatasource: getIt<VaultRemoteDatasource>(),
       cryptoService: getIt<EntryV2CryptoService>(),
+      vaultKeys: getIt<VaultRotationCryptoService>(),
       canonicalEntries: getIt<CanonicalEntryDetailService>(),
       discovery: getIt<AgentDiscoveryRemoteDatasource>(),
     ),
@@ -852,8 +852,22 @@ void configureDependencies(EnvConfig config) {
   // RegrantCubit: factory per "Grant again" sheet; param1 = the re-grant args
   // derived from the terminal grant.
   getIt.registerFactoryParam<RegrantCubit, RegrantArgs, void>(
-    (args, _) =>
-        RegrantCubit(repository: getIt<ApprovalRepository>(), args: args),
+    (args, _) => switch (args) {
+      FullRegrantArgs(:final vaultId, :final agentId) => FullRegrantCubit(
+        repository: getIt<ApprovalRepository>(),
+        agentsRepository: getIt<AgentsRepository>(),
+        vaultId: vaultId,
+        agentId: agentId,
+      ),
+      GranularRegrantArgs(:final vaultId, :final agentId, :final entryId) =>
+        GranularRegrantCubit(
+          repository: getIt<ApprovalRepository>(),
+          agentsRepository: getIt<AgentsRepository>(),
+          vaultId: vaultId,
+          agentId: agentId,
+          entryId: entryId,
+        ),
+    },
   );
 
   // GrantAccessCubit: factory per "Add agent / Add grant" sheet. The subject

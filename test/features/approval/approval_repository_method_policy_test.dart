@@ -13,6 +13,7 @@ import 'package:mobile_palladin/features/vault/data/datasources/entry_remote_dat
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 
 class _Approval extends Mock implements ApprovalRemoteDatasource {}
@@ -22,6 +23,8 @@ class _Entries extends Mock implements EntryRemoteDatasource {}
 class _Vaults extends Mock implements VaultRemoteDatasource {}
 
 class _Crypto extends Mock implements EntryV2CryptoService {}
+
+class _VaultKeys extends Mock implements VaultRotationCryptoService {}
 
 class _CanonicalEntries extends Mock implements CanonicalEntryDetailService {}
 
@@ -73,12 +76,13 @@ void main() {
         ),
       ]) {
     test(
-      '${fixture.type.name} preserves selected methods and standard delivery policy',
+      '${fixture.type.name} preserves selected methods and its delivery policy',
       () async {
         final approval = _Approval();
         final entries = _Entries();
         final vaults = _Vaults();
         final crypto = _Crypto();
+        final vaultKeys = _VaultKeys();
         final canonical = _CanonicalEntries();
         final discovery = _Discovery();
         int? approvedMethods;
@@ -133,13 +137,12 @@ void main() {
           return <String, Object?>{'sealed': true};
         });
         when(
-          () => approval.createGrant(
+          () => approval.createGranularGrant(
             vaultId: any(named: 'vaultId'),
+            entryId: any(named: 'entryId'),
             grantId: any(named: 'grantId'),
             agentId: any(named: 'agentId'),
-            type: any(named: 'type'),
-            entryId: any(named: 'entryId'),
-            entries: any(named: 'entries'),
+            grantEntry: any(named: 'grantEntry'),
             expiresAt: any(named: 'expiresAt'),
             queryLimit: any(named: 'queryLimit'),
             methods: any(named: 'methods'),
@@ -151,23 +154,24 @@ void main() {
           entryDatasource: entries,
           vaultDatasource: vaults,
           cryptoService: crypto,
+          vaultKeys: vaultKeys,
           canonicalEntries: canonical,
           discovery: discovery,
         );
-        await repository.createGrant(
+        await repository.createGranularGrant(
           vaultId: vaultId,
+          entryId: entryId,
           agentId: agentId,
           agentPublicKey: base64.encode(List<int>.filled(32, 4)),
           recipientKeyVersion: 3,
-          isFull: false,
-          entryId: entryId,
+          agentAccessEpoch: 1,
           privateKey: Uint8List.fromList(List<int>.filled(32, 7)),
           limit: const GrantLifetime(),
           methods: const [GrantMethod.get, GrantMethod.exec],
         );
 
         expect(approvedMethods, 3);
-        expect(deliveryPolicy, 0);
+        expect(deliveryPolicy, fixture.type.deliveryPolicyCode());
       },
     );
   }

@@ -7,6 +7,8 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
+import '../../../../core/widgets/sheet_drag_handle.dart';
+import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../grants/domain/entities/grant.dart';
@@ -25,21 +27,23 @@ class RegrantSheet extends StatelessWidget {
 
   final Grant grant;
 
-  /// Whether [grant] can be re-granted on-device (needs the agent public key).
-  static bool canRegrant(Grant grant) =>
-      grant.agentPublicKey != null &&
-      grant.agentPublicKey!.isNotEmpty &&
-      grant.recipientAgentKeyVersion != null;
-
   static Future<bool?> show(BuildContext context, Grant grant) {
-    final args = (
-      vaultId: grant.vaultId,
-      agentId: grant.agentId,
-      agentPublicKey: grant.agentPublicKey ?? '',
-      recipientKeyVersion: grant.recipientAgentKeyVersion,
-      isFull: grant.scope == GrantScope.full,
-      entryId: grant.entryId,
-    );
+    final agentId = grant.agentId;
+    if (agentId == null) {
+      throw StateError('Agent re-grant requires an Agent');
+    }
+    final RegrantArgs args = switch ((grant.scope, grant.entryId)) {
+      (GrantScope.full, _) => FullRegrantArgs(
+        vaultId: grant.vaultId,
+        agentId: agentId,
+      ),
+      (GrantScope.granular, final String entryId) => GranularRegrantArgs(
+        vaultId: grant.vaultId,
+        agentId: agentId,
+        entryId: entryId,
+      ),
+      _ => throw StateError('GRANULAR re-grant requires an Entry'),
+    };
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -149,16 +153,7 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppColors.cardBorder(brightness),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
+                    const Center(child: SheetDragHandle()),
                     const SizedBox(height: AppSpacing.headerGap),
                     Text(
                       l10n.approvalRegrantTitle,
@@ -170,6 +165,13 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
                     ),
                     const SizedBox(height: AppSpacing.innerGap),
                     _Subtitle(grant: widget.grant),
+                    if (widget.grant.scope == GrantScope.full) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      WarningZone(
+                        title: l10n.grantAccessFullTrustTitle,
+                        message: l10n.grantAccessFullTrustBody,
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.lg),
                     Text(
                       l10n.approvalAccessType,

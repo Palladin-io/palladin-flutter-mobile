@@ -43,20 +43,14 @@ class ApprovalRemoteDatasource {
     return PendingGrantModel.fromJson(data);
   }
 
-  /// `POST /api/vaults/{vaultId}/grants` — proactively (re-)grant access.
-  ///
-  /// [type] is `"granular"` or `"full"`; [entryId] is set only for granular.
-  /// [entries] carries one on-device-produced envelope per covered entry
-  /// (exactly one for granular, every vault entry for full). At most one of
-  /// [expiresAt] / [queryLimit] is sent (neither = lifetime). Returns the new
-  /// grant id.
-  Future<String> createGrant({
+  /// Creates one revision-bound per-Entry grant. The route and request shape
+  /// cannot accept FULL Vault-key material.
+  Future<String> createGranularGrant({
     required String vaultId,
+    required String entryId,
     required String grantId,
     required String agentId,
-    required String type,
-    String? entryId,
-    required List<({String entryId, Map<String, dynamic> envelope})> entries,
+    required Map<String, dynamic> grantEntry,
     String? expiresAt,
     int? queryLimit,
     String? methods,
@@ -64,15 +58,39 @@ class ApprovalRemoteDatasource {
     final body = <String, dynamic>{
       'grantId': grantId,
       'agentId': agentId,
-      'type': type,
-      'entryId': ?entryId,
-      'grantEntries': [for (final e in entries) e.envelope],
+      'grantEntry': grantEntry,
       'expiresAt': ?expiresAt,
       'queryLimit': ?queryLimit,
       'methods': ?methods,
     };
     final response = await _dio.post<Map<String, dynamic>>(
-      '/api/vaults/$vaultId/grants',
+      '/api/vaults/$vaultId/entries/$entryId/grants',
+      data: body,
+    );
+    return response.data?['id'] as String? ?? '';
+  }
+
+  /// Creates a full-Vault grant from one current VK sealed to the Agent. The
+  /// route and request shape cannot accept per-Entry grant envelopes.
+  Future<String> createFullGrant({
+    required String vaultId,
+    required String grantId,
+    required String agentId,
+    required Map<String, Object?> agentWrappedVaultKey,
+    String? expiresAt,
+    int? queryLimit,
+    String? methods,
+  }) async {
+    final body = <String, dynamic>{
+      'grantId': grantId,
+      'agentId': agentId,
+      'agentWrappedVaultKey': agentWrappedVaultKey,
+      'expiresAt': ?expiresAt,
+      'queryLimit': ?queryLimit,
+      'methods': ?methods,
+    };
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/full-grants',
       data: body,
     );
     return response.data?['id'] as String? ?? '';

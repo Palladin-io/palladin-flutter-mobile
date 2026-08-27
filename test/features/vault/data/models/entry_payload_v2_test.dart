@@ -155,6 +155,7 @@ void main() {
       final json = CreateEntryRequest(
         label: 'GitHub',
         type: 1,
+        deliveryPolicy: 'standard',
         content: content,
         agentFields: const [AgentField(label: 'Account', value: 'acme')],
       ).toJson();
@@ -167,6 +168,7 @@ void main() {
       final json = UpdateEntryRequest(
         label: 'GitHub',
         type: 1,
+        deliveryPolicy: 'standard',
         content: content,
       ).toJson();
       expect(json.containsKey('agentFields'), isFalse);
@@ -176,6 +178,7 @@ void main() {
       final json = UpdateEntryRequest(
         label: 'GitHub',
         type: 1,
+        deliveryPolicy: 'standard',
         content: content,
         agentFields: const [],
       ).toJson();

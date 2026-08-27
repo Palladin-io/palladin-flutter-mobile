@@ -85,6 +85,7 @@ final class VaultKeyEpochModel {
 
 final class VaultRotationClaimModel {
   const VaultRotationClaimModel({
+    required this.organizationId,
     required this.rotation,
     required this.fencingToken,
     required this.currentMemberVaultKey,
@@ -99,6 +100,7 @@ final class VaultRotationClaimModel {
   factory VaultRotationClaimModel.fromJson(
     Map<String, dynamic> json,
   ) => VaultRotationClaimModel(
+    organizationId: _string(json, 'organizationId'),
     rotation: VaultRotationModel.fromJson(_map(json, 'rotation')),
     fencingToken: _string(json, 'fencingToken'),
     currentMemberVaultKey: _map(json, 'currentMemberVaultKey'),
@@ -110,6 +112,7 @@ final class VaultRotationClaimModel {
     preparedMaterialReset: json['preparedMaterialReset'] as bool,
   );
 
+  final String organizationId;
   final VaultRotationModel rotation;
   final String fencingToken;
   final Map<String, dynamic> currentMemberVaultKey;
@@ -150,6 +153,34 @@ final class RotationMemberRecipient {
       );
 
   final String memberId;
+  final int recipientKeyVersion;
+  final String recipientKeyFingerprint;
+  final String x25519PublicKey;
+}
+
+final class RotationFullGrantRecipient {
+  const RotationFullGrantRecipient({
+    required this.grantId,
+    required this.agentId,
+    required this.agentAccessEpoch,
+    required this.recipientKeyVersion,
+    required this.recipientKeyFingerprint,
+    required this.x25519PublicKey,
+  });
+
+  factory RotationFullGrantRecipient.fromJson(Map<String, dynamic> json) =>
+      RotationFullGrantRecipient(
+        grantId: _string(json, 'grantId'),
+        agentId: _string(json, 'agentId'),
+        agentAccessEpoch: _uint(json, 'agentAccessEpoch'),
+        recipientKeyVersion: _uint(json, 'recipientKeyVersion'),
+        recipientKeyFingerprint: _string(json, 'recipientKeyFingerprint'),
+        x25519PublicKey: _string(json, 'x25519PublicKey'),
+      );
+
+  final String grantId;
+  final String agentId;
+  final int agentAccessEpoch;
   final int recipientKeyVersion;
   final String recipientKeyFingerprint;
   final String x25519PublicKey;

@@ -11,6 +11,7 @@ import '../../../vault/data/datasources/vault_remote_datasource.dart';
 import '../../../vault/data/services/canonical_entry_detail_service.dart';
 import '../../../vault/data/services/agent_visibility_projector.dart';
 import '../../../vault/data/services/entry_v2_crypto_service.dart';
+import '../../../vault/data/services/vault_rotation_crypto_service.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import '../../../vault/data/datasources/agent_discovery_remote_datasource.dart';
 import '../../../vault/domain/entities/agent_visibility_policy.dart';
@@ -38,12 +39,14 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required EntryRemoteDatasource entryDatasource,
     required VaultRemoteDatasource vaultDatasource,
     required EntryV2CryptoService cryptoService,
+    required VaultRotationCryptoService vaultKeys,
     required CanonicalEntryDetailService canonicalEntries,
     required AgentDiscoveryRemote discovery,
   }) : _approval = approvalDatasource,
        _entries = entryDatasource,
        _vaults = vaultDatasource,
        _crypto = cryptoService,
+       _vaultKeys = vaultKeys,
        _canonicalEntries = canonicalEntries,
        _discovery = discovery;
 
@@ -51,6 +54,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
   final EntryRemoteDatasource _entries;
   final VaultRemoteDatasource _vaults;
   final EntryV2CryptoService _crypto;
+  final VaultRotationCryptoService _vaultKeys;
   final CanonicalEntryDetailService _canonicalEntries;
   final AgentDiscoveryRemote _discovery;
 
@@ -191,7 +195,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         recipientKeyVersion: candidate.recipientKeyVersion,
         agentPublicKey: Uint8List.fromList(recipientKey),
         approvedMethods: approvedMethods,
-        deliveryPolicy: 0,
+        deliveryPolicy: type.deliveryPolicyCode(),
         fieldIds: approvedFieldIds,
         grantPayload: grantPayload,
         expiresAt: wire.expiresAt == null
@@ -249,117 +253,185 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
   );
 
   @override
-  Future<void> createGrant({
+  Future<void> createFullGrant({
     required String vaultId,
     required String agentId,
     required String agentPublicKey,
     required int recipientKeyVersion,
-    required bool isFull,
-    String? entryId,
+    required int agentAccessEpoch,
     required Uint8List privateKey,
     required GrantLimit limit,
     required List<GrantMethod> methods,
   }) async {
-    // Resolve every exact canonical Entry head covered by the new grant.
-    final List<String> entryIds;
-    try {
-      AppLogger.d('Approval', 'Fetching canonical entries for re-grant');
-      if (isFull) {
-        final entries = await _entries.listEntries(vaultId);
-        entryIds = entries.map((e) => e.id).toList(growable: false);
-      } else {
-        entryIds = [entryId!];
-      }
-    } on DioException catch (e, s) {
-      AppLogger.e('Approval', 're-grant fetch failed', error: e, stackTrace: s);
-      throw ApprovalException(_classifyError(e));
-    }
-
-    if (entryIds.isEmpty) {
+    if (recipientKeyVersion <= 0 || agentAccessEpoch <= 0) {
       throw const ApprovalException(ApprovalErrorKind.validation);
     }
 
-    // 2. Produce one envelope per entry on-device (zero-knowledge).
-    final wrapped = <({String entryId, Map<String, dynamic> envelope})>[];
     final grantId = _uuidV4();
     final wire = limit.toWire();
     final methodBits = _methodBits(methods);
     if (methodBits == 0) {
       throw const ApprovalException(ApprovalErrorKind.validation);
     }
+
+    Uint8List? vaultKey;
     try {
-      for (final id in entryIds) {
-        final snapshot = await _canonicalEntries.reveal(
-          expected: EntryEntity(
-            id: id,
-            vaultId: vaultId,
-            label: '',
-            type: EntryType.key,
-            createdAt: DateTime.fromMillisecondsSinceEpoch(0),
-            updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
-          ),
-          memberPrivateKey: privateKey,
+      final vault = await _vaults.getEncryptedVault(vaultId);
+      final organizationId = vault['organizationId'];
+      final memberKeyGeneration = vault['memberKeyGeneration'];
+      final epochValue = vault['currentKeyEpoch'];
+      if (organizationId is! String ||
+          memberKeyGeneration is! int ||
+          epochValue is! Map) {
+        throw const FormatException('Malformed encrypted Vault key context');
+      }
+      final epoch = Map<String, dynamic>.from(epochValue);
+      final vaultKeyVersion = epoch['vaultKeyVersion'];
+      if (vaultKeyVersion is! int) {
+        throw const FormatException('Malformed encrypted Vault key epoch');
+      }
+      final memberEnvelope = Map<String, dynamic>.from(
+        vault['memberVaultKey'] as Map,
+      );
+      vaultKey = await _vaultKeys.openMemberVaultKey(
+        memberEnvelope,
+        privateKey,
+        expectedOrganizationId: organizationId,
+        expectedVaultId: vaultId,
+        expectedVaultKeyVersion: vaultKeyVersion,
+        expectedMemberKeyGeneration: memberKeyGeneration,
+      );
+      final agentWrappedVaultKey = await _crypto.sealAgentVaultKey(
+        vaultKey: vaultKey,
+        organizationId: organizationId,
+        vaultId: vaultId,
+        grantId: grantId,
+        agentId: agentId,
+        agentAccessEpoch: agentAccessEpoch,
+        vaultKeyVersion: vaultKeyVersion,
+        agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
+        recipientKeyVersion: recipientKeyVersion,
+      );
+      await _approval.createFullGrant(
+        vaultId: vaultId,
+        grantId: grantId,
+        agentId: agentId,
+        agentWrappedVaultKey: agentWrappedVaultKey,
+        expiresAt: wire.expiresAt,
+        queryLimit: wire.queryLimit,
+        methods: serializeGrantMethods(methods),
+      );
+    } on DioException catch (e) {
+      throw ApprovalException(_classifyError(e));
+    } on ApprovalException {
+      rethrow;
+    } catch (e, s) {
+      AppLogger.e('Approval', 'FULL re-grant failed', error: e, stackTrace: s);
+      throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
+    } finally {
+      vaultKey?.fillRange(0, vaultKey.length, 0);
+    }
+  }
+
+  @override
+  Future<void> createGranularGrant({
+    required String vaultId,
+    required String entryId,
+    required String agentId,
+    required String agentPublicKey,
+    required int recipientKeyVersion,
+    required int agentAccessEpoch,
+    required Uint8List privateKey,
+    required GrantLimit limit,
+    required List<GrantMethod> methods,
+  }) async {
+    if (recipientKeyVersion <= 0 || agentAccessEpoch <= 0) {
+      throw const ApprovalException(ApprovalErrorKind.validation);
+    }
+
+    final grantId = _uuidV4();
+    final wire = limit.toWire();
+    final methodBits = _methodBits(methods);
+    if (methodBits == 0) {
+      throw const ApprovalException(ApprovalErrorKind.validation);
+    }
+
+    // GRANULAR retains one revision/field/method-bound envelope.
+    try {
+      final snapshot = await _canonicalEntries.reveal(
+        expected: EntryEntity(
+          id: entryId,
+          vaultId: vaultId,
+          label: '',
+          type: EntryType.key,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+          updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+        ),
+        memberPrivateKey: privateKey,
+      );
+      try {
+        final type = EntryTypeExtension.fromWire(
+          snapshot.secret['entryType'] as int,
         );
-        try {
-          final type = EntryTypeExtension.fromWire(
-            snapshot.secret['entryType'] as int,
-          );
-          final policy = AgentVisibilityPolicy.fromJson(
-            type,
-            Map<String, dynamic>.from(
-              snapshot.secret['agentVisibilityPolicy'] as Map,
-            ),
-            content: snapshot.payload,
-          );
-          final approved = policy.fields.entries
-              .where((item) => item.value != AgentFieldAccess.never)
-              .map((item) => item.key)
-              .toList(growable: false);
-          final payload = AgentVisibilityProjector.grantPayload(
-            type: type,
-            agentLabel:
-                snapshot.secret['agentLabel'] as String? ??
-                snapshot.secret['memberLabel'] as String,
-            description: snapshot.secret['description'] as String? ?? '',
-            content: snapshot.payload,
-            policy: policy,
-            approvedFieldIds: approved,
-          );
-          final envelope = await _crypto.sealGrant(
-            organizationId: snapshot.entry['organizationId'] as String,
-            vaultId: vaultId,
-            entryId: id,
-            grantId: grantId,
-            agentId: agentId,
-            entryRevision: int.parse(
-              snapshot.entry['currentRevision'] as String,
-            ),
-            memberKeyGeneration: snapshot.entry['memberKeyGeneration'] as int,
-            agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
-            recipientKeyVersion: recipientKeyVersion,
-            approvedMethods: methodBits,
-            deliveryPolicy: 0,
-            fieldIds: approved,
-            grantPayload: payload,
-            expiresAt: wire.expiresAt == null
-                ? null
-                : DateTime.parse(wire.expiresAt!),
-            remainingUses: wire.queryLimit,
-          );
-          wrapped.add((
-            entryId: id,
-            envelope: Map<String, dynamic>.from(envelope),
-          ));
-        } finally {
-          snapshot.clear();
-        }
+        final policy = AgentVisibilityPolicy.fromJson(
+          type,
+          Map<String, dynamic>.from(
+            snapshot.secret['agentVisibilityPolicy'] as Map,
+          ),
+          content: snapshot.payload,
+        );
+        final approved = policy.fields.entries
+            .where((item) => item.value != AgentFieldAccess.never)
+            .map((item) => item.key)
+            .toList(growable: false);
+        final payload = AgentVisibilityProjector.grantPayload(
+          type: type,
+          agentLabel:
+              snapshot.secret['agentLabel'] as String? ??
+              snapshot.secret['memberLabel'] as String,
+          description: snapshot.secret['description'] as String? ?? '',
+          content: snapshot.payload,
+          policy: policy,
+          approvedFieldIds: approved,
+        );
+        final envelope = await _crypto.sealGrant(
+          organizationId: snapshot.entry['organizationId'] as String,
+          vaultId: vaultId,
+          entryId: entryId,
+          grantId: grantId,
+          agentId: agentId,
+          entryRevision: int.parse(snapshot.entry['currentRevision'] as String),
+          memberKeyGeneration: snapshot.entry['memberKeyGeneration'] as int,
+          agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
+          recipientKeyVersion: recipientKeyVersion,
+          approvedMethods: methodBits,
+          deliveryPolicy: type.deliveryPolicyCode(),
+          fieldIds: approved,
+          grantPayload: payload,
+          expiresAt: wire.expiresAt == null
+              ? null
+              : DateTime.parse(wire.expiresAt!),
+          remainingUses: wire.queryLimit,
+        );
+        await _approval.createGranularGrant(
+          vaultId: vaultId,
+          entryId: entryId,
+          grantId: grantId,
+          agentId: agentId,
+          grantEntry: Map<String, dynamic>.from(envelope),
+          expiresAt: wire.expiresAt,
+          queryLimit: wire.queryLimit,
+          methods: serializeGrantMethods(methods),
+        );
+      } finally {
+        snapshot.clear();
       }
     } on ApprovalException {
       rethrow;
     } on DioException catch (e, s) {
       AppLogger.e(
         'Approval',
-        're-grant fetch entry failed',
+        'GRANULAR re-grant failed',
         error: e,
         stackTrace: s,
       );
@@ -372,29 +444,6 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         stackTrace: s,
       );
       throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
-    }
-
-    // 3. Submit the new grant.
-    try {
-      await _approval.createGrant(
-        vaultId: vaultId,
-        grantId: grantId,
-        agentId: agentId,
-        type: isFull ? 'full' : 'granular',
-        entryId: isFull ? null : entryId,
-        entries: wrapped,
-        expiresAt: wire.expiresAt,
-        queryLimit: wire.queryLimit,
-        methods: serializeGrantMethods(methods),
-      );
-    } on DioException catch (e, s) {
-      AppLogger.e(
-        'Approval',
-        're-grant submit failed',
-        error: e,
-        stackTrace: s,
-      );
-      throw ApprovalException(_classifyError(e));
     }
   }
 

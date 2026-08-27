@@ -7,6 +7,7 @@ import 'package:mobile_palladin/features/approval/data/services/encrypted_reason
 import 'package:mobile_palladin/features/approval/data/services/grant_history_reason_resolver.dart';
 import 'package:mobile_palladin/features/approval/domain/entities/encrypted_reason.dart';
 import 'package:mobile_palladin/features/grants/data/models/grant_model.dart';
+import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/agent_discovery_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/models/agent_discovery_provisioning.dart';
@@ -66,7 +67,7 @@ void main() {
       vaultId: 'v-1',
       agentId: 'a-1',
       status: 'active',
-      scope: 'granular',
+      type: GrantScope.granular,
       createdAt: '2026-08-07T10:00:00Z',
       entryId: 'e-1',
       methods: 'get',

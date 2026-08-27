@@ -11,12 +11,13 @@ class GrantModel {
     required this.vaultId,
     this.agentId,
     required this.status,
-    required this.scope,
+    required this.type,
     required this.createdAt,
     this.agentName,
     this.agentIconKey,
     this.agentPublicKey,
     this.recipientAgentKeyVersion,
+    this.agentAccessEpoch,
     this.entryScopes = const [],
     this.vaultName,
     this.entryId,
@@ -34,6 +35,8 @@ class GrantModel {
     this.createdByName,
     this.revokedBy,
     this.revokedByName,
+    this.supersededAt,
+    this.supersededByGrantId,
     this.deniedBy,
     this.deniedByName,
     this.denyReason,
@@ -49,10 +52,11 @@ class GrantModel {
   final String? agentIconKey;
   final String? agentPublicKey;
   final int? recipientAgentKeyVersion;
+  final int? agentAccessEpoch;
   final List<GrantEntryScope> entryScopes;
   final String? vaultName;
   final Object? status;
-  final Object? scope;
+  final GrantScope type;
   final String createdAt;
   final String? entryId;
   final String? entryLabel;
@@ -69,6 +73,8 @@ class GrantModel {
   final String? createdByName;
   final String? revokedBy;
   final String? revokedByName;
+  final String? supersededAt;
+  final String? supersededByGrantId;
   final String? deniedBy;
   final String? deniedByName;
   final String? denyReason;
@@ -88,6 +94,7 @@ class GrantModel {
       agentIconKey: json['agentIconKey'] as String?,
       agentPublicKey: json['agentPublicKey'] as String?,
       recipientAgentKeyVersion: json['recipientAgentKeyVersion'] as int?,
+      agentAccessEpoch: json['agentAccessEpoch'] as int?,
       entryScopes: (json['entryScopes'] as List<dynamic>? ?? const [])
           .whereType<Map>()
           .map(
@@ -108,9 +115,7 @@ class GrantModel {
           .toList(growable: false),
       vaultName: json['vaultName'] as String?,
       status: json['status'],
-      // Org listing returns `type` (full/granular); the per-vault list uses
-      // `mode`. Accept both so one model serves every grants endpoint.
-      scope: json['type'] ?? json['mode'] ?? json['scope'] ?? json['grantMode'],
+      type: GrantScope.fromWire(json['type']),
       createdAt: json['createdAt'] as String,
       entryId: json['entryId'] as String?,
       entryLabel: json['entryLabel'] as String?,
@@ -127,6 +132,8 @@ class GrantModel {
       createdByName: json['createdByName'] as String?,
       revokedBy: json['revokedBy'] as String?,
       revokedByName: json['revokedByName'] as String?,
+      supersededAt: json['supersededAt'] as String?,
+      supersededByGrantId: json['supersededByGrantId'] as String?,
       deniedBy: json['deniedBy'] as String?,
       deniedByName: json['deniedByName'] as String?,
       denyReason: json['denyReason'] as String?,
@@ -151,10 +158,11 @@ class GrantModel {
       agentIconKey: agentIconKey,
       agentPublicKey: agentPublicKey,
       recipientAgentKeyVersion: recipientAgentKeyVersion,
+      agentAccessEpoch: agentAccessEpoch,
       entryScopes: entryScopes,
       vaultName: vaultName,
       status: GrantStatus.fromWire(status),
-      scope: GrantScope.fromWire(scope),
+      scope: type,
       entryId: entryId,
       entryLabel: entryLabel,
       reason: resolvedReason ?? reason,
@@ -170,6 +178,8 @@ class GrantModel {
       createdByName: createdByName,
       revokedBy: revokedBy,
       revokedByName: revokedByName,
+      supersededAt: parse(supersededAt),
+      supersededByGrantId: supersededByGrantId,
       deniedBy: deniedBy,
       deniedByName: deniedByName,
       denyReason: denyReason,

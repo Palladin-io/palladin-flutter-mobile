@@ -8,6 +8,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_autocomplete_field.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
+import '../../../../core/widgets/sheet_drag_handle.dart';
+import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/domain/entities/agent.dart';
 import '../../../agents/domain/repositories/agents_repository.dart';
@@ -168,54 +170,63 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
       return;
     }
 
-    // Resolve the parameters for each mode. The agent's full public key (needed to seal the DEK)
-    // comes from the single-agent endpoint.
+    // Resolve only the shared subject identity before entering a mode-specific
+    // feature flow. The authoritative Agent binding is refreshed for both.
     final cubit = context.read<GrantAccessCubit>();
-    final ({String agentId, String vaultId, bool isFull, String? entryId}) r =
-        switch (widget.mode) {
-          GrantForVault(:final vaultId) => (
-            agentId: _selectedId!,
-            vaultId: vaultId,
-            isFull: true,
-            entryId: null,
-          ),
-          GrantForEntry(:final vaultId, :final entryId) => (
-            agentId: _selectedId!,
-            vaultId: vaultId,
-            isFull: false,
-            entryId: entryId,
-          ),
-          GrantForAgent(:final agentId) => (
-            agentId: agentId,
-            vaultId: _selectedId!,
-            isFull: true,
-            entryId: null,
-          ),
-        };
+    final ({String agentId, String vaultId}) subject = switch (widget.mode) {
+      GrantForVault(:final vaultId) => (
+        agentId: _selectedId!,
+        vaultId: vaultId,
+      ),
+      GrantForEntry(:final vaultId) => (
+        agentId: _selectedId!,
+        vaultId: vaultId,
+      ),
+      GrantForAgent(:final agentId) => (
+        agentId: agentId,
+        vaultId: _selectedId!,
+      ),
+    };
 
     final String agentPublicKey;
     final int recipientKeyVersion;
+    final int agentAccessEpoch;
     try {
-      final agent = await getIt<AgentsRepository>().getAgent(r.agentId);
+      final agent = await getIt<AgentsRepository>().getAgent(subject.agentId);
       agentPublicKey = agent.publicKey;
       recipientKeyVersion = agent.recipientKeyVersion;
+      agentAccessEpoch = agent.accessEpoch;
     } catch (_) {
       if (mounted) _snack(l10n.grantAccessError);
       return;
     }
     if (!mounted) return;
 
-    await cubit.submit(
-      vaultId: r.vaultId,
-      agentId: r.agentId,
-      agentPublicKey: agentPublicKey,
-      recipientKeyVersion: recipientKeyVersion,
-      isFull: r.isFull,
-      entryId: r.entryId,
-      privateKey: key,
-      limit: _limit,
-      methods: _methods,
-    );
+    switch (widget.mode) {
+      case GrantForEntry(:final entryId):
+        await cubit.submitGranular(
+          vaultId: subject.vaultId,
+          entryId: entryId,
+          agentId: subject.agentId,
+          agentPublicKey: agentPublicKey,
+          recipientKeyVersion: recipientKeyVersion,
+          agentAccessEpoch: agentAccessEpoch,
+          privateKey: key,
+          limit: _limit,
+          methods: _methods,
+        );
+      case GrantForVault() || GrantForAgent():
+        await cubit.submitFull(
+          vaultId: subject.vaultId,
+          agentId: subject.agentId,
+          agentPublicKey: agentPublicKey,
+          recipientKeyVersion: recipientKeyVersion,
+          agentAccessEpoch: agentAccessEpoch,
+          privateKey: key,
+          limit: _limit,
+          methods: _methods,
+        );
+    }
   }
 
   void _snack(String msg) {
@@ -267,16 +278,7 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Center(
-                          child: Container(
-                            width: 36,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: AppColors.cardBorder(brightness),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ),
+                        const Center(child: SheetDragHandle()),
                         const SizedBox(height: AppSpacing.headerGap),
                         Text(
                           _pickAgent
@@ -305,6 +307,13 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
                           onChanged: (id) => setState(() => _selectedId = id),
                         ),
                         // ^ null when the typed text matches no option.
+                        if (widget.mode is! GrantForEntry) ...[
+                          const SizedBox(height: AppSpacing.lg),
+                          WarningZone(
+                            title: l10n.grantAccessFullTrustTitle,
+                            message: l10n.grantAccessFullTrustBody,
+                          ),
+                        ],
                         const SizedBox(height: AppSpacing.lg),
                         Text(
                           l10n.approvalAccessType,

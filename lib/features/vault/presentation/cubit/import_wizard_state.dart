@@ -141,12 +141,6 @@ enum ImportFailureReason {
   noEntries,
   crypto,
   network,
-
-  /// The target vault has active FULL grants. Importing would require
-  /// re-wrapping each new entry for every such grant — crypto material the
-  /// mobile client cannot yet produce — so the import is blocked. The user
-  /// is directed to revoke the FULL grants (or import from web) first.
-  fullGrantsBlocked,
   unknown,
 }
 

@@ -27,6 +27,7 @@ String grantStatusLabel(AppLocalizations l10n, GrantStatus status) {
     GrantStatus.revoked => l10n.grantStatusRevoked,
     GrantStatus.expired => l10n.grantStatusExpired,
     GrantStatus.consumed => l10n.grantStatusConsumed,
+    GrantStatus.superseded => l10n.grantStatusSuperseded,
   };
 }
 
@@ -38,7 +39,9 @@ Color grantStatusColor(GrantStatus status) {
     GrantStatus.pending => AppColors.premiumAmber,
     GrantStatus.active => AppColors.positiveAccent,
     GrantStatus.denied || GrantStatus.revoked => AppColors.brandRed,
-    GrantStatus.expired || GrantStatus.consumed => AppColors.textTertiary,
+    GrantStatus.expired ||
+    GrantStatus.consumed ||
+    GrantStatus.superseded => AppColors.textTertiary,
   };
 }
 
@@ -67,6 +70,7 @@ String orgGrantActorName(AppLocalizations l10n, Grant grant) {
   final name = switch (grant.status) {
     GrantStatus.revoked => grant.revokedByName,
     GrantStatus.denied => grant.deniedByName,
+    GrantStatus.superseded => null,
     _ => grant.createdByName,
   };
   final trimmed = name?.trim();
@@ -100,6 +104,9 @@ String orgGrantAccessSummary(AppLocalizations l10n, Grant grant) {
   if (grant.status == GrantStatus.denied &&
       (grant.denyReason?.trim().isNotEmpty ?? false)) {
     return (label: l10n.orgGrantRowDenyReason, text: grant.denyReason!.trim());
+  }
+  if (grant.status == GrantStatus.superseded) {
+    return (label: l10n.orgGrantRowReason, text: l10n.orgGrantSupersededReason);
   }
   final reason = grant.reason?.trim();
   return (

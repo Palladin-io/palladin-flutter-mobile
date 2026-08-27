@@ -149,13 +149,17 @@ void main() {
       }
     });
 
-    test('consumed/expired/unknown are grey', () {
+    test('consumed/expired/superseded/unknown are grey', () {
       expect(
         auditEventColor(AuditEventType.grantConsumed),
         AppColors.textTertiary,
       );
       expect(
         auditEventColor(AuditEventType.grantExpired),
+        AppColors.textTertiary,
+      );
+      expect(
+        auditEventColor(AuditEventType.grantSuperseded),
         AppColors.textTertiary,
       );
       expect(auditEventColor(AuditEventType.unknown), AppColors.textTertiary);

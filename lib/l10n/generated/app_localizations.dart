@@ -3086,6 +3086,12 @@ abstract class AppLocalizations {
   /// **'Consumed'**
   String get grantStatusConsumed;
 
+  /// Terminal grant status: replaced by a FULL Vault grant
+  ///
+  /// In en, this message translates to:
+  /// **'Superseded'**
+  String get grantStatusSuperseded;
+
   /// Grant scope label — full vault access
   ///
   /// In en, this message translates to:
@@ -3187,6 +3193,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Deny reason'**
   String get orgGrantRowDenyReason;
+
+  /// No description provided for @orgGrantSupersededReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Replaced by a FULL grant'**
+  String get orgGrantSupersededReason;
 
   /// Org grant card row label — owner's revoke reason
   ///
@@ -3799,6 +3811,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not create the grant. Please try again.'**
   String get grantAccessError;
+
+  /// Warning-zone title shown before creating a FULL vault grant
+  ///
+  /// In en, this message translates to:
+  /// **'FULL VAULT TRUST'**
+  String get grantAccessFullTrustTitle;
+
+  /// Security warning explaining the cryptographic trust and revocation limit of a FULL grant
+  ///
+  /// In en, this message translates to:
+  /// **'This grants cryptographic access to every current and future entry in this vault. Revoking blocks new online delivery but cannot erase a key copied by a compromised agent; rotate the Vault Key after suspected compromise.'**
+  String get grantAccessFullTrustBody;
 
   /// No description provided for @grantAddGrant.
   ///
@@ -4483,6 +4507,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Grant expired'**
   String get auditEventGrantExpired;
+
+  /// No description provided for @auditEventGrantSuperseded.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant superseded'**
+  String get auditEventGrantSuperseded;
 
   /// No description provided for @auditEventCredentialAccessed.
   ///
@@ -5281,12 +5311,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t reach the server. Check your connection and try again.'**
   String get importErrorNetwork;
-
-  /// Import error — vault has active FULL grants that mobile cannot re-wrap
-  ///
-  /// In en, this message translates to:
-  /// **'This vault has agents with full access. Importing to it isn\'t supported on mobile yet — revoke the full-access grants first, or import from the web panel.'**
-  String get importErrorFullGrants;
 
   /// Import error — unknown
   ///

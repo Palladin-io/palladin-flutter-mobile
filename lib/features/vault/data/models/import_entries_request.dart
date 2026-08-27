@@ -11,6 +11,7 @@ class ImportEntryItem {
     this.icon,
     required this.type,
     required this.content,
+    required this.deliveryPolicy,
     this.urlDomain,
   });
 
@@ -19,6 +20,7 @@ class ImportEntryItem {
   final String? icon;
   final int type;
   final EntryContentModel content;
+  final String deliveryPolicy;
   final String? urlDomain;
 
   Map<String, dynamic> toJson() => {
@@ -27,8 +29,8 @@ class ImportEntryItem {
     if (icon != null) 'icon': icon,
     'type': type,
     'content': content.toJson(),
+    'deliveryPolicy': deliveryPolicy,
     if (urlDomain != null) 'urlDomain': urlDomain,
-    'grantEntries': const <dynamic>[],
   };
 }
 
