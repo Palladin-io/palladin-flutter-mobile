@@ -28,6 +28,14 @@ Inbox (notification center) + preferences + push/real-time transport.
   ciphertext reason, and server-supplied presentation names/free text are
   discarded. The singleton Inbox state keeps decrypted reason only in memory
   and redacts it with locally resolved names whenever the Vault session locks.
+- After a confirmed inline action succeeds, the singleton Inbox keeps the
+  resolved notification id in session memory so an eventually consistent feed
+  or summary response cannot reopen the To-do card or badge. Logout clears this
+  guard; a later request uses a new notification id. A missing id retires the
+  counter guard only after a complete cursor traversal, and a summary fetched
+  alongside the converged feed still uses the guard for that paired response.
+  Each summary request snapshots the guard before its asynchronous fetch so an
+  older overlapping response cannot restore a badge cleared by a newer feed.
 
 **Cross-feature deps (heavy):** `agents` (`AgentAvatar`, `ApproveAgentSheet`, `DeactivateAgentSheet`), `grants` (`GrantDetailRow`), `approval` (`ApproveGrantSheet`, `DenyGrantSheet`).
 
