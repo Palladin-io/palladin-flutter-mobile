@@ -19,6 +19,8 @@ Org-wide grant history feed + per-context grants tab (vault / entry / agent).
   each label from the locally decrypted, runtime-only `MemberIndex`; a
   server-supplied plaintext `entryLabel` is ignored. Resolution failure keeps
   the structural grant row visible with the localized unknown-Entry fallback.
+  A monotonic Member-key session guard aborts multi-Vault resolution and drops
+  every plaintext projection when the app locks or replaces the Member key.
 - **Server-authoritative history footers:** `Grant` carries `canRevoke`,
   `canGrantAgain`, and `activeCoveringGrantIds`. Active cards revoke; terminal
   expired/consumed/denied/revoked cards re-grant when allowed. Coverage-blocked

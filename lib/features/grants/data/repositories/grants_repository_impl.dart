@@ -121,9 +121,11 @@ class GrantsRepositoryImpl implements GrantsRepository {
     }
 
     Uint8List? memberPrivateKey;
+    int? memberKeySessionGeneration;
     var reasons = const <String, String>{};
     var entryLabels = const <GrantEntryLabelTarget, String>{};
     try {
+      memberKeySessionGeneration = session.memberKeySessionGeneration;
       memberPrivateKey = session.copyMemberPrivateKey();
       final reasonResolver = _reasonResolver;
       if (reasonResolver != null) {
@@ -145,6 +147,9 @@ class GrantsRepositoryImpl implements GrantsRepository {
           entryLabels = await entryLabelResolver.resolve(
             grants: models,
             memberPrivateKey: memberPrivateKey,
+            isSessionCurrent: () =>
+                session.memberKeySessionGeneration ==
+                memberKeySessionGeneration,
           );
         } catch (_) {
           AppLogger.w('Grants', 'Grant Entry label projection unavailable');
@@ -155,12 +160,15 @@ class GrantsRepositoryImpl implements GrantsRepository {
     } finally {
       memberPrivateKey?.fillRange(0, memberPrivateKey.length, 0);
     }
+    final projectionIsCurrent =
+        memberKeySessionGeneration != null &&
+        session.memberKeySessionGeneration == memberKeySessionGeneration;
     return models
         .map((model) {
           final entryTarget = GrantEntryLabelResolver.targetFor(model);
           return model.toEntity(
-            resolvedReason: reasons[model.id],
-            resolvedEntryLabel: entryTarget == null
+            resolvedReason: projectionIsCurrent ? reasons[model.id] : null,
+            resolvedEntryLabel: !projectionIsCurrent || entryTarget == null
                 ? null
                 : entryLabels[entryTarget],
           );

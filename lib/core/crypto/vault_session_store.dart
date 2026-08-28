@@ -104,12 +104,17 @@ final class UnlockedVaultSession {
 final class VaultSessionStore {
   final Map<String, UnlockedVaultSession> _sessions = {};
   Uint8List? _memberPrivateKey;
+  int _memberKeySessionGeneration = 0;
+
+  /// Monotonic guard for async work derived from the in-memory Member key.
+  int get memberKeySessionGeneration => _memberKeySessionGeneration;
 
   void setMemberPrivateKey(Uint8List value) {
     if (value.length != 32) throw ArgumentError('Invalid member private key.');
     final replacement = Uint8List.fromList(value);
     _memberPrivateKey?.fillRange(0, _memberPrivateKey!.length, 0);
     _memberPrivateKey = replacement;
+    _memberKeySessionGeneration++;
   }
 
   Uint8List copyMemberPrivateKey() {
@@ -174,6 +179,7 @@ final class VaultSessionStore {
 
   void remove(String vaultId) => _sessions.remove(vaultId)?.dispose();
   void clear() {
+    _memberKeySessionGeneration++;
     final sessions = _sessions.values.toList(growable: false);
     _sessions.clear();
     for (final session in sessions) {

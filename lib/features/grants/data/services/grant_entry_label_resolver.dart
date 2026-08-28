@@ -37,6 +37,7 @@ final class GrantEntryLabelResolver {
   Future<Map<GrantEntryLabelTarget, String>> resolve({
     required List<GrantModel> grants,
     required Uint8List memberPrivateKey,
+    required bool Function() isSessionCurrent,
   }) async {
     final grantsByVault = <String, List<GrantModel>>{};
     for (final grant in grants) {
@@ -47,11 +48,17 @@ final class GrantEntryLabelResolver {
 
     final resolved = <GrantEntryLabelTarget, String>{};
     for (final vault in grantsByVault.entries) {
+      if (!isSessionCurrent()) {
+        throw const _GrantEntryLabelResolutionInvalidated();
+      }
       try {
         final index = await _entries.load(
           vaultId: vault.key,
           memberPrivateKey: memberPrivateKey,
         );
+        if (!isSessionCurrent()) {
+          throw const _GrantEntryLabelResolutionInvalidated();
+        }
         final labels = {
           for (final entry in index)
             if (!entry.corrupt && entry.memberLabel.trim().isNotEmpty)
@@ -62,10 +69,19 @@ final class GrantEntryLabelResolver {
           final label = labels[target.entryId];
           if (label != null) resolved[target] = label;
         }
+      } on _GrantEntryLabelResolutionInvalidated {
+        rethrow;
       } catch (_) {
+        if (!isSessionCurrent()) {
+          throw const _GrantEntryLabelResolutionInvalidated();
+        }
         AppLogger.w('Grants', 'Local Grant Entry label resolution failed');
       }
     }
     return Map.unmodifiable(resolved);
   }
+}
+
+final class _GrantEntryLabelResolutionInvalidated implements Exception {
+  const _GrantEntryLabelResolutionInvalidated();
 }

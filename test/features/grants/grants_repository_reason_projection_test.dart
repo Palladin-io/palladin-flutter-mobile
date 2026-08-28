@@ -165,6 +165,69 @@ void main() {
     );
     session.clear();
   });
+
+  test(
+    'stops Entry label projection when the unlocked session is invalidated',
+    () async {
+      final remote = _Remote();
+      final entries = _Entries();
+      final session = VaultSessionStore();
+      final models = [
+        GrantModel(
+          id: 'grant-a',
+          vaultId: 'vault-a',
+          agentId: 'agent',
+          status: 'active',
+          type: GrantScope.granular,
+          createdAt: '2026-08-07T10:00:00Z',
+          entryId: 'entry-a',
+        ),
+        GrantModel(
+          id: 'grant-b',
+          vaultId: 'vault-b',
+          agentId: 'agent',
+          status: 'active',
+          type: GrantScope.granular,
+          createdAt: '2026-08-07T10:00:00Z',
+          entryId: 'entry-b',
+        ),
+      ];
+      final memberPrivateKey = Uint8List.fromList(List<int>.filled(32, 7));
+      when(
+        () => remote.listOrgGrants(pageSize: 50),
+      ).thenAnswer((_) async => GrantPage(grants: models));
+      when(
+        () => entries.load(
+          vaultId: 'vault-a',
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((_) async {
+        session.clear();
+        throw StateError('Member index load invalidated by lock');
+      });
+      when(
+        () => entries.load(
+          vaultId: 'vault-b',
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((_) async => [_memberIndexEntry('entry-b', 'Beta')]);
+      session.setMemberPrivateKey(memberPrivateKey);
+
+      final page = await GrantsRepositoryImpl(
+        remote,
+        entryLabelResolver: GrantEntryLabelResolver(entries: entries),
+        vaultSessionStore: session,
+      ).listOrgGrants();
+
+      expect(page.grants.map((grant) => grant.entryLabel), [null, null]);
+      verifyNever(
+        () => entries.load(
+          vaultId: 'vault-b',
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      );
+    },
+  );
 }
 
 MemberIndexEntry _memberIndexEntry(String id, String label) => MemberIndexEntry(

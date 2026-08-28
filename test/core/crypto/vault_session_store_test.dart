@@ -41,6 +41,20 @@ void main() {
     );
   });
 
+  test('Member key replacement and clear advance the session generation', () {
+    final store = VaultSessionStore();
+    final initialGeneration = store.memberKeySessionGeneration;
+
+    store.setMemberPrivateKey(Uint8List(32));
+    expect(store.memberKeySessionGeneration, initialGeneration + 1);
+
+    store.setMemberPrivateKey(Uint8List.fromList(List<int>.filled(32, 7)));
+    expect(store.memberKeySessionGeneration, initialGeneration + 2);
+
+    store.clear();
+    expect(store.memberKeySessionGeneration, initialGeneration + 3);
+  });
+
   test('failed replacement leaves the previous session intact', () {
     final store = VaultSessionStore();
     final originalKey = Uint8List.fromList(List<int>.filled(32, 7));
