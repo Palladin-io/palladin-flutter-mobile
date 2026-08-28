@@ -163,8 +163,9 @@ flutter test
 The test workflow uses only repository contents and read-only GitHub
 permissions, so it is safe to run for pull requests from public forks. Store
 builds are separate, maintainer-triggered workflows and require protected
-signing secrets. Pull-request CI does not build or upload a mobile application
-artifact.
+signing secrets. Pull-request CI intentionally does not build APKs or other
+application artifacts; it validates source quality and behavior through static
+analysis, structural budgets, and the complete test suite.
 
 CI runs Gitleaks 8.30.1 against the current tree. The repository configuration
 extends the default rules and contains exact-path exceptions for synthetic

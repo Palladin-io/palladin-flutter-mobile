@@ -632,16 +632,128 @@ void main() {
       expect(envelope['grantEnvelopeRevision'], '5');
       expect(envelope['grantKeyVersion'], 6);
       expect(envelope['remainingUses'], 8);
-      expect(envelope['fieldIds'], ['password']);
+      expect(envelope['fieldIds'], ['credential.password']);
       final encryptedGrant = envelopes.encrypted.singleWhere(
         (value) => value.profile == VaultAadProfile.grantPayload,
       );
       final payload = jsonDecode(utf8.decode(encryptedGrant.plaintext)) as Map;
-      expect((payload['fields'] as Map)['password'], {
-        'access': 'onGrantValue',
-        'value': 'new-secret',
+      expect(payload, {
+        'schema': 'palladin.grant-payload.v1',
+        'entryType': 'credential',
+        'fields': [
+          {
+            'id': 'credential.password',
+            'kind': 'concealed',
+            'mode': 'value',
+            'value': 'new-secret',
+          },
+        ],
       });
-      expect((payload['fields'] as Map).containsKey('notes'), isFalse);
+    },
+  );
+
+  test(
+    'refreshes an active canonical Key URL grant through one projector',
+    () async {
+      final keyEntry = EntryEntity(
+        id: entryId,
+        vaultId: vaultId,
+        label: 'Old key',
+        type: EntryType.key,
+        createdAt: DateTime.utc(2026, 7, 1),
+        updatedAt: DateTime.utc(2026, 7, 2),
+      );
+      final activeGrant = GrantModel(
+        id: '44444444-4444-4444-8444-444444444444',
+        vaultId: vaultId,
+        agentId: '55555555-5555-4555-8555-555555555555',
+        status: 'active',
+        type: GrantScope.granular,
+        createdAt: '2026-07-01T00:00:00Z',
+        agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+        recipientAgentKeyVersion: 3,
+        methods: 'Inject',
+        entryScopes: const [
+          GrantEntryScope(
+            entryId: entryId,
+            fieldIds: ['key.url'],
+            grantEnvelopeRevision: '4',
+            entryRevision: '7',
+            grantKeyVersion: 5,
+            memberKeyGeneration: 3,
+            recipientAgentKeyVersion: 3,
+            agentKeyFingerprint: 'ignored',
+          ),
+        ],
+      );
+      when(
+        () => grants.listGrants(
+          vaultId,
+          status: 'active',
+          cursor: any(named: 'cursor'),
+          pageSize: 100,
+        ),
+      ).thenAnswer((_) async => GrantPage(grants: [activeGrant]));
+      Map<String, dynamic>? request;
+      when(
+        () => entries.updateCanonicalEntry(vaultId, entryId, any()),
+      ).thenAnswer((invocation) async {
+        request = invocation.positionalArguments[2] as Map<String, dynamic>;
+        return Response(
+          requestOptions: RequestOptions(path: '/entries'),
+          statusCode: 200,
+          data: {'currentRevision': '8'},
+        );
+      });
+
+      await service.update(
+        snapshot: CanonicalEntrySnapshot(
+          entry: canonicalEntry(),
+          payload: {
+            'type': 'KEY',
+            'value': 'old-secret',
+            'url': 'https://old.example.test',
+          },
+          secret: {
+            'schemaVersion': 1,
+            'agentLabel': 'Agent key',
+            'agentVisibilityPolicy': {
+              'discoverable': true,
+              'fields': {
+                'agentLabel': 'discovery',
+                'value': 'onGrantValue',
+                'url': 'onGrantValue',
+              },
+            },
+          },
+        ),
+        expected: keyEntry,
+        label: 'New key',
+        description: '',
+        icon: '',
+        type: EntryType.key,
+        content: {'value': 'new-secret', 'url': 'https://new.example.test'},
+        memberPrivateKey: Uint8List.fromList(List<int>.filled(32, 3)),
+      );
+
+      final envelope = (request!['grantEnvelopes'] as List).single as Map;
+      expect(envelope['fieldIds'], ['key.url']);
+      final encryptedGrant = envelopes.encrypted.singleWhere(
+        (value) => value.profile == VaultAadProfile.grantPayload,
+      );
+      final payload = jsonDecode(utf8.decode(encryptedGrant.plaintext)) as Map;
+      expect(payload, {
+        'schema': 'palladin.grant-payload.v1',
+        'entryType': 'key',
+        'fields': [
+          {
+            'id': 'key.url',
+            'kind': 'url',
+            'mode': 'value',
+            'value': 'https://new.example.test',
+          },
+        ],
+      });
     },
   );
 }

@@ -145,6 +145,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           snapshot.secret['memberLabel'] as String;
       final description = snapshot.secret['description'] as String? ?? '';
       final grantableFieldIds = AgentVisibilityProjector.grantableFieldIds(
+        type: type,
         agentLabel: agentLabel,
         description: description,
         content: snapshot.payload,
@@ -170,11 +171,15 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       final wire = limit.toWire();
       final grantPayload = AgentVisibilityProjector.grantPayload(
         type: type,
+        vaultId: grant.vaultId,
         agentLabel: agentLabel,
         description: description,
         content: snapshot.payload,
         policy: policy,
         approvedFieldIds: approvedFieldIds,
+      );
+      final envelopeFieldIds = AgentVisibilityProjector.grantPayloadFieldIds(
+        grantPayload,
       );
       final recipientKey = VaultProtocolBytes.base64Decode(
         candidate.x25519PublicKey,
@@ -196,7 +201,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         agentPublicKey: Uint8List.fromList(recipientKey),
         approvedMethods: approvedMethods,
         deliveryPolicy: type.deliveryPolicyCode(),
-        fieldIds: approvedFieldIds,
+        fieldIds: envelopeFieldIds,
         grantPayload: grantPayload,
         expiresAt: wire.expiresAt == null
             ? null
@@ -380,11 +385,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           ),
           content: snapshot.payload,
         );
-        final approved = policy.fields.entries
-            .where((item) => item.value != AgentFieldAccess.never)
-            .map((item) => item.key)
-            .toList(growable: false);
-        final payload = AgentVisibilityProjector.grantPayload(
+        final approved = AgentVisibilityProjector.grantableFieldIds(
           type: type,
           agentLabel:
               snapshot.secret['agentLabel'] as String? ??
@@ -392,7 +393,20 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           description: snapshot.secret['description'] as String? ?? '',
           content: snapshot.payload,
           policy: policy,
+        );
+        final payload = AgentVisibilityProjector.grantPayload(
+          type: type,
+          vaultId: vaultId,
+          agentLabel:
+              snapshot.secret['agentLabel'] as String? ??
+              snapshot.secret['memberLabel'] as String,
+          description: snapshot.secret['description'] as String? ?? '',
+          content: snapshot.payload,
+          policy: policy,
           approvedFieldIds: approved,
+        );
+        final envelopeFieldIds = AgentVisibilityProjector.grantPayloadFieldIds(
+          payload,
         );
         final envelope = await _crypto.sealGrant(
           organizationId: snapshot.entry['organizationId'] as String,
@@ -406,7 +420,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           recipientKeyVersion: recipientKeyVersion,
           approvedMethods: methodBits,
           deliveryPolicy: type.deliveryPolicyCode(),
-          fieldIds: approved,
+          fieldIds: envelopeFieldIds,
           grantPayload: payload,
           expiresAt: wire.expiresAt == null
               ? null

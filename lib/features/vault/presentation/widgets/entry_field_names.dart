@@ -12,7 +12,7 @@ List<WellKnownField> wellKnownFieldsFor(EntryType type, AppLocalizations l10n) {
   return switch (type) {
     EntryType.key => [
       (wire: 'value', label: l10n.entryValueLabel),
-      (wire: 'url', label: l10n.entryUrlLabel),
+      (wire: 'key.url', label: l10n.entryUrlLabel),
       (wire: 'notes', label: l10n.entryNotesLabel),
     ],
     EntryType.credential => [

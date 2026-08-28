@@ -478,7 +478,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     value: _valueController.text,
     username: _usernameController.text,
     password: _passwordController.text,
-    url: _type == EntryType.key ? '' : _urlController.text,
+    url: _urlController.text,
     notes: _notesController.text,
     fields: _allCustomFields,
     script: _scriptController.text,
@@ -599,7 +599,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
 
   Future<void> _submit() async {
     if (_reservingIcon) return;
-    if (_type != EntryType.key && !_validateUrl()) return;
+    if (!_validateUrl()) return;
     final initialAuth = context.read<AuthBloc>().state;
     if (initialAuth is! AuthAuthenticated || initialAuth.privateKey == null) {
       _showSnackBar(AppLocalizations.of(context)!.entryErrorCrypto);

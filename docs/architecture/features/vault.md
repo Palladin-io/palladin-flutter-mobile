@@ -112,6 +112,15 @@ unchanged** on save so an older client never drops a newer client's fields.
 - **Crypto is unchanged** — `fields` / `script` / `refs` live inside the same
   opaque `crypto_secretbox` blob, so the existing encrypt / edit / re-wrap path
   covers them with no new endpoints.
+- **Granular Grant projection** — `AgentVisibilityProjector` converts the
+  authenticated MemberSecret policy into the production
+  `palladin.grant-payload.v1` plaintext consumed by the native runtime. It maps
+  built-ins to canonical IDs, prefixes custom UUIDs with `custom:`, sorts the
+  completed field array, and only then derives the structural Grant field list.
+  Legacy Script references without `vaultId` are normalized to the Script
+  Entry's current Vault before encryption. Vault Protocol 2 does not bind that
+  structural field list into Grant-payload AAD; changing that outer binding is
+  a separate versioned protocol change.
 
 ### Add/Edit redesign + agent-visible fields (mockup parity)
 

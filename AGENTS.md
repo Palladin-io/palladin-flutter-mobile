@@ -71,6 +71,9 @@ GitHub Actions workflow at `.github/workflows/test.yml` runs on PRs to `main`:
 5. Vault v2 structural performance budgets
 6. `flutter test`
 
+Pull-request CI intentionally does not build APKs or other application artifacts.
+Store builds remain separate, maintainer-triggered workflows.
+
 **All changes must go through PRs** — CI must pass before merging.
 
 ### Explicit CI workflow authorization
