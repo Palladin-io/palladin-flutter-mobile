@@ -1889,6 +1889,25 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         if (agentId == null) {
           throw const FormatException('Active grant has no Agent principal');
         }
+        final projection = _grantProjection(secret);
+        final payload = AgentVisibilityProjector.grantPayload(
+          type: projection.type,
+          vaultId: vaultId,
+          agentLabel: projection.agentLabel,
+          description: projection.description,
+          content: projection.content,
+          policy: projection.policy,
+          approvedFieldIds: fields,
+        );
+        final envelopeFieldIds = AgentVisibilityProjector.grantPayloadFieldIds(
+          payload,
+        );
+        if (envelopeFieldIds.length != fields.length ||
+            envelopeFieldIds.indexed.any(
+              (item) => item.$2 != fields[item.$1],
+            )) {
+          throw const FormatException('Grant field projection drift');
+        }
         final envelope = await _entryV2!.sealGrant(
           organizationId: organizationId,
           vaultId: vaultId,
@@ -1901,11 +1920,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           recipientKeyVersion: grant.recipientAgentKeyVersion!,
           approvedMethods: _methodBits(grant.methods),
           deliveryPolicy: 0,
-          fieldIds: fields,
-          grantPayload: VaultPlaintextProjector.grantPayload(
-            secret,
-            fields.toSet(),
-          ),
+          fieldIds: envelopeFieldIds,
+          grantPayload: payload,
           grantEnvelopeRevision: int.parse(
             _incrementValue(
               scope.grantEnvelopeRevision,
@@ -1925,6 +1941,51 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       }
     }
     return result;
+  }
+
+  ({
+    EntryType type,
+    String agentLabel,
+    String description,
+    Map<String, dynamic> content,
+    AgentVisibilityPolicy policy,
+  })
+  _grantProjection(MemberSecret secret) {
+    final adapted = _adaptCanonicalSecret(
+      Map<String, dynamic>.from(secret.toJson()),
+    );
+    final type = EntryTypeExtension.fromWire(adapted['entryType'] as int);
+    final content = Map<String, dynamic>.from(adapted['content'] as Map);
+    if (type == EntryType.script) {
+      content['script'] = content.remove('source');
+    }
+    final custom = content.remove('customFields');
+    content['fields'] = custom is List
+        ? custom
+              .whereType<Map>()
+              .map(
+                (field) => <String, dynamic>{
+                  'id': field['id'],
+                  'label': field['label'],
+                  'type': field['kind'],
+                  'value': field['value'],
+                  'agentVisible': field['includeInMemberIndex'] == true,
+                },
+              )
+              .toList(growable: false)
+        : const <Map<String, dynamic>>[];
+    final policy = AgentVisibilityPolicy.fromJson(
+      type,
+      Map<String, dynamic>.from(adapted['agentVisibilityPolicy'] as Map),
+      content: content,
+    );
+    return (
+      type: type,
+      agentLabel: adapted['agentLabel'] as String? ?? '',
+      description: adapted['description'] as String? ?? '',
+      content: content,
+      policy: policy,
+    );
   }
 
   String _canonicalGrantFieldId(VaultEntryType type, String id) => switch ((

@@ -260,14 +260,11 @@ void main() {
       expect(totp['id'], 'credential.totp');
       expect(totp['kind'], 'totp');
       expect(totp['mode'], 'derived');
-      expect(totp['value'], {
-        'secret': 'SECRET',
-        'algorithm': 'SHA1',
-        'digits': 6,
-        'period': 30,
-        'issuer': null,
-        'account': 'example',
-      });
+      final derivedTotp = totp['value'] as Map;
+      expect(derivedTotp.keys, unorderedEquals(['code', 'expiresIn']));
+      expect(derivedTotp['code'], matches(RegExp(r'^\d{6}$')));
+      expect(derivedTotp['expiresIn'], inInclusiveRange(1, 30));
+      expect(derivedTotp, isNot(contains('secret')));
       grantKey.fillRange(0, grantKey.length, 0);
       opened.fillRange(0, opened.length, 0);
       agent.dispose();
