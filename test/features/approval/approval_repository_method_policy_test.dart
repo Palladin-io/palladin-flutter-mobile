@@ -175,4 +175,125 @@ void main() {
       },
     );
   }
+
+  test(
+    'FULL seals one Vault key wrapper, never creates a per-Entry envelope, and wipes the opened key',
+    () async {
+      final approval = _Approval();
+      final entries = _Entries();
+      final vaults = _Vaults();
+      final crypto = _Crypto();
+      final vaultKeys = _VaultKeys();
+      final canonical = _CanonicalEntries();
+      final discovery = _Discovery();
+      final openedVaultKey = Uint8List.fromList(List<int>.generate(32, (i) => i + 1));
+      const wrappedVaultKey = <String, Object?>{
+        'wrappedVaultKey': <String, Object?>{'encodedSealedKeyPackage': 'synthetic'},
+      };
+
+      when(() => vaults.getEncryptedVault(vaultId)).thenAnswer(
+        (_) async => <String, dynamic>{
+          'organizationId': '11111111-1111-4111-8111-111111111111',
+          'memberKeyGeneration': 4,
+          'currentKeyEpoch': <String, dynamic>{'vaultKeyVersion': 7},
+          'memberVaultKey': <String, dynamic>{
+            'wrappedVaultKey': <String, dynamic>{},
+          },
+        },
+      );
+      when(
+        () => vaultKeys.openMemberVaultKey(
+          any(),
+          any(),
+          expectedOrganizationId: any(named: 'expectedOrganizationId'),
+          expectedVaultId: any(named: 'expectedVaultId'),
+          expectedVaultKeyVersion: any(named: 'expectedVaultKeyVersion'),
+          expectedMemberKeyGeneration: any(named: 'expectedMemberKeyGeneration'),
+        ),
+      ).thenAnswer((_) async => openedVaultKey);
+      when(
+        () => crypto.sealAgentVaultKey(
+          vaultKey: any(named: 'vaultKey'),
+          organizationId: any(named: 'organizationId'),
+          vaultId: any(named: 'vaultId'),
+          grantId: any(named: 'grantId'),
+          agentId: any(named: 'agentId'),
+          agentAccessEpoch: any(named: 'agentAccessEpoch'),
+          vaultKeyVersion: any(named: 'vaultKeyVersion'),
+          agentPublicKey: any(named: 'agentPublicKey'),
+          recipientKeyVersion: any(named: 'recipientKeyVersion'),
+        ),
+      ).thenAnswer((_) async => wrappedVaultKey);
+      when(
+        () => approval.createFullGrant(
+          vaultId: any(named: 'vaultId'),
+          grantId: any(named: 'grantId'),
+          agentId: any(named: 'agentId'),
+          agentWrappedVaultKey: any(named: 'agentWrappedVaultKey'),
+          expiresAt: any(named: 'expiresAt'),
+          queryLimit: any(named: 'queryLimit'),
+          methods: any(named: 'methods'),
+        ),
+      ).thenAnswer((_) async => 'grant-id');
+
+      final repository = ApprovalRepositoryImpl(
+        approvalDatasource: approval,
+        entryDatasource: entries,
+        vaultDatasource: vaults,
+        cryptoService: crypto,
+        vaultKeys: vaultKeys,
+        canonicalEntries: canonical,
+        discovery: discovery,
+      );
+
+      await repository.createFullGrant(
+        vaultId: vaultId,
+        agentId: agentId,
+        agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+        recipientKeyVersion: 3,
+        agentAccessEpoch: 2,
+        privateKey: Uint8List.fromList(List<int>.filled(32, 7)),
+        limit: const GrantUseLimit(5),
+        methods: const [GrantMethod.get, GrantMethod.inject],
+      );
+
+      verify(
+        () => crypto.sealAgentVaultKey(
+          vaultKey: openedVaultKey,
+          organizationId: '11111111-1111-4111-8111-111111111111',
+          vaultId: vaultId,
+          grantId: any(named: 'grantId'),
+          agentId: agentId,
+          agentAccessEpoch: 2,
+          vaultKeyVersion: 7,
+          agentPublicKey: any(named: 'agentPublicKey'),
+          recipientKeyVersion: 3,
+        ),
+      ).called(1);
+      verify(
+        () => approval.createFullGrant(
+          vaultId: vaultId,
+          grantId: any(named: 'grantId'),
+          agentId: agentId,
+          agentWrappedVaultKey: wrappedVaultKey,
+          expiresAt: null,
+          queryLimit: 5,
+          methods: 'Get, Inject',
+        ),
+      ).called(1);
+      verifyNever(
+        () => approval.createGranularGrant(
+          vaultId: any(named: 'vaultId'),
+          entryId: any(named: 'entryId'),
+          grantId: any(named: 'grantId'),
+          agentId: any(named: 'agentId'),
+          grantEntry: any(named: 'grantEntry'),
+          expiresAt: any(named: 'expiresAt'),
+          queryLimit: any(named: 'queryLimit'),
+          methods: any(named: 'methods'),
+        ),
+      );
+      expect(openedVaultKey, everyElement(0));
+    },
+  );
 }

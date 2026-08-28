@@ -57,6 +57,37 @@ void main() {
     );
   });
 
+  test('legacy mobile GrantPayload remains a read-only compatibility vector', () {
+    final contract =
+        jsonDecode(
+              File(
+                'test/fixtures/grant-payload/v1/vectors.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+    final vector =
+        (contract['compatibilityVectors'] as List).single
+            as Map<String, dynamic>;
+    final rejectedIds = (contract['rejectedExamples'] as List)
+        .map((value) => (value as Map<String, dynamic>)['id'] as String)
+        .where((id) => id.startsWith('legacy-'))
+        .toSet();
+
+    expect(vector['producerContract'], 'flutter-mobile.legacy-grant-payload.v1');
+    expect(vector['readOnly'], isTrue);
+    expect(
+      canonicalizeVaultJson(vector['plaintext']),
+      vector['plaintextCanonical'],
+    );
+    expect((vector['plaintext'] as Map).containsKey('schema'), isFalse);
+    expect(rejectedIds, {
+      'legacy-current-hybrid',
+      'legacy-broadened-access',
+      'legacy-field-set-mismatch',
+      'legacy-missing-inject-origin',
+    });
+  });
+
   test('TOTP can only be never or derived-only', () {
     expect(
       () => AgentVisibilityPolicy.fromJson(
