@@ -122,7 +122,7 @@ class GrantsRepositoryImpl implements GrantsRepository {
 
     Uint8List? memberPrivateKey;
     var reasons = const <String, String>{};
-    var entryLabels = const <String, String>{};
+    var entryLabels = const <GrantEntryLabelTarget, String>{};
     try {
       memberPrivateKey = session.copyMemberPrivateKey();
       final reasonResolver = _reasonResolver;
@@ -156,12 +156,15 @@ class GrantsRepositoryImpl implements GrantsRepository {
       memberPrivateKey?.fillRange(0, memberPrivateKey.length, 0);
     }
     return models
-        .map(
-          (model) => model.toEntity(
+        .map((model) {
+          final entryTarget = GrantEntryLabelResolver.targetFor(model);
+          return model.toEntity(
             resolvedReason: reasons[model.id],
-            resolvedEntryLabel: entryLabels[model.id],
-          ),
-        )
+            resolvedEntryLabel: entryTarget == null
+                ? null
+                : entryLabels[entryTarget],
+          );
+        })
         .toList(growable: false);
   }
 

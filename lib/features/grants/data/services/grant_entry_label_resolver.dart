@@ -5,6 +5,13 @@ import '../../../vault/data/services/member_entry_list_service.dart';
 import '../../domain/entities/grant.dart';
 import '../models/grant_model.dart';
 
+typedef GrantEntryLabelTarget = ({
+  GrantScope scope,
+  String grantId,
+  String vaultId,
+  String entryId,
+});
+
 /// Resolves Grant Entry labels from the unlocked, runtime-only MemberIndex.
 final class GrantEntryLabelResolver {
   const GrantEntryLabelResolver({required MemberEntryListLoader entries})
@@ -12,22 +19,33 @@ final class GrantEntryLabelResolver {
 
   final MemberEntryListLoader _entries;
 
-  Future<Map<String, String>> resolve({
+  static GrantEntryLabelTarget? targetFor(GrantModel grant) {
+    final entryId = grant.entryId;
+    if (grant.type != GrantScope.granular ||
+        entryId == null ||
+        entryId.isEmpty) {
+      return null;
+    }
+    return (
+      scope: grant.type,
+      grantId: grant.id,
+      vaultId: grant.vaultId,
+      entryId: entryId,
+    );
+  }
+
+  Future<Map<GrantEntryLabelTarget, String>> resolve({
     required List<GrantModel> grants,
     required Uint8List memberPrivateKey,
   }) async {
     final grantsByVault = <String, List<GrantModel>>{};
     for (final grant in grants) {
-      final entryId = grant.entryId;
-      if (grant.type != GrantScope.granular ||
-          entryId == null ||
-          entryId.isEmpty) {
-        continue;
-      }
+      final target = targetFor(grant);
+      if (target == null) continue;
       (grantsByVault[grant.vaultId] ??= []).add(grant);
     }
 
-    final resolved = <String, String>{};
+    final resolved = <GrantEntryLabelTarget, String>{};
     for (final vault in grantsByVault.entries) {
       try {
         final index = await _entries.load(
@@ -40,8 +58,9 @@ final class GrantEntryLabelResolver {
               entry.entryId: entry.memberLabel.trim(),
         };
         for (final grant in vault.value) {
-          final label = labels[grant.entryId];
-          if (label != null) resolved[grant.id] = label;
+          final target = targetFor(grant)!;
+          final label = labels[target.entryId];
+          if (label != null) resolved[target] = label;
         }
       } catch (_) {
         AppLogger.w('Grants', 'Local Grant Entry label resolution failed');

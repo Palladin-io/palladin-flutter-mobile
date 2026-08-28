@@ -101,4 +101,77 @@ void main() {
     expect(page.grants.single.entryLabel, 'Allegro');
     session.clear();
   });
+
+  test('binds resolved labels to the complete granular Grant target', () async {
+    final remote = _Remote();
+    final entries = _Entries();
+    final session = VaultSessionStore();
+    GrantModel grant({
+      required String vaultId,
+      required GrantScope scope,
+      String? entryId,
+    }) => GrantModel(
+      id: 'colliding-grant-id',
+      vaultId: vaultId,
+      agentId: 'agent',
+      status: 'active',
+      type: scope,
+      createdAt: '2026-08-07T10:00:00Z',
+      entryId: entryId,
+    );
+    final models = [
+      grant(vaultId: 'vault-a', scope: GrantScope.granular, entryId: 'entry-a'),
+      grant(vaultId: 'vault-b', scope: GrantScope.granular, entryId: 'entry-b'),
+      grant(
+        vaultId: 'vault-full',
+        scope: GrantScope.full,
+        entryId: 'malformed-entry',
+      ),
+    ];
+    final memberPrivateKey = Uint8List.fromList(List<int>.filled(32, 7));
+    when(
+      () => remote.listOrgGrants(pageSize: 50),
+    ).thenAnswer((_) async => GrantPage(grants: models));
+    when(
+      () => entries.load(
+        vaultId: 'vault-a',
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
+    ).thenAnswer((_) async => [_memberIndexEntry('entry-a', 'Alpha')]);
+    when(
+      () => entries.load(
+        vaultId: 'vault-b',
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
+    ).thenAnswer((_) async => [_memberIndexEntry('entry-b', 'Beta')]);
+    session.setMemberPrivateKey(memberPrivateKey);
+
+    final page = await GrantsRepositoryImpl(
+      remote,
+      entryLabelResolver: GrantEntryLabelResolver(entries: entries),
+      vaultSessionStore: session,
+    ).listOrgGrants();
+
+    expect(page.grants.map((grant) => grant.entryLabel), [
+      'Alpha',
+      'Beta',
+      null,
+    ]);
+    verifyNever(
+      () => entries.load(
+        vaultId: 'vault-full',
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
+    );
+    session.clear();
+  });
 }
+
+MemberIndexEntry _memberIndexEntry(String id, String label) => MemberIndexEntry(
+  entryId: id,
+  entryType: 1,
+  memberLabel: label,
+  searchFields: const [],
+  revision: '1',
+  state: MemberEntryState.active,
+);
