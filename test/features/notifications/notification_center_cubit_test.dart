@@ -85,6 +85,64 @@ void main() {
     expect(cubit.state.pendingActionCount, 1);
   });
 
+  test('loadMore retires suppression after a complete paged traversal',
+      () async {
+    await cubit.load();
+    cubit.markResolvedLocally('n-1');
+
+    repository
+      ..items = [_pendingNotification(id: 'n-2', grantId: 'g-2')]
+      ..pendingActionCount = 2
+      ..nextCursor = 'page-2';
+    await cubit.refresh();
+
+    repository
+      ..items = const []
+      ..nextCursor = null;
+    await cubit.loadMore();
+
+    repository.pendingActionCount = 1;
+    await cubit.refreshSummary();
+
+    expect(cubit.state.pendingActionCount, 1);
+  });
+
+  test('loadMore does not retire a guard without a fresh paged traversal',
+      () async {
+    repository.nextCursor = 'page-2';
+    await cubit.load();
+    cubit.markResolvedLocally('n-1');
+
+    repository
+      ..items = const []
+      ..nextCursor = null
+      ..pendingActionCount = 1;
+    await cubit.loadMore();
+    await cubit.refreshSummary();
+
+    expect(cubit.state.pendingActionCount, 0);
+  });
+
+  test('converged feed still suppresses its concurrently stale summary',
+      () async {
+    await cubit.load();
+    cubit.markResolvedLocally('n-1');
+
+    repository
+      ..items = const []
+      ..pendingActionCount = 1;
+    await cubit.refresh();
+
+    expect(cubit.state.pendingActionCount, 0);
+
+    repository
+      ..items = [_pendingNotification(id: 'n-2', grantId: 'g-2')]
+      ..pendingActionCount = 1;
+    await cubit.refreshSummary();
+
+    expect(cubit.state.pendingActionCount, 1);
+  });
+
   test('server reconciliation restores counts for newer actions', () async {
     await cubit.load();
     cubit.markResolvedLocally('n-1');

@@ -122,12 +122,14 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   final Set<String> _markingOnView = <String>{};
   final Set<String> _locallyResolvedActionIds = <String>{};
   final Set<String> _awaitingRemoteResolutionIds = <String>{};
+  final Set<String> _awaitingPaginationResolutionIds = <String>{};
 
   /// Clears user-specific notification titles and metadata on logout.
   void reset() {
     _markingOnView.clear();
     _locallyResolvedActionIds.clear();
     _awaitingRemoteResolutionIds.clear();
+    _awaitingPaginationResolutionIds.clear();
     _activeAccountId = null;
     _activeOrganizationId = null;
     _activeVaults = const [];
@@ -262,7 +264,12 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     emit(state.copyWith(isLoadingMore: true));
     try {
       final page = await repository.list(cursor: cursor);
-      final items = _applyLocalResolutions(await _resolve(page.items));
+      final remoteItems = await _resolve(page.items);
+      _reconcilePaginationResolutions(
+        remoteItems,
+        feedIsComplete: page.nextCursor == null,
+      );
+      final items = _applyLocalResolutions(remoteItems);
       emit(
         state.copyWith(
           items: [...state.items, ...items],
@@ -340,15 +347,44 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     int remoteCount, {
     required bool feedIsComplete,
   }) {
+    // The feed and summary are fetched concurrently. Even when this feed has
+    // converged, its paired summary may still be stale, so this response must
+    // use the guard as it existed before feed reconciliation. Later summary
+    // requests use the reconciled set and can count genuinely new actions.
+    final suppressedForCurrentSummary = _awaitingRemoteResolutionIds.length;
     final remoteById = {for (final item in remoteItems) item.id: item};
-    _awaitingRemoteResolutionIds.removeWhere((id) {
+    _awaitingPaginationResolutionIds.clear();
+    for (final id in _awaitingRemoteResolutionIds.toList(growable: false)) {
       final item = remoteById[id];
-      return item == null ? feedIsComplete : !item.isOpenAction;
-    });
-    return (remoteCount - _awaitingRemoteResolutionIds.length).clamp(
-      0,
-      1 << 31,
-    );
+      if (item == null) {
+        if (feedIsComplete) {
+          _awaitingRemoteResolutionIds.remove(id);
+        } else {
+          _awaitingPaginationResolutionIds.add(id);
+        }
+      } else if (!item.isOpenAction) {
+        _awaitingRemoteResolutionIds.remove(id);
+      }
+    }
+    return (remoteCount - suppressedForCurrentSummary).clamp(0, 1 << 31);
+  }
+
+  void _reconcilePaginationResolutions(
+    List<InboxNotification> remoteItems, {
+    required bool feedIsComplete,
+  }) {
+    if (_awaitingPaginationResolutionIds.isEmpty) return;
+    final remoteById = {for (final item in remoteItems) item.id: item};
+    for (final id in _awaitingPaginationResolutionIds.toList(growable: false)) {
+      final item = remoteById[id];
+      if (item != null) {
+        _awaitingPaginationResolutionIds.remove(id);
+        if (!item.isOpenAction) _awaitingRemoteResolutionIds.remove(id);
+      } else if (feedIsComplete) {
+        _awaitingPaginationResolutionIds.remove(id);
+        _awaitingRemoteResolutionIds.remove(id);
+      }
+    }
   }
 
   Future<void> markAllRead() async {
