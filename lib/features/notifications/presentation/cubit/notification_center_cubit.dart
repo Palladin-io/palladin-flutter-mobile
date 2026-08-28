@@ -165,6 +165,8 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   }
 
   Future<void> load() async {
+    final guardedActionIds = Set<String>.of(_awaitingRemoteResolutionIds);
+    final resolvedActionIds = Set<String>.of(_locallyResolvedActionIds);
     emit(
       state.copyWith(
         status: NotificationCenterStatus.loading,
@@ -188,6 +190,8 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
           pendingActionCount: _reconcilePendingActionCount(
             remoteItems,
             summary.pendingActionCount,
+            guardedActionIds: guardedActionIds,
+            resolvedActionIds: resolvedActionIds,
             feedIsComplete: page.nextCursor == null,
           ),
           nextCursor: page.nextCursor,
@@ -213,6 +217,8 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   }
 
   Future<void> refresh() async {
+    final guardedActionIds = Set<String>.of(_awaitingRemoteResolutionIds);
+    final resolvedActionIds = Set<String>.of(_locallyResolvedActionIds);
     try {
       final results = await Future.wait<dynamic>([
         repository.list(),
@@ -230,6 +236,8 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
           pendingActionCount: _reconcilePendingActionCount(
             remoteItems,
             summary.pendingActionCount,
+            guardedActionIds: guardedActionIds,
+            resolvedActionIds: resolvedActionIds,
             feedIsComplete: page.nextCursor == null,
           ),
           nextCursor: page.nextCursor,
@@ -243,13 +251,19 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   }
 
   Future<void> refreshSummary() async {
+    final guardedActionIds = Set<String>.of(_awaitingRemoteResolutionIds);
+    final resolvedActionIds = Set<String>.of(_locallyResolvedActionIds);
     try {
       final summary = await repository.summary();
+      guardedActionIds.addAll(_awaitingRemoteResolutionIds);
+      guardedActionIds.addAll(
+        _locallyResolvedActionIds.difference(resolvedActionIds),
+      );
       emit(
         state.copyWith(
           unreadCount: summary.unreadCount,
           pendingActionCount:
-              (summary.pendingActionCount - _awaitingRemoteResolutionIds.length)
+              (summary.pendingActionCount - guardedActionIds.length)
                   .clamp(0, 1 << 31),
         ),
       );
@@ -345,13 +359,19 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   int _reconcilePendingActionCount(
     List<InboxNotification> remoteItems,
     int remoteCount, {
+    required Set<String> guardedActionIds,
+    required Set<String> resolvedActionIds,
     required bool feedIsComplete,
   }) {
     // The feed and summary are fetched concurrently. Even when this feed has
     // converged, its paired summary may still be stale, so this response must
     // use the guard as it existed before feed reconciliation. Later summary
     // requests use the reconciled set and can count genuinely new actions.
-    final suppressedForCurrentSummary = _awaitingRemoteResolutionIds.length;
+    guardedActionIds.addAll(_awaitingRemoteResolutionIds);
+    guardedActionIds.addAll(
+      _locallyResolvedActionIds.difference(resolvedActionIds),
+    );
+    final suppressedForCurrentSummary = guardedActionIds.length;
     final remoteById = {for (final item in remoteItems) item.id: item};
     _awaitingPaginationResolutionIds.clear();
     for (final id in _awaitingRemoteResolutionIds.toList(growable: false)) {

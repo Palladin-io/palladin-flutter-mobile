@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/notifications/domain/entities/inbox_notification.dart';
 import 'package:mobile_palladin/features/notifications/domain/entities/notification_preference.dart';
@@ -143,6 +145,50 @@ void main() {
     expect(cubit.state.pendingActionCount, 1);
   });
 
+  test('overlapping stale summary keeps its request-start suppression',
+      () async {
+    await cubit.load();
+    cubit.markResolvedLocally('n-1');
+
+    final staleSummary = Completer<NotificationSummary>();
+    repository.summaryResponses.add(staleSummary.future);
+    final staleRefresh = cubit.refreshSummary();
+
+    repository
+      ..items = const []
+      ..pendingActionCount = 0;
+    await cubit.refresh();
+
+    staleSummary.complete(
+      const NotificationSummary(unreadCount: 3, pendingActionCount: 1),
+    );
+    await staleRefresh;
+
+    expect(cubit.state.pendingActionCount, 0);
+  });
+
+  test('request started before local resolution cannot restore its badge',
+      () async {
+    await cubit.load();
+
+    final staleSummary = Completer<NotificationSummary>();
+    repository.summaryResponses.add(staleSummary.future);
+    final staleRefresh = cubit.refreshSummary();
+
+    cubit.markResolvedLocally('n-1');
+    repository
+      ..items = const []
+      ..pendingActionCount = 0;
+    await cubit.refresh();
+
+    staleSummary.complete(
+      const NotificationSummary(unreadCount: 3, pendingActionCount: 1),
+    );
+    await staleRefresh;
+
+    expect(cubit.state.pendingActionCount, 0);
+  });
+
   test('server reconciliation restores counts for newer actions', () async {
     await cubit.load();
     cubit.markResolvedLocally('n-1');
@@ -226,6 +272,7 @@ class _FakeRepository implements NotificationCenterRepository {
   List<InboxNotification> items = [_pendingNotification()];
   int pendingActionCount = 1;
   String? nextCursor;
+  final List<Future<NotificationSummary>> summaryResponses = [];
 
   /// Counts feed list fetches — used to prove mark-read never refetches the
   /// feed (the web request-storm root cause).
@@ -238,10 +285,13 @@ class _FakeRepository implements NotificationCenterRepository {
   }
 
   @override
-  Future<NotificationSummary> summary() async => NotificationSummary(
-    unreadCount: 3,
-    pendingActionCount: pendingActionCount,
-  );
+  Future<NotificationSummary> summary() async {
+    if (summaryResponses.isNotEmpty) return summaryResponses.removeAt(0);
+    return NotificationSummary(
+      unreadCount: 3,
+      pendingActionCount: pendingActionCount,
+    );
+  }
 
   @override
   Future<void> markRead(String id) async => markedRead.add(id);
