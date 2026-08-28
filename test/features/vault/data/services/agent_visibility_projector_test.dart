@@ -91,6 +91,7 @@ void main() {
         'legacy-broadened-access',
         'legacy-field-set-mismatch',
         'legacy-missing-inject-origin',
+        'legacy-unsupported-method',
       });
     },
   );
@@ -239,6 +240,7 @@ void main() {
     );
 
     final fieldIds = AgentVisibilityProjector.grantableFieldIds(
+      type: EntryType.key,
       agentLabel: 'API key',
       description: '',
       content: {'value': 'secret', 'notes': null},
@@ -268,30 +270,108 @@ void main() {
     ]);
   });
 
-  test('grant payload maps an authorized description as a built-in field', () {
-    final policy = AgentVisibilityPolicy.fromJson(EntryType.key, {
-      'discoverable': true,
-      'fields': {'agentLabel': 'discovery', 'description': 'onGrantValue'},
-    }, content: const {});
+  test('description remains discovery-only and cannot enter a Grant', () {
+    expect(
+      () => AgentVisibilityPolicy.fromJson(EntryType.key, {
+        'discoverable': true,
+        'fields': {'agentLabel': 'discovery', 'description': 'onGrantValue'},
+      }, content: const {}),
+      throwsFormatException,
+    );
+  });
+
+  test('notes use the namespaced public contract id', () {
+    final policy = AgentVisibilityPolicy.fromJson(
+      EntryType.key,
+      {
+        'discoverable': true,
+        'fields': {'agentLabel': 'discovery', 'notes': 'onGrantValue'},
+      },
+      content: const {'notes': 'Synthetic note'},
+    );
 
     final payload = AgentVisibilityProjector.grantPayload(
       type: EntryType.key,
       vaultId: '11112222-3333-4444-8555-666677778888',
       agentLabel: 'API key',
-      description: 'Synthetic description',
-      content: const {},
+      description: '',
+      content: const {'notes': 'Synthetic note'},
       policy: policy,
-      approvedFieldIds: const ['description'],
+      approvedFieldIds: const ['notes'],
     );
 
     expect(payload['fields'], [
       {
-        'id': 'description',
-        'kind': 'text',
+        'id': 'key.notes',
+        'kind': 'multiline',
         'mode': 'value',
-        'value': 'Synthetic description',
+        'value': 'Synthetic note',
       },
     ]);
+  });
+
+  test('TOTP grants contain only a short-lived derived code', () {
+    const rawTotp =
+        'otpauth://totp/Example:alice?secret=JBSWY3DPEHPK3PXP&issuer=Example';
+    final policy = AgentVisibilityPolicy.fromJson(
+      EntryType.credential,
+      {
+        'discoverable': true,
+        'fields': {'agentLabel': 'discovery', 'totp': 'onGrantDerived'},
+      },
+      content: const {'totp': rawTotp},
+    );
+
+    final payload = AgentVisibilityProjector.grantPayload(
+      type: EntryType.credential,
+      vaultId: '11112222-3333-4444-8555-666677778888',
+      agentLabel: 'Account',
+      description: '',
+      content: const {'totp': rawTotp},
+      policy: policy,
+      approvedFieldIds: const ['totp'],
+      now: DateTime.fromMillisecondsSinceEpoch(59000, isUtc: true),
+    );
+
+    final value = (payload['fields'] as List).single['value'] as Map;
+    expect(value.keys.toSet(), {'code', 'expiresIn'});
+    expect(value['code'], matches(RegExp(r'^\d{6}$')));
+    expect(value['expiresIn'], 1);
+    expect(value.toString(), isNot(contains('JBSWY3DPEHPK3PXP')));
+  });
+
+  test('disabled credit-card preview cannot produce GrantPayload v1', () {
+    final policy = AgentVisibilityPolicy.fromJson(
+      EntryType.creditCard,
+      {
+        'discoverable': true,
+        'fields': {'agentLabel': 'discovery', 'cardNumber': 'onGrantRuntime'},
+      },
+      content: const {'cardNumber': '4242424242424242'},
+    );
+
+    expect(
+      AgentVisibilityProjector.grantableFieldIds(
+        type: EntryType.creditCard,
+        agentLabel: 'Card',
+        description: '',
+        content: const {'cardNumber': '4242424242424242'},
+        policy: policy,
+      ),
+      isEmpty,
+    );
+    expect(
+      () => AgentVisibilityProjector.grantPayload(
+        type: EntryType.creditCard,
+        vaultId: '11112222-3333-4444-8555-666677778888',
+        agentLabel: 'Card',
+        description: '',
+        content: const {'cardNumber': '4242424242424242'},
+        policy: policy,
+        approvedFieldIds: const ['cardNumber'],
+      ),
+      throwsFormatException,
+    );
   });
 
   test('grant payload defaults a legacy Script ref to its current vault', () {
@@ -337,6 +417,53 @@ void main() {
         'vaultId': vaultId,
         'entryId': 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
         'fieldId': 'credential.password',
+      },
+    ]);
+  });
+
+  test('Script ref preserves an explicit Key URL field identity', () {
+    const vaultId = '11112222-3333-4444-8555-666677778888';
+    final policy = AgentVisibilityPolicy.fromJson(
+      EntryType.script,
+      {
+        'discoverable': true,
+        'fields': {'agentLabel': 'discovery', 'refs': 'onGrantRuntime'},
+      },
+      content: const {
+        'refs': [
+          {
+            'env': 'SERVICE_URL',
+            'entryId': 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+            'field': 'key.url',
+          },
+        ],
+      },
+    );
+
+    final payload = AgentVisibilityProjector.grantPayload(
+      type: EntryType.script,
+      vaultId: vaultId,
+      agentLabel: 'Deploy',
+      description: '',
+      content: const {
+        'refs': [
+          {
+            'env': 'SERVICE_URL',
+            'entryId': 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+            'field': 'key.url',
+          },
+        ],
+      },
+      policy: policy,
+      approvedFieldIds: const ['refs'],
+    );
+
+    expect((payload['fields'] as List).single['value'], [
+      {
+        'env': 'SERVICE_URL',
+        'vaultId': vaultId,
+        'entryId': 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+        'fieldId': 'key.url',
       },
     ]);
   });

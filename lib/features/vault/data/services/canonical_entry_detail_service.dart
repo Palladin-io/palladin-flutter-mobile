@@ -598,6 +598,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       final id = switch (field.key as String) {
         'memberLabel' || 'icon' || 'color' || 'entryType' => null,
         'key.value' => 'value',
+        'key.url' => 'url',
+        'key.notes' => 'notes',
+        'credential.notes' => 'notes',
+        'script.notes' => 'notes',
         'credential.username' => 'username',
         'credential.password' => 'password',
         'credential.url' => 'url',
@@ -1709,6 +1713,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     final body = switch (type) {
       EntryType.key => KeySecretContent(
         value: content['value'] as String,
+        url: content['url'] as String?,
         notes: content['notes'] as String?,
         customFields: custom,
       ),
@@ -1742,8 +1747,11 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         customFields: custom,
       ),
     };
-    String canonicalId(String id) => switch ((type, id)) {
+    String? canonicalId(String id) => switch ((type, id)) {
       (EntryType.key, 'value') => 'key.value',
+      (EntryType.key, 'url') when content['url'] != null => 'key.url',
+      (EntryType.key, 'url') => null,
+      (EntryType.key, 'notes') => 'notes',
       (EntryType.credential, 'username') => 'credential.username',
       (EntryType.credential, 'password') => 'credential.password',
       (EntryType.credential, 'url') => 'credential.url',
@@ -1766,10 +1774,6 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       _ => id,
     };
     final access = <String, AgentFieldAccess>{
-      for (final item in policy.fields.entries)
-        canonicalId(item.key): AgentFieldAccess.values.byName(
-          item.value.wireName,
-        ),
       'memberLabel': AgentFieldAccess.never,
       'icon': AgentFieldAccess.never,
       'color': AgentFieldAccess.never,
@@ -1777,6 +1781,12 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       'agentLabel': AgentFieldAccess.discovery,
       'description': AgentFieldAccess.never,
     };
+    for (final item in policy.fields.entries) {
+      final id = canonicalId(item.key);
+      if (id != null) {
+        access[id] = AgentFieldAccess.values.byName(item.value.wireName);
+      }
+    }
     for (final id in body.fieldValues().keys) {
       access.putIfAbsent(
         id,
@@ -1922,6 +1932,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     id,
   )) {
     (VaultEntryType.key, 'value') => 'key.value',
+    (VaultEntryType.key, 'url') => 'key.url',
+    (VaultEntryType.key, 'notes') => 'key.notes',
     (VaultEntryType.credential, 'username') => 'credential.username',
     (VaultEntryType.credential, 'password') => 'credential.password',
     (VaultEntryType.credential, 'url') => 'credential.url',

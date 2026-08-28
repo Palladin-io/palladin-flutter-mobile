@@ -145,6 +145,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           snapshot.secret['memberLabel'] as String;
       final description = snapshot.secret['description'] as String? ?? '';
       final grantableFieldIds = AgentVisibilityProjector.grantableFieldIds(
+        type: type,
         agentLabel: agentLabel,
         description: description,
         content: snapshot.payload,
@@ -385,6 +386,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           content: snapshot.payload,
         );
         final approved = AgentVisibilityProjector.grantableFieldIds(
+          type: type,
           agentLabel:
               snapshot.secret['agentLabel'] as String? ??
               snapshot.secret['memberLabel'] as String,

@@ -6,6 +6,7 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:mobile_palladin/features/approval/data/datasources/approval_remote_datasource.dart';
 import 'package:mobile_palladin/features/approval/data/repositories/approval_repository_impl.dart';
+import 'package:mobile_palladin/features/approval/domain/exceptions/approval_exceptions.dart';
 import 'package:mobile_palladin/features/approval/domain/repositories/approval_repository.dart';
 import 'package:mobile_palladin/features/grants/domain/entities/grant_method.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/agent_discovery_remote_datasource.dart';
@@ -158,7 +159,7 @@ void main() {
           canonicalEntries: canonical,
           discovery: discovery,
         );
-        await repository.createGranularGrant(
+        final create = repository.createGranularGrant(
           vaultId: vaultId,
           entryId: entryId,
           agentId: agentId,
@@ -169,6 +170,43 @@ void main() {
           limit: const GrantLifetime(),
           methods: const [GrantMethod.get, GrantMethod.exec],
         );
+
+        if (fixture.type == EntryType.creditCard) {
+          await expectLater(
+            create,
+            throwsA(
+              isA<ApprovalException>().having(
+                (error) => error.kind,
+                'kind',
+                ApprovalErrorKind.cryptoFailure,
+              ),
+            ),
+          );
+          verifyNever(
+            () => crypto.sealGrant(
+              organizationId: any(named: 'organizationId'),
+              vaultId: any(named: 'vaultId'),
+              entryId: any(named: 'entryId'),
+              grantId: any(named: 'grantId'),
+              agentId: any(named: 'agentId'),
+              entryRevision: any(named: 'entryRevision'),
+              memberKeyGeneration: any(named: 'memberKeyGeneration'),
+              agentPublicKey: any(named: 'agentPublicKey'),
+              recipientKeyVersion: any(named: 'recipientKeyVersion'),
+              approvedMethods: any(named: 'approvedMethods'),
+              deliveryPolicy: any(named: 'deliveryPolicy'),
+              fieldIds: any(named: 'fieldIds'),
+              grantPayload: any(named: 'grantPayload'),
+              grantEnvelopeRevision: any(named: 'grantEnvelopeRevision'),
+              grantKeyVersion: any(named: 'grantKeyVersion'),
+              expiresAt: any(named: 'expiresAt'),
+              remainingUses: any(named: 'remainingUses'),
+            ),
+          );
+          return;
+        }
+
+        await create;
 
         expect(approvedMethods, 3);
         expect(deliveryPolicy, fixture.type.deliveryPolicyCode());
@@ -186,9 +224,13 @@ void main() {
       final vaultKeys = _VaultKeys();
       final canonical = _CanonicalEntries();
       final discovery = _Discovery();
-      final openedVaultKey = Uint8List.fromList(List<int>.generate(32, (i) => i + 1));
+      final openedVaultKey = Uint8List.fromList(
+        List<int>.generate(32, (i) => i + 1),
+      );
       const wrappedVaultKey = <String, Object?>{
-        'wrappedVaultKey': <String, Object?>{'encodedSealedKeyPackage': 'synthetic'},
+        'wrappedVaultKey': <String, Object?>{
+          'encodedSealedKeyPackage': 'synthetic',
+        },
       };
 
       when(() => vaults.getEncryptedVault(vaultId)).thenAnswer(
@@ -208,7 +250,9 @@ void main() {
           expectedOrganizationId: any(named: 'expectedOrganizationId'),
           expectedVaultId: any(named: 'expectedVaultId'),
           expectedVaultKeyVersion: any(named: 'expectedVaultKeyVersion'),
-          expectedMemberKeyGeneration: any(named: 'expectedMemberKeyGeneration'),
+          expectedMemberKeyGeneration: any(
+            named: 'expectedMemberKeyGeneration',
+          ),
         ),
       ).thenAnswer((_) async => openedVaultKey);
       when(

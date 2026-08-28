@@ -28,17 +28,14 @@ void main() {
     expect(payload.containsKey('pin'), isFalse);
     expect(payload['type'], 'CREDIT_CARD');
   });
-  test(
-    'Key payload never accepts a URL outside the frozen canonical schema',
-    () {
-      final payload = EntryFormUtils.buildPayload(
-        type: EntryType.key,
-        value: 'secret',
-        url: 'https://example.com',
-      );
-      expect(payload.containsKey('url'), isFalse);
-    },
-  );
+  test('Key payload accepts the canonical optional URL', () {
+    final payload = EntryFormUtils.buildPayload(
+      type: EntryType.key,
+      value: 'secret',
+      url: 'https://example.com',
+    );
+    expect(payload['url'], 'https://example.com');
+  });
   group('EntryFormUtils.isValidUrl', () {
     test('accepts empty input (URL is optional)', () {
       expect(EntryFormUtils.isValidUrl(''), isTrue);
@@ -143,7 +140,7 @@ void main() {
   });
 
   group('EntryFormUtils.buildPayload', () {
-    test('key payload uses value and notes but omits unsupported URL', () {
+    test('key payload uses value, URL, and notes', () {
       final json = EntryFormUtils.buildPayload(
         type: EntryType.key,
         value: '  sk_live_x  ',
@@ -154,7 +151,7 @@ void main() {
       );
       expect(json['type'], 'KEY');
       expect(json['value'], 'sk_live_x');
-      expect(json.containsKey('url'), isFalse);
+      expect(json['url'], 'https://stripe.com');
       expect(json['notes'], 'remember to rotate');
     });
 
