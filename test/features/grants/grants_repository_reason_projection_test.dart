@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -228,6 +229,72 @@ void main() {
       );
     },
   );
+
+  test('loads independent Vault labels with bounded concurrency', () async {
+    final remote = _Remote();
+    final entries = _Entries();
+    final session = VaultSessionStore();
+    final models = List.generate(
+      5,
+      (index) => GrantModel(
+        id: 'grant-$index',
+        vaultId: 'vault-$index',
+        agentId: 'agent',
+        status: 'active',
+        type: GrantScope.granular,
+        createdAt: '2026-08-07T10:00:00Z',
+        entryId: 'entry-$index',
+      ),
+    );
+    final pending = {
+      for (var index = 0; index < models.length; index++)
+        'vault-$index': Completer<List<MemberIndexEntry>>(),
+    };
+    final started = <String>[];
+    when(
+      () => remote.listOrgGrants(pageSize: 50),
+    ).thenAnswer((_) async => GrantPage(grants: models));
+    when(
+      () => entries.load(
+        vaultId: any(named: 'vaultId'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
+    ).thenAnswer((invocation) {
+      final vaultId = invocation.namedArguments[#vaultId]! as String;
+      started.add(vaultId);
+      return pending[vaultId]!.future;
+    });
+    session.setMemberPrivateKey(Uint8List(32));
+
+    final pageFuture = GrantsRepositoryImpl(
+      remote,
+      entryLabelResolver: GrantEntryLabelResolver(entries: entries),
+      vaultSessionStore: session,
+    ).listOrgGrants();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(started, ['vault-0', 'vault-1', 'vault-2', 'vault-3']);
+
+    pending['vault-0']!.complete([_memberIndexEntry('entry-0', 'Entry 0')]);
+    await Future<void>.delayed(Duration.zero);
+    expect(started, [
+      ...List.generate(4, (index) => 'vault-$index'),
+      'vault-4',
+    ]);
+
+    for (var index = 1; index < models.length; index++) {
+      pending['vault-$index']!.complete([
+        _memberIndexEntry('entry-$index', 'Entry $index'),
+      ]);
+    }
+    final page = await pageFuture;
+
+    expect(
+      page.grants.map((grant) => grant.entryLabel),
+      List.generate(models.length, (index) => 'Entry $index'),
+    );
+    session.clear();
+  });
 }
 
 MemberIndexEntry _memberIndexEntry(String id, String label) => MemberIndexEntry(

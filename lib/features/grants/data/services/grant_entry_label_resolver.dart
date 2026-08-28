@@ -17,6 +17,8 @@ final class GrantEntryLabelResolver {
   const GrantEntryLabelResolver({required MemberEntryListLoader entries})
     : _entries = entries;
 
+  static const _maxConcurrentVaultLoads = 4;
+
   final MemberEntryListLoader _entries;
 
   static GrantEntryLabelTarget? targetFor(GrantModel grant) {
@@ -46,38 +48,56 @@ final class GrantEntryLabelResolver {
       (grantsByVault[grant.vaultId] ??= []).add(grant);
     }
 
+    final vaults = grantsByVault.entries.toList(growable: false);
     final resolved = <GrantEntryLabelTarget, String>{};
-    for (final vault in grantsByVault.entries) {
-      if (!isSessionCurrent()) {
-        throw const _GrantEntryLabelResolutionInvalidated();
-      }
-      try {
-        final index = await _entries.load(
-          vaultId: vault.key,
-          memberPrivateKey: memberPrivateKey,
-        );
-        if (!isSessionCurrent()) {
+    var nextVaultIndex = 0;
+    var invalidated = false;
+
+    Future<void> resolveVaults() async {
+      while (true) {
+        if (invalidated || !isSessionCurrent()) {
+          invalidated = true;
           throw const _GrantEntryLabelResolutionInvalidated();
         }
-        final labels = {
-          for (final entry in index)
-            if (!entry.corrupt && entry.memberLabel.trim().isNotEmpty)
-              entry.entryId: entry.memberLabel.trim(),
-        };
-        for (final grant in vault.value) {
-          final target = targetFor(grant)!;
-          final label = labels[target.entryId];
-          if (label != null) resolved[target] = label;
+        final vaultIndex = nextVaultIndex;
+        if (vaultIndex >= vaults.length) return;
+        nextVaultIndex++;
+        final vault = vaults[vaultIndex];
+        try {
+          final index = await _entries.load(
+            vaultId: vault.key,
+            memberPrivateKey: memberPrivateKey,
+          );
+          if (!isSessionCurrent()) {
+            throw const _GrantEntryLabelResolutionInvalidated();
+          }
+          final labels = {
+            for (final entry in index)
+              if (!entry.corrupt && entry.memberLabel.trim().isNotEmpty)
+                entry.entryId: entry.memberLabel.trim(),
+          };
+          for (final grant in vault.value) {
+            final target = targetFor(grant)!;
+            final label = labels[target.entryId];
+            if (label != null) resolved[target] = label;
+          }
+        } on _GrantEntryLabelResolutionInvalidated {
+          invalidated = true;
+          rethrow;
+        } catch (_) {
+          if (!isSessionCurrent()) {
+            invalidated = true;
+            throw const _GrantEntryLabelResolutionInvalidated();
+          }
+          AppLogger.w('Grants', 'Local Grant Entry label resolution failed');
         }
-      } on _GrantEntryLabelResolutionInvalidated {
-        rethrow;
-      } catch (_) {
-        if (!isSessionCurrent()) {
-          throw const _GrantEntryLabelResolutionInvalidated();
-        }
-        AppLogger.w('Grants', 'Local Grant Entry label resolution failed');
       }
     }
+
+    final workerCount = vaults.length < _maxConcurrentVaultLoads
+        ? vaults.length
+        : _maxConcurrentVaultLoads;
+    await Future.wait(List.generate(workerCount, (_) => resolveVaults()));
     return Map.unmodifiable(resolved);
   }
 }

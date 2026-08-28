@@ -21,6 +21,8 @@ Org-wide grant history feed + per-context grants tab (vault / entry / agent).
   the structural grant row visible with the localized unknown-Entry fallback.
   A monotonic Member-key session guard aborts multi-Vault resolution and drops
   every plaintext projection when the app locks or replaces the Member key.
+  Independent Vault indexes load through a bounded four-worker pool so an
+  org-wide page does not serialize one synchronization round trip per Vault.
 - **Server-authoritative history footers:** `Grant` carries `canRevoke`,
   `canGrantAgain`, and `activeCoveringGrantIds`. Active cards revoke; terminal
   expired/consumed/denied/revoked cards re-grant when allowed. Coverage-blocked
