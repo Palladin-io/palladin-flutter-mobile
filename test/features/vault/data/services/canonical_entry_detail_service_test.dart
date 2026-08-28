@@ -632,16 +632,23 @@ void main() {
       expect(envelope['grantEnvelopeRevision'], '5');
       expect(envelope['grantKeyVersion'], 6);
       expect(envelope['remainingUses'], 8);
-      expect(envelope['fieldIds'], ['password']);
+      expect(envelope['fieldIds'], ['credential.password']);
       final encryptedGrant = envelopes.encrypted.singleWhere(
         (value) => value.profile == VaultAadProfile.grantPayload,
       );
       final payload = jsonDecode(utf8.decode(encryptedGrant.plaintext)) as Map;
-      expect((payload['fields'] as Map)['password'], {
-        'access': 'onGrantValue',
-        'value': 'new-secret',
+      expect(payload, {
+        'schema': 'palladin.grant-payload.v1',
+        'entryType': 'credential',
+        'fields': [
+          {
+            'id': 'credential.password',
+            'kind': 'concealed',
+            'mode': 'value',
+            'value': 'new-secret',
+          },
+        ],
       });
-      expect((payload['fields'] as Map).containsKey('notes'), isFalse);
     },
   );
 }

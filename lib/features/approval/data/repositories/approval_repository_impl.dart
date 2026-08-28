@@ -176,6 +176,9 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         policy: policy,
         approvedFieldIds: approvedFieldIds,
       );
+      final envelopeFieldIds = AgentVisibilityProjector.grantPayloadFieldIds(
+        grantPayload,
+      );
       final recipientKey = VaultProtocolBytes.base64Decode(
         candidate.x25519PublicKey,
         maximumBytes: 32,
@@ -196,7 +199,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         agentPublicKey: Uint8List.fromList(recipientKey),
         approvedMethods: approvedMethods,
         deliveryPolicy: type.deliveryPolicyCode(),
-        fieldIds: approvedFieldIds,
+        fieldIds: envelopeFieldIds,
         grantPayload: grantPayload,
         expiresAt: wire.expiresAt == null
             ? null
@@ -380,10 +383,14 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           ),
           content: snapshot.payload,
         );
-        final approved = policy.fields.entries
-            .where((item) => item.value != AgentFieldAccess.never)
-            .map((item) => item.key)
-            .toList(growable: false);
+        final approved = AgentVisibilityProjector.grantableFieldIds(
+          agentLabel:
+              snapshot.secret['agentLabel'] as String? ??
+              snapshot.secret['memberLabel'] as String,
+          description: snapshot.secret['description'] as String? ?? '',
+          content: snapshot.payload,
+          policy: policy,
+        );
         final payload = AgentVisibilityProjector.grantPayload(
           type: type,
           agentLabel:
@@ -393,6 +400,9 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           content: snapshot.payload,
           policy: policy,
           approvedFieldIds: approved,
+        );
+        final envelopeFieldIds = AgentVisibilityProjector.grantPayloadFieldIds(
+          payload,
         );
         final envelope = await _crypto.sealGrant(
           organizationId: snapshot.entry['organizationId'] as String,
@@ -406,7 +416,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           recipientKeyVersion: recipientKeyVersion,
           approvedMethods: methodBits,
           deliveryPolicy: type.deliveryPolicyCode(),
-          fieldIds: approved,
+          fieldIds: envelopeFieldIds,
           grantPayload: payload,
           expiresAt: wire.expiresAt == null
               ? null

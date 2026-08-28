@@ -2010,6 +2010,9 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         policy: policy,
         approvedFieldIds: approvedFieldIds,
       );
+      final envelopeFieldIds = AgentVisibilityProjector.grantPayloadFieldIds(
+        payload,
+      );
       plaintext = VaultProtocolBytes.utf8Encode(canonicalizeVaultJson(payload));
       grantKey = await _envelopes.randomKey();
       final context = <String, Object?>{
@@ -2064,7 +2067,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         'agentWrappedGrantDek': VaultProtocolBytes.base64UrlEncode(wrappedKey),
         'agentWrapperSuite': 1,
         'agentKeyFingerprint': fingerprintWire,
-        'fieldIds': approvedFieldIds,
+        'fieldIds': envelopeFieldIds,
         'expiresAt': ?expiresAt,
         'remainingUses': ?remainingUses,
       };

@@ -203,7 +203,7 @@ void main() {
       expect(first['entryRevision'], '9');
       expect(first['remainingUses'], 5);
       expect(first.containsKey('expiresAt'), isFalse);
-      expect(first['fieldIds'], ['totp']);
+      expect(first['fieldIds'], ['credential.totp']);
       expect(
         first['agentWrappedGrantDek'],
         isNot(second['agentWrappedGrantDek']),
@@ -252,9 +252,22 @@ void main() {
         ),
       );
       final payload = jsonDecode(utf8.decode(opened)) as Map<String, dynamic>;
-      final totp = (payload['fields'] as Map)['totp'] as Map;
-      expect(totp['access'], 'onGrantDerived');
-      expect(totp['value'], contains('secret=SECRET'));
+      expect(payload['schema'], 'palladin.grant-payload.v1');
+      expect(payload['entryType'], 'credential');
+      final fields = payload['fields'] as List;
+      expect(fields, hasLength(1));
+      final totp = fields.single as Map;
+      expect(totp['id'], 'credential.totp');
+      expect(totp['kind'], 'totp');
+      expect(totp['mode'], 'derived');
+      expect(totp['value'], {
+        'secret': 'SECRET',
+        'algorithm': 'SHA1',
+        'digits': 6,
+        'period': 30,
+        'issuer': null,
+        'account': 'example',
+      });
       grantKey.fillRange(0, grantKey.length, 0);
       opened.fillRange(0, opened.length, 0);
       agent.dispose();

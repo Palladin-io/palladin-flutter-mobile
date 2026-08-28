@@ -1,10 +1,62 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mobile_palladin/features/vault/data/services/agent_visibility_projector.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/agent_visibility_policy.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 
 void main() {
+  test('grant payload matches the public cross-client contract bytes', () {
+    final contract =
+        jsonDecode(
+              File(
+                'test/fixtures/grant-payload/v1/vectors.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+    final vector = (contract['vectors'] as List).single as Map<String, dynamic>;
+    final policy = AgentVisibilityPolicy.fromJson(
+      EntryType.credential,
+      {
+        'discoverable': true,
+        'fields': {
+          'agentLabel': 'discovery',
+          'username': 'onGrantValue',
+          'password': 'onGrantValue',
+          'url': 'onGrantValue',
+        },
+      },
+      content: {
+        'username': 'synthetic-user',
+        'password': 'synthetic-secret',
+        'url': 'https://example.test/login',
+      },
+    );
+
+    final payload = AgentVisibilityProjector.grantPayload(
+      type: EntryType.credential,
+      agentLabel: 'Example',
+      description: '',
+      content: const {
+        'username': 'synthetic-user',
+        'password': 'synthetic-secret',
+        'url': 'https://example.test/login',
+      },
+      policy: policy,
+      approvedFieldIds: const ['username', 'password', 'url'],
+    );
+
+    expect(canonicalizeVaultJson(payload), vector['plaintextCanonical']);
+    expect(payload, vector['plaintext']);
+    expect(
+      AgentVisibilityProjector.grantPayloadFieldIds(payload),
+      vector['fieldIds'],
+    );
+  });
+
   test('TOTP can only be never or derived-only', () {
     expect(
       () => AgentVisibilityPolicy.fromJson(
@@ -163,6 +215,16 @@ void main() {
     );
 
     expect(fieldIds, ['value']);
-    expect((payload['fields'] as Map).keys, ['value']);
+    expect(payload['fields'], [
+      {
+        'id': 'key.value',
+        'kind': 'concealed',
+        'mode': 'value',
+        'value': 'secret',
+      },
+    ]);
+    expect(AgentVisibilityProjector.grantPayloadFieldIds(payload), [
+      'key.value',
+    ]);
   });
 }
