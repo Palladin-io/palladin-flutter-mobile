@@ -2004,6 +2004,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       }
       final payload = AgentVisibilityProjector.grantPayload(
         type: type,
+        vaultId: grant.vaultId,
         agentLabel: agentLabel,
         description: description,
         content: content,

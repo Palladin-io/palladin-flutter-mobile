@@ -38,6 +38,7 @@ void main() {
 
     final payload = AgentVisibilityProjector.grantPayload(
       type: EntryType.credential,
+      vaultId: '11112222-3333-4444-8555-666677778888',
       agentLabel: 'Example',
       description: '',
       content: const {
@@ -57,36 +58,42 @@ void main() {
     );
   });
 
-  test('legacy mobile GrantPayload remains a read-only compatibility vector', () {
-    final contract =
-        jsonDecode(
-              File(
-                'test/fixtures/grant-payload/v1/vectors.json',
-              ).readAsStringSync(),
-            )
-            as Map<String, dynamic>;
-    final vector =
-        (contract['compatibilityVectors'] as List).single
-            as Map<String, dynamic>;
-    final rejectedIds = (contract['rejectedExamples'] as List)
-        .map((value) => (value as Map<String, dynamic>)['id'] as String)
-        .where((id) => id.startsWith('legacy-'))
-        .toSet();
+  test(
+    'legacy mobile GrantPayload remains a read-only compatibility vector',
+    () {
+      final contract =
+          jsonDecode(
+                File(
+                  'test/fixtures/grant-payload/v1/vectors.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      final vector =
+          (contract['compatibilityVectors'] as List).single
+              as Map<String, dynamic>;
+      final rejectedIds = (contract['rejectedExamples'] as List)
+          .map((value) => (value as Map<String, dynamic>)['id'] as String)
+          .where((id) => id.startsWith('legacy-'))
+          .toSet();
 
-    expect(vector['producerContract'], 'flutter-mobile.legacy-grant-payload.v1');
-    expect(vector['readOnly'], isTrue);
-    expect(
-      canonicalizeVaultJson(vector['plaintext']),
-      vector['plaintextCanonical'],
-    );
-    expect((vector['plaintext'] as Map).containsKey('schema'), isFalse);
-    expect(rejectedIds, {
-      'legacy-current-hybrid',
-      'legacy-broadened-access',
-      'legacy-field-set-mismatch',
-      'legacy-missing-inject-origin',
-    });
-  });
+      expect(
+        vector['producerContract'],
+        'flutter-mobile.legacy-grant-payload.v1',
+      );
+      expect(vector['readOnly'], isTrue);
+      expect(
+        canonicalizeVaultJson(vector['plaintext']),
+        vector['plaintextCanonical'],
+      );
+      expect((vector['plaintext'] as Map).containsKey('schema'), isFalse);
+      expect(rejectedIds, {
+        'legacy-current-hybrid',
+        'legacy-broadened-access',
+        'legacy-field-set-mismatch',
+        'legacy-missing-inject-origin',
+      });
+    },
+  );
 
   test('TOTP can only be never or derived-only', () {
     expect(
@@ -174,6 +181,7 @@ void main() {
     expect(
       () => AgentVisibilityProjector.grantPayload(
         type: EntryType.credential,
+        vaultId: '11112222-3333-4444-8555-666677778888',
         agentLabel: 'Account',
         description: '',
         content: {'password': 'secret'},
@@ -238,6 +246,7 @@ void main() {
     );
     final payload = AgentVisibilityProjector.grantPayload(
       type: EntryType.key,
+      vaultId: '11112222-3333-4444-8555-666677778888',
       agentLabel: 'API key',
       description: '',
       content: {'value': 'secret', 'notes': null},
@@ -256,6 +265,79 @@ void main() {
     ]);
     expect(AgentVisibilityProjector.grantPayloadFieldIds(payload), [
       'key.value',
+    ]);
+  });
+
+  test('grant payload maps an authorized description as a built-in field', () {
+    final policy = AgentVisibilityPolicy.fromJson(EntryType.key, {
+      'discoverable': true,
+      'fields': {'agentLabel': 'discovery', 'description': 'onGrantValue'},
+    }, content: const {});
+
+    final payload = AgentVisibilityProjector.grantPayload(
+      type: EntryType.key,
+      vaultId: '11112222-3333-4444-8555-666677778888',
+      agentLabel: 'API key',
+      description: 'Synthetic description',
+      content: const {},
+      policy: policy,
+      approvedFieldIds: const ['description'],
+    );
+
+    expect(payload['fields'], [
+      {
+        'id': 'description',
+        'kind': 'text',
+        'mode': 'value',
+        'value': 'Synthetic description',
+      },
+    ]);
+  });
+
+  test('grant payload defaults a legacy Script ref to its current vault', () {
+    const vaultId = '11112222-3333-4444-8555-666677778888';
+    final policy = AgentVisibilityPolicy.fromJson(
+      EntryType.script,
+      {
+        'discoverable': true,
+        'fields': {'agentLabel': 'discovery', 'refs': 'onGrantRuntime'},
+      },
+      content: const {
+        'refs': [
+          {
+            'env': 'PASSWORD',
+            'entryId': 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+            'field': 'password',
+          },
+        ],
+      },
+    );
+
+    final payload = AgentVisibilityProjector.grantPayload(
+      type: EntryType.script,
+      vaultId: vaultId,
+      agentLabel: 'Deploy',
+      description: '',
+      content: const {
+        'refs': [
+          {
+            'env': 'PASSWORD',
+            'entryId': 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+            'field': 'password',
+          },
+        ],
+      },
+      policy: policy,
+      approvedFieldIds: const ['refs'],
+    );
+
+    expect((payload['fields'] as List).single['value'], [
+      {
+        'env': 'PASSWORD',
+        'vaultId': vaultId,
+        'entryId': 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+        'fieldId': 'credential.password',
+      },
     ]);
   });
 }

@@ -73,6 +73,7 @@ abstract final class AgentVisibilityProjector {
   /// Builds a payload for an existing grant scope without widening policy.
   static Map<String, dynamic> grantPayload({
     required EntryType type,
+    required String vaultId,
     required String agentLabel,
     required String description,
     required Map<String, dynamic> content,
@@ -111,7 +112,7 @@ abstract final class AgentVisibilityProjector {
           AgentFieldAccess.onGrantRuntime => 'runtime',
           _ => throw const FormatException('Grant field mode is invalid'),
         },
-        'value': _grantValue(descriptor, value),
+        'value': _grantValue(descriptor, value, vaultId),
       });
     }
     if (fields.isEmpty) throw const FormatException('Grant scope is empty');
@@ -126,9 +127,12 @@ abstract final class AgentVisibilityProjector {
     };
   }
 
-  /// Returns the exact field ids authenticated in the Grant envelope.
-  /// These ids are derived from the already-projected production payload so
-  /// the AAD binding cannot drift from the encrypted plaintext contract.
+  /// Returns the exact field ids submitted with the Grant scope.
+  ///
+  /// Vault Protocol 2 carries this list structurally but does not bind it into
+  /// the Grant payload AAD. Deriving it from the completed plaintext still
+  /// prevents producer-side mapping drift and lets consumers reject an
+  /// inconsistent structural record.
   static List<String> grantPayloadFieldIds(Map<String, dynamic> payload) {
     final fields = payload['fields'];
     if (payload['schema'] != 'palladin.grant-payload.v1' || fields is! List) {
@@ -176,6 +180,7 @@ abstract final class AgentVisibilityProjector {
     Map<String, dynamic> content,
   ) {
     final standard = switch ((type, id)) {
+      (_, 'description') => (id: 'description', kind: 'text'),
       (EntryType.key, 'value') => (id: 'key.value', kind: 'concealed'),
       (EntryType.credential, 'username') => (
         id: 'credential.username',
@@ -237,6 +242,7 @@ abstract final class AgentVisibilityProjector {
   static Object? _grantValue(
     ({String id, String kind}) descriptor,
     Object? value,
+    String vaultId,
   ) {
     if (descriptor.kind == 'totp') {
       final config = switch (value) {
@@ -258,16 +264,26 @@ abstract final class AgentVisibilityProjector {
       if (value is! List) throw const FormatException('Invalid Grant refs');
       return value
           .map((raw) {
+            final referenceVaultId = raw is Map ? raw['vaultId'] : null;
             if (raw is! Map ||
                 raw['env'] is! String ||
-                raw['vaultId'] is! String ||
                 raw['entryId'] is! String ||
-                raw['field'] is! String) {
+                raw['field'] is! String ||
+                (referenceVaultId != null && referenceVaultId is! String)) {
               throw const FormatException('Invalid Grant reference');
+            }
+            final effectiveVaultId = switch (referenceVaultId) {
+              final String value when value.isNotEmpty => value,
+              null => vaultId,
+              _ => throw const FormatException('Invalid Grant reference'),
+            };
+            if (!_isCanonicalUuid(effectiveVaultId) ||
+                !_isCanonicalUuid(raw['entryId'] as String)) {
+              throw const FormatException('Invalid Grant reference scope');
             }
             return {
               'env': raw['env'],
-              'vaultId': raw['vaultId'],
+              'vaultId': effectiveVaultId,
               'entryId': raw['entryId'],
               'fieldId': _referenceFieldId(raw['field'] as String),
             };

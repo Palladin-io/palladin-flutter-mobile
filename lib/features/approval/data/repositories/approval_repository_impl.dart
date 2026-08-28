@@ -170,6 +170,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       final wire = limit.toWire();
       final grantPayload = AgentVisibilityProjector.grantPayload(
         type: type,
+        vaultId: grant.vaultId,
         agentLabel: agentLabel,
         description: description,
         content: snapshot.payload,
@@ -393,6 +394,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         );
         final payload = AgentVisibilityProjector.grantPayload(
           type: type,
+          vaultId: vaultId,
           agentLabel:
               snapshot.secret['agentLabel'] as String? ??
               snapshot.secret['memberLabel'] as String,
