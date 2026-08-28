@@ -69,6 +69,22 @@ void main() {
     expect(cubit.state.pendingActionCount, 0);
   });
 
+  test('paged refresh keeps suppression for an action outside page one',
+      () async {
+    await cubit.load();
+    cubit.markResolvedLocally('n-1');
+
+    repository
+      ..items = [_pendingNotification(id: 'n-2', grantId: 'g-2')]
+      ..pendingActionCount = 2
+      ..nextCursor = 'page-2';
+    await cubit.refresh();
+    await cubit.refreshSummary();
+
+    expect(cubit.state.items.single.id, 'n-2');
+    expect(cubit.state.pendingActionCount, 1);
+  });
+
   test('server reconciliation restores counts for newer actions', () async {
     await cubit.load();
     cubit.markResolvedLocally('n-1');
@@ -151,6 +167,7 @@ class _FakeRepository implements NotificationCenterRepository {
   bool didMarkAllRead = false;
   List<InboxNotification> items = [_pendingNotification()];
   int pendingActionCount = 1;
+  String? nextCursor;
 
   /// Counts feed list fetches — used to prove mark-read never refetches the
   /// feed (the web request-storm root cause).
@@ -159,7 +176,7 @@ class _FakeRepository implements NotificationCenterRepository {
   @override
   Future<NotificationPage> list({String? cursor}) async {
     listCallCount++;
-    return NotificationPage(items: items);
+    return NotificationPage(items: items, nextCursor: nextCursor);
   }
 
   @override

@@ -186,6 +186,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
           pendingActionCount: _reconcilePendingActionCount(
             remoteItems,
             summary.pendingActionCount,
+            feedIsComplete: page.nextCursor == null,
           ),
           nextCursor: page.nextCursor,
           clearCursor: page.nextCursor == null,
@@ -227,6 +228,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
           pendingActionCount: _reconcilePendingActionCount(
             remoteItems,
             summary.pendingActionCount,
+            feedIsComplete: page.nextCursor == null,
           ),
           nextCursor: page.nextCursor,
           clearCursor: page.nextCursor == null,
@@ -335,12 +337,13 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
 
   int _reconcilePendingActionCount(
     List<InboxNotification> remoteItems,
-    int remoteCount,
-  ) {
+    int remoteCount, {
+    required bool feedIsComplete,
+  }) {
     final remoteById = {for (final item in remoteItems) item.id: item};
     _awaitingRemoteResolutionIds.removeWhere((id) {
       final item = remoteById[id];
-      return item == null || !item.isOpenAction;
+      return item == null ? feedIsComplete : !item.isOpenAction;
     });
     return (remoteCount - _awaitingRemoteResolutionIds.length).clamp(
       0,
