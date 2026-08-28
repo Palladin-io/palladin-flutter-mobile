@@ -73,6 +73,13 @@ GitHub Actions workflow at `.github/workflows/test.yml` runs on PRs to `main`:
 
 **All changes must go through PRs** — CI must pass before merging.
 
+### Explicit CI workflow authorization
+
+- Never trigger, rerun or otherwise cause the GitHub Actions/CI workflow to execute unless the user explicitly asks to run that workflow or CI in the current task.
+- Requests to create a PR, mark it ready, review it or merge it do **not** authorize CI execution. If a required check is missing, stop and ask for explicit authorization; do not create an empty trigger commit, remove `[skip ci]`, dispatch or rerun the workflow on your own.
+- APK, app bundle and IPA builds are release-only. They must never run as part of PR or merge validation and may run only through an explicitly authorized release workflow.
+- Read-only inspection or monitoring of a workflow that is already running is allowed, but restarting or replacing it still requires explicit authorization.
+
 ## Flavors
 
 Three flavors: **local**, **staging**, **production**. Each has its own entry point, bundle ID, and config.
