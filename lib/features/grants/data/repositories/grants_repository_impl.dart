@@ -10,6 +10,7 @@ import '../../domain/exceptions/grants_exceptions.dart';
 import '../../domain/repositories/grants_repository.dart';
 import '../datasources/grants_remote_datasource.dart';
 import '../models/grant_model.dart';
+import '../services/grant_entry_label_resolver.dart';
 import '../services/grant_reason_resolver.dart';
 
 /// Concrete implementation of [GrantsRepository].
@@ -21,12 +22,15 @@ class GrantsRepositoryImpl implements GrantsRepository {
   GrantsRepositoryImpl(
     this._dataSource, {
     GrantReasonResolver? reasonResolver,
+    GrantEntryLabelResolver? entryLabelResolver,
     VaultSessionStore? vaultSessionStore,
   }) : _reasonResolver = reasonResolver,
+       _entryLabelResolver = entryLabelResolver,
        _vaultSessionStore = vaultSessionStore;
 
   final GrantsRemoteDatasource _dataSource;
   final GrantReasonResolver? _reasonResolver;
+  final GrantEntryLabelResolver? _entryLabelResolver;
   final VaultSessionStore? _vaultSessionStore;
 
   @override
@@ -111,33 +115,54 @@ class GrantsRepositoryImpl implements GrantsRepository {
   }
 
   Future<List<Grant>> _toEntities(List<GrantModel> models) async {
-    final resolver = _reasonResolver;
     final session = _vaultSessionStore;
-    if (resolver == null || session == null || models.isEmpty) {
+    if (session == null || models.isEmpty) {
       return models.map((model) => model.toEntity()).toList(growable: false);
     }
 
     Uint8List? memberPrivateKey;
+    var reasons = const <String, String>{};
+    var entryLabels = const <String, String>{};
     try {
       memberPrivateKey = session.copyMemberPrivateKey();
-      final reasons = await resolver.resolve(
-        grants: models,
-        memberPrivateKey: memberPrivateKey,
-      );
-      return models
-          .map((model) => model.toEntity(resolvedReason: reasons[model.id]))
-          .toList(growable: false);
-    } catch (error) {
-      // History remains usable when the Vault is locked or one reason cannot
-      // be opened. Do not log error payloads: crypto failures may retain input.
-      AppLogger.w(
-        'Grants',
-        'Grant reason projection unavailable (${error.runtimeType})',
-      );
-      return models.map((model) => model.toEntity()).toList(growable: false);
+      final reasonResolver = _reasonResolver;
+      if (reasonResolver != null) {
+        try {
+          reasons = await reasonResolver.resolve(
+            grants: models,
+            memberPrivateKey: memberPrivateKey,
+          );
+        } catch (error) {
+          AppLogger.w(
+            'Grants',
+            'Grant reason projection unavailable (${error.runtimeType})',
+          );
+        }
+      }
+      final entryLabelResolver = _entryLabelResolver;
+      if (entryLabelResolver != null) {
+        try {
+          entryLabels = await entryLabelResolver.resolve(
+            grants: models,
+            memberPrivateKey: memberPrivateKey,
+          );
+        } catch (_) {
+          AppLogger.w('Grants', 'Grant Entry label projection unavailable');
+        }
+      }
+    } catch (_) {
+      AppLogger.w('Grants', 'Local Grant presentation unavailable');
     } finally {
       memberPrivateKey?.fillRange(0, memberPrivateKey.length, 0);
     }
+    return models
+        .map(
+          (model) => model.toEntity(
+            resolvedReason: reasons[model.id],
+            resolvedEntryLabel: entryLabels[model.id],
+          ),
+        )
+        .toList(growable: false);
   }
 
   /// Maps a [DioException] to a typed [GrantsErrorKind].

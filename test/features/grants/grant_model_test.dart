@@ -35,18 +35,18 @@ Map<String, dynamic> _encryptedReason() => {
 
 void main() {
   group('GrantModel.fromJson → toEntity', () {
-    test('maps a granular pending grant with reason and entry', () {
-      final entity = GrantModel.fromJson(<String, dynamic>{
+    test('maps a granular pending grant with a locally resolved entry', () {
+      final model = GrantModel.fromJson(<String, dynamic>{
         'id': 'g-1',
         'agentId': 'a-1',
         'agentName': 'Deploy Bot',
         'status': 'pending',
         'type': 'granular',
         'entryId': 'e-1',
-        'entryLabel': 'Gmail',
         'reason': 'Need Gmail to send email',
         'createdAt': '2026-06-01T10:00:00Z',
-      }, contextVaultId: 'v-1').toEntity();
+      }, contextVaultId: 'v-1');
+      final entity = model.toEntity(resolvedEntryLabel: 'Gmail');
 
       expect(entity.id, 'g-1');
       expect(entity.vaultId, 'v-1');
@@ -57,6 +57,21 @@ void main() {
       expect(entity.entryId, 'e-1');
       expect(entity.entryLabel, 'Gmail');
       expect(entity.reason, 'Need Gmail to send email');
+    });
+
+    test('does not trust a server-supplied plaintext Entry label', () {
+      final entity = GrantModel.fromJson(<String, dynamic>{
+        'id': 'g-1',
+        'vaultId': 'v-1',
+        'agentId': 'a-1',
+        'status': 'active',
+        'type': 'granular',
+        'entryId': 'e-1',
+        'entryLabel': 'Spoofed server label',
+        'createdAt': '2026-06-01T10:00:00Z',
+      }).toEntity();
+
+      expect(entity.entryLabel, isNull);
     });
 
     test('retains encrypted reason and actor ids for local history', () {

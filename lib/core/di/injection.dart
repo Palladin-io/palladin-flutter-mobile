@@ -64,6 +64,7 @@ import '../../features/dashboard/presentation/cubit/search_cubit.dart';
 import '../../features/dashboard/presentation/cubit/search_session_controller.dart';
 import '../../features/grants/data/datasources/grants_remote_datasource.dart';
 import '../../features/grants/data/repositories/grants_repository_impl.dart';
+import '../../features/grants/data/services/grant_entry_label_resolver.dart';
 import '../../features/grants/data/services/grant_reason_resolver.dart';
 import '../../features/grants/domain/repositories/grants_repository.dart';
 import '../../features/grants/presentation/cubit/org_grants_cubit.dart';
@@ -746,10 +747,14 @@ void configureDependencies(EnvConfig config) {
       discovery: getIt<AgentDiscoveryRemoteDatasource>(),
     ),
   );
+  getIt.registerLazySingleton<GrantEntryLabelResolver>(
+    () => GrantEntryLabelResolver(entries: getIt<MemberEntryListService>()),
+  );
   getIt.registerLazySingleton<GrantsRepository>(
     () => GrantsRepositoryImpl(
       getIt<GrantsRemoteDatasource>(),
       reasonResolver: getIt<GrantReasonResolver>(),
+      entryLabelResolver: getIt<GrantEntryLabelResolver>(),
       vaultSessionStore: getIt<VaultSessionStore>(),
     ),
   );
