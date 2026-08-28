@@ -86,7 +86,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       activeVaults: activeVaults,
     );
     final source = state.items;
-    final resolved = await _resolve(source);
+    final resolved = _applyLocalResolutions(await _resolve(source));
     if (identical(source, state.items)) emit(state.copyWith(items: resolved));
   }
 
@@ -120,10 +120,16 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   /// transient failure). Cleared only on logout ([reset]); intentionally
   /// sticky within a session to avoid request storms.
   final Set<String> _markingOnView = <String>{};
+  final Set<String> _locallyResolvedActionIds = <String>{};
+  final Set<String> _awaitingRemoteResolutionIds = <String>{};
+  final Set<String> _awaitingPaginationResolutionIds = <String>{};
 
   /// Clears user-specific notification titles and metadata on logout.
   void reset() {
     _markingOnView.clear();
+    _locallyResolvedActionIds.clear();
+    _awaitingRemoteResolutionIds.clear();
+    _awaitingPaginationResolutionIds.clear();
     _activeAccountId = null;
     _activeOrganizationId = null;
     _activeVaults = const [];
@@ -159,6 +165,8 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   }
 
   Future<void> load() async {
+    final guardedActionIds = Set<String>.of(_awaitingRemoteResolutionIds);
+    final resolvedActionIds = Set<String>.of(_locallyResolvedActionIds);
     emit(
       state.copyWith(
         status: NotificationCenterStatus.loading,
@@ -172,13 +180,20 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       ]);
       final page = results[0] as NotificationPage;
       final summary = results[1] as NotificationSummary;
-      final items = await _resolve(page.items);
+      final remoteItems = await _resolve(page.items);
+      final items = _applyLocalResolutions(remoteItems);
       emit(
         state.copyWith(
           status: NotificationCenterStatus.loaded,
           items: items,
           unreadCount: summary.unreadCount,
-          pendingActionCount: summary.pendingActionCount,
+          pendingActionCount: _reconcilePendingActionCount(
+            remoteItems,
+            summary.pendingActionCount,
+            guardedActionIds: guardedActionIds,
+            resolvedActionIds: resolvedActionIds,
+            feedIsComplete: page.nextCursor == null,
+          ),
           nextCursor: page.nextCursor,
           clearCursor: page.nextCursor == null,
         ),
@@ -202,6 +217,8 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   }
 
   Future<void> refresh() async {
+    final guardedActionIds = Set<String>.of(_awaitingRemoteResolutionIds);
+    final resolvedActionIds = Set<String>.of(_locallyResolvedActionIds);
     try {
       final results = await Future.wait<dynamic>([
         repository.list(),
@@ -209,13 +226,20 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       ]);
       final page = results[0] as NotificationPage;
       final summary = results[1] as NotificationSummary;
-      final items = await _resolve(page.items);
+      final remoteItems = await _resolve(page.items);
+      final items = _applyLocalResolutions(remoteItems);
       emit(
         state.copyWith(
           status: NotificationCenterStatus.loaded,
           items: items,
           unreadCount: summary.unreadCount,
-          pendingActionCount: summary.pendingActionCount,
+          pendingActionCount: _reconcilePendingActionCount(
+            remoteItems,
+            summary.pendingActionCount,
+            guardedActionIds: guardedActionIds,
+            resolvedActionIds: resolvedActionIds,
+            feedIsComplete: page.nextCursor == null,
+          ),
           nextCursor: page.nextCursor,
           clearCursor: page.nextCursor == null,
           clearError: true,
@@ -227,12 +251,20 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   }
 
   Future<void> refreshSummary() async {
+    final guardedActionIds = Set<String>.of(_awaitingRemoteResolutionIds);
+    final resolvedActionIds = Set<String>.of(_locallyResolvedActionIds);
     try {
       final summary = await repository.summary();
+      guardedActionIds.addAll(_awaitingRemoteResolutionIds);
+      guardedActionIds.addAll(
+        _locallyResolvedActionIds.difference(resolvedActionIds),
+      );
       emit(
         state.copyWith(
           unreadCount: summary.unreadCount,
-          pendingActionCount: summary.pendingActionCount,
+          pendingActionCount:
+              (summary.pendingActionCount - guardedActionIds.length)
+                  .clamp(0, 1 << 31),
         ),
       );
     } catch (_) {
@@ -246,7 +278,12 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     emit(state.copyWith(isLoadingMore: true));
     try {
       final page = await repository.list(cursor: cursor);
-      final items = await _resolve(page.items);
+      final remoteItems = await _resolve(page.items);
+      _reconcilePaginationResolutions(
+        remoteItems,
+        feedIsComplete: page.nextCursor == null,
+      );
+      final items = _applyLocalResolutions(remoteItems);
       emit(
         state.copyWith(
           items: [...state.items, ...items],
@@ -285,13 +322,15 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   /// disappears from To-do immediately after the user approves/denies it,
   /// instead of lingering until the (slower) server [refresh] returns the
   /// collapsed state. A resolved pending item is filtered out client-side
-  /// via [InboxNotification.isCollapsedPending]; [refresh] then reconciles.
+  /// via [InboxNotification.isCollapsedPending].
   void markResolvedLocally(String id) {
     final index = state.items.indexWhere((item) => item.id == id);
     if (index < 0) return;
     final item = state.items[index];
     // Already resolved → nothing to do (avoid double-decrementing the badge).
     if (item.actionState == NotificationActionState.resolved) return;
+    _locallyResolvedActionIds.add(id);
+    if (item.isOpenAction) _awaitingRemoteResolutionIds.add(id);
     final updated = [...state.items];
     updated[index] = item.copyWith(
       actionState: NotificationActionState.resolved,
@@ -303,6 +342,69 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         ? (state.pendingActionCount - 1).clamp(0, 1 << 31)
         : state.pendingActionCount;
     emit(state.copyWith(items: updated, pendingActionCount: pending));
+  }
+
+  List<InboxNotification> _applyLocalResolutions(
+    List<InboxNotification> items,
+  ) {
+    return [
+      for (final item in items)
+        if (_locallyResolvedActionIds.contains(item.id) && item.isOpenAction)
+          item.copyWith(actionState: NotificationActionState.resolved)
+        else
+          item,
+    ];
+  }
+
+  int _reconcilePendingActionCount(
+    List<InboxNotification> remoteItems,
+    int remoteCount, {
+    required Set<String> guardedActionIds,
+    required Set<String> resolvedActionIds,
+    required bool feedIsComplete,
+  }) {
+    // The feed and summary are fetched concurrently. Even when this feed has
+    // converged, its paired summary may still be stale, so this response must
+    // use the guard as it existed before feed reconciliation. Later summary
+    // requests use the reconciled set and can count genuinely new actions.
+    guardedActionIds.addAll(_awaitingRemoteResolutionIds);
+    guardedActionIds.addAll(
+      _locallyResolvedActionIds.difference(resolvedActionIds),
+    );
+    final suppressedForCurrentSummary = guardedActionIds.length;
+    final remoteById = {for (final item in remoteItems) item.id: item};
+    _awaitingPaginationResolutionIds.clear();
+    for (final id in _awaitingRemoteResolutionIds.toList(growable: false)) {
+      final item = remoteById[id];
+      if (item == null) {
+        if (feedIsComplete) {
+          _awaitingRemoteResolutionIds.remove(id);
+        } else {
+          _awaitingPaginationResolutionIds.add(id);
+        }
+      } else if (!item.isOpenAction) {
+        _awaitingRemoteResolutionIds.remove(id);
+      }
+    }
+    return (remoteCount - suppressedForCurrentSummary).clamp(0, 1 << 31);
+  }
+
+  void _reconcilePaginationResolutions(
+    List<InboxNotification> remoteItems, {
+    required bool feedIsComplete,
+  }) {
+    if (_awaitingPaginationResolutionIds.isEmpty) return;
+    final remoteById = {for (final item in remoteItems) item.id: item};
+    for (final id in _awaitingPaginationResolutionIds.toList(growable: false)) {
+      final item = remoteById[id];
+      if (item != null) {
+        _awaitingPaginationResolutionIds.remove(id);
+        if (!item.isOpenAction) _awaitingRemoteResolutionIds.remove(id);
+      } else if (feedIsComplete) {
+        _awaitingPaginationResolutionIds.remove(id);
+        _awaitingRemoteResolutionIds.remove(id);
+      }
+    }
   }
 
   Future<void> markAllRead() async {
