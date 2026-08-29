@@ -1,7 +1,20 @@
 import Flutter
 import Foundation
 
+final class AutoFillBridgeMutationQueue {
+    private let queue = DispatchQueue(
+        label: "io.palladin.mobile.autofill.bridge-mutations",
+        qos: .userInitiated
+    )
+
+    func submit(_ operation: @escaping () -> Void) {
+        queue.async(execute: operation)
+    }
+}
+
 public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
+    private let mutationQueue = AutoFillBridgeMutationQueue()
+
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(
             name: "io.palladin.mobile/autofill",
@@ -12,35 +25,47 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        DispatchQueue.global(qos: .userInitiated).async {
+        mutationQueue.submit {
             do {
                 let store = try AutoFillCacheStore()
                 switch call.method {
                 case "beginCacheSession":
-                    let sessionToken = store.beginSession()
+                    let sessionToken = try store.beginSession()
                     DispatchQueue.main.async { result(sessionToken) }
                 case "revokeCacheAccess":
-                    // Key/file revocation is intentionally separate from the
-                    // identity-store callback, which is not guaranteed to
-                    // return on a broken provider host.
+                    // The durable generation fence is the revocation commit
+                    // point. Physical artifacts and identity metadata are
+                    // cleaned asynchronously and never delay logout.
                     let cleanupToken = try store.revokeAccess()
-                    AutoFillCacheStore.clearIdentities { _ in }
                     DispatchQueue.main.async { result(cleanupToken) }
+                    DispatchQueue.global(qos: .utility).async {
+                        try? store.cleanupRevoked(generation: cleanupToken)
+                    }
+                    AutoFillCacheStore.clearIdentities(
+                        store: store,
+                        onlyIf: { !store.hasActiveCache() }
+                    ) { _ in }
                 case "replaceCache":
                     guard let arguments = call.arguments as? [String: Any],
-                          let records = arguments["records"] as? [[String: Any]],
+                          let payload = arguments["payload"] as? [String: Any],
                           let sessionToken = arguments["sessionToken"] as? Int else {
                         throw AutoFillCacheError.invalidRecords
                     }
-                    let validated = try store.replace(
-                        records: records,
+                    let replacement = try store.replace(
+                        payload: payload,
                         sessionToken: sessionToken
                     )
-                    AutoFillCacheStore.replaceIdentities(for: validated) { error in
+                    AutoFillCacheStore.replaceIdentities(
+                        for: replacement,
+                        store: store
+                    ) { error in
                         if error == nil {
                             DispatchQueue.main.async { result(nil) }
                         } else {
-                            try? store.clear(sessionToken: sessionToken)
+                            try? store.quarantine(
+                                generation: replacement.generation,
+                                cacheId: replacement.cacheId
+                            )
                             DispatchQueue.main.async {
                                 result(FlutterError(
                                     code: "AUTOFILL_IDENTITY_ERROR",
@@ -56,7 +81,10 @@ public final class PalladinAutoFillBridgePlugin: NSObject, FlutterPlugin {
                         throw AutoFillCacheError.invalidRecords
                     }
                     try store.clear(sessionToken: sessionToken)
-                    AutoFillCacheStore.clearIdentities { error in
+                    AutoFillCacheStore.clearIdentities(
+                        store: store,
+                        onlyIf: { !store.hasActiveCache() }
+                    ) { error in
                         DispatchQueue.main.async {
                             if error == nil {
                                 result(nil)

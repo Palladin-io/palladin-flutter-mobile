@@ -281,19 +281,74 @@ void main() {
     );
 
     test(
-      'keeps the session active when AutoFill access revocation fails',
+      'clears auth and biometric material when AutoFill revocation fails',
       () async {
         when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
         when(
           () => mockAutoFillCacheInvalidator.revokeAccess(),
         ).thenThrow(Exception('native key revocation failed'));
+        when(() => mockStorage.clearAll()).thenAnswer((_) async {});
+        when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
 
-        await expectLater(repository.logout(), throwsException);
+        await repository.logout();
 
-        verifyNever(() => mockStorage.clearAll());
-        verifyNever(() => mockAutoFillCacheInvalidator.clear());
+        verify(() => mockStorage.clearAll()).called(1);
+        // First call proves the fallback deny; the second is best-effort
+        // physical/provider-identity cleanup after the deny is confirmed.
+        verify(() => mockAutoFillCacheInvalidator.clear()).called(2);
+        verify(
+          () => mockSecureStorage.delete(
+            key: BiometricKeyStorage.enrolledMarkerKey,
+            iOptions: any(named: 'iOptions'),
+            aOptions: any(named: 'aOptions'),
+          ),
+        ).called(1);
       },
     );
+
+    test('clears auth when AutoFill revocation times out', () async {
+      when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
+      final revocation = Completer<void>();
+      when(
+        () => mockAutoFillCacheInvalidator.revokeAccess(),
+      ).thenAnswer((_) => revocation.future);
+      when(() => mockStorage.clearAll()).thenAnswer((_) async {});
+      when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
+
+      await repository.logout();
+
+      verify(() => mockStorage.clearAll()).called(1);
+      revocation.complete();
+    });
+
+    test('keeps auth when neither native deny boundary is confirmed', () async {
+      when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
+      when(
+        () => mockAutoFillCacheInvalidator.revokeAccess(),
+      ).thenThrow(StateError('fence'));
+      when(
+        () => mockAutoFillCacheInvalidator.clear(),
+      ).thenThrow(StateError('clear'));
+
+      await expectLater(repository.logout(), throwsStateError);
+
+      verifyNever(() => mockStorage.clearAll());
+    });
+
+    test('attempts biometric cleanup when token deletion fails', () async {
+      when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
+      when(() => mockStorage.clearAll()).thenThrow(StateError('storage'));
+
+      await expectLater(repository.logout(), throwsStateError);
+
+      verify(
+        () => mockSecureStorage.delete(
+          key: BiometricKeyStorage.enrolledMarkerKey,
+          iOptions: any(named: 'iOptions'),
+          aOptions: any(named: 'aOptions'),
+        ),
+      ).called(1);
+    });
   });
 
   group('isAuthenticated', () {

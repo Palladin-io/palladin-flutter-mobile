@@ -152,6 +152,26 @@ void main() {
       ],
     );
 
+    test('member-index load propagates a typed network failure', () async {
+      when(
+        () => listService.load(privateKey),
+      ).thenThrow(const VaultException(VaultErrorKind.networkError));
+      final cubit = buildCubit();
+
+      await expectLater(
+        cubit.loadForMemberIndex(privateKey),
+        throwsA(
+          isA<VaultException>().having(
+            (error) => error.kind,
+            'kind',
+            VaultErrorKind.networkError,
+          ),
+        ),
+      );
+
+      await cubit.close();
+    });
+
     blocTest<VaultListCubit, VaultListState>(
       'loadVaults wraps unexpected errors as VaultErrorKind.unknown',
       build: () {

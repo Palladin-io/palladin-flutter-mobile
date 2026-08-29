@@ -140,11 +140,18 @@ class AuthRepositoryImpl implements AuthRepository {
     AppLogger.d('Auth', 'Starting logout');
     final currentRefreshToken = await tokenStorage.refreshToken;
 
-    // Security-critical native AutoFill revocation bypasses the serialized
-    // identity-maintenance queue. It removes the ciphertext and its dedicated
-    // platform key before local auth tokens are cleared, so a wedged provider
-    // callback cannot leave credentials accessible after logout.
-    await autoFillCacheInvalidator.revokeAccess().timeout(operationTimeout);
+    // Native revocation returns only after the durable deny fence commits.
+    // If that commit cannot be confirmed, a synchronous cache clear is the
+    // fallback deny boundary; logout must not be reported without either one.
+    try {
+      await autoFillCacheInvalidator.revokeAccess().timeout(operationTimeout);
+    } catch (e) {
+      AppLogger.w(
+        'Auth',
+        'AutoFill revocation was not confirmed: ${e.runtimeType}',
+      );
+      await autoFillCacheInvalidator.clear().timeout(operationTimeout);
+    }
     try {
       await currentEntryCacheInvalidator?.clearCurrentEntryCache().timeout(
         operationTimeout,
@@ -164,13 +171,19 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await autoFillCacheInvalidator.clear().timeout(operationTimeout);
     } catch (e) {
-      AppLogger.w('Auth', 'AutoFill identity cleanup failed (best-effort): $e');
+      AppLogger.w(
+        'Auth',
+        'AutoFill identity cleanup failed (best-effort): ${e.runtimeType}',
+      );
     }
 
     // Critical local security cleanup — must always run so backend/native
     // availability can never keep a valid local session alive.
-    await tokenStorage.clearAll();
-    await BiometricKeyStorage.clear(secureStorage);
+    try {
+      await tokenStorage.clearAll();
+    } finally {
+      await BiometricKeyStorage.clear(secureStorage);
+    }
 
     // Best-effort, time-boxed remote revoke + Google sign-out. Never let these
     // block logout (backend down, no APNs, simulator quirks, etc.).
@@ -180,14 +193,20 @@ class AuthRepositoryImpl implements AuthRepository {
             .logout(currentRefreshToken)
             .timeout(operationTimeout);
       } catch (e) {
-        AppLogger.w('Auth', 'Backend logout failed (best-effort): $e');
+        AppLogger.w(
+          'Auth',
+          'Backend logout failed (best-effort): ${e.runtimeType}',
+        );
       }
     }
 
     try {
       await _googleSignIn.signOut().timeout(operationTimeout);
     } catch (e) {
-      AppLogger.w('Auth', 'Google sign-out failed (best-effort): $e');
+      AppLogger.w(
+        'Auth',
+        'Google sign-out failed (best-effort): ${e.runtimeType}',
+      );
     }
     AppLogger.i('Auth', 'Logout complete, tokens cleared');
   }

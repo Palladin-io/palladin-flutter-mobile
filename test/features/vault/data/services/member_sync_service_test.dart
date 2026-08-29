@@ -11,6 +11,7 @@ import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_ser
 import 'package:mobile_palladin/features/vault/data/services/member_sync_cache.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 
 class _MockEntryCrypto extends Mock implements EntryV2CryptoService {}
 
@@ -22,6 +23,9 @@ final class _FakeRemote implements MemberSyncRemote {
   int snapshotRequests = 0;
   int deltaRequests = 0;
   Completer<MemberDeltaResult>? deltaCompleter;
+  MemberSnapshotPage Function(String? cursor)? snapshotResponder;
+  MemberDeltaResult Function(String? afterSequence, String? continuationCursor)?
+  deltaResponder;
 
   @override
   Future<MemberSnapshotPage> snapshot({
@@ -30,7 +34,7 @@ final class _FakeRemote implements MemberSyncRemote {
     int pageSize = 100,
   }) async {
     snapshotRequests += 1;
-    return snapshotPage;
+    return snapshotResponder?.call(cursor) ?? snapshotPage;
   }
 
   @override
@@ -43,7 +47,8 @@ final class _FakeRemote implements MemberSyncRemote {
     deltaRequests += 1;
     final pending = deltaCompleter;
     if (pending != null) return pending.future;
-    return deltaResult;
+    return deltaResponder?.call(afterSequence, continuationCursor) ??
+        deltaResult;
   }
 }
 
@@ -55,6 +60,8 @@ final class _MemoryCache implements MemberSyncCache {
   bool failClearAll = false;
   int? profileQuarantineGeneration;
   Completer<void>? profileClearGate;
+  Completer<void>? vaultIdsEntered;
+  Completer<void>? vaultIdsGate;
 
   void _requireAvailable() {
     if (profileQuarantineGeneration != null) {
@@ -79,6 +86,18 @@ final class _MemoryCache implements MemberSyncCache {
     staged.clear();
     profileQuarantineGeneration = null;
     return true;
+  }
+
+  @override
+  Future<List<String>> vaultIds() async {
+    _requireAvailable();
+    final entered = vaultIdsEntered;
+    if (entered != null && !entered.isCompleted) entered.complete();
+    final gate = vaultIdsGate;
+    if (gate != null) await gate.future;
+    _requireAvailable();
+    final result = states.keys.toList()..sort();
+    return List<String>.unmodifiable(result);
   }
 
   @override
@@ -303,6 +322,97 @@ void main() {
     await durable;
   });
 
+  test(
+    'durable snapshot signal follows pagination and closing-delta index commit',
+    () async {
+      final firstPage = MemberSnapshotPage(
+        snapshotBaseSequence: snapshot.snapshotBaseSequence,
+        accessContext: snapshot.accessContext,
+        memberVaultKey: snapshot.memberVaultKey,
+        items: const [],
+        nextCursor: 'page-2',
+      );
+      remote.snapshotResponder = (cursor) =>
+          cursor == null ? firstPage : snapshot;
+      List<MemberIndexEntry>? entriesAtSignal;
+      final subscription = service.durableUpdates.listen((vaultId) {
+        entriesAtSignal = service.entries(vaultId);
+      });
+      addTearDown(subscription.cancel);
+
+      await service.synchronize(
+        vaultId: snapshot.accessContext.vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(remote.snapshotRequests, 2);
+      expect(remote.deltaRequests, 1);
+      expect(entriesAtSignal?.map((entry) => entry.entryId), [
+        snapshot.items.single.entryId,
+      ]);
+      expect(cache.states[snapshot.accessContext.vaultId]?.sequence, '12');
+    },
+  );
+
+  test(
+    'durable delta signal follows the current candidate-set commit',
+    () async {
+      await service.synchronize(
+        vaultId: snapshot.accessContext.vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      remote.deltaResult = MemberDeltaSuccess(
+        MemberDeltaPage.fromJson({
+          'deltaUpperBound': '13',
+          'appliedThroughSequence': '13',
+          'accessContext': snapshot.accessContext.toJson(),
+          'memberVaultKey': snapshot.memberVaultKey,
+          'items': [
+            {
+              'entryId': snapshot.items.single.entryId,
+              'kind': 'tombstone',
+              'state': null,
+              'updatedAt': null,
+              'currentRevision': null,
+              'memberIndexRevision': null,
+              'currentKeyVersion': null,
+              'entryKey': null,
+              'memberIndex': null,
+              'memberSecret': null,
+            },
+          ],
+          'continuationCursor': null,
+        }),
+      );
+      List<MemberIndexEntry>? entriesAtSignal;
+      final subscription = service.durableUpdates.listen((vaultId) {
+        entriesAtSignal = service.entries(vaultId);
+      });
+      addTearDown(subscription.cancel);
+
+      await service.synchronize(
+        vaultId: snapshot.accessContext.vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(remote.snapshotRequests, 1);
+      expect(remote.deltaRequests, 2);
+      expect(entriesAtSignal, isEmpty);
+      expect(cache.states[snapshot.accessContext.vaultId]?.sequence, '13');
+    },
+  );
+
   test('public local reader returns one complete ciphertext item', () async {
     await service.synchronize(
       vaultId: snapshot.accessContext.vaultId,
@@ -324,7 +434,7 @@ void main() {
     expect(material?.accessContext.notAfter, snapshot.accessContext.notAfter);
   });
 
-  test('offline unlock reopens a complete persisted generation', () async {
+  test('offline unlock discovers and reopens persisted generations', () async {
     await service.synchronize(
       vaultId: snapshot.accessContext.vaultId,
       vaultKey: Uint8List(32),
@@ -332,6 +442,14 @@ void main() {
       authority: authority,
       authoritativeMemberVaultKey: snapshot.memberVaultKey,
     );
+    const corruptVaultId = '00000000-0000-4000-8000-000000000000';
+    cache.states[corruptVaultId] = MemberSyncCacheState(
+      sequence: '1',
+      accessContext: snapshot.accessContext,
+      memberVaultKey: snapshot.memberVaultKey,
+      maximumObservedWallTime: now,
+    );
+    cache.active[corruptVaultId] = {};
     service.lock();
     when(
       () => vaultKeys.openMemberVaultKey(
@@ -344,16 +462,87 @@ void main() {
       ),
     ).thenAnswer((_) async => Uint8List(32));
 
-    await service.unlockCached(
-      vaultId: snapshot.accessContext.vaultId,
+    final vaultIds = await service.unlockAllCached(
       memberPrivateKey: Uint8List(32),
       authority: authority,
     );
 
+    expect(vaultIds, [snapshot.accessContext.vaultId]);
+    expect(cache.states, isNot(contains(corruptVaultId)));
     expect(service.entries(snapshot.accessContext.vaultId), hasLength(1));
     expect(remote.snapshotRequests, 1);
     expect(remote.deltaRequests, 1);
   });
+
+  test(
+    'offline reopen aborts all Vaults when lock invalidates session',
+    () async {
+      const firstVaultId = '11111111-0000-4000-8000-000000000000';
+      final firstContextJson = snapshot.accessContext.toJson()
+        ..['vaultId'] = firstVaultId;
+      final firstMemberVaultKey = Map<String, dynamic>.from(
+        snapshot.memberVaultKey,
+      );
+      final wrapped = Map<String, dynamic>.from(
+        firstMemberVaultKey['wrappedVaultKey'] as Map,
+      );
+      final descriptor = Map<String, dynamic>.from(
+        wrapped['descriptor'] as Map,
+      );
+      final scope = Map<String, dynamic>.from(descriptor['scope'] as Map)
+        ..['vaultId'] = firstVaultId;
+      descriptor['scope'] = scope;
+      wrapped['descriptor'] = descriptor;
+      firstMemberVaultKey['wrappedVaultKey'] = wrapped;
+      cache.states[firstVaultId] = MemberSyncCacheState(
+        sequence: '1',
+        accessContext: MemberOfflineAccessContext.fromJson(firstContextJson),
+        memberVaultKey: firstMemberVaultKey,
+        maximumObservedWallTime: now,
+      );
+      cache.active[firstVaultId] = {};
+      cache.states[snapshot.accessContext.vaultId] = MemberSyncCacheState(
+        sequence: snapshot.snapshotBaseSequence,
+        accessContext: snapshot.accessContext,
+        memberVaultKey: snapshot.memberVaultKey,
+        maximumObservedWallTime: now,
+      );
+      cache.active[snapshot.accessContext.vaultId] = {
+        for (final item in snapshot.items) item.entryId: item,
+      };
+      var openCalls = 0;
+      when(
+        () => vaultKeys.openMemberVaultKey(
+          any(),
+          any(),
+          expectedOrganizationId: any(named: 'expectedOrganizationId'),
+          expectedVaultId: any(named: 'expectedVaultId'),
+          expectedVaultKeyVersion: any(named: 'expectedVaultKeyVersion'),
+          expectedMemberKeyGeneration: any(
+            named: 'expectedMemberKeyGeneration',
+          ),
+        ),
+      ).thenAnswer((_) async {
+        openCalls += 1;
+        return Uint8List(32);
+      });
+      cache.vaultIdsEntered = Completer<void>();
+      cache.vaultIdsGate = Completer<void>();
+
+      final reopen = service.unlockAllCached(
+        memberPrivateKey: Uint8List(32),
+        authority: authority,
+      );
+      await cache.vaultIdsEntered!.future;
+      service.lock();
+      cache.vaultIdsGate!.complete();
+
+      await expectLater(reopen, throwsA(anything));
+
+      expect(openCalls, 0);
+      expect(service.entries(snapshot.accessContext.vaultId), isEmpty);
+    },
+  );
 
   test('corrupt MemberSecret binding rejects whole generation', () async {
     final itemJson = snapshot.items.single.toJson();

@@ -59,7 +59,8 @@ class VaultListCubit extends Cubit<VaultListState>
     }
     return switch (state) {
       VaultListLoaded(:final vaults) => List<VaultEntity>.unmodifiable(vaults),
-      _ => const <VaultEntity>[],
+      VaultListError(:final kind) => throw VaultException(kind),
+      _ => throw const VaultException(VaultErrorKind.unknown),
     };
   }
 

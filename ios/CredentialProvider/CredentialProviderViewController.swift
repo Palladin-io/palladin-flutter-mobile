@@ -4,7 +4,8 @@ import UIKit
 final class CredentialProviderViewController: ASCredentialProviderViewController {
     private let statusLabel = UILabel()
     private let credentialsStack = UIStackView()
-    private var visibleRecords: [AutoFillCredentialRecord] = []
+    private var visibleCredentials: [AutoFillCredentialLease] = []
+    private var visibleServiceIdentifiers: [ASCredentialServiceIdentifier] = []
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -34,8 +35,13 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     }
 
     override func prepareCredentialList(for serviceIdentifiers: [ASCredentialServiceIdentifier]) {
-        unlockRecords { [weak self] records in
-            self?.show(records.filter { $0.matches(serviceIdentifiers: serviceIdentifiers) })
+        unlockRecords { [weak self] result in
+            self?.show(
+                result.credentials.filter {
+                    $0.record.matches(serviceIdentifiers: serviceIdentifiers)
+                },
+                serviceIdentifiers: serviceIdentifiers
+            )
         }
     }
 
@@ -80,49 +86,63 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
             requireUserInteraction()
             return
         }
-        unlockRecords { [weak self] records in
+        unlockRecords { [weak self] result in
             guard let self,
-                  let record = records.first(where: {
-                      $0.id == recordIdentifier &&
-                      $0.matches(serviceIdentifiers: serviceIdentifiers)
+                  let credential = result.credentials.first(where: {
+                      $0.record.id == recordIdentifier &&
+                      $0.record.matches(serviceIdentifiers: serviceIdentifiers)
                   }) else {
                 self?.showUnavailableMessage()
                 return
             }
-            self.complete(record)
+            self.complete(credential, serviceIdentifiers: serviceIdentifiers)
         }
     }
 
-    private func unlockRecords(completion: @escaping ([AutoFillCredentialRecord]) -> Void) {
+    private func unlockRecords(completion: @escaping (AutoFillCacheReadResult) -> Void) {
         statusLabel.text = NSLocalizedString(
             "credential_provider_unlocking",
             comment: "Shown while the provider waits for biometric authentication."
         )
         credentialsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         DispatchQueue.global(qos: .userInitiated).async {
+            var operation: AutoFillUnwrapOperation?
             do {
                 let store = try AutoFillCacheStore()
-                let records = try store.read(
+                let preparedOperation = try store.createUnwrapOperation()
+                operation = preparedOperation
+                let result = try store.read(
+                    operation: preparedOperation,
                     authenticationPrompt: NSLocalizedString(
                         "credential_provider_biometric_prompt",
                         comment: "Biometric prompt for releasing an AutoFill credential."
                     )
                 )
-                DispatchQueue.main.async { completion(records) }
+                DispatchQueue.main.async { completion(result) }
             } catch {
-                if let store = try? AutoFillCacheStore() {
-                    try? store.clear()
-                    AutoFillCacheStore.clearIdentities { _ in }
+                if let store = try? AutoFillCacheStore(), let operation {
+                    try? store.quarantine(
+                        generation: operation.generation,
+                        cacheId: operation.cacheId
+                    )
+                    AutoFillCacheStore.clearIdentities(
+                        store: store,
+                        onlyIf: { !store.hasActiveCache() }
+                    ) { _ in }
                 }
                 DispatchQueue.main.async { [weak self] in self?.showUnavailableMessage() }
             }
         }
     }
 
-    private func show(_ records: [AutoFillCredentialRecord]) {
-        visibleRecords = records
+    private func show(
+        _ credentials: [AutoFillCredentialLease],
+        serviceIdentifiers: [ASCredentialServiceIdentifier]
+    ) {
+        visibleCredentials = credentials
+        visibleServiceIdentifiers = serviceIdentifiers
         credentialsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        guard !records.isEmpty else {
+        guard !credentials.isEmpty else {
             statusLabel.text = NSLocalizedString(
                 "credential_provider_no_matches",
                 comment: "Shown when no credential matches the requested service."
@@ -130,7 +150,8 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
             return
         }
         statusLabel.text = nil
-        for (index, record) in records.enumerated() {
+        for (index, credential) in credentials.enumerated() {
+            let record = credential.record
             let button = UIButton(type: .system)
             button.setTitle("\(record.label)\n\(record.username)", for: .normal)
             button.setImage(UIImage(systemName: "key.fill"), for: .normal)
@@ -144,14 +165,43 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     }
 
     @objc private func selectCredential(_ sender: UIButton) {
-        guard visibleRecords.indices.contains(sender.tag) else { return }
-        complete(visibleRecords[sender.tag])
+        guard visibleCredentials.indices.contains(sender.tag) else { return }
+        complete(
+            visibleCredentials[sender.tag],
+            serviceIdentifiers: visibleServiceIdentifiers
+        )
     }
 
-    private func complete(_ record: AutoFillCredentialRecord) {
-        let credential = ASPasswordCredential(user: record.username, password: record.password)
-        extensionContext.completeRequest(withSelectedCredential: credential, completionHandler: nil)
-        visibleRecords.removeAll(keepingCapacity: false)
+    private func complete(
+        _ credential: AutoFillCredentialLease,
+        serviceIdentifiers: [ASCredentialServiceIdentifier]
+    ) {
+        do {
+            let store = try AutoFillCacheStore()
+            try store.withRevalidatedCredential(
+                credential,
+                serviceIdentifiers: serviceIdentifiers
+            ) {
+                let passwordCredential = ASPasswordCredential(
+                    user: credential.record.username,
+                    password: credential.record.password
+                )
+                extensionContext.completeRequest(
+                    withSelectedCredential: passwordCredential,
+                    completionHandler: nil
+                )
+            }
+            visibleCredentials.removeAll(keepingCapacity: false)
+            visibleServiceIdentifiers.removeAll(keepingCapacity: false)
+        } catch {
+            if let store = try? AutoFillCacheStore() {
+                try? store.quarantine(
+                    generation: credential.generation,
+                    cacheId: credential.cacheId
+                )
+            }
+            showUnavailableMessage()
+        }
     }
 
     private func requireUserInteraction() {
@@ -169,7 +219,8 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     }
 
     private func showUnavailableMessage() {
-        visibleRecords.removeAll(keepingCapacity: false)
+        visibleCredentials.removeAll(keepingCapacity: false)
+        visibleServiceIdentifiers.removeAll(keepingCapacity: false)
         statusLabel.text = NSLocalizedString(
             "credential_provider_unavailable",
             comment: "Shown when biometric authentication or cache access fails."

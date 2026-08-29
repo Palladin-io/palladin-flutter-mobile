@@ -6,7 +6,7 @@ abstract interface class AutoFillCacheBridge {
   Future<int> beginCacheSession();
 
   Future<void> replaceCache(
-    List<AutoFillRecord> records, {
+    AutoFillCachePayload payload, {
     required int sessionToken,
   });
 
@@ -31,13 +31,11 @@ class MethodChannelAutoFillCacheBridge implements AutoFillCacheBridge {
 
   @override
   Future<void> replaceCache(
-    List<AutoFillRecord> records, {
+    AutoFillCachePayload payload, {
     required int sessionToken,
   }) => _channel.invokeMethod<void>('replaceCache', {
     'sessionToken': sessionToken,
-    'records': records
-        .map((record) => record.toPlatformMap())
-        .toList(growable: false),
+    'payload': payload.toPlatformMap(),
   });
 
   @override

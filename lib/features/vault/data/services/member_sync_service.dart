@@ -102,6 +102,14 @@ abstract interface class MemberIndexReader {
   List<MemberIndexEntry> entries(String vaultId);
 }
 
+/// Signals complete local generations/deltas after both durable and runtime
+/// candidate indexes are committed.
+abstract interface class DurableMemberIndexUpdates {
+  Stream<String> get durableUpdates;
+
+  Future<void> waitForCurrent(String vaultId);
+}
+
 abstract interface class MemberSyncCoordinator implements MemberIndexReader {
   Future<MemberSyncResult> synchronize({
     required String vaultId,
@@ -117,6 +125,11 @@ abstract interface class MemberSyncCoordinator implements MemberIndexReader {
     required MemberSyncSessionAuthority authority,
   });
 
+  Future<List<String>> unlockAllCached({
+    required Uint8List memberPrivateKey,
+    required MemberSyncSessionAuthority authority,
+  });
+
   Future<void> purgeVault(String vaultId);
 
   void lock();
@@ -125,6 +138,7 @@ abstract interface class MemberSyncCoordinator implements MemberIndexReader {
 final class MemberSyncService
     implements
         MemberSyncCoordinator,
+        DurableMemberIndexUpdates,
         LocalMemberEntryReader,
         CurrentEntryCacheInvalidator {
   MemberSyncService({
@@ -171,6 +185,7 @@ final class MemberSyncService
   final Map<String, Timer> _leaseTimers = {};
   final Map<String, Future<void>> _vaultCommitTails = {};
   int _lockGeneration = 0;
+  int _sessionEpoch = 0;
 
   /// Emits a Vault id after its unlocked runtime index has been installed or
   /// refreshed. Consumers use this signal to refresh local presentation only;
@@ -178,6 +193,7 @@ final class MemberSyncService
   Stream<String> get indexUpdates => _indexUpdates.stream;
 
   /// Emits only after a complete generation or delta is durably committed.
+  @override
   Stream<String> get durableUpdates => _durableUpdates.stream;
 
   /// Synchronizes one Vault. Concurrent callers for the same Vault share work.
@@ -361,10 +377,56 @@ final class MemberSyncService
       } finally {
         vaultKey.fillRange(0, vaultKey.length, 0);
       }
+    } on _MemberSyncInvalidated {
+      // lock() already revoked every runtime projection. Preserve this typed
+      // session fence even if Vault-local durable cleanup would fail.
+      rethrow;
     } on Object {
       await purgeVault(vaultId);
       rethrow;
     }
+  }
+
+  /// Rebuilds every complete persisted Vault generation without consulting
+  /// the Vault-list or per-Vault HTTP endpoints.
+  ///
+  /// [unlockCached] still validates every generation independently against
+  /// the authenticated [authority] before its local index becomes readable.
+  @override
+  Future<List<String>> unlockAllCached({
+    required Uint8List memberPrivateKey,
+    required MemberSyncSessionAuthority authority,
+  }) async {
+    if (memberPrivateKey.length != 32) {
+      throw const FormatException('Member private key must be 32 bytes');
+    }
+    final sessionEpoch = _sessionEpoch;
+    final vaultIds = await _cache.vaultIds();
+    _requireSessionEpoch(sessionEpoch);
+    final reopenedVaultIds = <String>[];
+    for (final vaultId in vaultIds) {
+      _requireSessionEpoch(sessionEpoch);
+      try {
+        await unlockCached(
+          vaultId: vaultId,
+          memberPrivateKey: memberPrivateKey,
+          authority: authority,
+        );
+        _requireSessionEpoch(sessionEpoch);
+        if (_indexes.containsKey(vaultId)) reopenedVaultIds.add(vaultId);
+      } on _MemberSyncInvalidated {
+        // Lock/session replacement invalidates the entire reopen operation.
+        // Continuing would let later Vaults capture the new generation and
+        // repopulate plaintext indexes after lock() cleared them.
+        rethrow;
+      } on Object {
+        // unlockCached purges and revokes only the invalid Vault. Continue so
+        // one corrupt or expired generation cannot suppress independent valid
+        // offline Vaults from the exact native replacement.
+      }
+    }
+    _requireSessionEpoch(sessionEpoch);
+    return List<String>.unmodifiable(reopenedVaultIds);
   }
 
   Future<void> _unlockCached({
@@ -432,6 +494,7 @@ final class MemberSyncService
   /// Drops every decrypted projection immediately on lock/session loss.
   @override
   void lock() {
+    _sessionEpoch++;
     _lockGeneration++;
     _running.clear();
     _indexes.clear();
@@ -691,7 +754,6 @@ final class MemberSyncService
           ),
         ),
       );
-      _publishDurableUpdate(vaultId);
       _requireCurrent(generation);
       final index = _indexes[vaultId]!;
       for (final item in page.items.where((item) => item.isTombstone)) {
@@ -704,6 +766,10 @@ final class MemberSyncService
         lock();
         throw StateError('Vault local index exceeds the device budget');
       }
+      // Consumers may rebuild native/search projections from this signal, so
+      // publish only after both the durable delta and its current runtime index
+      // are committed. No observer can see the previous candidate set.
+      _publishDurableUpdate(vaultId);
       applied = page.appliedThroughSequence;
       continuation = page.continuationCursor;
     } while (continuation != null);
@@ -850,6 +916,7 @@ final class MemberSyncService
 
   /// Deletes the complete local profile on logout.
   Future<void> purgeAll() async {
+    _sessionEpoch++;
     final operationGeneration = ++_lockGeneration;
     _profileQuarantined = true;
     _running.clear();
@@ -1115,6 +1182,12 @@ final class MemberSyncService
 
   void _requireCurrent(int generation) {
     if (generation != _lockGeneration) {
+      throw const _MemberSyncInvalidated();
+    }
+  }
+
+  void _requireSessionEpoch(int epoch) {
+    if (epoch != _sessionEpoch) {
       throw const _MemberSyncInvalidated();
     }
   }
