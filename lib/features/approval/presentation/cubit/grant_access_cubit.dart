@@ -91,6 +91,29 @@ class GrantAccessCubit extends Cubit<GrantAccessState> {
     successMessage: 'Granted GRANULAR access to agent $agentId',
   );
 
+  Future<void> submitScriptExecution({
+    required String vaultId,
+    required String scriptEntryId,
+    required String agentId,
+    required String agentPublicKey,
+    required int recipientKeyVersion,
+    required int agentAccessEpoch,
+    required Uint8List privateKey,
+    required GrantLimit limit,
+  }) => _submit(
+    operation: () => repository.createScriptExecutionGrant(
+      vaultId: vaultId,
+      scriptEntryId: scriptEntryId,
+      agentId: agentId,
+      agentPublicKey: agentPublicKey,
+      recipientKeyVersion: recipientKeyVersion,
+      agentAccessEpoch: agentAccessEpoch,
+      privateKey: privateKey,
+      limit: limit,
+    ),
+    successMessage: 'Granted Script execution access to agent $agentId',
+  );
+
   Future<void> _submit({
     required Future<void> Function() operation,
     required String successMessage,

@@ -71,6 +71,8 @@ abstract final class AgentVisibilityProjector {
       'entryType': type.toWire(),
       'capabilities': _capabilities(type),
       'fields': fields,
+      if (type == EntryType.script && content['execution'] is Map)
+        'execution': Map<String, dynamic>.from(content['execution'] as Map),
     };
   }
 
@@ -392,9 +394,9 @@ abstract final class AgentVisibilityProjector {
     return values;
   }
 
-  static List<String> _capabilities(EntryType _) => const [
-    'get',
-    'exec',
-    'inject',
-  ];
+  static List<String> _capabilities(EntryType type) => switch (type) {
+    EntryType.script => const ['exec'],
+    EntryType.creditCard => const ['inject'],
+    _ => const ['get', 'exec', 'inject'],
+  };
 }

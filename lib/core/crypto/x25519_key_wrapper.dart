@@ -22,7 +22,8 @@ enum WrapperPurpose {
   agentVdk(2),
   reasonDek(3),
   grantDek(4),
-  agentVaultKey(5);
+  agentVaultKey(5),
+  scriptExecutionDek(6);
 
   const WrapperPurpose(this.id);
   final int id;
@@ -34,6 +35,7 @@ enum WrapperPurpose {
       'reasonDek': WrapperPurpose.reasonDek,
       'grantDek': WrapperPurpose.grantDek,
       'agentVaultKey': WrapperPurpose.agentVaultKey,
+      'scriptExecutionDek': WrapperPurpose.scriptExecutionDek,
     };
     if (value is String) {
       final purpose = names[value];
@@ -97,16 +99,21 @@ final class WrapperContext {
       WrapperPurpose.agentVdk =>
         !hasEntry && !hasGrant && hasAgent && !hasMember,
       WrapperPurpose.reasonDek ||
-      WrapperPurpose.grantDek => hasEntry && hasGrant && hasAgent && !hasMember,
+      WrapperPurpose.grantDek ||
+      WrapperPurpose.scriptExecutionDek =>
+        hasEntry && hasGrant && hasAgent && !hasMember,
       WrapperPurpose.agentVaultKey =>
         !hasEntry && hasGrant && hasAgent && !hasMember,
     };
     final needsParent =
         purpose == WrapperPurpose.reasonDek ||
-        purpose == WrapperPurpose.grantDek;
+        purpose == WrapperPurpose.grantDek ||
+        purpose == WrapperPurpose.scriptExecutionDek;
     final expectedRecipientKeyKind = switch (purpose) {
       WrapperPurpose.memberVaultKey => 5,
-      WrapperPurpose.agentVdk || WrapperPurpose.grantDek => 1,
+      WrapperPurpose.agentVdk ||
+      WrapperPurpose.grantDek ||
+      WrapperPurpose.scriptExecutionDek => 1,
       WrapperPurpose.reasonDek => 4,
       WrapperPurpose.agentVaultKey => 1,
     };
@@ -114,7 +121,9 @@ final class WrapperContext {
       WrapperPurpose.memberVaultKey ||
       WrapperPurpose.reasonDek ||
       WrapperPurpose.grantDek => true,
-      WrapperPurpose.agentVdk || WrapperPurpose.agentVaultKey => false,
+      WrapperPurpose.agentVdk ||
+      WrapperPurpose.agentVaultKey ||
+      WrapperPurpose.scriptExecutionDek => false,
     };
     if (protocolVersion != 2 ||
         !scopeValid ||
@@ -251,8 +260,15 @@ Future<Map<String, Object?>> buildAgentWrappedVaultKeyContract({
   required int vaultKeyVersion,
   required Uint8List agentPublicKey,
   required int recipientKeyVersion,
+  required int vaultSigningKeyVersion,
+  required Uint8List vaultSigningKeyFingerprint,
+  required Future<String> Function(Map<String, Object?> unsignedContract)
+  signProducer,
   Future<SodiumSumo> Function()? sodiumLoader,
 }) async {
+  if (vaultSigningKeyVersion <= 0 || vaultSigningKeyFingerprint.length != 32) {
+    throw const FormatException('Vault signing producer binding is invalid');
+  }
   final fingerprint = Uint8List.fromList(
     sha256.convert([
       ...ascii.encode('PLDNV2FP'),
@@ -281,7 +297,11 @@ Future<Map<String, Object?>> buildAgentWrappedVaultKeyContract({
       context: context,
       recipient: X25519PublicKey(agentPublicKey),
     );
-    return {
+    final unsigned = <String, Object?>{
+      'vaultSigningKeyFingerprint': base64UrlEncode(
+        vaultSigningKeyFingerprint,
+      ).replaceAll('=', ''),
+      'vaultSigningKeyVersion': vaultSigningKeyVersion,
       'wrappedVaultKey': {
         'descriptor': {
           'protocolVersion': context.protocolVersion,
@@ -308,6 +328,20 @@ Future<Map<String, Object?>> buildAgentWrappedVaultKeyContract({
         'encodedSealedKeyPackage': base64UrlEncode(sealed).replaceAll('=', ''),
       },
     };
+    final producerSignature = await signProducer(unsigned);
+    final signatureBytes = base64Url.decode(
+      base64Url.normalize(producerSignature),
+    );
+    try {
+      if (signatureBytes.length != 64) {
+        throw const FormatException(
+          'Vault wrapper producer signature is invalid',
+        );
+      }
+    } finally {
+      signatureBytes.fillRange(0, signatureBytes.length, 0);
+    }
+    return {...unsigned, 'producerSignature': producerSignature};
   } finally {
     fingerprint.fillRange(0, fingerprint.length, 0);
     sealed?.fillRange(0, sealed.length, 0);

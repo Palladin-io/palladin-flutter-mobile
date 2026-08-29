@@ -178,6 +178,7 @@ void main() {
       expect(GrantStatus.fromWire(7), GrantStatus.superseded);
       expect(GrantScope.fromWire(1), GrantScope.granular);
       expect(GrantScope.fromWire(2), GrantScope.full);
+      expect(GrantScope.fromWire(3), GrantScope.scriptExecution);
     });
 
     test('retains the structured FULL replacement relationship', () {
@@ -209,6 +210,24 @@ void main() {
       }).toEntity();
 
       expect(entity.agentId, isNull);
+    });
+
+    test('rejects a mixed malformed Script scope array', () {
+      expect(
+        () => GrantModel.fromJson(<String, dynamic>{
+          'id': 'g-script',
+          'vaultId': 'v-1',
+          'agentId': 'a-1',
+          'status': 'active',
+          'type': 'scriptExecution',
+          'createdAt': '2026-06-01T10:00:00Z',
+          'scriptScopes': const [
+            {'entryId': 'script-1', 'entryRevision': '1', 'isScript': true},
+            'malformed',
+          ],
+        }),
+        throwsFormatException,
+      );
     });
   });
 }

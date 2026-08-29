@@ -63,11 +63,6 @@ void main() {
           fields: const {'agentLabel': 'discovery', 'password': 'onGrantValue'},
         ),
         (
-          type: EntryType.script,
-          content: const {'script': 'echo safe'},
-          fields: const {'agentLabel': 'discovery', 'script': 'onGrantRuntime'},
-        ),
-        (
           type: EntryType.creditCard,
           content: const {'cardNumber': '4242424242424242'},
           fields: const {
@@ -227,6 +222,9 @@ void main() {
       final openedVaultKey = Uint8List.fromList(
         List<int>.generate(32, (i) => i + 1),
       );
+      final openedSigningKey = Uint8List.fromList(
+        List<int>.generate(32, (i) => 32 - i),
+      );
       const wrappedVaultKey = <String, Object?>{
         'wrappedVaultKey': <String, Object?>{
           'encodedSealedKeyPackage': 'synthetic',
@@ -237,10 +235,18 @@ void main() {
         (_) async => <String, dynamic>{
           'organizationId': '11111111-1111-4111-8111-111111111111',
           'memberKeyGeneration': 4,
-          'currentKeyEpoch': <String, dynamic>{'vaultKeyVersion': 7},
+          'currentKeyEpoch': <String, dynamic>{
+            'vaultKeyVersion': 7,
+            'manifestSigningKeyVersion': 9,
+          },
           'memberVaultKey': <String, dynamic>{
             'wrappedVaultKey': <String, dynamic>{},
           },
+          'vaultPrivateKeys': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'descriptor': <String, dynamic>{'purpose': 4},
+            },
+          ],
         },
       );
       when(
@@ -256,6 +262,13 @@ void main() {
         ),
       ).thenAnswer((_) async => openedVaultKey);
       when(
+        () => vaultKeys.openCanonicalManifestSigningPrivateKey(
+          any(),
+          any(),
+          expectedKeyVersion: any(named: 'expectedKeyVersion'),
+        ),
+      ).thenAnswer((_) async => openedSigningKey);
+      when(
         () => crypto.sealAgentVaultKey(
           vaultKey: any(named: 'vaultKey'),
           organizationId: any(named: 'organizationId'),
@@ -266,6 +279,8 @@ void main() {
           vaultKeyVersion: any(named: 'vaultKeyVersion'),
           agentPublicKey: any(named: 'agentPublicKey'),
           recipientKeyVersion: any(named: 'recipientKeyVersion'),
+          vaultSigningKeyVersion: any(named: 'vaultSigningKeyVersion'),
+          vaultSigningPrivateKey: any(named: 'vaultSigningPrivateKey'),
         ),
       ).thenAnswer((_) async => wrappedVaultKey);
       when(
@@ -312,6 +327,8 @@ void main() {
           vaultKeyVersion: 7,
           agentPublicKey: any(named: 'agentPublicKey'),
           recipientKeyVersion: 3,
+          vaultSigningKeyVersion: 9,
+          vaultSigningPrivateKey: openedSigningKey,
         ),
       ).called(1);
       verify(
@@ -338,6 +355,7 @@ void main() {
         ),
       );
       expect(openedVaultKey, everyElement(0));
+      expect(openedSigningKey, everyElement(0));
     },
   );
 }

@@ -4,6 +4,130 @@ import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart
 import 'package:mobile_palladin/features/vault/presentation/widgets/entry_form_utils.dart';
 
 void main() {
+  test('Script requires a description and writes execution metadata', () {
+    expect(
+      EntryFormUtils.canSubmit(
+        type: EntryType.script,
+        label: 'Users',
+        script: 'echo ok',
+      ),
+      isFalse,
+    );
+    final parameter = ScriptParameterDefinition(
+      name: 'team_id',
+      description: 'Team identifier',
+      type: ScriptParameterType.string,
+      required: true,
+    );
+    expect(
+      EntryFormUtils.canSubmit(
+        type: EntryType.script,
+        label: 'Users',
+        description: 'Lists users',
+        script: 'echo ok',
+        scriptParameters: [parameter],
+      ),
+      isTrue,
+    );
+    final payload = EntryFormUtils.buildPayload(
+      type: EntryType.script,
+      script: 'echo ok',
+      scriptDescription: 'Lists users',
+      scriptParameters: [parameter],
+    );
+    expect(payload['execution'], {
+      'contractVersion': 1,
+      'description': 'Lists users',
+      'parameters': [parameter.toJson()],
+      'returnResultToAgent': true,
+    });
+  });
+
+  test('Script reference environments reject process-control variables', () {
+    expect(isAllowedScriptReferenceEnvironment('DB_PASSWORD'), isTrue);
+    expect(isAllowedScriptReferenceEnvironment('NODE_OPTIONS'), isFalse);
+    expect(isAllowedScriptReferenceEnvironment('palladin_token'), isFalse);
+    expect(isAllowedScriptReferenceEnvironment('LD_LIBRARY_PATH'), isFalse);
+  });
+
+  test('legacy Script result delivery defaults to false', () {
+    final metadata = ScriptExecutionMetadata.fromJson({
+      'contractVersion': 1,
+      'description': 'Legacy script',
+      'parameters': const [],
+    });
+    expect(metadata.returnResultToAgent, isFalse);
+  });
+
+  test('Script metadata rejects a malformed parameter array', () {
+    expect(
+      () => ScriptExecutionMetadata.fromJson({
+        'contractVersion': 1,
+        'description': 'Lists users',
+        'parameters': [
+          {
+            'name': 'team_id',
+            'description': 'Team identifier',
+            'type': 'string',
+            'required': true,
+          },
+          'malformed',
+        ],
+        'returnResultToAgent': true,
+      }),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('Script parameters preserve bounds and reject malformed enums', () {
+    final definition = ScriptParameterDefinition.fromJson({
+      'name': 'team_id',
+      'description': 'Team identifier',
+      'type': 'string',
+      'required': true,
+      'minLength': 3,
+      'maxLength': 32,
+      'enum': ['ops', 'platform'],
+    });
+    expect(definition.toJson(), {
+      'name': 'team_id',
+      'description': 'Team identifier',
+      'type': 'string',
+      'required': true,
+      'minLength': 3,
+      'maxLength': 32,
+      'enum': ['ops', 'platform'],
+    });
+    for (final malformed in <Object?>[
+      'ops',
+      const [],
+      [null],
+    ]) {
+      expect(
+        () => ScriptParameterDefinition.fromJson({
+          'name': 'team_id',
+          'description': 'Team identifier',
+          'type': 'string',
+          'required': true,
+          'enum': malformed,
+        }),
+        throwsFormatException,
+      );
+    }
+  });
+
+  test('Script validates the actual description bounds', () {
+    expect(
+      EntryFormUtils.canSubmit(
+        type: EntryType.script,
+        label: 'Users',
+        description: 'x' * 4097,
+        script: 'echo ok',
+      ),
+      isFalse,
+    );
+  });
+
   test('credit card payload is normalized and validated', () {
     expect(
       EntryFormUtils.canSubmit(

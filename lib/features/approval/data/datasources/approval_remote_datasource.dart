@@ -96,6 +96,33 @@ class ApprovalRemoteDatasource {
     return response.data?['id'] as String? ?? '';
   }
 
+  /// Creates one atomic Script execution grant. The route and request shape
+  /// accept a complete Agent-sealed Script package only.
+  Future<String> createScriptExecutionGrant({
+    required String vaultId,
+    required String scriptEntryId,
+    required String grantId,
+    required String agentId,
+    required Map<String, dynamic> scriptPackage,
+    String? expiresAt,
+    int? queryLimit,
+    String? methods,
+  }) async {
+    final body = <String, dynamic>{
+      'grantId': grantId,
+      'agentId': agentId,
+      'scriptPackage': scriptPackage,
+      'expiresAt': ?expiresAt,
+      'queryLimit': ?queryLimit,
+      'methods': ?methods,
+    };
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/scripts/$scriptEntryId/grants',
+      data: body,
+    );
+    return response.data?['id'] as String? ?? '';
+  }
+
   /// `PUT /api/vaults/{vaultId}/grants/{grantId}/approve`.
   ///
   /// Sends the [envelope] for [entryId] plus **exactly one** of

@@ -148,4 +148,50 @@ void main() {
       ),
     );
   });
+
+  test(
+    'Script execution refreshes Agent binding and stays Exec-only',
+    () async {
+      await cubit.close();
+      cubit = ScriptExecutionRegrantCubit(
+        repository: repository,
+        agentsRepository: agentsRepository,
+        vaultId: 'vault-1',
+        agentId: 'agent-1',
+        scriptEntryId: 'script-1',
+      );
+      when(
+        () => repository.createScriptExecutionGrant(
+          vaultId: any(named: 'vaultId'),
+          scriptEntryId: any(named: 'scriptEntryId'),
+          agentId: any(named: 'agentId'),
+          agentPublicKey: any(named: 'agentPublicKey'),
+          recipientKeyVersion: any(named: 'recipientKeyVersion'),
+          agentAccessEpoch: any(named: 'agentAccessEpoch'),
+          privateKey: any(named: 'privateKey'),
+          limit: any(named: 'limit'),
+        ),
+      ).thenAnswer((_) async {});
+
+      await cubit.submit(
+        privateKey: Uint8List.fromList([1, 2, 3]),
+        limit: const GrantLifetime(),
+        methods: const [GrantMethod.exec],
+      );
+
+      verify(
+        () => repository.createScriptExecutionGrant(
+          vaultId: 'vault-1',
+          scriptEntryId: 'script-1',
+          agentId: 'agent-1',
+          agentPublicKey: 'fresh-public-key',
+          recipientKeyVersion: 8,
+          agentAccessEpoch: 5,
+          privateKey: any(named: 'privateKey'),
+          limit: any(named: 'limit'),
+        ),
+      ).called(1);
+      verify(() => agentsRepository.getAgent('agent-1')).called(1);
+    },
+  );
 }

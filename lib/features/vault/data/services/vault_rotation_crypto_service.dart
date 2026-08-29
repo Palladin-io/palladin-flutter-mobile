@@ -53,7 +53,11 @@ class VaultRotationCryptoService {
     CryptoSuiteRegistry? cryptoSuites,
   }) : _sodiumLoader = sodiumLoader ?? SodiumProvider.instance,
        _envelopes = envelopes ?? VaultProtocolEnvelopeService(),
-       _signatures = signatures ?? VaultProtocolSignatureService(),
+       _signatures =
+           signatures ??
+           VaultProtocolSignatureService(
+             sodiumLoader: sodiumLoader ?? SodiumProvider.instance,
+           ),
        _cryptoSuites =
            cryptoSuites ??
            CryptoSuiteRegistry(
@@ -65,6 +69,58 @@ class VaultRotationCryptoService {
            );
 
   final Future<SodiumSumo> Function() _sodiumLoader;
+
+  Future<Map<String, Map<String, Object>>> createPublicTrustAnchors({
+    required Uint8List agentMessagePrivateKey,
+    required Uint8List manifestSigningPrivateKey,
+    required int agentMessageKeyVersion,
+    required int manifestSigningKeyVersion,
+  }) async {
+    if (agentMessageKeyVersion <= 0 || manifestSigningKeyVersion <= 0) {
+      throw const FormatException('Invalid Vault public-key version');
+    }
+    final sodium = await _sodiumLoader();
+    final messageSecret = SecureKey.fromList(sodium, agentMessagePrivateKey);
+    final signing = _normalizeSigningKey(sodium, manifestSigningPrivateKey);
+    Uint8List? messagePublic;
+    try {
+      messagePublic = Uint8List.fromList(
+        sodium.crypto.scalarmult.base(n: messageSecret),
+      );
+      return {
+        'agentMessage': {
+          'protocolVersion': 2,
+          'schemeId': 'palladin-x25519-v1',
+          'keyKind': 1,
+          'keyVersion': agentMessageKeyVersion,
+          'encodedPublicKey': VaultProtocolBytes.base64UrlEncode(messagePublic),
+          'fingerprint': _fingerprint(
+            VaultPublicKeyKind.vaultMessageX25519,
+            messagePublic,
+          ),
+        },
+        'manifestSigning': {
+          'protocolVersion': 2,
+          'schemeId': 'palladin-ed25519-v1',
+          'keyKind': 2,
+          'keyVersion': manifestSigningKeyVersion,
+          'encodedPublicKey': VaultProtocolBytes.base64UrlEncode(
+            signing.publicKey,
+          ),
+          'fingerprint': _fingerprint(
+            VaultPublicKeyKind.vaultSigningEd25519,
+            signing.publicKey,
+          ),
+        },
+      };
+    } finally {
+      messageSecret.dispose();
+      messagePublic?.fillRange(0, messagePublic.length, 0);
+      signing.publicKey.fillRange(0, signing.publicKey.length, 0);
+      signing.privateKey.fillRange(0, signing.privateKey.length, 0);
+    }
+  }
+
   final VaultProtocolEnvelopeService _envelopes;
   final VaultProtocolSignatureService _signatures;
   final CryptoSuiteRegistry _cryptoSuites;
@@ -117,9 +173,17 @@ class VaultRotationCryptoService {
     required String vaultId,
     required int vaultKeyVersion,
     required Uint8List vaultKey,
+    required int vaultSigningKeyVersion,
+    required Uint8List vaultSigningPrivateKey,
   }) async {
     final publicKey = VaultProtocolBytes.base64UrlDecode(
       recipient.x25519PublicKey,
+    );
+    final sodium = await _sodiumLoader();
+    final signing = _normalizeSigningKey(sodium, vaultSigningPrivateKey);
+    final signingFingerprint = vaultPublicKeyFingerprint(
+      VaultPublicKeyKind.vaultSigningEd25519,
+      signing.publicKey,
     );
     try {
       if (_fingerprint(VaultPublicKeyKind.agentX25519, publicKey) !=
@@ -136,10 +200,54 @@ class VaultRotationCryptoService {
         vaultKeyVersion: vaultKeyVersion,
         agentPublicKey: publicKey,
         recipientKeyVersion: recipient.recipientKeyVersion,
+        vaultSigningKeyVersion: vaultSigningKeyVersion,
+        vaultSigningKeyFingerprint: signingFingerprint,
+        signProducer: (unsigned) => _signatures.sign(
+          domainPrefix: 'PLDNV2SIG:AGENT-WRAPPED-VAULT-KEY:',
+          unsignedObject: unsigned,
+          privateKey: signing.privateKey,
+        ),
         sodiumLoader: _sodiumLoader,
       );
     } finally {
       publicKey.fillRange(0, publicKey.length, 0);
+      signing.publicKey.fillRange(0, signing.publicKey.length, 0);
+      signing.privateKey.fillRange(0, signing.privateKey.length, 0);
+      signingFingerprint.fillRange(0, signingFingerprint.length, 0);
+    }
+  }
+
+  ({Uint8List publicKey, Uint8List privateKey}) _normalizeSigningKey(
+    SodiumSumo sodium,
+    Uint8List value,
+  ) {
+    if (value.length == sodium.crypto.sign.seedBytes) {
+      final seed = SecureKey.fromList(sodium, value);
+      try {
+        final pair = sodium.crypto.sign.seedKeyPair(seed);
+        try {
+          return (
+            publicKey: Uint8List.fromList(pair.publicKey),
+            privateKey: Uint8List.fromList(pair.secretKey.extractBytes()),
+          );
+        } finally {
+          pair.secretKey.dispose();
+        }
+      } finally {
+        seed.dispose();
+      }
+    }
+    if (value.length != sodium.crypto.sign.secretKeyBytes) {
+      throw const FormatException('Vault signing key length is invalid');
+    }
+    final secretKey = SecureKey.fromList(sodium, value);
+    try {
+      return (
+        publicKey: Uint8List.fromList(sodium.crypto.sign.skToPk(secretKey)),
+        privateKey: Uint8List.fromList(value),
+      );
+    } finally {
+      secretKey.dispose();
     }
   }
 
@@ -261,6 +369,32 @@ class VaultRotationCryptoService {
     Map<String, dynamic> envelope,
     Uint8List vaultKey, {
     required int expectedKeyVersion,
+  }) => _openCanonicalVaultPrivateKey(
+    envelope,
+    vaultKey,
+    expectedKeyVersion: expectedKeyVersion,
+    expectedPurpose: EnvelopePurpose.agentMessagePrivateByVk,
+    label: 'Agent message private key',
+  );
+
+  Future<Uint8List> openCanonicalManifestSigningPrivateKey(
+    Map<String, dynamic> envelope,
+    Uint8List vaultKey, {
+    required int expectedKeyVersion,
+  }) => _openCanonicalVaultPrivateKey(
+    envelope,
+    vaultKey,
+    expectedKeyVersion: expectedKeyVersion,
+    expectedPurpose: EnvelopePurpose.manifestPrivateByVk,
+    label: 'Vault manifest signing seed',
+  );
+
+  Future<Uint8List> _openCanonicalVaultPrivateKey(
+    Map<String, dynamic> envelope,
+    Uint8List vaultKey, {
+    required int expectedKeyVersion,
+    required EnvelopePurpose expectedPurpose,
+    required String label,
   }) async {
     final descriptorJson = envelope['descriptor'];
     final encodedPayload = envelope['encodedSuitePayload'];
@@ -279,7 +413,7 @@ class VaultRotationCryptoService {
     final resourceRevision = descriptor['resourceRevision'];
     final cryptoSuiteId = descriptor['cryptoSuiteId'];
     final wrappingVaultKeyVersion = bindingJson['wrappingVaultKeyVersion'];
-    if (purpose != EnvelopePurpose.agentMessagePrivateByVk ||
+    if (purpose != expectedPurpose ||
         keyVersion is! int ||
         keyVersion != expectedKeyVersion ||
         memberKeyGeneration is! int ||
@@ -322,7 +456,7 @@ class VaultRotationCryptoService {
         );
     if (opened.length != 32) {
       opened.fillRange(0, opened.length, 0);
-      throw const FormatException('Agent message private key must be 32 bytes');
+      throw FormatException('$label must be 32 bytes');
     }
     return opened;
   }

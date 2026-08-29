@@ -11,14 +11,14 @@ typedef WellKnownField = ({String wire, String label});
 List<WellKnownField> wellKnownFieldsFor(EntryType type, AppLocalizations l10n) {
   return switch (type) {
     EntryType.key => [
-      (wire: 'value', label: l10n.entryValueLabel),
+      (wire: 'key.value', label: l10n.entryValueLabel),
       (wire: 'key.url', label: l10n.entryUrlLabel),
       (wire: 'notes', label: l10n.entryNotesLabel),
     ],
     EntryType.credential => [
-      (wire: 'username', label: l10n.entryUsernameLabel),
-      (wire: 'password', label: l10n.entryPasswordLabel),
-      (wire: 'url', label: l10n.entryUrlLabel),
+      (wire: 'credential.username', label: l10n.entryUsernameLabel),
+      (wire: 'credential.password', label: l10n.entryPasswordLabel),
+      (wire: 'credential.url', label: l10n.entryUrlLabel),
       (wire: 'notes', label: l10n.entryNotesLabel),
     ],
     EntryType.script => const [],

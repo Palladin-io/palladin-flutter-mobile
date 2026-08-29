@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,8 @@ import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
+import '../../../../core/widgets/app_toggle.dart';
+import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
@@ -19,6 +22,7 @@ import '../../../public_asset_catalog/presentation/website_icon_auto_resolver.da
 import '../../../public_asset_catalog/presentation/widgets/public_asset_picker_sheet.dart';
 import '../../data/services/canonical_entry_detail_service.dart';
 import '../../data/services/encrypted_presentation_asset_service.dart';
+import '../../data/services/script_access_impact_service.dart';
 import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/agent_visibility_policy.dart';
 import '../../domain/entities/entry_entity.dart';
@@ -32,6 +36,7 @@ import '../widgets/entry_form_widgets.dart';
 import '../widgets/entry_icon_tile.dart';
 import '../widgets/entry_notes_section.dart';
 import '../widgets/script_editor_field.dart';
+import '../widgets/script_parameters_editor.dart';
 import '../widgets/script_refs_editor.dart';
 import '../widgets/totp_display.dart';
 import '../widgets/totp_section.dart';
@@ -109,6 +114,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   bool _customFieldsValid = true;
   List<CustomField> _totpFields = const [];
   List<ScriptRef> _refs = const [];
+  List<ScriptParameterDefinition> _scriptParameters = const [];
+  bool _returnResultToAgent = false;
 
   /// Every custom field in display order — 2FA first, then the rest.
   List<CustomField> get _allCustomFields => [..._totpFields, ..._customFields];
@@ -281,6 +288,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _customFields = const [];
     _totpFields = const [];
     _refs = const [];
+    _scriptParameters = const [];
+    _returnResultToAgent = false;
     _credentialTotp = null;
     _agentPolicy = null;
     _agentLabel = null;
@@ -337,6 +346,18 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
           payload['interpreter'] as String?,
         );
         _refs = ScriptRef.listFromPayload(payload);
+        final execution = payload['execution'];
+        if (execution is Map) {
+          final metadata = ScriptExecutionMetadata.fromJson(
+            Map<String, dynamic>.from(execution),
+          );
+          _scriptParameters = metadata.parameters;
+          _returnResultToAgent = metadata.returnResultToAgent;
+        } else {
+          // Legacy Scripts predate explicit result delivery and fail closed.
+          _scriptParameters = const [];
+          _returnResultToAgent = false;
+        }
       case EntryType.creditCard:
         _cardholderController.text =
             (payload['cardholderName'] as String?) ?? '';
@@ -467,6 +488,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         username: _usernameController.text,
         password: _passwordController.text,
         script: _scriptController.text,
+        description: _descriptionController.text,
+        refs: _refs,
+        scriptParameters: _scriptParameters,
         cardholderName: _cardholderController.text,
         cardNumber: _cardNumberController.text,
         expiryMonth: _expiryMonthController.text,
@@ -484,6 +508,9 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     script: _scriptController.text,
     interpreter: _interpreter,
     refs: _refs,
+    scriptDescription: _descriptionController.text,
+    scriptParameters: _scriptParameters,
+    returnResultToAgent: _returnResultToAgent,
     credentialTotp: _credentialTotp,
     cardholderName: _cardholderController.text,
     cardNumber: _cardNumberController.text,
@@ -642,6 +669,12 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       _showSnackBar(AppLocalizations.of(context)!.entryTooLarge);
       return;
     }
+    if ((widget.entry.type == EntryType.script || _type == EntryType.script) &&
+        jsonEncode(payload) != jsonEncode(_payload) &&
+        !await _confirmScriptImpact()) {
+      return;
+    }
+    if (!mounted) return;
 
     final keyCopy = Uint8List.fromList(auth.privateKey!);
     final hasCustomFile = _icon.startsWith('file://');
@@ -724,6 +757,45 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     widget.onUpdated(entry);
     _showSnackBar(AppLocalizations.of(context)!.entryChangesSaved);
     await _requestReveal(expected: entry);
+  }
+
+  Future<bool> _confirmScriptImpact() async {
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      final impact = await getIt<ScriptAccessImpactService>().get(
+        vaultId: widget.entry.vaultId,
+        scriptEntryId: widget.entry.id,
+      );
+      if (!mounted || impact.effectiveAgentCount == 0) return mounted;
+      return await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) => AlertDialog(
+              title: Text(l10n.entryScriptImpactTitle),
+              content: Text(
+                l10n.entryScriptImpactMessage(
+                  impact.effectiveAgentCount,
+                  impact.directAgentCount,
+                  impact.fullAgentCount,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: Text(l10n.approvalCancel),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: Text(l10n.entryScriptImpactConfirm),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+    } catch (_) {
+      if (mounted) _showSnackBar(l10n.entryScriptImpactCheckFailed);
+      return false;
+    }
   }
 
   Future<void> _confirmDelete() async {
@@ -1280,6 +1352,32 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
           onInterpreterChanged: (next) => setState(() => _interpreter = next),
           onChanged: () => setState(() {}),
         ),
+        const SizedBox(height: AppSpacing.section),
+        EntrySectionHeader(label: l10n.entryScriptParametersLabel),
+        const SizedBox(height: AppSpacing.innerGap),
+        ScriptParametersEditor(
+          initial: _scriptParameters,
+          onChanged: (parameters) =>
+              setState(() => _scriptParameters = parameters),
+        ),
+        const SizedBox(height: AppSpacing.section),
+        Row(
+          children: [
+            Expanded(child: Text(l10n.entryScriptReturnResultLabel)),
+            AppToggle(
+              value: _returnResultToAgent,
+              onChanged: (value) =>
+                  setState(() => _returnResultToAgent = value),
+            ),
+          ],
+        ),
+        if (_returnResultToAgent) ...[
+          const SizedBox(height: AppSpacing.innerGap),
+          WarningZone(
+            title: l10n.entryScriptReturnResultLabel.toUpperCase(),
+            message: l10n.entryScriptReturnResultHint,
+          ),
+        ],
         const SizedBox(height: AppSpacing.section),
         EntrySectionHeader(label: l10n.entryInjectedDataLabel),
         const SizedBox(height: AppSpacing.innerGap),

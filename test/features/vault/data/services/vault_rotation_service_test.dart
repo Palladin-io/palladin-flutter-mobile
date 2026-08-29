@@ -222,6 +222,85 @@ void main() {
     verifyNever(() => remote.commit(any(), any(), any(), any()));
   });
 
+  test('signing-only rotation re-signs every active FULL wrapper', () async {
+    rotation = _manifestSigningRotation();
+    claim = _claim(rotation);
+    when(() => remote.listPending(any())).thenAnswer((_) async => [rotation]);
+    when(
+      () => remote.claim(rotation.vaultId, rotation.id, any()),
+    ).thenAnswer((_) async => claim);
+    when(
+      () => crypto.createPublicTrustAnchors(
+        agentMessagePrivateKey: any(named: 'agentMessagePrivateKey'),
+        manifestSigningPrivateKey: any(named: 'manifestSigningPrivateKey'),
+        agentMessageKeyVersion: any(named: 'agentMessageKeyVersion'),
+        manifestSigningKeyVersion: any(named: 'manifestSigningKeyVersion'),
+      ),
+    ).thenAnswer(
+      (_) async => {
+        'agentMessage': <String, Object>{'keyVersion': 1},
+        'manifestSigning': <String, Object>{'keyVersion': 2},
+      },
+    );
+    const recipient = RotationFullGrantRecipient(
+      grantId: '55555555-5555-4555-8555-555555555555',
+      agentId: '66666666-6666-4666-8666-666666666666',
+      agentAccessEpoch: 3,
+      recipientKeyVersion: 4,
+      recipientKeyFingerprint: 'fingerprint',
+      x25519PublicKey: 'public-key',
+    );
+    when(
+      () =>
+          remote.fullGrants(rotation.vaultId, rotation.id, any(), any(), any()),
+    ).thenAnswer((_) async => const RotationPage(items: [recipient]));
+    when(
+      () => crypto.sealAgentVaultKey(
+        recipient: recipient,
+        organizationId: any(named: 'organizationId'),
+        vaultId: rotation.vaultId,
+        vaultKeyVersion: 1,
+        vaultKey: any(named: 'vaultKey'),
+        vaultSigningKeyVersion: 2,
+        vaultSigningPrivateKey: any(named: 'vaultSigningPrivateKey'),
+      ),
+    ).thenAnswer((_) async => <String, Object?>{'grantId': recipient.grantId});
+
+    await service.resumeAfterUnlock(
+      memberId: '44444444-4444-4444-8444-444444444444',
+      memberPrivateKey: Uint8List(32),
+    );
+
+    verify(
+      () => crypto.sealAgentVaultKey(
+        recipient: recipient,
+        organizationId: '11111111-1111-4111-8111-111111111111',
+        vaultId: rotation.vaultId,
+        vaultKeyVersion: 1,
+        vaultKey: any(named: 'vaultKey'),
+        vaultSigningKeyVersion: 2,
+        vaultSigningPrivateKey: any(named: 'vaultSigningPrivateKey'),
+      ),
+    ).called(1);
+    final prepared = verify(
+      () => remote.prepare(
+        rotation.vaultId,
+        rotation.id,
+        any(),
+        captureAny(),
+        any(),
+      ),
+    ).captured.cast<Map<String, dynamic>>();
+    expect(
+      prepared,
+      contains(
+        predicate<Map<String, dynamic>>(
+          (value) => value['agentWrappedVaultKeys'] is List,
+        ),
+      ),
+    );
+  });
+
   test(
     'pause cancels in-flight network work without persisting progress',
     () async {
@@ -270,6 +349,27 @@ VaultRotationModel _rotation({
     vdkVersion: 2,
     agentMessageKeyVersion: 1,
     manifestSigningKeyVersion: 1,
+  ),
+);
+
+VaultRotationModel _manifestSigningRotation() => VaultRotationModel(
+  id: '22222222-2222-4222-8222-222222222221',
+  vaultId: '22222222-2222-4222-8222-222222222222',
+  status: 'Pending',
+  scope: const ['ManifestSigning'],
+  baseMemberKeyGeneration: 1,
+  targetMemberKeyGeneration: 1,
+  baseKeyEpoch: const VaultKeyEpochModel(
+    vaultKeyVersion: 1,
+    vdkVersion: 1,
+    agentMessageKeyVersion: 1,
+    manifestSigningKeyVersion: 1,
+  ),
+  targetKeyEpoch: const VaultKeyEpochModel(
+    vaultKeyVersion: 1,
+    vdkVersion: 1,
+    agentMessageKeyVersion: 1,
+    manifestSigningKeyVersion: 2,
   ),
 );
 
