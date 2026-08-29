@@ -185,6 +185,7 @@ final class MemberSyncService
   final Map<String, Timer> _leaseTimers = {};
   final Map<String, Future<void>> _vaultCommitTails = {};
   int _lockGeneration = 0;
+  int _sessionEpoch = 0;
 
   /// Emits a Vault id after its unlocked runtime index has been installed or
   /// refreshed. Consumers use this signal to refresh local presentation only;
@@ -376,6 +377,10 @@ final class MemberSyncService
       } finally {
         vaultKey.fillRange(0, vaultKey.length, 0);
       }
+    } on _MemberSyncInvalidated {
+      // lock() already revoked every runtime projection. Preserve this typed
+      // session fence even if Vault-local durable cleanup would fail.
+      rethrow;
     } on Object {
       await purgeVault(vaultId);
       rethrow;
@@ -395,22 +400,32 @@ final class MemberSyncService
     if (memberPrivateKey.length != 32) {
       throw const FormatException('Member private key must be 32 bytes');
     }
+    final sessionEpoch = _sessionEpoch;
     final vaultIds = await _cache.vaultIds();
+    _requireSessionEpoch(sessionEpoch);
     final reopenedVaultIds = <String>[];
     for (final vaultId in vaultIds) {
+      _requireSessionEpoch(sessionEpoch);
       try {
         await unlockCached(
           vaultId: vaultId,
           memberPrivateKey: memberPrivateKey,
           authority: authority,
         );
+        _requireSessionEpoch(sessionEpoch);
         if (_indexes.containsKey(vaultId)) reopenedVaultIds.add(vaultId);
+      } on _MemberSyncInvalidated {
+        // Lock/session replacement invalidates the entire reopen operation.
+        // Continuing would let later Vaults capture the new generation and
+        // repopulate plaintext indexes after lock() cleared them.
+        rethrow;
       } on Object {
         // unlockCached purges and revokes only the invalid Vault. Continue so
         // one corrupt or expired generation cannot suppress independent valid
         // offline Vaults from the exact native replacement.
       }
     }
+    _requireSessionEpoch(sessionEpoch);
     return List<String>.unmodifiable(reopenedVaultIds);
   }
 
@@ -479,6 +494,7 @@ final class MemberSyncService
   /// Drops every decrypted projection immediately on lock/session loss.
   @override
   void lock() {
+    _sessionEpoch++;
     _lockGeneration++;
     _running.clear();
     _indexes.clear();
@@ -900,6 +916,7 @@ final class MemberSyncService
 
   /// Deletes the complete local profile on logout.
   Future<void> purgeAll() async {
+    _sessionEpoch++;
     final operationGeneration = ++_lockGeneration;
     _profileQuarantined = true;
     _running.clear();
@@ -1165,6 +1182,12 @@ final class MemberSyncService
 
   void _requireCurrent(int generation) {
     if (generation != _lockGeneration) {
+      throw const _MemberSyncInvalidated();
+    }
+  }
+
+  void _requireSessionEpoch(int epoch) {
+    if (epoch != _sessionEpoch) {
       throw const _MemberSyncInvalidated();
     }
   }

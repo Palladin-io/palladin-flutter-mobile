@@ -93,6 +93,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final Map<String, BigInt> _appliedVaultInvalidationRanks = {};
   final Map<String, VaultSyncInvalidation> _pendingVaultInvalidations = {};
   late final DurableAutoFillRepairCoordinator _durableAutoFillRepair;
+  final Set<AutoFillRepairDeny> _mutationAutoFillDenies = {};
+  AutoFillRepairDeny? _vaultInvalidationAutoFillDeny;
   Object _autoFillUnlockSessionIdentity = Object();
   bool _vaultInvalidationRepairRunning = false;
   Timer? _vaultInvalidationRepairRetry;
@@ -300,7 +302,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
           // Commit a durable native deny before any network repair. A remote
           // delete, revoke, policy change or rekey must stop old credentials
           // immediately, not after a potentially slow snapshot/delta fetch.
-          _durableAutoFillRepair.suspendRepairs();
+          final deny = _vaultInvalidationAutoFillDeny ??= _durableAutoFillRepair
+              .suspendRepairs();
           await _autoFillCache.clear();
           for (final invalidation in batch.values) {
             if (invalidation.removed) {
@@ -311,13 +314,18 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
             state.privateKey!,
             ensureFresh: true,
           );
-          _durableAutoFillRepair.replaceKnownVaults(
-            preparedVaults.map((vault) => vault.id),
-          );
-          await _autoFillCache.synchronizePrepared(
+          await _durableAutoFillRepair.synchronizePreparedIfAllowed(
             privateKey: state.privateKey!,
             vaultIds: preparedVaults.map((vault) => vault.id),
+            releasingDenies: {deny},
           );
+          _vaultInvalidationAutoFillDeny = null;
+          final currentState = _authBloc.state;
+          if (currentState is! AuthAuthenticated ||
+              currentState.isVaultLocked ||
+              !identical(currentState.privateKey, state.privateKey)) {
+            return;
+          }
           for (final invalidation in batch.values) {
             final rank = _invalidationRank(invalidation);
             final applied =
@@ -326,7 +334,6 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               _appliedVaultInvalidationRanks[invalidation.vaultId] = rank;
             }
           }
-          _durableAutoFillRepair.resumeRepairs();
         } catch (error) {
           _memberIndexPreparation.lock();
           for (final invalidation in batch.values) {
@@ -439,6 +446,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               _autoFillUnlockSessionIdentity = Object();
               _appliedVaultInvalidationRanks.clear();
               _pendingVaultInvalidations.clear();
+              _mutationAutoFillDenies.clear();
+              _vaultInvalidationAutoFillDeny = null;
               _durableAutoFillRepair.clearSession();
               _vaultList.lock();
               _dashboard.lock();
@@ -507,10 +516,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
         privateKey,
         ensureFresh: ensureFresh,
       );
-      _durableAutoFillRepair.replaceKnownVaults(
-        preparedVaults.map((vault) => vault.id),
-      );
-      await _autoFillCache.synchronizePrepared(
+      await _durableAutoFillRepair.synchronizePreparedIfAllowed(
         privateKey: privateKey,
         vaultIds: preparedVaults.map((vault) => vault.id),
       );
@@ -522,8 +528,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
           memberPrivateKey: privateKey,
           authority: authority,
         );
-        _durableAutoFillRepair.replaceKnownVaults(cachedVaultIds);
-        await _autoFillCache.synchronizePrepared(
+        await _durableAutoFillRepair.synchronizePreparedIfAllowed(
           privateKey: privateKey,
           vaultIds: cachedVaultIds,
         );
@@ -565,7 +570,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   Future<void> _onAutoFillMutation(AutoFillMutationAction action) async {
     switch (action) {
       case AutoFillMutationAction.invalidate:
-        _durableAutoFillRepair.suspendRepairs();
+        final deny = _durableAutoFillRepair.suspendRepairs();
+        _mutationAutoFillDenies.add(deny);
         try {
           await _autoFillCache.clear();
         } catch (error) {
@@ -589,14 +595,14 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
           state.privateKey!,
           ensureFresh: true,
         );
-        _durableAutoFillRepair.replaceKnownVaults(
-          preparedVaults.map((vault) => vault.id),
-        );
-        await _autoFillCache.synchronizePrepared(
+        await _durableAutoFillRepair.synchronizePreparedIfAllowed(
           privateKey: state.privateKey!,
           vaultIds: preparedVaults.map((vault) => vault.id),
+          releasingDenies: Set<AutoFillRepairDeny>.from(
+            _mutationAutoFillDenies,
+          ),
         );
-        _durableAutoFillRepair.resumeRepairs();
+        _mutationAutoFillDenies.clear();
     }
   }
 

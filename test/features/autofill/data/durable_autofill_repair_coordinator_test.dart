@@ -135,7 +135,7 @@ void main() {
 
       updates.add('vault-a');
       await Future<void>.delayed(Duration.zero);
-      coordinator.suspendRepairs();
+      final deny = coordinator.suspendRepairs();
       releaseCurrent.complete();
       await coordinator.drainPending();
 
@@ -146,7 +146,7 @@ void main() {
         ),
       );
 
-      coordinator.resumeRepairs();
+      coordinator.resumeRepairs(deny);
       await coordinator.drainPending();
 
       final vaultIds =
@@ -160,6 +160,106 @@ void main() {
       expect(vaultIds.toSet(), {'vault-a', 'vault-b'});
     },
   );
+
+  test('foreground repair cannot bypass an active mutation deny', () async {
+    coordinator.replaceKnownVaults(const ['vault-a', 'vault-b']);
+    final deny = coordinator.suspendRepairs();
+
+    final blocked = await coordinator.synchronizePreparedIfAllowed(
+      privateKey: Uint8List(32),
+      vaultIds: const ['vault-a', 'vault-b'],
+    );
+
+    expect(blocked, isFalse);
+    verifyNever(
+      () => autoFill.synchronizePrepared(
+        privateKey: any(named: 'privateKey'),
+        vaultIds: any(named: 'vaultIds'),
+      ),
+    );
+
+    coordinator.resumeRepairs(deny);
+    final published = await coordinator.synchronizePreparedIfAllowed(
+      privateKey: session!.privateKey,
+      vaultIds: const ['vault-a', 'vault-b'],
+    );
+
+    expect(published, isTrue);
+    final vaultIds =
+        verify(
+              () => autoFill.synchronizePrepared(
+                privateKey: any(named: 'privateKey'),
+                vaultIds: captureAny(named: 'vaultIds'),
+              ),
+            ).captured.single
+            as Iterable<String>;
+    expect(vaultIds.toSet(), {'vault-a', 'vault-b'});
+  });
+
+  test(
+    'overlapping mutation and invalidation denies keep one publication owner',
+    () async {
+      final mutationDeny = coordinator.suspendRepairs();
+      final invalidationDeny = coordinator.suspendRepairs();
+
+      final foreground = await coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['vault-a', 'vault-b'],
+      );
+      final mutation = await coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['vault-a', 'vault-b'],
+        releasingDenies: {mutationDeny},
+      );
+      final invalidation = await coordinator.synchronizePreparedIfAllowed(
+        privateKey: session!.privateKey,
+        vaultIds: const ['vault-a', 'vault-b'],
+        releasingDenies: {invalidationDeny},
+      );
+
+      expect(foreground, isFalse);
+      expect(mutation, isFalse);
+      expect(invalidation, isTrue);
+      verify(
+        () => autoFill.synchronizePrepared(
+          privateKey: session!.privateKey,
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      ).called(1);
+    },
+  );
+
+  test('owned publication consumes only covered durable updates', () async {
+    final deny = coordinator.suspendRepairs();
+    updates.add('vault-a');
+    await Future<void>.delayed(Duration.zero);
+    var synchronizeCalls = 0;
+    when(
+      () => autoFill.synchronizePrepared(
+        privateKey: any(named: 'privateKey'),
+        vaultIds: any(named: 'vaultIds'),
+      ),
+    ).thenAnswer((_) async {
+      synchronizeCalls += 1;
+      if (synchronizeCalls == 1) updates.add('vault-b');
+    });
+
+    await coordinator.synchronizePreparedIfAllowed(
+      privateKey: session!.privateKey,
+      vaultIds: const ['vault-a', 'vault-b'],
+      releasingDenies: {deny},
+    );
+    await coordinator.drainPending();
+
+    verify(
+      () => autoFill.synchronizePrepared(
+        privateKey: session!.privateKey,
+        vaultIds: any(named: 'vaultIds'),
+      ),
+    ).called(2);
+    verify(() => indexes.waitForCurrent('vault-b')).called(1);
+    verifyNever(() => indexes.waitForCurrent('vault-a'));
+  });
 
   test('failed repair keeps the commit pending for a later retry', () async {
     var calls = 0;

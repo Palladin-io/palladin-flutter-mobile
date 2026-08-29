@@ -21,6 +21,11 @@ final class AutoFillRepairSession {
 
 typedef CurrentAutoFillRepairSession = AutoFillRepairSession? Function();
 
+/// Opaque ownership token for one active native-cache deny.
+final class AutoFillRepairDeny {
+  AutoFillRepairDeny._();
+}
+
 /// Coalesces committed Member sync updates into local-only native rebuilds.
 ///
 /// This coordinator deliberately has no Member sync/preparation dependency:
@@ -53,7 +58,7 @@ final class DurableAutoFillRepairCoordinator {
   int? _readyEpoch;
   int _epoch = 0;
   int _sequence = 0;
-  bool _repairsSuspended = false;
+  final Set<AutoFillRepairDeny> _repairDenies = {};
   bool _disposed = false;
 
   /// Starts consuming the authoritative post-commit stream once.
@@ -64,6 +69,11 @@ final class DurableAutoFillRepairCoordinator {
 
   /// Replaces the complete Vault set returned by an all-Vault preparation.
   void replaceKnownVaults(Iterable<String> vaultIds) {
+    _installKnownVaults(vaultIds);
+    if (_pending.isNotEmpty) unawaited(drainPending());
+  }
+
+  void _installKnownVaults(Iterable<String> vaultIds) {
     final session = _currentSession();
     if (session == null || session.privateKey.isEmpty) return;
     _knownVaultIds
@@ -71,22 +81,72 @@ final class DurableAutoFillRepairCoordinator {
       ..addAll(vaultIds);
     _readySessionIdentity = session.identity;
     _readyEpoch = _epoch;
-    if (_pending.isNotEmpty) unawaited(drainPending());
   }
 
   /// Holds committed-index repairs after a native deny until the mutation or
   /// invalidation batch has installed its authoritative replacement.
-  void suspendRepairs() {
-    _repairsSuspended = true;
+  AutoFillRepairDeny suspendRepairs() {
+    final deny = AutoFillRepairDeny._();
+    _repairDenies.add(deny);
     _retry?.cancel();
     _retry = null;
+    return deny;
   }
 
-  /// Releases a previously held deny and drains every coalesced commit.
-  void resumeRepairs() {
-    if (!_repairsSuspended) return;
-    _repairsSuspended = false;
+  /// Releases one owned deny without weakening any overlapping owner.
+  void resumeRepairs(AutoFillRepairDeny deny) {
+    if (!_repairDenies.remove(deny) || _repairDenies.isNotEmpty) return;
     if (_pending.isNotEmpty) unawaited(drainPending());
+  }
+
+  /// Publishes a foreground/reconnect rebuild only while no mutation or
+  /// invalidation batch owns the durable native deny.
+  ///
+  /// The guard and synchronizer invocation are synchronous until the returned
+  /// future is obtained, so a deny cannot interleave between them.
+  Future<bool> synchronizePreparedIfAllowed({
+    required Uint8List privateKey,
+    required Iterable<String> vaultIds,
+    Set<AutoFillRepairDeny> releasingDenies = const {},
+  }) async {
+    if (_disposed || !_repairDenies.containsAll(releasingDenies)) return false;
+    final blockingDenies = _repairDenies.difference(releasingDenies);
+    if (blockingDenies.isNotEmpty) {
+      // Release this completed owner's denies synchronously. The next owner
+      // reaching the gate can then publish, avoiding a two-owner deadlock.
+      for (final deny in releasingDenies) {
+        resumeRepairs(deny);
+      }
+      return false;
+    }
+    final session = _currentSession();
+    if (session == null || !identical(session.privateKey, privateKey)) {
+      for (final deny in releasingDenies) {
+        resumeRepairs(deny);
+      }
+      return false;
+    }
+    final completeVaultIds = Set<String>.unmodifiable(vaultIds);
+    _installKnownVaults(completeVaultIds);
+    final covered = Map<String, int>.from(_pending);
+    try {
+      await _autoFill.synchronizePrepared(
+        privateKey: privateKey,
+        vaultIds: completeVaultIds,
+      );
+    } catch (_) {
+      // Keep the deny owned by the caller so its retry remains fail-closed.
+      rethrow;
+    }
+    for (final update in covered.entries) {
+      if (_pending[update.key] == update.value) {
+        _pending.remove(update.key);
+      }
+    }
+    for (final deny in releasingDenies) {
+      resumeRepairs(deny);
+    }
+    return true;
   }
 
   /// Drops all profile-scoped state on lock, logout, or session replacement.
@@ -96,7 +156,7 @@ final class DurableAutoFillRepairCoordinator {
     _pending.clear();
     _readySessionIdentity = null;
     _readyEpoch = null;
-    _repairsSuspended = false;
+    _repairDenies.clear();
     _retry?.cancel();
     _retry = null;
   }
@@ -104,7 +164,7 @@ final class DurableAutoFillRepairCoordinator {
   /// Exposed as a deterministic test seam; production drains automatically.
   Future<void> drainPending() {
     final session = _currentSession();
-    if (_repairsSuspended ||
+    if (_repairDenies.isNotEmpty ||
         session == null ||
         _readyEpoch != _epoch ||
         !identical(_readySessionIdentity, session.identity)) {
@@ -117,7 +177,7 @@ final class DurableAutoFillRepairCoordinator {
       if (identical(_running, operation)) _running = null;
       if (_pending.isNotEmpty &&
           _retry == null &&
-          !_repairsSuspended &&
+          _repairDenies.isEmpty &&
           !_disposed &&
           _readyEpoch == _epoch &&
           identical(_readySessionIdentity, _currentSession()?.identity)) {
@@ -145,14 +205,14 @@ final class DurableAutoFillRepairCoordinator {
     _knownVaultIds.add(vaultId);
     _pending[vaultId] = ++_sequence;
     if (_readyEpoch == _epoch &&
-        !_repairsSuspended &&
+        _repairDenies.isEmpty &&
         identical(_readySessionIdentity, _currentSession()?.identity)) {
       unawaited(drainPending());
     }
   }
 
   Future<void> _drain() async {
-    while (_pending.isNotEmpty && !_disposed && !_repairsSuspended) {
+    while (_pending.isNotEmpty && !_disposed && _repairDenies.isEmpty) {
       final initialEpoch = _epoch;
       final initialSession = _currentSession();
       if (initialSession == null || initialSession.privateKey.isEmpty) {
@@ -167,14 +227,14 @@ final class DurableAutoFillRepairCoordinator {
         var covered = Map<String, int>.from(_pending);
         while (true) {
           await Future.wait(covered.keys.map(_memberIndexes.waitForCurrent));
-          if (_epoch != initialEpoch || _repairsSuspended) return;
+          if (_epoch != initialEpoch || _repairDenies.isNotEmpty) return;
           final latest = Map<String, int>.from(_pending);
           if (_sameUpdates(covered, latest)) break;
           covered = latest;
         }
         final currentSession = _currentSession();
         if (currentSession == null ||
-            _repairsSuspended ||
+            _repairDenies.isNotEmpty ||
             _epoch != initialEpoch ||
             _readyEpoch != initialEpoch ||
             currentSession.principalId != initialSession.principalId ||

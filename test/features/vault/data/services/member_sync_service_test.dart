@@ -60,6 +60,8 @@ final class _MemoryCache implements MemberSyncCache {
   bool failClearAll = false;
   int? profileQuarantineGeneration;
   Completer<void>? profileClearGate;
+  Completer<void>? vaultIdsEntered;
+  Completer<void>? vaultIdsGate;
 
   void _requireAvailable() {
     if (profileQuarantineGeneration != null) {
@@ -88,6 +90,11 @@ final class _MemoryCache implements MemberSyncCache {
 
   @override
   Future<List<String>> vaultIds() async {
+    _requireAvailable();
+    final entered = vaultIdsEntered;
+    if (entered != null && !entered.isCompleted) entered.complete();
+    final gate = vaultIdsGate;
+    if (gate != null) await gate.future;
     _requireAvailable();
     final result = states.keys.toList()..sort();
     return List<String>.unmodifiable(result);
@@ -466,6 +473,76 @@ void main() {
     expect(remote.snapshotRequests, 1);
     expect(remote.deltaRequests, 1);
   });
+
+  test(
+    'offline reopen aborts all Vaults when lock invalidates session',
+    () async {
+      const firstVaultId = '11111111-0000-4000-8000-000000000000';
+      final firstContextJson = snapshot.accessContext.toJson()
+        ..['vaultId'] = firstVaultId;
+      final firstMemberVaultKey = Map<String, dynamic>.from(
+        snapshot.memberVaultKey,
+      );
+      final wrapped = Map<String, dynamic>.from(
+        firstMemberVaultKey['wrappedVaultKey'] as Map,
+      );
+      final descriptor = Map<String, dynamic>.from(
+        wrapped['descriptor'] as Map,
+      );
+      final scope = Map<String, dynamic>.from(descriptor['scope'] as Map)
+        ..['vaultId'] = firstVaultId;
+      descriptor['scope'] = scope;
+      wrapped['descriptor'] = descriptor;
+      firstMemberVaultKey['wrappedVaultKey'] = wrapped;
+      cache.states[firstVaultId] = MemberSyncCacheState(
+        sequence: '1',
+        accessContext: MemberOfflineAccessContext.fromJson(firstContextJson),
+        memberVaultKey: firstMemberVaultKey,
+        maximumObservedWallTime: now,
+      );
+      cache.active[firstVaultId] = {};
+      cache.states[snapshot.accessContext.vaultId] = MemberSyncCacheState(
+        sequence: snapshot.snapshotBaseSequence,
+        accessContext: snapshot.accessContext,
+        memberVaultKey: snapshot.memberVaultKey,
+        maximumObservedWallTime: now,
+      );
+      cache.active[snapshot.accessContext.vaultId] = {
+        for (final item in snapshot.items) item.entryId: item,
+      };
+      var openCalls = 0;
+      when(
+        () => vaultKeys.openMemberVaultKey(
+          any(),
+          any(),
+          expectedOrganizationId: any(named: 'expectedOrganizationId'),
+          expectedVaultId: any(named: 'expectedVaultId'),
+          expectedVaultKeyVersion: any(named: 'expectedVaultKeyVersion'),
+          expectedMemberKeyGeneration: any(
+            named: 'expectedMemberKeyGeneration',
+          ),
+        ),
+      ).thenAnswer((_) async {
+        openCalls += 1;
+        return Uint8List(32);
+      });
+      cache.vaultIdsEntered = Completer<void>();
+      cache.vaultIdsGate = Completer<void>();
+
+      final reopen = service.unlockAllCached(
+        memberPrivateKey: Uint8List(32),
+        authority: authority,
+      );
+      await cache.vaultIdsEntered!.future;
+      service.lock();
+      cache.vaultIdsGate!.complete();
+
+      await expectLater(reopen, throwsA(anything));
+
+      expect(openCalls, 0);
+      expect(service.entries(snapshot.accessContext.vaultId), isEmpty);
+    },
+  );
 
   test('corrupt MemberSecret binding rejects whole generation', () async {
     final itemJson = snapshot.items.single.toJson();
