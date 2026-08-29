@@ -59,6 +59,9 @@ class LocalCurrentEntryService {
   }) async {
     Uint8List? vaultKey;
     Map<String, dynamic>? canonical;
+    Map<String, dynamic>? adaptedSecret;
+    Map<String, dynamic>? adaptedPayload;
+    var returningSnapshot = false;
     try {
       final authority = await _authorityProvider.current();
       final material = await _reader.readCurrent(
@@ -93,11 +96,19 @@ class LocalCurrentEntryService {
         memberSecret: item.memberSecret!,
         vaultKey: vaultKey,
       );
-      final secret = _canonicalAdapter.adaptCanonicalSecret(canonical);
-      final payload = secret['content'];
+      adaptedSecret = _canonicalAdapter.adaptCanonicalSecret(canonical);
+      final payload = adaptedSecret['content'];
       if (payload is! Map) {
         throw const FormatException('Malformed local MemberSecret');
       }
+      adaptedPayload = Map<String, dynamic>.from(payload);
+      await _reader.revalidateCurrent(
+        vaultId: vaultId,
+        entryId: entryId,
+        material: material,
+        authority: authority,
+      );
+      returningSnapshot = true;
       return CanonicalEntrySnapshot(
         entry: <String, dynamic>{
           'id': item.entryId,
@@ -111,8 +122,8 @@ class LocalCurrentEntryService {
           'entryKey': item.entryKey,
           'memberSecret': item.memberSecret,
         },
-        secret: secret,
-        payload: Map<String, dynamic>.from(payload),
+        secret: adaptedSecret,
+        payload: adaptedPayload,
       );
     } on CanonicalEntryDetailException {
       rethrow;
@@ -124,7 +135,15 @@ class LocalCurrentEntryService {
       throw const CanonicalEntryDetailException(
         CanonicalEntryDetailError.corrupt,
       );
+    } on LocalMemberEntryReadInvalidatedException {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.conflict,
+      );
     } finally {
+      if (!returningSnapshot) {
+        adaptedPayload?.clear();
+        adaptedSecret?.clear();
+      }
       canonical?.clear();
       vaultKey?.fillRange(0, vaultKey.length, 0);
     }

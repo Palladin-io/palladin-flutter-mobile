@@ -52,6 +52,7 @@ final class _MemoryCache implements MemberSyncCache {
   final Map<String, Map<String, MemberSyncItemModel>> active = {};
   final Map<String, Map<String, MemberSyncItemModel>> staged = {};
   bool failClearVault = false;
+  bool failClearAll = false;
 
   @override
   Future<MemberSyncCacheState?> state(String vaultId) async => states[vaultId];
@@ -151,6 +152,7 @@ final class _MemoryCache implements MemberSyncCache {
 
   @override
   Future<void> clearAll() async {
+    if (failClearAll) throw StateError('simulated profile cleanup failure');
     states.clear();
     active.clear();
     staged.clear();
@@ -448,6 +450,28 @@ void main() {
 
     expect(cache.states, isEmpty);
     expect(cache.active, isEmpty);
+  });
+
+  test('failed profile cleanup keeps every known Vault quarantined', () async {
+    await service.synchronize(
+      vaultId: snapshot.accessContext.vaultId,
+      vaultKey: Uint8List(32),
+      minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+      authority: authority,
+      authoritativeMemberVaultKey: snapshot.memberVaultKey,
+    );
+    cache.failClearAll = true;
+
+    await expectLater(service.purgeAll(), throwsStateError);
+
+    expect(
+      await service.readCurrent(
+        vaultId: snapshot.accessContext.vaultId,
+        entryId: snapshot.items.single.entryId,
+        authority: authority,
+      ),
+      isNull,
+    );
   });
 
   test('purge invalidates an in-flight delta before it can commit', () async {

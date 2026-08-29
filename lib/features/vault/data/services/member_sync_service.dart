@@ -37,11 +37,18 @@ final class LocalMemberEntryMaterial {
     required this.item,
     required this.accessContext,
     required this.memberVaultKey,
+    required this.readGeneration,
   });
 
   final MemberSyncItemModel item;
   final MemberOfflineAccessContext accessContext;
   final Map<String, dynamic> memberVaultKey;
+  final int readGeneration;
+}
+
+/// Raised when a local ciphertext read loses its lock, lease, or access fence.
+final class LocalMemberEntryReadInvalidatedException implements Exception {
+  const LocalMemberEntryReadInvalidatedException();
 }
 
 /// Public ciphertext reader for one complete, active local Entry head.
@@ -49,6 +56,15 @@ abstract interface class LocalMemberEntryReader {
   Future<LocalMemberEntryMaterial?> readCurrent({
     required String vaultId,
     required String entryId,
+    required MemberSyncSessionAuthority authority,
+  });
+
+  /// Revalidates the read fence after asynchronous decryption and immediately
+  /// before plaintext is returned to a caller.
+  Future<void> revalidateCurrent({
+    required String vaultId,
+    required String entryId,
+    required LocalMemberEntryMaterial material,
     required MemberSyncSessionAuthority authority,
   });
 }
@@ -150,6 +166,7 @@ final class MemberSyncService
       StreamController<String>.broadcast();
   final Set<String> _connectedSessionVaults = {};
   final Set<String> _revokedVaults = {};
+  final Set<String> _knownVaults = {};
   final Map<String, Timer> _leaseTimers = {};
   final Map<String, Future<void>> _vaultCommitTails = {};
   int _lockGeneration = 0;
@@ -171,6 +188,7 @@ final class MemberSyncService
     required MemberSyncSessionAuthority authority,
     required Map<String, dynamic> authoritativeMemberVaultKey,
   }) {
+    _knownVaults.add(vaultId);
     if (vaultKey.length != 32) {
       return Future.error(
         const FormatException('Vault key must be exactly 32 bytes'),
@@ -300,6 +318,8 @@ final class MemberSyncService
     required Uint8List memberPrivateKey,
     required MemberSyncSessionAuthority authority,
   }) async {
+    _knownVaults.add(vaultId);
+    final generation = _lockGeneration;
     if (_revokedVaults.contains(vaultId)) return;
     final state = await _cache.state(vaultId);
     if (state == null) return;
@@ -325,7 +345,7 @@ final class MemberSyncService
           vaultKey: vaultKey,
           minimumMemberKeyGeneration: state.accessContext.memberKeyGeneration,
           expectedVaultKeyVersion: state.accessContext.vaultKeyVersion,
-          generation: _lockGeneration,
+          generation: generation,
         );
         _scheduleLeaseExpiry(vaultId, state.accessContext);
       } finally {
@@ -697,6 +717,8 @@ final class MemberSyncService
     required String entryId,
     required MemberSyncSessionAuthority authority,
   }) async {
+    _knownVaults.add(vaultId);
+    final generation = _lockGeneration;
     if (_revokedVaults.contains(vaultId)) return null;
     final state = await _cache.state(vaultId);
     if (state == null) return null;
@@ -725,14 +747,66 @@ final class MemberSyncService
         item.memberSecret!,
         state.accessContext.memberKeyGeneration,
       );
+      _requireReadable(vaultId, generation);
       return LocalMemberEntryMaterial(
         item: item,
         accessContext: state.accessContext,
         memberVaultKey: Map<String, dynamic>.unmodifiable(state.memberVaultKey),
+        readGeneration: generation,
       );
+    } on LocalMemberEntryReadInvalidatedException {
+      rethrow;
     } on Object {
       await purgeVault(vaultId);
       rethrow;
+    }
+  }
+
+  @override
+  Future<void> revalidateCurrent({
+    required String vaultId,
+    required String entryId,
+    required LocalMemberEntryMaterial material,
+    required MemberSyncSessionAuthority authority,
+  }) async {
+    try {
+      _requireReadable(vaultId, material.readGeneration);
+      final state = await _cache.state(vaultId);
+      _requireReadable(vaultId, material.readGeneration);
+      if (state == null ||
+          _canonicalJson(state.accessContext.toJson()) !=
+              _canonicalJson(material.accessContext.toJson()) ||
+          _canonicalJson(state.memberVaultKey) !=
+              _canonicalJson(material.memberVaultKey)) {
+        throw const LocalMemberEntryReadInvalidatedException();
+      }
+      _validateCachedAuthority(
+        vaultId: vaultId,
+        state: state,
+        authority: authority,
+        allowConnectedDisabledPolicy: true,
+      );
+      final current = await _cache.readHead(vaultId, entryId);
+      _requireReadable(vaultId, material.readGeneration);
+      if (current == null ||
+          current.currentRevision != material.item.currentRevision ||
+          current.memberIndexRevision != material.item.memberIndexRevision ||
+          current.currentKeyVersion != material.item.currentKeyVersion ||
+          _canonicalJson(current.entryKey) !=
+              _canonicalJson(material.item.entryKey) ||
+          _canonicalJson(current.memberSecret) !=
+              _canonicalJson(material.item.memberSecret)) {
+        throw const LocalMemberEntryReadInvalidatedException();
+      }
+    } on LocalMemberEntryReadInvalidatedException {
+      rethrow;
+    } on Object {
+      try {
+        await purgeVault(vaultId);
+      } on Object {
+        // The in-memory revocation fence is installed before durable cleanup.
+      }
+      throw const LocalMemberEntryReadInvalidatedException();
     }
   }
 
@@ -762,6 +836,7 @@ final class MemberSyncService
   Future<void> purgeAll() async {
     _lockGeneration++;
     _running.clear();
+    _revokedVaults.addAll(_knownVaults);
     for (final timer in _leaseTimers.values) {
       timer.cancel();
     }
@@ -771,6 +846,7 @@ final class MemberSyncService
     await Future.wait(_vaultCommitTails.values.toList(growable: false));
     await _cache.clearAll();
     _revokedVaults.clear();
+    _knownVaults.clear();
     _publishDurableUpdate('*');
   }
 
@@ -1020,6 +1096,12 @@ final class MemberSyncService
   void _requireCurrent(int generation) {
     if (generation != _lockGeneration) {
       throw const _MemberSyncInvalidated();
+    }
+  }
+
+  void _requireReadable(String vaultId, int generation) {
+    if (generation != _lockGeneration || _revokedVaults.contains(vaultId)) {
+      throw const LocalMemberEntryReadInvalidatedException();
     }
   }
 
