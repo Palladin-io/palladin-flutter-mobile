@@ -102,6 +102,14 @@ abstract interface class MemberIndexReader {
   List<MemberIndexEntry> entries(String vaultId);
 }
 
+/// Signals complete local generations/deltas after both durable and runtime
+/// candidate indexes are committed.
+abstract interface class DurableMemberIndexUpdates {
+  Stream<String> get durableUpdates;
+
+  Future<void> waitForCurrent(String vaultId);
+}
+
 abstract interface class MemberSyncCoordinator implements MemberIndexReader {
   Future<MemberSyncResult> synchronize({
     required String vaultId,
@@ -125,6 +133,7 @@ abstract interface class MemberSyncCoordinator implements MemberIndexReader {
 final class MemberSyncService
     implements
         MemberSyncCoordinator,
+        DurableMemberIndexUpdates,
         LocalMemberEntryReader,
         CurrentEntryCacheInvalidator {
   MemberSyncService({
@@ -178,6 +187,7 @@ final class MemberSyncService
   Stream<String> get indexUpdates => _indexUpdates.stream;
 
   /// Emits only after a complete generation or delta is durably committed.
+  @override
   Stream<String> get durableUpdates => _durableUpdates.stream;
 
   /// Synchronizes one Vault. Concurrent callers for the same Vault share work.
@@ -691,7 +701,6 @@ final class MemberSyncService
           ),
         ),
       );
-      _publishDurableUpdate(vaultId);
       _requireCurrent(generation);
       final index = _indexes[vaultId]!;
       for (final item in page.items.where((item) => item.isTombstone)) {
@@ -704,6 +713,10 @@ final class MemberSyncService
         lock();
         throw StateError('Vault local index exceeds the device budget');
       }
+      // Consumers may rebuild native/search projections from this signal, so
+      // publish only after both the durable delta and its current runtime index
+      // are committed. No observer can see the previous candidate set.
+      _publishDurableUpdate(vaultId);
       applied = page.appliedThroughSequence;
       continuation = page.continuationCursor;
     } while (continuation != null);

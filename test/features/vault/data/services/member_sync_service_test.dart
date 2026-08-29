@@ -11,6 +11,7 @@ import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_ser
 import 'package:mobile_palladin/features/vault/data/services/member_sync_cache.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_sync_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 
 class _MockEntryCrypto extends Mock implements EntryV2CryptoService {}
 
@@ -22,6 +23,9 @@ final class _FakeRemote implements MemberSyncRemote {
   int snapshotRequests = 0;
   int deltaRequests = 0;
   Completer<MemberDeltaResult>? deltaCompleter;
+  MemberSnapshotPage Function(String? cursor)? snapshotResponder;
+  MemberDeltaResult Function(String? afterSequence, String? continuationCursor)?
+  deltaResponder;
 
   @override
   Future<MemberSnapshotPage> snapshot({
@@ -30,7 +34,7 @@ final class _FakeRemote implements MemberSyncRemote {
     int pageSize = 100,
   }) async {
     snapshotRequests += 1;
-    return snapshotPage;
+    return snapshotResponder?.call(cursor) ?? snapshotPage;
   }
 
   @override
@@ -43,7 +47,8 @@ final class _FakeRemote implements MemberSyncRemote {
     deltaRequests += 1;
     final pending = deltaCompleter;
     if (pending != null) return pending.future;
-    return deltaResult;
+    return deltaResponder?.call(afterSequence, continuationCursor) ??
+        deltaResult;
   }
 }
 
@@ -302,6 +307,97 @@ void main() {
     expect(cache.states, hasLength(1));
     await durable;
   });
+
+  test(
+    'durable snapshot signal follows pagination and closing-delta index commit',
+    () async {
+      final firstPage = MemberSnapshotPage(
+        snapshotBaseSequence: snapshot.snapshotBaseSequence,
+        accessContext: snapshot.accessContext,
+        memberVaultKey: snapshot.memberVaultKey,
+        items: const [],
+        nextCursor: 'page-2',
+      );
+      remote.snapshotResponder = (cursor) =>
+          cursor == null ? firstPage : snapshot;
+      List<MemberIndexEntry>? entriesAtSignal;
+      final subscription = service.durableUpdates.listen((vaultId) {
+        entriesAtSignal = service.entries(vaultId);
+      });
+      addTearDown(subscription.cancel);
+
+      await service.synchronize(
+        vaultId: snapshot.accessContext.vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(remote.snapshotRequests, 2);
+      expect(remote.deltaRequests, 1);
+      expect(entriesAtSignal?.map((entry) => entry.entryId), [
+        snapshot.items.single.entryId,
+      ]);
+      expect(cache.states[snapshot.accessContext.vaultId]?.sequence, '12');
+    },
+  );
+
+  test(
+    'durable delta signal follows the current candidate-set commit',
+    () async {
+      await service.synchronize(
+        vaultId: snapshot.accessContext.vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      remote.deltaResult = MemberDeltaSuccess(
+        MemberDeltaPage.fromJson({
+          'deltaUpperBound': '13',
+          'appliedThroughSequence': '13',
+          'accessContext': snapshot.accessContext.toJson(),
+          'memberVaultKey': snapshot.memberVaultKey,
+          'items': [
+            {
+              'entryId': snapshot.items.single.entryId,
+              'kind': 'tombstone',
+              'state': null,
+              'updatedAt': null,
+              'currentRevision': null,
+              'memberIndexRevision': null,
+              'currentKeyVersion': null,
+              'entryKey': null,
+              'memberIndex': null,
+              'memberSecret': null,
+            },
+          ],
+          'continuationCursor': null,
+        }),
+      );
+      List<MemberIndexEntry>? entriesAtSignal;
+      final subscription = service.durableUpdates.listen((vaultId) {
+        entriesAtSignal = service.entries(vaultId);
+      });
+      addTearDown(subscription.cancel);
+
+      await service.synchronize(
+        vaultId: snapshot.accessContext.vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(remote.snapshotRequests, 1);
+      expect(remote.deltaRequests, 2);
+      expect(entriesAtSignal, isEmpty);
+      expect(cache.states[snapshot.accessContext.vaultId]?.sequence, '13');
+    },
+  );
 
   test('public local reader returns one complete ciphertext item', () async {
     await service.synchronize(

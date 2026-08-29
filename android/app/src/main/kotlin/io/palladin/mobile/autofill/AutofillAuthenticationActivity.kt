@@ -13,7 +13,6 @@ import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import io.palladin.mobile.R
-import javax.crypto.Cipher
 
 class AutofillAuthenticationActivity : FragmentActivity() {
     private lateinit var cacheStore: AutoFillCacheStore
@@ -35,15 +34,19 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             return
         }
 
-        val cipher = runCatching(cacheStore::createUnwrapCipher).getOrElse {
+        val operation = runCatching(cacheStore::createUnwrapOperation).getOrElse {
             cacheStore.clear()
             finishCanceled()
             return
         }
-        showBiometricPrompt(cipher, domain)
+        showBiometricPrompt(operation, domain, packageName)
     }
 
-    private fun showBiometricPrompt(cipher: Cipher, domain: String) {
+    private fun showBiometricPrompt(
+        operation: AutoFillUnwrapOperation,
+        domain: String,
+        requestingPackage: String,
+    ) {
         val prompt = BiometricPrompt(
             this,
             ContextCompat.getMainExecutor(this),
@@ -56,7 +59,11 @@ class AutofillAuthenticationActivity : FragmentActivity() {
                         finishCanceled()
                         return
                     }
-                    completeFill(authenticatedCipher, domain)
+                    completeFill(
+                        AutoFillUnwrapOperation(operation.generation, authenticatedCipher),
+                        domain,
+                        requestingPackage,
+                    )
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
@@ -70,12 +77,21 @@ class AutofillAuthenticationActivity : FragmentActivity() {
             .setNegativeButtonText(getString(R.string.autofill_cancel))
             .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG)
             .build()
-        prompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
+        prompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(operation.cipher))
     }
 
-    private fun completeFill(cipher: Cipher, domain: String) {
-        val records = runCatching { cacheStore.decrypt(cipher) }.getOrElse {
-            cacheStore.clear()
+    private fun completeFill(
+        operation: AutoFillUnwrapOperation,
+        domain: String,
+        requestingPackage: String,
+    ) {
+        if (!AutofillOriginVerifier(this).isVerified(requestingPackage, domain)) {
+            cacheStore.quarantine(operation.generation)
+            finishCanceled()
+            return
+        }
+        val records = runCatching { cacheStore.decrypt(operation) }.getOrElse {
+            cacheStore.quarantine(operation.generation)
             finishCanceled()
             return
         }
@@ -114,8 +130,25 @@ class AutofillAuthenticationActivity : FragmentActivity() {
                 AutofillManager.EXTRA_AUTHENTICATION_RESULT,
                 response.build(),
             )
-            setResult(Activity.RESULT_OK, result)
-            finish()
+            // The provider handoff is the security boundary. Keep the same
+            // cross-thread generation lock from the final origin/fence/lease
+            // checks through setResult so a committed revoke cannot race into
+            // the gap after validation and still release stale plaintext.
+            val handedOff = runCatching {
+                cacheStore.withRevalidatedGeneration(operation.generation) {
+                    require(
+                        AutofillOriginVerifier(this)
+                            .isVerified(requestingPackage, domain),
+                    )
+                    setResult(Activity.RESULT_OK, result)
+                    finish()
+                }
+            }.isSuccess
+            if (!handedOff) {
+                cacheStore.quarantine(operation.generation)
+                finishCanceled()
+                return
+            }
         } finally {
             records.clear()
         }

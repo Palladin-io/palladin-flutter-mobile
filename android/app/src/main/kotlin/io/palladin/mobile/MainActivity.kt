@@ -10,7 +10,6 @@ import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val cacheExecutor = Executors.newSingleThreadExecutor()
-    private val revocationExecutor = Executors.newSingleThreadExecutor()
     private val exportExecutor = Executors.newSingleThreadExecutor()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -20,28 +19,31 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             AUTOFILL_CHANNEL,
         ).setMethodCallHandler { call, result ->
-            val executor = if (call.method == "revokeCacheAccess") {
-                revocationExecutor
-            } else {
-                cacheExecutor
-            }
-            executor.execute {
+            // Every fence/session mutation shares one ordered executor. The
+            // Android path has no identity-store callback in this queue, so a
+            // revoke cannot wedge, and an old revoke cannot arrive after a
+            // subsequently submitted beginSession and deny the new session.
+            cacheExecutor.execute {
                 val outcome = runCatching {
                     when (call.method) {
                         "beginCacheSession" -> {
                             cacheStore.beginSession()
                         }
                         "revokeCacheAccess" -> {
-                            cacheStore.revokeAccess()
+                            val generation = cacheStore.revokeAccess()
+                            cacheExecutor.execute {
+                                runCatching { cacheStore.cleanupRevoked(generation) }
+                            }
+                            generation
                         }
                         "replaceCache" -> {
                             val arguments = call.arguments as? Map<*, *>
                                 ?: throw IllegalArgumentException("Missing arguments")
                             val sessionToken = (arguments["sessionToken"] as? Number)?.toLong()
                                 ?: throw IllegalArgumentException("Missing session token")
-                            val records = arguments["records"] as? List<*>
+                            val payload = arguments["payload"] as? Map<*, *>
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                cacheStore.replace(records, sessionToken)
+                                cacheStore.replace(payload, sessionToken)
                             } else {
                                 cacheStore.clear(sessionToken)
                             }
@@ -135,7 +137,6 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
-        revocationExecutor.shutdownNow()
         cacheExecutor.shutdownNow()
         exportExecutor.shutdownNow()
         super.onDestroy()

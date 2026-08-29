@@ -542,7 +542,7 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<AutoFillCacheService>(
     () => AutoFillCacheService(
       indexPreparation: getIt<MemberIndexPreparationService>(),
-      entryRepository: getIt<EntryRepository>(),
+      localEntries: getIt<LocalCurrentEntryService>(),
       bridge: getIt<AutoFillCacheBridge>(),
       memberIndex: getIt<MemberSyncService>(),
     ),

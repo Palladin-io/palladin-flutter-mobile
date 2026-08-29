@@ -109,7 +109,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     AppLogger.d('AuthBloc', 'Logout requested');
-    _vaultSessionStore?.clear();
     final stateBeforeLogout = state;
     emit(const AuthLoading());
     try {

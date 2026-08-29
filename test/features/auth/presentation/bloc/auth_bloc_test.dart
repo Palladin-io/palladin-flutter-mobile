@@ -99,12 +99,19 @@ void main() {
       'emits [AuthLoading, AuthUnauthenticated] on logout',
       build: () {
         when(() => mockRepo.logout()).thenAnswer((_) async {});
-        return AuthBloc(authRepository: mockRepo);
+        return AuthBloc(
+          authRepository: mockRepo,
+          vaultSessionStore: vaultSessionStore,
+        );
       },
       act: (bloc) => bloc.add(const AuthLogoutRequested()),
       expect: () => [isA<AuthLoading>(), isA<AuthUnauthenticated>()],
       verify: (_) {
         verify(() => mockRepo.logout()).called(1);
+        expect(
+          vaultSessionStore.copyMemberPrivateKey,
+          throwsA(isA<StateError>()),
+        );
       },
     );
 
@@ -112,10 +119,18 @@ void main() {
       'keeps the authenticated session when local logout cleanup fails',
       build: () {
         when(() => mockRepo.logout()).thenThrow(Exception('wipe failed'));
-        return AuthBloc(authRepository: mockRepo);
+        return AuthBloc(
+          authRepository: mockRepo,
+          vaultSessionStore: vaultSessionStore,
+        );
       },
-      seed: () =>
-          const AuthAuthenticated(userId: 'user-789', isOnboarded: true),
+      seed: () => AuthAuthenticated(
+        userId: 'user-789',
+        isOnboarded: true,
+        isVaultLocked: false,
+        masterKey: Uint8List(32),
+        privateKey: Uint8List(32),
+      ),
       act: (bloc) => bloc.add(const AuthLogoutRequested()),
       expect: () => [
         isA<AuthLoading>(),
@@ -125,6 +140,9 @@ void main() {
           'user-789',
         ),
       ],
+      verify: (_) {
+        expect(vaultSessionStore.copyMemberPrivateKey(), hasLength(32));
+      },
     );
 
     blocTest<AuthBloc, AuthState>(
