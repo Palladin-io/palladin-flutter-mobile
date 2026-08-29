@@ -364,21 +364,28 @@ sealed class MemberSecretContent {
 final class KeySecretContent extends MemberSecretContent {
   const KeySecretContent({
     required this.value,
+    this.url,
     required this.notes,
     required super.customFields,
   });
   final String value;
+  final String? url;
   final String? notes;
 
   @override
   Map<String, Object?> toJson() => {
     'value': value,
+    'url': url,
     'notes': notes,
     'customFields': customFields.map((field) => field.toJson()).toList(),
   };
 
   @override
-  Map<String, Object?> fieldValues() => {'key.value': value, 'notes': notes};
+  Map<String, Object?> fieldValues() => {
+    'key.value': value,
+    if (url != null) 'key.url': url,
+    'notes': notes,
+  };
 }
 
 final class CredentialSecretContent extends MemberSecretContent {

@@ -1,7 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/grants/data/models/grant_model.dart';
 import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
-import 'package:mobile_palladin/features/grants/presentation/cubit/org_grants_state.dart';
+import 'package:mobile_palladin/features/grants/domain/exceptions/grants_exceptions.dart';
+import 'package:mobile_palladin/features/grants/domain/repositories/grants_repository.dart';
+import 'package:mobile_palladin/features/grants/presentation/cubit/org_grants_cubit.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _GrantsRepository extends Mock implements GrantsRepository {}
 
 void main() {
   group('GrantModel — org-wide (/api/grants) fields', () {
@@ -26,6 +33,7 @@ void main() {
         'revokeReason': null,
         'canRevoke': false,
         'canGrantAgain': true,
+        'activeCoveringGrantIds': ['newer-grant'],
       }).toEntity();
 
       expect(entity.status, GrantStatus.consumed);
@@ -36,6 +44,7 @@ void main() {
       expect(entity.createdByName, 'Alice');
       expect(entity.canRevoke, isFalse);
       expect(entity.canGrantAgain, isTrue);
+      expect(entity.activeCoveringGrantIds, ['newer-grant']);
       expect(entity.status.isTerminal, isTrue);
     });
 
@@ -51,6 +60,7 @@ void main() {
 
       expect(entity.canRevoke, isFalse);
       expect(entity.canGrantAgain, isFalse);
+      expect(entity.activeCoveringGrantIds, isEmpty);
       expect(entity.scope, GrantScope.full);
       expect(entity.status.isTerminal, isFalse);
     });
@@ -100,5 +110,20 @@ void main() {
       expect(state.counts[GrantStatus.revoked], 1);
       expect(state.counts[GrantStatus.expired], 1);
     });
+  });
+
+  test('getGrant ignores a failed lookup after the cubit is closed', () async {
+    final repository = _GrantsRepository();
+    final lookup = Completer<Grant>();
+    when(
+      () => repository.getGrant('vault', 'grant'),
+    ).thenAnswer((_) => lookup.future);
+    final cubit = OrgGrantsCubit(repository: repository);
+
+    final result = cubit.getGrant('vault', 'grant');
+    await cubit.close();
+    lookup.completeError(const GrantsException(GrantsErrorKind.networkError));
+
+    await expectLater(result, completion(isNull));
   });
 }

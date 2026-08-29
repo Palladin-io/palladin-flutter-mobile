@@ -12,20 +12,26 @@ import 'grant_format.dart';
 /// of the web `OrgGrantRow`. An agent identity row (avatar + name + status pill
 /// + relative time) over a fixed set of detail rows (Entry/Vault · By · Access
 /// · contextual Reason) so every card is the same height, then a footer with
-/// the available action (Revoke) or an "Already active" note for terminal
-/// grants the agent still effectively holds.
+/// the available action. Terminal history either offers re-granting, links to
+/// the newer active grant, or links to the inactive Agent/context.
 class OrgGrantCard extends StatelessWidget {
   const OrgGrantCard({
     super.key,
     required this.grant,
     required this.onRevoke,
     required this.onRegrant,
+    required this.onReviewPending,
+    required this.onShowActiveGrant,
+    required this.onViewContext,
     this.isRevoking = false,
   });
 
   final Grant grant;
   final VoidCallback onRevoke;
   final VoidCallback onRegrant;
+  final VoidCallback onReviewPending;
+  final VoidCallback onShowActiveGrant;
+  final VoidCallback onViewContext;
   final bool isRevoking;
 
   @override
@@ -96,6 +102,9 @@ class OrgGrantCard extends StatelessWidget {
               isRevoking: isRevoking,
               onRevoke: onRevoke,
               onRegrant: onRegrant,
+              onReviewPending: onReviewPending,
+              onShowActiveGrant: onShowActiveGrant,
+              onViewContext: onViewContext,
               brightness: brightness,
             ),
           ],
@@ -255,6 +264,9 @@ class _Footer extends StatelessWidget {
     required this.isRevoking,
     required this.onRevoke,
     required this.onRegrant,
+    required this.onReviewPending,
+    required this.onShowActiveGrant,
+    required this.onViewContext,
     required this.brightness,
   });
 
@@ -262,6 +274,9 @@ class _Footer extends StatelessWidget {
   final bool isRevoking;
   final VoidCallback onRevoke;
   final VoidCallback onRegrant;
+  final VoidCallback onReviewPending;
+  final VoidCallback onShowActiveGrant;
+  final VoidCallback onViewContext;
   final Brightness brightness;
 
   @override
@@ -269,6 +284,17 @@ class _Footer extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
 
     // Actions are driven strictly by the backend capability flags.
+    if (grant.status == GrantStatus.pending) {
+      return _FooterShell(
+        brightness: brightness,
+        child: _FilledFooterAction(
+          label: l10n.orgGrantReviewRequest,
+          onPressed: onReviewPending,
+          backgroundColor: AppColors.brandRed,
+        ),
+      );
+    }
+
     if (grant.canRevoke) {
       return _FooterShell(
         brightness: brightness,
@@ -279,33 +305,32 @@ class _Footer extends StatelessWidget {
     if (grant.canGrantAgain) {
       return _FooterShell(
         brightness: brightness,
-        child: _RegrantButton(onRegrant: onRegrant),
+        child: _FilledFooterAction(
+          label: l10n.approvalRegrant,
+          onPressed: onRegrant,
+          backgroundColor: AppColors.positiveAccent,
+        ),
       );
     }
 
-    // Terminal grant with no available action ⇒ the agent already has active
-    // coverage of this entry/vault. Surface WHY instead of an empty footer.
     if (grant.status.isTerminal) {
+      final hasActiveCoverage = grant.activeCoveringGrantIds.isNotEmpty;
       return _FooterShell(
         brightness: brightness,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.check_circle,
-              size: 14,
-              color: AppColors.positiveAccent,
-            ),
-            const SizedBox(width: AppSpacing.chipGap),
-            Text(
-              l10n.orgGrantAlreadyActive,
-              style: const TextStyle(
-                color: AppColors.positiveAccent,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        child: _FooterInfoAction(
+          icon: hasActiveCoverage ? Icons.check_circle : Icons.info_outline,
+          color: hasActiveCoverage
+              ? AppColors.positiveAccent
+              : AppColors.onSurfaceSubtle(brightness),
+          message: hasActiveCoverage
+              ? l10n.orgGrantAlreadyActive
+              : l10n.orgGrantRegrantUnavailable,
+          actionLabel: hasActiveCoverage
+              ? l10n.orgGrantShowActive
+              : grant.agentId != null
+              ? l10n.orgGrantViewAgent
+              : l10n.orgGrantViewVault,
+          onPressed: hasActiveCoverage ? onShowActiveGrant : onViewContext,
         ),
       );
     }
@@ -314,27 +339,83 @@ class _Footer extends StatelessWidget {
   }
 }
 
-class _RegrantButton extends StatelessWidget {
-  const _RegrantButton({required this.onRegrant});
+class _FooterInfoAction extends StatelessWidget {
+  const _FooterInfoAction({
+    required this.icon,
+    required this.color,
+    required this.message,
+    required this.actionLabel,
+    required this.onPressed,
+  });
 
-  final VoidCallback onRegrant;
+  final IconData icon;
+  final Color color;
+  final String message;
+  final String actionLabel;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: AppSpacing.chipGap),
+        Expanded(
+          child: Text(
+            message,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.chipGap),
+        TextButton(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.brandRed,
+            minimumSize: const Size(0, 36),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          ),
+          child: Text(
+            actionLabel,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FilledFooterAction extends StatelessWidget {
+  const _FilledFooterAction({
+    required this.label,
+    required this.onPressed,
+    required this.backgroundColor,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
       height: 36,
       child: FilledButton(
-        onPressed: onRegrant,
+        onPressed: onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.positiveAccent,
+          backgroundColor: backgroundColor,
           foregroundColor: AppColors.onBrandRed,
           padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Text(
-          l10n.approvalRegrant,
+          label,
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
       ),

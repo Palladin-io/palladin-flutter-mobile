@@ -1,7 +1,7 @@
 /// Domain entities for the grants feature.
 ///
 /// A "grant" is an authorization that lets a specific agent read one
-/// entry (GRANULAR) or every entry in a vault (FULL). Grants are created
+/// entry (GRANULAR) or every current and future entry in a vault (FULL). Grants are created
 /// either proactively by the owner (FULL) or in response to an agent's
 /// request (GRANULAR pending → approve/deny).
 ///
@@ -34,7 +34,10 @@ enum GrantStatus {
   expired,
 
   /// Exhausted its query limit (use-limited grants).
-  consumed;
+  consumed,
+
+  /// Replaced by a newer FULL grant for the same Agent and Vault.
+  superseded;
 
   /// Maps the backend wire value (camelCase string or int ordinal) to a
   /// typed value. Unknown values fall back to [revoked] so a malformed
@@ -47,6 +50,7 @@ enum GrantStatus {
       'revoked' || 4 => GrantStatus.revoked,
       'consumed' || 5 => GrantStatus.consumed,
       'denied' || 6 => GrantStatus.denied,
+      'superseded' || 7 => GrantStatus.superseded,
       _ => GrantStatus.revoked,
     };
   }
@@ -58,8 +62,8 @@ enum GrantStatus {
       this != GrantStatus.active && this != GrantStatus.pending;
 }
 
-/// Access scope of a grant. Mirrors the backend `GrantMode` enum
-/// (`Full = 1`, `Granular = 2`).
+/// Access scope of a grant. Mirrors the backend `GrantType` enum
+/// (`Granular = 1`, `Full = 2`).
 enum GrantScope {
   /// Agent can read every entry in the vault.
   full,
@@ -75,7 +79,7 @@ enum GrantScope {
       'full' || 2 => GrantScope.full,
       'granular' || 1 => GrantScope.granular,
       'scriptExecution' || 3 => GrantScope.scriptExecution,
-      _ => GrantScope.granular,
+      _ => throw const FormatException('Unsupported grant type.'),
     };
   }
 }
@@ -114,11 +118,14 @@ class Grant {
     this.createdByName,
     this.revokedBy,
     this.revokedByName,
+    this.supersededAt,
+    this.supersededByGrantId,
     this.deniedBy,
     this.deniedByName,
     this.denyReason,
     this.canRevoke = false,
     this.canGrantAgain = false,
+    this.activeCoveringGrantIds = const [],
   });
 
   /// Stable, server-issued grant identifier.
@@ -199,6 +206,10 @@ class Grant {
   /// Actor who revoked the grant, when [status] is revoked.
   final String? revokedByName;
 
+  /// System lifecycle transition to a replacement FULL grant.
+  final DateTime? supersededAt;
+  final String? supersededByGrantId;
+
   /// Stable id of the Member who denied the request.
   final String? deniedBy;
 
@@ -213,6 +224,10 @@ class Grant {
   /// action is wrongly offered (e.g. revoking an already-expired grant).
   final bool canRevoke;
   final bool canGrantAgain;
+
+  /// Newer active grants that currently cover the same access. Empty when
+  /// re-granting is blocked for another reason, such as an inactive Agent.
+  final List<String> activeCoveringGrantIds;
 }
 
 class ScriptExecutionGrantScope {

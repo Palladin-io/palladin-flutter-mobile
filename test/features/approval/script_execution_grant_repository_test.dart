@@ -70,7 +70,12 @@ void main() {
     var packageCalls = 0;
     when(() => vaults.getEncryptedVault(vaultId)).thenAnswer(
       (_) async => {
-        'currentKeyEpoch': {'manifestSigningKeyVersion': 5},
+        'organizationId': organizationId,
+        'memberKeyGeneration': 3,
+        'currentKeyEpoch': {
+          'vaultKeyVersion': 2,
+          'manifestSigningKeyVersion': 5,
+        },
         'memberVaultKey': <String, dynamic>{},
         'vaultPrivateKeys': [
           {
@@ -80,7 +85,14 @@ void main() {
       },
     );
     when(
-      () => vaultKeys.openMemberVaultKey(any(), any()),
+      () => vaultKeys.openMemberVaultKey(
+        any(),
+        any(),
+        expectedOrganizationId: any(named: 'expectedOrganizationId'),
+        expectedVaultId: any(named: 'expectedVaultId'),
+        expectedVaultKeyVersion: any(named: 'expectedVaultKeyVersion'),
+        expectedMemberKeyGeneration: any(named: 'expectedMemberKeyGeneration'),
+      ),
     ).thenAnswer((_) async => Uint8List(32));
     when(
       () => vaultKeys.openCanonicalManifestSigningPrivateKey(
@@ -168,12 +180,11 @@ void main() {
       return package;
     });
     when(
-      () => approval.createGrant(
+      () => approval.createScriptExecutionGrant(
         vaultId: any(named: 'vaultId'),
+        scriptEntryId: any(named: 'scriptEntryId'),
         grantId: any(named: 'grantId'),
         agentId: any(named: 'agentId'),
-        type: any(named: 'type'),
-        scriptEntryId: any(named: 'scriptEntryId'),
         scriptPackage: any(named: 'scriptPackage'),
         expiresAt: any(named: 'expiresAt'),
         queryLimit: any(named: 'queryLimit'),
@@ -191,18 +202,15 @@ void main() {
       discovery: _Discovery(),
       scriptPackages: packages,
     );
-    await repository.createGrant(
+    await repository.createScriptExecutionGrant(
       vaultId: vaultId,
+      scriptEntryId: scriptId,
       agentId: agentId,
       agentPublicKey: base64.encode(List<int>.filled(32, 9)),
       recipientKeyVersion: 4,
       agentAccessEpoch: 3,
-      isFull: false,
-      isScriptExecution: true,
-      entryId: scriptId,
       privateKey: Uint8List.fromList(List<int>.filled(32, 7)),
       limit: const GrantLifetime(),
-      methods: const [GrantMethod.exec],
     );
 
     expect(packageCalls, 1);
@@ -220,12 +228,11 @@ void main() {
       ),
     ).called(4);
     verify(
-      () => approval.createGrant(
+      () => approval.createScriptExecutionGrant(
         vaultId: vaultId,
+        scriptEntryId: scriptId,
         grantId: any(named: 'grantId'),
         agentId: agentId,
-        type: 'scriptExecution',
-        scriptEntryId: scriptId,
         scriptPackage: package,
         expiresAt: null,
         queryLimit: null,
@@ -270,14 +277,13 @@ void main() {
     );
 
     await expectLater(
-      repository.createGrant(
+      repository.createGranularGrant(
         vaultId: vaultId,
+        entryId: scriptId,
         agentId: '55555555-5555-4555-8555-555555555555',
         agentPublicKey: base64.encode(List<int>.filled(32, 9)),
         recipientKeyVersion: 4,
         agentAccessEpoch: 3,
-        isFull: false,
-        entryId: scriptId,
         privateKey: Uint8List.fromList(List<int>.filled(32, 7)),
         limit: const GrantLifetime(),
         methods: const [GrantMethod.exec],
@@ -291,13 +297,12 @@ void main() {
       ),
     );
     verifyNever(
-      () => approval.createGrant(
+      () => approval.createGranularGrant(
         vaultId: any(named: 'vaultId'),
+        entryId: any(named: 'entryId'),
         grantId: any(named: 'grantId'),
         agentId: any(named: 'agentId'),
-        type: any(named: 'type'),
-        entryId: any(named: 'entryId'),
-        entries: any(named: 'entries'),
+        grantEntry: any(named: 'grantEntry'),
         expiresAt: any(named: 'expiresAt'),
         queryLimit: any(named: 'queryLimit'),
         methods: any(named: 'methods'),

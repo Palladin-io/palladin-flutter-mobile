@@ -354,7 +354,7 @@ void main() {
               vaultId: vaultId,
               agentId: '88888888-8888-4888-8888-888888888888',
               status: 'active',
-              scope: 'scriptExecution',
+              type: GrantScope.scriptExecution,
               createdAt: '2026-08-25T00:00:00Z',
               entryId: entryId,
               scriptScopes: [

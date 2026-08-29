@@ -253,8 +253,12 @@ class VaultRotationCryptoService {
 
   Future<Uint8List> openMemberVaultKey(
     Map<String, dynamic> envelope,
-    Uint8List memberPrivateKey,
-  ) async {
+    Uint8List memberPrivateKey, {
+    String? expectedOrganizationId,
+    String? expectedVaultId,
+    int? expectedVaultKeyVersion,
+    int? expectedMemberKeyGeneration,
+  }) async {
     if (memberPrivateKey.length != 32 || envelope['wrappedVaultKey'] is! Map) {
       throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
     }
@@ -295,6 +299,15 @@ class VaultRotationCryptoService {
         recipientKeyVersion is! int ||
         recipientFingerprint is! String ||
         encodedSealedKeyPackage is! String) {
+      throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
+    }
+    if ((expectedOrganizationId != null &&
+            organizationId != expectedOrganizationId) ||
+        (expectedVaultId != null && vaultId != expectedVaultId) ||
+        (expectedVaultKeyVersion != null &&
+            wrappedKeyVersion != expectedVaultKeyVersion) ||
+        (expectedMemberKeyGeneration != null &&
+            memberKeyGeneration != expectedMemberKeyGeneration)) {
       throw const EnvelopeException(EnvelopeErrorKind.invalidDescriptor);
     }
 

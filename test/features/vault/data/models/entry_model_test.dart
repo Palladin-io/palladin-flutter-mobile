@@ -93,6 +93,13 @@ void main() {
       expect(EntryTypeExtension.fromWire(1), EntryType.credential);
     });
 
+    test('keeps Credit Card delivery inject-only', () {
+      expect(EntryType.creditCard.deliveryPolicyWire(), 'injectOnly');
+      expect(EntryType.creditCard.deliveryPolicyCode(), 2);
+      expect(EntryType.credential.deliveryPolicyWire(), 'standard');
+      expect(EntryType.credential.deliveryPolicyCode(), 0);
+    });
+
     test('fromWire fails closed on an unknown ordinal', () {
       // Unknown wire values default to credential — surfaces the safer
       // two-field reveal panel rather than the single-secret panel.

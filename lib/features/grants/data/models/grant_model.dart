@@ -11,7 +11,7 @@ class GrantModel {
     required this.vaultId,
     this.agentId,
     required this.status,
-    required this.scope,
+    required this.type,
     required this.createdAt,
     this.agentName,
     this.agentIconKey,
@@ -37,11 +37,14 @@ class GrantModel {
     this.createdByName,
     this.revokedBy,
     this.revokedByName,
+    this.supersededAt,
+    this.supersededByGrantId,
     this.deniedBy,
     this.deniedByName,
     this.denyReason,
     this.canRevoke = false,
     this.canGrantAgain = false,
+    this.activeCoveringGrantIds = const [],
   });
 
   final String id;
@@ -57,7 +60,7 @@ class GrantModel {
   final String? scriptPackageRevision;
   final String? vaultName;
   final Object? status;
-  final Object? scope;
+  final GrantScope type;
   final String createdAt;
   final String? entryId;
   final String? entryLabel;
@@ -74,11 +77,14 @@ class GrantModel {
   final String? createdByName;
   final String? revokedBy;
   final String? revokedByName;
+  final String? supersededAt;
+  final String? supersededByGrantId;
   final String? deniedBy;
   final String? deniedByName;
   final String? denyReason;
   final bool canRevoke;
   final bool canGrantAgain;
+  final List<String> activeCoveringGrantIds;
 
   factory GrantModel.fromJson(
     Map<String, dynamic> json, {
@@ -115,9 +121,7 @@ class GrantModel {
       scriptPackageRevision: json['scriptPackageRevision'] as String?,
       vaultName: json['vaultName'] as String?,
       status: json['status'],
-      // Org listing returns `type` (full/granular); the per-vault list uses
-      // `mode`. Accept both so one model serves every grants endpoint.
-      scope: json['type'] ?? json['mode'] ?? json['scope'] ?? json['grantMode'],
+      type: GrantScope.fromWire(json['type']),
       createdAt: json['createdAt'] as String,
       entryId: json['entryId'] as String?,
       entryLabel: json['entryLabel'] as String?,
@@ -134,11 +138,17 @@ class GrantModel {
       createdByName: json['createdByName'] as String?,
       revokedBy: json['revokedBy'] as String?,
       revokedByName: json['revokedByName'] as String?,
+      supersededAt: json['supersededAt'] as String?,
+      supersededByGrantId: json['supersededByGrantId'] as String?,
       deniedBy: json['deniedBy'] as String?,
       deniedByName: json['deniedByName'] as String?,
       denyReason: json['denyReason'] as String?,
       canRevoke: json['canRevoke'] as bool? ?? false,
       canGrantAgain: json['canGrantAgain'] as bool? ?? false,
+      activeCoveringGrantIds:
+          (json['activeCoveringGrantIds'] as List<dynamic>? ?? const [])
+              .whereType<String>()
+              .toList(growable: false),
     );
   }
 
@@ -179,7 +189,7 @@ class GrantModel {
       scriptPackageRevision: scriptPackageRevision,
       vaultName: vaultName,
       status: GrantStatus.fromWire(status),
-      scope: GrantScope.fromWire(scope),
+      scope: type,
       entryId: entryId,
       entryLabel: entryLabel,
       reason: resolvedReason ?? reason,
@@ -195,11 +205,14 @@ class GrantModel {
       createdByName: createdByName,
       revokedBy: revokedBy,
       revokedByName: revokedByName,
+      supersededAt: parse(supersededAt),
+      supersededByGrantId: supersededByGrantId,
       deniedBy: deniedBy,
       deniedByName: deniedByName,
       denyReason: denyReason,
       canRevoke: canRevoke,
       canGrantAgain: canGrantAgain,
+      activeCoveringGrantIds: activeCoveringGrantIds,
     );
   }
 

@@ -43,23 +43,14 @@ class ApprovalRemoteDatasource {
     return PendingGrantModel.fromJson(data);
   }
 
-  /// `POST /api/vaults/{vaultId}/grants` — proactively (re-)grant access.
-  ///
-  /// [type] is `"granular"` or `"full"`; [entryId] is set only for granular.
-  /// [entries] carries exactly one on-device-produced envelope for GRANULAR;
-  /// [agentWrappedVaultKey] carries the one current VK wrapper for FULL. At most one of
-  /// [expiresAt] / [queryLimit] is sent (neither = lifetime). Returns the new
-  /// grant id.
-  Future<String> createGrant({
+  /// Creates one revision-bound per-Entry grant. The route and request shape
+  /// cannot accept FULL Vault-key material.
+  Future<String> createGranularGrant({
     required String vaultId,
+    required String entryId,
     required String grantId,
     required String agentId,
-    required String type,
-    String? entryId,
-    String? scriptEntryId,
-    List<({String entryId, Map<String, dynamic> envelope})> entries = const [],
-    Map<String, Object?>? agentWrappedVaultKey,
-    Map<String, dynamic>? scriptPackage,
+    required Map<String, dynamic> grantEntry,
     String? expiresAt,
     int? queryLimit,
     String? methods,
@@ -67,18 +58,66 @@ class ApprovalRemoteDatasource {
     final body = <String, dynamic>{
       'grantId': grantId,
       'agentId': agentId,
-      'type': type,
-      'entryId': ?entryId,
-      'scriptEntryId': ?scriptEntryId,
-      'grantEntries': [for (final e in entries) e.envelope],
-      'agentWrappedVaultKey': ?agentWrappedVaultKey,
-      'scriptPackage': ?scriptPackage,
+      'grantEntry': grantEntry,
       'expiresAt': ?expiresAt,
       'queryLimit': ?queryLimit,
       'methods': ?methods,
     };
     final response = await _dio.post<Map<String, dynamic>>(
-      '/api/vaults/$vaultId/grants',
+      '/api/vaults/$vaultId/entries/$entryId/grants',
+      data: body,
+    );
+    return response.data?['id'] as String? ?? '';
+  }
+
+  /// Creates a full-Vault grant from one current VK sealed to the Agent. The
+  /// route and request shape cannot accept per-Entry grant envelopes.
+  Future<String> createFullGrant({
+    required String vaultId,
+    required String grantId,
+    required String agentId,
+    required Map<String, Object?> agentWrappedVaultKey,
+    String? expiresAt,
+    int? queryLimit,
+    String? methods,
+  }) async {
+    final body = <String, dynamic>{
+      'grantId': grantId,
+      'agentId': agentId,
+      'agentWrappedVaultKey': agentWrappedVaultKey,
+      'expiresAt': ?expiresAt,
+      'queryLimit': ?queryLimit,
+      'methods': ?methods,
+    };
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/full-grants',
+      data: body,
+    );
+    return response.data?['id'] as String? ?? '';
+  }
+
+  /// Creates one atomic Script execution grant. The route and request shape
+  /// accept a complete Agent-sealed Script package only.
+  Future<String> createScriptExecutionGrant({
+    required String vaultId,
+    required String scriptEntryId,
+    required String grantId,
+    required String agentId,
+    required Map<String, dynamic> scriptPackage,
+    String? expiresAt,
+    int? queryLimit,
+    String? methods,
+  }) async {
+    final body = <String, dynamic>{
+      'grantId': grantId,
+      'agentId': agentId,
+      'scriptPackage': scriptPackage,
+      'expiresAt': ?expiresAt,
+      'queryLimit': ?queryLimit,
+      'methods': ?methods,
+    };
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/vaults/$vaultId/scripts/$scriptEntryId/grants',
       data: body,
     );
     return response.data?['id'] as String? ?? '';

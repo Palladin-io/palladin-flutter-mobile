@@ -86,40 +86,51 @@ final class AgentVisibilityPolicy {
       'description' => const {
         AgentFieldAccess.never,
         AgentFieldAccess.discovery,
-        AgentFieldAccess.onGrantValue,
       },
       'notes' when type == EntryType.script || type == EntryType.creditCard =>
         const {AgentFieldAccess.never, AgentFieldAccess.onGrantRuntime},
-      'notes' => const {AgentFieldAccess.never, AgentFieldAccess.onGrantValue},
-      'value' when type == EntryType.key => const {
-        AgentFieldAccess.never,
-        AgentFieldAccess.onGrantValue,
-      },
-      'username' when type == EntryType.credential => const {
-        AgentFieldAccess.never,
-        AgentFieldAccess.discovery,
-        AgentFieldAccess.onGrantValue,
-      },
-      'urlDomain' when type == EntryType.credential => const {
-        AgentFieldAccess.never,
-        AgentFieldAccess.discovery,
-      },
-      'url' || 'password' when type == EntryType.credential => const {
-        AgentFieldAccess.never,
-        AgentFieldAccess.onGrantValue,
-      },
-      'totp' when type == EntryType.credential => const {
-        AgentFieldAccess.never,
-        AgentFieldAccess.onGrantDerived,
-      },
-      'interpreter' when type == EntryType.script => const {
-        AgentFieldAccess.never,
-        AgentFieldAccess.discovery,
-      },
-      'script' || 'refs' when type == EntryType.script => const {
+      'script.notes' when type == EntryType.script => const {
         AgentFieldAccess.never,
         AgentFieldAccess.onGrantRuntime,
       },
+      'notes' when type == EntryType.key || type == EntryType.credential =>
+        const {AgentFieldAccess.never, AgentFieldAccess.onGrantValue},
+      'key.notes' when type == EntryType.key => const {
+        AgentFieldAccess.never,
+        AgentFieldAccess.onGrantValue,
+      },
+      'credential.notes' when type == EntryType.credential => const {
+        AgentFieldAccess.never,
+        AgentFieldAccess.onGrantValue,
+      },
+      'value' || 'key.value' when type == EntryType.key => const {
+        AgentFieldAccess.never,
+        AgentFieldAccess.onGrantValue,
+      },
+      'url' || 'key.url' when type == EntryType.key => const {
+        AgentFieldAccess.never,
+        AgentFieldAccess.onGrantValue,
+      },
+      'username' ||
+      'credential.username' when type == EntryType.credential => const {
+        AgentFieldAccess.never,
+        AgentFieldAccess.discovery,
+        AgentFieldAccess.onGrantValue,
+      },
+      'urlDomain' || 'credential.urlDomain' when type == EntryType.credential =>
+        const {AgentFieldAccess.never, AgentFieldAccess.discovery},
+      'url' || 'password' || 'credential.url' || 'credential.password'
+          when type == EntryType.credential =>
+        const {AgentFieldAccess.never, AgentFieldAccess.onGrantValue},
+      'totp' || 'credential.totp' when type == EntryType.credential => const {
+        AgentFieldAccess.never,
+        AgentFieldAccess.onGrantDerived,
+      },
+      'interpreter' || 'script.interpreter' when type == EntryType.script =>
+        const {AgentFieldAccess.never, AgentFieldAccess.discovery},
+      'script' || 'refs' || 'script.source' || 'script.refs'
+          when type == EntryType.script =>
+        const {AgentFieldAccess.never, AgentFieldAccess.onGrantRuntime},
       'cardholderName' when type == EntryType.creditCard => const {
         AgentFieldAccess.never,
         AgentFieldAccess.onGrantRuntime,
@@ -138,9 +149,10 @@ final class AgentVisibilityPolicy {
   ) {
     final raw = content['fields'];
     if (raw is! List) return const {AgentFieldAccess.never};
+    final rawId = id.startsWith('custom:') ? id.substring(7) : id;
     Map<dynamic, dynamic>? field;
     for (final candidate in raw) {
-      if (candidate is Map && candidate['id'] == id) {
+      if (candidate is Map && candidate['id'] == rawId) {
         field = candidate;
         break;
       }

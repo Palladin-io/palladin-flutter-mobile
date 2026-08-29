@@ -264,9 +264,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
     value: _valueController.text,
     username: _usernameController.text,
     password: _passwordController.text,
-    // KEY URL is used only as an ephemeral public-icon lookup hint. The
-    // frozen canonical KEY payload intentionally does not contain a URL.
-    url: _type == EntryType.key ? '' : _urlController.text,
+    url: _urlController.text,
     notes: _notesController.text,
     fields: _allCustomFields,
     script: _scriptController.text,

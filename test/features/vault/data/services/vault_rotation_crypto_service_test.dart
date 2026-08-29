@@ -185,6 +185,49 @@ void main() {
     },
   );
 
+  test('rejects Member Vault key outside the fetched Vault epoch', () async {
+    final service = VaultRotationCryptoService(
+      sodiumLoader: () async => throw StateError('sodium must not be reached'),
+    );
+    final envelope = <String, dynamic>{
+      'wrappedVaultKey': {
+        'descriptor': {
+          'protocolVersion': 2,
+          'purpose': 'memberVaultKey',
+          'scope': {
+            'organizationId': '11111111-1111-4111-8111-111111111111',
+            'vaultId': '22222222-2222-4222-8222-222222222222',
+            'memberId': '44444444-4444-4444-8444-444444444444',
+          },
+          'resourceRevision': '1',
+          'wrappedKeyVersion': 4,
+          'memberKeyGeneration': 5,
+          'recipientKeyKind': 'memberX25519',
+          'recipientKeyVersion': 2,
+          'recipientFingerprint': VaultProtocolBytes.base64UrlEncode(
+            Uint8List(32),
+          ),
+          'wrapperSuiteId': 'palladin-x25519-sealed-box-v1',
+        },
+        'encodedSealedKeyPackage': VaultProtocolBytes.base64UrlEncode(
+          Uint8List(120),
+        ),
+      },
+    };
+
+    await expectLater(
+      service.openMemberVaultKey(
+        envelope,
+        Uint8List(32),
+        expectedOrganizationId: '11111111-1111-4111-8111-111111111111',
+        expectedVaultId: '22222222-2222-4222-8222-222222222222',
+        expectedVaultKeyVersion: 3,
+        expectedMemberKeyGeneration: 5,
+      ),
+      throwsA(isA<EnvelopeException>()),
+    );
+  });
+
   test('opens the canonical pending Member Vault key package', () async {
     final library = Platform.environment['PALLADIN_LIBSODIUM_PATH'];
     final sodium = await _loadSodium(library);

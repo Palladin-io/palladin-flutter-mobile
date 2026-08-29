@@ -261,6 +261,7 @@ final class KeyEntryCreationService {
     final content = switch (type) {
       EntryType.key => KeySecretContent(
         value: raw['value'] as String,
+        url: raw['url'] as String?,
         notes: raw['notes'] as String?,
         customFields: custom,
       ),
@@ -307,6 +308,7 @@ final class KeyEntryCreationService {
       ...switch (type) {
         EntryType.key => {
           'key.value': AgentFieldAccess.onGrantValue,
+          if (raw['url'] != null) 'key.url': AgentFieldAccess.onGrantValue,
           'notes': AgentFieldAccess.onGrantValue,
         },
         EntryType.credential => {

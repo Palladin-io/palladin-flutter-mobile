@@ -87,7 +87,7 @@ class EntryFormUtils {
     return switch (type) {
       EntryType.key => KeyPayload(
         value: value.trim(),
-        url: null,
+        url: urlOrNull,
         notes: notesOrNull,
         fields: fields,
       ).toJson(),

@@ -3194,6 +3194,12 @@ abstract class AppLocalizations {
   /// **'Consumed'**
   String get grantStatusConsumed;
 
+  /// Terminal grant status: replaced by a FULL Vault grant
+  ///
+  /// In en, this message translates to:
+  /// **'Superseded'**
+  String get grantStatusSuperseded;
+
   /// Grant scope label — full vault access
   ///
   /// In en, this message translates to:
@@ -3314,6 +3320,12 @@ abstract class AppLocalizations {
   /// **'Deny reason'**
   String get orgGrantRowDenyReason;
 
+  /// No description provided for @orgGrantSupersededReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Replaced by a FULL grant'**
+  String get orgGrantSupersededReason;
+
   /// Org grant card row label — owner's revoke reason
   ///
   /// In en, this message translates to:
@@ -3347,8 +3359,38 @@ abstract class AppLocalizations {
   /// Footer on a terminal grant whose agent already holds active coverage
   ///
   /// In en, this message translates to:
-  /// **'Already active'**
+  /// **'Active in a newer grant'**
   String get orgGrantAlreadyActive;
+
+  /// Action that opens the newer active grant covering terminal history
+  ///
+  /// In en, this message translates to:
+  /// **'Show active grant'**
+  String get orgGrantShowActive;
+
+  /// Footer when terminal access cannot be re-granted because the Agent or target is unavailable
+  ///
+  /// In en, this message translates to:
+  /// **'Grant again unavailable'**
+  String get orgGrantRegrantUnavailable;
+
+  /// Action opening the Agent associated with terminal grant history
+  ///
+  /// In en, this message translates to:
+  /// **'View agent'**
+  String get orgGrantViewAgent;
+
+  /// Fallback action opening the Vault when terminal grant history has no Agent
+  ///
+  /// In en, this message translates to:
+  /// **'View vault'**
+  String get orgGrantViewVault;
+
+  /// Action on a pending grant card that opens the Inbox approval queue
+  ///
+  /// In en, this message translates to:
+  /// **'Review request'**
+  String get orgGrantReviewRequest;
 
   /// Title of the grant detail screen
   ///
@@ -4591,6 +4633,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Grant expired'**
   String get auditEventGrantExpired;
+
+  /// No description provided for @auditEventGrantSuperseded.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant superseded'**
+  String get auditEventGrantSuperseded;
 
   /// No description provided for @auditEventCredentialAccessed.
   ///

@@ -716,6 +716,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       final id = switch (field.key as String) {
         'memberLabel' || 'icon' || 'color' || 'entryType' => null,
         'key.value' => 'value',
+        'key.url' => 'url',
+        'key.notes' => 'notes',
+        'credential.notes' => 'notes',
+        'script.notes' => 'notes',
         'credential.username' => 'username',
         'credential.password' => 'password',
         'credential.url' => 'url',
@@ -1875,6 +1879,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     final body = switch (type) {
       EntryType.key => KeySecretContent(
         value: content['value'] as String,
+        url: content['url'] as String?,
         notes: content['notes'] as String?,
         customFields: custom,
       ),
@@ -1911,8 +1916,11 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         customFields: custom,
       ),
     };
-    String canonicalId(String id) => switch ((type, id)) {
+    String? canonicalId(String id) => switch ((type, id)) {
       (EntryType.key, 'value') => 'key.value',
+      (EntryType.key, 'url') when content['url'] != null => 'key.url',
+      (EntryType.key, 'url') => null,
+      (EntryType.key, 'notes') => 'notes',
       (EntryType.credential, 'username') => 'credential.username',
       (EntryType.credential, 'password') => 'credential.password',
       (EntryType.credential, 'url') => 'credential.url',
@@ -1935,10 +1943,6 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       _ => id,
     };
     final access = <String, AgentFieldAccess>{
-      for (final item in policy.fields.entries)
-        canonicalId(item.key): AgentFieldAccess.values.byName(
-          item.value.wireName,
-        ),
       'memberLabel': AgentFieldAccess.never,
       'icon': AgentFieldAccess.never,
       'color': AgentFieldAccess.never,
@@ -1946,6 +1950,12 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       'agentLabel': AgentFieldAccess.discovery,
       'description': AgentFieldAccess.never,
     };
+    for (final item in policy.fields.entries) {
+      final id = canonicalId(item.key);
+      if (id != null) {
+        access[id] = AgentFieldAccess.values.byName(item.value.wireName);
+      }
+    }
     for (final id in body.fieldValues().keys) {
       access.putIfAbsent(
         id,
@@ -2048,6 +2058,25 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         if (agentId == null) {
           throw const FormatException('Active grant has no Agent principal');
         }
+        final projection = _grantProjection(secret);
+        final payload = AgentVisibilityProjector.grantPayload(
+          type: projection.type,
+          vaultId: vaultId,
+          agentLabel: projection.agentLabel,
+          description: projection.description,
+          content: projection.content,
+          policy: projection.policy,
+          approvedFieldIds: fields,
+        );
+        final envelopeFieldIds = AgentVisibilityProjector.grantPayloadFieldIds(
+          payload,
+        );
+        if (envelopeFieldIds.length != fields.length ||
+            envelopeFieldIds.indexed.any(
+              (item) => item.$2 != fields[item.$1],
+            )) {
+          throw const FormatException('Grant field projection drift');
+        }
         final envelope = await _entryV2!.sealGrant(
           organizationId: organizationId,
           vaultId: vaultId,
@@ -2060,11 +2089,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           recipientKeyVersion: grant.recipientAgentKeyVersion!,
           approvedMethods: _methodBits(grant.methods),
           deliveryPolicy: 0,
-          fieldIds: fields,
-          grantPayload: VaultPlaintextProjector.grantPayload(
-            secret,
-            fields.toSet(),
-          ),
+          fieldIds: envelopeFieldIds,
+          grantPayload: payload,
           grantEnvelopeRevision: int.parse(
             _incrementValue(
               scope.grantEnvelopeRevision,
@@ -2155,14 +2181,32 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     final opened = <String, CanonicalEntrySnapshot>{};
     final projections = <CanonicalGrantFieldProjection>[];
     final encoded = <Uint8List>[];
+    final recipientKeys = <Uint8List>[];
     Uint8List? vaultKey;
     Uint8List? vaultSigningPrivateKey;
     try {
       final vault = await _vaults.getEncryptedVault(vaultId);
-      final epoch = Map<String, dynamic>.from(vault['currentKeyEpoch'] as Map);
+      final vaultOrganizationId = vault['organizationId'];
+      final memberKeyGeneration = vault['memberKeyGeneration'];
+      final epochValue = vault['currentKeyEpoch'];
+      if (vaultOrganizationId != organizationId ||
+          memberKeyGeneration is! int ||
+          epochValue is! Map) {
+        throw const FormatException('Malformed encrypted Vault key context');
+      }
+      final epoch = Map<String, dynamic>.from(epochValue);
+      final vaultKeyVersion = epoch['vaultKeyVersion'];
+      final vaultSigningKeyVersion = epoch['manifestSigningKeyVersion'];
+      if (vaultKeyVersion is! int || vaultSigningKeyVersion is! int) {
+        throw const FormatException('Malformed encrypted Vault key epoch');
+      }
       vaultKey = await _keys.openMemberVaultKey(
         Map<String, dynamic>.from(vault['memberVaultKey'] as Map),
         memberPrivateKey,
+        expectedOrganizationId: organizationId,
+        expectedVaultId: vaultId,
+        expectedVaultKeyVersion: vaultKeyVersion,
+        expectedMemberKeyGeneration: memberKeyGeneration,
       );
       final signingEnvelope = (vault['vaultPrivateKeys'] as List)
           .whereType<Map>()
@@ -2178,7 +2222,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           .openCanonicalManifestSigningPrivateKey(
             signingEnvelope,
             vaultKey,
-            expectedKeyVersion: epoch['manifestSigningKeyVersion'] as int,
+            expectedKeyVersion: vaultSigningKeyVersion,
           );
       Future<CanonicalEntrySnapshot> revealEntry(String entryId) async {
         final cached = opened[entryId];
@@ -2246,12 +2290,27 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         for (final referenceId in referenceIds) {
           final fieldIds = fieldIdsByEntry[referenceId]!.toList()..sort();
           if (referenceId == updatedEntryId) {
-            final bytes = canonicalVaultJson(
-              VaultPlaintextProjector.grantPayloadFromJson(
-                updatedSecret.toJson(),
-                fieldIds.toSet(),
-              ),
+            final projection = _grantProjection(updatedSecret);
+            final payload = AgentVisibilityProjector.grantPayload(
+              type: projection.type,
+              vaultId: vaultId,
+              agentLabel: projection.agentLabel,
+              description: projection.description,
+              content: projection.content,
+              policy: projection.policy,
+              approvedFieldIds: fieldIds,
             );
+            final projectedFieldIds =
+                AgentVisibilityProjector.grantPayloadFieldIds(payload);
+            if (projectedFieldIds.length != fieldIds.length ||
+                projectedFieldIds.indexed.any(
+                  (item) => item.$2 != fieldIds[item.$1],
+                )) {
+              throw const FormatException(
+                'Script grant field projection drift',
+              );
+            }
+            final bytes = canonicalVaultJson(payload);
             encoded.add(bytes);
             referenceInputs.add(
               ScriptExecutionPackageEntryInput(
@@ -2285,15 +2344,23 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
             );
           }
         }
+        final recipientKey = VaultProtocolBytes.base64Decode(
+          publicKey,
+          maximumBytes: 32,
+        );
+        if (recipientKey.length != 32) {
+          throw const FormatException('Invalid Agent public key');
+        }
+        recipientKeys.add(recipientKey);
         result.add(
           await _scriptPackages.seal(
             grantId: grant.id,
             packageRevision: packageRevision + 1,
             agentId: agentId,
             agentAccessEpoch: accessEpoch,
-            agentPublicKey: Uint8List.fromList(base64.decode(publicKey)),
+            agentPublicKey: recipientKey,
             recipientAgentKeyVersion: recipientVersion,
-            vaultSigningKeyVersion: epoch['manifestSigningKeyVersion'] as int,
+            vaultSigningKeyVersion: vaultSigningKeyVersion,
             vaultSigningPrivateKey: vaultSigningPrivateKey,
             scriptEntry: scriptEntry,
             scriptPayload: scriptPayload,
@@ -2314,7 +2381,55 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       for (final bytes in encoded) {
         bytes.fillRange(0, bytes.length, 0);
       }
+      for (final key in recipientKeys) {
+        key.fillRange(0, key.length, 0);
+      }
     }
+  }
+
+  ({
+    EntryType type,
+    String agentLabel,
+    String description,
+    Map<String, dynamic> content,
+    AgentVisibilityPolicy policy,
+  })
+  _grantProjection(MemberSecret secret) {
+    final adapted = _adaptCanonicalSecret(
+      Map<String, dynamic>.from(secret.toJson()),
+    );
+    final type = EntryTypeExtension.fromWire(adapted['entryType'] as int);
+    final content = Map<String, dynamic>.from(adapted['content'] as Map);
+    if (type == EntryType.script) {
+      content['script'] = content.remove('source');
+    }
+    final custom = content.remove('customFields');
+    content['fields'] = custom is List
+        ? custom
+              .whereType<Map>()
+              .map(
+                (field) => <String, dynamic>{
+                  'id': field['id'],
+                  'label': field['label'],
+                  'type': field['kind'],
+                  'value': field['value'],
+                  'agentVisible': field['includeInMemberIndex'] == true,
+                },
+              )
+              .toList(growable: false)
+        : const <Map<String, dynamic>>[];
+    final policy = AgentVisibilityPolicy.fromJson(
+      type,
+      Map<String, dynamic>.from(adapted['agentVisibilityPolicy'] as Map),
+      content: content,
+    );
+    return (
+      type: type,
+      agentLabel: adapted['agentLabel'] as String? ?? '',
+      description: adapted['description'] as String? ?? '',
+      content: content,
+      policy: policy,
+    );
   }
 
   String _canonicalGrantFieldId(VaultEntryType type, String id) => switch ((
@@ -2322,6 +2437,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     id,
   )) {
     (VaultEntryType.key, 'value') => 'key.value',
+    (VaultEntryType.key, 'url') => 'key.url',
+    (VaultEntryType.key, 'notes') => 'key.notes',
     (VaultEntryType.credential, 'username') => 'credential.username',
     (VaultEntryType.credential, 'password') => 'credential.password',
     (VaultEntryType.credential, 'url') => 'credential.url',
@@ -2404,11 +2521,15 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       }
       final payload = AgentVisibilityProjector.grantPayload(
         type: type,
+        vaultId: grant.vaultId,
         agentLabel: agentLabel,
         description: description,
         content: content,
         policy: policy,
         approvedFieldIds: approvedFieldIds,
+      );
+      final envelopeFieldIds = AgentVisibilityProjector.grantPayloadFieldIds(
+        payload,
       );
       plaintext = VaultProtocolBytes.utf8Encode(canonicalizeVaultJson(payload));
       grantKey = await _envelopes.randomKey();
@@ -2464,7 +2585,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         'agentWrappedGrantDek': VaultProtocolBytes.base64UrlEncode(wrappedKey),
         'agentWrapperSuite': 1,
         'agentKeyFingerprint': fingerprintWire,
-        'fieldIds': approvedFieldIds,
+        'fieldIds': envelopeFieldIds,
         'expiresAt': ?expiresAt,
         'remainingUses': ?remainingUses,
       };

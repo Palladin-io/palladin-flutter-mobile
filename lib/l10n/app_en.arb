@@ -2084,6 +2084,10 @@
   "@grantStatusConsumed": {
     "description": "Grant status label — query limit exhausted"
   },
+  "grantStatusSuperseded": "Superseded",
+  "@grantStatusSuperseded": {
+    "description": "Terminal grant status: replaced by a FULL Vault grant"
+  },
   "grantScopeFull": "All entries",
   "@grantScopeFull": {
     "description": "Grant scope label — full vault access"
@@ -2155,6 +2159,7 @@
   "@orgGrantRowDenyReason": {
     "description": "Org grant card row label — owner's deny reason"
   },
+  "orgGrantSupersededReason": "Replaced by a FULL grant",
   "orgGrantRowRevokeReason": "Revoke reason",
   "@orgGrantRowRevokeReason": {
     "description": "Org grant card row label — owner's revoke reason"
@@ -2188,9 +2193,29 @@
       }
     }
   },
-  "orgGrantAlreadyActive": "Already active",
+  "orgGrantAlreadyActive": "Active in a newer grant",
   "@orgGrantAlreadyActive": {
     "description": "Footer on a terminal grant whose agent already holds active coverage"
+  },
+  "orgGrantShowActive": "Show active grant",
+  "@orgGrantShowActive": {
+    "description": "Action that opens the newer active grant covering terminal history"
+  },
+  "orgGrantRegrantUnavailable": "Grant again unavailable",
+  "@orgGrantRegrantUnavailable": {
+    "description": "Footer when terminal access cannot be re-granted because the Agent or target is unavailable"
+  },
+  "orgGrantViewAgent": "View agent",
+  "@orgGrantViewAgent": {
+    "description": "Action opening the Agent associated with terminal grant history"
+  },
+  "orgGrantViewVault": "View vault",
+  "@orgGrantViewVault": {
+    "description": "Fallback action opening the Vault when terminal grant history has no Agent"
+  },
+  "orgGrantReviewRequest": "Review request",
+  "@orgGrantReviewRequest": {
+    "description": "Action on a pending grant card that opens the Inbox approval queue"
   },
   "grantDetailTitle": "Grant",
   "@grantDetailTitle": {
@@ -2695,6 +2720,7 @@
   "auditEventGrantRevoked": "Access revoked",
   "auditEventGrantConsumed": "Grant consumed",
   "auditEventGrantExpired": "Grant expired",
+  "auditEventGrantSuperseded": "Grant superseded",
   "auditEventCredentialAccessed": "Credential accessed",
   "auditEventCredentialAccessDenied": "Access denied",
   "auditEventAgentEnrolled": "Agent enrolled",

@@ -44,6 +44,11 @@ The **shared widget catalog lives in this file** (see "## Shared Widget Catalog"
 | api_keys | `docs/architecture/features/api_keys.md` |
 | autofill | `docs/architecture/features/autofill.md` |
 
+## Explicit variants and contracts
+
+- When variants materially differ in authorization, validation, cryptographic material, lifecycle, or transaction semantics, keep separate repository methods and feature flows instead of branching one generic operation by a type flag. Share only focused mechanics.
+- When the backend provides an authoritative discriminator such as `GrantType`, require and consume that exact field at the data boundary. Never infer it from nullable fields, payload shape, endpoint, aliases, or current UI behavior.
+
 ## Build & Run
 
 ```bash
@@ -66,7 +71,17 @@ GitHub Actions workflow at `.github/workflows/test.yml` runs on PRs to `main`:
 5. Vault v2 structural performance budgets
 6. `flutter test`
 
+Pull-request CI intentionally does not build APKs or other application artifacts.
+Store builds remain separate, maintainer-triggered workflows.
+
 **All changes must go through PRs** — CI must pass before merging.
+
+### Explicit CI workflow authorization
+
+- Never trigger, rerun or otherwise cause the GitHub Actions/CI workflow to execute unless the user explicitly asks to run that workflow or CI in the current task.
+- Requests to create a PR, mark it ready, review it or merge it do **not** authorize CI execution. If a required check is missing, stop and ask for explicit authorization; do not create an empty trigger commit, remove `[skip ci]`, dispatch or rerun the workflow on your own.
+- APK, app bundle and IPA builds are release-only. They must never run as part of PR or merge validation and may run only through an explicitly authorized release workflow.
+- Read-only inspection or monitoring of a workflow that is already running is allowed, but restarting or replacing it still requires explicit authorization.
 
 ## Flavors
 
