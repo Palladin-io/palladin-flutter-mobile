@@ -435,6 +435,14 @@ void main() {
       authority: authority,
       authoritativeMemberVaultKey: snapshot.memberVaultKey,
     );
+    const corruptVaultId = '00000000-0000-4000-8000-000000000000';
+    cache.states[corruptVaultId] = MemberSyncCacheState(
+      sequence: '1',
+      accessContext: snapshot.accessContext,
+      memberVaultKey: snapshot.memberVaultKey,
+      maximumObservedWallTime: now,
+    );
+    cache.active[corruptVaultId] = {};
     service.lock();
     when(
       () => vaultKeys.openMemberVaultKey(
@@ -453,6 +461,7 @@ void main() {
     );
 
     expect(vaultIds, [snapshot.accessContext.vaultId]);
+    expect(cache.states, isNot(contains(corruptVaultId)));
     expect(service.entries(snapshot.accessContext.vaultId), hasLength(1));
     expect(remote.snapshotRequests, 1);
     expect(remote.deltaRequests, 1);

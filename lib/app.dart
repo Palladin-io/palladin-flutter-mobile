@@ -300,6 +300,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
           // Commit a durable native deny before any network repair. A remote
           // delete, revoke, policy change or rekey must stop old credentials
           // immediately, not after a potentially slow snapshot/delta fetch.
+          _durableAutoFillRepair.suspendRepairs();
           await _autoFillCache.clear();
           for (final invalidation in batch.values) {
             if (invalidation.removed) {
@@ -325,6 +326,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               _appliedVaultInvalidationRanks[invalidation.vaultId] = rank;
             }
           }
+          _durableAutoFillRepair.resumeRepairs();
         } catch (error) {
           _memberIndexPreparation.lock();
           for (final invalidation in batch.values) {
@@ -563,6 +565,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   Future<void> _onAutoFillMutation(AutoFillMutationAction action) async {
     switch (action) {
       case AutoFillMutationAction.invalidate:
+        _durableAutoFillRepair.suspendRepairs();
         try {
           await _autoFillCache.clear();
         } catch (error) {
@@ -581,7 +584,19 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
         }
         // A mutation invalidates the previous cache before rebuilding. If the
         // rebuild fails, leaving AutoFill empty is safer than serving stale data.
-        await _autoFillCache.clearAndSynchronize(privateKey: state.privateKey!);
+        await _autoFillCache.clear();
+        final preparedVaults = await _memberIndexPreparation.prepare(
+          state.privateKey!,
+          ensureFresh: true,
+        );
+        _durableAutoFillRepair.replaceKnownVaults(
+          preparedVaults.map((vault) => vault.id),
+        );
+        await _autoFillCache.synchronizePrepared(
+          privateKey: state.privateKey!,
+          vaultIds: preparedVaults.map((vault) => vault.id),
+        );
+        _durableAutoFillRepair.resumeRepairs();
     }
   }
 

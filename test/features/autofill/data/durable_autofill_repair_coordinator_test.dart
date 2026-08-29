@@ -124,6 +124,43 @@ void main() {
     },
   );
 
+  test(
+    'mutation deny keeps commits pending until authoritative rebuild resumes',
+    () async {
+      final releaseCurrent = Completer<void>();
+      when(
+        () => indexes.waitForCurrent('vault-a'),
+      ).thenAnswer((_) => releaseCurrent.future);
+      coordinator.replaceKnownVaults(const ['vault-a', 'vault-b']);
+
+      updates.add('vault-a');
+      await Future<void>.delayed(Duration.zero);
+      coordinator.suspendRepairs();
+      releaseCurrent.complete();
+      await coordinator.drainPending();
+
+      verifyNever(
+        () => autoFill.synchronizePrepared(
+          privateKey: any(named: 'privateKey'),
+          vaultIds: any(named: 'vaultIds'),
+        ),
+      );
+
+      coordinator.resumeRepairs();
+      await coordinator.drainPending();
+
+      final vaultIds =
+          verify(
+                () => autoFill.synchronizePrepared(
+                  privateKey: any(named: 'privateKey'),
+                  vaultIds: captureAny(named: 'vaultIds'),
+                ),
+              ).captured.single
+              as Iterable<String>;
+      expect(vaultIds.toSet(), {'vault-a', 'vault-b'});
+    },
+  );
+
   test('failed repair keeps the commit pending for a later retry', () async {
     var calls = 0;
     when(
@@ -171,44 +208,47 @@ void main() {
     );
   });
 
-  test('old drain cannot discard a committed update from the new epoch', () async {
-    final releaseOldCurrent = Completer<void>();
-    var oldWait = true;
-    when(() => indexes.waitForCurrent('vault-a')).thenAnswer((_) {
-      if (oldWait) return releaseOldCurrent.future;
-      return Future<void>.value();
-    });
-    coordinator.replaceKnownVaults(const ['vault-a']);
+  test(
+    'old drain cannot discard a committed update from the new epoch',
+    () async {
+      final releaseOldCurrent = Completer<void>();
+      var oldWait = true;
+      when(() => indexes.waitForCurrent('vault-a')).thenAnswer((_) {
+        if (oldWait) return releaseOldCurrent.future;
+        return Future<void>.value();
+      });
+      coordinator.replaceKnownVaults(const ['vault-a']);
 
-    updates.add('vault-a');
-    await Future<void>.delayed(Duration.zero);
+      updates.add('vault-a');
+      await Future<void>.delayed(Duration.zero);
 
-    coordinator.clearSession();
-    sessionIdentity = Object();
-    session = AutoFillRepairSession(
-      principalId: 'principal-2',
-      identity: sessionIdentity,
-      privateKey: Uint8List(32),
-    );
-    coordinator.replaceKnownVaults(const ['vault-b']);
-    oldWait = false;
-    updates.add('vault-b');
-    releaseOldCurrent.complete();
+      coordinator.clearSession();
+      sessionIdentity = Object();
+      session = AutoFillRepairSession(
+        principalId: 'principal-2',
+        identity: sessionIdentity,
+        privateKey: Uint8List(32),
+      );
+      coordinator.replaceKnownVaults(const ['vault-b']);
+      oldWait = false;
+      updates.add('vault-b');
+      releaseOldCurrent.complete();
 
-    await coordinator.drainPending();
-    await Future<void>.delayed(Duration.zero);
-    await coordinator.drainPending();
+      await coordinator.drainPending();
+      await Future<void>.delayed(Duration.zero);
+      await coordinator.drainPending();
 
-    final captured =
-        verify(
-              () => autoFill.synchronizePrepared(
-                privateKey: any(named: 'privateKey'),
-                vaultIds: captureAny(named: 'vaultIds'),
-              ),
-            ).captured.single
-            as Iterable<String>;
-    expect(captured.toSet(), {'vault-b'});
-  });
+      final captured =
+          verify(
+                () => autoFill.synchronizePrepared(
+                  privateKey: any(named: 'privateKey'),
+                  vaultIds: captureAny(named: 'vaultIds'),
+                ),
+              ).captured.single
+              as Iterable<String>;
+      expect(captured.toSet(), {'vault-b'});
+    },
+  );
 
   test(
     'an unrelated auth-state replacement with the same key still repairs',

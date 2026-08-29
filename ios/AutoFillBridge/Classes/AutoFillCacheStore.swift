@@ -121,7 +121,7 @@ enum AutoFillCacheError: Error {
     case clockRollback
 }
 
-private final class AutoFillFileLockLease {
+final class AutoFillFileLockLease {
     private let lock = NSLock()
     private var descriptor: Int32?
 
@@ -203,6 +203,13 @@ final class AutoFillAsyncMutationState {
             release()
         }
         return action
+    }
+
+    func clearCallbackCompleted(succeeded: Bool, error: Error?) {
+        lock.lock()
+        self.error = succeeded ? nil : (error ?? AutoFillCacheError.cacheUnavailable)
+        state = .completed
+        lock.unlock()
     }
 
     func completeCompensation() {
@@ -1198,16 +1205,14 @@ final class AutoFillCacheStore {
                 let semaphore = DispatchSemaphore(value: 0)
                 let mutationState = AutoFillAsyncMutationState()
                 ASCredentialIdentityStore.shared.removeAllCredentialIdentities { success, error in
-                    _ = mutationState.callbackAction(
-                        succeeded: success,
-                        error: error,
-                        expectedArtifactIsActive: true
-                    )
+                    mutationState.clearCallbackCompleted(succeeded: success, error: error)
                     lease.release()
                     semaphore.signal()
                 }
                 if semaphore.wait(timeout: .now() + 10) != .success {
-                    switch mutationState.timeoutAction() {
+                    switch mutationState.timeoutAction(
+                        releasingSerializationResources: { lease.release() }
+                    ) {
                     case .returnTimeout:
                         completion(AutoFillCacheError.cacheUnavailable)
                         return

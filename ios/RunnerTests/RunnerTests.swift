@@ -1,5 +1,6 @@
 import AuthenticationServices
 import CryptoKit
+import Darwin
 import XCTest
 @testable import PalladinAutoFillBridge
 
@@ -406,6 +407,46 @@ final class RunnerTests: XCTestCase {
             error: nil,
             expectedArtifactIsActive: false
         ), .compensate)
+    }
+
+    func testClearIdentityTimeoutReleasesLeaseBeforeLateCallback() {
+        let clear = AutoFillAsyncMutationState()
+        var releaseCount = 0
+
+        XCTAssertEqual(clear.timeoutAction(
+            releasingSerializationResources: { releaseCount += 1 }
+        ), .returnTimeout)
+        XCTAssertEqual(releaseCount, 1)
+
+        clear.clearCallbackCompleted(succeeded: true, error: nil)
+        XCTAssertNil(clear.recordedError())
+        XCTAssertEqual(releaseCount, 1)
+    }
+
+    func testLateClearCallbackCannotReleaseLaterSessionLease() throws {
+        let lockURL = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "palladin-autofill-clear-\(UUID().uuidString).lock"
+        )
+        defer { try? FileManager.default.removeItem(at: lockURL) }
+
+        let oldDescriptor = open(lockURL.path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+        XCTAssertGreaterThanOrEqual(oldDescriptor, 0)
+        XCTAssertEqual(flock(oldDescriptor, LOCK_EX | LOCK_NB), 0)
+        let oldLease = AutoFillFileLockLease(descriptor: oldDescriptor)
+        oldLease.release()
+
+        let newDescriptor = open(lockURL.path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+        XCTAssertGreaterThanOrEqual(newDescriptor, 0)
+        XCTAssertEqual(flock(newDescriptor, LOCK_EX | LOCK_NB), 0)
+        let newLease = AutoFillFileLockLease(descriptor: newDescriptor)
+        defer { newLease.release() }
+
+        oldLease.release()
+
+        let probeDescriptor = open(lockURL.path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+        XCTAssertGreaterThanOrEqual(probeDescriptor, 0)
+        defer { close(probeDescriptor) }
+        XCTAssertEqual(flock(probeDescriptor, LOCK_EX | LOCK_NB), -1)
     }
 
     func testBridgeMutationSubmissionsPreserveCallOrder() {

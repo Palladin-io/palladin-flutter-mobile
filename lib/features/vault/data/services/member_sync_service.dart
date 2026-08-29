@@ -396,14 +396,22 @@ final class MemberSyncService
       throw const FormatException('Member private key must be 32 bytes');
     }
     final vaultIds = await _cache.vaultIds();
+    final reopenedVaultIds = <String>[];
     for (final vaultId in vaultIds) {
-      await unlockCached(
-        vaultId: vaultId,
-        memberPrivateKey: memberPrivateKey,
-        authority: authority,
-      );
+      try {
+        await unlockCached(
+          vaultId: vaultId,
+          memberPrivateKey: memberPrivateKey,
+          authority: authority,
+        );
+        if (_indexes.containsKey(vaultId)) reopenedVaultIds.add(vaultId);
+      } on Object {
+        // unlockCached purges and revokes only the invalid Vault. Continue so
+        // one corrupt or expired generation cannot suppress independent valid
+        // offline Vaults from the exact native replacement.
+      }
     }
-    return List<String>.unmodifiable(vaultIds);
+    return List<String>.unmodifiable(reopenedVaultIds);
   }
 
   Future<void> _unlockCached({

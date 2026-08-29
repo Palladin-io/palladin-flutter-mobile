@@ -53,6 +53,7 @@ final class DurableAutoFillRepairCoordinator {
   int? _readyEpoch;
   int _epoch = 0;
   int _sequence = 0;
+  bool _repairsSuspended = false;
   bool _disposed = false;
 
   /// Starts consuming the authoritative post-commit stream once.
@@ -73,6 +74,21 @@ final class DurableAutoFillRepairCoordinator {
     if (_pending.isNotEmpty) unawaited(drainPending());
   }
 
+  /// Holds committed-index repairs after a native deny until the mutation or
+  /// invalidation batch has installed its authoritative replacement.
+  void suspendRepairs() {
+    _repairsSuspended = true;
+    _retry?.cancel();
+    _retry = null;
+  }
+
+  /// Releases a previously held deny and drains every coalesced commit.
+  void resumeRepairs() {
+    if (!_repairsSuspended) return;
+    _repairsSuspended = false;
+    if (_pending.isNotEmpty) unawaited(drainPending());
+  }
+
   /// Drops all profile-scoped state on lock, logout, or session replacement.
   void clearSession() {
     _epoch += 1;
@@ -80,6 +96,7 @@ final class DurableAutoFillRepairCoordinator {
     _pending.clear();
     _readySessionIdentity = null;
     _readyEpoch = null;
+    _repairsSuspended = false;
     _retry?.cancel();
     _retry = null;
   }
@@ -87,7 +104,8 @@ final class DurableAutoFillRepairCoordinator {
   /// Exposed as a deterministic test seam; production drains automatically.
   Future<void> drainPending() {
     final session = _currentSession();
-    if (session == null ||
+    if (_repairsSuspended ||
+        session == null ||
         _readyEpoch != _epoch ||
         !identical(_readySessionIdentity, session.identity)) {
       return Future<void>.value();
@@ -99,6 +117,7 @@ final class DurableAutoFillRepairCoordinator {
       if (identical(_running, operation)) _running = null;
       if (_pending.isNotEmpty &&
           _retry == null &&
+          !_repairsSuspended &&
           !_disposed &&
           _readyEpoch == _epoch &&
           identical(_readySessionIdentity, _currentSession()?.identity)) {
@@ -126,13 +145,14 @@ final class DurableAutoFillRepairCoordinator {
     _knownVaultIds.add(vaultId);
     _pending[vaultId] = ++_sequence;
     if (_readyEpoch == _epoch &&
+        !_repairsSuspended &&
         identical(_readySessionIdentity, _currentSession()?.identity)) {
       unawaited(drainPending());
     }
   }
 
   Future<void> _drain() async {
-    while (_pending.isNotEmpty && !_disposed) {
+    while (_pending.isNotEmpty && !_disposed && !_repairsSuspended) {
       final initialEpoch = _epoch;
       final initialSession = _currentSession();
       if (initialSession == null || initialSession.privateKey.isEmpty) {
@@ -147,13 +167,14 @@ final class DurableAutoFillRepairCoordinator {
         var covered = Map<String, int>.from(_pending);
         while (true) {
           await Future.wait(covered.keys.map(_memberIndexes.waitForCurrent));
-          if (_epoch != initialEpoch) return;
+          if (_epoch != initialEpoch || _repairsSuspended) return;
           final latest = Map<String, int>.from(_pending);
           if (_sameUpdates(covered, latest)) break;
           covered = latest;
         }
         final currentSession = _currentSession();
         if (currentSession == null ||
+            _repairsSuspended ||
             _epoch != initialEpoch ||
             _readyEpoch != initialEpoch ||
             currentSession.principalId != initialSession.principalId ||
