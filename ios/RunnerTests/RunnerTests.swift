@@ -367,12 +367,26 @@ final class RunnerTests: XCTestCase {
 
     func testLateIdentitySuccessAfterTimeoutRequiresCompensatingClear() {
         let timedOut = AutoFillAsyncMutationState()
-        XCTAssertEqual(timedOut.timeoutAction(), .returnTimeout)
+        var releaseCount = 0
+        XCTAssertEqual(timedOut.timeoutAction(
+            releasingSerializationResources: { releaseCount += 1 }
+        ), .returnTimeout)
+        XCTAssertEqual(releaseCount, 1)
         XCTAssertEqual(timedOut.callbackAction(
             succeeded: true,
             error: nil,
             expectedArtifactIsActive: true
         ), .compensate)
+        XCTAssertFalse(AutoFillIdentityCompensationGuard.shouldClearLateReplacement(
+            expectedGeneration: 20,
+            expectedCacheId: "cache-old",
+            currentCounter: 21,
+            currentFence: AutoFillFence(
+                generation: 21,
+                state: .active,
+                cacheId: "cache-current"
+            )
+        ))
 
         let callbackWon = AutoFillAsyncMutationState()
         XCTAssertEqual(callbackWon.callbackAction(
@@ -380,7 +394,11 @@ final class RunnerTests: XCTestCase {
             error: nil,
             expectedArtifactIsActive: true
         ), .finish)
-        XCTAssertEqual(callbackWon.timeoutAction(), .awaitCompletion)
+        XCTAssertEqual(callbackWon.timeoutAction(
+            releasingSerializationResources: {
+                XCTFail("Completed callback must not use the timeout release path")
+            }
+        ), .awaitCompletion)
 
         let revoked = AutoFillAsyncMutationState()
         XCTAssertEqual(revoked.callbackAction(

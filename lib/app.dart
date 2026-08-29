@@ -32,11 +32,13 @@ import 'features/notifications/presentation/cubit/push_navigation_cubit.dart';
 import 'features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'features/dashboard/presentation/cubit/search_session_controller.dart';
 import 'features/vault/data/services/member_index_preparation_service.dart';
+import 'features/vault/data/services/member_sync_session_authority_provider.dart';
 import 'features/vault/data/services/member_sync_service.dart';
 import 'features/vault/data/services/encrypted_presentation_asset_service.dart';
 import 'features/vault/data/services/vault_rotation_service.dart';
 import 'features/vault/data/export/canonical_export_service.dart';
 import 'features/vault/data/export/protected_export_staging.dart';
+import 'features/vault/domain/exceptions/vault_exceptions.dart';
 import 'features/vault/presentation/cubit/vault_list_cubit.dart';
 
 class PalladinApp extends StatefulWidget {
@@ -76,6 +78,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final MemberIndexPreparationService _memberIndexPreparation =
       getIt<MemberIndexPreparationService>();
   final MemberSyncService _memberSync = getIt<MemberSyncService>();
+  final MemberSyncSessionAuthorityProvider _memberSyncAuthority =
+      getIt<MemberSyncSessionAuthorityProvider>();
   final VaultListCubit _vaultList = getIt<VaultListCubit>();
   final DashboardCubit _dashboard = getIt<DashboardCubit>();
   final VaultRotationService _vaultRotation = getIt<VaultRotationService>();
@@ -508,6 +512,23 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
         privateKey: privateKey,
         vaultIds: preparedVaults.map((vault) => vault.id),
       );
+    } on VaultException catch (error) {
+      if (error.kind != VaultErrorKind.networkError) return;
+      try {
+        final authority = await _memberSyncAuthority.current();
+        final cachedVaultIds = await _memberSync.unlockAllCached(
+          memberPrivateKey: privateKey,
+          authority: authority,
+        );
+        _durableAutoFillRepair.replaceKnownVaults(cachedVaultIds);
+        await _autoFillCache.synchronizePrepared(
+          privateKey: privateKey,
+          vaultIds: cachedVaultIds,
+        );
+      } catch (_) {
+        // Cached generations are optional and fail closed per Vault. Never log
+        // errors retaining decrypted projection or transport context.
+      }
     } catch (_) {
       // Local search is best effort. Never log transport errors because they
       // may retain the raw query or decrypted projection context.

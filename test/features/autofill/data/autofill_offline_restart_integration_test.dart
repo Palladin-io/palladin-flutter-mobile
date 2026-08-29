@@ -367,11 +367,11 @@ void main() {
         vaultKeys: vaultKeys,
         now: () => DateTime.utc(2026, 8, 29, 8, 45),
       );
-      await restarted.unlockCached(
-        vaultId: snapshot.accessContext.vaultId,
+      final cachedVaultIds = await restarted.unlockAllCached(
         memberPrivateKey: Uint8List(32),
         authority: authority,
       );
+      expect(cachedVaultIds, [snapshot.accessContext.vaultId]);
 
       final authorityProvider = _MockAuthorityProvider();
       when(authorityProvider.current).thenAnswer((_) async => authority);
@@ -403,7 +403,7 @@ void main() {
       await autoFill.beginSession();
       await autoFill.synchronizePrepared(
         privateKey: Uint8List(32),
-        vaultIds: [snapshot.accessContext.vaultId],
+        vaultIds: cachedVaultIds,
       );
 
       expect(offlineHttpRequests, 0);

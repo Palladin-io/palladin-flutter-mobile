@@ -5,6 +5,8 @@ import android.os.Build
 import android.os.SystemClock
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.system.Os
+import android.system.OsConstants
 import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
@@ -135,6 +137,39 @@ internal object AutoFillHandoffGate {
     ): T = synchronized(AutoFillMutationLock.monitor) {
         validate()
         handoff()
+    }
+}
+
+internal object AutoFillAtomicFileWriter {
+    fun write(
+        target: File,
+        bytes: ByteArray,
+        syncDirectory: (File) -> Unit = ::syncDirectory,
+    ) {
+        val directory = requireNotNull(target.parentFile)
+        check(directory.isDirectory || directory.mkdirs()) {
+            "Unable to create AutoFill state directory"
+        }
+        val temporary = File(directory, "${target.name}.tmp")
+        FileOutputStream(temporary).use { output ->
+            output.write(bytes)
+            output.fd.sync()
+        }
+        check(temporary.renameTo(target)) { "Unable to replace AutoFill state" }
+        syncDirectory(directory)
+    }
+
+    private fun syncDirectory(directory: File) {
+        val descriptor = Os.open(
+            directory.absolutePath,
+            OsConstants.O_RDONLY,
+            0,
+        )
+        try {
+            Os.fsync(descriptor)
+        } finally {
+            Os.close(descriptor)
+        }
     }
 }
 
@@ -847,13 +882,7 @@ internal class AutoFillCacheStore(
     }
 
     private fun writeAtomically(target: File, bytes: ByteArray) {
-        target.parentFile?.mkdirs()
-        val temporary = File(target.parentFile, "${target.name}.tmp")
-        FileOutputStream(temporary).use { output ->
-            output.write(bytes)
-            output.fd.sync()
-        }
-        check(temporary.renameTo(target)) { "Unable to replace AutoFill state" }
+        AutoFillAtomicFileWriter.write(target, bytes)
     }
 
     private fun loadKeyStore(): KeyStore =

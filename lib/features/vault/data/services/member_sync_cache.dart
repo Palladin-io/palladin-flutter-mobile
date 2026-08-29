@@ -40,6 +40,7 @@ final class MemberSyncProfileQuarantinedException implements Exception {
 abstract interface class MemberSyncCache {
   Future<int> quarantineProfile();
   Future<bool> clearQuarantinedProfile(int quarantineGeneration);
+  Future<List<String>> vaultIds();
   Future<MemberSyncCacheState?> state(String vaultId);
   Future<void> beginSnapshot(String vaultId, {required bool invalidateActive});
   Future<void> appendSnapshot(String vaultId, List<MemberSyncItemModel> items);
@@ -175,6 +176,20 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
       );
       return true;
     });
+  }
+
+  @override
+  Future<List<String>> vaultIds() async {
+    final db = await _db;
+    await _requireProfileAvailable(db);
+    final rows = await db.query(
+      'member_sync_state',
+      columns: ['vault_id'],
+      orderBy: 'vault_id',
+    );
+    return List<String>.unmodifiable(
+      rows.map((row) => row['vault_id']! as String),
+    );
   }
 
   @override

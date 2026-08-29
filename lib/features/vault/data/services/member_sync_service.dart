@@ -125,6 +125,11 @@ abstract interface class MemberSyncCoordinator implements MemberIndexReader {
     required MemberSyncSessionAuthority authority,
   });
 
+  Future<List<String>> unlockAllCached({
+    required Uint8List memberPrivateKey,
+    required MemberSyncSessionAuthority authority,
+  });
+
   Future<void> purgeVault(String vaultId);
 
   void lock();
@@ -375,6 +380,30 @@ final class MemberSyncService
       await purgeVault(vaultId);
       rethrow;
     }
+  }
+
+  /// Rebuilds every complete persisted Vault generation without consulting
+  /// the Vault-list or per-Vault HTTP endpoints.
+  ///
+  /// [unlockCached] still validates every generation independently against
+  /// the authenticated [authority] before its local index becomes readable.
+  @override
+  Future<List<String>> unlockAllCached({
+    required Uint8List memberPrivateKey,
+    required MemberSyncSessionAuthority authority,
+  }) async {
+    if (memberPrivateKey.length != 32) {
+      throw const FormatException('Member private key must be 32 bytes');
+    }
+    final vaultIds = await _cache.vaultIds();
+    for (final vaultId in vaultIds) {
+      await unlockCached(
+        vaultId: vaultId,
+        memberPrivateKey: memberPrivateKey,
+        authority: authority,
+      );
+    }
+    return List<String>.unmodifiable(vaultIds);
   }
 
   Future<void> _unlockCached({

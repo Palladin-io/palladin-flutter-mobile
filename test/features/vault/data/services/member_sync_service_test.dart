@@ -87,6 +87,13 @@ final class _MemoryCache implements MemberSyncCache {
   }
 
   @override
+  Future<List<String>> vaultIds() async {
+    _requireAvailable();
+    final result = states.keys.toList()..sort();
+    return List<String>.unmodifiable(result);
+  }
+
+  @override
   Future<MemberSyncCacheState?> state(String vaultId) async {
     _requireAvailable();
     return states[vaultId];
@@ -420,7 +427,7 @@ void main() {
     expect(material?.accessContext.notAfter, snapshot.accessContext.notAfter);
   });
 
-  test('offline unlock reopens a complete persisted generation', () async {
+  test('offline unlock discovers and reopens persisted generations', () async {
     await service.synchronize(
       vaultId: snapshot.accessContext.vaultId,
       vaultKey: Uint8List(32),
@@ -440,12 +447,12 @@ void main() {
       ),
     ).thenAnswer((_) async => Uint8List(32));
 
-    await service.unlockCached(
-      vaultId: snapshot.accessContext.vaultId,
+    final vaultIds = await service.unlockAllCached(
       memberPrivateKey: Uint8List(32),
       authority: authority,
     );
 
+    expect(vaultIds, [snapshot.accessContext.vaultId]);
     expect(service.entries(snapshot.accessContext.vaultId), hasLength(1));
     expect(remote.snapshotRequests, 1);
     expect(remote.deltaRequests, 1);

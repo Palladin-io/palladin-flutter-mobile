@@ -195,6 +195,16 @@ final class AutoFillAsyncMutationState {
         }
     }
 
+    func timeoutAction(
+        releasingSerializationResources release: () -> Void
+    ) -> AutoFillAsyncTimeoutAction {
+        let action = timeoutAction()
+        if action == .returnTimeout {
+            release()
+        }
+        return action
+    }
+
     func completeCompensation() {
         lock.lock()
         error = AutoFillCacheError.staleSession
@@ -267,6 +277,22 @@ enum AutoFillIdentityPublicationGuard {
             fence: currentFence,
             generation: expectedGeneration,
             cacheId: expectedCacheId
+        )
+    }
+}
+
+enum AutoFillIdentityCompensationGuard {
+    static func shouldClearLateReplacement(
+        expectedGeneration: Int,
+        expectedCacheId: String,
+        currentCounter: Int?,
+        currentFence: AutoFillFence?
+    ) -> Bool {
+        AutoFillIdentityPublicationGuard.shouldPublish(
+            expectedGeneration: expectedGeneration,
+            expectedCacheId: expectedCacheId,
+            currentCounter: currentCounter,
+            currentFence: currentFence
         )
     }
 }
@@ -1042,6 +1068,20 @@ final class AutoFillCacheStore {
         }) ?? false
     }
 
+    private func shouldClearLateIdentityReplacement(
+        generation: Int,
+        cacheId: String
+    ) -> Bool {
+        (try? withStateProcessLock {
+            AutoFillIdentityCompensationGuard.shouldClearLateReplacement(
+                expectedGeneration: generation,
+                expectedCacheId: cacheId,
+                currentCounter: try? readCounterLocked(),
+                currentFence: try? readFenceLocked()
+            )
+        }) ?? false
+    }
+
     func hasActiveCache() -> Bool {
         (try? withStateProcessLock {
             guard let counter = try? readCounterLocked(),
@@ -1097,15 +1137,37 @@ final class AutoFillCacheStore {
                         semaphore.signal()
                         return
                     }
+                    lease.release()
+                    let compensationLease: AutoFillFileLockLease
+                    do {
+                        compensationLease = try store.acquireProcessLock(
+                            fileName: Self.identityLockFileName
+                        )
+                    } catch {
+                        mutationState.completeCompensation()
+                        semaphore.signal()
+                        return
+                    }
+                    guard store.shouldClearLateIdentityReplacement(
+                        generation: replacement.generation,
+                        cacheId: replacement.cacheId
+                    ) else {
+                        mutationState.completeCompensation()
+                        compensationLease.release()
+                        semaphore.signal()
+                        return
+                    }
                     ASCredentialIdentityStore.shared.removeAllCredentialIdentities {
                         _, _ in
                         mutationState.completeCompensation()
-                        lease.release()
+                        compensationLease.release()
                         semaphore.signal()
                     }
                 }
                 if semaphore.wait(timeout: .now() + 10) != .success {
-                    switch mutationState.timeoutAction() {
+                    switch mutationState.timeoutAction(
+                        releasingSerializationResources: { lease.release() }
+                    ) {
                     case .returnTimeout:
                         completion(AutoFillCacheError.cacheUnavailable)
                         return

@@ -2,6 +2,9 @@ package io.palladin.mobile.autofill
 
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import java.io.File
+import java.io.IOException
+import java.nio.file.Files
 import org.json.JSONObject
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -205,6 +208,49 @@ class AutoFillCacheStoreTest {
         revoke.join(2_000)
         assertFalse(handoff.isAlive)
         assertFalse(revoke.isAlive)
+    }
+
+    @Test
+    fun atomicPublicationSyncsParentDirectoryAfterRename() {
+        val directory = Files.createTempDirectory("autofill-atomic-write").toFile()
+        try {
+            val target = File(directory, "fence")
+            var directorySyncObserved = false
+
+            AutoFillAtomicFileWriter.write(
+                target = target,
+                bytes = "revoked".toByteArray(Charsets.UTF_8),
+                syncDirectory = { syncedDirectory ->
+                    assertEquals(directory.canonicalFile, syncedDirectory.canonicalFile)
+                    assertTrue(target.isFile)
+                    assertFalse(File(directory, "fence.tmp").exists())
+                    assertEquals("revoked", target.readText(Charsets.UTF_8))
+                    directorySyncObserved = true
+                },
+            )
+
+            assertTrue(directorySyncObserved)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun directorySyncFailurePreventsAtomicPublicationAcknowledgement() {
+        val directory = Files.createTempDirectory("autofill-atomic-write").toFile()
+        try {
+            val target = File(directory, "fence")
+
+            assertThrows(IOException::class.java) {
+                AutoFillAtomicFileWriter.write(
+                    target = target,
+                    bytes = "revoked".toByteArray(Charsets.UTF_8),
+                    syncDirectory = { throw IOException("directory sync failed") },
+                )
+            }
+        } finally {
+            directory.deleteRecursively()
+        }
     }
 
     @Test
