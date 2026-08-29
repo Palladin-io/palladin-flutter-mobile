@@ -7,6 +7,7 @@ import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
 import 'package:mobile_palladin/features/grants/data/datasources/grants_remote_datasource.dart';
 import 'package:mobile_palladin/features/grants/data/models/grant_model.dart';
+import 'package:mobile_palladin/features/grants/domain/entities/grant.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/entry_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/models/entry_v2_contracts.dart';
@@ -331,6 +332,105 @@ void main() {
           existingEntryDek: any(named: 'existingEntryDek'),
         ),
       ).called(1);
+    },
+  );
+
+  test(
+    'Script conversion requests atomic revocation of its direct grant',
+    () async {
+      const grantId = '77777777-7777-4777-8777-777777777777';
+      when(
+        () => grants.listGrants(
+          vaultId,
+          status: 'active',
+          cursor: any(named: 'cursor'),
+          pageSize: 100,
+        ),
+      ).thenAnswer(
+        (_) async => const GrantPage(
+          grants: [
+            GrantModel(
+              id: grantId,
+              vaultId: vaultId,
+              agentId: '88888888-8888-4888-8888-888888888888',
+              status: 'active',
+              type: GrantScope.scriptExecution,
+              createdAt: '2026-08-25T00:00:00Z',
+              entryId: entryId,
+              scriptScopes: [
+                ScriptExecutionGrantScope(
+                  entryId: entryId,
+                  entryRevision: '7',
+                  isScript: true,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      when(
+        () => entries.updateCanonicalEntry(vaultId, entryId, any()),
+      ).thenAnswer(
+        (_) async => Response(
+          requestOptions: RequestOptions(path: '/update'),
+          statusCode: 200,
+        ),
+      );
+      final snapshot = CanonicalEntrySnapshot(
+        entry: head(),
+        secret: {
+          'entryType': EntryType.script.toWire(),
+          'agentLabel': 'Maintenance script',
+          'description': null,
+          'agentVisibilityPolicy': {
+            'discoverable': true,
+            'fields': {
+              'agentLabel': 'discovery',
+              'interpreter': 'discovery',
+              'script': 'onGrantRuntime',
+              'refs': 'onGrantRuntime',
+              'notes': 'onGrantRuntime',
+            },
+          },
+        },
+        payload: {
+          'type': 'SCRIPT',
+          'script': 'echo ok',
+          'interpreter': 'bash',
+          'refs': const <Object?>[],
+          'notes': null,
+        },
+      );
+
+      await service.update(
+        snapshot: snapshot,
+        expected: EntryEntity(
+          id: entryId,
+          vaultId: vaultId,
+          label: 'Maintenance script',
+          type: EntryType.script,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+        label: 'Converted key',
+        description: '',
+        icon: '',
+        type: EntryType.key,
+        content: {'type': 'KEY', 'value': 'new-value', 'notes': null},
+        memberPrivateKey: Uint8List(32),
+      );
+
+      final payload =
+          verify(
+                () => entries.updateCanonicalEntry(
+                  vaultId,
+                  entryId,
+                  captureAny(),
+                ),
+              ).captured.single
+              as Map<String, dynamic>;
+      expect(payload['scriptGrantPackages'], isEmpty);
+      expect(payload['revokedScriptGrantIds'], [grantId]);
     },
   );
 

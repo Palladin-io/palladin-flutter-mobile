@@ -1073,6 +1073,64 @@ class AppLocalizationsPl extends AppLocalizations {
       'Przypisz zmienną środowiskową do pola innego wpisu.';
 
   @override
+  String get entryScriptParametersLabel => 'Parametry CLI';
+
+  @override
+  String get entryScriptParameterAdd => 'Dodaj parametr';
+
+  @override
+  String get entryScriptParameterName => 'Nazwa parametru';
+
+  @override
+  String get entryScriptParameterNameHint => 'np. team_id';
+
+  @override
+  String get entryScriptParameterDescription => 'Opis';
+
+  @override
+  String get entryScriptParameterType => 'Typ';
+
+  @override
+  String get entryScriptParameterRequired => 'Wymagany';
+
+  @override
+  String get entryScriptParameterRemove => 'Usuń parametr';
+
+  @override
+  String get entryScriptParameterTypeString => 'Tekst';
+
+  @override
+  String get entryScriptParameterTypeInteger => 'Liczba całkowita';
+
+  @override
+  String get entryScriptParameterTypeNumber => 'Liczba';
+
+  @override
+  String get entryScriptParameterTypeBoolean => 'Wartość logiczna';
+
+  @override
+  String get entryScriptReturnResultLabel => 'Zwróć wynik Agentowi';
+
+  @override
+  String get entryScriptReturnResultHint =>
+      'Standardowe wyjście skryptu trafi do Agenta lub LLM. Sekrety pozostają wstrzyknięte lokalnie i nie powinny być wypisywane.';
+
+  @override
+  String get entryScriptImpactTitle => 'Agenci otrzymają tę zmianę';
+
+  @override
+  String entryScriptImpactMessage(int effective, int direct, int full) {
+    return 'Ten skrypt jest dostępny dla $effective agentów: $direct bezpośrednio i $full przez dostęp FULL Exec. Zapis odświeży ich pakiet wykonawczy. Nowo wskazane sekrety będą dostępne wyłącznie podczas lokalnego wykonania.';
+  }
+
+  @override
+  String get entryScriptImpactConfirm => 'Zapisz i odśwież dostęp';
+
+  @override
+  String get entryScriptImpactCheckFailed =>
+      'Nie udało się sprawdzić, którzy agenci używają tego skryptu. Nic nie zapisano.';
+
+  @override
   String get entryAddRefAction => 'Dodaj odwołanie';
 
   @override
@@ -1749,6 +1807,16 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get grantScopeGranular => 'Pojedynczy wpis';
+
+  @override
+  String get grantScopeScriptExecution => 'Wykonanie całego skryptu';
+
+  @override
+  String get grantAccessScriptTrustTitle => 'JEDEN GRANT WYKONANIA SKRYPTU';
+
+  @override
+  String get grantAccessScriptTrustBody =>
+      'Nadaje dostęp Exec do kompletnego pakietu skryptu: źródła oraz wszystkich wskazanych pól, rozwiązanych lokalnie w jednym żądaniu. Późniejsze dodanie referencji rozszerzy dane dostępne temu Agentowi. Wartości parametrów CLI nigdy nie trafiają do backendu.';
 
   @override
   String get approvalSegmentPending => 'Oczekujące';

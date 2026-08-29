@@ -42,7 +42,13 @@ class RegrantSheet extends StatelessWidget {
         agentId: agentId,
         entryId: entryId,
       ),
-      _ => throw StateError('GRANULAR re-grant requires an Entry'),
+      (GrantScope.scriptExecution, final String entryId) =>
+        ScriptExecutionRegrantArgs(
+          vaultId: grant.vaultId,
+          agentId: agentId,
+          scriptEntryId: entryId,
+        ),
+      _ => throw StateError('Entry-scoped re-grant requires an Entry'),
     };
     return showModalBottomSheet<bool>(
       context: context,
@@ -74,9 +80,14 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
 
   // Pre-select the methods the original grant carried; fall back to the
   // privacy-preserving default when the source grant predates the feature.
-  late List<GrantMethod> _methods = widget.grant.methods.isNotEmpty
+  late List<GrantMethod> _methods = _isScriptExecution
+      ? const [GrantMethod.exec]
+      : widget.grant.methods.isNotEmpty
       ? List.of(widget.grant.methods)
       : List.of(kDefaultGrantMethods);
+
+  bool get _isScriptExecution =>
+      widget.grant.scope == GrantScope.scriptExecution;
 
   Uint8List? _privateKey() {
     final auth = context.read<AuthBloc>().state;
@@ -172,6 +183,13 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
                         message: l10n.grantAccessFullTrustBody,
                       ),
                     ],
+                    if (_isScriptExecution) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      WarningZone(
+                        title: l10n.grantAccessScriptTrustTitle,
+                        message: l10n.grantAccessScriptTrustBody,
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.lg),
                     Text(
                       l10n.approvalAccessType,
@@ -198,8 +216,10 @@ class _RegrantSheetBodyState extends State<_RegrantSheetBody> {
                     ),
                     const SizedBox(height: AppSpacing.innerGap),
                     GrantMethodsSelector(
-                      value: _methods,
-                      enabled: !state.isSubmitting,
+                      value: _isScriptExecution
+                          ? const [GrantMethod.exec]
+                          : _methods,
+                      enabled: !state.isSubmitting && !_isScriptExecution,
                       onChanged: (m) => setState(() => _methods = m),
                     ),
                   ],

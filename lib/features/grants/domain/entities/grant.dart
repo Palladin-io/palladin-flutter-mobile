@@ -69,12 +69,16 @@ enum GrantScope {
   full,
 
   /// Agent can read only the single granted entry.
-  granular;
+  granular,
+
+  /// One atomic executable package for a Script and all of its references.
+  scriptExecution;
 
   static GrantScope fromWire(Object? raw) {
     return switch (raw) {
       'full' || 2 => GrantScope.full,
       'granular' || 1 => GrantScope.granular,
+      'scriptExecution' || 3 => GrantScope.scriptExecution,
       _ => throw const FormatException('Unsupported grant type.'),
     };
   }
@@ -97,6 +101,8 @@ class Grant {
     this.recipientAgentKeyVersion,
     this.agentAccessEpoch,
     this.entryScopes = const [],
+    this.scriptScopes = const [],
+    this.scriptPackageRevision,
     this.vaultName,
     this.entryId,
     this.entryLabel,
@@ -147,6 +153,8 @@ class Grant {
 
   /// Durable field scope and current envelope counters. Contains no secrets.
   final List<GrantEntryScope> entryScopes;
+  final List<ScriptExecutionGrantScope> scriptScopes;
+  final String? scriptPackageRevision;
 
   /// Display name of the owning vault (org-wide listing only).
   final String? vaultName;
@@ -220,6 +228,18 @@ class Grant {
   /// Newer active grants that currently cover the same access. Empty when
   /// re-granting is blocked for another reason, such as an inactive Agent.
   final List<String> activeCoveringGrantIds;
+}
+
+class ScriptExecutionGrantScope {
+  const ScriptExecutionGrantScope({
+    required this.entryId,
+    required this.entryRevision,
+    required this.isScript,
+  });
+
+  final String entryId;
+  final String entryRevision;
+  final bool isScript;
 }
 
 /// One Entry covered by a grant, with ciphertext-only refresh metadata.

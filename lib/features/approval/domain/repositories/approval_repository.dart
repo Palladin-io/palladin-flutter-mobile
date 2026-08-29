@@ -105,4 +105,18 @@ abstract interface class ApprovalRepository {
     required GrantLimit limit,
     required List<GrantMethod> methods,
   });
+
+  /// Proactively creates direct Script execution access with one complete,
+  /// revision-bound package. This contract cannot accept GRANULAR envelopes
+  /// or a whole-Vault key wrapper.
+  Future<void> createScriptExecutionGrant({
+    required String vaultId,
+    required String scriptEntryId,
+    required String agentId,
+    required String agentPublicKey,
+    required int recipientKeyVersion,
+    required int agentAccessEpoch,
+    required Uint8List privateKey,
+    required GrantLimit limit,
+  });
 }

@@ -1055,6 +1055,64 @@ class AppLocalizationsEn extends AppLocalizations {
       'Map an environment variable to a field on another entry.';
 
   @override
+  String get entryScriptParametersLabel => 'CLI parameters';
+
+  @override
+  String get entryScriptParameterAdd => 'Add parameter';
+
+  @override
+  String get entryScriptParameterName => 'Parameter name';
+
+  @override
+  String get entryScriptParameterNameHint => 'e.g. team_id';
+
+  @override
+  String get entryScriptParameterDescription => 'Description';
+
+  @override
+  String get entryScriptParameterType => 'Type';
+
+  @override
+  String get entryScriptParameterRequired => 'Required';
+
+  @override
+  String get entryScriptParameterRemove => 'Remove parameter';
+
+  @override
+  String get entryScriptParameterTypeString => 'Text';
+
+  @override
+  String get entryScriptParameterTypeInteger => 'Integer';
+
+  @override
+  String get entryScriptParameterTypeNumber => 'Number';
+
+  @override
+  String get entryScriptParameterTypeBoolean => 'Boolean';
+
+  @override
+  String get entryScriptReturnResultLabel => 'Return result to the Agent';
+
+  @override
+  String get entryScriptReturnResultHint =>
+      'The script\'s standard output becomes available to the Agent or LLM. Secrets remain injected locally and must not be printed.';
+
+  @override
+  String get entryScriptImpactTitle => 'Agents will receive this change';
+
+  @override
+  String entryScriptImpactMessage(int effective, int direct, int full) {
+    return 'This Script is available to $effective Agents: $direct directly and $full through FULL Exec access. Saving refreshes their executable package. Newly referenced secrets become available only inside local execution.';
+  }
+
+  @override
+  String get entryScriptImpactConfirm => 'Save and refresh access';
+
+  @override
+  String get entryScriptImpactCheckFailed =>
+      'Could not verify which Agents use this Script. Nothing was saved.';
+
+  @override
   String get entryAddRefAction => 'Add reference';
 
   @override
@@ -1726,6 +1784,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get grantScopeGranular => 'Single entry';
+
+  @override
+  String get grantScopeScriptExecution => 'Whole Script execution';
+
+  @override
+  String get grantAccessScriptTrustTitle => 'ONE SCRIPT EXECUTION GRANT';
+
+  @override
+  String get grantAccessScriptTrustBody =>
+      'This grants Exec access to the complete Script package: source plus every referenced field, resolved locally in one request. Adding a reference later expands what this Agent can use. CLI parameter values never reach the backend.';
 
   @override
   String get approvalSegmentPending => 'Pending';

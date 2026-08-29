@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -433,12 +432,14 @@ final class ScriptSecretContent extends MemberSecretContent {
     required this.source,
     required this.interpreter,
     required this.refs,
+    required this.execution,
     required this.notes,
     required super.customFields,
   });
   final String source;
   final String interpreter;
   final List<Map<String, Object?>> refs;
+  final Map<String, Object?>? execution;
   final String? notes;
 
   @override
@@ -446,6 +447,7 @@ final class ScriptSecretContent extends MemberSecretContent {
     'source': source,
     'interpreter': interpreter,
     'refs': refs,
+    if (execution != null) 'execution': execution,
     'notes': notes,
     'customFields': customFields.map((field) => field.toJson()).toList(),
   };
@@ -715,6 +717,8 @@ abstract final class VaultPlaintextProjector {
       'agentLabel': secret.agentLabel,
       'capabilities': _capabilities(secret),
       'fields': fields.map((field) => field.toJson()).toList(),
+      if (secret.content case ScriptSecretContent(execution: final value?))
+        'execution': value,
     };
   }
 
@@ -757,8 +761,20 @@ abstract final class VaultPlaintextProjector {
     Set<String> fieldIds,
   ) {
     final content = Map<String, dynamic>.from(secret['content'] as Map);
-    final access = Map<String, dynamic>.from(secret['agentFieldAccess'] as Map);
-    final entryType = secret['entryType'] as String;
+    final hasCanonicalAccess = secret['agentFieldAccess'] is Map;
+    final access = hasCanonicalAccess
+        ? Map<String, dynamic>.from(secret['agentFieldAccess'] as Map)
+        : Map<String, dynamic>.from(
+            (secret['agentVisibilityPolicy'] as Map)['fields'] as Map,
+          );
+    final entryType = switch (secret['entryType']) {
+      final String value => value,
+      0 => 'key',
+      1 => 'credential',
+      2 => 'script',
+      3 => 'creditCard',
+      _ => throw const VaultPlaintextFormatException('Unsupported Entry type.'),
+    };
     final custom = (content['customFields'] as List<dynamic>? ?? const [])
         .whereType<Map>()
         .map((value) => Map<String, dynamic>.from(value))
@@ -793,7 +809,28 @@ abstract final class VaultPlaintextProjector {
     };
     final fields =
         fieldIds.map((id) {
-          final policy = access[id];
+          final accessId = hasCanonicalAccess
+              ? id
+              : switch (id) {
+                  'key.value' => 'value',
+                  'credential.username' => 'username',
+                  'credential.password' => 'password',
+                  'credential.url' => 'url',
+                  'credential.urlDomain' => 'urlDomain',
+                  'credential.totp' => 'totp',
+                  'script.source' => 'script',
+                  'script.interpreter' => 'interpreter',
+                  'script.refs' => 'refs',
+                  'creditCard.cardholderName' => 'cardholderName',
+                  'creditCard.cardNumber' => 'cardNumber',
+                  'creditCard.expiryMonth' => 'expiryMonth',
+                  'creditCard.expiryYear' => 'expiryYear',
+                  'creditCard.billingAddress' => 'billingAddress',
+                  final String value when value.startsWith('custom:') =>
+                    value.substring(7),
+                  final String value => value,
+                };
+          final policy = access[accessId];
           final mode = switch (policy) {
             'onGrantValue' => 'value',
             'onGrantDerived' => 'derived',
@@ -852,11 +889,12 @@ abstract final class VaultPlaintextProjector {
     for (final field in secret.content.customFields) field.fieldId: field.value,
   };
 
-  static List<String> _capabilities(MemberSecret _) => const [
-    'get',
-    'exec',
-    'inject',
-  ];
+  static List<String> _capabilities(MemberSecret secret) =>
+      switch (secret.entryType) {
+        VaultEntryType.script => const ['exec'],
+        VaultEntryType.creditCard => const ['inject'],
+        _ => const ['get', 'exec', 'inject'],
+      };
 
   static String _grantKind(MemberSecret secret, String id) => switch (id) {
     'key.value' || 'credential.password' => 'concealed',
@@ -880,20 +918,34 @@ abstract final class VaultPlaintextProjector {
 
 /// Produces deterministic UTF-8 JSON for the supported I-JSON subset.
 Uint8List canonicalVaultJson(Map<String, Object?> value) {
-  Object? canonicalize(Object? input) => switch (input) {
+  String encodeValue(Object? input) => switch (input) {
     Map<String, Object?> map =>
-      SplayTreeMap<String, Object?>()..addEntries(
-        map.entries.map(
-          (entry) => MapEntry(entry.key, canonicalize(entry.value)),
-        ),
-      ),
-    List<Object?> list => list.map(canonicalize).toList(growable: false),
-    int() || String() || bool() || null => input,
+      '{${(map.keys.toList()..sort()).map((key) => '${jsonEncode(key)}:${encodeValue(map[key])}').join(',')}}',
+    List<Object?> list => '[${list.map(encodeValue).join(',')}]',
+    int value => value.toString(),
+    double value when value.isFinite => _canonicalDouble(value),
+    String value => jsonEncode(value),
+    bool value => value ? 'true' : 'false',
+    null => 'null',
     _ => throw const VaultPlaintextFormatException(
-      'Only bounded integers and I-JSON values are supported.',
+      'Only finite I-JSON values are supported.',
     ),
   };
-  return Uint8List.fromList(utf8.encode(jsonEncode(canonicalize(value))));
+  return Uint8List.fromList(utf8.encode(encodeValue(value)));
+}
+
+String _canonicalDouble(double value) {
+  if (value == 0) return '0';
+  var encoded = value.toString();
+  encoded = encoded.replaceFirst(
+    RegExp(r'\.0(?=e|$)', caseSensitive: false),
+    '',
+  );
+  encoded = encoded.replaceFirstMapped(
+    RegExp(r'e\+?(-?)0+'),
+    (match) => 'e${match[1]}',
+  );
+  return encoded;
 }
 
 Object? _required(Map<String, Object?> map, String key) {

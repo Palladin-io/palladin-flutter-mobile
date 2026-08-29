@@ -280,6 +280,9 @@ final class KeyEntryCreationService {
         refs: (raw['refs'] as List)
             .map((value) => Map<String, Object?>.from(value as Map))
             .toList(),
+        execution: raw['execution'] is Map
+            ? Map<String, Object?>.from(raw['execution'] as Map)
+            : null,
         notes: raw['notes'] as String?,
         customFields: custom,
       ),
@@ -396,18 +399,27 @@ final class KeyEntryCreationService {
           content['refs'] is! List) {
         throw const FormatException('Malformed Script content');
       }
+      if ((content['refs'] as List).length > 64) {
+        throw const FormatException('Too many Script references');
+      }
+      final execution = content['execution'];
+      if (execution is! Map) {
+        throw const FormatException('Missing Script execution metadata');
+      }
+      ScriptExecutionMetadata.fromJson(Map<String, dynamic>.from(execution));
       final environments = <String>{};
       for (final value in content['refs'] as List) {
         if (value is! Map ||
             value['env'] is! String ||
             value['entryId'] is! String ||
-            value['field'] is! String ||
+            value['fieldId'] is! String ||
+            !isScriptReferenceFieldId(value['fieldId'] as String) ||
             (value['vaultId'] != null && value['vaultId'] != vaultId)) {
           throw const FormatException('Invalid Script reference scope');
         }
         final env = value['env'] as String;
-        if (!RegExp(r'^[A-Z_][A-Z0-9_]*$').hasMatch(env) ||
-            !environments.add(env)) {
+        if (!isAllowedScriptReferenceEnvironment(env) ||
+            !environments.add(env.toUpperCase())) {
           throw const FormatException('Invalid Script reference');
         }
       }

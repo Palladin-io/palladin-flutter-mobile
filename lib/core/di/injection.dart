@@ -14,6 +14,8 @@ import '../../features/vault/data/services/vault_list_crypto_service.dart';
 import '../../features/vault/data/services/vault_creation_service.dart';
 import '../../features/vault/data/services/key_entry_creation_service.dart';
 import '../../features/vault/data/services/canonical_entry_detail_service.dart';
+import '../../features/vault/data/services/script_access_impact_service.dart';
+import '../../features/approval/data/services/script_execution_package_service.dart';
 import '../../features/vault/data/services/canonical_import_projection_service.dart';
 import '../../features/vault/data/services/entry_history_service.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
@@ -431,7 +433,11 @@ void configureDependencies(EnvConfig config) {
       grants: getIt<GrantsRemoteDatasource>(),
       entryV2: getIt<EntryV2CryptoService>(),
       autoFillMutationNotifier: getIt<AutoFillMutationNotifier>(),
+      scriptPackages: getIt<ScriptExecutionPackageService>(),
     ),
+  );
+  getIt.registerLazySingleton<ScriptAccessImpactService>(
+    () => ScriptAccessImpactService(getIt<Dio>()),
   );
   getIt.registerLazySingleton<CanonicalImportProjectionService>(
     () => CanonicalImportProjectionService(
@@ -813,6 +819,9 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<ApprovalRemoteDatasource>(
     () => ApprovalRemoteDatasource(getIt<Dio>()),
   );
+  getIt.registerLazySingleton<ScriptExecutionPackageService>(
+    ScriptExecutionPackageService.new,
+  );
   getIt.registerLazySingleton<GrantApprovalReviewService>(
     () => GrantApprovalReviewService(
       vaults: getIt<VaultRemoteDatasource>(),
@@ -833,6 +842,7 @@ void configureDependencies(EnvConfig config) {
       vaultKeys: getIt<VaultRotationCryptoService>(),
       canonicalEntries: getIt<CanonicalEntryDetailService>(),
       discovery: getIt<AgentDiscoveryRemoteDatasource>(),
+      scriptPackages: getIt<ScriptExecutionPackageService>(),
     ),
   );
 
@@ -871,6 +881,18 @@ void configureDependencies(EnvConfig config) {
           vaultId: vaultId,
           agentId: agentId,
           entryId: entryId,
+        ),
+      ScriptExecutionRegrantArgs(
+        :final vaultId,
+        :final agentId,
+        :final scriptEntryId,
+      ) =>
+        ScriptExecutionRegrantCubit(
+          repository: getIt<ApprovalRepository>(),
+          agentsRepository: getIt<AgentsRepository>(),
+          vaultId: vaultId,
+          agentId: agentId,
+          scriptEntryId: scriptEntryId,
         ),
     },
   );

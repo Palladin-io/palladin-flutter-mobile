@@ -32,7 +32,8 @@ class ScriptRefsEditor extends StatefulWidget {
 
   final List<ScriptRef> initial;
 
-  /// Emits the complete references (env + entry + field all set).
+  /// Emits every draft so an incomplete row keeps Save disabled instead of
+  /// being silently omitted from the encrypted Script.
   final ValueChanged<List<ScriptRef>> onChanged;
 
   @override
@@ -63,13 +64,12 @@ class _ScriptRefsEditorState extends State<ScriptRefsEditor> {
   void _emit() {
     final refs = <ScriptRef>[
       for (final d in _drafts)
-        if (d.env.trim().isNotEmpty && d.entryId != null && d.field != null)
-          ScriptRef(
-            env: d.env.trim(),
-            vaultId: widget.vaultId,
-            entryId: d.entryId!,
-            field: d.field!,
-          ),
+        ScriptRef(
+          env: d.env.trim(),
+          vaultId: widget.vaultId,
+          entryId: d.entryId ?? '',
+          field: d.field ?? '',
+        ),
     ];
     widget.onChanged(refs);
   }

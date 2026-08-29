@@ -168,7 +168,11 @@ class _EntryDetailViewState extends State<_EntryDetailView>
   Future<void> _onAddAgent() async {
     final granted = await GrantAccessSheet.show(
       context,
-      GrantForEntry(vaultId: widget.entry.vaultId, entryId: widget.entry.id),
+      GrantForEntry(
+        vaultId: widget.entry.vaultId,
+        entryId: widget.entry.id,
+        entryType: widget.entry.type,
+      ),
     );
     if (granted == true && mounted) {
       setState(() => _grantsRefresh++);

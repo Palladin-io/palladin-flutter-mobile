@@ -34,6 +34,16 @@ final class GranularRegrantArgs extends RegrantArgs {
   final String entryId;
 }
 
+final class ScriptExecutionRegrantArgs extends RegrantArgs {
+  const ScriptExecutionRegrantArgs({
+    required super.vaultId,
+    required super.agentId,
+    required this.scriptEntryId,
+  });
+
+  final String scriptEntryId;
+}
+
 enum RegrantStatus { idle, submitting, done, error }
 
 class RegrantState {
@@ -196,4 +206,40 @@ final class GranularRegrantCubit extends RegrantCubit {
     limit: limit,
     methods: methods,
   );
+}
+
+final class ScriptExecutionRegrantCubit extends RegrantCubit {
+  ScriptExecutionRegrantCubit({
+    required super.repository,
+    required super.agentsRepository,
+    required super.vaultId,
+    required super.agentId,
+    required this.scriptEntryId,
+  });
+
+  final String scriptEntryId;
+
+  @override
+  Future<void> _createGrant({
+    required String agentPublicKey,
+    required int recipientKeyVersion,
+    required int agentAccessEpoch,
+    required Uint8List privateKey,
+    required GrantLimit limit,
+    required List<GrantMethod> methods,
+  }) {
+    if (methods.length != 1 || methods.single != GrantMethod.exec) {
+      throw const ApprovalException(ApprovalErrorKind.validation);
+    }
+    return repository.createScriptExecutionGrant(
+      vaultId: vaultId,
+      scriptEntryId: scriptEntryId,
+      agentId: agentId,
+      agentPublicKey: agentPublicKey,
+      recipientKeyVersion: recipientKeyVersion,
+      agentAccessEpoch: agentAccessEpoch,
+      privateKey: privateKey,
+      limit: limit,
+    );
+  }
 }

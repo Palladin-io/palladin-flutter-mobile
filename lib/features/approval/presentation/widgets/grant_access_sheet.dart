@@ -15,6 +15,7 @@ import '../../../agents/domain/entities/agent.dart';
 import '../../../agents/domain/repositories/agents_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../grants/domain/entities/grant_method.dart';
+import '../../../vault/domain/entities/entry_entity.dart';
 import '../../../vault/presentation/cubit/vault_list_cubit.dart';
 import '../cubit/grant_access_cubit.dart';
 import 'approval_format.dart';
@@ -35,9 +36,14 @@ class GrantForVault extends GrantAccessMode {
 
 /// From an entry's Agents tab: pick an agent → GRANULAR grant on the entry.
 class GrantForEntry extends GrantAccessMode {
-  const GrantForEntry({required this.vaultId, required this.entryId});
+  const GrantForEntry({
+    required this.vaultId,
+    required this.entryId,
+    required this.entryType,
+  });
   final String vaultId;
   final String entryId;
+  final EntryType entryType;
 }
 
 /// From an agent's Grants tab: pick a vault → FULL grant for the agent.
@@ -98,9 +104,14 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
   );
   late List<GrantMethod> _methods = List.of(kDefaultGrantMethods);
 
+  bool get _isScriptExecution =>
+      widget.mode is GrantForEntry &&
+      (widget.mode as GrantForEntry).entryType == EntryType.script;
+
   @override
   void initState() {
     super.initState();
+    if (_isScriptExecution) _methods = const [GrantMethod.exec];
     _loadOptions();
   }
 
@@ -203,18 +214,31 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
     if (!mounted) return;
 
     switch (widget.mode) {
-      case GrantForEntry(:final entryId):
-        await cubit.submitGranular(
-          vaultId: subject.vaultId,
-          entryId: entryId,
-          agentId: subject.agentId,
-          agentPublicKey: agentPublicKey,
-          recipientKeyVersion: recipientKeyVersion,
-          agentAccessEpoch: agentAccessEpoch,
-          privateKey: key,
-          limit: _limit,
-          methods: _methods,
-        );
+      case GrantForEntry(:final entryId, :final entryType):
+        if (entryType == EntryType.script) {
+          await cubit.submitScriptExecution(
+            vaultId: subject.vaultId,
+            scriptEntryId: entryId,
+            agentId: subject.agentId,
+            agentPublicKey: agentPublicKey,
+            recipientKeyVersion: recipientKeyVersion,
+            agentAccessEpoch: agentAccessEpoch,
+            privateKey: key,
+            limit: _limit,
+          );
+        } else {
+          await cubit.submitGranular(
+            vaultId: subject.vaultId,
+            entryId: entryId,
+            agentId: subject.agentId,
+            agentPublicKey: agentPublicKey,
+            recipientKeyVersion: recipientKeyVersion,
+            agentAccessEpoch: agentAccessEpoch,
+            privateKey: key,
+            limit: _limit,
+            methods: _methods,
+          );
+        }
       case GrantForVault() || GrantForAgent():
         await cubit.submitFull(
           vaultId: subject.vaultId,
@@ -314,6 +338,13 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
                             message: l10n.grantAccessFullTrustBody,
                           ),
                         ],
+                        if (_isScriptExecution) ...[
+                          const SizedBox(height: AppSpacing.lg),
+                          WarningZone(
+                            title: l10n.grantAccessScriptTrustTitle,
+                            message: l10n.grantAccessScriptTrustBody,
+                          ),
+                        ],
                         const SizedBox(height: AppSpacing.lg),
                         Text(
                           l10n.approvalAccessType,
@@ -341,7 +372,7 @@ class _GrantAccessBodyState extends State<_GrantAccessBody> {
                         const SizedBox(height: AppSpacing.innerGap),
                         GrantMethodsSelector(
                           value: _methods,
-                          enabled: !state.isSubmitting,
+                          enabled: !state.isSubmitting && !_isScriptExecution,
                           onChanged: (m) => setState(() => _methods = m),
                         ),
                       ],

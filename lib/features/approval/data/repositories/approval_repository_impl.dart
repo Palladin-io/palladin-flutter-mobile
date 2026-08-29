@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../vault/data/datasources/entry_remote_datasource.dart';
 import '../../../vault/data/datasources/vault_remote_datasource.dart';
@@ -13,6 +14,7 @@ import '../../../vault/data/services/agent_visibility_projector.dart';
 import '../../../vault/data/services/entry_v2_crypto_service.dart';
 import '../../../vault/data/services/vault_rotation_crypto_service.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_bytes.dart';
+import '../services/script_execution_package_service.dart';
 import '../../../vault/data/datasources/agent_discovery_remote_datasource.dart';
 import '../../../vault/domain/entities/agent_visibility_policy.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
@@ -42,13 +44,15 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     required VaultRotationCryptoService vaultKeys,
     required CanonicalEntryDetailService canonicalEntries,
     required AgentDiscoveryRemote discovery,
+    ScriptExecutionPackageService? scriptPackages,
   }) : _approval = approvalDatasource,
        _entries = entryDatasource,
        _vaults = vaultDatasource,
        _crypto = cryptoService,
        _vaultKeys = vaultKeys,
        _canonicalEntries = canonicalEntries,
-       _discovery = discovery;
+       _discovery = discovery,
+       _scriptPackages = scriptPackages ?? ScriptExecutionPackageService();
 
   final ApprovalRemoteDatasource _approval;
   final EntryRemoteDatasource _entries;
@@ -57,6 +61,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
   final VaultRotationCryptoService _vaultKeys;
   final CanonicalEntryDetailService _canonicalEntries;
   final AgentDiscoveryRemote _discovery;
+  final ScriptExecutionPackageService _scriptPackages;
 
   @override
   Future<List<PendingGrant>> listPendingGrants() async {
@@ -280,6 +285,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
     }
 
     Uint8List? vaultKey;
+    Uint8List? vaultSigningPrivateKey;
     try {
       final vault = await _vaults.getEncryptedVault(vaultId);
       final organizationId = vault['organizationId'];
@@ -292,7 +298,8 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       }
       final epoch = Map<String, dynamic>.from(epochValue);
       final vaultKeyVersion = epoch['vaultKeyVersion'];
-      if (vaultKeyVersion is! int) {
+      final vaultSigningKeyVersion = epoch['manifestSigningKeyVersion'];
+      if (vaultKeyVersion is! int || vaultSigningKeyVersion is! int) {
         throw const FormatException('Malformed encrypted Vault key epoch');
       }
       final memberEnvelope = Map<String, dynamic>.from(
@@ -306,6 +313,22 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         expectedVaultKeyVersion: vaultKeyVersion,
         expectedMemberKeyGeneration: memberKeyGeneration,
       );
+      final signingEnvelope = (vault['vaultPrivateKeys'] as List)
+          .whereType<Map>()
+          .map((value) => Map<String, dynamic>.from(value))
+          .singleWhere(
+            (value) =>
+                EnvelopePurpose.parseWire(
+                  (value['descriptor'] as Map)['purpose'],
+                ) ==
+                EnvelopePurpose.manifestPrivateByVk,
+          );
+      vaultSigningPrivateKey = await _vaultKeys
+          .openCanonicalManifestSigningPrivateKey(
+            signingEnvelope,
+            vaultKey,
+            expectedKeyVersion: vaultSigningKeyVersion,
+          );
       final agentWrappedVaultKey = await _crypto.sealAgentVaultKey(
         vaultKey: vaultKey,
         organizationId: organizationId,
@@ -316,6 +339,8 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         vaultKeyVersion: vaultKeyVersion,
         agentPublicKey: Uint8List.fromList(base64.decode(agentPublicKey)),
         recipientKeyVersion: recipientKeyVersion,
+        vaultSigningKeyVersion: vaultSigningKeyVersion,
+        vaultSigningPrivateKey: vaultSigningPrivateKey,
       );
       await _approval.createFullGrant(
         vaultId: vaultId,
@@ -335,6 +360,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
       throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
     } finally {
       vaultKey?.fillRange(0, vaultKey.length, 0);
+      vaultSigningPrivateKey?.fillRange(0, vaultSigningPrivateKey.length, 0);
     }
   }
 
@@ -378,6 +404,9 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         final type = EntryTypeExtension.fromWire(
           snapshot.secret['entryType'] as int,
         );
+        if (type == EntryType.script) {
+          throw const ApprovalException(ApprovalErrorKind.validation);
+        }
         final policy = AgentVisibilityPolicy.fromJson(
           type,
           Map<String, dynamic>.from(
@@ -458,6 +487,169 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         stackTrace: s,
       );
       throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
+    }
+  }
+
+  @override
+  Future<void> createScriptExecutionGrant({
+    required String vaultId,
+    required String scriptEntryId,
+    required String agentId,
+    required String agentPublicKey,
+    required int recipientKeyVersion,
+    required int agentAccessEpoch,
+    required Uint8List privateKey,
+    required GrantLimit limit,
+  }) async {
+    if (recipientKeyVersion <= 0 || agentAccessEpoch <= 0) {
+      throw const ApprovalException(ApprovalErrorKind.validation);
+    }
+
+    final grantId = _uuidV4();
+    final wire = limit.toWire();
+    CanonicalEntrySnapshot? script;
+    Uint8List? vaultKey;
+    Uint8List? vaultSigningPrivateKey;
+    Uint8List? agentRecipientKey;
+    final references = <CanonicalGrantFieldProjection>[];
+    final encodedReferences = <ScriptExecutionPackageEntryInput>[];
+    try {
+      final vault = await _vaults.getEncryptedVault(vaultId);
+      final organizationId = vault['organizationId'];
+      final memberKeyGeneration = vault['memberKeyGeneration'];
+      final epochValue = vault['currentKeyEpoch'];
+      if (organizationId is! String ||
+          memberKeyGeneration is! int ||
+          epochValue is! Map) {
+        throw const FormatException('Malformed encrypted Vault key context');
+      }
+      final epoch = Map<String, dynamic>.from(epochValue);
+      final vaultKeyVersion = epoch['vaultKeyVersion'];
+      final vaultSigningKeyVersion = epoch['manifestSigningKeyVersion'];
+      if (vaultKeyVersion is! int || vaultSigningKeyVersion is! int) {
+        throw const FormatException('Malformed encrypted Vault key epoch');
+      }
+      vaultKey = await _vaultKeys.openMemberVaultKey(
+        Map<String, dynamic>.from(vault['memberVaultKey'] as Map),
+        privateKey,
+        expectedOrganizationId: organizationId,
+        expectedVaultId: vaultId,
+        expectedVaultKeyVersion: vaultKeyVersion,
+        expectedMemberKeyGeneration: memberKeyGeneration,
+      );
+      final signingEnvelope = (vault['vaultPrivateKeys'] as List)
+          .whereType<Map>()
+          .map((value) => Map<String, dynamic>.from(value))
+          .singleWhere(
+            (value) =>
+                EnvelopePurpose.parseWire(
+                  (value['descriptor'] as Map)['purpose'],
+                ) ==
+                EnvelopePurpose.manifestPrivateByVk,
+          );
+      vaultSigningPrivateKey = await _vaultKeys
+          .openCanonicalManifestSigningPrivateKey(
+            signingEnvelope,
+            vaultKey,
+            expectedKeyVersion: vaultSigningKeyVersion,
+          );
+      script = await _canonicalEntries.reveal(
+        expected: EntryEntity(
+          id: scriptEntryId,
+          vaultId: vaultId,
+          label: '',
+          type: EntryType.script,
+          createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+          updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+        ),
+        memberPrivateKey: privateKey,
+      );
+      if (script.secret['entryType'] != EntryType.script.toWire()) {
+        throw const FormatException('Script grant targets a non-Script');
+      }
+
+      final fieldIdsByEntry = <String, Set<String>>{};
+      for (final ref in ScriptRef.listFromPayload(script.payload)) {
+        fieldIdsByEntry
+            .putIfAbsent(ref.entryId, () => <String>{})
+            .add(ref.field);
+      }
+      final referencedEntryIds = fieldIdsByEntry.keys.toList()..sort();
+      for (final entryId in referencedEntryIds) {
+        references.add(
+          await _canonicalEntries.projectGrantFields(
+            expected: EntryEntity(
+              id: entryId,
+              vaultId: vaultId,
+              label: '',
+              type: EntryType.key,
+              createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+              updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+            ),
+            memberPrivateKey: privateKey,
+            fieldIds: fieldIdsByEntry[entryId]!,
+          ),
+        );
+      }
+      for (final projection in references) {
+        encodedReferences.add(
+          ScriptExecutionPackageEntryInput(
+            entryId: projection.entryId,
+            entryRevision: projection.entryRevision,
+            fieldIds: projection.fieldIds,
+            encodedGrantPayload: projection.encodedGrantPayload,
+          ),
+        );
+      }
+
+      agentRecipientKey = VaultProtocolBytes.base64Decode(
+        agentPublicKey,
+        maximumBytes: 32,
+      );
+      if (agentRecipientKey.length != 32) {
+        throw const FormatException('Invalid Agent recipient key');
+      }
+      final package = await _scriptPackages.seal(
+        grantId: grantId,
+        packageRevision: 1,
+        agentId: agentId,
+        agentAccessEpoch: agentAccessEpoch,
+        agentPublicKey: agentRecipientKey,
+        recipientAgentKeyVersion: recipientKeyVersion,
+        vaultSigningKeyVersion: vaultSigningKeyVersion,
+        vaultSigningPrivateKey: vaultSigningPrivateKey,
+        scriptEntry: script.entry,
+        scriptPayload: script.payload,
+        referencedEntries: encodedReferences,
+      );
+      await _approval.createScriptExecutionGrant(
+        vaultId: vaultId,
+        scriptEntryId: scriptEntryId,
+        grantId: grantId,
+        agentId: agentId,
+        scriptPackage: package,
+        expiresAt: wire.expiresAt,
+        queryLimit: wire.queryLimit,
+        methods: serializeGrantMethods(const [GrantMethod.exec]),
+      );
+    } on DioException catch (error) {
+      throw ApprovalException(_classifyError(error));
+    } on ApprovalException {
+      rethrow;
+    } catch (error) {
+      AppLogger.w(
+        'Approval',
+        'Script execution grant failed (${error.runtimeType})',
+      );
+      throw const ApprovalException(ApprovalErrorKind.cryptoFailure);
+    } finally {
+      vaultKey?.fillRange(0, vaultKey.length, 0);
+      vaultSigningPrivateKey?.fillRange(0, vaultSigningPrivateKey.length, 0);
+      agentRecipientKey?.fillRange(0, agentRecipientKey.length, 0);
+      script?.clear();
+      for (final projection in references) {
+        projection.clear();
+      }
     }
   }
 

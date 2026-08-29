@@ -200,6 +200,23 @@ void main() {
     );
   });
 
+  test('canonical JSON preserves finite fractional numbers', () {
+    expect(
+      utf8.decode(
+        canonicalVaultJson({
+          'fractional': 1.5,
+          'negativeZero': -0.0,
+          'whole': 1.0,
+        }),
+      ),
+      '{"fractional":1.5,"negativeZero":0,"whole":1}',
+    );
+    expect(
+      () => canonicalVaultJson({'invalid': double.infinity}),
+      throwsA(isA<VaultPlaintextFormatException>()),
+    );
+  });
+
   test('policy must exactly cover the typed content union', () {
     expect(
       () => MemberSecret(

@@ -343,12 +343,13 @@ void main() {
       expect((json['refs'] as List).length, 1);
     });
 
-    test('canSubmit requires a non-empty script body', () {
+    test('canSubmit requires a non-empty script body and description', () {
       expect(
         EntryFormUtils.canSubmit(
           type: EntryType.script,
           label: 'Deploy',
           script: 'echo',
+          description: 'Runs the deployment',
         ),
         isTrue,
       );
@@ -357,6 +358,7 @@ void main() {
           type: EntryType.script,
           label: 'Deploy',
           script: '   ',
+          description: 'Runs the deployment',
         ),
         isFalse,
       );
