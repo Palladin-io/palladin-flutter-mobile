@@ -15,6 +15,15 @@ Org-wide grant history feed + per-context grants tab (vault / entry / agent).
   mapping it into the in-memory `Grant` presentation entity. Temporary key and
   plaintext byte buffers are wiped; failures hide only the reason, never the
   structural grant row. No plaintext reason is persisted or logged.
+- **Local Entry labels:** management DTOs carry only the structural `vaultId`
+  and `entryId`. `GrantEntryLabelResolver` groups rows by Vault and resolves
+  each label from the locally decrypted, runtime-only `MemberIndex`; a
+  server-supplied plaintext `entryLabel` is ignored. Resolution failure keeps
+  the structural grant row visible with the localized unknown-Entry fallback.
+  A monotonic Member-key session guard aborts multi-Vault resolution and drops
+  every plaintext projection when the app locks or replaces the Member key.
+  Independent Vault indexes load through a bounded four-worker pool so an
+  org-wide page does not serialize one synchronization round trip per Vault.
 - **Server-authoritative history footers:** `Grant` carries `canRevoke`,
   `canGrantAgain`, and `activeCoveringGrantIds`. Active cards revoke; terminal
   expired/consumed/denied/revoked cards re-grant when allowed. Coverage-blocked
@@ -24,6 +33,8 @@ Org-wide grant history feed + per-context grants tab (vault / entry / agent).
   the related Agent or Vault instead of presenting a dead footer. Pending rows
   visible in a context tab link back to the Inbox review queue.
 
-**Cross-feature deps:** `agents` (`AgentAvatar`), `approval` (consumes grant entities). Embedded by `vault`.
+**Cross-feature deps:** `agents` (`AgentAvatar`), `approval` (consumes grant
+entities), `vault` (`MemberEntryListLoader` for local Entry presentation).
+Embedded by `vault`.
 
 **⚠ Architecture smell:** `RevokeGrantSheet` inlines the drag handle → extract `SheetDragHandle`. `GrantDetailRow` is a 76px-label variant of the duplicated label/value row pattern — fold into `LabelValueRow` if generalizing. See the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md).

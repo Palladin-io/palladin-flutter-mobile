@@ -23,7 +23,6 @@ class GrantModel {
     this.scriptPackageRevision,
     this.vaultName,
     this.entryId,
-    this.entryLabel,
     this.reason,
     this.encryptedReason,
     this.methods,
@@ -63,7 +62,6 @@ class GrantModel {
   final GrantScope type;
   final String createdAt;
   final String? entryId;
-  final String? entryLabel;
   final String? reason;
   final Map<String, dynamic>? encryptedReason;
   final String? methods;
@@ -124,7 +122,6 @@ class GrantModel {
       type: GrantScope.fromWire(json['type']),
       createdAt: json['createdAt'] as String,
       entryId: json['entryId'] as String?,
-      entryLabel: json['entryLabel'] as String?,
       reason: json['reason'] as String?,
       encryptedReason: _encryptedReason(json['encryptedReason']),
       methods: json['methods'] as String?,
@@ -171,7 +168,7 @@ class GrantModel {
         .toList(growable: false);
   }
 
-  Grant toEntity({String? resolvedReason}) {
+  Grant toEntity({String? resolvedReason, String? resolvedEntryLabel}) {
     DateTime? parse(String? raw) =>
         raw == null ? null : DateTime.parse(raw).toLocal();
 
@@ -191,7 +188,7 @@ class GrantModel {
       status: GrantStatus.fromWire(status),
       scope: type,
       entryId: entryId,
-      entryLabel: entryLabel,
+      entryLabel: resolvedEntryLabel,
       reason: resolvedReason ?? reason,
       methods: parseGrantMethods(methods),
       createdAt: DateTime.parse(createdAt).toLocal(),
