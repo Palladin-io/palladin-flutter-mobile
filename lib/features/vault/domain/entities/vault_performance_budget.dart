@@ -15,8 +15,14 @@ abstract final class VaultPerformanceBudget {
   /// Backend protocol ceiling for any Member sync response page.
   static const maximumMemberSyncPageItems = 200;
 
+  /// Hard UTF-8 wire-size ceiling for one Member sync response.
+  static const maximumMemberSyncResponseBytes = 4 * 1024 * 1024;
+
   /// Maximum simultaneous MemberIndex decrypt operations.
   static const memberIndexDecryptConcurrency = 2;
+
+  /// Protocol-2 hard ceiling for all persisted current Member ciphertext.
+  static const maximumMemberSyncProfileCacheBytes = 512 * 1024 * 1024;
 
   /// Exact delta workload used by the release benchmark: one percent.
   static int onePercentDeltaItems(int entryCount) {

@@ -14,6 +14,7 @@ import '../../features/vault/data/services/vault_list_crypto_service.dart';
 import '../../features/vault/data/services/vault_creation_service.dart';
 import '../../features/vault/data/services/key_entry_creation_service.dart';
 import '../../features/vault/data/services/canonical_entry_detail_service.dart';
+import '../../features/vault/data/services/local_current_entry_service.dart';
 import '../../features/vault/data/services/script_access_impact_service.dart';
 import '../../features/approval/data/services/script_execution_package_service.dart';
 import '../../features/vault/data/services/canonical_import_projection_service.dart';
@@ -115,6 +116,7 @@ import '../../features/vault/data/services/entry_crypto_service.dart';
 import '../../features/vault/data/services/encrypted_presentation_asset_service.dart';
 import '../../features/vault/data/services/member_sync_cache.dart';
 import '../../features/vault/data/services/member_sync_service.dart';
+import '../../features/vault/data/services/member_sync_session_authority_provider.dart';
 import '../../features/vault/data/services/member_entry_list_service.dart';
 import '../../features/vault/data/services/member_index_preparation_service.dart';
 import '../../features/vault/data/services/member_vault_key_context_store.dart';
@@ -202,6 +204,7 @@ void configureDependencies(EnvConfig config) {
       tokenStorage: getIt<SecureTokenStorage>(),
       secureStorage: getIt<FlutterSecureStorage>(),
       autoFillCacheInvalidator: getIt<AutoFillCacheInvalidator>(),
+      currentEntryCacheInvalidator: getIt<MemberSyncService>(),
       googleServerClientId: config.googleServerClientId,
     ),
   );
@@ -361,6 +364,9 @@ void configureDependencies(EnvConfig config) {
     () => MemberSyncRemoteDatasource(getIt<Dio>()),
   );
   getIt.registerLazySingleton<MemberSyncCache>(() => SqliteMemberSyncCache());
+  getIt.registerLazySingleton<MemberSyncSessionAuthorityProvider>(
+    () => MemberSyncSessionAuthorityProvider(getIt<SecureTokenStorage>()),
+  );
   getIt.registerLazySingleton<MemberVaultKeyContextStore>(
     MemberVaultKeyContextStore.new,
   );
@@ -375,6 +381,7 @@ void configureDependencies(EnvConfig config) {
       remote: getIt<MemberSyncRemoteDatasource>(),
       cache: getIt<MemberSyncCache>(),
       entryCrypto: getIt<EntryV2CryptoService>(),
+      vaultKeys: getIt<VaultRotationCryptoService>(),
     ),
   );
   getIt.registerLazySingleton<MemberEntryListService>(
@@ -382,6 +389,7 @@ void configureDependencies(EnvConfig config) {
       vaults: getIt<VaultRemoteDatasource>(),
       keys: getIt<VaultRotationCryptoService>(),
       sync: getIt<MemberSyncService>(),
+      authorityProvider: getIt<MemberSyncSessionAuthorityProvider>(),
       keyContexts: getIt<MemberVaultKeyContextStore>(),
     ),
   );
@@ -512,6 +520,15 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<EntryRemoteDatasource>(
     () => EntryRemoteDatasource(getIt<Dio>()),
   );
+  getIt.registerLazySingleton<LocalCurrentEntryService>(
+    () => LocalCurrentEntryService(
+      reader: getIt<MemberSyncService>(),
+      authorityProvider: getIt<MemberSyncSessionAuthorityProvider>(),
+      vaultKeys: getIt<VaultRotationCryptoService>(),
+      entryCrypto: getIt<EntryV2CryptoService>(),
+      canonicalAdapter: getIt<CanonicalEntryDetailService>(),
+    ),
+  );
   getIt.registerLazySingleton<EntryRepository>(
     () => EntryRepositoryImpl(
       entryDatasource: getIt<EntryRemoteDatasource>(),
@@ -519,6 +536,7 @@ void configureDependencies(EnvConfig config) {
       cryptoService: getIt<EntryCryptoService>(),
       canonicalImport: getIt<CanonicalImportProjectionService>(),
       autoFillMutationNotifier: getIt<AutoFillMutationNotifier>(),
+      localCurrentEntry: getIt<LocalCurrentEntryService>(),
     ),
   );
   getIt.registerLazySingleton<AutoFillCacheService>(
@@ -578,6 +596,7 @@ void configureDependencies(EnvConfig config) {
     () => EditEntryCubit(
       repository: getIt<EntryRepository>(),
       canonicalService: getIt<CanonicalEntryDetailService>(),
+      localCurrentEntry: getIt<LocalCurrentEntryService>(),
     ),
   );
   getIt.registerFactory<EntryAgentsCubit>(

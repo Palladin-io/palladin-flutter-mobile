@@ -31,6 +31,7 @@ import 'features/notifications/presentation/cubit/push_navigation_cubit.dart';
 import 'features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'features/dashboard/presentation/cubit/search_session_controller.dart';
 import 'features/vault/data/services/member_index_preparation_service.dart';
+import 'features/vault/data/services/member_sync_service.dart';
 import 'features/vault/data/services/encrypted_presentation_asset_service.dart';
 import 'features/vault/data/services/vault_rotation_service.dart';
 import 'features/vault/data/export/canonical_export_service.dart';
@@ -73,6 +74,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final AutoFillCacheService _autoFillCache = getIt<AutoFillCacheService>();
   final MemberIndexPreparationService _memberIndexPreparation =
       getIt<MemberIndexPreparationService>();
+  final MemberSyncService _memberSync = getIt<MemberSyncService>();
   final VaultListCubit _vaultList = getIt<VaultListCubit>();
   final DashboardCubit _dashboard = getIt<DashboardCubit>();
   final VaultRotationService _vaultRotation = getIt<VaultRotationService>();
@@ -83,6 +85,9 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final SearchSessionController _searchSession =
       getIt<SearchSessionController>();
   late final AutoFillMutationNotifier _autoFillMutationNotifier;
+  final Map<String, BigInt> _appliedVaultInvalidationRanks = {};
+  final Map<String, VaultSyncInvalidation> _pendingVaultInvalidations = {};
+  bool _vaultInvalidationRepairRunning = false;
 
   // In-app real-time channel (foreground). Works on the simulator too, unlike
   // FCM. Connected while authenticated; FCM/APNs covers the background.
@@ -106,6 +111,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     _pushService.onMessageReceived = _onForegroundPush;
     // In-app real-time over SignalR → same refresh handler.
     _signalR.onNotification = _onSignalRNotification;
+    _signalR.onVaultSyncInvalidation = _onVaultSyncInvalidation;
+    _signalR.onReconnected = _repairCurrentEntries;
     _autoFillMutationNotifier = getIt<AutoFillMutationNotifier>();
     _autoFillMutationNotifier.attachHandler(_onAutoFillMutation);
     // Handle a cold start triggered by a notification tap. Guard on `mounted`
@@ -162,6 +169,9 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
           when !authenticated.isVaultLocked &&
               authenticated.privateKey != null) {
         unawaited(
+          _prepareLocalSearch(authenticated.privateKey!, ensureFresh: true),
+        );
+        unawaited(
           _resumeVaultRotations(
             memberId: authenticated.userId,
             privateKey: authenticated.privateKey!,
@@ -214,6 +224,90 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     // SignalR carries structural data only. The durable Inbox is refreshed;
     // presentation is resolved there after unlock instead of trusting hub
     // copy or exposing account resources on the lock screen.
+  }
+
+  void _onVaultSyncInvalidation(VaultSyncInvalidation invalidation) {
+    final state = _authBloc.state;
+    if (state is! AuthAuthenticated ||
+        state.isVaultLocked ||
+        state.privateKey == null) {
+      return;
+    }
+    final rank = _invalidationRank(invalidation);
+    final applied = _appliedVaultInvalidationRanks[invalidation.vaultId];
+    final pending = _pendingVaultInvalidations[invalidation.vaultId];
+    if ((applied != null && rank <= applied) ||
+        (pending != null && rank <= _invalidationRank(pending))) {
+      return;
+    }
+    _pendingVaultInvalidations[invalidation.vaultId] = invalidation;
+    if (!_vaultInvalidationRepairRunning) {
+      unawaited(_drainVaultSyncInvalidations());
+    }
+  }
+
+  Future<void> _drainVaultSyncInvalidations() async {
+    if (_vaultInvalidationRepairRunning) return;
+    _vaultInvalidationRepairRunning = true;
+    try {
+      while (_pendingVaultInvalidations.isNotEmpty) {
+        final state = _authBloc.state;
+        if (state is! AuthAuthenticated ||
+            state.isVaultLocked ||
+            state.privateKey == null) {
+          _pendingVaultInvalidations.clear();
+          return;
+        }
+        final batch = Map<String, VaultSyncInvalidation>.from(
+          _pendingVaultInvalidations,
+        );
+        _pendingVaultInvalidations.clear();
+        try {
+          for (final invalidation in batch.values) {
+            if (invalidation.removed) {
+              await _memberSync.purgeVault(invalidation.vaultId);
+            }
+          }
+          await _memberIndexPreparation.prepare(
+            state.privateKey!,
+            ensureFresh: true,
+          );
+          for (final invalidation in batch.values) {
+            final rank = _invalidationRank(invalidation);
+            final applied =
+                _appliedVaultInvalidationRanks[invalidation.vaultId];
+            if (applied == null || rank > applied) {
+              _appliedVaultInvalidationRanks[invalidation.vaultId] = rank;
+            }
+          }
+        } catch (error) {
+          _memberIndexPreparation.lock();
+          AppLogger.w(
+            'VaultSync',
+            'Invalidation repair failed closed: ${error.runtimeType}',
+          );
+        }
+      }
+    } finally {
+      _vaultInvalidationRepairRunning = false;
+      if (_pendingVaultInvalidations.isNotEmpty) {
+        unawaited(_drainVaultSyncInvalidations());
+      }
+    }
+  }
+
+  BigInt _invalidationRank(VaultSyncInvalidation invalidation) =>
+      BigInt.parse(invalidation.mutationVersion) * BigInt.two +
+      (invalidation.removed ? BigInt.one : BigInt.zero);
+
+  void _repairCurrentEntries() {
+    final state = _authBloc.state;
+    if (state is! AuthAuthenticated ||
+        state.isVaultLocked ||
+        state.privateKey == null) {
+      return;
+    }
+    unawaited(_prepareLocalSearch(state.privateKey!, ensureFresh: true));
   }
 
   @override
@@ -271,6 +365,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
                 (current is! AuthAuthenticated || current.isVaultLocked),
             listener: (_, _) {
               _memberIndexPreparation.lock();
+              _appliedVaultInvalidationRanks.clear();
+              _pendingVaultInvalidations.clear();
               _vaultList.lock();
               _dashboard.lock();
               _searchSession.lock();
@@ -329,9 +425,15 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _prepareLocalSearch(Uint8List privateKey) async {
+  Future<void> _prepareLocalSearch(
+    Uint8List privateKey, {
+    bool ensureFresh = false,
+  }) async {
     try {
-      await _memberIndexPreparation.prepare(privateKey);
+      await _memberIndexPreparation.prepare(
+        privateKey,
+        ensureFresh: ensureFresh,
+      );
     } catch (_) {
       // Local search is best effort. Never log transport errors because they
       // may retain the raw query or decrypted projection context.

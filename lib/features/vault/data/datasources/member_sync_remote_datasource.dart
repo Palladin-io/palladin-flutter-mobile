@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
 import '../models/member_sync_models.dart';
@@ -40,7 +42,7 @@ final class MemberSyncRemoteDatasource implements MemberSyncRemote {
 
   static const _headers = <String, String>{
     'X-Palladin-Vault-Protocol': '2',
-    'X-Palladin-Sync-Policy': '1',
+    'X-Palladin-Sync-Policy': '2',
     'Accept-Encoding': 'identity',
   };
 
@@ -52,10 +54,10 @@ final class MemberSyncRemoteDatasource implements MemberSyncRemote {
     String? cursor,
     int pageSize = VaultPerformanceBudget.memberSyncPageItems,
   }) async {
-    final response = await _dio.post<Map<String, dynamic>>(
-      '/api/vaults/$vaultId/sync/snapshot',
-      data: {'vaultId': vaultId, 'cursor': ?cursor, 'pageSize': pageSize},
-      options: Options(headers: _headers),
+    final response = await _dio.post<List<int>>(
+      '/api/vaults/$vaultId/current-entries/sync/snapshot',
+      data: {'vaultId': vaultId, 'cursor': cursor, 'pageSize': pageSize},
+      options: Options(headers: _headers, responseType: ResponseType.bytes),
     );
     return MemberSnapshotPage.fromJson(_body(response));
   }
@@ -73,37 +75,52 @@ final class MemberSyncRemoteDatasource implements MemberSyncRemote {
       );
     }
     try {
-      final response = await _dio.post<Map<String, dynamic>>(
-        '/api/vaults/$vaultId/sync/delta',
+      final response = await _dio.post<List<int>>(
+        '/api/vaults/$vaultId/current-entries/sync/delta',
         data: {
           'vaultId': vaultId,
           'afterSequence': ?afterSequence,
           'continuationCursor': ?continuationCursor,
           'pageSize': pageSize,
         },
-        options: Options(headers: _headers),
+        options: Options(headers: _headers, responseType: ResponseType.bytes),
       );
       return MemberDeltaSuccess(MemberDeltaPage.fromJson(_body(response)));
     } on DioException catch (error) {
       if (error.response?.statusCode != 409) rethrow;
-      final data = error.response?.data;
-      if (data is! Map) rethrow;
       return MemberDeltaResetRequired(
-        MemberSyncReset.fromJson(Map<String, dynamic>.from(data)),
+        MemberSyncReset.fromJson(_body(error.response!)),
       );
     }
   }
 
-  Map<String, dynamic> _body(Response<Map<String, dynamic>> response) {
-    if (response.headers.value('content-encoding') case final encoding?
-        when encoding.toLowerCase() != 'identity') {
+  Map<String, dynamic> _body(Response<dynamic> response) {
+    if (response.headers.value('content-encoding')?.toLowerCase() !=
+        'identity') {
       throw const FormatException('Compressed Vault sync is not supported');
     }
     final protocol = response.headers.value('x-palladin-vault-protocol');
     final policy = response.headers.value('x-palladin-sync-policy');
-    if (protocol != '2' || policy != '1' || response.data == null) {
+    final declaredLength = int.tryParse(
+      response.headers.value(Headers.contentLengthHeader) ?? '',
+    );
+    if (protocol != '2' ||
+        policy != '2' ||
+        (declaredLength != null &&
+            (declaredLength < 0 ||
+                declaredLength >
+                    VaultPerformanceBudget.maximumMemberSyncResponseBytes))) {
       throw const FormatException('Unsupported or empty Vault sync response');
     }
-    return response.data!;
+    final data = response.data;
+    if (data is! List<int> ||
+        data.length > VaultPerformanceBudget.maximumMemberSyncResponseBytes) {
+      throw const FormatException('Vault sync response exceeds byte limit');
+    }
+    final decoded = jsonDecode(utf8.decode(data, allowMalformed: false));
+    if (decoded is! Map) {
+      throw const FormatException('Vault sync response must be an object');
+    }
+    return Map<String, dynamic>.from(decoded);
   }
 }
