@@ -30,9 +30,16 @@ final class MemberSyncCacheState {
   final DateTime maximumObservedWallTime;
 }
 
+/// The complete local profile is durably quarantined pending logout cleanup.
+final class MemberSyncProfileQuarantinedException implements Exception {
+  const MemberSyncProfileQuarantinedException();
+}
+
 /// Ciphertext-only cache. A staged snapshot is never readable until its
 /// closing delta has been committed and [promoteSnapshot] swaps it atomically.
 abstract interface class MemberSyncCache {
+  Future<int> quarantineProfile();
+  Future<bool> clearQuarantinedProfile(int quarantineGeneration);
   Future<MemberSyncCacheState?> state(String vaultId);
   Future<void> beginSnapshot(String vaultId, {required bool invalidateActive});
   Future<void> appendSnapshot(String vaultId, List<MemberSyncItemModel> items);
@@ -117,11 +124,64 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
         maximum_observed_wall_micros INTEGER NOT NULL
       )
     ''');
+    await db.execute('''
+      CREATE TABLE member_sync_profile_fence (
+        singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+        generation INTEGER NOT NULL
+      )
+    ''');
+  }
+
+  @override
+  Future<int> quarantineProfile() async {
+    final db = await _db;
+    return db.transaction((transaction) async {
+      final rows = await transaction.query(
+        'member_sync_profile_fence',
+        columns: ['generation'],
+        where: 'singleton = 1',
+        limit: 1,
+      );
+      final generation = rows.isEmpty
+          ? 1
+          : (rows.single['generation']! as int) + 1;
+      await transaction.insert('member_sync_profile_fence', {
+        'singleton': 1,
+        'generation': generation,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      return generation;
+    });
+  }
+
+  @override
+  Future<bool> clearQuarantinedProfile(int quarantineGeneration) async {
+    final db = await _db;
+    return db.transaction((transaction) async {
+      final rows = await transaction.query(
+        'member_sync_profile_fence',
+        columns: ['generation'],
+        where: 'singleton = 1',
+        limit: 1,
+      );
+      if (rows.isEmpty || rows.single['generation'] != quarantineGeneration) {
+        return false;
+      }
+      await transaction.delete('member_sync_heads');
+      await transaction.delete('member_sync_state');
+      await transaction.delete(
+        'member_sync_profile_fence',
+        where: 'singleton = 1 AND generation = ?',
+        whereArgs: [quarantineGeneration],
+      );
+      return true;
+    });
   }
 
   @override
   Future<MemberSyncCacheState?> state(String vaultId) async {
-    final rows = await (await _db).query(
+    final db = await _db;
+    await _requireProfileAvailable(db);
+    final rows = await db.query(
       'member_sync_state',
       where: 'vault_id = ?',
       whereArgs: [vaultId],
@@ -157,6 +217,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
   }) async {
     final db = await _db;
     await db.transaction((transaction) async {
+      await _requireProfileAvailable(transaction);
       await transaction.delete(
         'member_sync_heads',
         where: 'vault_id = ? AND generation = ?',
@@ -187,6 +248,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
     }
     final db = await _db;
     await db.transaction((transaction) async {
+      await _requireProfileAvailable(transaction);
       await _applyItemsWith(transaction, vaultId, _staging, items);
       await _requireProfileWithinQuota(executor: transaction);
     });
@@ -199,6 +261,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
   ) async {
     final db = await _db;
     await db.transaction((transaction) async {
+      await _requireProfileAvailable(transaction);
       await _applyItemsWith(transaction, vaultId, _staging, items);
       await _requireProfileWithinQuota(executor: transaction);
     });
@@ -214,6 +277,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
   }) async {
     final db = await _db;
     await db.transaction((transaction) async {
+      await _requireProfileAvailable(transaction);
       await transaction.delete(
         'member_sync_heads',
         where: 'vault_id = ? AND generation = ?',
@@ -238,7 +302,9 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
 
   @override
   Future<void> discardSnapshot(String vaultId) async {
-    await (await _db).delete(
+    final db = await _db;
+    await _requireProfileAvailable(db);
+    await db.delete(
       'member_sync_heads',
       where: 'vault_id = ? AND generation = ?',
       whereArgs: [vaultId, _staging],
@@ -256,6 +322,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
   }) async {
     final db = await _db;
     await db.transaction((transaction) async {
+      await _requireProfileAvailable(transaction);
       final current = await transaction.query(
         'member_sync_state',
         columns: ['applied_sequence'],
@@ -283,7 +350,9 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
 
   @override
   Future<MemberSyncItemModel?> readHead(String vaultId, String entryId) async {
-    final rows = await (await _db).query(
+    final db = await _db;
+    await _requireProfileAvailable(db);
+    final rows = await db.query(
       'member_sync_heads',
       columns: ['envelope_json'],
       where: 'vault_id = ? AND generation = ? AND entry_id = ?',
@@ -300,6 +369,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
     const pageSize = 100;
     String? lastEntryId;
     while (true) {
+      await _requireProfileAvailable(db);
       final rows = await db.query(
         'member_sync_heads',
         columns: ['entry_id', 'envelope_json'],
@@ -390,10 +460,23 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
     }
   }
 
+  Future<void> _requireProfileAvailable(DatabaseExecutor executor) async {
+    final rows = await executor.query(
+      'member_sync_profile_fence',
+      columns: ['generation'],
+      where: 'singleton = 1',
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      throw const MemberSyncProfileQuarantinedException();
+    }
+  }
+
   @override
   Future<void> clearVault(String vaultId) async {
     final db = await _db;
     await db.transaction((transaction) async {
+      await _requireProfileAvailable(transaction);
       await transaction.delete(
         'member_sync_heads',
         where: 'vault_id = ?',
@@ -413,6 +496,7 @@ final class SqliteMemberSyncCache implements MemberSyncCache {
     await db.transaction((transaction) async {
       await transaction.delete('member_sync_heads');
       await transaction.delete('member_sync_state');
+      await transaction.delete('member_sync_profile_fence');
     });
   }
 }

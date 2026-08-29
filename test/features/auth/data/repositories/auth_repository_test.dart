@@ -222,6 +222,21 @@ void main() {
       },
     );
 
+    test('clears tokens when Entry cache cleanup times out', () async {
+      when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
+      final cleanup = Completer<void>();
+      when(
+        () => mockCurrentEntryCacheInvalidator.clearCurrentEntryCache(),
+      ).thenAnswer((_) => cleanup.future);
+      when(() => mockStorage.clearAll()).thenAnswer((_) async {});
+      when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
+
+      await repository.logout();
+
+      verify(() => mockStorage.clearAll()).called(1);
+      cleanup.complete();
+    });
+
     test('attempts AutoFill revocation before clearing auth storage', () async {
       final clearStarted = Completer<void>();
       final allowClear = Completer<void>();

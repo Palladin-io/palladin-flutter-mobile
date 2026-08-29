@@ -167,6 +167,7 @@ final class MemberSyncService
   final Set<String> _connectedSessionVaults = {};
   final Set<String> _revokedVaults = {};
   final Set<String> _knownVaults = {};
+  bool _profileQuarantined = false;
   final Map<String, Timer> _leaseTimers = {};
   final Map<String, Future<void>> _vaultCommitTails = {};
   int _lockGeneration = 0;
@@ -189,6 +190,9 @@ final class MemberSyncService
     required Map<String, dynamic> authoritativeMemberVaultKey,
   }) {
     _knownVaults.add(vaultId);
+    if (_profileQuarantined) {
+      return Future.error(const MemberSyncProfileQuarantinedException());
+    }
     if (vaultKey.length != 32) {
       return Future.error(
         const FormatException('Vault key must be exactly 32 bytes'),
@@ -320,8 +324,14 @@ final class MemberSyncService
   }) async {
     _knownVaults.add(vaultId);
     final generation = _lockGeneration;
-    if (_revokedVaults.contains(vaultId)) return;
-    final state = await _cache.state(vaultId);
+    if (_profileQuarantined || _revokedVaults.contains(vaultId)) return;
+    final MemberSyncCacheState? state;
+    try {
+      state = await _cache.state(vaultId);
+    } on MemberSyncProfileQuarantinedException {
+      _profileQuarantined = true;
+      return;
+    }
     if (state == null) return;
     try {
       _validateCachedAuthority(
@@ -719,8 +729,14 @@ final class MemberSyncService
   }) async {
     _knownVaults.add(vaultId);
     final generation = _lockGeneration;
-    if (_revokedVaults.contains(vaultId)) return null;
-    final state = await _cache.state(vaultId);
+    if (_profileQuarantined || _revokedVaults.contains(vaultId)) return null;
+    final MemberSyncCacheState? state;
+    try {
+      state = await _cache.state(vaultId);
+    } on MemberSyncProfileQuarantinedException {
+      _profileQuarantined = true;
+      return null;
+    }
     if (state == null) return null;
     try {
       _validateCachedAuthority(
@@ -834,7 +850,8 @@ final class MemberSyncService
 
   /// Deletes the complete local profile on logout.
   Future<void> purgeAll() async {
-    _lockGeneration++;
+    final operationGeneration = ++_lockGeneration;
+    _profileQuarantined = true;
     _running.clear();
     _revokedVaults.addAll(_knownVaults);
     for (final timer in _leaseTimers.values) {
@@ -843,10 +860,13 @@ final class MemberSyncService
     _leaseTimers.clear();
     _indexes.clear();
     _connectedSessionVaults.clear();
+    final quarantineGeneration = await _cache.quarantineProfile();
     await Future.wait(_vaultCommitTails.values.toList(growable: false));
-    await _cache.clearAll();
+    final cleared = await _cache.clearQuarantinedProfile(quarantineGeneration);
+    if (!cleared || operationGeneration != _lockGeneration) return;
     _revokedVaults.clear();
     _knownVaults.clear();
+    _profileQuarantined = false;
     _publishDurableUpdate('*');
   }
 

@@ -53,15 +53,46 @@ final class _MemoryCache implements MemberSyncCache {
   final Map<String, Map<String, MemberSyncItemModel>> staged = {};
   bool failClearVault = false;
   bool failClearAll = false;
+  int? profileQuarantineGeneration;
+  Completer<void>? profileClearGate;
+
+  void _requireAvailable() {
+    if (profileQuarantineGeneration != null) {
+      throw const MemberSyncProfileQuarantinedException();
+    }
+  }
 
   @override
-  Future<MemberSyncCacheState?> state(String vaultId) async => states[vaultId];
+  Future<int> quarantineProfile() async {
+    profileQuarantineGeneration = (profileQuarantineGeneration ?? 0) + 1;
+    return profileQuarantineGeneration!;
+  }
+
+  @override
+  Future<bool> clearQuarantinedProfile(int quarantineGeneration) async {
+    final gate = profileClearGate;
+    if (gate != null) await gate.future;
+    if (failClearAll) throw StateError('simulated profile cleanup failure');
+    if (profileQuarantineGeneration != quarantineGeneration) return false;
+    states.clear();
+    active.clear();
+    staged.clear();
+    profileQuarantineGeneration = null;
+    return true;
+  }
+
+  @override
+  Future<MemberSyncCacheState?> state(String vaultId) async {
+    _requireAvailable();
+    return states[vaultId];
+  }
 
   @override
   Future<void> beginSnapshot(
     String vaultId, {
     required bool invalidateActive,
   }) async {
+    _requireAvailable();
     staged[vaultId] = {};
     if (invalidateActive) {
       active.remove(vaultId);
@@ -73,13 +104,19 @@ final class _MemoryCache implements MemberSyncCache {
   Future<void> appendSnapshot(
     String vaultId,
     List<MemberSyncItemModel> items,
-  ) => _apply(staged.putIfAbsent(vaultId, () => {}), items);
+  ) async {
+    _requireAvailable();
+    await _apply(staged.putIfAbsent(vaultId, () => {}), items);
+  }
 
   @override
   Future<void> applyStagedDelta(
     String vaultId,
     List<MemberSyncItemModel> items,
-  ) => _apply(staged.putIfAbsent(vaultId, () => {}), items);
+  ) async {
+    _requireAvailable();
+    await _apply(staged.putIfAbsent(vaultId, () => {}), items);
+  }
 
   @override
   Future<void> promoteSnapshot(
@@ -89,6 +126,7 @@ final class _MemoryCache implements MemberSyncCache {
     required Map<String, dynamic> memberVaultKey,
     required DateTime maximumObservedWallTime,
   }) async {
+    _requireAvailable();
     active[vaultId] = Map.of(staged.remove(vaultId) ?? {});
     states[vaultId] = MemberSyncCacheState(
       sequence: sequence,
@@ -100,6 +138,7 @@ final class _MemoryCache implements MemberSyncCache {
 
   @override
   Future<void> discardSnapshot(String vaultId) async {
+    _requireAvailable();
     staged.remove(vaultId);
   }
 
@@ -112,6 +151,7 @@ final class _MemoryCache implements MemberSyncCache {
     required Map<String, dynamic> memberVaultKey,
     required DateTime maximumObservedWallTime,
   }) async {
+    _requireAvailable();
     await _apply(active.putIfAbsent(vaultId, () => {}), items);
     states[vaultId] = MemberSyncCacheState(
       sequence: sequence,
@@ -135,15 +175,20 @@ final class _MemoryCache implements MemberSyncCache {
   }
 
   @override
-  Future<MemberSyncItemModel?> readHead(String vaultId, String entryId) async =>
-      active[vaultId]?[entryId];
+  Future<MemberSyncItemModel?> readHead(String vaultId, String entryId) async {
+    _requireAvailable();
+    return active[vaultId]?[entryId];
+  }
 
   @override
-  Stream<MemberSyncItemModel> readHeads(String vaultId) =>
-      Stream.fromIterable(active[vaultId]?.values ?? const []);
+  Stream<MemberSyncItemModel> readHeads(String vaultId) async* {
+    _requireAvailable();
+    yield* Stream.fromIterable(active[vaultId]?.values ?? const []);
+  }
 
   @override
   Future<void> clearVault(String vaultId) async {
+    _requireAvailable();
     if (failClearVault) throw StateError('simulated storage failure');
     states.remove(vaultId);
     active.remove(vaultId);
@@ -156,6 +201,7 @@ final class _MemoryCache implements MemberSyncCache {
     states.clear();
     active.clear();
     staged.clear();
+    profileQuarantineGeneration = null;
   }
 }
 
@@ -473,6 +519,47 @@ void main() {
       isNull,
     );
   });
+
+  test(
+    'pending profile purge blocks a new sync until deletion commits',
+    () async {
+      await service.synchronize(
+        vaultId: snapshot.accessContext.vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      final gate = Completer<void>();
+      cache.profileClearGate = gate;
+
+      final purge = service.purgeAll();
+      await Future<void>.delayed(Duration.zero);
+      await expectLater(
+        service.synchronize(
+          vaultId: snapshot.accessContext.vaultId,
+          vaultKey: Uint8List(32),
+          minimumMemberKeyGeneration:
+              snapshot.accessContext.memberKeyGeneration,
+          authority: authority,
+          authoritativeMemberVaultKey: snapshot.memberVaultKey,
+        ),
+        throwsA(isA<MemberSyncProfileQuarantinedException>()),
+      );
+
+      gate.complete();
+      await purge;
+      cache.profileClearGate = null;
+      await service.synchronize(
+        vaultId: snapshot.accessContext.vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      expect(cache.states, isNotEmpty);
+    },
+  );
 
   test('purge invalidates an in-flight delta before it can commit', () async {
     await service.synchronize(

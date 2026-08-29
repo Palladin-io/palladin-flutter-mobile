@@ -47,6 +47,12 @@ void main() {
               maximum_observed_wall_micros INTEGER NOT NULL
             )
           ''');
+          await db.execute('''
+            CREATE TABLE member_sync_profile_fence (
+              singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+              generation INTEGER NOT NULL
+            )
+          ''');
         },
       ),
     );
@@ -147,6 +153,45 @@ void main() {
 
     expect(await cache.state(vaultId), isNull);
     expect(await cache.readHeads(vaultId).toList(), isEmpty);
+  });
+
+  test(
+    'durable profile fence blocks a fresh cache instance after restart',
+    () async {
+      final vaultId = snapshot.accessContext.vaultId;
+      await cache.beginSnapshot(vaultId, invalidateActive: false);
+      await cache.appendSnapshot(vaultId, snapshot.items);
+      await cache.promoteSnapshot(
+        vaultId,
+        sequence: '12',
+        accessContext: snapshot.accessContext,
+        memberVaultKey: snapshot.memberVaultKey,
+        maximumObservedWallTime: snapshot.accessContext.issuedAt,
+      );
+      final quarantine = await cache.quarantineProfile();
+      final restarted = SqliteMemberSyncCache(
+        databaseLoader: () async => database,
+      );
+
+      await expectLater(
+        restarted.state(vaultId),
+        throwsA(isA<MemberSyncProfileQuarantinedException>()),
+      );
+      expect(await restarted.clearQuarantinedProfile(quarantine), isTrue);
+      expect(await restarted.state(vaultId), isNull);
+    },
+  );
+
+  test('stale purge token cannot clear a newer profile quarantine', () async {
+    final first = await cache.quarantineProfile();
+    final second = await cache.quarantineProfile();
+
+    expect(await cache.clearQuarantinedProfile(first), isFalse);
+    await expectLater(
+      cache.state(snapshot.accessContext.vaultId),
+      throwsA(isA<MemberSyncProfileQuarantinedException>()),
+    );
+    expect(await cache.clearQuarantinedProfile(second), isTrue);
   });
 
   test('profile quota is global and rolls back the overflowing page', () async {
