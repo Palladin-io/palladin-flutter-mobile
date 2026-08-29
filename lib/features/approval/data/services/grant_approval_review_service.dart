@@ -215,6 +215,7 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
           entry.secret['memberLabel'] as String;
       final description = entry.secret['description'] as String? ?? '';
       final grantableFieldIds = AgentVisibilityProjector.grantableFieldIds(
+        type: type,
         agentLabel: agentLabel,
         description: description,
         content: entry.payload,

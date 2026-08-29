@@ -598,6 +598,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       final id = switch (field.key as String) {
         'memberLabel' || 'icon' || 'color' || 'entryType' => null,
         'key.value' => 'value',
+        'key.url' => 'url',
+        'key.notes' => 'notes',
+        'credential.notes' => 'notes',
+        'script.notes' => 'notes',
         'credential.username' => 'username',
         'credential.password' => 'password',
         'credential.url' => 'url',
@@ -1709,6 +1713,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     final body = switch (type) {
       EntryType.key => KeySecretContent(
         value: content['value'] as String,
+        url: content['url'] as String?,
         notes: content['notes'] as String?,
         customFields: custom,
       ),
@@ -1742,8 +1747,11 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         customFields: custom,
       ),
     };
-    String canonicalId(String id) => switch ((type, id)) {
+    String? canonicalId(String id) => switch ((type, id)) {
       (EntryType.key, 'value') => 'key.value',
+      (EntryType.key, 'url') when content['url'] != null => 'key.url',
+      (EntryType.key, 'url') => null,
+      (EntryType.key, 'notes') => 'notes',
       (EntryType.credential, 'username') => 'credential.username',
       (EntryType.credential, 'password') => 'credential.password',
       (EntryType.credential, 'url') => 'credential.url',
@@ -1766,10 +1774,6 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       _ => id,
     };
     final access = <String, AgentFieldAccess>{
-      for (final item in policy.fields.entries)
-        canonicalId(item.key): AgentFieldAccess.values.byName(
-          item.value.wireName,
-        ),
       'memberLabel': AgentFieldAccess.never,
       'icon': AgentFieldAccess.never,
       'color': AgentFieldAccess.never,
@@ -1777,6 +1781,12 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       'agentLabel': AgentFieldAccess.discovery,
       'description': AgentFieldAccess.never,
     };
+    for (final item in policy.fields.entries) {
+      final id = canonicalId(item.key);
+      if (id != null) {
+        access[id] = AgentFieldAccess.values.byName(item.value.wireName);
+      }
+    }
     for (final id in body.fieldValues().keys) {
       access.putIfAbsent(
         id,
@@ -1879,6 +1889,25 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         if (agentId == null) {
           throw const FormatException('Active grant has no Agent principal');
         }
+        final projection = _grantProjection(secret);
+        final payload = AgentVisibilityProjector.grantPayload(
+          type: projection.type,
+          vaultId: vaultId,
+          agentLabel: projection.agentLabel,
+          description: projection.description,
+          content: projection.content,
+          policy: projection.policy,
+          approvedFieldIds: fields,
+        );
+        final envelopeFieldIds = AgentVisibilityProjector.grantPayloadFieldIds(
+          payload,
+        );
+        if (envelopeFieldIds.length != fields.length ||
+            envelopeFieldIds.indexed.any(
+              (item) => item.$2 != fields[item.$1],
+            )) {
+          throw const FormatException('Grant field projection drift');
+        }
         final envelope = await _entryV2!.sealGrant(
           organizationId: organizationId,
           vaultId: vaultId,
@@ -1891,11 +1920,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           recipientKeyVersion: grant.recipientAgentKeyVersion!,
           approvedMethods: _methodBits(grant.methods),
           deliveryPolicy: 0,
-          fieldIds: fields,
-          grantPayload: VaultPlaintextProjector.grantPayload(
-            secret,
-            fields.toSet(),
-          ),
+          fieldIds: envelopeFieldIds,
+          grantPayload: payload,
           grantEnvelopeRevision: int.parse(
             _incrementValue(
               scope.grantEnvelopeRevision,
@@ -1917,11 +1943,58 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     return result;
   }
 
+  ({
+    EntryType type,
+    String agentLabel,
+    String description,
+    Map<String, dynamic> content,
+    AgentVisibilityPolicy policy,
+  })
+  _grantProjection(MemberSecret secret) {
+    final adapted = _adaptCanonicalSecret(
+      Map<String, dynamic>.from(secret.toJson()),
+    );
+    final type = EntryTypeExtension.fromWire(adapted['entryType'] as int);
+    final content = Map<String, dynamic>.from(adapted['content'] as Map);
+    if (type == EntryType.script) {
+      content['script'] = content.remove('source');
+    }
+    final custom = content.remove('customFields');
+    content['fields'] = custom is List
+        ? custom
+              .whereType<Map>()
+              .map(
+                (field) => <String, dynamic>{
+                  'id': field['id'],
+                  'label': field['label'],
+                  'type': field['kind'],
+                  'value': field['value'],
+                  'agentVisible': field['includeInMemberIndex'] == true,
+                },
+              )
+              .toList(growable: false)
+        : const <Map<String, dynamic>>[];
+    final policy = AgentVisibilityPolicy.fromJson(
+      type,
+      Map<String, dynamic>.from(adapted['agentVisibilityPolicy'] as Map),
+      content: content,
+    );
+    return (
+      type: type,
+      agentLabel: adapted['agentLabel'] as String? ?? '',
+      description: adapted['description'] as String? ?? '',
+      content: content,
+      policy: policy,
+    );
+  }
+
   String _canonicalGrantFieldId(VaultEntryType type, String id) => switch ((
     type,
     id,
   )) {
     (VaultEntryType.key, 'value') => 'key.value',
+    (VaultEntryType.key, 'url') => 'key.url',
+    (VaultEntryType.key, 'notes') => 'key.notes',
     (VaultEntryType.credential, 'username') => 'credential.username',
     (VaultEntryType.credential, 'password') => 'credential.password',
     (VaultEntryType.credential, 'url') => 'credential.url',
@@ -2004,11 +2077,15 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       }
       final payload = AgentVisibilityProjector.grantPayload(
         type: type,
+        vaultId: grant.vaultId,
         agentLabel: agentLabel,
         description: description,
         content: content,
         policy: policy,
         approvedFieldIds: approvedFieldIds,
+      );
+      final envelopeFieldIds = AgentVisibilityProjector.grantPayloadFieldIds(
+        payload,
       );
       plaintext = VaultProtocolBytes.utf8Encode(canonicalizeVaultJson(payload));
       grantKey = await _envelopes.randomKey();
@@ -2064,7 +2141,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         'agentWrappedGrantDek': VaultProtocolBytes.base64UrlEncode(wrappedKey),
         'agentWrapperSuite': 1,
         'agentKeyFingerprint': fingerprintWire,
-        'fieldIds': approvedFieldIds,
+        'fieldIds': envelopeFieldIds,
         'expiresAt': ?expiresAt,
         'remainingUses': ?remainingUses,
       };
