@@ -135,6 +135,7 @@ class EntryEntity {
     this.accessCount = 0,
     this.lifecycleState = MemberEntryState.active,
     this.currentRevision = '0',
+    this.currentKeyVersion = 1,
     this.corrupt = false,
   });
 
@@ -172,6 +173,7 @@ class EntryEntity {
   final int accessCount;
   final MemberEntryState lifecycleState;
   final String currentRevision;
+  final int currentKeyVersion;
   final bool corrupt;
 
   EntryEntity copyWith({String? icon}) => EntryEntity(
@@ -188,6 +190,7 @@ class EntryEntity {
     accessCount: accessCount,
     lifecycleState: lifecycleState,
     currentRevision: currentRevision,
+    currentKeyVersion: currentKeyVersion,
     corrupt: corrupt,
   );
 }

@@ -69,6 +69,7 @@ class EntryListCubit extends Cubit<EntryListState> {
                   updatedAt: epoch,
                   lifecycleState: entry.state,
                   currentRevision: entry.revision,
+                  currentKeyVersion: entry.currentKeyVersion,
                   corrupt: entry.corrupt,
                 ),
               )

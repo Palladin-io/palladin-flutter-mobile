@@ -12,7 +12,7 @@ void main() {
           final evidence = _Evidence.forVault(entryCount);
 
           expect(evidence.snapshotIndexItems, entryCount);
-          expect(evidence.snapshotSecretItems, 0);
+          expect(evidence.snapshotSecretItems, entryCount);
           expect(evidence.snapshotHistoryItems, 0);
           expect(
             evidence.snapshotPages,
@@ -68,15 +68,24 @@ void main() {
       );
       expect(_memberIndexCiphertextBytes, 32768);
       expect(_entryKeyCiphertextBytes, 48);
+      expect(_memberSecretCiphertextBytes, greaterThan(0));
       expect(
         _maximumRequestedPageCiphertextBytes,
         VaultPerformanceBudget.memberSyncPageItems *
-            (_memberIndexCiphertextBytes + _entryKeyCiphertextBytes),
+            (_memberIndexCiphertextBytes +
+                _memberSecretCiphertextBytes +
+                _entryKeyCiphertextBytes),
       );
       expect(
         _maximumProtocolPageCiphertextBytes,
         VaultPerformanceBudget.maximumMemberSyncPageItems *
-            (_memberIndexCiphertextBytes + _entryKeyCiphertextBytes),
+            (_memberIndexCiphertextBytes +
+                _memberSecretCiphertextBytes +
+                _entryKeyCiphertextBytes),
+      );
+      expect(
+        VaultPerformanceBudget.maximumMemberSyncProfileCacheBytes,
+        512 * 1024 * 1024,
       );
     });
 
@@ -101,15 +110,25 @@ final int _entryKeyCiphertextBytes =
     VaultProtocolEnvelopeService.maximumCiphertextBytes(
       VaultAadProfile.entryKeyWrapper,
     );
+final int _memberSecretCiphertextBytes =
+    VaultProtocolEnvelopeService.maximumCiphertextBytes(
+      VaultAadProfile.memberSecret,
+    );
 final int _maximumInFlightIndexBytes =
     VaultPerformanceBudget.memberIndexDecryptConcurrency *
-    (_memberIndexCiphertextBytes + _entryKeyCiphertextBytes);
+    (_memberIndexCiphertextBytes +
+        _memberSecretCiphertextBytes +
+        _entryKeyCiphertextBytes);
 final int _maximumRequestedPageCiphertextBytes =
     VaultPerformanceBudget.memberSyncPageItems *
-    (_memberIndexCiphertextBytes + _entryKeyCiphertextBytes);
+    (_memberIndexCiphertextBytes +
+        _memberSecretCiphertextBytes +
+        _entryKeyCiphertextBytes);
 final int _maximumProtocolPageCiphertextBytes =
     VaultPerformanceBudget.maximumMemberSyncPageItems *
-    (_memberIndexCiphertextBytes + _entryKeyCiphertextBytes);
+    (_memberIndexCiphertextBytes +
+        _memberSecretCiphertextBytes +
+        _entryKeyCiphertextBytes);
 
 final class _Evidence {
   const _Evidence({required this.entryCount});
@@ -126,7 +145,7 @@ final class _Evidence {
   final int entryCount;
 
   int get snapshotIndexItems => entryCount;
-  int get snapshotSecretItems => 0;
+  int get snapshotSecretItems => entryCount;
   int get snapshotHistoryItems => 0;
   int get snapshotPages =>
       (entryCount / VaultPerformanceBudget.memberSyncPageItems).ceil();

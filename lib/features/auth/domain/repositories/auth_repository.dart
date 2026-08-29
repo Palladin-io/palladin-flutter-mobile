@@ -54,3 +54,8 @@ abstract class AuthRepository {
   /// and used to gate password-only account actions.
   Future<String?> getAuthProvider();
 }
+
+/// Security boundary used by logout to delete the complete local Vault cache.
+abstract interface class CurrentEntryCacheInvalidator {
+  Future<void> clearCurrentEntryCache();
+}

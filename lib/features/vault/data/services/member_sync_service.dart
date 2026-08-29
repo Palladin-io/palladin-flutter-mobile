@@ -2,15 +2,72 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import '../../../../core/crypto/envelope/envelope_contract.dart';
-import '../../../../core/utils/app_logger.dart';
 import '../../domain/entities/member_index_entry.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../domain/entities/vault_performance_budget.dart';
 import '../../domain/entities/vault_plaintext.dart';
 import '../datasources/member_sync_remote_datasource.dart';
 import '../models/member_sync_models.dart';
 import 'entry_v2_crypto_service.dart';
 import 'member_sync_cache.dart';
+import 'vault_rotation_crypto_service.dart';
+
+/// Authenticated session claims used as independent authority for cached
+/// access-context bindings. Values come from the current verified API token.
+final class MemberSyncSessionAuthority {
+  const MemberSyncSessionAuthority({
+    required this.principalId,
+    required this.organizationId,
+    required this.organizationMembershipGeneration,
+    required this.offlinePolicy,
+    required this.offlinePolicyVersion,
+  });
+
+  final String principalId;
+  final String organizationId;
+  final String organizationMembershipGeneration;
+  final String offlinePolicy;
+  final int offlinePolicyVersion;
+}
+
+/// Complete opaque local current Entry generation exposed to CVT-561 and
+/// local reveal. No plaintext or raw key is retained by this value.
+final class LocalMemberEntryMaterial {
+  const LocalMemberEntryMaterial({
+    required this.item,
+    required this.accessContext,
+    required this.memberVaultKey,
+    required this.readGeneration,
+  });
+
+  final MemberSyncItemModel item;
+  final MemberOfflineAccessContext accessContext;
+  final Map<String, dynamic> memberVaultKey;
+  final int readGeneration;
+}
+
+/// Raised when a local ciphertext read loses its lock, lease, or access fence.
+final class LocalMemberEntryReadInvalidatedException implements Exception {
+  const LocalMemberEntryReadInvalidatedException();
+}
+
+/// Public ciphertext reader for one complete, active local Entry head.
+abstract interface class LocalMemberEntryReader {
+  Future<LocalMemberEntryMaterial?> readCurrent({
+    required String vaultId,
+    required String entryId,
+    required MemberSyncSessionAuthority authority,
+  });
+
+  /// Revalidates the read fence after asynchronous decryption and immediately
+  /// before plaintext is returned to a caller.
+  Future<void> revalidateCurrent({
+    required String vaultId,
+    required String entryId,
+    required LocalMemberEntryMaterial material,
+    required MemberSyncSessionAuthority authority,
+  });
+}
 
 /// Result of a completed ciphertext synchronization.
 final class MemberSyncResult {
@@ -50,23 +107,41 @@ abstract interface class MemberSyncCoordinator implements MemberIndexReader {
     required String vaultId,
     required Uint8List vaultKey,
     required int minimumMemberKeyGeneration,
+    required MemberSyncSessionAuthority authority,
+    required Map<String, dynamic> authoritativeMemberVaultKey,
   });
+
+  Future<void> unlockCached({
+    required String vaultId,
+    required Uint8List memberPrivateKey,
+    required MemberSyncSessionAuthority authority,
+  });
+
+  Future<void> purgeVault(String vaultId);
 
   void lock();
 }
 
-final class MemberSyncService implements MemberSyncCoordinator {
+final class MemberSyncService
+    implements
+        MemberSyncCoordinator,
+        LocalMemberEntryReader,
+        CurrentEntryCacheInvalidator {
   MemberSyncService({
     required MemberSyncRemote remote,
     required MemberSyncCache cache,
     required EntryV2CryptoService entryCrypto,
+    required VaultRotationCryptoService vaultKeys,
+    DateTime Function()? now,
     this.maximumIndexedEntries = VaultPerformanceBudget.maximumIndexedEntries,
     this.decryptConcurrency =
         VaultPerformanceBudget.memberIndexDecryptConcurrency,
     this.maximumSnapshotRestarts = 2,
   }) : _remote = remote,
        _cache = cache,
-       _entryCrypto = entryCrypto {
+       _entryCrypto = entryCrypto,
+       _vaultKeys = vaultKeys,
+       _now = now ?? DateTime.now {
     if (maximumIndexedEntries < 1 ||
         decryptConcurrency < 1 ||
         maximumSnapshotRestarts < 0) {
@@ -77,6 +152,8 @@ final class MemberSyncService implements MemberSyncCoordinator {
   final MemberSyncRemote _remote;
   final MemberSyncCache _cache;
   final EntryV2CryptoService _entryCrypto;
+  final VaultRotationCryptoService _vaultKeys;
+  final DateTime Function() _now;
   final int maximumIndexedEntries;
   final int decryptConcurrency;
   final int maximumSnapshotRestarts;
@@ -85,6 +162,14 @@ final class MemberSyncService implements MemberSyncCoordinator {
   final Map<String, Future<MemberSyncResult>> _running = {};
   final StreamController<String> _indexUpdates =
       StreamController<String>.broadcast();
+  final StreamController<String> _durableUpdates =
+      StreamController<String>.broadcast();
+  final Set<String> _connectedSessionVaults = {};
+  final Set<String> _revokedVaults = {};
+  final Set<String> _knownVaults = {};
+  bool _profileQuarantined = false;
+  final Map<String, Timer> _leaseTimers = {};
+  final Map<String, Future<void>> _vaultCommitTails = {};
   int _lockGeneration = 0;
 
   /// Emits a Vault id after its unlocked runtime index has been installed or
@@ -92,13 +177,22 @@ final class MemberSyncService implements MemberSyncCoordinator {
   /// no plaintext leaves the service through the stream.
   Stream<String> get indexUpdates => _indexUpdates.stream;
 
+  /// Emits only after a complete generation or delta is durably committed.
+  Stream<String> get durableUpdates => _durableUpdates.stream;
+
   /// Synchronizes one Vault. Concurrent callers for the same Vault share work.
   @override
   Future<MemberSyncResult> synchronize({
     required String vaultId,
     required Uint8List vaultKey,
     required int minimumMemberKeyGeneration,
+    required MemberSyncSessionAuthority authority,
+    required Map<String, dynamic> authoritativeMemberVaultKey,
   }) {
+    _knownVaults.add(vaultId);
+    if (_profileQuarantined) {
+      return Future.error(const MemberSyncProfileQuarantinedException());
+    }
     if (vaultKey.length != 32) {
       return Future.error(
         const FormatException('Vault key must be exactly 32 bytes'),
@@ -111,6 +205,8 @@ final class MemberSyncService implements MemberSyncCoordinator {
       vaultId: vaultId,
       vaultKey: vaultKey,
       minimumMemberKeyGeneration: minimumMemberKeyGeneration,
+      authority: authority,
+      authoritativeMemberVaultKey: authoritativeMemberVaultKey,
       generation: generation,
     );
     late final Future<MemberSyncResult> operation;
@@ -127,6 +223,8 @@ final class MemberSyncService implements MemberSyncCoordinator {
     required String vaultId,
     required Uint8List vaultKey,
     required int minimumMemberKeyGeneration,
+    required MemberSyncSessionAuthority authority,
+    required Map<String, dynamic> authoritativeMemberVaultKey,
     required int generation,
   }) async {
     var forceSnapshot = false;
@@ -138,13 +236,18 @@ final class MemberSyncService implements MemberSyncCoordinator {
             vaultId,
             vaultKey,
             minimumMemberKeyGeneration,
+            authority,
+            authoritativeMemberVaultKey,
             generation,
+            invalidateActive: true,
           );
         }
         return await _synchronizeOnce(
           vaultId: vaultId,
           vaultKey: vaultKey,
           minimumMemberKeyGeneration: minimumMemberKeyGeneration,
+          authority: authority,
+          authoritativeMemberVaultKey: authoritativeMemberVaultKey,
           generation: generation,
         );
       } on _MemberSnapshotRestartRequired catch (error) {
@@ -165,43 +268,111 @@ final class MemberSyncService implements MemberSyncCoordinator {
     required String vaultId,
     required Uint8List vaultKey,
     required int minimumMemberKeyGeneration,
+    required MemberSyncSessionAuthority authority,
+    required Map<String, dynamic> authoritativeMemberVaultKey,
     required int generation,
   }) async {
-    final sequence = await _cache.sequence(vaultId);
+    final cached = await _cache.state(vaultId);
     _requireCurrent(generation);
-    if (sequence == null) {
+    if (cached == null) {
       return _snapshot(
         vaultId,
         vaultKey,
         minimumMemberKeyGeneration,
+        authority,
+        authoritativeMemberVaultKey,
         generation,
+        invalidateActive: false,
+      );
+    }
+    try {
+      _validateCachedAuthority(
+        vaultId: vaultId,
+        state: cached,
+        authority: authority,
+        allowConnectedDisabledPolicy: true,
+      );
+    } on FormatException {
+      await _purgeVault(vaultId, invalidateInFlight: false);
+      return _snapshot(
+        vaultId,
+        vaultKey,
+        minimumMemberKeyGeneration,
+        authority,
+        authoritativeMemberVaultKey,
+        generation,
+        invalidateActive: true,
       );
     }
     return _delta(
       vaultId,
-      sequence,
+      cached.sequence,
       vaultKey,
       minimumMemberKeyGeneration,
+      authority,
+      authoritativeMemberVaultKey,
       generation,
     );
   }
 
   /// Rebuilds the runtime index from the last complete ciphertext snapshot.
+  @override
   Future<void> unlockCached({
     required String vaultId,
-    required Uint8List vaultKey,
-    required int minimumMemberKeyGeneration,
-  }) => _unlockCached(
-    vaultId: vaultId,
-    vaultKey: vaultKey,
-    minimumMemberKeyGeneration: minimumMemberKeyGeneration,
-    generation: _lockGeneration,
-  );
+    required Uint8List memberPrivateKey,
+    required MemberSyncSessionAuthority authority,
+  }) async {
+    _knownVaults.add(vaultId);
+    final generation = _lockGeneration;
+    if (_profileQuarantined || _revokedVaults.contains(vaultId)) return;
+    final MemberSyncCacheState? state;
+    try {
+      state = await _cache.state(vaultId);
+    } on MemberSyncProfileQuarantinedException {
+      _profileQuarantined = true;
+      return;
+    }
+    if (state == null) return;
+    try {
+      _validateCachedAuthority(
+        vaultId: vaultId,
+        state: state,
+        authority: authority,
+        allowConnectedDisabledPolicy: false,
+      );
+      final vaultKey = await _vaultKeys.openMemberVaultKey(
+        state.memberVaultKey,
+        memberPrivateKey,
+        expectedOrganizationId: authority.organizationId,
+        expectedVaultId: vaultId,
+        expectedVaultKeyVersion: state.accessContext.vaultKeyVersion,
+        expectedMemberKeyGeneration: state.accessContext.memberKeyGeneration,
+      );
+      try {
+        await _unlockCached(
+          vaultId: vaultId,
+          organizationId: authority.organizationId,
+          vaultKey: vaultKey,
+          minimumMemberKeyGeneration: state.accessContext.memberKeyGeneration,
+          expectedVaultKeyVersion: state.accessContext.vaultKeyVersion,
+          generation: generation,
+        );
+        _scheduleLeaseExpiry(vaultId, state.accessContext);
+      } finally {
+        vaultKey.fillRange(0, vaultKey.length, 0);
+      }
+    } on Object {
+      await purgeVault(vaultId);
+      rethrow;
+    }
+  }
 
   Future<void> _unlockCached({
     required String vaultId,
+    required String organizationId,
     required Uint8List vaultKey,
     required int minimumMemberKeyGeneration,
+    required int expectedVaultKeyVersion,
     required int generation,
   }) async {
     final rebuilt = <String, MemberIndexEntry>{};
@@ -209,9 +380,11 @@ final class MemberSyncService implements MemberSyncCoordinator {
       _requireCurrent(generation);
       final decrypted = await _decryptPage(
         page,
+        organizationId,
         vaultId,
         vaultKey,
         minimumMemberKeyGeneration,
+        expectedVaultKeyVersion,
       );
       _requireCurrent(generation);
       for (final entry in decrypted) {
@@ -262,34 +435,57 @@ final class MemberSyncService implements MemberSyncCoordinator {
     _lockGeneration++;
     _running.clear();
     _indexes.clear();
+    _connectedSessionVaults.clear();
   }
 
   Future<MemberSyncResult> _snapshot(
     String vaultId,
     Uint8List vaultKey,
     int minimumGeneration,
-    int generation,
-  ) async {
+    MemberSyncSessionAuthority authority,
+    Map<String, dynamic> authoritativeMemberVaultKey,
+    int generation, {
+    required bool invalidateActive,
+  }) async {
     final stagedIndex = <String, MemberIndexEntry>{};
-    final firstPage = await _remote.snapshot(vaultId: vaultId);
-    _requireCurrent(generation);
-    _validatePageCount(firstPage.items);
-    final baseSequence = firstPage.snapshotBaseSequence;
-
-    Stream<MemberSyncItemModel> pages() async* {
-      var page = firstPage;
+    await _cache.beginSnapshot(vaultId, invalidateActive: invalidateActive);
+    try {
+      var page = await _remote.snapshot(vaultId: vaultId);
+      _requireCurrent(generation);
+      _validatePageCount(page.items);
+      final baseSequence = page.snapshotBaseSequence;
+      late MemberOfflineAccessContext accessContext;
+      late Map<String, dynamic> memberVaultKey;
+      MemberOfflineAccessContext? previousAccessContext;
       while (true) {
         _requireCurrent(generation);
         if (baseSequence != page.snapshotBaseSequence ||
             page.items.any((item) => item.isTombstone)) {
           throw const FormatException('Inconsistent Member snapshot');
         }
+        _validateRemoteAuthority(
+          vaultId: vaultId,
+          context: page.accessContext,
+          memberVaultKey: page.memberVaultKey,
+          authority: authority,
+          minimumMemberKeyGeneration: minimumGeneration,
+          authoritativeMemberVaultKey: authoritativeMemberVaultKey,
+        );
+        _validateAccessContextContinuation(
+          previousAccessContext,
+          page.accessContext,
+        );
+        previousAccessContext = page.accessContext;
+        accessContext = page.accessContext;
+        memberVaultKey = page.memberVaultKey;
         _requireKeyContextCovers(page.items, minimumGeneration);
         final decrypted = await _decryptPage(
           page.items,
+          authority.organizationId,
           vaultId,
           vaultKey,
           minimumGeneration,
+          page.accessContext.vaultKeyVersion,
         );
         _requireCurrent(generation);
         for (final entry in decrypted) {
@@ -298,55 +494,52 @@ final class MemberSyncService implements MemberSyncCoordinator {
             throw StateError('Vault local index exceeds the device budget');
           }
         }
-        for (final item in page.items) {
-          yield item;
-        }
+        await _cache.appendSnapshot(vaultId, page.items);
         final cursor = page.nextCursor;
-        if (cursor == null) return;
+        if (cursor == null) break;
         page = await _remote.snapshot(vaultId: vaultId, cursor: cursor);
         _requireCurrent(generation);
         _validatePageCount(page.items);
       }
+      final closed = await _closeSnapshotDelta(
+        vaultId: vaultId,
+        afterSequence: baseSequence,
+        vaultKey: vaultKey,
+        minimumGeneration: minimumGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: authoritativeMemberVaultKey,
+        generation: generation,
+        stagedIndex: stagedIndex,
+        initialAccessContext: accessContext,
+        initialMemberVaultKey: memberVaultKey,
+      );
+      return MemberSyncResult(
+        sequence: closed,
+        entryCount: stagedIndex.length,
+        usedSnapshot: true,
+      );
+    } catch (_) {
+      await _cache.discardSnapshot(vaultId);
+      rethrow;
     }
-
-    await _cache.replaceSnapshot(vaultId, baseSequence, pages());
-    _requireCurrent(generation);
-    _indexes[vaultId] = stagedIndex;
-    _publishIndexUpdate(vaultId);
-    final closed = await _delta(
-      vaultId,
-      baseSequence,
-      vaultKey,
-      minimumGeneration,
-      generation,
-      afterSnapshot: true,
-    );
-    return MemberSyncResult(
-      sequence: closed.sequence,
-      entryCount: closed.entryCount,
-      usedSnapshot: true,
-    );
   }
 
-  Future<MemberSyncResult> _delta(
-    String vaultId,
-    String afterSequence,
-    Uint8List vaultKey,
-    int minimumGeneration,
-    int generation, {
-    bool afterSnapshot = false,
+  Future<String> _closeSnapshotDelta({
+    required String vaultId,
+    required String afterSequence,
+    required Uint8List vaultKey,
+    required int minimumGeneration,
+    required MemberSyncSessionAuthority authority,
+    required Map<String, dynamic> authoritativeMemberVaultKey,
+    required int generation,
+    required Map<String, MemberIndexEntry> stagedIndex,
+    required MemberOfflineAccessContext initialAccessContext,
+    required Map<String, dynamic> initialMemberVaultKey,
   }) async {
-    if (!_indexes.containsKey(vaultId)) {
-      await _unlockCached(
-        vaultId: vaultId,
-        vaultKey: vaultKey,
-        minimumMemberKeyGeneration: minimumGeneration,
-        generation: generation,
-      );
-      _requireCurrent(generation);
-    }
     String? continuation;
     var applied = afterSequence;
+    var accessContext = initialAccessContext;
+    var memberVaultKey = initialMemberVaultKey;
     do {
       final result = await _remote.delta(
         vaultId: vaultId,
@@ -355,31 +548,150 @@ final class MemberSyncService implements MemberSyncCoordinator {
       );
       _requireCurrent(generation);
       if (result is MemberDeltaResetRequired) {
-        throw _MemberSnapshotRestartRequired(afterSnapshot: afterSnapshot);
+        await _purgeVault(vaultId, invalidateInFlight: false);
+        throw const _MemberSnapshotRestartRequired(afterSnapshot: true);
       }
       final page = (result as MemberDeltaSuccess).page;
-      _validatePageCount(page.items);
-      if (BigInt.parse(page.appliedThroughSequence) < BigInt.parse(applied) ||
-          BigInt.parse(page.appliedThroughSequence) >
-              BigInt.parse(page.deltaUpperBound)) {
-        throw const FormatException('Non-monotonic Member delta');
-      }
+      _validateDeltaPage(page, applied);
+      _validateRemoteAuthority(
+        vaultId: vaultId,
+        context: page.accessContext,
+        memberVaultKey: page.memberVaultKey,
+        authority: authority,
+        minimumMemberKeyGeneration: minimumGeneration,
+        authoritativeMemberVaultKey: authoritativeMemberVaultKey,
+      );
+      _validateAccessContextContinuation(accessContext, page.accessContext);
+      accessContext = page.accessContext;
+      memberVaultKey = page.memberVaultKey;
       final heads = page.items.where((item) => !item.isTombstone).toList();
       _requireKeyContextCovers(heads, minimumGeneration);
       final decrypted = await _decryptPage(
         heads,
+        authority.organizationId,
         vaultId,
         vaultKey,
         minimumGeneration,
+        page.accessContext.vaultKeyVersion,
       );
       _requireCurrent(generation);
-      if (page.items.isNotEmpty || page.appliedThroughSequence != applied) {
-        await _cache.applyDelta(
-          vaultId,
-          page.appliedThroughSequence,
-          page.items,
-        );
+      await _cache.applyStagedDelta(vaultId, page.items);
+      for (final item in page.items.where((item) => item.isTombstone)) {
+        stagedIndex.remove(item.entryId);
       }
+      for (final entry in decrypted) {
+        stagedIndex[entry.entryId] = entry;
+      }
+      if (stagedIndex.length > maximumIndexedEntries) {
+        throw StateError('Vault local index exceeds the device budget');
+      }
+      applied = page.appliedThroughSequence;
+      continuation = page.continuationCursor;
+    } while (continuation != null);
+
+    final observed = _now().toUtc();
+    await _commitCache(
+      vaultId,
+      generation,
+      () => _cache.promoteSnapshot(
+        vaultId,
+        sequence: applied,
+        accessContext: accessContext,
+        memberVaultKey: memberVaultKey,
+        maximumObservedWallTime: observed,
+      ),
+    );
+    _requireCurrent(generation);
+    _indexes[vaultId] = stagedIndex;
+    _connectedSessionVaults.add(vaultId);
+    _revokedVaults.remove(vaultId);
+    _scheduleLeaseExpiry(vaultId, accessContext);
+    _publishDurableUpdate(vaultId);
+    _publishIndexUpdate(vaultId);
+    return applied;
+  }
+
+  Future<MemberSyncResult> _delta(
+    String vaultId,
+    String afterSequence,
+    Uint8List vaultKey,
+    int minimumGeneration,
+    MemberSyncSessionAuthority authority,
+    Map<String, dynamic> authoritativeMemberVaultKey,
+    int generation, {
+    bool afterSnapshot = false,
+  }) async {
+    final cachedState = await _cache.state(vaultId);
+    if (cachedState == null) {
+      throw const FormatException('Missing active Member sync state');
+    }
+    if (!_indexes.containsKey(vaultId)) {
+      await _unlockCached(
+        vaultId: vaultId,
+        organizationId: authority.organizationId,
+        vaultKey: vaultKey,
+        minimumMemberKeyGeneration: minimumGeneration,
+        expectedVaultKeyVersion: cachedState.accessContext.vaultKeyVersion,
+        generation: generation,
+      );
+      _requireCurrent(generation);
+    }
+    String? continuation;
+    var applied = afterSequence;
+    MemberOfflineAccessContext? previousAccessContext =
+        cachedState.accessContext;
+    do {
+      final result = await _remote.delta(
+        vaultId: vaultId,
+        afterSequence: continuation == null ? applied : null,
+        continuationCursor: continuation,
+      );
+      _requireCurrent(generation);
+      if (result is MemberDeltaResetRequired) {
+        await _purgeVault(vaultId, invalidateInFlight: false);
+        throw _MemberSnapshotRestartRequired(afterSnapshot: afterSnapshot);
+      }
+      final page = (result as MemberDeltaSuccess).page;
+      _validateDeltaPage(page, applied);
+      _validateRemoteAuthority(
+        vaultId: vaultId,
+        context: page.accessContext,
+        memberVaultKey: page.memberVaultKey,
+        authority: authority,
+        minimumMemberKeyGeneration: minimumGeneration,
+        authoritativeMemberVaultKey: authoritativeMemberVaultKey,
+      );
+      _validateAccessContextContinuation(
+        previousAccessContext,
+        page.accessContext,
+      );
+      previousAccessContext = page.accessContext;
+      final heads = page.items.where((item) => !item.isTombstone).toList();
+      _requireKeyContextCovers(heads, minimumGeneration);
+      final decrypted = await _decryptPage(
+        heads,
+        authority.organizationId,
+        vaultId,
+        vaultKey,
+        minimumGeneration,
+        page.accessContext.vaultKeyVersion,
+      );
+      _requireCurrent(generation);
+      await _commitCache(
+        vaultId,
+        generation,
+        () async => _cache.applyDelta(
+          vaultId,
+          sequence: page.appliedThroughSequence,
+          items: page.items,
+          accessContext: page.accessContext,
+          memberVaultKey: page.memberVaultKey,
+          maximumObservedWallTime: _maximumObservedWallTime(
+            await _cache.state(vaultId),
+          ),
+        ),
+      );
+      _publishDurableUpdate(vaultId);
       _requireCurrent(generation);
       final index = _indexes[vaultId]!;
       for (final item in page.items.where((item) => item.isTombstone)) {
@@ -396,6 +708,10 @@ final class MemberSyncService implements MemberSyncCoordinator {
       continuation = page.continuationCursor;
     } while (continuation != null);
 
+    _connectedSessionVaults.add(vaultId);
+    _revokedVaults.remove(vaultId);
+    final state = await _cache.state(vaultId);
+    if (state != null) _scheduleLeaseExpiry(vaultId, state.accessContext);
     _publishIndexUpdate(vaultId);
 
     return MemberSyncResult(
@@ -403,6 +719,372 @@ final class MemberSyncService implements MemberSyncCoordinator {
       entryCount: _indexes[vaultId]!.length,
       usedSnapshot: false,
     );
+  }
+
+  @override
+  Future<LocalMemberEntryMaterial?> readCurrent({
+    required String vaultId,
+    required String entryId,
+    required MemberSyncSessionAuthority authority,
+  }) async {
+    _knownVaults.add(vaultId);
+    final generation = _lockGeneration;
+    if (_profileQuarantined || _revokedVaults.contains(vaultId)) return null;
+    final MemberSyncCacheState? state;
+    try {
+      state = await _cache.state(vaultId);
+    } on MemberSyncProfileQuarantinedException {
+      _profileQuarantined = true;
+      return null;
+    }
+    if (state == null) return null;
+    try {
+      _validateCachedAuthority(
+        vaultId: vaultId,
+        state: state,
+        authority: authority,
+        allowConnectedDisabledPolicy: true,
+      );
+      final item = await _cache.readHead(vaultId, entryId);
+      if (item == null) return null;
+      _validateHeadCoordinates(
+        item,
+        authority.organizationId,
+        vaultId,
+        item.entryKey!,
+        item.memberIndex!,
+        state.accessContext.memberKeyGeneration,
+        state.accessContext.vaultKeyVersion,
+      );
+      _validateSecretCoordinates(
+        item,
+        authority.organizationId,
+        vaultId,
+        item.memberSecret!,
+        state.accessContext.memberKeyGeneration,
+      );
+      _requireReadable(vaultId, generation);
+      return LocalMemberEntryMaterial(
+        item: item,
+        accessContext: state.accessContext,
+        memberVaultKey: Map<String, dynamic>.unmodifiable(state.memberVaultKey),
+        readGeneration: generation,
+      );
+    } on LocalMemberEntryReadInvalidatedException {
+      rethrow;
+    } on Object {
+      await purgeVault(vaultId);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> revalidateCurrent({
+    required String vaultId,
+    required String entryId,
+    required LocalMemberEntryMaterial material,
+    required MemberSyncSessionAuthority authority,
+  }) async {
+    try {
+      _requireReadable(vaultId, material.readGeneration);
+      final state = await _cache.state(vaultId);
+      _requireReadable(vaultId, material.readGeneration);
+      if (state == null ||
+          _canonicalJson(state.accessContext.toJson()) !=
+              _canonicalJson(material.accessContext.toJson()) ||
+          _canonicalJson(state.memberVaultKey) !=
+              _canonicalJson(material.memberVaultKey)) {
+        throw const LocalMemberEntryReadInvalidatedException();
+      }
+      _validateCachedAuthority(
+        vaultId: vaultId,
+        state: state,
+        authority: authority,
+        allowConnectedDisabledPolicy: true,
+      );
+      final current = await _cache.readHead(vaultId, entryId);
+      _requireReadable(vaultId, material.readGeneration);
+      if (current == null ||
+          current.currentRevision != material.item.currentRevision ||
+          current.memberIndexRevision != material.item.memberIndexRevision ||
+          current.currentKeyVersion != material.item.currentKeyVersion ||
+          _canonicalJson(current.entryKey) !=
+              _canonicalJson(material.item.entryKey) ||
+          _canonicalJson(current.memberSecret) !=
+              _canonicalJson(material.item.memberSecret)) {
+        throw const LocalMemberEntryReadInvalidatedException();
+      }
+    } on LocalMemberEntryReadInvalidatedException {
+      rethrow;
+    } on Object {
+      try {
+        await purgeVault(vaultId);
+      } on Object {
+        // The in-memory revocation fence is installed before durable cleanup.
+      }
+      throw const LocalMemberEntryReadInvalidatedException();
+    }
+  }
+
+  /// Purges one active and staged generation after access loss/removal.
+  @override
+  Future<void> purgeVault(String vaultId) =>
+      _purgeVault(vaultId, invalidateInFlight: true);
+
+  Future<void> _purgeVault(
+    String vaultId, {
+    required bool invalidateInFlight,
+  }) async {
+    _revokedVaults.add(vaultId);
+    if (invalidateInFlight) {
+      _lockGeneration++;
+      _running.clear();
+    }
+    _leaseTimers.remove(vaultId)?.cancel();
+    _indexes.remove(vaultId);
+    _connectedSessionVaults.remove(vaultId);
+    _publishIndexUpdate(vaultId);
+    await _serializeVault(vaultId, () => _cache.clearVault(vaultId));
+    _publishDurableUpdate(vaultId);
+  }
+
+  /// Deletes the complete local profile on logout.
+  Future<void> purgeAll() async {
+    final operationGeneration = ++_lockGeneration;
+    _profileQuarantined = true;
+    _running.clear();
+    _revokedVaults.addAll(_knownVaults);
+    for (final timer in _leaseTimers.values) {
+      timer.cancel();
+    }
+    _leaseTimers.clear();
+    _indexes.clear();
+    _connectedSessionVaults.clear();
+    final quarantineGeneration = await _cache.quarantineProfile();
+    await Future.wait(_vaultCommitTails.values.toList(growable: false));
+    final cleared = await _cache.clearQuarantinedProfile(quarantineGeneration);
+    if (!cleared || operationGeneration != _lockGeneration) return;
+    _revokedVaults.clear();
+    _knownVaults.clear();
+    _profileQuarantined = false;
+    _publishDurableUpdate('*');
+  }
+
+  @override
+  Future<void> clearCurrentEntryCache() => purgeAll();
+
+  Future<T> _commitCache<T>(
+    String vaultId,
+    int generation,
+    Future<T> Function() operation,
+  ) => _serializeVault(vaultId, () {
+    _requireCurrent(generation);
+    return operation();
+  });
+
+  Future<T> _serializeVault<T>(String vaultId, Future<T> Function() operation) {
+    final previous = _vaultCommitTails[vaultId] ?? Future<void>.value();
+    final completer = Completer<T>();
+    late final Future<void> tail;
+    tail = previous
+        .then<void>((_) {}, onError: (_, _) {})
+        .then<void>((_) async {
+          try {
+            completer.complete(await operation());
+          } catch (error, stackTrace) {
+            completer.completeError(error, stackTrace);
+          }
+        })
+        .whenComplete(() {
+          if (identical(_vaultCommitTails[vaultId], tail)) {
+            _vaultCommitTails.remove(vaultId);
+          }
+        });
+    _vaultCommitTails[vaultId] = tail;
+    return completer.future;
+  }
+
+  void _validateDeltaPage(MemberDeltaPage page, String applied) {
+    _validatePageCount(page.items);
+    final appliedValue = BigInt.parse(page.appliedThroughSequence);
+    final previousValue = BigInt.parse(applied);
+    final upperBound = BigInt.parse(page.deltaUpperBound);
+    if (appliedValue < previousValue || appliedValue > upperBound) {
+      throw const FormatException('Non-monotonic Member delta');
+    }
+    if ((page.continuationCursor == null && appliedValue != upperBound) ||
+        (page.continuationCursor != null && appliedValue >= upperBound)) {
+      throw const FormatException('Invalid Member delta boundary');
+    }
+  }
+
+  DateTime _maximumObservedWallTime(MemberSyncCacheState? state) {
+    final now = _now().toUtc();
+    final previous = state?.maximumObservedWallTime;
+    return previous != null && previous.isAfter(now) ? previous : now;
+  }
+
+  void _validateRemoteAuthority({
+    required String vaultId,
+    required MemberOfflineAccessContext context,
+    required Map<String, dynamic> memberVaultKey,
+    required MemberSyncSessionAuthority authority,
+    required int minimumMemberKeyGeneration,
+    required Map<String, dynamic> authoritativeMemberVaultKey,
+  }) {
+    _validateContextCoordinates(
+      vaultId: vaultId,
+      context: context,
+      authority: authority,
+    );
+    if (context.memberKeyGeneration > minimumMemberKeyGeneration) {
+      throw MemberVaultKeyContextStaleException(
+        requiredGeneration: context.memberKeyGeneration,
+      );
+    }
+    if (context.memberKeyGeneration < minimumMemberKeyGeneration ||
+        _canonicalJson(memberVaultKey) !=
+            _canonicalJson(authoritativeMemberVaultKey)) {
+      throw const FormatException('Member Vault key authority mismatch');
+    }
+    _validateMemberVaultKeyCoordinates(context, memberVaultKey);
+    final now = _now().toUtc();
+    if (context.issuedAt.isAfter(now.add(const Duration(minutes: 5))) ||
+        (context.offlinePolicy != 'disabled' &&
+            !now.isBefore(context.notAfter))) {
+      throw const FormatException('Invalid Member access lease');
+    }
+  }
+
+  void _validateCachedAuthority({
+    required String vaultId,
+    required MemberSyncCacheState state,
+    required MemberSyncSessionAuthority authority,
+    required bool allowConnectedDisabledPolicy,
+  }) {
+    final context = state.accessContext;
+    _validateContextCoordinates(
+      vaultId: vaultId,
+      context: context,
+      authority: authority,
+    );
+    _validateMemberVaultKeyCoordinates(context, state.memberVaultKey);
+    final now = _now().toUtc();
+    if (now
+            .add(const Duration(minutes: 5))
+            .isBefore(state.maximumObservedWallTime) ||
+        now.add(const Duration(minutes: 5)).isBefore(context.issuedAt) ||
+        (context.offlinePolicy != 'disabled' &&
+            !now.isBefore(context.notAfter)) ||
+        (context.offlinePolicy == 'disabled' &&
+            (!allowConnectedDisabledPolicy ||
+                !_connectedSessionVaults.contains(vaultId)))) {
+      throw const FormatException('Member offline authority expired');
+    }
+  }
+
+  void _validateContextCoordinates({
+    required String vaultId,
+    required MemberOfflineAccessContext context,
+    required MemberSyncSessionAuthority authority,
+  }) {
+    if (context.principalId != authority.principalId ||
+        context.memberId != authority.principalId ||
+        context.organizationId != authority.organizationId ||
+        context.organizationMembershipGeneration !=
+            authority.organizationMembershipGeneration ||
+        context.offlinePolicy != authority.offlinePolicy ||
+        context.offlinePolicyVersion != authority.offlinePolicyVersion ||
+        context.vaultId != vaultId ||
+        context.notAfter != context.issuedAt.add(context.leaseDuration)) {
+      throw const FormatException('Member access context binding mismatch');
+    }
+  }
+
+  void _validateMemberVaultKeyCoordinates(
+    MemberOfflineAccessContext context,
+    Map<String, dynamic> memberVaultKey,
+  ) {
+    final wrapped = memberVaultKey['wrappedVaultKey'];
+    final descriptor = wrapped is Map ? wrapped['descriptor'] : null;
+    final scope = descriptor is Map ? descriptor['scope'] : null;
+    if (descriptor is! Map ||
+        scope is! Map ||
+        scope['organizationId'] != context.organizationId ||
+        scope['vaultId'] != context.vaultId ||
+        scope['memberId'] != context.memberId ||
+        descriptor['memberKeyGeneration'] != context.memberKeyGeneration ||
+        descriptor['wrappedKeyVersion'] != context.vaultKeyVersion ||
+        descriptor['recipientKeyVersion'] !=
+            context.memberRecipientKeyVersion ||
+        descriptor['recipientFingerprint'] !=
+            context.memberRecipientKeyFingerprint) {
+      throw const FormatException('Member Vault key binding mismatch');
+    }
+  }
+
+  void _validateAccessContextContinuation(
+    MemberOfflineAccessContext? previous,
+    MemberOfflineAccessContext current,
+  ) {
+    if (previous == null) return;
+    Map<String, Object?> binding(MemberOfflineAccessContext value) => {
+      'contextVersion': value.contextVersion,
+      'principalId': value.principalId,
+      'organizationId': value.organizationId,
+      'organizationMembershipGeneration':
+          value.organizationMembershipGeneration,
+      'vaultId': value.vaultId,
+      'memberId': value.memberId,
+      'memberKeyGeneration': value.memberKeyGeneration,
+      'vaultKeyVersion': value.vaultKeyVersion,
+      'memberRecipientKeyVersion': value.memberRecipientKeyVersion,
+      'memberRecipientKeyFingerprint': value.memberRecipientKeyFingerprint,
+      'offlinePolicy': value.offlinePolicy,
+      'offlinePolicyVersion': value.offlinePolicyVersion,
+    };
+    if (_canonicalJson(binding(previous)) != _canonicalJson(binding(current)) ||
+        current.notAfter.isBefore(previous.notAfter)) {
+      throw const FormatException('Member access context changed mid-stream');
+    }
+  }
+
+  void _scheduleLeaseExpiry(
+    String vaultId,
+    MemberOfflineAccessContext context,
+  ) {
+    _leaseTimers.remove(vaultId)?.cancel();
+    if (context.offlinePolicy == 'disabled') return;
+    final delay = context.notAfter.difference(_now().toUtc());
+    if (delay <= Duration.zero) {
+      unawaited(_purgeExpiredVault(vaultId));
+      return;
+    }
+    _leaseTimers[vaultId] = Timer(
+      delay,
+      () => unawaited(_purgeExpiredVault(vaultId)),
+    );
+  }
+
+  Future<void> _purgeExpiredVault(String vaultId) async {
+    try {
+      await purgeVault(vaultId);
+    } on Object {
+      // purgeVault clears decrypted state before attempting durable deletion.
+    }
+  }
+
+  String _canonicalJson(Object? value) => jsonEncode(_sortedJson(value));
+
+  Object? _sortedJson(Object? value) {
+    if (value is Map) {
+      final keys = value.keys.map((key) => '$key').toList()..sort();
+      return <String, Object?>{
+        for (final key in keys) key: _sortedJson(value[key]),
+      };
+    }
+    if (value is List) return value.map(_sortedJson).toList(growable: false);
+    return value;
   }
 
   void _validatePageCount(List<MemberSyncItemModel> items) {
@@ -437,84 +1119,58 @@ final class MemberSyncService implements MemberSyncCoordinator {
     }
   }
 
+  void _requireReadable(String vaultId, int generation) {
+    if (generation != _lockGeneration || _revokedVaults.contains(vaultId)) {
+      throw const LocalMemberEntryReadInvalidatedException();
+    }
+  }
+
   void _publishIndexUpdate(String vaultId) {
     if (!_indexUpdates.isClosed) _indexUpdates.add(vaultId);
   }
 
+  void _publishDurableUpdate(String vaultId) {
+    if (!_durableUpdates.isClosed) _durableUpdates.add(vaultId);
+  }
+
   Future<List<MemberIndexEntry>> _decryptPage(
     List<MemberSyncItemModel> items,
+    String organizationId,
     String vaultId,
     Uint8List vaultKey,
     int minimumGeneration,
+    int expectedVaultKeyVersion,
   ) async {
     final output = <MemberIndexEntry>[];
-    final failures = <String, int>{};
     for (var offset = 0; offset < items.length; offset += decryptConcurrency) {
       final end = (offset + decryptConcurrency).clamp(0, items.length);
       output.addAll(
         await Future.wait(
-          items.sublist(offset, end).map((item) async {
-            try {
-              return await _decrypt(item, vaultId, vaultKey, minimumGeneration);
-            } on FormatException {
-              failures.update(
-                'head-binding',
-                (value) => value + 1,
-                ifAbsent: () => 1,
-              );
-              return _corrupt(item);
-            } on VaultPlaintextFormatException catch (error) {
-              final code = _plaintextFailureCode(error.message);
-              failures.update(code, (value) => value + 1, ifAbsent: () => 1);
-              return _corrupt(item);
-            } on EnvelopeException catch (error) {
-              final code = switch (error.kind) {
-                EnvelopeErrorKind.authenticationFailed =>
-                  'envelope-authentication',
-                EnvelopeErrorKind.invalidDescriptor => 'envelope-descriptor',
-                EnvelopeErrorKind.invalidPayload => 'envelope-payload',
-                EnvelopeErrorKind.unsupportedProtocol => 'envelope-protocol',
-                EnvelopeErrorKind.unsupportedSuite => 'envelope-suite',
-              };
-              failures.update(code, (value) => value + 1, ifAbsent: () => 1);
-              return _corrupt(item);
-            }
-          }),
+          items
+              .sublist(offset, end)
+              .map(
+                (item) => _decrypt(
+                  item,
+                  organizationId,
+                  vaultId,
+                  vaultKey,
+                  minimumGeneration,
+                  expectedVaultKeyVersion,
+                ),
+              ),
         ),
-      );
-    }
-    if (failures.isNotEmpty) {
-      final summary = failures.entries
-          .map((entry) => '${entry.key}:${entry.value}')
-          .join(',');
-      AppLogger.w(
-        'Entry',
-        'MemberIndex validation rejected page projections [$summary]',
       );
     }
     return output;
   }
 
-  String _plaintextFailureCode(String message) {
-    if (message.contains('urlDomain')) return 'plaintext-url-domain';
-    if (message.contains('icon')) return 'plaintext-icon';
-    if (message.contains('color')) return 'plaintext-color';
-    if (message.contains('customIndex')) return 'plaintext-custom-index';
-    if (message.contains('entryType')) return 'plaintext-entry-type';
-    if (message.contains('memberLabel')) return 'plaintext-member-label';
-    if (message.contains('searchFields')) return 'plaintext-search-fields';
-    if (message.contains('compact MemberIndex')) return 'plaintext-compact';
-    if (message.contains('schema') || message.contains('keys')) {
-      return 'plaintext-shape';
-    }
-    return 'plaintext-contract';
-  }
-
   Future<MemberIndexEntry> _decrypt(
     MemberSyncItemModel item,
+    String organizationId,
     String vaultId,
     Uint8List vaultKey,
     int minimumGeneration,
+    int expectedVaultKeyVersion,
   ) async {
     final entryKey = item.entryKey!;
     final memberIndex = item.memberIndex!;
@@ -522,9 +1178,18 @@ final class MemberSyncService implements MemberSyncCoordinator {
     try {
       _validateHeadCoordinates(
         item,
+        organizationId,
         vaultId,
         entryKey,
         memberIndex,
+        minimumGeneration,
+        expectedVaultKeyVersion,
+      );
+      _validateSecretCoordinates(
+        item,
+        organizationId,
+        vaultId,
+        item.memberSecret!,
         minimumGeneration,
       );
       entryDek = await _entryCrypto.openEntryDek(
@@ -546,10 +1211,12 @@ final class MemberSyncService implements MemberSyncCoordinator {
 
   void _validateHeadCoordinates(
     MemberSyncItemModel item,
+    String organizationId,
     String vaultId,
     Map<String, dynamic> entryKey,
     Map<String, dynamic> memberIndex,
     int minimumGeneration,
+    int expectedVaultKeyVersion,
   ) {
     Map<String, dynamic> descriptor(Map<String, dynamic> envelope) {
       final value = envelope['descriptor'];
@@ -561,20 +1228,53 @@ final class MemberSyncService implements MemberSyncCoordinator {
     final index = descriptor(memberIndex);
     final keyScope = key['scope'];
     final indexScope = index['scope'];
+    final keyBinding = key['binding'];
     final generation = key['memberKeyGeneration'];
     if (keyScope is! Map ||
         indexScope is! Map ||
+        keyBinding is! Map ||
+        keyScope['organizationId'] != organizationId ||
+        indexScope['organizationId'] != organizationId ||
         keyScope['vaultId'] != vaultId ||
         indexScope['vaultId'] != vaultId ||
         keyScope['entryId'] != item.entryId ||
         indexScope['entryId'] != item.entryId ||
+        key['resourceRevision'] != item.currentRevision ||
         index['resourceRevision'] != item.memberIndexRevision ||
+        item.memberIndexRevision != item.currentRevision ||
         key['keyVersion'] != item.currentKeyVersion ||
         index['keyVersion'] != item.currentKeyVersion ||
+        keyBinding['wrappingVaultKeyVersion'] != expectedVaultKeyVersion ||
         generation != index['memberKeyGeneration'] ||
         generation is! int ||
-        generation < minimumGeneration) {
+        generation != minimumGeneration) {
       throw const FormatException('Member sync head binding mismatch');
+    }
+  }
+
+  void _validateSecretCoordinates(
+    MemberSyncItemModel item,
+    String organizationId,
+    String vaultId,
+    Map<String, dynamic> memberSecret,
+    int minimumGeneration,
+  ) {
+    final descriptorValue = memberSecret['descriptor'];
+    if (descriptorValue is! Map) {
+      throw const FormatException('Missing MemberSecret descriptor');
+    }
+    final descriptor = Map<String, dynamic>.from(descriptorValue);
+    final scope = descriptor['scope'];
+    final generation = descriptor['memberKeyGeneration'];
+    if (scope is! Map ||
+        scope['organizationId'] != organizationId ||
+        scope['vaultId'] != vaultId ||
+        scope['entryId'] != item.entryId ||
+        descriptor['resourceRevision'] != item.currentRevision ||
+        descriptor['keyVersion'] != item.currentKeyVersion ||
+        generation is! int ||
+        generation != minimumGeneration) {
+      throw const FormatException('MemberSecret head binding mismatch');
     }
   }
 
@@ -599,6 +1299,7 @@ final class MemberSyncService implements MemberSyncCoordinator {
       memberLabel: index.memberLabel,
       searchFields: fields,
       revision: item.memberIndexRevision!,
+      currentKeyVersion: item.currentKeyVersion!,
       state: _state(item.state),
       autofillDomains: index.urlDomain == null ? const [] : [index.urlDomain!],
       iconReference: switch (index.icon) {
@@ -687,6 +1388,7 @@ final class MemberSyncService implements MemberSyncCoordinator {
       memberLabel: memberLabel,
       searchFields: searchFields,
       revision: item.memberIndexRevision!,
+      currentKeyVersion: item.currentKeyVersion!,
       state: _state(item.state),
       autofillDomains: autofillDomains,
       iconReference: iconReference,
@@ -704,26 +1406,12 @@ final class MemberSyncService implements MemberSyncCoordinator {
     return value;
   }
 
-  MemberIndexEntry _corrupt(MemberSyncItemModel item) => MemberIndexEntry(
-    entryId: item.entryId,
-    entryType: 1,
-    memberLabel: _shortId(item.entryId),
-    searchFields: const [],
-    revision: item.memberIndexRevision!,
-    state: _state(item.state),
-    corrupt: true,
-  );
-
   MemberEntryState _state(Object? value) => switch (value) {
     'active' || 'Active' || 0 || 1 => MemberEntryState.active,
     'archived' || 'Archived' || 2 => MemberEntryState.archived,
     'deleted' || 'Deleted' || 3 => MemberEntryState.deleted,
     _ => throw const FormatException('Malformed Member Entry state'),
   };
-
-  String _shortId(String value) => value.length <= 15
-      ? value
-      : '${value.substring(0, 8)}…${value.substring(value.length - 6)}';
 
   Stream<List<MemberSyncItemModel>> _chunk(
     Stream<MemberSyncItemModel> source,

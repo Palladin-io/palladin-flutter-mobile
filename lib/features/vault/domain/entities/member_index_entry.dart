@@ -8,6 +8,7 @@ final class MemberIndexEntry {
     required this.memberLabel,
     required this.searchFields,
     required this.revision,
+    this.currentKeyVersion = 1,
     required this.state,
     this.autofillDomains = const [],
     this.iconReference,
@@ -19,6 +20,7 @@ final class MemberIndexEntry {
   final String memberLabel;
   final List<String> searchFields;
   final String revision;
+  final int currentKeyVersion;
   final MemberEntryState state;
 
   /// Member-authorized origins eligible for exact-host system AutoFill.

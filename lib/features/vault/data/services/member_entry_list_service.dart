@@ -1,8 +1,11 @@
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
+
 import '../../domain/entities/member_index_entry.dart';
 import '../datasources/vault_remote_datasource.dart';
 import 'member_sync_service.dart';
+import 'member_sync_session_authority_provider.dart';
 import 'member_vault_key_context_store.dart';
 import 'vault_rotation_crypto_service.dart';
 
@@ -21,15 +24,18 @@ final class MemberEntryListService implements MemberEntryListLoader {
     required VaultRemoteDatasource vaults,
     required VaultRotationCryptoService keys,
     required MemberSyncCoordinator sync,
+    required MemberSyncSessionAuthorityProvider authorityProvider,
     MemberVaultKeyContextStore? keyContexts,
   }) : _vaults = vaults,
        _keys = keys,
        _sync = sync,
+       _authorityProvider = authorityProvider,
        _keyContexts = keyContexts ?? MemberVaultKeyContextStore();
 
   final VaultRemoteDatasource _vaults;
   final VaultRotationCryptoService _keys;
   final MemberSyncCoordinator _sync;
+  final MemberSyncSessionAuthorityProvider _authorityProvider;
   final MemberVaultKeyContextStore _keyContexts;
   final Map<String, Future<List<MemberIndexEntry>>> _running = {};
   int _lockGeneration = 0;
@@ -51,6 +57,7 @@ final class MemberEntryListService implements MemberEntryListLoader {
     final privateKeyCopy = Uint8List.fromList(memberPrivateKey);
     final core = (() async {
       try {
+        final authority = await _authorityProvider.current();
         var currentContext =
             _keyContexts.get(vaultId) ??
             await _refreshKeyContext(vaultId, generation);
@@ -66,6 +73,8 @@ final class MemberEntryListService implements MemberEntryListLoader {
               vaultId: vaultId,
               vaultKey: vaultKey,
               minimumMemberKeyGeneration: currentContext.memberKeyGeneration,
+              authority: authority,
+              authoritativeMemberVaultKey: currentContext.memberVaultKey,
             );
             _requireCurrent(generation);
             return _sync.entries(vaultId);
@@ -84,6 +93,19 @@ final class MemberEntryListService implements MemberEntryListLoader {
           }
         }
         throw StateError('Member key context retry exhausted');
+      } on DioException catch (error) {
+        if (const {401, 403, 404}.contains(error.response?.statusCode)) {
+          await _sync.purgeVault(vaultId);
+          rethrow;
+        }
+        final authority = await _authorityProvider.current();
+        await _sync.unlockCached(
+          vaultId: vaultId,
+          memberPrivateKey: privateKeyCopy,
+          authority: authority,
+        );
+        _requireCurrent(generation);
+        return _sync.entries(vaultId);
       } finally {
         privateKeyCopy.fillRange(0, privateKeyCopy.length, 0);
       }

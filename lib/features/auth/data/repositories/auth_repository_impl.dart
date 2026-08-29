@@ -26,6 +26,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required this.secureStorage,
     required this.autoFillCacheInvalidator,
     required String googleServerClientId,
+    this.currentEntryCacheInvalidator,
     GoogleSignIn? googleSignIn,
     this.operationTimeout = const Duration(seconds: 4),
   }) : _googleSignIn =
@@ -45,6 +46,7 @@ class AuthRepositoryImpl implements AuthRepository {
   final AutoFillCacheInvalidator autoFillCacheInvalidator;
   final GoogleSignIn _googleSignIn;
   final Duration operationTimeout;
+  final CurrentEntryCacheInvalidator? currentEntryCacheInvalidator;
 
   @override
   Future<AuthResultModel> loginWithGoogle() async {
@@ -143,6 +145,19 @@ class AuthRepositoryImpl implements AuthRepository {
     // platform key before local auth tokens are cleared, so a wedged provider
     // callback cannot leave credentials accessible after logout.
     await autoFillCacheInvalidator.revokeAccess().timeout(operationTimeout);
+    try {
+      await currentEntryCacheInvalidator?.clearCurrentEntryCache().timeout(
+        operationTimeout,
+      );
+    } catch (e) {
+      // Runtime access is revoked independently by the Vault service before
+      // durable deletion. A wedged database must not preserve authentication.
+      AppLogger.w(
+        'Auth',
+        'Current Entry cache cleanup failed (access quarantined): '
+            '${e.runtimeType}',
+      );
+    }
 
     // Removing provider identities is best-effort. Access is already revoked
     // above, so stale identity metadata cannot release cached credentials.

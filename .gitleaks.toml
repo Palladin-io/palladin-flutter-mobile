@@ -16,6 +16,7 @@ paths = [
 description = "Deterministic cryptographic fixtures with no production secrets"
 paths = [
   '''^test/fixtures/crypto/envelope-xchacha-hkdf\.json$''',
+  '''^test/fixtures/current_member_entry_sync_v2/(?:valid-snapshot|tombstone-reset)\.json$''',
   '''^test/fixtures/vault_protocol_2/negative/corruption\.json$''',
   '''^test/fixtures/vault_protocol_2/vectors/envelopes\.json$''',
   '''^test/fixtures/vault_protocol_2/vectors/key-derivation\.json$''',

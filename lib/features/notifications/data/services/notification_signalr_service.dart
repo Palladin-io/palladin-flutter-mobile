@@ -5,6 +5,63 @@ import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../domain/entities/push_message.dart';
 
+/// Value-free hint that a Vault's authoritative Member stream advanced.
+final class VaultSyncInvalidation {
+  const VaultSyncInvalidation({
+    required this.vaultId,
+    required this.memberSequence,
+    required this.mutationVersion,
+    required this.removed,
+  });
+
+  factory VaultSyncInvalidation.fromJson(Map<String, dynamic> json) {
+    const fields = {
+      'protocolVersion',
+      'vaultId',
+      'memberSequence',
+      'mutationVersion',
+      'removed',
+    };
+    final vaultId = json['vaultId'];
+    final memberSequence = json['memberSequence'];
+    final mutationVersion = json['mutationVersion'];
+    final removed = json['removed'];
+    final decimal = RegExp(r'^(?:0|[1-9][0-9]*)$');
+    final uuid = RegExp(
+      r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+    );
+    const maximumUint64 = '18446744073709551615';
+    bool canonicalUint64(Object? value) {
+      if (value is! String || !decimal.hasMatch(value)) return false;
+      return value.length < maximumUint64.length ||
+          (value.length == maximumUint64.length &&
+              value.compareTo(maximumUint64) <= 0);
+    }
+
+    if (json.keys.toSet().difference(fields).isNotEmpty ||
+        !json.keys.toSet().containsAll(fields) ||
+        json['protocolVersion'] != 1 ||
+        vaultId is! String ||
+        !uuid.hasMatch(vaultId) ||
+        !canonicalUint64(memberSequence) ||
+        !canonicalUint64(mutationVersion) ||
+        removed is! bool) {
+      throw const FormatException('Malformed Vault sync invalidation');
+    }
+    return VaultSyncInvalidation(
+      vaultId: vaultId,
+      memberSequence: memberSequence,
+      mutationVersion: mutationVersion,
+      removed: removed,
+    );
+  }
+
+  final String vaultId;
+  final String memberSequence;
+  final String mutationVersion;
+  final bool removed;
+}
+
 /// In-app real-time channel — connects to the backend SignalR hub
 /// (`/hubs/notifications`) while the app is in the foreground, mirroring the
 /// web panel. This is the mobile equivalent of the web's live updates: it
@@ -29,6 +86,13 @@ class NotificationSignalRService {
   /// `app.dart` to refresh the affected list (agents / grants) live.
   void Function(PushMessage message)? onNotification;
 
+  /// Invoked for structural Vault invalidations only. Ciphertext is repaired
+  /// through authenticated REST by the application lifecycle coordinator.
+  void Function(VaultSyncInvalidation invalidation)? onVaultSyncInvalidation;
+
+  /// Invoked after automatic transport reconnection to request a full repair.
+  void Function()? onReconnected;
+
   String get _hubUrl => '${config.apiBaseUrl}/hubs/notifications';
 
   /// Opens the hub connection (idempotent). Best-effort: a failed start is
@@ -49,6 +113,8 @@ class NotificationSignalRService {
         .build();
 
     connection.on('ReceiveNotification', _handleNotification);
+    connection.on('ReceiveVaultSyncInvalidation', _handleVaultSyncInvalidation);
+    connection.onreconnected(({connectionId}) => onReconnected?.call());
 
     try {
       await connection.start();
@@ -104,5 +170,22 @@ class NotificationSignalRService {
     if (message == null) return;
     AppLogger.d('SignalR', 'Structural notification received');
     onNotification?.call(message);
+  }
+
+  void _handleVaultSyncInvalidation(List<Object?>? arguments) {
+    if (arguments == null ||
+        arguments.length != 1 ||
+        arguments.single is! Map) {
+      return;
+    }
+    try {
+      final invalidation = VaultSyncInvalidation.fromJson(
+        Map<String, dynamic>.from(arguments.single! as Map),
+      );
+      AppLogger.d('SignalR', 'Vault sync invalidation received');
+      onVaultSyncInvalidation?.call(invalidation);
+    } on FormatException {
+      AppLogger.w('SignalR', 'Malformed Vault sync invalidation ignored');
+    }
   }
 }

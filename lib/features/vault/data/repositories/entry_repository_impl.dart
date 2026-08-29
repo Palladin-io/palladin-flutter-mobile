@@ -18,6 +18,8 @@ import '../models/import_entries_request.dart';
 import '../models/update_entry_request.dart';
 import '../services/entry_crypto_service.dart';
 import '../services/canonical_import_projection_service.dart';
+import '../services/canonical_entry_detail_service.dart';
+import '../services/local_current_entry_service.dart';
 
 /// Concrete implementation of [EntryRepository].
 ///
@@ -35,6 +37,7 @@ class EntryRepositoryImpl implements EntryRepository {
     required this.cryptoService,
     this.canonicalImport,
     this.autoFillMutationNotifier,
+    this.localCurrentEntry,
   });
 
   final EntryRemoteDatasource entryDatasource;
@@ -42,6 +45,7 @@ class EntryRepositoryImpl implements EntryRepository {
   final EntryCryptoService cryptoService;
   final CanonicalImportProjectionService? canonicalImport;
   final AutoFillMutationNotifier? autoFillMutationNotifier;
+  final LocalCurrentEntryService? localCurrentEntry;
   final Map<String, _CanonicalImportProgress> _canonicalImports = {};
 
   @override
@@ -128,6 +132,60 @@ class EntryRepositoryImpl implements EntryRepository {
     String? wrappedVK,
   }) async {
     AppLogger.d('Entry', 'Revealing entry id=$entryId');
+    final local = localCurrentEntry;
+    if (local != null) {
+      try {
+        final snapshot = await local.revealCurrent(
+          vaultId: vaultId,
+          entryId: entryId,
+          memberPrivateKey: privateKey,
+        );
+        try {
+          final secret = snapshot.secret;
+          final wireType = secret['entryType'];
+          final label = secret['memberLabel'];
+          final currentRevision = snapshot.entry['currentRevision'];
+          final currentKeyVersion = snapshot.entry['currentKeyVersion'];
+          if (wireType is! int ||
+              label is! String ||
+              currentRevision is! String ||
+              currentKeyVersion is! int) {
+            throw const EntryException(EntryErrorKind.cryptoFailure);
+          }
+          final payload = Map<String, dynamic>.from(snapshot.payload);
+          final updatedAt = DateTime.tryParse(
+            snapshot.entry['updatedAt'] as String? ?? '',
+          );
+          final entry = EntryEntity(
+            id: entryId,
+            vaultId: vaultId,
+            label: label,
+            description: secret['description'] as String?,
+            icon: secret['iconReference'] as String?,
+            type: EntryTypeExtension.fromWire(wireType),
+            urlDomain: payload['urlDomain'] as String?,
+            createdAt: updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+            updatedAt: updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+            currentRevision: currentRevision,
+            currentKeyVersion: currentKeyVersion,
+          );
+          if (entry.type == EntryType.creditCard) {
+            CreditCardPayload.fromJson(payload);
+          }
+          return RevealedEntry(entry: entry, payload: payload);
+        } finally {
+          snapshot.clear();
+        }
+      } on CanonicalEntryDetailException catch (error) {
+        throw EntryException(switch (error.kind) {
+          CanonicalEntryDetailError.conflict => EntryErrorKind.validation,
+          CanonicalEntryDetailError.corrupt => EntryErrorKind.cryptoFailure,
+          CanonicalEntryDetailError.forbidden => EntryErrorKind.forbidden,
+          CanonicalEntryDetailError.notFound => EntryErrorKind.notFound,
+          CanonicalEntryDetailError.network => EntryErrorKind.networkError,
+        });
+      }
+    }
     final detail = await _fetchDetail(vaultId, entryId);
     // Prefer the wrappedVK threaded down from the vault detail load —
     // falling back to a fetch keeps the call resilient when callers

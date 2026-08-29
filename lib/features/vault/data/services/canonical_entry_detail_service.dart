@@ -151,7 +151,7 @@ class CanonicalEntryExportSession {
           entry['id'] as String,
           expectedRevision: revision,
         );
-        final adapted = _owner._adaptCanonicalSecret(
+        final adapted = _owner.adaptCanonicalSecret(
           await _owner._entryV2.openMemberSecret(
             entryKey: wrapper,
             memberSecret: secret,
@@ -440,7 +440,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           expected.id,
           expectedRevision: historyItem['revision']?.toString(),
         );
-        final adapted = _adaptCanonicalSecret(
+        final adapted = adaptCanonicalSecret(
           await _entryV2.openMemberSecret(
             entryKey: wrapper,
             memberSecret: secret,
@@ -553,7 +553,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           memberSecret: _map(entry, 'memberSecret'),
           vaultKey: vaultKey,
         );
-        final adapted = _adaptCanonicalSecret(value);
+        final adapted = adaptCanonicalSecret(value);
         final payload = adapted['content'];
         if (payload is! Map) {
           throw const FormatException('Malformed MemberSecret');
@@ -693,7 +693,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     }
   }
 
-  Map<String, dynamic> _adaptCanonicalSecret(Map<String, dynamic> value) {
+  /// Adapts a verified protocol-v2 MemberSecret to the legacy UI payload.
+  Map<String, dynamic> adaptCanonicalSecret(Map<String, dynamic> value) {
     if (value['schema'] != MemberSecret.schema ||
         value['content'] is! Map ||
         value['agentFieldAccess'] is! Map) {
@@ -803,6 +804,24 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     try {
       if (type == EntryType.creditCard) {
         CreditCardPayload.rejectRetiredDedicatedFields(content);
+      }
+      if (!snapshot.entry.containsKey('agentDiscoveryRevisionHighWatermark')) {
+        final authoritative = await _entries.getCanonicalEntry(
+          expected.vaultId,
+          expected.id,
+        );
+        _validateScope(authoritative, expected);
+        if (authoritative['currentRevision'] !=
+                snapshot.entry['currentRevision'] ||
+            authoritative['currentKeyVersion'] !=
+                snapshot.entry['currentKeyVersion']) {
+          throw const CanonicalEntryDetailException(
+            CanonicalEntryDetailError.conflict,
+          );
+        }
+        snapshot.entry
+          ..clear()
+          ..addAll(authoritative);
       }
       _validateScope(snapshot.entry, expected);
       final vault = await _vaults.getEncryptedVault(expected.vaultId);
@@ -2395,7 +2414,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     AgentVisibilityPolicy policy,
   })
   _grantProjection(MemberSecret secret) {
-    final adapted = _adaptCanonicalSecret(
+    final adapted = adaptCanonicalSecret(
       Map<String, dynamic>.from(secret.toJson()),
     );
     final type = EntryTypeExtension.fromWire(adapted['entryType'] as int);

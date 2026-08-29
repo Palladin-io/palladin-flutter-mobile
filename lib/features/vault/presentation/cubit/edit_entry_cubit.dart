@@ -9,6 +9,7 @@ import '../../domain/entities/entry_entity.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
 import '../../domain/repositories/entry_repository.dart';
 import '../../data/services/canonical_entry_detail_service.dart';
+import '../../data/services/local_current_entry_service.dart';
 import 'edit_entry_state.dart';
 
 export 'edit_entry_state.dart';
@@ -25,11 +26,15 @@ export 'edit_entry_state.dart';
 /// [EntryListCubit.revealedEntries]) should call [setReady] instead of
 /// [revealForEdit] to skip the redundant network+crypto round-trip.
 class EditEntryCubit extends Cubit<EditEntryState> {
-  EditEntryCubit({required this.repository, required this.canonicalService})
-    : super(const EditEntryInitial());
+  EditEntryCubit({
+    required this.repository,
+    required this.canonicalService,
+    this.localCurrentEntry,
+  }) : super(const EditEntryInitial());
 
   final EntryRepository repository;
   final CanonicalEntryDetailService canonicalService;
+  final LocalCurrentEntryService? localCurrentEntry;
   CanonicalEntrySnapshot? _snapshot;
   int _sensitiveEpoch = 0;
 
@@ -85,10 +90,15 @@ class EditEntryCubit extends Cubit<EditEntryState> {
     AppLogger.d('Entry', 'Revealing entry id=${entry.id} for edit');
     emit(const EditEntryRevealing());
     try {
-      final snapshot = await canonicalService.reveal(
-        expected: entry,
-        memberPrivateKey: privateKey,
-      );
+      final snapshot =
+          await (localCurrentEntry?.reveal(
+                expected: entry,
+                memberPrivateKey: privateKey,
+              ) ??
+              canonicalService.reveal(
+                expected: entry,
+                memberPrivateKey: privateKey,
+              ));
       if (epoch != _sensitiveEpoch || isClosed) {
         snapshot.payload.clear();
         snapshot.secret.clear();

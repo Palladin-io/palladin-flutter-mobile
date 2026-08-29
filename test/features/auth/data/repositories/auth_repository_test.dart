@@ -6,11 +6,13 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
+import 'package:mobile_palladin/core/storage/biometric_key_storage.dart';
 import 'package:mobile_palladin/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:mobile_palladin/features/auth/data/models/auth_result_model.dart';
 import 'package:mobile_palladin/features/auth/data/models/refresh_token_result_model.dart';
 import 'package:mobile_palladin/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:mobile_palladin/features/auth/domain/auth_provider_id.dart';
+import 'package:mobile_palladin/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mobile_palladin/features/autofill/domain/autofill_cache_invalidator.dart';
 
 class MockAuthRemoteDatasource extends Mock implements AuthRemoteDatasource {}
@@ -29,12 +31,16 @@ class MockFlutterSecureStorage extends Mock implements FlutterSecureStorage {}
 class MockAutoFillCacheInvalidator extends Mock
     implements AutoFillCacheInvalidator {}
 
+class MockCurrentEntryCacheInvalidator extends Mock
+    implements CurrentEntryCacheInvalidator {}
+
 void main() {
   late MockAuthRemoteDatasource mockDatasource;
   late MockSecureTokenStorage mockStorage;
   late MockGoogleSignIn mockGoogleSignIn;
   late MockFlutterSecureStorage mockSecureStorage;
   late MockAutoFillCacheInvalidator mockAutoFillCacheInvalidator;
+  late MockCurrentEntryCacheInvalidator mockCurrentEntryCacheInvalidator;
   late AuthRepositoryImpl repository;
 
   const authResult = AuthResultModel(
@@ -54,10 +60,14 @@ void main() {
     mockGoogleSignIn = MockGoogleSignIn();
     mockSecureStorage = MockFlutterSecureStorage();
     mockAutoFillCacheInvalidator = MockAutoFillCacheInvalidator();
+    mockCurrentEntryCacheInvalidator = MockCurrentEntryCacheInvalidator();
     when(
       () => mockAutoFillCacheInvalidator.revokeAccess(),
     ).thenAnswer((_) async {});
     when(() => mockAutoFillCacheInvalidator.clear()).thenAnswer((_) async {});
+    when(
+      () => mockCurrentEntryCacheInvalidator.clearCurrentEntryCache(),
+    ).thenAnswer((_) async {});
     when(
       () => mockSecureStorage.delete(
         key: any(named: 'key'),
@@ -70,6 +80,7 @@ void main() {
       tokenStorage: mockStorage,
       secureStorage: mockSecureStorage,
       autoFillCacheInvalidator: mockAutoFillCacheInvalidator,
+      currentEntryCacheInvalidator: mockCurrentEntryCacheInvalidator,
       googleServerClientId: 'test-server-client-id',
       googleSignIn: mockGoogleSignIn,
       operationTimeout: const Duration(milliseconds: 20),
@@ -179,6 +190,51 @@ void main() {
       await repository.logout();
 
       verify(() => mockStorage.clearAll()).called(1);
+    });
+
+    test(
+      'clears tokens and biometric marker when Entry cache cleanup fails',
+      () async {
+        when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
+        when(
+          () => mockCurrentEntryCacheInvalidator.clearCurrentEntryCache(),
+        ).thenThrow(StateError('simulated database failure'));
+        when(() => mockStorage.clearAll()).thenAnswer((_) async {});
+        when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
+
+        await repository.logout();
+
+        verify(() => mockStorage.clearAll()).called(1);
+        verify(
+          () => mockSecureStorage.delete(
+            key: BiometricKeyStorage.legacyRawKey,
+            iOptions: any(named: 'iOptions'),
+            aOptions: any(named: 'aOptions'),
+          ),
+        ).called(1);
+        verify(
+          () => mockSecureStorage.delete(
+            key: BiometricKeyStorage.enrolledMarkerKey,
+            iOptions: any(named: 'iOptions'),
+            aOptions: any(named: 'aOptions'),
+          ),
+        ).called(1);
+      },
+    );
+
+    test('clears tokens when Entry cache cleanup times out', () async {
+      when(() => mockStorage.refreshToken).thenAnswer((_) async => null);
+      final cleanup = Completer<void>();
+      when(
+        () => mockCurrentEntryCacheInvalidator.clearCurrentEntryCache(),
+      ).thenAnswer((_) => cleanup.future);
+      when(() => mockStorage.clearAll()).thenAnswer((_) async {});
+      when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
+
+      await repository.logout();
+
+      verify(() => mockStorage.clearAll()).called(1);
+      cleanup.complete();
     });
 
     test('attempts AutoFill revocation before clearing auth storage', () async {
