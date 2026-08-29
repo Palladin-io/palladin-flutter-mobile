@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -20,6 +21,7 @@ final class _FakeRemote implements MemberSyncRemote {
   late MemberDeltaResult deltaResult;
   int snapshotRequests = 0;
   int deltaRequests = 0;
+  Completer<MemberDeltaResult>? deltaCompleter;
 
   @override
   Future<MemberSnapshotPage> snapshot({
@@ -39,6 +41,8 @@ final class _FakeRemote implements MemberSyncRemote {
     int pageSize = 100,
   }) async {
     deltaRequests += 1;
+    final pending = deltaCompleter;
+    if (pending != null) return pending.future;
     return deltaResult;
   }
 }
@@ -47,6 +51,7 @@ final class _MemoryCache implements MemberSyncCache {
   final Map<String, MemberSyncCacheState> states = {};
   final Map<String, Map<String, MemberSyncItemModel>> active = {};
   final Map<String, Map<String, MemberSyncItemModel>> staged = {};
+  bool failClearVault = false;
 
   @override
   Future<MemberSyncCacheState?> state(String vaultId) async => states[vaultId];
@@ -138,6 +143,7 @@ final class _MemoryCache implements MemberSyncCache {
 
   @override
   Future<void> clearVault(String vaultId) async {
+    if (failClearVault) throw StateError('simulated storage failure');
     states.remove(vaultId);
     active.remove(vaultId);
     staged.remove(vaultId);
@@ -328,6 +334,61 @@ void main() {
     expect(cache.active, isEmpty);
   });
 
+  test('stale EntryKey resource revision rejects whole generation', () async {
+    final itemJson = snapshot.items.single.toJson();
+    final entryKey = Map<String, dynamic>.from(itemJson['entryKey'] as Map);
+    final descriptor = Map<String, dynamic>.from(entryKey['descriptor'] as Map);
+    entryKey['descriptor'] = {...descriptor, 'resourceRevision': '11'};
+    itemJson['entryKey'] = entryKey;
+    remote.snapshotPage = MemberSnapshotPage(
+      snapshotBaseSequence: snapshot.snapshotBaseSequence,
+      accessContext: snapshot.accessContext,
+      memberVaultKey: snapshot.memberVaultKey,
+      items: [MemberSyncItemModel.fromJson(itemJson)],
+    );
+
+    await expectLater(
+      service.synchronize(
+        vaultId: snapshot.accessContext.vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      ),
+      throwsFormatException,
+    );
+    expect(cache.states, isEmpty);
+  });
+
+  test('misbound EntryKey wrapping Vault-key version is rejected', () async {
+    final itemJson = snapshot.items.single.toJson();
+    final entryKey = Map<String, dynamic>.from(itemJson['entryKey'] as Map);
+    final descriptor = Map<String, dynamic>.from(entryKey['descriptor'] as Map);
+    entryKey['descriptor'] = {
+      ...descriptor,
+      'binding': {'wrappingVaultKeyVersion': 2},
+    };
+    itemJson['entryKey'] = entryKey;
+    remote.snapshotPage = MemberSnapshotPage(
+      snapshotBaseSequence: snapshot.snapshotBaseSequence,
+      accessContext: snapshot.accessContext,
+      memberVaultKey: snapshot.memberVaultKey,
+      items: [MemberSyncItemModel.fromJson(itemJson)],
+    );
+
+    await expectLater(
+      service.synchronize(
+        vaultId: snapshot.accessContext.vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      ),
+      throwsFormatException,
+    );
+    expect(cache.states, isEmpty);
+  });
+
   test('offline policy is bound to the authenticated token claims', () async {
     final wrongAuthority = MemberSyncSessionAuthority(
       principalId: authority.principalId,
@@ -387,5 +448,58 @@ void main() {
 
     expect(cache.states, isEmpty);
     expect(cache.active, isEmpty);
+  });
+
+  test('purge invalidates an in-flight delta before it can commit', () async {
+    await service.synchronize(
+      vaultId: snapshot.accessContext.vaultId,
+      vaultKey: Uint8List(32),
+      minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+      authority: authority,
+      authoritativeMemberVaultKey: snapshot.memberVaultKey,
+    );
+    final pending = Completer<MemberDeltaResult>();
+    remote.deltaCompleter = pending;
+    final synchronization = service.synchronize(
+      vaultId: snapshot.accessContext.vaultId,
+      vaultKey: Uint8List(32),
+      minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+      authority: authority,
+      authoritativeMemberVaultKey: snapshot.memberVaultKey,
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(remote.deltaRequests, 2);
+
+    await service.purgeVault(snapshot.accessContext.vaultId);
+    pending.complete(remote.deltaResult);
+
+    await expectLater(synchronization, throwsA(isA<Exception>()));
+    expect(cache.states, isEmpty);
+    expect(cache.active, isEmpty);
+  });
+
+  test('failed durable purge keeps local reads quarantined', () async {
+    await service.synchronize(
+      vaultId: snapshot.accessContext.vaultId,
+      vaultKey: Uint8List(32),
+      minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+      authority: authority,
+      authoritativeMemberVaultKey: snapshot.memberVaultKey,
+    );
+    cache.failClearVault = true;
+
+    await expectLater(
+      service.purgeVault(snapshot.accessContext.vaultId),
+      throwsStateError,
+    );
+
+    expect(
+      await service.readCurrent(
+        vaultId: snapshot.accessContext.vaultId,
+        entryId: snapshot.items.single.entryId,
+        authority: authority,
+      ),
+      isNull,
+    );
   });
 }

@@ -282,6 +282,14 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
           }
         } catch (error) {
           _memberIndexPreparation.lock();
+          for (final invalidation in batch.values) {
+            try {
+              await _memberSync.purgeVault(invalidation.vaultId);
+            } on Object {
+              // purgeVault quarantines the Vault in memory before its durable
+              // delete, so a storage failure still blocks local reads.
+            }
+          }
           AppLogger.w(
             'VaultSync',
             'Invalidation repair failed closed: ${error.runtimeType}',

@@ -151,6 +151,7 @@ final class MemberSyncService
   final Set<String> _connectedSessionVaults = {};
   final Set<String> _revokedVaults = {};
   final Map<String, Timer> _leaseTimers = {};
+  final Map<String, Future<void>> _vaultCommitTails = {};
   int _lockGeneration = 0;
 
   /// Emits a Vault id after its unlocked runtime index has been installed or
@@ -270,7 +271,7 @@ final class MemberSyncService
         allowConnectedDisabledPolicy: true,
       );
     } on FormatException {
-      await purgeVault(vaultId);
+      await _purgeVault(vaultId, invalidateInFlight: false);
       return _snapshot(
         vaultId,
         vaultKey,
@@ -323,6 +324,7 @@ final class MemberSyncService
           organizationId: authority.organizationId,
           vaultKey: vaultKey,
           minimumMemberKeyGeneration: state.accessContext.memberKeyGeneration,
+          expectedVaultKeyVersion: state.accessContext.vaultKeyVersion,
           generation: _lockGeneration,
         );
         _scheduleLeaseExpiry(vaultId, state.accessContext);
@@ -340,6 +342,7 @@ final class MemberSyncService
     required String organizationId,
     required Uint8List vaultKey,
     required int minimumMemberKeyGeneration,
+    required int expectedVaultKeyVersion,
     required int generation,
   }) async {
     final rebuilt = <String, MemberIndexEntry>{};
@@ -351,6 +354,7 @@ final class MemberSyncService
         vaultId,
         vaultKey,
         minimumMemberKeyGeneration,
+        expectedVaultKeyVersion,
       );
       _requireCurrent(generation);
       for (final entry in decrypted) {
@@ -451,6 +455,7 @@ final class MemberSyncService
           vaultId,
           vaultKey,
           minimumGeneration,
+          page.accessContext.vaultKeyVersion,
         );
         _requireCurrent(generation);
         for (final entry in decrypted) {
@@ -513,7 +518,7 @@ final class MemberSyncService
       );
       _requireCurrent(generation);
       if (result is MemberDeltaResetRequired) {
-        await purgeVault(vaultId);
+        await _purgeVault(vaultId, invalidateInFlight: false);
         throw const _MemberSnapshotRestartRequired(afterSnapshot: true);
       }
       final page = (result as MemberDeltaSuccess).page;
@@ -537,6 +542,7 @@ final class MemberSyncService
         vaultId,
         vaultKey,
         minimumGeneration,
+        page.accessContext.vaultKeyVersion,
       );
       _requireCurrent(generation);
       await _cache.applyStagedDelta(vaultId, page.items);
@@ -554,12 +560,16 @@ final class MemberSyncService
     } while (continuation != null);
 
     final observed = _now().toUtc();
-    await _cache.promoteSnapshot(
+    await _commitCache(
       vaultId,
-      sequence: applied,
-      accessContext: accessContext,
-      memberVaultKey: memberVaultKey,
-      maximumObservedWallTime: observed,
+      generation,
+      () => _cache.promoteSnapshot(
+        vaultId,
+        sequence: applied,
+        accessContext: accessContext,
+        memberVaultKey: memberVaultKey,
+        maximumObservedWallTime: observed,
+      ),
     );
     _requireCurrent(generation);
     _indexes[vaultId] = stagedIndex;
@@ -581,19 +591,25 @@ final class MemberSyncService
     int generation, {
     bool afterSnapshot = false,
   }) async {
+    final cachedState = await _cache.state(vaultId);
+    if (cachedState == null) {
+      throw const FormatException('Missing active Member sync state');
+    }
     if (!_indexes.containsKey(vaultId)) {
       await _unlockCached(
         vaultId: vaultId,
         organizationId: authority.organizationId,
         vaultKey: vaultKey,
         minimumMemberKeyGeneration: minimumGeneration,
+        expectedVaultKeyVersion: cachedState.accessContext.vaultKeyVersion,
         generation: generation,
       );
       _requireCurrent(generation);
     }
     String? continuation;
     var applied = afterSequence;
-    var previousAccessContext = (await _cache.state(vaultId))?.accessContext;
+    MemberOfflineAccessContext? previousAccessContext =
+        cachedState.accessContext;
     do {
       final result = await _remote.delta(
         vaultId: vaultId,
@@ -602,7 +618,7 @@ final class MemberSyncService
       );
       _requireCurrent(generation);
       if (result is MemberDeltaResetRequired) {
-        await purgeVault(vaultId);
+        await _purgeVault(vaultId, invalidateInFlight: false);
         throw _MemberSnapshotRestartRequired(afterSnapshot: afterSnapshot);
       }
       final page = (result as MemberDeltaSuccess).page;
@@ -628,16 +644,21 @@ final class MemberSyncService
         vaultId,
         vaultKey,
         minimumGeneration,
+        page.accessContext.vaultKeyVersion,
       );
       _requireCurrent(generation);
-      await _cache.applyDelta(
+      await _commitCache(
         vaultId,
-        sequence: page.appliedThroughSequence,
-        items: page.items,
-        accessContext: page.accessContext,
-        memberVaultKey: page.memberVaultKey,
-        maximumObservedWallTime: _maximumObservedWallTime(
-          await _cache.state(vaultId),
+        generation,
+        () async => _cache.applyDelta(
+          vaultId,
+          sequence: page.appliedThroughSequence,
+          items: page.items,
+          accessContext: page.accessContext,
+          memberVaultKey: page.memberVaultKey,
+          maximumObservedWallTime: _maximumObservedWallTime(
+            await _cache.state(vaultId),
+          ),
         ),
       );
       _publishDurableUpdate(vaultId);
@@ -695,6 +716,7 @@ final class MemberSyncService
         item.entryKey!,
         item.memberIndex!,
         state.accessContext.memberKeyGeneration,
+        state.accessContext.vaultKeyVersion,
       );
       _validateSecretCoordinates(
         item,
@@ -716,24 +738,37 @@ final class MemberSyncService
 
   /// Purges one active and staged generation after access loss/removal.
   @override
-  Future<void> purgeVault(String vaultId) async {
+  Future<void> purgeVault(String vaultId) =>
+      _purgeVault(vaultId, invalidateInFlight: true);
+
+  Future<void> _purgeVault(
+    String vaultId, {
+    required bool invalidateInFlight,
+  }) async {
     _revokedVaults.add(vaultId);
+    if (invalidateInFlight) {
+      _lockGeneration++;
+      _running.clear();
+    }
     _leaseTimers.remove(vaultId)?.cancel();
     _indexes.remove(vaultId);
     _connectedSessionVaults.remove(vaultId);
     _publishIndexUpdate(vaultId);
-    await _cache.clearVault(vaultId);
+    await _serializeVault(vaultId, () => _cache.clearVault(vaultId));
     _publishDurableUpdate(vaultId);
   }
 
   /// Deletes the complete local profile on logout.
   Future<void> purgeAll() async {
+    _lockGeneration++;
+    _running.clear();
     for (final timer in _leaseTimers.values) {
       timer.cancel();
     }
     _leaseTimers.clear();
     _indexes.clear();
     _connectedSessionVaults.clear();
+    await Future.wait(_vaultCommitTails.values.toList(growable: false));
     await _cache.clearAll();
     _revokedVaults.clear();
     _publishDurableUpdate('*');
@@ -741,6 +776,37 @@ final class MemberSyncService
 
   @override
   Future<void> clearCurrentEntryCache() => purgeAll();
+
+  Future<T> _commitCache<T>(
+    String vaultId,
+    int generation,
+    Future<T> Function() operation,
+  ) => _serializeVault(vaultId, () {
+    _requireCurrent(generation);
+    return operation();
+  });
+
+  Future<T> _serializeVault<T>(String vaultId, Future<T> Function() operation) {
+    final previous = _vaultCommitTails[vaultId] ?? Future<void>.value();
+    final completer = Completer<T>();
+    late final Future<void> tail;
+    tail = previous
+        .then<void>((_) {}, onError: (_, _) {})
+        .then<void>((_) async {
+          try {
+            completer.complete(await operation());
+          } catch (error, stackTrace) {
+            completer.completeError(error, stackTrace);
+          }
+        })
+        .whenComplete(() {
+          if (identical(_vaultCommitTails[vaultId], tail)) {
+            _vaultCommitTails.remove(vaultId);
+          }
+        });
+    _vaultCommitTails[vaultId] = tail;
+    return completer.future;
+  }
 
   void _validateDeltaPage(MemberDeltaPage page, String applied) {
     _validatePageCount(page.items);
@@ -971,6 +1037,7 @@ final class MemberSyncService
     String vaultId,
     Uint8List vaultKey,
     int minimumGeneration,
+    int expectedVaultKeyVersion,
   ) async {
     final output = <MemberIndexEntry>[];
     for (var offset = 0; offset < items.length; offset += decryptConcurrency) {
@@ -986,6 +1053,7 @@ final class MemberSyncService
                   vaultId,
                   vaultKey,
                   minimumGeneration,
+                  expectedVaultKeyVersion,
                 ),
               ),
         ),
@@ -1000,6 +1068,7 @@ final class MemberSyncService
     String vaultId,
     Uint8List vaultKey,
     int minimumGeneration,
+    int expectedVaultKeyVersion,
   ) async {
     final entryKey = item.entryKey!;
     final memberIndex = item.memberIndex!;
@@ -1012,6 +1081,7 @@ final class MemberSyncService
         entryKey,
         memberIndex,
         minimumGeneration,
+        expectedVaultKeyVersion,
       );
       _validateSecretCoordinates(
         item,
@@ -1044,6 +1114,7 @@ final class MemberSyncService
     Map<String, dynamic> entryKey,
     Map<String, dynamic> memberIndex,
     int minimumGeneration,
+    int expectedVaultKeyVersion,
   ) {
     Map<String, dynamic> descriptor(Map<String, dynamic> envelope) {
       final value = envelope['descriptor'];
@@ -1055,19 +1126,23 @@ final class MemberSyncService
     final index = descriptor(memberIndex);
     final keyScope = key['scope'];
     final indexScope = index['scope'];
+    final keyBinding = key['binding'];
     final generation = key['memberKeyGeneration'];
     if (keyScope is! Map ||
         indexScope is! Map ||
+        keyBinding is! Map ||
         keyScope['organizationId'] != organizationId ||
         indexScope['organizationId'] != organizationId ||
         keyScope['vaultId'] != vaultId ||
         indexScope['vaultId'] != vaultId ||
         keyScope['entryId'] != item.entryId ||
         indexScope['entryId'] != item.entryId ||
+        key['resourceRevision'] != item.currentRevision ||
         index['resourceRevision'] != item.memberIndexRevision ||
         item.memberIndexRevision != item.currentRevision ||
         key['keyVersion'] != item.currentKeyVersion ||
         index['keyVersion'] != item.currentKeyVersion ||
+        keyBinding['wrappingVaultKeyVersion'] != expectedVaultKeyVersion ||
         generation != index['memberKeyGeneration'] ||
         generation is! int ||
         generation != minimumGeneration) {
