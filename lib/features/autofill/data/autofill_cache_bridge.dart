@@ -73,11 +73,21 @@ class MethodChannelAutoFillCacheBridge implements AutoFillCacheBridge {
   }
 
   Future<void> _ensureAvailable() async {
-    final available = await (_availability ??= _availabilityProbe());
+    final available = await (_availability ??= _probeAvailability());
     if (!available) {
       throw MissingPluginException(
         'AutoFill credential-provider cache is unavailable on this device',
       );
+    }
+  }
+
+  Future<bool> _probeAvailability() async {
+    try {
+      return await _availabilityProbe();
+    } on MissingPluginException {
+      // A missing device-info handler on a supported build is an embedding
+      // failure, not evidence that this is an intentionally unsupported host.
+      throw PlatformException(code: 'AUTOFILL_AVAILABILITY_UNAVAILABLE');
     }
   }
 

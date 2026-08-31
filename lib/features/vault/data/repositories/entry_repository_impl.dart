@@ -354,7 +354,7 @@ class EntryRepositoryImpl implements EntryRepository {
         creates: creates,
         overwrites: overwrites,
         privateKey: privateKey,
-        chunkSize: chunkSize.clamp(1, 500),
+        chunkSize: chunkSize.clamp(1, 50),
         onProgress: onProgress,
       );
     }

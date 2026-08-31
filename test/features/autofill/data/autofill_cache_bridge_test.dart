@@ -70,4 +70,22 @@ void main() {
       );
     },
   );
+
+  test('a missing availability-probe handler remains fail closed', () async {
+    final bridge = MethodChannelAutoFillCacheBridge(
+      channel: channel,
+      availabilityProbe: () async => throw MissingPluginException(),
+    );
+
+    await expectLater(
+      bridge.beginCacheSession(),
+      throwsA(
+        isA<PlatformException>().having(
+          (error) => error.code,
+          'code',
+          'AUTOFILL_AVAILABILITY_UNAVAILABLE',
+        ),
+      ),
+    );
+  });
 }

@@ -9,6 +9,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../public_asset_catalog/presentation/widgets/public_asset_image.dart';
 import '../../domain/entities/entry_entity.dart';
@@ -214,6 +215,7 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
 
   List<Widget> _loadedSlivers({
     required List<EntryEntity> entries,
+    required bool hasActiveEntries,
     required Map<String, Map<String, dynamic>> revealedEntries,
     required AppLocalizations l10n,
   }) {
@@ -221,7 +223,9 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
       return [
         SliverFillRemaining(
           hasScrollBody: false,
-          child: _EmptyEntries(l10n: l10n, onImport: widget.onImport),
+          child: hasActiveEntries
+              ? _NoMatchingEntries(l10n: l10n)
+              : _EmptyEntries(l10n: l10n, onImport: widget.onImport),
         ),
       ];
     }
@@ -324,6 +328,10 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
                 EntryListLoaded(:final entries, :final revealedEntries) =>
                   _loadedSlivers(
                     entries: _prepareEntries(entries),
+                    hasActiveEntries: entries.any(
+                      (entry) =>
+                          entry.lifecycleState == MemberEntryState.active,
+                    ),
                     revealedEntries: revealedEntries,
                     l10n: l10n,
                   ),
@@ -388,31 +396,36 @@ class _EmptyEntries extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              ElevatedButton.icon(
-                onPressed: onImport,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.brandRed,
-                  foregroundColor: AppColors.onBrandRed,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
-                    vertical: AppSpacing.sm,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                icon: const Icon(Icons.file_upload_outlined, size: 17),
-                label: Text(
-                  l10n.vaultActionImport,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+              SizedBox(
+                width: 240,
+                child: PrimaryButton(
+                  label: l10n.vaultActionImport,
+                  onPressed: onImport,
+                  leading: const Icon(Icons.file_upload_outlined, size: 17),
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NoMatchingEntries extends StatelessWidget {
+  const _NoMatchingEntries({required this.l10n});
+
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        l10n.searchResultsEmpty,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: AppColors.textTertiaryMobile,
+          fontSize: 13,
         ),
       ),
     );

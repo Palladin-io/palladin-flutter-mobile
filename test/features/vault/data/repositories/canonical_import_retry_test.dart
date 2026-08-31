@@ -109,4 +109,61 @@ void main() {
       expect(resumedRetryBody, orderedEquals(firstRetryBody));
     },
   );
+
+  test('caller-supplied canonical chunk sizes are clamped to 50', () async {
+    final entries = _Entries();
+    final canonical = _Canonical();
+    final issuedCounts = <int>[];
+    var nextId = 0;
+    when(
+      () =>
+          entries.issueCreationChallenges('vault', count: any(named: 'count')),
+    ).thenAnswer((invocation) async {
+      final count = invocation.namedArguments[#count]! as int;
+      issuedCounts.add(count);
+      return List.generate(count, (_) => 'id-${nextId++}');
+    });
+    when(
+      () => canonical.prepareCredentialBatch(
+        vaultId: 'vault',
+        entryIds: any(named: 'entryIds'),
+        drafts: any(named: 'drafts'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
+    ).thenAnswer((invocation) async {
+      final ids = invocation.namedArguments[#entryIds]! as List<String>;
+      return [
+        for (final id in ids) {'entryId': id, 'ciphertext': 'opaque'},
+      ];
+    });
+    when(
+      () => entries.importEntries('vault', any()),
+    ).thenAnswer((_) async => 1);
+    final repository = EntryRepositoryImpl(
+      entryDatasource: entries,
+      vaultDatasource: _Vaults(),
+      cryptoService: _Crypto(),
+      canonicalImport: canonical,
+    );
+    final drafts = List.generate(
+      51,
+      (index) => ImportEntryDraft(
+        label: 'Entry $index',
+        type: EntryType.credential,
+        payload: const {},
+      ),
+    );
+
+    final result = await repository.importEntriesEncrypted(
+      vaultId: 'vault',
+      format: 'csv',
+      creates: drafts,
+      overwrites: const [],
+      privateKey: Uint8List(32),
+      chunkSize: 500,
+    );
+
+    expect(result.createdCount, 51);
+    expect(issuedCounts, [50, 1]);
+  });
 }
