@@ -32,8 +32,7 @@ class MethodChannelAutoFillCacheBridge implements AutoFillCacheBridge {
 
   @override
   Future<int> beginCacheSession() async {
-    await _ensureAvailable();
-    final token = await _channel.invokeMethod<int>('beginCacheSession');
+    final token = await _invokeMethod<int>('beginCacheSession');
     if (token == null) throw const FormatException('Missing session token');
     return token;
   }
@@ -43,8 +42,7 @@ class MethodChannelAutoFillCacheBridge implements AutoFillCacheBridge {
     AutoFillCachePayload payload, {
     required int sessionToken,
   }) async {
-    await _ensureAvailable();
-    await _channel.invokeMethod<void>('replaceCache', {
+    await _invokeMethod<void>('replaceCache', {
       'sessionToken': sessionToken,
       'payload': payload.toPlatformMap(),
     });
@@ -52,18 +50,26 @@ class MethodChannelAutoFillCacheBridge implements AutoFillCacheBridge {
 
   @override
   Future<int> revokeCacheAccess() async {
-    await _ensureAvailable();
-    final token = await _channel.invokeMethod<int>('revokeCacheAccess');
+    final token = await _invokeMethod<int>('revokeCacheAccess');
     if (token == null) throw const FormatException('Missing cleanup token');
     return token;
   }
 
   @override
   Future<void> clearCache({required int sessionToken}) async {
+    await _invokeMethod<void>('clearCache', {'sessionToken': sessionToken});
+  }
+
+  Future<T?> _invokeMethod<T>(String method, [Object? arguments]) async {
     await _ensureAvailable();
-    await _channel.invokeMethod<void>('clearCache', {
-      'sessionToken': sessionToken,
-    });
+    try {
+      return await _channel.invokeMethod<T>(method, arguments);
+    } on MissingPluginException {
+      // [_ensureAvailable] is the only authority that may classify a host as
+      // unsupported. Once it confirms a supported device, a missing channel
+      // handler is an embedding failure and must keep mutations fail closed.
+      throw PlatformException(code: 'AUTOFILL_BRIDGE_MISSING');
+    }
   }
 
   Future<void> _ensureAvailable() async {

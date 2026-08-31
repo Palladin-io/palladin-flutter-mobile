@@ -49,4 +49,25 @@ void main() {
       throwsA(isA<PlatformException>()),
     );
   });
+
+  test(
+    'supported device converts a missing channel handler to a blocking failure',
+    () async {
+      final bridge = MethodChannelAutoFillCacheBridge(
+        channel: channel,
+        availabilityProbe: () async => true,
+      );
+
+      await expectLater(
+        bridge.beginCacheSession(),
+        throwsA(
+          isA<PlatformException>().having(
+            (error) => error.code,
+            'code',
+            'AUTOFILL_BRIDGE_MISSING',
+          ),
+        ),
+      );
+    },
+  );
 }

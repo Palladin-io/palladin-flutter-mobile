@@ -104,10 +104,11 @@ void main() {
                 payload: {
                   'username': 'alice',
                   'password': 'synthetic-secret',
-                  'url': 'https://example.invalid/login',
+                  'url': 'example.invalid/login',
                   'totp':
                       'otpauth://totp/Example:alice?secret=JBSWY3DPEHPK3PXP&issuer=Example',
                 },
+                urlDomain: 'example.invalid',
               ),
             ],
             memberPrivateKey: Uint8List(32),

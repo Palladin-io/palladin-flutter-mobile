@@ -6,6 +6,7 @@ import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/import_draft.dart';
 import '../../domain/entities/totp_config.dart';
 import '../../domain/entities/vault_plaintext.dart';
+import '../import/import_normalizer.dart';
 import '../datasources/vault_remote_datasource.dart';
 import '../models/entry_v2_contracts.dart';
 import 'entry_v2_crypto_service.dart';
@@ -215,7 +216,7 @@ class CanonicalImportProjectionService {
         username: _nfc(username),
         password: _nfc(password),
         url: url == null ? null : _nfc(url),
-        urlDomain: _domain(url),
+        urlDomain: _domain(url, draft.urlDomain),
         totp: rawTotp == null ? null : _canonicalTotp(rawTotp),
         notes: notes == null ? null : _nfc(notes),
         customFields: fields,
@@ -279,11 +280,15 @@ class CanonicalImportProjectionService {
     };
   }
 
-  String? _domain(String? raw) {
-    if (raw == null || raw.isEmpty) return null;
-    final uri = Uri.tryParse(raw);
-    if (uri == null || !uri.hasScheme || uri.host.isEmpty) return null;
-    return uri.host.toLowerCase();
+  String? _domain(String? rawUrl, String? normalizedDomain) {
+    final derived = ImportNormalizer.hostFrom(rawUrl)?.toLowerCase();
+    final normalized = ImportNormalizer.hostFrom(
+      normalizedDomain,
+    )?.toLowerCase();
+    if (derived != null && normalized != null && derived != normalized) {
+      throw const FormatException('Credential URL domain mismatch');
+    }
+    return normalized ?? derived;
   }
 
   String _nfc(String value) => unicode.nfc(value);
