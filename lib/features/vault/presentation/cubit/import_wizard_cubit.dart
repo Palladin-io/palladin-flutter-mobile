@@ -45,7 +45,6 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
   static const int _maxLabel = 200;
   static const int _maxDescription = 2000;
   static const int _maxUrlDomain = 255;
-  static const Duration _iconWait = Duration(seconds: 15);
 
   /// Cached table for the manual-mapping step so [applyMapping] can
   /// re-parse without re-reading the file.
@@ -61,11 +60,12 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
   /// current entries, and moves to the preview or manual-mapping step.
   Future<void> parseBytes(Uint8List bytes, {String? fileName}) async {
     final epoch = _sessionEpoch;
+    final workingBytes = Uint8List.fromList(bytes);
     emit(const ImportWizardParsing());
     try {
       await _loadExistingEntries();
       if (!_isCurrent(epoch)) return;
-      final outcome = ImportEngine.parse(bytes, fileName: fileName);
+      final outcome = ImportEngine.parse(workingBytes, fileName: fileName);
       if (!_isCurrent(epoch)) return;
       switch (outcome) {
         case ImportParsed(:final result):
@@ -88,7 +88,13 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
       _trackFailed('parse-error');
       emit(const ImportWizardFailure(ImportFailureReason.unrecognisedFile));
     } finally {
-      bytes.fillRange(0, bytes.length, 0);
+      workingBytes.fillRange(0, workingBytes.length, 0);
+      try {
+        bytes.fillRange(0, bytes.length, 0);
+      } on UnsupportedError {
+        // FilePicker may return an unmodifiable native view. The mutable
+        // parser-owned copy above is still wiped deterministically.
+      }
     }
   }
 
@@ -171,9 +177,8 @@ class ImportWizardCubit extends Cubit<ImportWizardState> {
     final Map<String, PublicAsset> publicAssets;
     try {
       publicAssets = iconPreparation != null
-          ? await websiteIconService!.ensureBatchWithin(
+          ? await websiteIconService!.ensureBatchUntilResolved(
               iconDomains,
-              timeout: _iconWait,
               cancellation: iconPreparation,
               onProgress: (ready, total) {
                 if (_isCurrent(epoch)) {

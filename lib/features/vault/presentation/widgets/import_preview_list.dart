@@ -38,9 +38,9 @@ class ImportPreviewList extends StatelessWidget {
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.screenH,
-                  0,
+                  AppSpacing.fieldGap,
                   AppSpacing.screenH,
-                  AppSpacing.section,
+                  AppSpacing.fieldGap,
                 ),
                 sliver: SliverToBoxAdapter(
                   child: _PreviewHeader(state: state, onStrategy: onStrategy),
@@ -127,9 +127,9 @@ class _SummaryHeader extends StatelessWidget {
           children: [
             _Badge(
               label: ImportWizardCopy.formatName(l10n, state.format),
-              color: AppColors.vaultBlue,
+              color: AppColors.brandRed,
             ),
-            const SizedBox(width: AppSpacing.chipGap),
+            const Spacer(),
             Text(
               l10n.importEntriesCount(state.items.length),
               style: TextStyle(

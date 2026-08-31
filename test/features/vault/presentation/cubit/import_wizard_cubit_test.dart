@@ -106,6 +106,17 @@ void main() {
   );
 
   group('parseBytes', () {
+    test('accepts an unmodifiable file-picker buffer', () async {
+      when(() => repository.listEntries(any())).thenAnswer((_) async => []);
+      final cubit = build();
+      final bytes = _bytes(csv).asUnmodifiableView();
+
+      await cubit.parseBytes(bytes, fileName: 'entries.csv');
+
+      expect(cubit.state, isA<ImportWizardPreview>());
+      await cubit.close();
+    });
+
     test('lock clears state and suppresses a late parse result', () async {
       final entries = Completer<List<EntryEntity>>();
       when(

@@ -34,7 +34,9 @@ import '../../data/services/encrypted_presentation_asset_service.dart';
 /// on-device and stashed on the cubit's state until the user collapses
 /// the panel.
 class VaultEntriesTab extends StatefulWidget {
-  const VaultEntriesTab({super.key, this.openArchive});
+  const VaultEntriesTab({super.key, required this.onImport, this.openArchive});
+
+  final VoidCallback onImport;
 
   /// Test seam for the pushed Archive route. Production uses
   /// [EntryArchivePage.push].
@@ -216,7 +218,12 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
     required AppLocalizations l10n,
   }) {
     if (entries.isEmpty) {
-      return [SliverToBoxAdapter(child: _EmptyEntries(l10n: l10n))];
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _EmptyEntries(l10n: l10n, onImport: widget.onImport),
+        ),
+      ];
     }
     return [
       SliverPadding(
@@ -337,9 +344,10 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
 }
 
 class _EmptyEntries extends StatelessWidget {
-  const _EmptyEntries({required this.l10n});
+  const _EmptyEntries({required this.l10n, required this.onImport});
 
   final AppLocalizations l10n;
+  final VoidCallback onImport;
 
   @override
   Widget build(BuildContext context) {
@@ -349,33 +357,63 @@ class _EmptyEntries extends StatelessWidget {
         vertical: AppSpacing.xxxl,
         horizontal: AppSpacing.screenH,
       ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.inbox_outlined,
-            size: 36,
-            color: AppColors.onSurfaceSubtle(brightness),
+      child: Center(
+        child: Transform.translate(
+          offset: const Offset(0, -(AppSpacing.xxxl + AppSpacing.sm)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.inbox_outlined,
+                size: 56,
+                color: AppColors.onSurface(brightness),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                l10n.entryEmpty,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.onSurface(brightness),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.chipGap),
+              Text(
+                l10n.entryEmptyAdd,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textTertiaryMobile,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              ElevatedButton.icon(
+                onPressed: onImport,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.brandRed,
+                  foregroundColor: AppColors.onBrandRed,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.sm,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                icon: const Icon(Icons.file_upload_outlined, size: 17),
+                label: Text(
+                  l10n.vaultActionImport,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            l10n.entryEmpty,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.chipGap),
-          Text(
-            l10n.entryEmptyAdd,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppColors.textTertiaryMobile,
-              fontSize: 12,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

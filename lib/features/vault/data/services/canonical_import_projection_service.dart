@@ -1,37 +1,53 @@
 import 'dart:typed_data';
 
-import '../../../../core/crypto/sodium_provider.dart';
-import '../../domain/entities/import_draft.dart';
+import 'package:unorm_dart/unorm_dart.dart' as unicode;
+
 import '../../domain/entities/entry_entity.dart';
+import '../../domain/entities/import_draft.dart';
+import '../../domain/entities/totp_config.dart';
+import '../../domain/entities/vault_plaintext.dart';
 import '../datasources/vault_remote_datasource.dart';
-import 'vault_protocol/vault_protocol_aad.dart';
-import 'vault_protocol/vault_protocol_bytes.dart';
-import 'vault_protocol/vault_protocol_envelope_service.dart';
-import 'vault_protocol/vault_protocol_kdf.dart';
-import 'vault_protocol/vault_protocol_signature_service.dart';
-import 'vault_rotation_crypto_service.dart';
+import '../models/entry_v2_contracts.dart';
+import 'entry_v2_crypto_service.dart';
+import 'vault_crypto_service.dart';
+
+enum CanonicalImportPreparationStage {
+  vaultShape,
+  vaultOpen,
+  routeBinding,
+  wrapperVaultBinding,
+  organizationBinding,
+  memberGenerationBinding,
+  keyEpochBinding,
+  discoveryKey,
+  entryPlaintext,
+  entrySeal,
+}
+
+final class CanonicalImportPreparationException implements Exception {
+  const CanonicalImportPreparationException(this.stage, [this.causeType]);
+
+  final CanonicalImportPreparationStage stage;
+  final String? causeType;
+}
 
 /// Builds complete protocol-2 import transitions entirely on-device.
+///
+/// Import deliberately uses the same canonical [EntryV2CryptoService] as the
+/// regular Create Entry flow. Keeping one envelope pipeline prevents the bulk
+/// endpoint from drifting to a different descriptor or ciphertext shape.
 class CanonicalImportProjectionService {
   CanonicalImportProjectionService({
     required VaultRemoteDatasource vaults,
-    required VaultRotationCryptoService keys,
-    required VaultEnvelopeCryptography envelopes,
-    Future<Uint8List> Function()? randomEntryKey,
+    required VaultCryptoService vaultCrypto,
+    required EntryV2CryptoService entryCrypto,
   }) : _vaults = vaults,
-       _keys = keys,
-       _envelopes = envelopes,
-       _randomEntryKey = randomEntryKey ?? _secureRandomEntryKey;
+       _vaultCrypto = vaultCrypto,
+       _entryCrypto = entryCrypto;
 
   final VaultRemoteDatasource _vaults;
-  final VaultRotationCryptoService _keys;
-  final VaultEnvelopeCryptography _envelopes;
-  final Future<Uint8List> Function() _randomEntryKey;
-
-  static Future<Uint8List> _secureRandomEntryKey() async {
-    final sodium = await SodiumProvider.instance();
-    return sodium.randombytes.buf(32);
-  }
+  final VaultCryptoService _vaultCrypto;
+  final EntryV2CryptoService _entryCrypto;
 
   Future<List<Map<String, dynamic>>> prepareCredentialBatch({
     required String vaultId,
@@ -41,207 +57,234 @@ class CanonicalImportProjectionService {
   }) async {
     if (entryIds.length != drafts.length ||
         drafts.isEmpty ||
-        drafts.length > 500) {
+        drafts.length > 50) {
       throw const FormatException('Invalid import batch');
     }
     final vault = await _vaults.getEncryptedVault(vaultId);
-    final organizationId = vault['organizationId'] as String;
-    final generation = vault['memberKeyGeneration'] as int;
-    final epoch = Map<String, dynamic>.from(vault['currentKeyEpoch'] as Map);
-    final vkVersion = epoch['vaultKeyVersion'] as int;
-    final vdkVersion = epoch['vdkVersion'] as int;
-    Uint8List? vaultKey;
-    Uint8List? discoveryKey;
-    final sensitive = <Uint8List>[];
+    final organizationValue = vault['organizationId'];
+    final generationValue = vault['memberKeyGeneration'];
+    final epochValue = vault['currentKeyEpoch'];
+    if (organizationValue is! String ||
+        generationValue is! int ||
+        epochValue is! Map ||
+        epochValue['vaultKeyVersion'] is! int ||
+        epochValue['vdkVersion'] is! int) {
+      throw const CanonicalImportPreparationException(
+        CanonicalImportPreparationStage.vaultShape,
+      );
+    }
+    final organizationId = organizationValue;
+    final generation = generationValue;
+    final epoch = Map<String, dynamic>.from(epochValue);
+    final vkVersion = epoch['vaultKeyVersion']! as int;
+    final vdkVersion = epoch['vdkVersion']! as int;
+    OpenedVaultProjection? openedVault;
     try {
-      vaultKey = await _keys.openMemberVaultKey(
-        Map<String, dynamic>.from(vault['memberVaultKey'] as Map),
-        memberPrivateKey,
-      );
-      discoveryKey = await _keys.openDiscoveryKey(
-        Map<String, dynamic>.from(vault['discoveryKey'] as Map),
-        vaultKey,
-      );
+      try {
+        openedVault = await _vaultCrypto.openVaultProjection(
+          json: vault,
+          memberPrivateKey: memberPrivateKey,
+        );
+      } catch (error) {
+        throw CanonicalImportPreparationException(
+          CanonicalImportPreparationStage.vaultOpen,
+          error.runtimeType.toString(),
+        );
+      }
+
+      // The route and authenticated top-level Vault projection are the
+      // independent authority for bindings carried inside encrypted wrappers.
+      if (vault['id'] != vaultId) {
+        throw const CanonicalImportPreparationException(
+          CanonicalImportPreparationStage.routeBinding,
+        );
+      }
+      if (openedVault.vaultId != vaultId) {
+        throw const CanonicalImportPreparationException(
+          CanonicalImportPreparationStage.wrapperVaultBinding,
+        );
+      }
+      if (openedVault.organizationId != organizationId) {
+        throw const CanonicalImportPreparationException(
+          CanonicalImportPreparationStage.organizationBinding,
+        );
+      }
+      if (openedVault.memberKeyGeneration != generation) {
+        throw const CanonicalImportPreparationException(
+          CanonicalImportPreparationStage.memberGenerationBinding,
+        );
+      }
+      if (openedVault.epoch.vaultKeyVersion != vkVersion ||
+          openedVault.epoch.vdkVersion != vdkVersion) {
+        throw const CanonicalImportPreparationException(
+          CanonicalImportPreparationStage.keyEpochBinding,
+        );
+      }
+      final discoveryKey = openedVault.vaultDiscoveryKey;
+      if (discoveryKey == null) {
+        throw const CanonicalImportPreparationException(
+          CanonicalImportPreparationStage.discoveryKey,
+        );
+      }
+
       final output = <Map<String, dynamic>>[];
       for (var index = 0; index < drafts.length; index++) {
         final draft = drafts[index];
-        if (draft.type.toWire() != 1) {
+        if (draft.type != EntryType.credential) {
           throw const FormatException('Import type is not supported');
         }
-        final entryId = entryIds[index];
-        final entryDek = await _randomEntryKey();
-        if (entryDek.length != 32) {
-          throw const FormatException('Entry DEK must be 32 bytes');
-        }
-        sensitive.add(entryDek);
-        final common = <String, Object?>{
-          'organizationId': organizationId,
-          'vaultId': vaultId,
-          'entryId': entryId,
-        };
-        Map<String, dynamic> header(int projection, int keyVersion) => {
-          'protocolVersion': 2,
-          'algorithmSuite': 1,
-          'resourceKind': 2,
-          'projectionKind': projection,
-          'resourceRevision': '1',
-          'keyVersion': keyVersion,
-          'memberKeyGeneration': generation,
-          'nonce': '',
-        };
-        Future<Map<String, dynamic>> projection({
-          required VaultAadProfile profile,
-          required VaultKdfPurpose purpose,
-          required Map<String, dynamic> value,
-          required Uint8List baseKey,
-          required int projectionKind,
-          required int keyVersion,
-          required String revisionField,
-        }) async {
-          final key = deriveVaultProjectionKey(
-            baseKey,
-            VaultKdfContext(
-              purpose: purpose,
-              resourceKind: 2,
-              organizationId: organizationId,
-              vaultId: vaultId,
-              entryId: entryId,
-              keyVersion: keyVersion,
-              memberKeyGeneration: generation,
-            ),
+
+        late final MemberSecret secret;
+        try {
+          secret = _credentialSecret(draft);
+        } catch (error) {
+          throw CanonicalImportPreparationException(
+            CanonicalImportPreparationStage.entryPlaintext,
+            error.runtimeType.toString(),
           );
-          sensitive.add(key);
-          final plaintext = VaultProtocolBytes.utf8Encode(
-            canonicalizeVaultJson(value),
-          );
-          sensitive.add(plaintext);
-          final context = <String, Object?>{
-            ...common,
-            revisionField: '1',
-            if (profile == VaultAadProfile.memberSecret) 'operation': 1,
-            if (profile == VaultAadProfile.agentDiscovery)
-              'vdkVersion': vdkVersion,
-            'header': header(projectionKind, keyVersion),
-          };
-          final encrypted = await _envelopes.encrypt(
-            profile: profile,
-            context: context,
-            plaintext: plaintext,
-            key: key,
-          );
-          return {
-            ...context,
-            'header': {
-              ...context['header']! as Map,
-              'nonce': encrypted['nonce'],
-            },
-            'ciphertext': encrypted['ciphertext'],
-          };
         }
 
-        final content = <String, dynamic>{...draft.payload, 'type': 1};
-        final memberIndex = <String, dynamic>{
-          'memberLabel': draft.label,
-          'entryType': 1,
-          if (draft.icon?.isNotEmpty == true) 'iconReference': draft.icon,
-          'searchFields': [
-            draft.label,
-            if (draft.description?.isNotEmpty == true) draft.description,
-            if (content['username'] is String) content['username'],
-            if (content['url'] is String) content['url'],
-          ],
-          if (content['url'] is String) 'autofillDomains': [content['url']],
-        };
-        const policy = <String, dynamic>{
-          'discoverable': true,
-          'fields': <String, String>{
-            'agentLabel': 'discovery',
-            'description': 'never',
-            'notes': 'onGrantValue',
-            'username': 'onGrantValue',
-            'urlDomain': 'never',
-            'url': 'onGrantValue',
-            'password': 'onGrantValue',
-            'totp': 'onGrantDerived',
-          },
-        };
-        final memberSecret = <String, dynamic>{
-          'schemaVersion': 1,
-          'memberLabel': draft.label,
-          'agentLabel': draft.label,
-          if (draft.description?.isNotEmpty == true)
-            'description': draft.description,
-          'entryType': 1,
-          if (draft.icon?.isNotEmpty == true) 'iconReference': draft.icon,
-          'content': content,
-          'agentVisibilityPolicy': policy,
-        };
-        final discovery = <String, dynamic>{
-          'schemaVersion': 1,
-          'agentLabel': draft.label,
-          'entryType': 1,
-          'capabilities': const ['get', 'inject'],
-          'fields': const <String, String>{},
-        };
-        final wrapperContext = <String, Object?>{
-          ...common,
-          'wrapperRevision': '1',
-          'keyVersion': 1,
-          'memberKeyGeneration': generation,
-          'wrappingKeyVersion': vkVersion,
-          'header': header(8, 1),
-        };
-        final wrapped = await _envelopes.encrypt(
-          profile: VaultAadProfile.entryKeyWrapper,
-          context: wrapperContext,
-          plaintext: entryDek,
-          key: vaultKey,
-        );
+        late final EntryEnvelopeBundleModel envelopes;
+        try {
+          envelopes = await _entryCrypto.seal(
+            organizationId: organizationId,
+            vaultId: vaultId,
+            entryId: entryIds[index],
+            revision: 1,
+            vaultKeyVersion: vkVersion,
+            vdkVersion: vdkVersion,
+            memberKeyGeneration: generation,
+            operation: 1,
+            secret: secret,
+            vaultKey: openedVault.vaultKey,
+            vaultDiscoveryKey: discoveryKey,
+          );
+        } catch (error) {
+          throw CanonicalImportPreparationException(
+            CanonicalImportPreparationStage.entrySeal,
+            error.runtimeType.toString(),
+          );
+        }
+
         output.add({
-          'entryId': entryId,
-          'entryKey': {
-            ...wrapperContext,
-            'header': {
-              ...wrapperContext['header']! as Map,
-              'nonce': wrapped['nonce'],
-            },
-            'wrappedEntryDekByVk': wrapped['ciphertext'],
-          },
-          'memberIndex': await projection(
-            profile: VaultAadProfile.memberIndex,
-            purpose: VaultKdfPurpose.memberIndex,
-            value: memberIndex,
-            baseKey: entryDek,
-            projectionKind: 2,
-            keyVersion: 1,
-            revisionField: 'memberIndexRevision',
-          ),
-          'memberSecret': await projection(
-            profile: VaultAadProfile.memberSecret,
-            purpose: VaultKdfPurpose.memberSecret,
-            value: memberSecret,
-            baseKey: entryDek,
-            projectionKind: 3,
-            keyVersion: 1,
-            revisionField: 'revision',
-          ),
-          'agentDiscovery': await projection(
-            profile: VaultAadProfile.agentDiscovery,
-            purpose: VaultKdfPurpose.agentDiscovery,
-            value: discovery,
-            baseKey: discoveryKey,
-            projectionKind: 4,
-            keyVersion: vdkVersion,
-            revisionField: 'agentDiscoveryRevision',
-          ),
-          'deliveryPolicy': 'standard',
+          'entryId': entryIds[index],
+          'entryKey': envelopes.entryKey,
+          'memberIndex': envelopes.memberIndex,
+          'memberSecret': envelopes.memberSecret,
+          'agentDiscovery': envelopes.agentDiscovery,
+          'deliveryPolicy': draft.type.deliveryPolicyWire(),
         });
       }
       return output;
     } finally {
-      for (final value in [vaultKey, discoveryKey, ...sensitive]) {
-        value?.fillRange(0, value.length, 0);
-      }
+      openedVault?.vaultKey.fillRange(0, openedVault.vaultKey.length, 0);
+      openedVault?.vaultDiscoveryKey?.fillRange(
+        0,
+        openedVault.vaultDiscoveryKey!.length,
+        0,
+      );
     }
   }
+
+  MemberSecret _credentialSecret(ImportEntryDraft draft) {
+    final payload = draft.payload;
+    final username = payload['username'];
+    final password = payload['password'];
+    if (username is! String || password is! String) {
+      throw const FormatException('Malformed Credential content');
+    }
+    final url = payload['url'];
+    final notes = payload['notes'];
+    final rawTotp = payload['totp'];
+    if ((url != null && url is! String) ||
+        (notes != null && notes is! String) ||
+        (rawTotp != null && rawTotp is! String)) {
+      throw const FormatException('Malformed Credential content');
+    }
+
+    final fields = _customFields(payload['fields']);
+    return MemberSecret(
+      entryType: VaultEntryType.credential,
+      memberLabel: _nfc(draft.label),
+      agentLabel: _nfc(draft.label),
+      description: draft.description == null ? null : _nfc(draft.description!),
+      icon: VaultPlaintextIcon.fromReference(draft.icon),
+      color: null,
+      discoverable: true,
+      content: CredentialSecretContent(
+        username: _nfc(username),
+        password: _nfc(password),
+        url: url == null ? null : _nfc(url),
+        urlDomain: _domain(url),
+        totp: rawTotp == null ? null : _canonicalTotp(rawTotp),
+        notes: notes == null ? null : _nfc(notes),
+        customFields: fields,
+      ),
+      agentFieldAccess: {
+        'memberLabel': AgentFieldAccess.never,
+        'agentLabel': AgentFieldAccess.discovery,
+        'description': AgentFieldAccess.never,
+        'icon': AgentFieldAccess.never,
+        'color': AgentFieldAccess.never,
+        'entryType': AgentFieldAccess.discovery,
+        'credential.username': AgentFieldAccess.discovery,
+        'credential.password': AgentFieldAccess.onGrantValue,
+        'credential.url': AgentFieldAccess.onGrantValue,
+        'credential.urlDomain': AgentFieldAccess.discovery,
+        'credential.totp': AgentFieldAccess.onGrantDerived,
+        'notes': AgentFieldAccess.onGrantValue,
+        for (final field in fields)
+          field.fieldId: field.kind == 'totp'
+              ? AgentFieldAccess.onGrantDerived
+              : AgentFieldAccess.onGrantValue,
+      },
+    );
+  }
+
+  List<VaultCustomField> _customFields(Object? value) {
+    if (value == null) return const [];
+    if (value is! List) throw const FormatException('Malformed fields');
+    return value
+        .map((raw) {
+          if (raw is! Map ||
+              raw['id'] is! String ||
+              raw['type'] is! String ||
+              (raw['label'] != null && raw['label'] is! String)) {
+            throw const FormatException('Malformed field');
+          }
+          final kind = raw['type']! as String;
+          return VaultCustomField(
+            id: raw['id']! as String,
+            label: _nfc((raw['label'] as String?) ?? ''),
+            kind: _nfc(kind),
+            value: raw['value'],
+            includeInMemberIndex: raw['agentVisible'] == true,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  Map<String, Object?> _canonicalTotp(String raw) {
+    final parsed = TotpConfig.parseUri(raw);
+    if (parsed == null || (parsed.digits != 6 && parsed.digits != 8)) {
+      throw const FormatException('Invalid TOTP');
+    }
+    return {
+      'secret': parsed.secret,
+      'algorithm': parsed.algorithm.wireName,
+      'digits': parsed.digits,
+      'period': parsed.period,
+      'issuer': parsed.issuer == null ? null : _nfc(parsed.issuer!),
+      'account': parsed.account == null ? null : _nfc(parsed.account!),
+    };
+  }
+
+  String? _domain(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    final uri = Uri.tryParse(raw);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) return null;
+    return uri.host.toLowerCase();
+  }
+
+  String _nfc(String value) => unicode.nfc(value);
 }

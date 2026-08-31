@@ -428,6 +428,7 @@ class _VaultDetailViewState extends State<_VaultDetailView>
                             tabController: _tabController,
                             grantsRefresh: _grantsRefresh,
                             initialFormData: _initialFormData,
+                            onImport: _onImport,
                             onFormChanged: (data) =>
                                 setState(() => _currentFormData = data),
                             onDelete: () => _confirmDelete(visibleVault),
@@ -627,6 +628,7 @@ class _LoadedBody extends StatelessWidget {
     required this.tabController,
     required this.grantsRefresh,
     required this.initialFormData,
+    required this.onImport,
     required this.onFormChanged,
     required this.onDelete,
     required this.onSave,
@@ -636,6 +638,7 @@ class _LoadedBody extends StatelessWidget {
   final TabController tabController;
   final int grantsRefresh;
   final VaultFormData? initialFormData;
+  final VoidCallback onImport;
   final ValueChanged<VaultFormData> onFormChanged;
   final VoidCallback onDelete;
   final VoidCallback onSave;
@@ -654,7 +657,7 @@ class _LoadedBody extends StatelessWidget {
         controller: tabController,
         children: [
           // Entries are sourced from `EntryListCubit` provided above.
-          const VaultEntriesTab(),
+          VaultEntriesTab(onImport: onImport),
           VaultAgentsTab(key: ValueKey(grantsRefresh), vaultId: vault.id),
           // Logs tab — vault-scoped audit feed. Horizontal padding
           // and the tab-bar → content gap are owned by the TabBarView wrapper.

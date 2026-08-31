@@ -342,7 +342,7 @@ class EntryRepositoryImpl implements EntryRepository {
     required List<ImportEntryOverwrite> overwrites,
     required Uint8List privateKey,
     String? wrappedVK,
-    int chunkSize = 500,
+    int chunkSize = 50,
     void Function(int done, int total)? onProgress,
   }) async {
     final canonical = canonicalImport;
@@ -573,6 +573,13 @@ class EntryRepositoryImpl implements EntryRepository {
       }
       _canonicalImports.remove(vaultId);
       return ImportResult(createdCount: creates.length, updatedCount: 0);
+    } on CanonicalImportPreparationException catch (error) {
+      AppLogger.e(
+        'Entry',
+        'Canonical import preparation failed at ${error.stage.name}'
+            '${error.causeType == null ? '' : ' (${error.causeType})'}',
+      );
+      throw const EntryException(EntryErrorKind.cryptoFailure);
     } catch (_) {
       // Keep only the current unconfirmed ciphertext batch plus committed row
       // count. A retry resumes without rebuilding successful transitions.

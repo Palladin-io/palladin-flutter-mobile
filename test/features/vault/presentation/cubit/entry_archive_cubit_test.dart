@@ -298,7 +298,10 @@ void main() {
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
-              body: VaultEntriesTab(openArchive: (_) => archiveClosed.future),
+              body: VaultEntriesTab(
+                onImport: () {},
+                openArchive: (_) => archiveClosed.future,
+              ),
             ),
           ),
         ),

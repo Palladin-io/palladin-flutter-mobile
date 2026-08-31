@@ -246,7 +246,7 @@
   "entryDiscoverDomain": "Pozwól agentom wykrywać domenę URL",
   "entrySearchHint": "Szukaj wpisów…",
   "entryEmpty": "Brak wpisów",
-  "entryEmptyAdd": "Dodaj pierwsze dane, aby zacząć.",
+  "entryEmptyAdd": "Dodaj wpis ręcznie lub zaimportuj dane z innego menedżera haseł.",
   "entrySaveAction": "Zapisz",
   "entrySaving": "Zapisywanie…",
   "entryErrorNotFound": "Ten wpis już nie istnieje.",

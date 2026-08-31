@@ -77,6 +77,30 @@ class WebsiteIconService {
     required Duration timeout,
     void Function(int ready, int total)? onProgress,
     WebsiteIconPreparationCancellation? cancellation,
+  }) => _ensureBatchUntilTerminal(
+    domains,
+    timeout: timeout,
+    onProgress: onProgress,
+    cancellation: cancellation,
+  );
+
+  /// Polls without an elapsed-time deadline until every hostname reaches a
+  /// ready/failed terminal state. Session-authority cancellation still applies.
+  Future<Map<String, PublicAsset>> ensureBatchUntilResolved(
+    Iterable<String?> domains, {
+    void Function(int ready, int total)? onProgress,
+    WebsiteIconPreparationCancellation? cancellation,
+  }) => _ensureBatchUntilTerminal(
+    domains,
+    onProgress: onProgress,
+    cancellation: cancellation,
+  );
+
+  Future<Map<String, PublicAsset>> _ensureBatchUntilTerminal(
+    Iterable<String?> domains, {
+    Duration? timeout,
+    void Function(int ready, int total)? onProgress,
+    WebsiteIconPreparationCancellation? cancellation,
   }) async {
     final unique = PublicHostname.unique(domains, limit: 10000);
     final ready = <String, PublicAsset>{};
@@ -85,13 +109,13 @@ class WebsiteIconService {
         onProgress?.call(ready.length + failed.length, unique.length);
     report();
     if (unique.isEmpty ||
-        timeout.inMicroseconds <= 0 ||
+        (timeout != null && timeout.inMicroseconds <= 0) ||
         cancellation?.isCancelled == true) {
       return ready;
     }
 
     final stopwatch = Stopwatch()..start();
-    while (stopwatch.elapsed < timeout) {
+    while (timeout == null || stopwatch.elapsed < timeout) {
       if (cancellation?.isCancelled == true) break;
       final unresolved = unique
           .where(
@@ -100,12 +124,12 @@ class WebsiteIconService {
           )
           .toList(growable: false);
       if (unresolved.isEmpty) break;
-      final remaining = timeout - stopwatch.elapsed;
-      if (remaining.inMicroseconds <= 0) break;
+      final remaining = timeout == null ? null : timeout - stopwatch.elapsed;
+      if (remaining != null && remaining.inMicroseconds <= 0) break;
       try {
-        final request = _repository
-            .ensureWebsiteIcons(unresolved)
-            .timeout(remaining);
+        final request = remaining == null
+            ? _repository.ensureWebsiteIcons(unresolved)
+            : _repository.ensureWebsiteIcons(unresolved).timeout(remaining);
         final result = cancellation == null
             ? await request
             : await Future.any<WebsiteIconEnsureResult>([
@@ -130,8 +154,8 @@ class WebsiteIconService {
       }
       report();
       if (ready.length + failed.length == unique.length) break;
-      final wait = timeout - stopwatch.elapsed;
-      if (wait.inMicroseconds <= 0) break;
+      final wait = timeout == null ? pollInterval : timeout - stopwatch.elapsed;
+      if (timeout != null && wait.inMicroseconds <= 0) break;
       final delay = Future<void>.delayed(
         wait < pollInterval ? wait : pollInterval,
       );

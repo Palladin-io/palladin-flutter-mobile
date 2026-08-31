@@ -903,7 +903,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryEmpty => 'No entries yet';
 
   @override
-  String get entryEmptyAdd => 'Add your first credential to get started.';
+  String get entryEmptyAdd =>
+      'Add an entry manually or import from another password manager.';
 
   @override
   String get entrySaveAction => 'Save';
