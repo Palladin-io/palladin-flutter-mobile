@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
+import 'package:mobile_palladin/features/vault/data/models/entry_v2_contracts.dart';
 import 'package:mobile_palladin/features/vault/data/models/vault_v2_contracts.dart';
 import 'package:mobile_palladin/features/vault/data/services/canonical_import_projection_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_service.dart';
@@ -19,6 +20,8 @@ import 'package:sodium_libs/sodium_libs_sumo.dart';
 class _Vaults extends Mock implements VaultRemoteDatasource {}
 
 class _VaultCrypto extends Mock implements VaultCryptoService {}
+
+class _EntryCrypto extends Mock implements EntryV2CryptoService {}
 
 Future<SodiumSumo?> _loadSodium() async {
   try {
@@ -47,6 +50,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(_fallbackMemberSecret());
   });
 
   setUp(() {
@@ -60,6 +64,69 @@ void main() {
         'discoveryKey': <String, dynamic>{},
       },
     );
+  });
+
+  test('preserves the imported password code points verbatim', () async {
+    const decomposedPassword = 'synthetic-e\u0301-secret';
+    final vaultKey = Uint8List(32)..fillRange(0, 32, 1);
+    final discoveryKey = Uint8List(32)..fillRange(0, 32, 2);
+    when(
+      () => vaultCrypto.openVaultProjection(
+        json: any(named: 'json'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+      ),
+    ).thenAnswer(
+      (_) async => _openedVault(vaultKey: vaultKey, discoveryKey: discoveryKey),
+    );
+    final entryCrypto = _EntryCrypto();
+    late MemberSecret capturedSecret;
+    when(
+      () => entryCrypto.seal(
+        organizationId: any(named: 'organizationId'),
+        vaultId: any(named: 'vaultId'),
+        entryId: any(named: 'entryId'),
+        revision: any(named: 'revision'),
+        vaultKeyVersion: any(named: 'vaultKeyVersion'),
+        vdkVersion: any(named: 'vdkVersion'),
+        memberKeyGeneration: any(named: 'memberKeyGeneration'),
+        operation: any(named: 'operation'),
+        secret: any(named: 'secret'),
+        vaultKey: any(named: 'vaultKey'),
+        vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+      ),
+    ).thenAnswer((invocation) async {
+      capturedSecret =
+          invocation.namedArguments[const Symbol('secret')]! as MemberSecret;
+      return const EntryEnvelopeBundleModel(
+        entryKey: {'descriptor': 'entry'},
+        memberIndex: {'descriptor': 'index'},
+        memberSecret: {'descriptor': 'secret'},
+        agentDiscovery: {'descriptor': 'discovery'},
+      );
+    });
+
+    await CanonicalImportProjectionService(
+      vaults: vaults,
+      vaultCrypto: vaultCrypto,
+      entryCrypto: entryCrypto,
+    ).prepareCredentialBatch(
+      vaultId: vaultId,
+      entryIds: const ['33333344-5566-4788-99aa-bbccddeeff00'],
+      drafts: const [
+        ImportEntryDraft(
+          label: 'Production',
+          type: EntryType.credential,
+          payload: {'username': 'alice', 'password': decomposedPassword},
+        ),
+      ],
+      memberPrivateKey: Uint8List(32),
+    );
+
+    final content = capturedSecret.content as CredentialSecretContent;
+    expect(content.password, decomposedPassword);
+    expect(content.password, isNot('synthetic-é-secret'));
+    expect(vaultKey, everyElement(0));
+    expect(discoveryKey, everyElement(0));
   });
 
   test(
@@ -88,6 +155,7 @@ void main() {
         sodiumLoader: () async => sodium,
       );
 
+      const decomposedPassword = 'synthetic-e\u0301-secret';
       final result =
           await CanonicalImportProjectionService(
             vaults: vaults,
@@ -103,7 +171,7 @@ void main() {
                 type: EntryType.credential,
                 payload: {
                   'username': 'alice',
-                  'password': 'synthetic-secret',
+                  'password': decomposedPassword,
                   'url': 'example.invalid/login',
                   'totp':
                       'otpauth://totp/Example:alice?secret=JBSWY3DPEHPK3PXP&issuer=Example',
@@ -115,7 +183,7 @@ void main() {
           );
 
       final wire = result.single.toString();
-      expect(wire, isNot(contains('synthetic-secret')));
+      expect(wire, isNot(contains(decomposedPassword)));
       expect(wire, isNot(contains('Production')));
       expect(result.single, isNot(contains('vaultId')));
       expect(
@@ -147,7 +215,7 @@ void main() {
         secret['agentFieldAccess']! as Map,
       );
       expect(secret['memberLabel'], 'Production');
-      expect(content['password'], 'synthetic-secret');
+      expect(content['password'], decomposedPassword);
       expect(content['urlDomain'], 'example.invalid');
       expect(content['totp'], isA<Map>());
       expect(policy['credential.username'], 'discovery');
@@ -235,4 +303,37 @@ OpenedVaultProjection _openedVault({
     recipientKeyVersion: 1,
     recipientFingerprint: 'fingerprint',
   ),
+);
+
+MemberSecret _fallbackMemberSecret() => MemberSecret(
+  entryType: VaultEntryType.credential,
+  memberLabel: 'fallback',
+  agentLabel: 'fallback',
+  description: null,
+  icon: null,
+  color: null,
+  discoverable: true,
+  content: const CredentialSecretContent(
+    username: '',
+    password: '',
+    url: null,
+    urlDomain: null,
+    totp: null,
+    notes: null,
+    customFields: [],
+  ),
+  agentFieldAccess: const {
+    'memberLabel': AgentFieldAccess.never,
+    'agentLabel': AgentFieldAccess.discovery,
+    'description': AgentFieldAccess.never,
+    'icon': AgentFieldAccess.never,
+    'color': AgentFieldAccess.never,
+    'entryType': AgentFieldAccess.discovery,
+    'credential.username': AgentFieldAccess.discovery,
+    'credential.password': AgentFieldAccess.onGrantValue,
+    'credential.url': AgentFieldAccess.onGrantValue,
+    'credential.urlDomain': AgentFieldAccess.discovery,
+    'credential.totp': AgentFieldAccess.onGrantDerived,
+    'notes': AgentFieldAccess.onGrantValue,
+  },
 );

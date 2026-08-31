@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:mobile_palladin/core/widgets/skeleton_box.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_entry_list_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
@@ -27,6 +28,33 @@ class _EmptyEntryListCubit extends EntryListCubit {
 }
 
 void main() {
+  testWidgets('loading state uses the shared skeleton primitive', (
+    tester,
+  ) async {
+    final entryList = EntryListCubit(
+      repository: _Repository(),
+      vaultId: 'vault',
+      indexLoader: _IndexLoader(),
+    );
+
+    await tester.pumpWidget(
+      BlocProvider<EntryListCubit>.value(
+        value: entryList,
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: VaultEntriesTab(onImport: () {})),
+        ),
+      ),
+    );
+
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(SkeletonBox), findsNWidgets(5));
+
+    await entryList.close();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('empty state offers a primary import action', (tester) async {
     final entryList = _EmptyEntryListCubit();
     var importCalls = 0;

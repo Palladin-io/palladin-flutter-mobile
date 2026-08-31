@@ -214,7 +214,9 @@ class CanonicalImportProjectionService {
       discoverable: true,
       content: CredentialSecretContent(
         username: _nfc(username),
-        password: _nfc(password),
+        // Passwords are opaque secrets whose exact code-point sequence is
+        // authentication material. Never normalize or otherwise mutate them.
+        password: password,
         url: url == null ? null : _nfc(url),
         urlDomain: _domain(url, draft.urlDomain),
         totp: rawTotp == null ? null : _canonicalTotp(rawTotp),

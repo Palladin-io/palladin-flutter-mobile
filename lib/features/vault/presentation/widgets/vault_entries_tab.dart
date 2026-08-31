@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/widgets/app_search_field.dart';
+import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -437,71 +438,13 @@ class _LoadingSliver extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
     // search → first skeleton row gap (fieldGap) is owned by the search bar.
     return SliverList.list(
       children: List.generate(
         5,
         (i) => Padding(
           padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
-          child: _SkeletonRow(brightness: brightness, delay: i * 80),
-        ),
-      ),
-    );
-  }
-}
-
-class _SkeletonRow extends StatefulWidget {
-  const _SkeletonRow({required this.brightness, required this.delay});
-  final Brightness brightness;
-  final int delay;
-
-  @override
-  State<_SkeletonRow> createState() => _SkeletonRowState();
-}
-
-class _SkeletonRowState extends State<_SkeletonRow>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    Future.delayed(Duration(milliseconds: widget.delay), () {
-      if (mounted) _ctrl.repeat(reverse: true);
-    });
-    _anim = Tween<double>(
-      begin: 0.4,
-      end: 0.85,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final base = AppColors.onSurface(widget.brightness).withValues(alpha: 0.07);
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (context, _) => Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: base.withValues(alpha: base.a * _anim.value),
-          border: Border(
-            bottom: BorderSide(
-              color: AppColors.cardBorder(widget.brightness),
-              width: 1,
-            ),
-          ),
+          child: SkeletonBox(height: 56, delay: Duration(milliseconds: i * 80)),
         ),
       ),
     );
