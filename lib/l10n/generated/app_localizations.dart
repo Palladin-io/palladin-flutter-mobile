@@ -1574,10 +1574,10 @@ abstract class AppLocalizations {
   /// **'No entries yet'**
   String get entryEmpty;
 
-  /// Empty-state subtitle nudging the user to use the Add Entry FAB
+  /// Empty-state subtitle presenting manual creation and password-manager import
   ///
   /// In en, this message translates to:
-  /// **'Add your first credential to get started.'**
+  /// **'Add an entry manually or import from another password manager.'**
   String get entryEmptyAdd;
 
   /// AppBar action label on the Add Entry page

@@ -8,7 +8,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/widgets/app_search_field.dart';
+import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../public_asset_catalog/presentation/widgets/public_asset_image.dart';
 import '../../domain/entities/entry_entity.dart';
@@ -34,7 +36,9 @@ import '../../data/services/encrypted_presentation_asset_service.dart';
 /// on-device and stashed on the cubit's state until the user collapses
 /// the panel.
 class VaultEntriesTab extends StatefulWidget {
-  const VaultEntriesTab({super.key, this.openArchive});
+  const VaultEntriesTab({super.key, required this.onImport, this.openArchive});
+
+  final VoidCallback onImport;
 
   /// Test seam for the pushed Archive route. Production uses
   /// [EntryArchivePage.push].
@@ -212,11 +216,19 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
 
   List<Widget> _loadedSlivers({
     required List<EntryEntity> entries,
+    required bool hasActiveEntries,
     required Map<String, Map<String, dynamic>> revealedEntries,
     required AppLocalizations l10n,
   }) {
     if (entries.isEmpty) {
-      return [SliverToBoxAdapter(child: _EmptyEntries(l10n: l10n))];
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: hasActiveEntries
+              ? _NoMatchingEntries(l10n: l10n)
+              : _EmptyEntries(l10n: l10n, onImport: widget.onImport),
+        ),
+      ];
     }
     return [
       SliverPadding(
@@ -317,6 +329,10 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
                 EntryListLoaded(:final entries, :final revealedEntries) =>
                   _loadedSlivers(
                     entries: _prepareEntries(entries),
+                    hasActiveEntries: entries.any(
+                      (entry) =>
+                          entry.lifecycleState == MemberEntryState.active,
+                    ),
                     revealedEntries: revealedEntries,
                     l10n: l10n,
                   ),
@@ -337,9 +353,10 @@ class _VaultEntriesTabState extends State<VaultEntriesTab> {
 }
 
 class _EmptyEntries extends StatelessWidget {
-  const _EmptyEntries({required this.l10n});
+  const _EmptyEntries({required this.l10n, required this.onImport});
 
   final AppLocalizations l10n;
+  final VoidCallback onImport;
 
   @override
   Widget build(BuildContext context) {
@@ -349,33 +366,68 @@ class _EmptyEntries extends StatelessWidget {
         vertical: AppSpacing.xxxl,
         horizontal: AppSpacing.screenH,
       ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.inbox_outlined,
-            size: 36,
-            color: AppColors.onSurfaceSubtle(brightness),
+      child: Center(
+        child: Transform.translate(
+          offset: const Offset(0, -(AppSpacing.xxxl + AppSpacing.sm)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.inbox_outlined,
+                size: 56,
+                color: AppColors.onSurface(brightness),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                l10n.entryEmpty,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.onSurface(brightness),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.chipGap),
+              Text(
+                l10n.entryEmptyAdd,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textTertiaryMobile,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SizedBox(
+                width: 240,
+                child: PrimaryButton(
+                  label: l10n.vaultActionImport,
+                  onPressed: onImport,
+                  leading: const Icon(Icons.file_upload_outlined, size: 17),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            l10n.entryEmpty,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.onSurface(brightness),
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.chipGap),
-          Text(
-            l10n.entryEmptyAdd,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppColors.textTertiaryMobile,
-              fontSize: 12,
-            ),
-          ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NoMatchingEntries extends StatelessWidget {
+  const _NoMatchingEntries({required this.l10n});
+
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        l10n.searchResultsEmpty,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: AppColors.textTertiaryMobile,
+          fontSize: 13,
+        ),
       ),
     );
   }
@@ -386,71 +438,13 @@ class _LoadingSliver extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
     // search → first skeleton row gap (fieldGap) is owned by the search bar.
     return SliverList.list(
       children: List.generate(
         5,
         (i) => Padding(
           padding: const EdgeInsets.only(bottom: AppSpacing.xxs),
-          child: _SkeletonRow(brightness: brightness, delay: i * 80),
-        ),
-      ),
-    );
-  }
-}
-
-class _SkeletonRow extends StatefulWidget {
-  const _SkeletonRow({required this.brightness, required this.delay});
-  final Brightness brightness;
-  final int delay;
-
-  @override
-  State<_SkeletonRow> createState() => _SkeletonRowState();
-}
-
-class _SkeletonRowState extends State<_SkeletonRow>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    Future.delayed(Duration(milliseconds: widget.delay), () {
-      if (mounted) _ctrl.repeat(reverse: true);
-    });
-    _anim = Tween<double>(
-      begin: 0.4,
-      end: 0.85,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final base = AppColors.onSurface(widget.brightness).withValues(alpha: 0.07);
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (context, _) => Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: base.withValues(alpha: base.a * _anim.value),
-          border: Border(
-            bottom: BorderSide(
-              color: AppColors.cardBorder(widget.brightness),
-              width: 1,
-            ),
-          ),
+          child: SkeletonBox(height: 56, delay: Duration(milliseconds: i * 80)),
         ),
       ),
     );

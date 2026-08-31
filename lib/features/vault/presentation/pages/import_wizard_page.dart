@@ -146,6 +146,7 @@ class _ImportWizardViewState extends State<_ImportWizardView> {
           final busy =
               state is ImportWizardImporting || state is ImportWizardParsing;
           return AppScreen.appBar(
+            gapAfterHeader: state is! ImportWizardPreview,
             appBar: AppBar(
               backgroundColor: Colors.transparent,
               elevation: 0,

@@ -110,6 +110,25 @@ void main() {
     },
   );
 
+  test(
+    'unbounded import ensure keeps polling pending assets until terminal',
+    () async {
+      final repository = _ReadyOnSecondRequestRepository();
+      final service = WebsiteIconService(
+        repository,
+        pollInterval: Duration.zero,
+      );
+
+      final result = await service.ensureBatchUntilResolved([
+        'ready.example.com',
+        'missing.example.com',
+      ]);
+
+      expect(repository.calls, 2);
+      expect(result.keys, ['ready.example.com']);
+    },
+  );
+
   test('repository splits 539 hosts without dropping the final page', () async {
     final remote = _RecordingRemoteDatasource();
     final repository = PublicAssetRepositoryImpl(remote);

@@ -921,7 +921,8 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryEmpty => 'Brak wpisów';
 
   @override
-  String get entryEmptyAdd => 'Dodaj pierwsze dane, aby zacząć.';
+  String get entryEmptyAdd =>
+      'Dodaj wpis ręcznie lub zaimportuj dane z innego menedżera haseł.';
 
   @override
   String get entrySaveAction => 'Zapisz';

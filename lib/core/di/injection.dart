@@ -450,8 +450,8 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<CanonicalImportProjectionService>(
     () => CanonicalImportProjectionService(
       vaults: getIt<VaultRemoteDatasource>(),
-      keys: getIt<VaultRotationCryptoService>(),
-      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      vaultCrypto: getIt<VaultCryptoService>(),
+      entryCrypto: getIt<EntryV2CryptoService>(),
     ),
   );
   getIt.registerLazySingleton<EntryHistoryService>(

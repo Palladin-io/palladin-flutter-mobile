@@ -1011,9 +1011,9 @@
   "@entryEmpty": {
     "description": "Empty-state title shown on the Entries tab when no entries exist yet"
   },
-  "entryEmptyAdd": "Add your first credential to get started.",
+  "entryEmptyAdd": "Add an entry manually or import from another password manager.",
   "@entryEmptyAdd": {
-    "description": "Empty-state subtitle nudging the user to use the Add Entry FAB"
+    "description": "Empty-state subtitle presenting manual creation and password-manager import"
   },
   "entrySaveAction": "Save",
   "@entrySaveAction": {
