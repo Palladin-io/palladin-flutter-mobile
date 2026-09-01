@@ -1239,9 +1239,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsScreenTitle => 'Settings';
 
   @override
-  String get settingsOrganization => 'Organization';
-
-  @override
   String get settingsManageOrganization => 'Organization';
 
   @override
@@ -1251,17 +1248,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsOrgNameHint => 'Enter organization name';
 
   @override
-  String settingsOrgMembers(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count members',
-      one: '1 member',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String get settingsSave => 'Save';
 
   @override
@@ -1269,20 +1255,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsApiKeys => 'API keys';
-
-  @override
-  String get settingsOpenSourceSection => 'About';
-
-  @override
-  String get settingsOpenSourceLicenses => 'Open-source licences';
-
-  @override
-  String get settingsOpenSourceLicensesHint =>
-      'View licences for Flutter and third-party packages.';
-
-  @override
-  String get settingsOpenSourceLegalese =>
-      'Copyright 2026 Patryk Roguszewski, trading as Patryk Roguszewski IT Solutions';
 
   @override
   String get settingsRetry => 'Retry';
@@ -3669,4 +3641,377 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get entryBillingAddressLabel => 'Billing address (optional)';
+
+  @override
+  String get settingsOrganizationTitle => 'Organization';
+
+  @override
+  String get settingsGeneralTitle => 'General';
+
+  @override
+  String get settingsGeneralSubtitle => 'Organization profile';
+
+  @override
+  String get settingsTeam => 'Team';
+
+  @override
+  String get settingsPermissions => 'Permissions';
+
+  @override
+  String get settingsAuditLogs => 'Audit logs';
+
+  @override
+  String get settingsBilling => 'Billing';
+
+  @override
+  String get settingsSecurity => 'Security';
+
+  @override
+  String get settingsDataImport => 'Data import';
+
+  @override
+  String get settingsActionsTitle => 'Session';
+
+  @override
+  String get settingsReadOnly =>
+      'You can view these settings, but only an organization manager can change them.';
+
+  @override
+  String get settingsErrorConflict =>
+      'The resource changed or is still in use. Refresh and try again.';
+
+  @override
+  String get teamScreenTitle => 'Team';
+
+  @override
+  String get teamScreenSubtitle => 'Members and pending invitations';
+
+  @override
+  String get teamSearchHint => 'Search members and invitations';
+
+  @override
+  String get teamFilterMembers => 'Members';
+
+  @override
+  String get teamFilterPending => 'Pending invitations';
+
+  @override
+  String get teamInvite => 'Invite';
+
+  @override
+  String get teamInviteTitle => 'Invite a member';
+
+  @override
+  String teamSeatUsage(int used, int limit) {
+    return '$used of $limit seats used';
+  }
+
+  @override
+  String get teamSeatUsageLabel => 'Seat usage';
+
+  @override
+  String teamSeatUsageValue(int used, int limit) {
+    return '$used / $limit';
+  }
+
+  @override
+  String teamSeatsAvailable(int count) {
+    return '$count available';
+  }
+
+  @override
+  String get teamSeatsUnavailable => 'Seat usage is unavailable.';
+
+  @override
+  String get teamManageSeats => 'Manage seats';
+
+  @override
+  String get teamSeatLimitReached => 'The organization has no available seats.';
+
+  @override
+  String get teamNoSeatsTitle => 'No seats available';
+
+  @override
+  String get teamNoSeatsBody =>
+      'Manage organization seats before inviting another member.';
+
+  @override
+  String get teamEmailLabel => 'Email address';
+
+  @override
+  String get teamRoleLabel => 'Initial role';
+
+  @override
+  String get teamSendInvitation => 'Send invitation';
+
+  @override
+  String get teamInvitationSent => 'Invitation sent.';
+
+  @override
+  String get teamInvitationCancelled => 'Invitation cancelled.';
+
+  @override
+  String get teamInvitationResent => 'Invitation resent with a new link.';
+
+  @override
+  String get teamInvitationRoleUpdated => 'Invitation role updated.';
+
+  @override
+  String get teamMemberRolesUpdated => 'Member roles updated.';
+
+  @override
+  String get teamInvalidEmail => 'Enter a valid email address.';
+
+  @override
+  String get teamNoInvitationRoles => 'No invitation-safe roles are available.';
+
+  @override
+  String get teamEmpty => 'No organization members found.';
+
+  @override
+  String get teamNoMatches => 'No matching people or invitations.';
+
+  @override
+  String get teamOwner => 'Owner';
+
+  @override
+  String get teamPending => 'Pending';
+
+  @override
+  String teamRoleCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count roles',
+      one: '1 role',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get teamMemberTitle => 'Member';
+
+  @override
+  String teamJoined(String date) {
+    return 'Joined $date';
+  }
+
+  @override
+  String get teamRolesTitle => 'Roles';
+
+  @override
+  String get teamRolesHint =>
+      'Roles control organization administration. They do not grant access to encrypted Vault contents.';
+
+  @override
+  String get teamSaveRoles => 'Save roles';
+
+  @override
+  String get teamAtLeastOneRole => 'Every member must keep at least one role.';
+
+  @override
+  String get teamMemberReadOnly =>
+      'This member\'s roles cannot be changed by your account.';
+
+  @override
+  String get teamInvitationTitle => 'Pending invitation';
+
+  @override
+  String teamInvitedBy(String name) {
+    return 'Invited by $name';
+  }
+
+  @override
+  String teamSentAt(String date) {
+    return 'Sent $date';
+  }
+
+  @override
+  String teamExpiresAt(String date) {
+    return 'Expires $date';
+  }
+
+  @override
+  String get teamResend => 'Resend invitation';
+
+  @override
+  String teamResendAvailable(String date) {
+    return 'Resend available $date';
+  }
+
+  @override
+  String get teamCancelInvitation => 'Cancel invitation';
+
+  @override
+  String get teamCancelInvitationTitle => 'Cancel this invitation?';
+
+  @override
+  String get teamCancelInvitationBody =>
+      'The current invitation link will stop working and its reserved seat will be released.';
+
+  @override
+  String get teamCancel => 'Cancel';
+
+  @override
+  String get teamConfirmCancel => 'Cancel invitation';
+
+  @override
+  String get permissionsScreenTitle => 'Permissions';
+
+  @override
+  String get permissionsScreenSubtitle =>
+      'Organization roles and administrative access';
+
+  @override
+  String get permissionsCreate => 'Create role';
+
+  @override
+  String get permissionsCreateTitle => 'Create role';
+
+  @override
+  String get permissionsEditTitle => 'Role';
+
+  @override
+  String get permissionsRoleName => 'Role name';
+
+  @override
+  String get permissionsRoleNameHint => 'e.g. Vault manager';
+
+  @override
+  String get permissionsPermissionTitle => 'Administrative permissions';
+
+  @override
+  String get permissionsPermissionHint =>
+      'Permissions do not provide cryptographic access to Vault contents.';
+
+  @override
+  String get permissionsSystem => 'System';
+
+  @override
+  String permissionsAssignedMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count assigned members',
+      one: '1 assigned member',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get permissionsEmpty => 'No organization roles found.';
+
+  @override
+  String get permissionsCreated => 'Role created.';
+
+  @override
+  String get permissionsUpdated => 'Role updated.';
+
+  @override
+  String get permissionsDeleted => 'Role deleted.';
+
+  @override
+  String get permissionsDelete => 'Delete role';
+
+  @override
+  String get permissionsDeleteTitle => 'Delete this role?';
+
+  @override
+  String get permissionsDeleteBody =>
+      'Deleting an unassigned custom role cannot be undone.';
+
+  @override
+  String get permissionsDeleteBlocked =>
+      'Remove this role from every member before deleting it.';
+
+  @override
+  String get permissionsSystemReadOnly =>
+      'System roles are managed by Palladin and cannot be edited.';
+
+  @override
+  String get permissionsRoleReadOnly =>
+      'This role is outside your assignable permission scope and is read-only.';
+
+  @override
+  String get permissionsSave => 'Save role';
+
+  @override
+  String get settingsSecurityTitle => 'Security';
+
+  @override
+  String get settingsSecuritySubtitle =>
+      'Authentication and account protection';
+
+  @override
+  String get settingsSecurityPasswordHint =>
+      'Rotate the master password used to unlock your account.';
+
+  @override
+  String get settingsSecurityTwoFactorHint =>
+      'Protect password sign-in with a time-based one-time code.';
+
+  @override
+  String get settingsSecurityOAuth =>
+      'Password and two-factor settings are managed by your sign-in provider.';
+
+  @override
+  String get settingsDataImportTitle => 'Data import';
+
+  @override
+  String get settingsDataImportSubtitle =>
+      'Bring credentials from another password manager';
+
+  @override
+  String get settingsDataImportBody =>
+      'Choose an export file and a destination Vault. The file is parsed and encrypted on this device before any data is sent.';
+
+  @override
+  String get settingsDataImportAction => 'Choose Vault and file';
+
+  @override
+  String get settingsBillingTitle => 'Billing';
+
+  @override
+  String get settingsBillingSubtitle => 'Plan and organization seats';
+
+  @override
+  String get settingsBillingComingSoon => 'Billing is coming soon';
+
+  @override
+  String get settingsBillingComingSoonBody =>
+      'Plan management is not available yet. Your current access remains unchanged.';
+
+  @override
+  String get permissionAddUser => 'Invite members';
+
+  @override
+  String get permissionOrganizationManagement => 'Manage organization';
+
+  @override
+  String get permissionVaultCreate => 'Create Vaults';
+
+  @override
+  String get permissionVaultManage => 'Manage Vaults';
+
+  @override
+  String get permissionAgentManage => 'Manage agents';
+
+  @override
+  String get permissionGrantManage => 'Manage grants';
+
+  @override
+  String get permissionAuditView => 'View audit logs';
+
+  @override
+  String get permissionMultipleVaults => 'Multiple Vaults';
+
+  @override
+  String get permissionReadApiKey => 'View API keys';
+
+  @override
+  String get permissionWriteApiKey => 'Manage API keys';
+
+  @override
+  String get settingsGrantManageCutoverUnavailable =>
+      'Grant-management access cannot be changed yet. No role changes were saved.';
 }

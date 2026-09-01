@@ -2192,12 +2192,6 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get settingsScreenTitle;
 
-  /// Heading for the organization section on the settings screen
-  ///
-  /// In en, this message translates to:
-  /// **'Organization'**
-  String get settingsOrganization;
-
   /// Label for the settings-drawer item that opens the organization settings screen
   ///
   /// In en, this message translates to:
@@ -2216,12 +2210,6 @@ abstract class AppLocalizations {
   /// **'Enter organization name'**
   String get settingsOrgNameHint;
 
-  /// Member count shown under the organization name
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{1 member} other{{count} members}}'**
-  String settingsOrgMembers(int count);
-
   /// Label for the save button on the organization form
   ///
   /// In en, this message translates to:
@@ -2239,30 +2227,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'API keys'**
   String get settingsApiKeys;
-
-  /// Heading above open-source information on the settings screen
-  ///
-  /// In en, this message translates to:
-  /// **'About'**
-  String get settingsOpenSourceSection;
-
-  /// Settings row that opens Flutter's bundled dependency licence registry
-  ///
-  /// In en, this message translates to:
-  /// **'Open-source licences'**
-  String get settingsOpenSourceLicenses;
-
-  /// Subtitle for the open-source licences settings row
-  ///
-  /// In en, this message translates to:
-  /// **'View licences for Flutter and third-party packages.'**
-  String get settingsOpenSourceLicensesHint;
-
-  /// Copyright notice shown at the top of the open-source licences page
-  ///
-  /// In en, this message translates to:
-  /// **'Copyright 2026 Patryk Roguszewski, trading as Patryk Roguszewski IT Solutions'**
-  String get settingsOpenSourceLegalese;
 
   /// Label for the retry button on settings error states
   ///
@@ -6523,6 +6487,648 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Billing address (optional)'**
   String get entryBillingAddressLabel;
+
+  /// No description provided for @settingsOrganizationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Organization'**
+  String get settingsOrganizationTitle;
+
+  /// No description provided for @settingsGeneralTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get settingsGeneralTitle;
+
+  /// No description provided for @settingsGeneralSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Organization profile'**
+  String get settingsGeneralSubtitle;
+
+  /// No description provided for @settingsTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Team'**
+  String get settingsTeam;
+
+  /// No description provided for @settingsPermissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Permissions'**
+  String get settingsPermissions;
+
+  /// No description provided for @settingsAuditLogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Audit logs'**
+  String get settingsAuditLogs;
+
+  /// No description provided for @settingsBilling.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing'**
+  String get settingsBilling;
+
+  /// No description provided for @settingsSecurity.
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get settingsSecurity;
+
+  /// No description provided for @settingsDataImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Data import'**
+  String get settingsDataImport;
+
+  /// No description provided for @settingsActionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Session'**
+  String get settingsActionsTitle;
+
+  /// No description provided for @settingsReadOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'You can view these settings, but only an organization manager can change them.'**
+  String get settingsReadOnly;
+
+  /// No description provided for @settingsErrorConflict.
+  ///
+  /// In en, this message translates to:
+  /// **'The resource changed or is still in use. Refresh and try again.'**
+  String get settingsErrorConflict;
+
+  /// No description provided for @teamScreenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team'**
+  String get teamScreenTitle;
+
+  /// No description provided for @teamScreenSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Members and pending invitations'**
+  String get teamScreenSubtitle;
+
+  /// No description provided for @teamSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search members and invitations'**
+  String get teamSearchHint;
+
+  /// No description provided for @teamFilterMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get teamFilterMembers;
+
+  /// No description provided for @teamFilterPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending invitations'**
+  String get teamFilterPending;
+
+  /// No description provided for @teamInvite.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite'**
+  String get teamInvite;
+
+  /// No description provided for @teamInviteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite a member'**
+  String get teamInviteTitle;
+
+  /// No description provided for @teamSeatUsage.
+  ///
+  /// In en, this message translates to:
+  /// **'{used} of {limit} seats used'**
+  String teamSeatUsage(int used, int limit);
+
+  /// No description provided for @teamSeatUsageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Seat usage'**
+  String get teamSeatUsageLabel;
+
+  /// No description provided for @teamSeatUsageValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{used} / {limit}'**
+  String teamSeatUsageValue(int used, int limit);
+
+  /// No description provided for @teamSeatsAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} available'**
+  String teamSeatsAvailable(int count);
+
+  /// No description provided for @teamSeatsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Seat usage is unavailable.'**
+  String get teamSeatsUnavailable;
+
+  /// No description provided for @teamManageSeats.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage seats'**
+  String get teamManageSeats;
+
+  /// No description provided for @teamSeatLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'The organization has no available seats.'**
+  String get teamSeatLimitReached;
+
+  /// Title shown instead of the invite form when every organization seat is occupied
+  ///
+  /// In en, this message translates to:
+  /// **'No seats available'**
+  String get teamNoSeatsTitle;
+
+  /// Guidance shown when the invite form is blocked because no organization seat is available
+  ///
+  /// In en, this message translates to:
+  /// **'Manage organization seats before inviting another member.'**
+  String get teamNoSeatsBody;
+
+  /// No description provided for @teamEmailLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Email address'**
+  String get teamEmailLabel;
+
+  /// No description provided for @teamRoleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Initial role'**
+  String get teamRoleLabel;
+
+  /// No description provided for @teamSendInvitation.
+  ///
+  /// In en, this message translates to:
+  /// **'Send invitation'**
+  String get teamSendInvitation;
+
+  /// No description provided for @teamInvitationSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation sent.'**
+  String get teamInvitationSent;
+
+  /// No description provided for @teamInvitationCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation cancelled.'**
+  String get teamInvitationCancelled;
+
+  /// No description provided for @teamInvitationResent.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation resent with a new link.'**
+  String get teamInvitationResent;
+
+  /// No description provided for @teamInvitationRoleUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation role updated.'**
+  String get teamInvitationRoleUpdated;
+
+  /// No description provided for @teamMemberRolesUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Member roles updated.'**
+  String get teamMemberRolesUpdated;
+
+  /// No description provided for @teamInvalidEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid email address.'**
+  String get teamInvalidEmail;
+
+  /// No description provided for @teamNoInvitationRoles.
+  ///
+  /// In en, this message translates to:
+  /// **'No invitation-safe roles are available.'**
+  String get teamNoInvitationRoles;
+
+  /// No description provided for @teamEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No organization members found.'**
+  String get teamEmpty;
+
+  /// No description provided for @teamNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching people or invitations.'**
+  String get teamNoMatches;
+
+  /// No description provided for @teamOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner'**
+  String get teamOwner;
+
+  /// No description provided for @teamPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get teamPending;
+
+  /// No description provided for @teamRoleCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 role} other{{count} roles}}'**
+  String teamRoleCount(int count);
+
+  /// No description provided for @teamMemberTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Member'**
+  String get teamMemberTitle;
+
+  /// No description provided for @teamJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'Joined {date}'**
+  String teamJoined(String date);
+
+  /// No description provided for @teamRolesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Roles'**
+  String get teamRolesTitle;
+
+  /// No description provided for @teamRolesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Roles control organization administration. They do not grant access to encrypted Vault contents.'**
+  String get teamRolesHint;
+
+  /// No description provided for @teamSaveRoles.
+  ///
+  /// In en, this message translates to:
+  /// **'Save roles'**
+  String get teamSaveRoles;
+
+  /// No description provided for @teamAtLeastOneRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Every member must keep at least one role.'**
+  String get teamAtLeastOneRole;
+
+  /// No description provided for @teamMemberReadOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'This member\'s roles cannot be changed by your account.'**
+  String get teamMemberReadOnly;
+
+  /// No description provided for @teamInvitationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending invitation'**
+  String get teamInvitationTitle;
+
+  /// No description provided for @teamInvitedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Invited by {name}'**
+  String teamInvitedBy(String name);
+
+  /// No description provided for @teamSentAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent {date}'**
+  String teamSentAt(String date);
+
+  /// No description provided for @teamExpiresAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires {date}'**
+  String teamExpiresAt(String date);
+
+  /// No description provided for @teamResend.
+  ///
+  /// In en, this message translates to:
+  /// **'Resend invitation'**
+  String get teamResend;
+
+  /// No description provided for @teamResendAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Resend available {date}'**
+  String teamResendAvailable(String date);
+
+  /// No description provided for @teamCancelInvitation.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel invitation'**
+  String get teamCancelInvitation;
+
+  /// No description provided for @teamCancelInvitationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel this invitation?'**
+  String get teamCancelInvitationTitle;
+
+  /// No description provided for @teamCancelInvitationBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The current invitation link will stop working and its reserved seat will be released.'**
+  String get teamCancelInvitationBody;
+
+  /// No description provided for @teamCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get teamCancel;
+
+  /// No description provided for @teamConfirmCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel invitation'**
+  String get teamConfirmCancel;
+
+  /// No description provided for @permissionsScreenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Permissions'**
+  String get permissionsScreenTitle;
+
+  /// No description provided for @permissionsScreenSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Organization roles and administrative access'**
+  String get permissionsScreenSubtitle;
+
+  /// No description provided for @permissionsCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create role'**
+  String get permissionsCreate;
+
+  /// No description provided for @permissionsCreateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create role'**
+  String get permissionsCreateTitle;
+
+  /// No description provided for @permissionsEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Role'**
+  String get permissionsEditTitle;
+
+  /// No description provided for @permissionsRoleName.
+  ///
+  /// In en, this message translates to:
+  /// **'Role name'**
+  String get permissionsRoleName;
+
+  /// No description provided for @permissionsRoleNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Vault manager'**
+  String get permissionsRoleNameHint;
+
+  /// No description provided for @permissionsPermissionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Administrative permissions'**
+  String get permissionsPermissionTitle;
+
+  /// No description provided for @permissionsPermissionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Permissions do not provide cryptographic access to Vault contents.'**
+  String get permissionsPermissionHint;
+
+  /// No description provided for @permissionsSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get permissionsSystem;
+
+  /// No description provided for @permissionsAssignedMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 assigned member} other{{count} assigned members}}'**
+  String permissionsAssignedMembers(int count);
+
+  /// No description provided for @permissionsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No organization roles found.'**
+  String get permissionsEmpty;
+
+  /// No description provided for @permissionsCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Role created.'**
+  String get permissionsCreated;
+
+  /// No description provided for @permissionsUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Role updated.'**
+  String get permissionsUpdated;
+
+  /// No description provided for @permissionsDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Role deleted.'**
+  String get permissionsDeleted;
+
+  /// No description provided for @permissionsDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete role'**
+  String get permissionsDelete;
+
+  /// No description provided for @permissionsDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this role?'**
+  String get permissionsDeleteTitle;
+
+  /// No description provided for @permissionsDeleteBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting an unassigned custom role cannot be undone.'**
+  String get permissionsDeleteBody;
+
+  /// No description provided for @permissionsDeleteBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this role from every member before deleting it.'**
+  String get permissionsDeleteBlocked;
+
+  /// No description provided for @permissionsSystemReadOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'System roles are managed by Palladin and cannot be edited.'**
+  String get permissionsSystemReadOnly;
+
+  /// No description provided for @permissionsRoleReadOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'This role is outside your assignable permission scope and is read-only.'**
+  String get permissionsRoleReadOnly;
+
+  /// No description provided for @permissionsSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save role'**
+  String get permissionsSave;
+
+  /// No description provided for @settingsSecurityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get settingsSecurityTitle;
+
+  /// No description provided for @settingsSecuritySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Authentication and account protection'**
+  String get settingsSecuritySubtitle;
+
+  /// No description provided for @settingsSecurityPasswordHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Rotate the master password used to unlock your account.'**
+  String get settingsSecurityPasswordHint;
+
+  /// No description provided for @settingsSecurityTwoFactorHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Protect password sign-in with a time-based one-time code.'**
+  String get settingsSecurityTwoFactorHint;
+
+  /// No description provided for @settingsSecurityOAuth.
+  ///
+  /// In en, this message translates to:
+  /// **'Password and two-factor settings are managed by your sign-in provider.'**
+  String get settingsSecurityOAuth;
+
+  /// No description provided for @settingsDataImportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Data import'**
+  String get settingsDataImportTitle;
+
+  /// No description provided for @settingsDataImportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Bring credentials from another password manager'**
+  String get settingsDataImportSubtitle;
+
+  /// No description provided for @settingsDataImportBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an export file and a destination Vault. The file is parsed and encrypted on this device before any data is sent.'**
+  String get settingsDataImportBody;
+
+  /// No description provided for @settingsDataImportAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Vault and file'**
+  String get settingsDataImportAction;
+
+  /// No description provided for @settingsBillingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing'**
+  String get settingsBillingTitle;
+
+  /// No description provided for @settingsBillingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan and organization seats'**
+  String get settingsBillingSubtitle;
+
+  /// No description provided for @settingsBillingComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing is coming soon'**
+  String get settingsBillingComingSoon;
+
+  /// No description provided for @settingsBillingComingSoonBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan management is not available yet. Your current access remains unchanged.'**
+  String get settingsBillingComingSoonBody;
+
+  /// No description provided for @permissionAddUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite members'**
+  String get permissionAddUser;
+
+  /// No description provided for @permissionOrganizationManagement.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage organization'**
+  String get permissionOrganizationManagement;
+
+  /// No description provided for @permissionVaultCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Vaults'**
+  String get permissionVaultCreate;
+
+  /// No description provided for @permissionVaultManage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Vaults'**
+  String get permissionVaultManage;
+
+  /// No description provided for @permissionAgentManage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage agents'**
+  String get permissionAgentManage;
+
+  /// No description provided for @permissionGrantManage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage grants'**
+  String get permissionGrantManage;
+
+  /// No description provided for @permissionAuditView.
+  ///
+  /// In en, this message translates to:
+  /// **'View audit logs'**
+  String get permissionAuditView;
+
+  /// No description provided for @permissionMultipleVaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Multiple Vaults'**
+  String get permissionMultipleVaults;
+
+  /// No description provided for @permissionReadApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'View API keys'**
+  String get permissionReadApiKey;
+
+  /// No description provided for @permissionWriteApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage API keys'**
+  String get permissionWriteApiKey;
+
+  /// No description provided for @settingsGrantManageCutoverUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant-management access cannot be changed yet. No role changes were saved.'**
+  String get settingsGrantManageCutoverUnavailable;
 }
 
 class _AppLocalizationsDelegate

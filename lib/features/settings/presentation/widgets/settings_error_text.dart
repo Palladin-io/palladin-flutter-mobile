@@ -10,6 +10,10 @@ String settingsErrorMessage(AppLocalizations l10n, SettingsErrorKind kind) {
     SettingsErrorKind.notFound => l10n.settingsErrorNotFound,
     SettingsErrorKind.forbidden => l10n.settingsErrorForbidden,
     SettingsErrorKind.validation => l10n.settingsErrorValidation,
+    SettingsErrorKind.conflict => l10n.settingsErrorConflict,
+    SettingsErrorKind.seatLimitReached => l10n.teamSeatLimitReached,
+    SettingsErrorKind.grantManageCutoverUnavailable =>
+      l10n.settingsGrantManageCutoverUnavailable,
     SettingsErrorKind.networkError => l10n.errorCannotConnectToServer,
     SettingsErrorKind.unknown => l10n.settingsErrorUnknown,
   };

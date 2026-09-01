@@ -21,6 +21,13 @@ import '../../features/notifications/presentation/pages/notification_preferences
 import '../../features/onboarding/presentation/pages/onboarding_wizard_page.dart';
 import '../../features/recovery/presentation/pages/recovery_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
+import '../../features/settings/presentation/pages/team_page.dart';
+import '../../features/settings/presentation/pages/team_detail_pages.dart';
+import '../../features/settings/presentation/pages/permissions_page.dart';
+import '../../features/settings/presentation/pages/permission_role_page.dart';
+import '../../features/settings/presentation/pages/security_page.dart';
+import '../../features/settings/presentation/pages/data_import_page.dart';
+import '../../features/settings/presentation/pages/billing_page.dart';
 import '../../features/shell/presentation/pages/app_shell.dart';
 import '../../features/unlock/presentation/pages/unlock_page.dart';
 import '../../features/vault/presentation/pages/vault_detail_page.dart';
@@ -32,11 +39,47 @@ import '../permissions.dart';
 /// (CLAUDE.md routing criteria #6). Keep every path used by `context.go/push`
 /// here next to its [GoRoute] definition below.
 abstract final class AppRoutes {
+  static const String settings = '/settings';
+  static const String settingsGeneral = '/settings/general';
+  static const String settingsTeam = '/settings/team';
+  static const String settingsPermissions = '/settings/permissions';
+  static const String settingsApiKeys = '/settings/api-keys';
+  static const String settingsAudit = '/settings/audit';
+  static const String settingsBilling = '/settings/billing';
+  static const String settingsSecurity = '/settings/security';
+  static const String settingsDataImport = '/settings/data-import';
+  static const String changePassword = '/change-password';
+  static const String totpEnroll = '/totp/enroll';
+
+  static String settingsTeamMember(String userId) => '$settingsTeam/$userId';
+
+  static String settingsTeamInvitation(String invitationId) =>
+      '$settingsTeam/invitations/$invitationId';
+
+  static String settingsPermissionRole(String roleId) =>
+      '$settingsPermissions/$roleId';
+
+  static String settingsApiKey(String keyId) => '$settingsApiKeys/$keyId';
+
   /// Agent detail screen for [agentId] (e.g. `/agents/abc`).
   static String agentDetail(String agentId) => '/agents/$agentId';
 
   /// Vault detail screen for [vaultId] (e.g. `/vaults/abc`).
   static String vaultDetail(String vaultId) => '/vaults/$vaultId';
+}
+
+/// Mirrors a settings affordance permission at the route boundary.
+/// Backend authorization remains authoritative for every request.
+String? settingsPermissionRedirect(
+  AuthState authState,
+  int requiredPermission, {
+  String fallback = AppRoutes.settingsGeneral,
+}) {
+  if (authState is AuthAuthenticated &&
+      (authState.permissions & requiredPermission) == 0) {
+    return fallback;
+  }
+  return null;
 }
 
 CustomTransitionPage<void> _authFadePage(
@@ -214,12 +257,9 @@ GoRouter createRouter(
               ),
             ],
           ),
-          // Org-wide audit Logs screen — reached from the settings
-          // drawer's "Audit" item.
-          GoRoute(
-            path: '/audit',
-            builder: (_, _) => const GlobalAuditLogPage(),
-          ),
+          // Legacy Settings links remain valid while canonical destinations
+          // live under /settings/*.
+          GoRoute(path: '/audit', redirect: (_, _) => '/settings/audit'),
           // Keep older push/deep links working after Approvals became Inbox.
           GoRoute(path: '/approvals', redirect: (_, _) => '/inbox'),
           // Business Inbox — durable notifications for every authenticated
@@ -246,39 +286,109 @@ GoRouter createRouter(
               ),
             ],
           ),
-          // Settings — organization details. Lives inside the shell so
-          // the persistent bottom nav stays mounted while the user is
-          // on the screen.
-          GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
-          // API keys — standalone list + detail screens. Nested so the
-          // detail page keeps the shell (and its bottom nav) mounted
-          // across navigation, matching `/vaults/:vaultId`.
+          GoRoute(path: '/settings', redirect: (_, _) => '/settings/general'),
           GoRoute(
-            path: '/api-keys',
+            path: '/settings/general',
+            builder: (_, _) => const SettingsPage(),
+          ),
+          GoRoute(
+            path: '/settings/team',
+            builder: (_, _) => const TeamPage(),
+            routes: [
+              GoRoute(
+                path: 'invitations/:invitationId',
+                redirect: (context, state) {
+                  return settingsPermissionRedirect(
+                    authBloc.state,
+                    Permissions.addUser,
+                    fallback: AppRoutes.settingsTeam,
+                  );
+                },
+                builder: (_, state) => TeamInvitationPage(
+                  invitationId: state.pathParameters['invitationId']!,
+                ),
+              ),
+              GoRoute(
+                path: ':memberId',
+                builder: (_, state) =>
+                    TeamMemberPage(userId: state.pathParameters['memberId']!),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: '/settings/permissions',
             redirect: (context, state) {
-              final auth = authBloc.state;
-              if (auth is AuthAuthenticated &&
-                  (auth.permissions & Permissions.readApiKey) == 0) {
-                return '/vaults';
-              }
-              return null;
+              return settingsPermissionRedirect(
+                authBloc.state,
+                Permissions.organizationManagement,
+              );
+            },
+            builder: (_, _) => const PermissionsPage(),
+            routes: [
+              GoRoute(
+                path: ':roleId',
+                redirect: (context, state) {
+                  return settingsPermissionRedirect(
+                    authBloc.state,
+                    Permissions.organizationManagement,
+                  );
+                },
+                builder: (_, state) =>
+                    PermissionRolePage(roleId: state.pathParameters['roleId']!),
+              ),
+            ],
+          ),
+          // API keys — canonical Settings list + detail screens.
+          GoRoute(
+            path: '/settings/api-keys',
+            redirect: (context, state) {
+              return settingsPermissionRedirect(
+                authBloc.state,
+                Permissions.readApiKey,
+              );
             },
             builder: (_, _) => const ApiKeysPage(),
             routes: [
               GoRoute(
                 path: ':keyId',
                 redirect: (context, state) {
-                  final auth = authBloc.state;
-                  if (auth is AuthAuthenticated &&
-                      (auth.permissions & Permissions.readApiKey) == 0) {
-                    return '/vaults';
-                  }
-                  return null;
+                  return settingsPermissionRedirect(
+                    authBloc.state,
+                    Permissions.readApiKey,
+                  );
                 },
                 builder: (_, state) =>
                     ApiKeyDetailPage(keyId: state.pathParameters['keyId']!),
               ),
             ],
+          ),
+          GoRoute(
+            path: '/settings/audit',
+            redirect: (context, state) {
+              return settingsPermissionRedirect(
+                authBloc.state,
+                Permissions.auditView,
+              );
+            },
+            builder: (_, _) => const GlobalAuditLogPage(),
+          ),
+          GoRoute(
+            path: '/settings/billing',
+            builder: (_, _) => const BillingPage(),
+          ),
+          GoRoute(
+            path: '/settings/security',
+            builder: (_, _) => const SecurityPage(),
+          ),
+          GoRoute(
+            path: '/settings/data-import',
+            builder: (_, _) => const DataImportPage(),
+          ),
+          GoRoute(path: '/api-keys', redirect: (_, _) => '/settings/api-keys'),
+          GoRoute(
+            path: '/api-keys/:keyId',
+            redirect: (_, state) =>
+                '/settings/api-keys/${state.pathParameters['keyId']!}',
           ),
         ],
       ),

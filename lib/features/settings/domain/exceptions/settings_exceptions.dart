@@ -19,6 +19,18 @@ enum SettingsErrorKind {
   /// 400 from the backend — the submitted payload failed validation.
   validation,
 
+  /// 409 from the backend — state changed, the resource is still in use, or
+  /// a plan/security transition prevents the requested mutation.
+  conflict,
+
+  /// The organization has no free human-user seat. The backend remains the
+  /// authoritative arbiter because cached seat usage can change concurrently.
+  seatLimitReached,
+
+  /// Backend fail-closed boundary while GrantManage recipient-set changes are
+  /// unavailable. The UI must keep the unsaved role draft intact.
+  grantManageCutoverUnavailable,
+
   /// Connection / timeout / send-failure on the wire.
   networkError,
 

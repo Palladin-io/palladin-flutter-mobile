@@ -3,6 +3,9 @@
 /// Convention: `kRead{Resource}` / `kWrite{Resource}` — never per-action.
 /// Bits 256/512 are reserved for billing plan feature flags.
 abstract final class Permissions {
+  /// Invite new members and manage pending invitations.
+  static const int addUser = 1;
+
   /// Manage organization membership and roles.
   static const int organizationManagement = 2;
 

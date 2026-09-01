@@ -17,6 +17,8 @@ void main() {
     name: 'Acme',
     planType: 'Pro',
     memberCount: 3,
+    seatUsage: 4,
+    seatLimit: 5,
   );
 
   setUp(() {
@@ -34,8 +36,11 @@ void main() {
       },
       act: (cubit) => cubit.loadOrg(),
       expect: () => [
-        isA<SettingsState>()
-            .having((s) => s.orgStatus, 'orgStatus', SectionStatus.loading),
+        isA<SettingsState>().having(
+          (s) => s.orgStatus,
+          'orgStatus',
+          SectionStatus.loading,
+        ),
         isA<SettingsState>()
             .having((s) => s.orgStatus, 'orgStatus', SectionStatus.loaded)
             .having((s) => s.org?.name, 'org.name', 'Acme'),
@@ -45,14 +50,18 @@ void main() {
     blocTest<SettingsCubit, SettingsState>(
       'emits loading then error on SettingsException',
       build: () {
-        when(() => repository.getOrg())
-            .thenThrow(const SettingsException(SettingsErrorKind.forbidden));
+        when(
+          () => repository.getOrg(),
+        ).thenThrow(const SettingsException(SettingsErrorKind.forbidden));
         return buildCubit();
       },
       act: (cubit) => cubit.loadOrg(),
       expect: () => [
-        isA<SettingsState>()
-            .having((s) => s.orgStatus, 'orgStatus', SectionStatus.loading),
+        isA<SettingsState>().having(
+          (s) => s.orgStatus,
+          'orgStatus',
+          SectionStatus.loading,
+        ),
         isA<SettingsState>()
             .having((s) => s.orgStatus, 'orgStatus', SectionStatus.error)
             .having((s) => s.orgError, 'orgError', SettingsErrorKind.forbidden),
@@ -68,10 +77,8 @@ void main() {
         when(() => repository.updateOrgName(any())).thenAnswer((_) async {});
         return buildCubit();
       },
-      seed: () => const SettingsState(
-        orgStatus: SectionStatus.loaded,
-        org: sampleOrg,
-      ),
+      seed: () =>
+          const SettingsState(orgStatus: SectionStatus.loaded, org: sampleOrg),
       act: (cubit) => cubit.saveOrgName('  Renamed  '),
       expect: () => [
         isA<SettingsState>().having((s) => s.isSavingOrg, 'isSavingOrg', true),
@@ -89,15 +96,13 @@ void main() {
     blocTest<SettingsCubit, SettingsState>(
       'flags orgSaveError on failure',
       build: () {
-        when(() => repository.updateOrgName(any())).thenThrow(
-          const SettingsException(SettingsErrorKind.validation),
-        );
+        when(
+          () => repository.updateOrgName(any()),
+        ).thenThrow(const SettingsException(SettingsErrorKind.validation));
         return buildCubit();
       },
-      seed: () => const SettingsState(
-        orgStatus: SectionStatus.loaded,
-        org: sampleOrg,
-      ),
+      seed: () =>
+          const SettingsState(orgStatus: SectionStatus.loaded, org: sampleOrg),
       act: (cubit) => cubit.saveOrgName('Bad'),
       expect: () => [
         isA<SettingsState>().having((s) => s.isSavingOrg, 'isSavingOrg', true),

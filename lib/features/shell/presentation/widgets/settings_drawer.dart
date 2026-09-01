@@ -5,13 +5,14 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/l10n/locale_cubit.dart';
+import '../../../../core/permissions.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_cubit.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../agents/presentation/bloc/agents_cubit.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../vault/presentation/pages/import_vault_picker_page.dart';
 
 /// Bit on the JWT `permissions` claim that flags the user as a paying
 /// (Pro) account. Mirrors `Permission.PremiumPlan = 256` on the backend
@@ -59,8 +60,10 @@ class SettingsDrawer extends StatelessWidget {
     final permissions = authState is AuthAuthenticated
         ? authState.permissions
         : 0;
-    final isPasswordAccount =
-        authState is AuthAuthenticated && authState.isPasswordAccount;
+    final canManageOrganization =
+        (permissions & Permissions.organizationManagement) != 0;
+    final canReadApiKeys = (permissions & Permissions.readApiKey) != 0;
+    final canViewAudit = (permissions & Permissions.auditView) != 0;
     final isPro =
         permissions != 0 &&
         permissions != _kPermissionsMaxValue &&
@@ -78,75 +81,87 @@ class SettingsDrawer extends StatelessWidget {
           children: [
             _DrawerHeader(email: email, isPro: isPro),
             Divider(color: AppColors.navBorder(brightness), height: 1),
-            const SizedBox(height: AppSpacing.innerGap),
-            const _ThemeToggleRow(),
-            const _LanguageRow(),
-            const SizedBox(height: AppSpacing.innerGap),
-            Divider(color: AppColors.navBorder(brightness), height: 1),
-            const SizedBox(height: AppSpacing.innerGap),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screenH,
-                AppSpacing.innerGap,
-                AppSpacing.screenH,
-                AppSpacing.xs,
-              ),
-              child: Text(
-                l10n.settingsAccountTitle.toUpperCase(),
-                style: const TextStyle(
-                  color: AppColors.textTertiaryMobile,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.only(
+                  top: AppSpacing.innerGap,
+                  bottom: AppSpacing.innerGap,
                 ),
+                children: [
+                  const _ThemeToggleRow(),
+                  const _LanguageRow(),
+                  const SizedBox(height: AppSpacing.innerGap),
+                  Divider(color: AppColors.navBorder(brightness), height: 1),
+                  const _DrawerSectionHeader(),
+                  _DrawerItem(
+                    icon: Icons.tune,
+                    label: l10n.settingsGeneralTitle,
+                    onTap: () =>
+                        _onNavigate(context, AppRoutes.settingsGeneral),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.group_outlined,
+                    label: l10n.settingsTeam,
+                    onTap: () => _onNavigate(context, AppRoutes.settingsTeam),
+                  ),
+                  if (canManageOrganization)
+                    _DrawerItem(
+                      icon: Icons.admin_panel_settings_outlined,
+                      label: l10n.settingsPermissions,
+                      onTap: () =>
+                          _onNavigate(context, AppRoutes.settingsPermissions),
+                    ),
+                  if (canReadApiKeys)
+                    _DrawerItem(
+                      icon: Icons.vpn_key_outlined,
+                      label: l10n.settingsApiKeys,
+                      onTap: () =>
+                          _onNavigate(context, AppRoutes.settingsApiKeys),
+                    ),
+                  if (canViewAudit)
+                    _DrawerItem(
+                      icon: Icons.history,
+                      label: l10n.settingsAuditLogs,
+                      onTap: () =>
+                          _onNavigate(context, AppRoutes.settingsAudit),
+                    ),
+                  _DrawerItem(
+                    icon: Icons.credit_card_outlined,
+                    label: l10n.settingsBilling,
+                    onTap: () =>
+                        _onNavigate(context, AppRoutes.settingsBilling),
+                  ),
+                  const SizedBox(height: AppSpacing.innerGap),
+                  Divider(color: AppColors.navBorder(brightness), height: 1),
+                  _DrawerSectionHeader(label: l10n.settingsAccountTitle),
+                  _DrawerItem(
+                    icon: Icons.security_outlined,
+                    label: l10n.settingsSecurity,
+                    onTap: () =>
+                        _onNavigate(context, AppRoutes.settingsSecurity),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.file_upload_outlined,
+                    label: l10n.settingsDataImport,
+                    onTap: () =>
+                        _onNavigate(context, AppRoutes.settingsDataImport),
+                  ),
+                  const SizedBox(height: AppSpacing.innerGap),
+                  Divider(color: AppColors.navBorder(brightness), height: 1),
+                  _DrawerSectionHeader(label: l10n.settingsActionsTitle),
+                  _DrawerItem(
+                    icon: Icons.lock_outline,
+                    label: l10n.settingsLockVault,
+                    onTap: () => _onLock(context),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.logout,
+                    label: l10n.settingsLogout,
+                    onTap: () => _onLogout(context),
+                  ),
+                ],
               ),
             ),
-            _DrawerItem(
-              icon: Icons.corporate_fare,
-              label: l10n.settingsManageOrganization,
-              onTap: () => _onNavigate(context, '/settings'),
-            ),
-            _DrawerItem(
-              icon: Icons.vpn_key_outlined,
-              label: l10n.settingsApiKeys,
-              onTap: () => _onNavigate(context, '/api-keys'),
-            ),
-            // Change-password and TOTP only apply to email + master-password
-            // accounts — an OAuth (Google) session has no authHash to rotate
-            // and no password-login TOTP, so hide both for those users.
-            if (isPasswordAccount) ...[
-              _DrawerItem(
-                icon: Icons.password_outlined,
-                label: l10n.settingsChangePassword,
-                onTap: () => _onNavigate(context, '/change-password'),
-              ),
-              _DrawerItem(
-                icon: Icons.shield_outlined,
-                label: l10n.settingsTwoFactor,
-                onTap: () => _onNavigate(context, '/totp/enroll'),
-              ),
-            ],
-            _DrawerItem(
-              icon: Icons.history,
-              label: l10n.navAudit,
-              onTap: () => _onNavigate(context, '/audit'),
-            ),
-            _DrawerItem(
-              icon: Icons.file_upload_outlined,
-              label: l10n.settingsImport,
-              onTap: () => _onImport(context),
-            ),
-            _DrawerItem(
-              icon: Icons.lock_outline,
-              label: l10n.settingsLockVault,
-              onTap: () => _onLock(context),
-            ),
-            _DrawerItem(
-              icon: Icons.logout,
-              label: l10n.settingsLogout,
-              onTap: () => _onLogout(context),
-            ),
-            const Spacer(),
             const _AppVersionFooter(),
           ],
         ),
@@ -160,13 +175,6 @@ class SettingsDrawer extends StatelessWidget {
     // route transition.
     Navigator.of(context).pop();
     context.push(route);
-  }
-
-  void _onImport(BuildContext context) {
-    // Close the drawer, then open the import flow with a vault picker as
-    // its first step (global entry point — the vault is not yet known).
-    Navigator.of(context).pop();
-    ImportVaultPickerPage.push(context);
   }
 
   void _onLock(BuildContext context) {
@@ -578,6 +586,32 @@ class _LanguageRow extends StatelessWidget {
             ),
           ), // ConstrainedBox
         ],
+      ),
+    );
+  }
+}
+
+class _DrawerSectionHeader extends StatelessWidget {
+  const _DrawerSectionHeader({this.label});
+
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.md,
+        AppSpacing.screenH,
+        AppSpacing.xs,
+      ),
+      child: Text(
+        label ?? AppLocalizations.of(context)!.settingsOrganizationTitle,
+        style: const TextStyle(
+          color: AppColors.textTertiaryMobile,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

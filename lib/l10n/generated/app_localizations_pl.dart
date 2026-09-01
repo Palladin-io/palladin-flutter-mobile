@@ -1259,9 +1259,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsScreenTitle => 'Ustawienia';
 
   @override
-  String get settingsOrganization => 'Organizacja';
-
-  @override
   String get settingsManageOrganization => 'Organizacja';
 
   @override
@@ -1271,19 +1268,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsOrgNameHint => 'Podaj nazwę organizacji';
 
   @override
-  String settingsOrgMembers(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count członka',
-      many: '$count członków',
-      few: '$count członkowie',
-      one: '1 członek',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String get settingsSave => 'Zapisz';
 
   @override
@@ -1291,20 +1275,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get settingsApiKeys => 'Klucze API';
-
-  @override
-  String get settingsOpenSourceSection => 'O aplikacji';
-
-  @override
-  String get settingsOpenSourceLicenses => 'Licencje open source';
-
-  @override
-  String get settingsOpenSourceLicensesHint =>
-      'Wyświetl licencje Fluttera i pakietów zewnętrznych.';
-
-  @override
-  String get settingsOpenSourceLegalese =>
-      'Copyright 2026 Patryk Roguszewski, prowadzący działalność jako Patryk Roguszewski IT Solutions';
 
   @override
   String get settingsRetry => 'Ponów';
@@ -3708,4 +3678,384 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get entryBillingAddressLabel => 'Adres rozliczeniowy (opcjonalnie)';
+
+  @override
+  String get settingsOrganizationTitle => 'Organizacja';
+
+  @override
+  String get settingsGeneralTitle => 'Ogólne';
+
+  @override
+  String get settingsGeneralSubtitle => 'Profil organizacji';
+
+  @override
+  String get settingsTeam => 'Zespół';
+
+  @override
+  String get settingsPermissions => 'Uprawnienia';
+
+  @override
+  String get settingsAuditLogs => 'Dzienniki audytu';
+
+  @override
+  String get settingsBilling => 'Rozliczenia';
+
+  @override
+  String get settingsSecurity => 'Bezpieczeństwo';
+
+  @override
+  String get settingsDataImport => 'Import danych';
+
+  @override
+  String get settingsActionsTitle => 'Sesja';
+
+  @override
+  String get settingsReadOnly =>
+      'Możesz wyświetlać te ustawienia, ale zmienić je może tylko osoba zarządzająca organizacją.';
+
+  @override
+  String get settingsErrorConflict =>
+      'Zasób został zmieniony albo jest nadal używany. Odśwież i spróbuj ponownie.';
+
+  @override
+  String get teamScreenTitle => 'Zespół';
+
+  @override
+  String get teamScreenSubtitle => 'Członkowie i oczekujące zaproszenia';
+
+  @override
+  String get teamSearchHint => 'Szukaj członków i zaproszeń';
+
+  @override
+  String get teamFilterMembers => 'Członkowie';
+
+  @override
+  String get teamFilterPending => 'Oczekujące zaproszenia';
+
+  @override
+  String get teamInvite => 'Zaproś';
+
+  @override
+  String get teamInviteTitle => 'Zaproś członka';
+
+  @override
+  String teamSeatUsage(int used, int limit) {
+    return 'Zajęte: $used z $limit';
+  }
+
+  @override
+  String get teamSeatUsageLabel => 'Wykorzystanie miejsc';
+
+  @override
+  String teamSeatUsageValue(int used, int limit) {
+    return '$used / $limit';
+  }
+
+  @override
+  String teamSeatsAvailable(int count) {
+    return 'Wolne: $count';
+  }
+
+  @override
+  String get teamSeatsUnavailable =>
+      'Nie udało się wczytać wykorzystania miejsc.';
+
+  @override
+  String get teamManageSeats => 'Zarządzaj miejscami';
+
+  @override
+  String get teamSeatLimitReached => 'Organizacja nie ma wolnych miejsc.';
+
+  @override
+  String get teamNoSeatsTitle => 'Brak wolnych miejsc';
+
+  @override
+  String get teamNoSeatsBody =>
+      'Zarządzaj miejscami w organizacji, zanim zaprosisz kolejnego członka.';
+
+  @override
+  String get teamEmailLabel => 'Adres e-mail';
+
+  @override
+  String get teamRoleLabel => 'Rola początkowa';
+
+  @override
+  String get teamSendInvitation => 'Wyślij zaproszenie';
+
+  @override
+  String get teamInvitationSent => 'Wysłano zaproszenie.';
+
+  @override
+  String get teamInvitationCancelled => 'Anulowano zaproszenie.';
+
+  @override
+  String get teamInvitationResent =>
+      'Ponownie wysłano zaproszenie z nowym linkiem.';
+
+  @override
+  String get teamInvitationRoleUpdated => 'Zaktualizowano rolę zaproszenia.';
+
+  @override
+  String get teamMemberRolesUpdated => 'Zaktualizowano role członka.';
+
+  @override
+  String get teamInvalidEmail => 'Podaj prawidłowy adres e-mail.';
+
+  @override
+  String get teamNoInvitationRoles =>
+      'Brak ról, których można bezpiecznie użyć w zaproszeniu.';
+
+  @override
+  String get teamEmpty => 'Nie znaleziono członków organizacji.';
+
+  @override
+  String get teamNoMatches => 'Brak pasujących osób lub zaproszeń.';
+
+  @override
+  String get teamOwner => 'Właściciel';
+
+  @override
+  String get teamPending => 'Oczekuje';
+
+  @override
+  String teamRoleCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count roli',
+      many: '$count ról',
+      few: '$count role',
+      one: '1 rola',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get teamMemberTitle => 'Członek';
+
+  @override
+  String teamJoined(String date) {
+    return 'Dołączono $date';
+  }
+
+  @override
+  String get teamRolesTitle => 'Role';
+
+  @override
+  String get teamRolesHint =>
+      'Role kontrolują administrację organizacją. Nie przyznają dostępu do zaszyfrowanej zawartości sejfów.';
+
+  @override
+  String get teamSaveRoles => 'Zapisz role';
+
+  @override
+  String get teamAtLeastOneRole =>
+      'Każdy członek musi zachować co najmniej jedną rolę.';
+
+  @override
+  String get teamMemberReadOnly =>
+      'Twoje konto nie może zmieniać ról tego członka.';
+
+  @override
+  String get teamInvitationTitle => 'Oczekujące zaproszenie';
+
+  @override
+  String teamInvitedBy(String name) {
+    return 'Osoba zapraszająca: $name';
+  }
+
+  @override
+  String teamSentAt(String date) {
+    return 'Wysłano $date';
+  }
+
+  @override
+  String teamExpiresAt(String date) {
+    return 'Wygasa $date';
+  }
+
+  @override
+  String get teamResend => 'Wyślij ponownie';
+
+  @override
+  String teamResendAvailable(String date) {
+    return 'Ponowne wysłanie dostępne $date';
+  }
+
+  @override
+  String get teamCancelInvitation => 'Anuluj zaproszenie';
+
+  @override
+  String get teamCancelInvitationTitle => 'Anulować to zaproszenie?';
+
+  @override
+  String get teamCancelInvitationBody =>
+      'Aktualny link przestanie działać, a zarezerwowane miejsce zostanie zwolnione.';
+
+  @override
+  String get teamCancel => 'Anuluj';
+
+  @override
+  String get teamConfirmCancel => 'Anuluj zaproszenie';
+
+  @override
+  String get permissionsScreenTitle => 'Uprawnienia';
+
+  @override
+  String get permissionsScreenSubtitle =>
+      'Role organizacji i dostęp administracyjny';
+
+  @override
+  String get permissionsCreate => 'Utwórz rolę';
+
+  @override
+  String get permissionsCreateTitle => 'Utwórz rolę';
+
+  @override
+  String get permissionsEditTitle => 'Rola';
+
+  @override
+  String get permissionsRoleName => 'Nazwa roli';
+
+  @override
+  String get permissionsRoleNameHint => 'np. Menedżer sejfów';
+
+  @override
+  String get permissionsPermissionTitle => 'Uprawnienia administracyjne';
+
+  @override
+  String get permissionsPermissionHint =>
+      'Uprawnienia nie zapewniają kryptograficznego dostępu do zawartości sejfów.';
+
+  @override
+  String get permissionsSystem => 'Systemowa';
+
+  @override
+  String permissionsAssignedMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count przypisanego członka',
+      many: '$count przypisanych członków',
+      few: '$count przypisanych członków',
+      one: '1 przypisany członek',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get permissionsEmpty => 'Nie znaleziono ról organizacji.';
+
+  @override
+  String get permissionsCreated => 'Utworzono rolę.';
+
+  @override
+  String get permissionsUpdated => 'Zaktualizowano rolę.';
+
+  @override
+  String get permissionsDeleted => 'Usunięto rolę.';
+
+  @override
+  String get permissionsDelete => 'Usuń rolę';
+
+  @override
+  String get permissionsDeleteTitle => 'Usunąć tę rolę?';
+
+  @override
+  String get permissionsDeleteBody =>
+      'Usunięcia nieprzypisanej roli własnej nie można cofnąć.';
+
+  @override
+  String get permissionsDeleteBlocked =>
+      'Przed usunięciem odbierz tę rolę wszystkim członkom.';
+
+  @override
+  String get permissionsSystemReadOnly =>
+      'Role systemowe są zarządzane przez Palladin i nie można ich edytować.';
+
+  @override
+  String get permissionsRoleReadOnly =>
+      'Ta rola wykracza poza Twój zakres nadawania uprawnień i jest tylko do odczytu.';
+
+  @override
+  String get permissionsSave => 'Zapisz rolę';
+
+  @override
+  String get settingsSecurityTitle => 'Bezpieczeństwo';
+
+  @override
+  String get settingsSecuritySubtitle => 'Uwierzytelnianie i ochrona konta';
+
+  @override
+  String get settingsSecurityPasswordHint =>
+      'Zmień hasło główne używane do odblokowania konta.';
+
+  @override
+  String get settingsSecurityTwoFactorHint =>
+      'Chroń logowanie hasłem za pomocą czasowego kodu jednorazowego.';
+
+  @override
+  String get settingsSecurityOAuth =>
+      'Ustawieniami hasła i uwierzytelniania dwuskładnikowego zarządza dostawca logowania.';
+
+  @override
+  String get settingsDataImportTitle => 'Import danych';
+
+  @override
+  String get settingsDataImportSubtitle =>
+      'Przenieś dane z innego menedżera haseł';
+
+  @override
+  String get settingsDataImportBody =>
+      'Wybierz plik eksportu i docelowy sejf. Plik zostanie odczytany i zaszyfrowany na tym urządzeniu, zanim jakiekolwiek dane zostaną wysłane.';
+
+  @override
+  String get settingsDataImportAction => 'Wybierz sejf i plik';
+
+  @override
+  String get settingsBillingTitle => 'Rozliczenia';
+
+  @override
+  String get settingsBillingSubtitle => 'Plan i miejsca w organizacji';
+
+  @override
+  String get settingsBillingComingSoon => 'Rozliczenia będą dostępne wkrótce';
+
+  @override
+  String get settingsBillingComingSoonBody =>
+      'Zarządzanie planem nie jest jeszcze dostępne. Twój obecny dostęp pozostaje bez zmian.';
+
+  @override
+  String get permissionAddUser => 'Zapraszanie członków';
+
+  @override
+  String get permissionOrganizationManagement => 'Zarządzanie organizacją';
+
+  @override
+  String get permissionVaultCreate => 'Tworzenie sejfów';
+
+  @override
+  String get permissionVaultManage => 'Zarządzanie sejfami';
+
+  @override
+  String get permissionAgentManage => 'Zarządzanie agentami';
+
+  @override
+  String get permissionGrantManage => 'Zarządzanie dostępami';
+
+  @override
+  String get permissionAuditView => 'Wyświetlanie dzienników audytu';
+
+  @override
+  String get permissionMultipleVaults => 'Wiele sejfów';
+
+  @override
+  String get permissionReadApiKey => 'Wyświetlanie kluczy API';
+
+  @override
+  String get permissionWriteApiKey => 'Zarządzanie kluczami API';
+
+  @override
+  String get settingsGrantManageCutoverUnavailable =>
+      'Nie można jeszcze zmienić uprawnienia do zarządzania dostępami. Nie zapisano zmian roli.';
 }

@@ -1,5 +1,6 @@
 import '../entities/api_key.dart';
 import '../entities/org.dart';
+import '../entities/organization_management.dart';
 
 /// Domain contract for organization and API-key management.
 ///
@@ -33,4 +34,42 @@ abstract interface class SettingsRepository {
 
   /// Permanently deletes an API key. Irreversible.
   Future<void> deleteApiKey(String keyId);
+
+  Future<List<OrganizationMember>> listOrganizationMembers();
+
+  /// Replaces the complete role set of an organization member.
+  Future<void> updateOrganizationMemberRoles(
+    String userId,
+    List<String> roleIds,
+  );
+
+  /// Returns the caller-aware organization role catalogue.
+  Future<OrganizationRoles> listOrganizationRoles();
+
+  Future<OrganizationRole> createOrganizationRole(String name, int permissions);
+
+  Future<OrganizationRole> updateOrganizationRole(
+    String roleId,
+    String name,
+    int permissions,
+  );
+
+  Future<void> deleteOrganizationRole(String roleId);
+
+  Future<List<OrganizationInvitation>> listOrganizationInvitations();
+
+  /// Lists roles that are safe for use by new invitations.
+  Future<List<InvitationRole>> listInvitationRoles();
+
+  Future<void> inviteOrganizationMember(String email, String roleId);
+
+  Future<void> cancelOrganizationInvitation(String invitationId);
+
+  /// Resends a pending invitation and rotates its single-use token.
+  Future<void> resendOrganizationInvitation(String invitationId);
+
+  Future<void> updateOrganizationInvitationRole(
+    String invitationId,
+    String roleId,
+  );
 }
