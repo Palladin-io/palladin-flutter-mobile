@@ -24,6 +24,12 @@ The drawer hides unauthorized destinations and the router repeats the same
 checks. These client checks are affordances only; the backend remains the
 authorization boundary.
 
+The immutable system Administrator role deliberately carries the all-bits
+`int.MaxValue` mask, so it passes every permission affordance and route guard.
+The system User role carries only `VaultCreate | VaultManage` and does not gain
+organization-management access. The all-bits value must not be normalized to
+zero as a legacy sentinel.
+
 Invite-member and create-role sheets are pushed on the root navigator and hide
 the Shell bottom navigation for their full lifetime. This keeps the modal
 barrier and canonical action footer above Shell-owned navigation and FABs.

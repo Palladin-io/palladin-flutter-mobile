@@ -20,14 +20,6 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 /// has a single source of truth.
 const int _kPremiumPlanBit = 256;
 
-/// Sentinel value (`int.MaxValue` = `0x7FFFFFFF`) the backend hands out
-/// to every user while the billing module is still being built. Without
-/// this guard the `_kPremiumPlanBit` check is true for everyone and the
-/// drawer header would advertise Pro for free-plan users. Drop this
-/// constant and the `permissions != _kPermissionsMaxValue` clause once
-/// the backend stops issuing the sentinel.
-const int _kPermissionsMaxValue = 0x7FFFFFFF;
-
 /// End-side drawer used by the vault list (and any other authenticated
 /// surface that opts in) to expose the most common account actions
 /// without dedicating a full bottom-nav tab to them.
@@ -66,7 +58,8 @@ class SettingsDrawer extends StatelessWidget {
     final canViewAudit = (permissions & Permissions.auditView) != 0;
     final isPro =
         permissions != 0 &&
-        permissions != _kPermissionsMaxValue &&
+        // Administrator is an all-permissions role, not a billing plan.
+        permissions != Permissions.administratorRoleMask &&
         (permissions & _kPremiumPlanBit) != 0;
 
     return Drawer(

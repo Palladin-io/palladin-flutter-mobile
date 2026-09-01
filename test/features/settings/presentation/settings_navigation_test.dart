@@ -60,7 +60,7 @@ void main() {
       await tester.pump();
     }
 
-    await pumpDrawer(0);
+    await pumpDrawer(Permissions.vaultCreate | Permissions.vaultManage);
     expect(find.text('Organization'), findsOneWidget);
     expect(find.text('General'), findsOneWidget);
     expect(find.text('Team'), findsOneWidget);
@@ -80,6 +80,11 @@ void main() {
     expect(find.text('Permissions'), findsOneWidget);
     expect(find.text('API keys'), findsOneWidget);
     expect(find.text('Audit logs'), findsOneWidget);
+
+    await pumpDrawer(Permissions.administratorRoleMask);
+    expect(find.text('Permissions'), findsOneWidget);
+    expect(find.text('API keys'), findsOneWidget);
+    expect(find.text('Audit logs'), findsOneWidget);
   });
 
   test('settings route guard mirrors permission affordances', () {
@@ -92,6 +97,11 @@ void main() {
       userId: 'user-1',
       isOnboarded: true,
       permissions: Permissions.organizationManagement,
+    );
+    const administrator = AuthAuthenticated(
+      userId: 'admin-1',
+      isOnboarded: true,
+      permissions: Permissions.administratorRoleMask,
     );
 
     expect(
@@ -111,6 +121,17 @@ void main() {
     );
     expect(
       settingsPermissionRedirect(manager, Permissions.organizationManagement),
+      isNull,
+    );
+    expect(
+      settingsPermissionRedirect(
+        administrator,
+        Permissions.organizationManagement,
+      ),
+      isNull,
+    );
+    expect(
+      settingsPermissionRedirect(administrator, Permissions.addUser),
       isNull,
     );
   });
