@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -313,6 +315,28 @@ class _TeamInvitationView extends StatefulWidget {
 class _TeamInvitationViewState extends State<_TeamInvitationView> {
   String? _selectedRoleId;
   String? _syncedRoleId;
+  DateTime? _scheduledResendAt;
+  Timer? _resendTimer;
+  bool _resendCooldownElapsed = false;
+
+  @override
+  void dispose() {
+    _resendTimer?.cancel();
+    super.dispose();
+  }
+
+  void _syncResendCooldown(DateTime availableAt) {
+    if (_scheduledResendAt == availableAt) return;
+    _resendTimer?.cancel();
+    _scheduledResendAt = availableAt;
+    final delay = availableAt.difference(DateTime.now());
+    _resendCooldownElapsed = delay <= Duration.zero;
+    if (_resendCooldownElapsed) return;
+    _resendTimer = Timer(delay, () {
+      if (!mounted) return;
+      setState(() => _resendCooldownElapsed = true);
+    });
+  }
 
   void _listen(BuildContext context, TeamState state) {
     if (state.actionError == null && state.completedAction == null) return;
@@ -395,92 +419,107 @@ class _TeamInvitationViewState extends State<_TeamInvitationView> {
     final locale = Localizations.localeOf(context).toLanguageTag();
     final format = DateFormat.yMMMd(locale).add_Hm();
     final busy = state.busyAction != null;
-    final resendAvailable = !DateTime.now().isBefore(
-      invitation.resendAvailableAt.toLocal(),
-    );
+    final resendAvailableAt = invitation.resendAvailableAt.toLocal();
+    _syncResendCooldown(resendAvailableAt);
+    final resendAvailable = _resendCooldownElapsed;
     final roleValue = state.invitationRoles
         .where((role) => role.id == _selectedRoleId)
         .firstOrNull;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        0,
-        AppSpacing.screenH,
-        AppSpacing.screenBottom,
-      ),
+    return Column(
       children: [
-        _DetailCard(
-          children: [
-            _DetailRow(
-              icon: Icons.schedule_outlined,
-              value: l10n.teamSentAt(
-                format.format(invitation.sentAt.toLocal()),
-              ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenH,
+              0,
+              AppSpacing.screenH,
+              AppSpacing.section,
             ),
-            const SizedBox(height: AppSpacing.innerGap),
-            _DetailRow(
-              icon: Icons.event_busy_outlined,
-              value: l10n.teamExpiresAt(
-                format.format(invitation.expiresAt.toLocal()),
+            children: [
+              _DetailCard(
+                children: [
+                  _DetailRow(
+                    icon: Icons.schedule_outlined,
+                    value: l10n.teamSentAt(
+                      format.format(invitation.sentAt.toLocal()),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.innerGap),
+                  _DetailRow(
+                    icon: Icons.event_busy_outlined,
+                    value: l10n.teamExpiresAt(
+                      format.format(invitation.expiresAt.toLocal()),
+                    ),
+                  ),
+                  if (invitation.invitedByName case final invitedBy?) ...[
+                    const SizedBox(height: AppSpacing.innerGap),
+                    _DetailRow(
+                      icon: Icons.person_outline,
+                      value: l10n.teamInvitedBy(invitedBy),
+                    ),
+                  ],
+                ],
               ),
-            ),
-            if (invitation.invitedByName case final invitedBy?) ...[
-              const SizedBox(height: AppSpacing.innerGap),
-              _DetailRow(
-                icon: Icons.person_outline,
-                value: l10n.teamInvitedBy(invitedBy),
+              const SizedBox(height: AppSpacing.section),
+              AppDropdownField<InvitationRole>(
+                label: l10n.teamRoleLabel,
+                value: roleValue,
+                items: [
+                  for (final role in state.invitationRoles)
+                    DropdownMenuItem(value: role, child: Text(role.name)),
+                ],
+                onChanged: busy
+                    ? null
+                    : (role) => setState(() => _selectedRoleId = role?.id),
+                enabled: !busy,
+              ),
+              const SizedBox(height: AppSpacing.section),
+              OutlinedButton.icon(
+                key: const ValueKey('invitation-resend-action'),
+                onPressed: busy || !resendAvailable
+                    ? null
+                    : () => context.read<TeamCubit>().resendInvitation(
+                        invitation.id,
+                      ),
+                icon: const Icon(Icons.send_outlined, size: 18),
+                label: Text(
+                  resendAvailable
+                      ? l10n.teamResend
+                      : l10n.teamResendAvailable(
+                          format.format(resendAvailableAt),
+                        ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.cardGap),
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.brandRed,
+                ),
+                onPressed: busy
+                    ? null
+                    : () => _confirmCancel(context, invitation),
+                icon: const Icon(Icons.cancel_outlined, size: 18),
+                label: Text(l10n.teamCancelInvitation),
               ),
             ],
-          ],
-        ),
-        const SizedBox(height: AppSpacing.section),
-        AppDropdownField<InvitationRole>(
-          label: l10n.teamRoleLabel,
-          value: roleValue,
-          items: [
-            for (final role in state.invitationRoles)
-              DropdownMenuItem(value: role, child: Text(role.name)),
-          ],
-          onChanged: busy
-              ? null
-              : (role) => setState(() => _selectedRoleId = role?.id),
-          enabled: !busy,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        PrimaryButton(
-          label: l10n.settingsSave,
-          isLoading: state.busyAction == TeamAction.updateInvitationRole,
-          onPressed:
-              busy ||
-                  _selectedRoleId == null ||
-                  _selectedRoleId == invitation.roleId
-              ? null
-              : () => context.read<TeamCubit>().updateInvitationRole(
-                  invitation.id,
-                  _selectedRoleId!,
-                ),
-        ),
-        const SizedBox(height: AppSpacing.section),
-        OutlinedButton.icon(
-          onPressed: busy || !resendAvailable
-              ? null
-              : () => context.read<TeamCubit>().resendInvitation(invitation.id),
-          icon: const Icon(Icons.send_outlined, size: 18),
-          label: Text(
-            resendAvailable
-                ? l10n.teamResend
-                : l10n.teamResendAvailable(
-                    format.format(invitation.resendAvailableAt.toLocal()),
-                  ),
           ),
         ),
-        const SizedBox(height: AppSpacing.cardGap),
-        TextButton.icon(
-          style: TextButton.styleFrom(foregroundColor: AppColors.brandRed),
-          onPressed: busy ? null : () => _confirmCancel(context, invitation),
-          icon: const Icon(Icons.cancel_outlined, size: 18),
-          label: Text(l10n.teamCancelInvitation),
+        _PinnedFooter(
+          key: const ValueKey('team-invitation-save-footer'),
+          child: PrimaryButton(
+            label: l10n.settingsSave,
+            isLoading: state.busyAction == TeamAction.updateInvitationRole,
+            onPressed:
+                busy ||
+                    _selectedRoleId == null ||
+                    _selectedRoleId == invitation.roleId
+                ? null
+                : () => context.read<TeamCubit>().updateInvitationRole(
+                    invitation.id,
+                    _selectedRoleId!,
+                  ),
+          ),
         ),
       ],
     );
@@ -591,7 +630,7 @@ class _DetailMessage extends StatelessWidget {
 }
 
 class _PinnedFooter extends StatelessWidget {
-  const _PinnedFooter({required this.child});
+  const _PinnedFooter({super.key, required this.child});
 
   final Widget child;
 

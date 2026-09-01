@@ -43,6 +43,7 @@ class _PermissionsView extends StatefulWidget {
 
 class _PermissionsViewState extends State<_PermissionsView> {
   Widget? _cachedFab;
+  bool _createRoleSheetOpen = false;
 
   Future<void> _openRole(String roleId) async {
     await context.push(AppRoutes.settingsPermissionRole(roleId));
@@ -50,6 +51,7 @@ class _PermissionsViewState extends State<_PermissionsView> {
   }
 
   void _listen(BuildContext context, PermissionsState state) {
+    if (_createRoleSheetOpen) return;
     if (state.actionError == null && state.completedAction == null) return;
     final l10n = AppLocalizations.of(context)!;
     final message = state.actionError != null
@@ -68,6 +70,28 @@ class _PermissionsViewState extends State<_PermissionsView> {
     context.read<PermissionsCubit>().acknowledgeActionResult();
   }
 
+  Future<void> _openCreateRole() async {
+    _createRoleSheetOpen = true;
+    try {
+      await CreateRoleSheet.show(context);
+    } finally {
+      if (mounted) {
+        final cubit = context.read<PermissionsCubit>();
+        if (cubit.state.completedAction == PermissionsAction.create) {
+          final l10n = AppLocalizations.of(context)!;
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(SnackBar(content: Text(l10n.permissionsCreated)));
+        }
+        if (cubit.state.actionError != null ||
+            cubit.state.completedAction != null) {
+          cubit.acknowledgeActionResult();
+        }
+      }
+      _createRoleSheetOpen = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -79,7 +103,7 @@ class _PermissionsViewState extends State<_PermissionsView> {
       ),
       child: AppFab(
         tooltip: l10n.permissionsCreate,
-        onPressed: () => CreateRoleSheet.show(context),
+        onPressed: _openCreateRole,
       ),
     );
     return BlocListener<PermissionsCubit, PermissionsState>(
@@ -326,6 +350,11 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
     }
   }
 
+  void _clearActionError() {
+    final cubit = context.read<PermissionsCubit>();
+    if (cubit.state.actionError != null) cubit.acknowledgeActionResult();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -370,7 +399,10 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
                           label: l10n.permissionsRoleName,
                           hintText: l10n.permissionsRoleNameHint,
                           textCapitalization: TextCapitalization.words,
-                          onChanged: (_) => setState(() {}),
+                          onChanged: (_) {
+                            _clearActionError();
+                            setState(() {});
+                          },
                         ),
                         const SizedBox(height: AppSpacing.section),
                         Text(
@@ -395,8 +427,17 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
                           permissions: state.assignablePermissions,
                           mask: _mask,
                           enabled: !busy,
-                          onChanged: (mask) => setState(() => _mask = mask),
+                          onChanged: (mask) {
+                            _clearActionError();
+                            setState(() => _mask = mask);
+                          },
                         ),
+                        if (state.actionError case final error?) ...[
+                          const SizedBox(height: AppSpacing.section),
+                          _CreateRoleErrorBanner(
+                            message: settingsErrorMessage(l10n, error),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -416,6 +457,42 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
           ),
         );
       },
+    );
+  }
+}
+
+class _CreateRoleErrorBanner extends StatelessWidget {
+  const _CreateRoleErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('create-role-action-error'),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.brandRed.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.brandRed.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_outline, color: AppColors.brandRed, size: 18),
+          const SizedBox(width: AppSpacing.innerGap),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: AppColors.brandRed,
+                fontSize: 12,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

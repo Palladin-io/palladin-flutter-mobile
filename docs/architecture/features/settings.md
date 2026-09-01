@@ -27,6 +27,9 @@ authorization boundary.
 Invite-member and create-role sheets are pushed on the root navigator and hide
 the Shell bottom navigation for their full lifetime. This keeps the modal
 barrier and canonical action footer above Shell-owned navigation and FABs.
+Create Role uses the shared drag handle. Invite Member intentionally omits it:
+device review rejected the extra top line on this focused action sheet, and a
+widget regression test preserves that accepted variant.
 Invite Member loads the authoritative `seatUsage` and `seatLimit` returned by
 `GET /api/org`; it never derives capacity from the rendered member list. The
 backend remains authoritative at submit time. An
@@ -45,6 +48,8 @@ and invitation-safe roles are fetched only for callers with `AddUser`; the
 caller-aware full role catalogue is fetched only with
 `OrganizationManagement`. Supported mutations are invite, cancel, resend,
 change an invitation's initial role, and replace a member's complete role set.
+Invitation-role Save stays in the pinned form footer, while Resend becomes
+enabled at the authoritative cooldown deadline without reopening the screen.
 There is intentionally no mobile invitation-acceptance deep link: mobile does
 not yet own an approved contract for replacing the active organization session.
 

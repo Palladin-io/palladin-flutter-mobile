@@ -1,10 +1,15 @@
+import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:mobile_palladin/core/di/injection.dart';
+import 'package:mobile_palladin/core/permissions.dart';
 import 'package:mobile_palladin/core/widgets/sheet_action_buttons.dart';
 import 'package:mobile_palladin/core/widgets/sheet_drag_handle.dart';
+import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mobile_palladin/features/onboarding/presentation/widgets/primary_button.dart';
 import 'package:mobile_palladin/features/settings/domain/entities/org.dart';
 import 'package:mobile_palladin/features/settings/domain/entities/organization_management.dart';
 import 'package:mobile_palladin/features/settings/domain/exceptions/settings_exceptions.dart';
@@ -13,12 +18,15 @@ import 'package:mobile_palladin/features/settings/presentation/bloc/permissions_
 import 'package:mobile_palladin/features/settings/presentation/bloc/settings_cubit.dart';
 import 'package:mobile_palladin/features/settings/presentation/bloc/team_cubit.dart';
 import 'package:mobile_palladin/features/settings/presentation/pages/permissions_page.dart';
+import 'package:mobile_palladin/features/settings/presentation/pages/team_detail_pages.dart';
 import 'package:mobile_palladin/features/settings/presentation/pages/team_page.dart';
 import 'package:mobile_palladin/features/settings/presentation/widgets/system_role_badge.dart';
 import 'package:mobile_palladin/features/shell/presentation/pages/app_shell.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 
 class _Repository extends Mock implements SettingsRepository {}
+
+class _AuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
 class _RecordingNavigatorObserver extends NavigatorObserver {
   final routes = <Route<dynamic>>[];
@@ -206,7 +214,7 @@ void main() {
       find.byKey(const ValueKey('manage-seats-primary-action')),
       findsOneWidget,
     );
-    expect(find.widgetWithText(FilledButton, 'Manage seats'), findsOneWidget);
+    expect(find.widgetWithText(PrimaryButton, 'Manage seats'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('no-seats-usage-summary')),
       findsOneWidget,
@@ -426,6 +434,160 @@ void main() {
       tester.getCenter(badge).dy,
     );
     expect(tester.getTopRight(badge).dx, tester.getTopRight(row).dx);
+  });
+
+  testWidgets('invitation Save stays pinned and Resend unlocks on deadline', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await getIt.reset();
+    addTearDown(getIt.reset);
+
+    final repository = _Repository();
+    final resendAvailableAt = DateTime.now().add(const Duration(seconds: 1));
+    final invitation = OrganizationInvitation(
+      id: 'invite-1',
+      email: 'new@example.com',
+      roleId: 'role-user',
+      roleName: 'User',
+      invitedByName: 'Ada',
+      createdAt: DateTime.utc(2026, 9),
+      sentAt: DateTime.utc(2026, 9),
+      expiresAt: DateTime.utc(2026, 9, 8),
+      resendAvailableAt: resendAvailableAt,
+    );
+    when(
+      () => repository.listOrganizationMembers(),
+    ).thenAnswer((_) async => const []);
+    when(
+      () => repository.listOrganizationInvitations(),
+    ).thenAnswer((_) async => [invitation]);
+    when(() => repository.listInvitationRoles()).thenAnswer(
+      (_) async => const [InvitationRole(id: 'role-user', name: 'User')],
+    );
+    getIt.registerFactory<TeamCubit>(() => TeamCubit(repository: repository));
+    final auth = _AuthBloc();
+    when(() => auth.state).thenReturn(
+      const AuthAuthenticated(
+        userId: 'user-1',
+        isOnboarded: true,
+        permissions: Permissions.addUser,
+      ),
+    );
+    addTearDown(auth.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: BlocProvider<AuthBloc>.value(
+          value: auth,
+          child: AppShellScope(
+            openSettingsDrawer: () {},
+            setBottomNavHidden: (_) {},
+            setFab: (_, _) {},
+            clearFab: (_) {},
+            child: const TeamInvitationPage(invitationId: 'invite-1'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final footer = find.byKey(const ValueKey('team-invitation-save-footer'));
+    expect(footer, findsOneWidget);
+    expect(
+      find.descendant(
+        of: footer,
+        matching: find.widgetWithText(PrimaryButton, 'Save'),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.getBottomLeft(footer).dy, 932);
+
+    final resend = find.byKey(const ValueKey('invitation-resend-action'));
+    expect(tester.widget<OutlinedButton>(resend).onPressed, isNull);
+    await tester.pump(const Duration(seconds: 2));
+    expect(tester.widget<OutlinedButton>(resend).onPressed, isNotNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('create role keeps its draft and shows typed errors in-sheet', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _Repository();
+    when(() => repository.listOrganizationRoles()).thenAnswer(
+      (_) async =>
+          const OrganizationRoles(items: [], assignablePermissions: []),
+    );
+    when(
+      () => repository.createOrganizationRole(any(), any()),
+    ).thenThrow(const SettingsException(SettingsErrorKind.conflict));
+    final cubit = PermissionsCubit(repository: repository);
+    await cubit.load();
+    addTearDown(cubit.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: BlocProvider<PermissionsCubit>.value(
+          value: cubit,
+          child: AppShellScope(
+            openSettingsDrawer: () {},
+            setBottomNavHidden: (_) {},
+            setFab: (_, _) {},
+            clearFab: (_) {},
+            child: Builder(
+              builder: (context) => Scaffold(
+                body: FilledButton(
+                  onPressed: () => CreateRoleSheet.show(context),
+                  child: const Text('Open create role'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open create role'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Ops');
+    await tester.pump();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SheetActionButtons),
+        matching: find.text('Create role'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(cubit.state.actionError, SettingsErrorKind.conflict);
+    expect(find.byType(CreateRoleSheet), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('create-role-action-error')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'The resource changed or is still in use. Refresh and try again.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Ops'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('create role sheet uses root modal and hides Shell navigation', (

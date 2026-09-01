@@ -19,6 +19,7 @@ import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
+import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../../../shell/presentation/pages/app_shell.dart';
 import '../../domain/entities/organization_management.dart';
 import '../../domain/exceptions/settings_exceptions.dart';
@@ -1085,24 +1086,11 @@ class _PrimarySheetActionFooter extends StatelessWidget {
           ),
         ),
       ),
-      child: SizedBox(
-        height: 44,
-        child: FilledButton.icon(
-          key: const ValueKey('manage-seats-primary-action'),
-          onPressed: onPressed,
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.brandRed,
-            foregroundColor: AppColors.onBrandRed,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          icon: Icon(icon, size: 17),
-          label: Text(
-            label,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-          ),
-        ),
+      child: PrimaryButton(
+        key: const ValueKey('manage-seats-primary-action'),
+        label: label,
+        onPressed: onPressed,
+        leading: Icon(icon, size: 17),
       ),
     );
   }
