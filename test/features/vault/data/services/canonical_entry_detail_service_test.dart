@@ -253,6 +253,16 @@ void main() {
       () => keys.openMemberVaultKey(any(), any()),
     ).thenAnswer((_) async => Uint8List.fromList(List<int>.filled(32, 1)));
     when(
+      () => keys.openMemberVaultKey(
+        any(),
+        any(),
+        expectedOrganizationId: any(named: 'expectedOrganizationId'),
+        expectedVaultId: any(named: 'expectedVaultId'),
+        expectedVaultKeyVersion: any(named: 'expectedVaultKeyVersion'),
+        expectedMemberKeyGeneration: any(named: 'expectedMemberKeyGeneration'),
+      ),
+    ).thenAnswer((_) async => Uint8List.fromList(List<int>.filled(32, 1)));
+    when(
       () => keys.openDiscoveryKey(any(), any()),
     ).thenAnswer((_) async => Uint8List.fromList(List<int>.filled(32, 2)));
   });

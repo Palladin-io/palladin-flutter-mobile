@@ -36,6 +36,7 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
 
   final EntryHistoryService _service;
   bool _opened = false;
+  int _sensitiveEpoch = 0;
 
   Future<void> open(EntryEntity entry) async {
     if (_opened) return;
@@ -62,6 +63,7 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
   }
 
   void invalidate() {
+    _sensitiveEpoch += 1;
     _opened = false;
     _clearSelected();
     emit(const EntryHistoryState());
@@ -106,6 +108,7 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
     required EntryHistoryVersion version,
     required Uint8List privateKey,
   }) async {
+    final epoch = ++_sensitiveEpoch;
     _clearSelected();
     emit(
       EntryHistoryState(
@@ -121,6 +124,10 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
         version: version,
         privateKey: privateKey,
       );
+      if (epoch != _sensitiveEpoch || isClosed) {
+        selected.clear();
+        return;
+      }
       emit(
         EntryHistoryState(
           status: EntryHistoryStatus.ready,
@@ -131,6 +138,7 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
         ),
       );
     } catch (_) {
+      if (epoch != _sensitiveEpoch || isClosed) return;
       _clearSelected();
       emit(
         EntryHistoryState(
@@ -149,6 +157,7 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
     required EntryEntity entry,
     required Uint8List privateKey,
   }) async {
+    final epoch = ++_sensitiveEpoch;
     final selected = state.selected;
     try {
       if (selected == null) return;
@@ -166,6 +175,7 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
         selected: selected,
         privateKey: privateKey,
       );
+      if (epoch != _sensitiveEpoch || isClosed) return;
       _clearSelected();
       emit(
         EntryHistoryState(
@@ -176,6 +186,7 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
         ),
       );
     } catch (_) {
+      if (epoch != _sensitiveEpoch || isClosed) return;
       _clearSelected();
       emit(
         EntryHistoryState(
@@ -191,6 +202,7 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
   }
 
   void clearSensitiveState({bool keepItems = false}) {
+    _sensitiveEpoch += 1;
     _clearSelected();
     emit(
       EntryHistoryState(
@@ -208,6 +220,7 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
   }
 
   void hideSelected() {
+    _sensitiveEpoch += 1;
     _clearSelected();
     emit(
       EntryHistoryState(
@@ -222,6 +235,7 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
 
   @override
   Future<void> close() {
+    _sensitiveEpoch += 1;
     _clearSelected();
     return super.close();
   }

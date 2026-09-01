@@ -396,6 +396,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       return session;
     } on DioException catch (error) {
       throw CanonicalEntryDetailException(_classifyDio(error));
+    } on EnvelopeException {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.corrupt,
+      );
     } on FormatException {
       throw const CanonicalEntryDetailException(
         CanonicalEntryDetailError.corrupt,
@@ -422,24 +426,39 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         expected.id,
       );
       _validateScope(entry, expected);
+      final authority = _validateCanonicalAuthority(vault, entry, expected);
       final secret = _map(historyItem, 'memberSecret');
       final wrapper = _map(historyItem, 'entryKey');
+      final historicalKeyVersion = _int(historyItem, 'keyVersion');
       if (_entryV2 != null && wrapper['descriptor'] is Map) {
-        vaultKey = await _keys.openMemberVaultKey(
-          _map(vault, 'memberVaultKey'),
-          memberPrivateKey,
-        );
         _validateCanonicalEnvelope(
           wrapper,
           entry,
           expected.id,
           expectedRevision: historyItem['entryKeyRevision']?.toString(),
+          expectedKeyVersion: historicalKeyVersion,
+          maximumMemberKeyGeneration: authority.memberKeyGeneration,
+          expectedWrappingVaultKeyVersion: authority.vaultKeyVersion,
+        );
+        final wrapperGeneration = _int(
+          _map(wrapper, 'descriptor'),
+          'memberKeyGeneration',
         );
         _validateCanonicalEnvelope(
           secret,
           entry,
           expected.id,
           expectedRevision: historyItem['revision']?.toString(),
+          expectedKeyVersion: historicalKeyVersion,
+          expectedMemberKeyGeneration: wrapperGeneration,
+        );
+        vaultKey = await _keys.openMemberVaultKey(
+          _map(vault, 'memberVaultKey'),
+          memberPrivateKey,
+          expectedOrganizationId: authority.organizationId,
+          expectedVaultId: expected.vaultId,
+          expectedVaultKeyVersion: authority.vaultKeyVersion,
+          expectedMemberKeyGeneration: authority.memberKeyGeneration,
         );
         final adapted = adaptCanonicalSecret(
           await _entryV2.openMemberSecret(
@@ -471,6 +490,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       vaultKey = await _keys.openMemberVaultKey(
         _map(vault, 'memberVaultKey'),
         memberPrivateKey,
+        expectedOrganizationId: authority.organizationId,
+        expectedVaultId: expected.vaultId,
+        expectedVaultKeyVersion: authority.vaultKeyVersion,
+        expectedMemberKeyGeneration: authority.memberKeyGeneration,
       );
       entryDek = await _envelopes.decrypt(
         profile: VaultAadProfile.entryKeyWrapper,
@@ -518,6 +541,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       );
     } on DioException catch (error) {
       throw CanonicalEntryDetailException(_classifyDio(error));
+    } on EnvelopeException {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.corrupt,
+      );
     } on FormatException {
       throw const CanonicalEntryDetailException(
         CanonicalEntryDetailError.corrupt,
@@ -542,13 +569,38 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         expected.id,
       );
       _validateScope(entry, expected);
-      final generation = _int(vault, 'memberKeyGeneration');
+      final authority = _validateCanonicalAuthority(vault, entry, expected);
       vaultKey = await _keys.openMemberVaultKey(
         _map(vault, 'memberVaultKey'),
         memberPrivateKey,
+        expectedOrganizationId: authority.organizationId,
+        expectedVaultId: expected.vaultId,
+        expectedVaultKeyVersion: authority.vaultKeyVersion,
+        expectedMemberKeyGeneration: authority.memberKeyGeneration,
       );
       final wrapper = _map(entry, 'entryKey');
       if (_entryV2 != null && wrapper['descriptor'] is Map) {
+        final currentKeyVersion = _int(entry, 'currentKeyVersion');
+        _validateCanonicalEnvelope(
+          wrapper,
+          entry,
+          expected.id,
+          expectedKeyVersion: currentKeyVersion,
+          maximumMemberKeyGeneration: authority.memberKeyGeneration,
+          expectedWrappingVaultKeyVersion: authority.vaultKeyVersion,
+        );
+        final wrapperGeneration = _int(
+          _map(wrapper, 'descriptor'),
+          'memberKeyGeneration',
+        );
+        _validateCanonicalEnvelope(
+          _map(entry, 'memberSecret'),
+          entry,
+          expected.id,
+          expectedRevision: entry['currentRevision']?.toString(),
+          expectedKeyVersion: currentKeyVersion,
+          expectedMemberKeyGeneration: wrapperGeneration,
+        );
         final value = await _entryV2.openMemberSecret(
           entryKey: wrapper,
           memberSecret: _map(entry, 'memberSecret'),
@@ -566,7 +618,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         );
       }
       final wrapperGeneration = _int(wrapper, 'memberKeyGeneration');
-      if (wrapperGeneration > generation) {
+      if (wrapperGeneration > authority.memberKeyGeneration) {
         throw const FormatException('Entry key generation is from the future');
       }
       entryDek = await _envelopes.decrypt(
@@ -623,6 +675,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       );
     } on DioException catch (error) {
       throw CanonicalEntryDetailException(_classifyDio(error));
+    } on EnvelopeException {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.corrupt,
+      );
     } on FormatException {
       throw const CanonicalEntryDetailException(
         CanonicalEntryDetailError.corrupt,
@@ -772,18 +828,57 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     Map<String, dynamic> entry,
     String entryId, {
     String? expectedRevision,
+    int? expectedKeyVersion,
+    int? expectedMemberKeyGeneration,
+    int? maximumMemberKeyGeneration,
+    int? expectedWrappingVaultKeyVersion,
   }) {
     final descriptor = _map(envelope, 'descriptor');
     final scope = _map(descriptor, 'scope');
+    final memberKeyGeneration = descriptor['memberKeyGeneration'];
     if (scope['organizationId'] != entry['organizationId'] ||
         scope['vaultId'] != entry['vaultId'] ||
         scope['entryId'] != entryId ||
         (expectedRevision != null &&
-            descriptor['resourceRevision'] != expectedRevision)) {
-      throw const FormatException(
-        'Canonical envelope scope or revision mismatch',
-      );
+            descriptor['resourceRevision'] != expectedRevision) ||
+        (expectedKeyVersion != null &&
+            descriptor['keyVersion'] != expectedKeyVersion) ||
+        (expectedMemberKeyGeneration != null &&
+            memberKeyGeneration != expectedMemberKeyGeneration) ||
+        (maximumMemberKeyGeneration != null &&
+            (memberKeyGeneration is! int ||
+                memberKeyGeneration > maximumMemberKeyGeneration))) {
+      throw const FormatException('Canonical envelope authority mismatch');
     }
+    if (expectedWrappingVaultKeyVersion != null) {
+      final binding = _map(descriptor, 'binding');
+      if (binding['wrappingVaultKeyVersion'] !=
+          expectedWrappingVaultKeyVersion) {
+        throw const FormatException(
+          'Canonical Entry key Vault binding mismatch',
+        );
+      }
+    }
+  }
+
+  ({String organizationId, int memberKeyGeneration, int vaultKeyVersion})
+  _validateCanonicalAuthority(
+    Map<String, dynamic> vault,
+    Map<String, dynamic> entry,
+    EntryEntity expected,
+  ) {
+    final organizationId = vault['organizationId'];
+    if (organizationId is! String ||
+        entry['organizationId'] != organizationId ||
+        entry['vaultId'] != expected.vaultId ||
+        entry['id'] != expected.id) {
+      throw const FormatException('Canonical Entry authority mismatch');
+    }
+    return (
+      organizationId: organizationId,
+      memberKeyGeneration: _int(vault, 'memberKeyGeneration'),
+      vaultKeyVersion: _int(_map(vault, 'currentKeyEpoch'), 'vaultKeyVersion'),
+    );
   }
 
   Future<EntryEntity> update({

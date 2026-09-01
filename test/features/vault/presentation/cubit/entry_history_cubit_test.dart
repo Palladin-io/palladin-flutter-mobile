@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -148,6 +149,41 @@ void main() {
     expect(payload, isEmpty);
     expect(cubit.state.selected, isNull);
   });
+
+  test(
+    'lifecycle clear rejects and wipes a late history reveal completion',
+    () async {
+      final completion = Completer<CanonicalEntryHistorySnapshot>();
+      when(
+        () => service.reveal(
+          entry: entry,
+          version: version,
+          privateKey: any(named: 'privateKey'),
+        ),
+      ).thenAnswer((_) => completion.future);
+      final borrowedKey = Uint8List.fromList(List<int>.filled(32, 7));
+
+      final pending = cubit.reveal(
+        entry: entry,
+        version: version,
+        privateKey: borrowedKey,
+      );
+      await Future<void>.delayed(Duration.zero);
+      cubit.clearSensitiveState(keepItems: true);
+      final late = CanonicalEntryHistorySnapshot(
+        secret: {'memberLabel': 'late'},
+        payload: {'value': 'late-plaintext'},
+      );
+      completion.complete(late);
+      await pending;
+
+      expect(cubit.state.status, EntryHistoryStatus.ready);
+      expect(cubit.state.selected, isNull);
+      expect(late.secret, isEmpty);
+      expect(late.payload, isEmpty);
+      expect(borrowedKey, everyElement(0));
+    },
+  );
 
   test('hide clears plaintext and keeps the loaded history page', () async {
     final selected = CanonicalEntryHistorySnapshot(
