@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -24,6 +26,7 @@ class _HistoryCubit extends EntryHistoryCubit {
 
 void main() {
   late _HistoryCubit cubit;
+  late _HistoryService service;
   late _AuthBloc auth;
 
   final entry = EntryEntity(
@@ -46,7 +49,8 @@ void main() {
   );
 
   setUp(() {
-    cubit = _HistoryCubit(_HistoryService());
+    service = _HistoryService();
+    cubit = _HistoryCubit(service);
     auth = _AuthBloc();
     whenListen(
       auth,
@@ -174,5 +178,44 @@ void main() {
       find.widgetWithText(OutlinedButton, 'Load older versions'),
     );
     expect(button.onPressed, isNull);
+  });
+
+  testWidgets('resumes an initial History load canceled in background', (
+    tester,
+  ) async {
+    final stalePage = Completer<EntryHistoryPage>();
+    var request = 0;
+    when(() => service.loadPage(entry)).thenAnswer((_) {
+      if (request++ == 0) return stalePage.future;
+      return Future.value(EntryHistoryPage(items: [current], nextCursor: null));
+    });
+    await pump(tester);
+
+    unawaited(cubit.open(entry));
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    verify(() => service.loadPage(entry)).called(2);
+    expect(cubit.state.items, [current]);
+    stalePage.complete(const EntryHistoryPage(items: [], nextCursor: null));
+    await tester.pump();
+    expect(cubit.state.items, [current]);
+  });
+
+  testWidgets('resume does not open History before the tab requests it', (
+    tester,
+  ) async {
+    await pump(tester);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    verifyNever(() => service.loadPage(entry));
+    expect(cubit.state.status, EntryHistoryStatus.ready);
   });
 }

@@ -39,6 +39,8 @@ class EntryHistoryTab extends StatefulWidget {
 
 class _EntryHistoryTabState extends State<EntryHistoryTab>
     with WidgetsBindingObserver {
+  bool _resumeInitialLoad = false;
+
   @override
   void initState() {
     super.initState();
@@ -47,8 +49,15 @@ class _EntryHistoryTabState extends State<EntryHistoryTab>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) {
-      context.read<EntryHistoryCubit>().clearSensitiveState(keepItems: true);
+    final history = context.read<EntryHistoryCubit>();
+    if (state == AppLifecycleState.resumed) {
+      if (_resumeInitialLoad) {
+        _resumeInitialLoad = false;
+        history.open(widget.entry);
+      }
+    } else {
+      _resumeInitialLoad |= history.state.status == EntryHistoryStatus.loading;
+      history.clearSensitiveState(keepItems: true);
     }
   }
 
