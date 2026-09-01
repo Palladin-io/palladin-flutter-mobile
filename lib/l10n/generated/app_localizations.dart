@@ -6458,23 +6458,107 @@ abstract class AppLocalizations {
   /// **'Load older versions'**
   String get entryHistoryLoadMore;
 
+  /// No description provided for @entryHistoryCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Current'**
+  String get entryHistoryCurrent;
+
   /// No description provided for @entryHistoryReveal.
   ///
   /// In en, this message translates to:
-  /// **'Decrypt this version'**
+  /// **'Reveal'**
   String get entryHistoryReveal;
+
+  /// No description provided for @entryHistoryHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get entryHistoryHide;
+
+  /// No description provided for @entryHistoryDecrypting.
+  ///
+  /// In en, this message translates to:
+  /// **'Decrypting…'**
+  String get entryHistoryDecrypting;
 
   /// No description provided for @entryHistoryRestore.
   ///
   /// In en, this message translates to:
-  /// **'Restore as a new version'**
+  /// **'Restore this version'**
   String get entryHistoryRestore;
+
+  /// No description provided for @entryHistoryRestoring.
+  ///
+  /// In en, this message translates to:
+  /// **'Restoring…'**
+  String get entryHistoryRestoring;
 
   /// No description provided for @entryHistoryRestored.
   ///
   /// In en, this message translates to:
   /// **'Historical content restored as a new current version.'**
   String get entryHistoryRestored;
+
+  /// No description provided for @entryHistoryDecryptError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not decrypt this version. The vault may be locked.'**
+  String get entryHistoryDecryptError;
+
+  /// No description provided for @entryHistoryRestoreError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not restore this version.'**
+  String get entryHistoryRestoreError;
+
+  /// No description provided for @entryHistoryOperationCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Created'**
+  String get entryHistoryOperationCreated;
+
+  /// No description provided for @entryHistoryOperationUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated'**
+  String get entryHistoryOperationUpdated;
+
+  /// No description provided for @entryHistoryOperationArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived'**
+  String get entryHistoryOperationArchived;
+
+  /// No description provided for @entryHistoryOperationRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'Restored'**
+  String get entryHistoryOperationRestored;
+
+  /// No description provided for @entryHistoryOperationDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted'**
+  String get entryHistoryOperationDeleted;
+
+  /// No description provided for @entryHistoryMemberActor.
+  ///
+  /// In en, this message translates to:
+  /// **'Member: {name}'**
+  String entryHistoryMemberActor(String name);
+
+  /// No description provided for @entryHistoryAgentActor.
+  ///
+  /// In en, this message translates to:
+  /// **'Agent: {name}'**
+  String entryHistoryAgentActor(String name);
+
+  /// No description provided for @entryHistorySystemActor.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get entryHistorySystemActor;
 
   /// No description provided for @entryHistorySensitiveWarning.
   ///

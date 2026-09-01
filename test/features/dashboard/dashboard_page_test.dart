@@ -92,6 +92,8 @@ RecentEntryEntity _recent() => RecentEntryEntity(
   vaultId: 'v1',
   vaultName: 'Personal',
   typeWire: 1,
+  currentRevision: '7',
+  currentKeyVersion: 3,
   updatedAt: DateTime.utc(2026, 6, 30),
   createdAt: DateTime.utc(2026, 6, 1),
 );
@@ -345,6 +347,8 @@ void main() {
       vaultId: 'v1',
       vaultName: 'Personal',
       entryType: 1,
+      currentRevision: '7',
+      currentKeyVersion: 3,
     );
 
     /// Stubs an entry search hit + its decrypt, pumps the dashboard, and
@@ -491,6 +495,8 @@ void main() {
             vaultId: 'v1',
             vaultName: 'Personal',
             entryType: 3,
+            currentRevision: '4',
+            currentKeyVersion: 2,
           ),
         ],
       );

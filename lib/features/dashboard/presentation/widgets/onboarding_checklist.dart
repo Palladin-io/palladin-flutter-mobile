@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/compact_primary_button.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../domain/entities/onboarding_status.dart';
 
@@ -332,11 +333,9 @@ class _StepCard extends StatelessWidget {
                     const SizedBox(height: AppSpacing.fieldGap),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: _CompactButton(
+                      child: CompactPrimaryButton(
                         label: step.ctaLabel!,
                         onPressed: step.onCta!,
-                        background: AppColors.brandRed,
-                        foreground: AppColors.onBrandRed,
                       ),
                     ),
                   ],
@@ -425,13 +424,13 @@ class _NotificationActions extends StatelessWidget {
 
     return Row(
       children: [
-        _CompactButton(
+        CompactPrimaryButton(
           label: isDenied
               ? l10n.dashboardOnboardingStep1OpenSettings
               : l10n.dashboardOnboardingStep1Enable,
           onPressed: onEnable,
-          background: AppColors.onboardingStepAmber,
-          foreground: AppColors.darkBackground,
+          backgroundColor: AppColors.onboardingStepAmber,
+          foregroundColor: AppColors.darkBackground,
         ),
         const SizedBox(width: AppSpacing.chipGap),
         OutlinedButton(
@@ -459,52 +458,6 @@ class _NotificationActions extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Compact, auto-width filled button used for the active-step CTAs and the
-/// notification "Enable"/"Open Settings" action. Kept intentionally small
-/// (shrink-wrapped tap target, 10px w700 label) so it reads as an inline
-/// action inside a card rather than a full-width block — matching the web
-/// panel's `size="sm"` onboarding button.
-class _CompactButton extends StatelessWidget {
-  const _CompactButton({
-    required this.label,
-    required this.onPressed,
-    required this.background,
-    required this.foreground,
-  });
-
-  final String label;
-  final VoidCallback onPressed;
-  final Color background;
-  final Color foreground;
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: background,
-        foregroundColor: foreground,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.cardPadding,
-          vertical: AppSpacing.chipGap,
-        ),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: foreground,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
     );
   }
 }

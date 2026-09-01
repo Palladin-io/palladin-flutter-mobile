@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/local_current_entry_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/exceptions/entry_exceptions.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
@@ -15,6 +16,9 @@ class _MockEntryRepository extends Mock implements EntryRepository {}
 
 class _MockCanonicalService extends Mock
     implements CanonicalEntryDetailService {}
+
+class _MockLocalCurrentEntryService extends Mock
+    implements LocalCurrentEntryService {}
 
 void main() {
   late _MockEntryRepository repository;
@@ -131,6 +135,52 @@ void main() {
       ),
     );
 
+    test('forced refresh bypasses a stale local head', () async {
+      final local = _MockLocalCurrentEntryService();
+      final current = CanonicalEntrySnapshot(
+        entry: {
+          'currentRevision': '9',
+          'currentKeyVersion': 3,
+          'updatedAt': '2026-09-01T16:00:00Z',
+        },
+        payload: Map<String, dynamic>.from(samplePayload),
+        secret: {
+          'schemaVersion': 1,
+          'entryType': EntryType.key.toWire(),
+          'memberLabel': 'Authoritative label',
+        },
+      );
+      when(
+        () => canonical.reveal(
+          expected: any(named: 'expected'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((_) async => current);
+      final cubit = EditEntryCubit(
+        repository: repository,
+        canonicalService: canonical,
+        localCurrentEntry: local,
+      );
+
+      await cubit.revealForEdit(
+        entry: sampleEntry,
+        privateKey: privateKey,
+        forceRemote: true,
+      );
+
+      final ready = cubit.state as EditEntryReady;
+      expect(ready.entry.label, 'Authoritative label');
+      expect(ready.entry.currentRevision, '9');
+      expect(ready.entry.currentKeyVersion, 3);
+      verifyNever(
+        () => local.reveal(
+          expected: any(named: 'expected'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      );
+      await cubit.close();
+    });
+
     blocTest<EditEntryCubit, EditEntryState>(
       'save creates a canonical revision and never calls legacy update',
       build: () {
@@ -240,6 +290,77 @@ void main() {
       skip: 2,
       expect: () => [isA<EditEntryLoading>(), isA<EditEntryConflict>()],
     );
+
+    test('coalesces repeated save taps into one canonical update', () async {
+      final completion = Completer<EntryEntity>();
+      when(
+        () => canonical.reveal(
+          expected: any(named: 'expected'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((_) async => snapshot());
+      when(
+        () => canonical.update(
+          snapshot: any(named: 'snapshot'),
+          expected: any(named: 'expected'),
+          label: any(named: 'label'),
+          description: any(named: 'description'),
+          icon: any(named: 'icon'),
+          type: any(named: 'type'),
+          content: any(named: 'content'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).thenAnswer((_) => completion.future);
+      final cubit = buildCubit();
+      await cubit.revealForEdit(entry: sampleEntry, privateKey: privateKey);
+
+      final first = cubit.updateEntry(
+        vaultId: sampleEntry.vaultId,
+        entryId: sampleEntry.id,
+        label: 'Renamed',
+        type: EntryType.key,
+        payload: samplePayload,
+        privateKey: privateKey,
+        createdAt: sampleEntry.createdAt,
+      );
+      final repeated = cubit.updateEntry(
+        vaultId: sampleEntry.vaultId,
+        entryId: sampleEntry.id,
+        label: 'Renamed',
+        type: EntryType.key,
+        payload: samplePayload,
+        privateKey: privateKey,
+        createdAt: sampleEntry.createdAt,
+      );
+      await repeated;
+      completion.complete(
+        EntryEntity(
+          id: sampleEntry.id,
+          vaultId: sampleEntry.vaultId,
+          label: 'Renamed',
+          type: sampleEntry.type,
+          createdAt: sampleEntry.createdAt,
+          updatedAt: sampleEntry.updatedAt,
+          currentRevision: '8',
+        ),
+      );
+      await first;
+
+      verify(
+        () => canonical.update(
+          snapshot: any(named: 'snapshot'),
+          expected: any(named: 'expected'),
+          label: any(named: 'label'),
+          description: any(named: 'description'),
+          icon: any(named: 'icon'),
+          type: any(named: 'type'),
+          content: any(named: 'content'),
+          memberPrivateKey: any(named: 'memberPrivateKey'),
+        ),
+      ).called(1);
+      expect(cubit.state, isA<EditEntrySuccess>());
+      await cubit.close();
+    });
 
     test(
       'lock/background cleanup clears payload and returns initial',

@@ -8,6 +8,8 @@ import '../../domain/entities/entry_entity.dart';
 
 enum EntryHistoryStatus { initial, loading, ready, revealing, restoring, error }
 
+enum EntryHistoryFailure { load, loadMore, reveal, restore }
+
 class EntryHistoryState {
   const EntryHistoryState({
     this.status = EntryHistoryStatus.initial,
@@ -16,6 +18,7 @@ class EntryHistoryState {
     this.selectedRevision,
     this.selected,
     this.updatedEntry,
+    this.failure,
   });
 
   final EntryHistoryStatus status;
@@ -24,6 +27,7 @@ class EntryHistoryState {
   final String? selectedRevision;
   final CanonicalEntryHistorySnapshot? selected;
   final EntryEntity? updatedEntry;
+  final EntryHistoryFailure? failure;
 }
 
 /// Lazy, bounded state for the Entry History tab.
@@ -48,8 +52,19 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
       );
     } catch (_) {
       _opened = false;
-      emit(const EntryHistoryState(status: EntryHistoryStatus.error));
+      emit(
+        const EntryHistoryState(
+          status: EntryHistoryStatus.error,
+          failure: EntryHistoryFailure.load,
+        ),
+      );
     }
+  }
+
+  void invalidate() {
+    _opened = false;
+    _clearSelected();
+    emit(const EntryHistoryState());
   }
 
   Future<void> loadMore(EntryEntity entry) async {
@@ -75,9 +90,13 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
         ),
       );
     } catch (_) {
-      clearSensitiveState(keepItems: true);
       emit(
-        EntryHistoryState(status: EntryHistoryStatus.error, items: state.items),
+        EntryHistoryState(
+          status: EntryHistoryStatus.ready,
+          items: state.items,
+          nextCursor: state.nextCursor,
+          failure: EntryHistoryFailure.loadMore,
+        ),
       );
     }
   }
@@ -93,6 +112,7 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
         status: EntryHistoryStatus.revealing,
         items: state.items,
         nextCursor: state.nextCursor,
+        selectedRevision: version.revision,
       ),
     );
     try {
@@ -114,9 +134,10 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
       _clearSelected();
       emit(
         EntryHistoryState(
-          status: EntryHistoryStatus.error,
+          status: EntryHistoryStatus.ready,
           items: state.items,
           nextCursor: state.nextCursor,
+          failure: EntryHistoryFailure.reveal,
         ),
       );
     } finally {
@@ -135,6 +156,7 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
         EntryHistoryState(
           status: EntryHistoryStatus.restoring,
           items: state.items,
+          nextCursor: state.nextCursor,
           selectedRevision: state.selectedRevision,
           selected: selected,
         ),
@@ -149,13 +171,19 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
         EntryHistoryState(
           status: EntryHistoryStatus.ready,
           items: state.items,
+          nextCursor: state.nextCursor,
           updatedEntry: updated,
         ),
       );
     } catch (_) {
       _clearSelected();
       emit(
-        EntryHistoryState(status: EntryHistoryStatus.error, items: state.items),
+        EntryHistoryState(
+          status: EntryHistoryStatus.ready,
+          items: state.items,
+          nextCursor: state.nextCursor,
+          failure: EntryHistoryFailure.restore,
+        ),
       );
     } finally {
       privateKey.fillRange(0, privateKey.length, 0);
@@ -164,8 +192,30 @@ class EntryHistoryCubit extends Cubit<EntryHistoryState> {
 
   void clearSensitiveState({bool keepItems = false}) {
     _clearSelected();
-    emit(EntryHistoryState(items: keepItems ? state.items : const []));
-    if (!keepItems) _opened = false;
+    emit(
+      EntryHistoryState(
+        status: keepItems
+            ? EntryHistoryStatus.ready
+            : EntryHistoryStatus.initial,
+        items: keepItems ? state.items : const [],
+        nextCursor: keepItems ? state.nextCursor : null,
+      ),
+    );
+    if (!keepItems) {
+      _opened = false;
+      _service.clearSessionCache();
+    }
+  }
+
+  void hideSelected() {
+    _clearSelected();
+    emit(
+      EntryHistoryState(
+        status: EntryHistoryStatus.ready,
+        items: state.items,
+        nextCursor: state.nextCursor,
+      ),
+    );
   }
 
   void _clearSelected() => state.selected?.clear();

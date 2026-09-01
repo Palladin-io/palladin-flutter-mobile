@@ -57,6 +57,44 @@ void main() {
   });
 
   test(
+    'invalidating after an Entry update reloads History on next open',
+    () async {
+      final updated = EntryEntity(
+        id: entry.id,
+        vaultId: entry.vaultId,
+        label: 'Updated Entry',
+        type: entry.type,
+        createdAt: entry.createdAt,
+        updatedAt: DateTime.utc(2026, 2),
+        currentRevision: '8',
+      );
+      final updatedVersion = EntryHistoryVersion(
+        revision: '8',
+        changedAt: DateTime.utc(2026, 2),
+        changedByType: 'member',
+        changedById: version.changedById,
+        operation: 'updated',
+        encrypted: const {'revision': '8'},
+      );
+      when(() => service.loadPage(entry)).thenAnswer(
+        (_) async => EntryHistoryPage(items: [version], nextCursor: null),
+      );
+      when(() => service.loadPage(updated)).thenAnswer(
+        (_) async =>
+            EntryHistoryPage(items: [updatedVersion], nextCursor: null),
+      );
+
+      await cubit.open(entry);
+      cubit.invalidate();
+      await cubit.open(updated);
+
+      expect(cubit.state.items, [updatedVersion]);
+      verify(() => service.loadPage(entry)).called(1);
+      verify(() => service.loadPage(updated)).called(1);
+    },
+  );
+
+  test(
     'corrupt selected version clears plaintext but keeps encrypted rows',
     () async {
       when(() => service.loadPage(entry)).thenAnswer(
@@ -75,7 +113,8 @@ void main() {
         version: version,
         privateKey: Uint8List(32),
       );
-      expect(cubit.state.status, EntryHistoryStatus.error);
+      expect(cubit.state.status, EntryHistoryStatus.ready);
+      expect(cubit.state.failure, EntryHistoryFailure.reveal);
       expect(cubit.state.selected, isNull);
       expect(cubit.state.items, [version]);
     },
@@ -108,6 +147,37 @@ void main() {
     expect(secret, isEmpty);
     expect(payload, isEmpty);
     expect(cubit.state.selected, isNull);
+  });
+
+  test('hide clears plaintext and keeps the loaded history page', () async {
+    final selected = CanonicalEntryHistorySnapshot(
+      secret: {'memberLabel': 'old'},
+      payload: {'value': 'plaintext'},
+    );
+    when(() => service.loadPage(entry)).thenAnswer(
+      (_) async => EntryHistoryPage(items: [version], nextCursor: null),
+    );
+    when(
+      () => service.reveal(
+        entry: entry,
+        version: version,
+        privateKey: any(named: 'privateKey'),
+      ),
+    ).thenAnswer((_) async => selected);
+    await cubit.open(entry);
+    await cubit.reveal(
+      entry: entry,
+      version: version,
+      privateKey: Uint8List(32),
+    );
+
+    cubit.hideSelected();
+
+    expect(cubit.state.status, EntryHistoryStatus.ready);
+    expect(cubit.state.items, [version]);
+    expect(cubit.state.selected, isNull);
+    expect(selected.secret, isEmpty);
+    expect(selected.payload, isEmpty);
   });
 
   test(

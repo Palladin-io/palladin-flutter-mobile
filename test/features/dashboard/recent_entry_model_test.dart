@@ -10,6 +10,8 @@ void main() {
         'vaultId': 'vault-1',
         'vaultName': 'Production',
         'type': 0,
+        'currentRevision': '7',
+        'currentKeyVersion': 3,
         'icon': 'vpn_key',
         'updatedAt': '2026-06-28T12:00:00Z',
         'createdAt': '2026-06-01T08:00:00Z',
@@ -20,6 +22,8 @@ void main() {
       expect(entity.vaultId, 'vault-1');
       expect(entity.vaultName, 'Production');
       expect(entity.typeWire, 0);
+      expect(entity.currentRevision, '7');
+      expect(entity.currentKeyVersion, 3);
       expect(entity.icon, 'vpn_key');
       expect(entity.updatedAt, DateTime.utc(2026, 6, 28, 12));
       expect(entity.createdAt, DateTime.utc(2026, 6, 1, 8));
@@ -32,6 +36,8 @@ void main() {
         'vaultId': 'v1',
         'vaultName': 'V',
         'type': 'Key',
+        'currentRevision': '1',
+        'currentKeyVersion': 1,
         'updatedAt': '2026-06-01T00:00:00Z',
         'createdAt': '2026-06-01T00:00:00Z',
       });
@@ -45,6 +51,8 @@ void main() {
         'vaultId': 'v1',
         'vaultName': 'V',
         'type': 'Credential',
+        'currentRevision': '1',
+        'currentKeyVersion': 1,
         'updatedAt': '2026-06-01T00:00:00Z',
         'createdAt': '2026-06-01T00:00:00Z',
       });
@@ -58,6 +66,8 @@ void main() {
         'vaultId': 'v1',
         'vaultName': 'V',
         'type': 1,
+        'currentRevision': '1',
+        'currentKeyVersion': 1,
         'updatedAt': '2026-06-01T00:00:00Z',
         'createdAt': '2026-06-01T00:00:00Z',
       }).toEntity();

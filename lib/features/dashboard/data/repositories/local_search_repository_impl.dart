@@ -76,6 +76,8 @@ final class LocalSearchRepositoryImpl implements LocalSearchRepository {
             displayName: entry.memberLabel,
             vaultName: vault.name,
             entryType: entry.entryType,
+            currentRevision: entry.revision,
+            currentKeyVersion: entry.currentKeyVersion,
             iconReference: entry.iconReference,
           ),
         ));
@@ -122,6 +124,8 @@ final class LocalSearchRepositoryImpl implements LocalSearchRepository {
             vaultId: vault.id,
             vaultName: vault.name,
             typeWire: entry.entryType,
+            currentRevision: entry.revision,
+            currentKeyVersion: entry.currentKeyVersion,
             icon: entry.iconReference,
             updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
             createdAt: DateTime.fromMillisecondsSinceEpoch(0),

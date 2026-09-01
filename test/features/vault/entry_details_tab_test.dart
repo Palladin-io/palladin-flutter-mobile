@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -271,6 +272,68 @@ void main() {
         agentLabel: any(named: 'agentLabel'),
       ),
     ).called(1);
+  });
+
+  testWidgets('repeated save taps start only one canonical mutation', (
+    tester,
+  ) async {
+    final harness = await pumpTab(
+      tester,
+      entry: _keyEntry(),
+      payload: {'value': secret},
+    );
+    final completion = Completer<EntryEntity>();
+    when(
+      () => harness.canonical.update(
+        snapshot: any(named: 'snapshot'),
+        expected: any(named: 'expected'),
+        label: any(named: 'label'),
+        description: any(named: 'description'),
+        icon: any(named: 'icon'),
+        type: any(named: 'type'),
+        content: any(named: 'content'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+        agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+        agentLabel: any(named: 'agentLabel'),
+      ),
+    ).thenAnswer((_) => completion.future);
+
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    await enterEdit(tester);
+    final save = find.text(l10n.entrySaveAction);
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.tap(save);
+    await tester.pump();
+
+    verify(
+      () => harness.canonical.update(
+        snapshot: any(named: 'snapshot'),
+        expected: any(named: 'expected'),
+        label: any(named: 'label'),
+        description: any(named: 'description'),
+        icon: any(named: 'icon'),
+        type: any(named: 'type'),
+        content: any(named: 'content'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+        agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+        agentLabel: any(named: 'agentLabel'),
+      ),
+    ).called(1);
+
+    completion.complete(
+      EntryEntity(
+        id: 'e1',
+        vaultId: 'v1',
+        label: 'Deploy key',
+        type: EntryType.key,
+        createdAt: DateTime.utc(2026, 6, 1),
+        updatedAt: DateTime.utc(2026, 7, 30),
+        currentRevision: '2',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.entryChangesSaved), findsOneWidget);
   });
 
   testWidgets('failed save keeps the populated form and its values', (

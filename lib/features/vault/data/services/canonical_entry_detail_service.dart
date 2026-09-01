@@ -361,6 +361,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           snapshot.secret['memberLabel'] as String,
       description: snapshot.secret['description'] as String? ?? '',
       icon: snapshot.secret['iconReference'] as String? ?? '',
+      color: snapshot.secret['color'] as String?,
       content: snapshot.payload,
       policy: policy,
     );
@@ -757,6 +758,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           'public-asset:$id|$revision|${Uri.encodeComponent(url)}',
         _ => null,
       },
+      'color': value['color'],
       'content': content,
       'agentVisibilityPolicy': {
         'discoverable': value['discoverable'],
@@ -790,6 +792,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     required String label,
     required String description,
     required String icon,
+    String? color,
     required EntryType type,
     required Map<String, dynamic> content,
     required Uint8List memberPrivateKey,
@@ -859,6 +862,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           label: label,
           description: description,
           icon: icon,
+          colorOverride: color,
           type: type,
           content: content,
           policyOverride: agentVisibilityPolicy,
@@ -955,6 +959,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         agentVisibilityPolicy ?? parsedPreviousPolicy,
       );
       final policyJson = policy.toJson();
+      final nextColor = color ?? snapshot.secret['color'] as String?;
       final memberSecret = <String, dynamic>{
         'schemaVersion': 1,
         'memberLabel': label,
@@ -965,6 +970,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
                 : label),
         if (description.isNotEmpty) 'description': description,
         if (icon.isNotEmpty) 'iconReference': icon,
+        'color': ?nextColor,
         'entryType': wireType,
         'content': canonicalContent,
         'agentVisibilityPolicy': policyJson,
@@ -983,6 +989,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         if (type == EntryType.credential && content['url'] is String)
           'autofillDomains': [content['url']],
         if (icon.isNotEmpty) 'iconReference': icon,
+        'color': ?nextColor,
       };
       final discovery = AgentVisibilityProjector.discovery(
         type: type,
@@ -1147,6 +1154,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         type: type,
         createdAt: expected.createdAt,
         updatedAt: now,
+        currentRevision: nextRevision,
+        currentKeyVersion: keyVersion,
       );
     } on CanonicalEntryDetailException {
       rethrow;
@@ -1167,6 +1176,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     required String label,
     required String description,
     required String icon,
+    required String? colorOverride,
     required EntryType type,
     required Map<String, dynamic> content,
     required AgentVisibilityPolicy? policyOverride,
@@ -1227,6 +1237,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         agentLabel: nextAgentLabel,
         description: description,
         icon: icon,
+        color: colorOverride ?? snapshot.secret['color'] as String?,
         content: content,
         policy: policy,
       );
@@ -1329,6 +1340,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         type: type,
         createdAt: expected.createdAt,
         updatedAt: DateTime.now().toUtc(),
+        currentRevision: nextRevision.toString(),
+        currentKeyVersion: keyVersion,
       );
     } finally {
       entryDek?.fillRange(0, entryDek.length, 0);
@@ -1693,6 +1706,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
             snapshot.secret['agentLabel'] as String? ?? archived.memberLabel,
         description: snapshot.secret['description'] as String? ?? '',
         icon: archived.iconReference ?? '',
+        color: snapshot.secret['color'] as String?,
         content: snapshot.payload,
         policy: policy,
       );
@@ -1859,6 +1873,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     required String agentLabel,
     required String description,
     required String icon,
+    String? color,
     required Map<String, dynamic> content,
     required AgentVisibilityPolicy policy,
   }) {
@@ -1994,7 +2009,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       agentLabel: agentLabel,
       description: description.isEmpty ? null : description,
       icon: VaultPlaintextIcon.fromReference(icon),
-      color: null,
+      color: color,
       discoverable: policy.discoverable,
       content: body,
       agentFieldAccess: access,

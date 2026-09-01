@@ -571,12 +571,78 @@ void main() {
     expect(cache.active, isEmpty);
   });
 
-  test('stale EntryKey resource revision rejects whole generation', () async {
+  test(
+    'accepts an independently versioned EntryKey wrapper after Entry edit',
+    () async {
+      final itemJson = snapshot.items.single.toJson();
+      itemJson['currentRevision'] = '13';
+      itemJson['memberIndexRevision'] = '13';
+
+      final memberIndex = Map<String, dynamic>.from(
+        itemJson['memberIndex'] as Map,
+      );
+      final indexDescriptor = Map<String, dynamic>.from(
+        memberIndex['descriptor'] as Map,
+      );
+      memberIndex['descriptor'] = {
+        ...indexDescriptor,
+        'resourceRevision': '13',
+      };
+      itemJson['memberIndex'] = memberIndex;
+
+      final memberSecret = Map<String, dynamic>.from(
+        itemJson['memberSecret'] as Map,
+      );
+      final secretDescriptor = Map<String, dynamic>.from(
+        memberSecret['descriptor'] as Map,
+      );
+      memberSecret['descriptor'] = {
+        ...secretDescriptor,
+        'resourceRevision': '13',
+      };
+      itemJson['memberSecret'] = memberSecret;
+
+      // A normal edit reuses the Entry DEK, so the EntryKey wrapper remains
+      // at revision 12 while MemberIndex and MemberSecret advance to 13.
+      expect(
+        ((itemJson['entryKey'] as Map)['descriptor']
+            as Map)['resourceRevision'],
+        '12',
+      );
+      remote.snapshotPage = MemberSnapshotPage(
+        snapshotBaseSequence: snapshot.snapshotBaseSequence,
+        accessContext: snapshot.accessContext,
+        memberVaultKey: snapshot.memberVaultKey,
+        items: [MemberSyncItemModel.fromJson(itemJson)],
+      );
+
+      final result = await service.synchronize(
+        vaultId: snapshot.accessContext.vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+
+      expect(result.entryCount, 1);
+      expect(
+        service.entries(snapshot.accessContext.vaultId).single.revision,
+        '13',
+      );
+      expect(cache.states, hasLength(1));
+    },
+  );
+
+  test('mismatched MemberIndex resource revision rejects generation', () async {
     final itemJson = snapshot.items.single.toJson();
-    final entryKey = Map<String, dynamic>.from(itemJson['entryKey'] as Map);
-    final descriptor = Map<String, dynamic>.from(entryKey['descriptor'] as Map);
-    entryKey['descriptor'] = {...descriptor, 'resourceRevision': '11'};
-    itemJson['entryKey'] = entryKey;
+    final memberIndex = Map<String, dynamic>.from(
+      itemJson['memberIndex'] as Map,
+    );
+    final descriptor = Map<String, dynamic>.from(
+      memberIndex['descriptor'] as Map,
+    );
+    memberIndex['descriptor'] = {...descriptor, 'resourceRevision': '11'};
+    itemJson['memberIndex'] = memberIndex;
     remote.snapshotPage = MemberSnapshotPage(
       snapshotBaseSequence: snapshot.snapshotBaseSequence,
       accessContext: snapshot.accessContext,
@@ -595,6 +661,38 @@ void main() {
       throwsFormatException,
     );
     expect(cache.states, isEmpty);
+  });
+
+  test('split current projection revisions reject whole generation', () async {
+    final itemJson = snapshot.items.single.toJson();
+    itemJson['memberIndexRevision'] = '11';
+    final memberIndex = Map<String, dynamic>.from(
+      itemJson['memberIndex'] as Map,
+    );
+    final descriptor = Map<String, dynamic>.from(
+      memberIndex['descriptor'] as Map,
+    );
+    memberIndex['descriptor'] = {...descriptor, 'resourceRevision': '11'};
+    itemJson['memberIndex'] = memberIndex;
+    remote.snapshotPage = MemberSnapshotPage(
+      snapshotBaseSequence: snapshot.snapshotBaseSequence,
+      accessContext: snapshot.accessContext,
+      memberVaultKey: snapshot.memberVaultKey,
+      items: [MemberSyncItemModel.fromJson(itemJson)],
+    );
+
+    await expectLater(
+      service.synchronize(
+        vaultId: snapshot.accessContext.vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      ),
+      throwsFormatException,
+    );
+    expect(cache.states, isEmpty);
+    expect(cache.active, isEmpty);
   });
 
   test('misbound EntryKey wrapping Vault-key version is rejected', () async {

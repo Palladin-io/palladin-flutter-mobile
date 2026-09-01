@@ -198,6 +198,8 @@ class _DashboardViewState extends State<_DashboardView> {
         vaultId: recent.vaultId,
         vaultName: recent.vaultName,
         entryType: recent.typeWire,
+        currentRevision: recent.currentRevision,
+        currentKeyVersion: recent.currentKeyVersion,
         iconReference: recent.icon,
       );
 
@@ -213,15 +215,10 @@ class _DashboardViewState extends State<_DashboardView> {
 
   /// Deep-links into the entry detail screen for an `entry` search hit.
   ///
-  /// The search projection carries only [SearchResultEntity.id],
-  /// [SearchResultEntity.vaultId], [SearchResultEntity.name] and an optional
-  /// icon — enough to bootstrap [EntryDetailPage], which then fetches and
-  /// decrypts the full entry (real type + timestamps) on open. The bootstrap
-  /// [EntryEntity]'s `type`/`createdAt`/`updatedAt` are placeholders replaced
-  /// by the revealed entity, so they are never persisted.
-  ///
-  /// `vaultId` is entry-only and defensively nullable; if the backend omits
-  /// it we fall back to the vault list so the tap is never a dead end.
+  /// The local search projection carries the authenticated current revision
+  /// and key version needed by [EntryDetailPage] to open the same structural
+  /// head from the ciphertext cache. Timestamps remain presentation-only
+  /// placeholders and are never persisted by this navigation path.
   void _openEntryDetail(BuildContext context, EntrySearchResult result) {
     final vaultId = result.vaultId;
     final now = DateTime.now();
@@ -235,6 +232,8 @@ class _DashboardViewState extends State<_DashboardView> {
         type: EntryTypeExtension.fromWire(result.entryType),
         createdAt: now,
         updatedAt: now,
+        currentRevision: result.currentRevision,
+        currentKeyVersion: result.currentKeyVersion,
       ),
     );
   }

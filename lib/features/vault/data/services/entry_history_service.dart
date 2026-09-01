@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../../../core/identity/organization_member_directory_service.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/vault_performance_budget.dart';
 import '../datasources/entry_remote_datasource.dart';
@@ -14,6 +15,7 @@ class EntryHistoryVersion {
     required this.changedById,
     required this.operation,
     required this.encrypted,
+    this.actorName,
   });
 
   final String revision;
@@ -22,6 +24,17 @@ class EntryHistoryVersion {
   final String changedById;
   final String operation;
   final Map<String, dynamic> encrypted;
+  final String? actorName;
+
+  EntryHistoryVersion copyWithActorName(String? value) => EntryHistoryVersion(
+    revision: revision,
+    changedAt: changedAt,
+    changedByType: changedByType,
+    changedById: changedById,
+    operation: operation,
+    encrypted: encrypted,
+    actorName: value,
+  );
 }
 
 class EntryHistoryPage {
@@ -36,8 +49,10 @@ class EntryHistoryService {
   EntryHistoryService({
     required EntryRemoteDatasource entries,
     required CanonicalEntryDetailService canonical,
+    required OrganizationMemberDirectoryService memberDirectory,
   }) : _entries = entries,
-       _canonical = canonical;
+       _canonical = canonical,
+       _memberDirectory = memberDirectory;
 
   static const pageSize = VaultPerformanceBudget.historyPageItems;
   static const maximumLoadedVersions =
@@ -45,6 +60,7 @@ class EntryHistoryService {
 
   final EntryRemoteDatasource _entries;
   final CanonicalEntryDetailService _canonical;
+  final OrganizationMemberDirectoryService _memberDirectory;
 
   Future<EntryHistoryPage> loadPage(
     EntryEntity entry, {
@@ -93,8 +109,20 @@ class EntryHistoryService {
     if (cursor != null && cursor is! String) {
       throw const FormatException('Malformed history cursor');
     }
-    return EntryHistoryPage(items: items, nextCursor: cursor as String?);
+    final memberIds = items
+        .where((item) => _isMember(item.changedByType))
+        .map((item) => item.changedById)
+        .toSet();
+    final memberNames = await _memberDirectory.resolve(memberIds);
+    return EntryHistoryPage(
+      items: items
+          .map((item) => item.copyWithActorName(memberNames[item.changedById]))
+          .toList(growable: false),
+      nextCursor: cursor as String?,
+    );
   }
+
+  void clearSessionCache() => _memberDirectory.clear();
 
   Future<CanonicalEntryHistorySnapshot> reveal({
     required EntryEntity entry,
@@ -127,6 +155,7 @@ class EntryHistoryService {
         label: selected.secret['memberLabel'] as String? ?? entry.label,
         description: selected.secret['description'] as String? ?? '',
         icon: selected.secret['iconReference'] as String? ?? '',
+        color: selected.secret['color'] as String?,
         type: EntryTypeExtension.fromWire(typeValue),
         content: Map<String, dynamic>.from(selected.payload),
         memberPrivateKey: privateKey,
@@ -137,4 +166,7 @@ class EntryHistoryService {
       current?.entry.clear();
     }
   }
+
+  static bool _isMember(String value) =>
+      value == '1' || value.toLowerCase() == 'member';
 }
