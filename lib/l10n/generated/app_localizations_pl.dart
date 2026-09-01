@@ -3674,14 +3674,61 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryHistoryLoadMore => 'Wczytaj starsze wersje';
 
   @override
-  String get entryHistoryReveal => 'Odszyfruj tę wersję';
+  String get entryHistoryCurrent => 'Bieżąca';
 
   @override
-  String get entryHistoryRestore => 'Przywróć jako nową wersję';
+  String get entryHistoryReveal => 'Pokaż';
+
+  @override
+  String get entryHistoryHide => 'Ukryj';
+
+  @override
+  String get entryHistoryDecrypting => 'Odszyfrowywanie…';
+
+  @override
+  String get entryHistoryRestore => 'Przywróć tę wersję';
+
+  @override
+  String get entryHistoryRestoring => 'Przywracanie…';
 
   @override
   String get entryHistoryRestored =>
       'Historyczna treść została przywrócona jako nowa aktualna wersja.';
+
+  @override
+  String get entryHistoryDecryptError =>
+      'Nie udało się odszyfrować tej wersji. Sejf może być zablokowany.';
+
+  @override
+  String get entryHistoryRestoreError => 'Nie udało się przywrócić tej wersji.';
+
+  @override
+  String get entryHistoryOperationCreated => 'Utworzono';
+
+  @override
+  String get entryHistoryOperationUpdated => 'Zmieniono';
+
+  @override
+  String get entryHistoryOperationArchived => 'Zarchiwizowano';
+
+  @override
+  String get entryHistoryOperationRestored => 'Przywrócono';
+
+  @override
+  String get entryHistoryOperationDeleted => 'Usunięto';
+
+  @override
+  String entryHistoryMemberActor(String name) {
+    return 'Użytkownik: $name';
+  }
+
+  @override
+  String entryHistoryAgentActor(String name) {
+    return 'Agent: $name';
+  }
+
+  @override
+  String get entryHistorySystemActor => 'System';
 
   @override
   String get entryHistorySensitiveWarning =>

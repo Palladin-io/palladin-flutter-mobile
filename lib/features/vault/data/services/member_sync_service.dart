@@ -1303,6 +1303,14 @@ final class MemberSyncService
     final indexScope = index['scope'];
     final keyBinding = key['binding'];
     final generation = key['memberKeyGeneration'];
+
+    // EntryKey has its own wrapper revision and normally remains unchanged
+    // when an Entry edit reuses the existing DEK. `currentRevision` is the
+    // MemberSecret head revision, not an independent authority for that
+    // wrapper revision, so those two revisions are deliberately not compared.
+    // The wrapper remains authenticated by its descriptor, while scope, key
+    // version, member generation and wrapping Vault-key version are bound
+    // below to independent current authority.
     if (keyScope is! Map ||
         indexScope is! Map ||
         keyBinding is! Map ||
@@ -1312,7 +1320,6 @@ final class MemberSyncService
         indexScope['vaultId'] != vaultId ||
         keyScope['entryId'] != item.entryId ||
         indexScope['entryId'] != item.entryId ||
-        key['resourceRevision'] != item.currentRevision ||
         index['resourceRevision'] != item.memberIndexRevision ||
         item.memberIndexRevision != item.currentRevision ||
         key['keyVersion'] != item.currentKeyVersion ||

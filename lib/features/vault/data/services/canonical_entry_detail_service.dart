@@ -361,6 +361,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           snapshot.secret['memberLabel'] as String,
       description: snapshot.secret['description'] as String? ?? '',
       icon: snapshot.secret['iconReference'] as String? ?? '',
+      color: snapshot.secret['color'] as String?,
       content: snapshot.payload,
       policy: policy,
     );
@@ -395,6 +396,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       return session;
     } on DioException catch (error) {
       throw CanonicalEntryDetailException(_classifyDio(error));
+    } on EnvelopeException {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.corrupt,
+      );
     } on FormatException {
       throw const CanonicalEntryDetailException(
         CanonicalEntryDetailError.corrupt,
@@ -421,24 +426,39 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         expected.id,
       );
       _validateScope(entry, expected);
+      final authority = _validateCanonicalAuthority(vault, entry, expected);
       final secret = _map(historyItem, 'memberSecret');
       final wrapper = _map(historyItem, 'entryKey');
+      final historicalKeyVersion = _int(historyItem, 'keyVersion');
       if (_entryV2 != null && wrapper['descriptor'] is Map) {
-        vaultKey = await _keys.openMemberVaultKey(
-          _map(vault, 'memberVaultKey'),
-          memberPrivateKey,
-        );
         _validateCanonicalEnvelope(
           wrapper,
           entry,
           expected.id,
           expectedRevision: historyItem['entryKeyRevision']?.toString(),
+          expectedKeyVersion: historicalKeyVersion,
+          maximumMemberKeyGeneration: authority.memberKeyGeneration,
+          expectedWrappingVaultKeyVersion: authority.vaultKeyVersion,
+        );
+        final wrapperGeneration = _int(
+          _map(wrapper, 'descriptor'),
+          'memberKeyGeneration',
         );
         _validateCanonicalEnvelope(
           secret,
           entry,
           expected.id,
           expectedRevision: historyItem['revision']?.toString(),
+          expectedKeyVersion: historicalKeyVersion,
+          expectedMemberKeyGeneration: wrapperGeneration,
+        );
+        vaultKey = await _keys.openMemberVaultKey(
+          _map(vault, 'memberVaultKey'),
+          memberPrivateKey,
+          expectedOrganizationId: authority.organizationId,
+          expectedVaultId: expected.vaultId,
+          expectedVaultKeyVersion: authority.vaultKeyVersion,
+          expectedMemberKeyGeneration: authority.memberKeyGeneration,
         );
         final adapted = adaptCanonicalSecret(
           await _entryV2.openMemberSecret(
@@ -470,6 +490,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       vaultKey = await _keys.openMemberVaultKey(
         _map(vault, 'memberVaultKey'),
         memberPrivateKey,
+        expectedOrganizationId: authority.organizationId,
+        expectedVaultId: expected.vaultId,
+        expectedVaultKeyVersion: authority.vaultKeyVersion,
+        expectedMemberKeyGeneration: authority.memberKeyGeneration,
       );
       entryDek = await _envelopes.decrypt(
         profile: VaultAadProfile.entryKeyWrapper,
@@ -517,6 +541,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       );
     } on DioException catch (error) {
       throw CanonicalEntryDetailException(_classifyDio(error));
+    } on EnvelopeException {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.corrupt,
+      );
     } on FormatException {
       throw const CanonicalEntryDetailException(
         CanonicalEntryDetailError.corrupt,
@@ -541,13 +569,38 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         expected.id,
       );
       _validateScope(entry, expected);
-      final generation = _int(vault, 'memberKeyGeneration');
+      final authority = _validateCanonicalAuthority(vault, entry, expected);
       vaultKey = await _keys.openMemberVaultKey(
         _map(vault, 'memberVaultKey'),
         memberPrivateKey,
+        expectedOrganizationId: authority.organizationId,
+        expectedVaultId: expected.vaultId,
+        expectedVaultKeyVersion: authority.vaultKeyVersion,
+        expectedMemberKeyGeneration: authority.memberKeyGeneration,
       );
       final wrapper = _map(entry, 'entryKey');
       if (_entryV2 != null && wrapper['descriptor'] is Map) {
+        final currentKeyVersion = _int(entry, 'currentKeyVersion');
+        _validateCanonicalEnvelope(
+          wrapper,
+          entry,
+          expected.id,
+          expectedKeyVersion: currentKeyVersion,
+          maximumMemberKeyGeneration: authority.memberKeyGeneration,
+          expectedWrappingVaultKeyVersion: authority.vaultKeyVersion,
+        );
+        final wrapperGeneration = _int(
+          _map(wrapper, 'descriptor'),
+          'memberKeyGeneration',
+        );
+        _validateCanonicalEnvelope(
+          _map(entry, 'memberSecret'),
+          entry,
+          expected.id,
+          expectedRevision: entry['currentRevision']?.toString(),
+          expectedKeyVersion: currentKeyVersion,
+          expectedMemberKeyGeneration: wrapperGeneration,
+        );
         final value = await _entryV2.openMemberSecret(
           entryKey: wrapper,
           memberSecret: _map(entry, 'memberSecret'),
@@ -565,7 +618,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         );
       }
       final wrapperGeneration = _int(wrapper, 'memberKeyGeneration');
-      if (wrapperGeneration > generation) {
+      if (wrapperGeneration > authority.memberKeyGeneration) {
         throw const FormatException('Entry key generation is from the future');
       }
       entryDek = await _envelopes.decrypt(
@@ -622,6 +675,10 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       );
     } on DioException catch (error) {
       throw CanonicalEntryDetailException(_classifyDio(error));
+    } on EnvelopeException {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.corrupt,
+      );
     } on FormatException {
       throw const CanonicalEntryDetailException(
         CanonicalEntryDetailError.corrupt,
@@ -757,6 +814,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           'public-asset:$id|$revision|${Uri.encodeComponent(url)}',
         _ => null,
       },
+      'color': value['color'],
       'content': content,
       'agentVisibilityPolicy': {
         'discoverable': value['discoverable'],
@@ -770,18 +828,64 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     Map<String, dynamic> entry,
     String entryId, {
     String? expectedRevision,
+    int? expectedKeyVersion,
+    int? expectedMemberKeyGeneration,
+    int? maximumMemberKeyGeneration,
+    int? expectedWrappingVaultKeyVersion,
   }) {
     final descriptor = _map(envelope, 'descriptor');
     final scope = _map(descriptor, 'scope');
+    final memberKeyGeneration = descriptor['memberKeyGeneration'];
     if (scope['organizationId'] != entry['organizationId'] ||
         scope['vaultId'] != entry['vaultId'] ||
         scope['entryId'] != entryId ||
         (expectedRevision != null &&
-            descriptor['resourceRevision'] != expectedRevision)) {
-      throw const FormatException(
-        'Canonical envelope scope or revision mismatch',
+            descriptor['resourceRevision'] != expectedRevision) ||
+        (expectedKeyVersion != null &&
+            descriptor['keyVersion'] != expectedKeyVersion) ||
+        (expectedMemberKeyGeneration != null &&
+            memberKeyGeneration != expectedMemberKeyGeneration) ||
+        (maximumMemberKeyGeneration != null &&
+            (memberKeyGeneration is! int ||
+                memberKeyGeneration > maximumMemberKeyGeneration))) {
+      throw const FormatException('Canonical envelope authority mismatch');
+    }
+    if (expectedWrappingVaultKeyVersion != null) {
+      final binding = _map(descriptor, 'binding');
+      if (binding['wrappingVaultKeyVersion'] !=
+          expectedWrappingVaultKeyVersion) {
+        throw const FormatException(
+          'Canonical Entry key Vault binding mismatch',
+        );
+      }
+    }
+  }
+
+  ({String organizationId, int memberKeyGeneration, int vaultKeyVersion})
+  _validateCanonicalAuthority(
+    Map<String, dynamic> vault,
+    Map<String, dynamic> entry,
+    EntryEntity expected,
+  ) {
+    final organizationId = vault['organizationId'];
+    if (organizationId is! String ||
+        entry['organizationId'] != organizationId ||
+        entry['vaultId'] != expected.vaultId ||
+        entry['id'] != expected.id) {
+      throw const FormatException('Canonical Entry authority mismatch');
+    }
+    if (expected.currentRevision != EntryEntity.unspecifiedRevision &&
+        (entry['currentRevision'] != expected.currentRevision ||
+            entry['currentKeyVersion'] != expected.currentKeyVersion)) {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.conflict,
       );
     }
+    return (
+      organizationId: organizationId,
+      memberKeyGeneration: _int(vault, 'memberKeyGeneration'),
+      vaultKeyVersion: _int(_map(vault, 'currentKeyEpoch'), 'vaultKeyVersion'),
+    );
   }
 
   Future<EntryEntity> update({
@@ -790,6 +894,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     required String label,
     required String description,
     required String icon,
+    String? color,
     required EntryType type,
     required Map<String, dynamic> content,
     required Uint8List memberPrivateKey,
@@ -859,6 +964,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           label: label,
           description: description,
           icon: icon,
+          colorOverride: color,
           type: type,
           content: content,
           policyOverride: agentVisibilityPolicy,
@@ -955,6 +1061,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         agentVisibilityPolicy ?? parsedPreviousPolicy,
       );
       final policyJson = policy.toJson();
+      final nextColor = color ?? snapshot.secret['color'] as String?;
       final memberSecret = <String, dynamic>{
         'schemaVersion': 1,
         'memberLabel': label,
@@ -965,6 +1072,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
                 : label),
         if (description.isNotEmpty) 'description': description,
         if (icon.isNotEmpty) 'iconReference': icon,
+        'color': ?nextColor,
         'entryType': wireType,
         'content': canonicalContent,
         'agentVisibilityPolicy': policyJson,
@@ -983,6 +1091,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         if (type == EntryType.credential && content['url'] is String)
           'autofillDomains': [content['url']],
         if (icon.isNotEmpty) 'iconReference': icon,
+        'color': ?nextColor,
       };
       final discovery = AgentVisibilityProjector.discovery(
         type: type,
@@ -1147,6 +1256,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         type: type,
         createdAt: expected.createdAt,
         updatedAt: now,
+        currentRevision: nextRevision,
+        currentKeyVersion: keyVersion,
       );
     } on CanonicalEntryDetailException {
       rethrow;
@@ -1167,6 +1278,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     required String label,
     required String description,
     required String icon,
+    required String? colorOverride,
     required EntryType type,
     required Map<String, dynamic> content,
     required AgentVisibilityPolicy? policyOverride,
@@ -1227,6 +1339,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         agentLabel: nextAgentLabel,
         description: description,
         icon: icon,
+        color: colorOverride ?? snapshot.secret['color'] as String?,
         content: content,
         policy: policy,
       );
@@ -1329,6 +1442,8 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         type: type,
         createdAt: expected.createdAt,
         updatedAt: DateTime.now().toUtc(),
+        currentRevision: nextRevision.toString(),
+        currentKeyVersion: keyVersion,
       );
     } finally {
       entryDek?.fillRange(0, entryDek.length, 0);
@@ -1376,6 +1491,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       updatedAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       lifecycleState: MemberEntryState.archived,
       currentRevision: archived.revision,
+      currentKeyVersion: archived.currentKeyVersion,
     );
     CanonicalEntrySnapshot? snapshot;
     Uint8List? vaultKey;
@@ -1693,6 +1809,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
             snapshot.secret['agentLabel'] as String? ?? archived.memberLabel,
         description: snapshot.secret['description'] as String? ?? '',
         icon: archived.iconReference ?? '',
+        color: snapshot.secret['color'] as String?,
         content: snapshot.payload,
         policy: policy,
       );
@@ -1859,6 +1976,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     required String agentLabel,
     required String description,
     required String icon,
+    String? color,
     required Map<String, dynamic> content,
     required AgentVisibilityPolicy policy,
   }) {
@@ -1994,7 +2112,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       agentLabel: agentLabel,
       description: description.isEmpty ? null : description,
       icon: VaultPlaintextIcon.fromReference(icon),
-      color: null,
+      color: color,
       discoverable: policy.discoverable,
       content: body,
       agentFieldAccess: access,

@@ -83,6 +83,8 @@ final class EntrySearchResult extends SearchResultEntity {
     required this.displayName,
     required this.vaultName,
     required this.entryType,
+    required this.currentRevision,
+    required this.currentKeyVersion,
     this.iconReference,
   });
 
@@ -91,6 +93,8 @@ final class EntrySearchResult extends SearchResultEntity {
   final String displayName;
   final String vaultName;
   final int entryType;
+  final String currentRevision;
+  final int currentKeyVersion;
   final String? iconReference;
 
   @override

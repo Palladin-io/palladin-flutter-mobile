@@ -37,6 +37,7 @@ class EditEntryCubit extends Cubit<EditEntryState> {
   final LocalCurrentEntryService? localCurrentEntry;
   CanonicalEntrySnapshot? _snapshot;
   int _sensitiveEpoch = 0;
+  bool _updateInFlight = false;
 
   /// Whether another save can safely reuse the authenticated base revision.
   bool get hasCanonicalSnapshot => _snapshot != null;
@@ -85,20 +86,21 @@ class EditEntryCubit extends Cubit<EditEntryState> {
     required EntryEntity entry,
     required Uint8List privateKey,
     String? wrappedVK,
+    bool forceRemote = false,
   }) async {
     final epoch = _sensitiveEpoch;
     AppLogger.d('Entry', 'Revealing entry id=${entry.id} for edit');
     emit(const EditEntryRevealing());
     try {
-      final snapshot =
-          await (localCurrentEntry?.reveal(
-                expected: entry,
-                memberPrivateKey: privateKey,
-              ) ??
-              canonicalService.reveal(
-                expected: entry,
-                memberPrivateKey: privateKey,
-              ));
+      final snapshot = forceRemote || localCurrentEntry == null
+          ? await canonicalService.reveal(
+              expected: entry,
+              memberPrivateKey: privateKey,
+            )
+          : await localCurrentEntry!.reveal(
+              expected: entry,
+              memberPrivateKey: privateKey,
+            );
       if (epoch != _sensitiveEpoch || isClosed) {
         snapshot.payload.clear();
         snapshot.secret.clear();
@@ -107,7 +109,12 @@ class EditEntryCubit extends Cubit<EditEntryState> {
       }
       _wipeSnapshot();
       _snapshot = snapshot;
-      emit(EditEntryReady(entry: entry, payload: snapshot.payload));
+      emit(
+        EditEntryReady(
+          entry: _entryFromSnapshot(entry, snapshot),
+          payload: snapshot.payload,
+        ),
+      );
     } on EntryException catch (e) {
       AppLogger.w('Entry', 'revealForEdit failed: ${e.kind.name}');
       emit(EditEntryError(e.kind));
@@ -160,7 +167,9 @@ class EditEntryCubit extends Cubit<EditEntryState> {
       emit(const EditEntryError(EntryErrorKind.unknown));
       return;
     }
+    if (_updateInFlight) return;
 
+    _updateInFlight = true;
     AppLogger.d('Entry', 'Updating entry id=$entryId');
     emit(const EditEntryLoading());
     try {
@@ -218,7 +227,41 @@ class EditEntryCubit extends Cubit<EditEntryState> {
         stackTrace: s,
       );
       emit(const EditEntryError(EntryErrorKind.unknown));
+    } finally {
+      _updateInFlight = false;
     }
+  }
+
+  EntryEntity _entryFromSnapshot(
+    EntryEntity fallback,
+    CanonicalEntrySnapshot snapshot,
+  ) {
+    final secret = snapshot.secret;
+    final entry = snapshot.entry;
+    final rawType = secret['entryType'];
+    final type = rawType is int
+        ? EntryTypeExtension.fromWire(rawType)
+        : fallback.type;
+    final updatedAt = DateTime.tryParse(entry['updatedAt']?.toString() ?? '');
+    return EntryEntity(
+      id: fallback.id,
+      vaultId: fallback.vaultId,
+      label: secret['memberLabel'] as String? ?? fallback.label,
+      description: secret['description'] as String? ?? fallback.description,
+      icon: secret['iconReference'] as String? ?? fallback.icon,
+      type: type,
+      urlDomain: fallback.urlDomain,
+      createdAt: fallback.createdAt,
+      updatedAt: updatedAt ?? fallback.updatedAt,
+      lastAccessedAt: fallback.lastAccessedAt,
+      accessCount: fallback.accessCount,
+      lifecycleState: fallback.lifecycleState,
+      currentRevision:
+          entry['currentRevision']?.toString() ?? fallback.currentRevision,
+      currentKeyVersion:
+          entry['currentKeyVersion'] as int? ?? fallback.currentKeyVersion,
+      corrupt: fallback.corrupt,
+    );
   }
 
   /// Permanently deletes the entry. Emits [EditEntryDeleted] on success.

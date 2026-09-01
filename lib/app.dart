@@ -12,6 +12,7 @@ import 'config/env_config.dart';
 import 'core/deep_link/deep_link_service.dart';
 import 'core/di/injection.dart';
 import 'core/l10n/locale_cubit.dart';
+import 'core/identity/organization_member_directory_service.dart';
 import 'core/router/app_router.dart';
 import 'core/storage/user_preferences.dart';
 import 'core/theme/app_colors.dart';
@@ -75,6 +76,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   final PushNavigationCubit _pushNavigationCubit = getIt<PushNavigationCubit>();
   final PushNotificationService _pushService = getIt<PushNotificationService>();
   final AutoFillCacheService _autoFillCache = getIt<AutoFillCacheService>();
+  final OrganizationMemberDirectoryService _memberDirectory =
+      getIt<OrganizationMemberDirectoryService>();
   final MemberIndexPreparationService _memberIndexPreparation =
       getIt<MemberIndexPreparationService>();
   final MemberSyncService _memberSync = getIt<MemberSyncService>();
@@ -560,6 +563,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
       // Open the in-app real-time channel for instant updates.
       _signalR.connect();
     } else if (state is AuthUnauthenticated) {
+      _memberDirectory.clear();
       _pushService.unregister();
       _signalR.disconnect();
       getIt<NotificationCenterCubit>().reset();

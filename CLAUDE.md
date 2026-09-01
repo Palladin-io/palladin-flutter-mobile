@@ -215,6 +215,7 @@ lib/
 | `IconPickerGrid` | `lib/core/widgets/icon_picker_grid.dart` | Grid of selectable icon tiles (used inside `IconColorBrowserSheet` and vault/entry icon pickers) |
 | `MultiSelectDropdown` | `lib/core/widgets/multi_select_dropdown.dart` | Multi-select with chips, generic `<T>` (used in audit filter sheets) |
 | `UploadIconButton` | `lib/core/widgets/upload_icon_button.dart` | Upload button with brandRed gradient shimmer label. Param: `onPressed`, upload state |
+| `CompactPrimaryButton` | `lib/core/widgets/compact_primary_button.dart` | Compact inline primary CTA matching onboarding checklist actions. Params: `label`, `onPressed`, optional colors/loading/minimum width |
 
 ### Cross-feature widgets (live in a feature, reused by 2+ features)
 

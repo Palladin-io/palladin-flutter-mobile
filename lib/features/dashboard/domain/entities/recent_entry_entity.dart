@@ -1,9 +1,7 @@
-/// Metadata-only snapshot of a recently updated entry.
+/// Runtime-only snapshot projected from the decrypted local MemberIndex.
 ///
-/// Used exclusively on the Home (dashboard) screen to surface recent
-/// vault activity without ever requesting or holding encrypted values.
-/// ZK-safe: only the fields returned by `GET /api/entries?sort=recent`
-/// are present here — no plaintext payload, no encryption material.
+/// It carries the authenticated structural head coordinates required to open
+/// the selected local MemberSecret without persisting plaintext or key data.
 class RecentEntryEntity {
   const RecentEntryEntity({
     required this.id,
@@ -11,6 +9,8 @@ class RecentEntryEntity {
     required this.vaultId,
     required this.vaultName,
     required this.typeWire,
+    required this.currentRevision,
+    required this.currentKeyVersion,
     this.icon,
     required this.updatedAt,
     required this.createdAt,
@@ -25,6 +25,8 @@ class RecentEntryEntity {
 
   /// Wire-format entry type: 0 = Key, 1 = Credential.
   final int typeWire;
+  final String currentRevision;
+  final int currentKeyVersion;
 
   /// Optional icon identifier (name like "vpn_key" or a remote URL).
   final String? icon;

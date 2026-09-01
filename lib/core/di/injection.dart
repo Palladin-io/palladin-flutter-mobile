@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 
 import '../../config/env_config.dart';
 import '../crypto/vault_session_store.dart';
+import '../identity/organization_member_directory_service.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/datasources/password_auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
@@ -183,6 +184,12 @@ void configureDependencies(EnvConfig config) {
   // Network
   getIt.registerLazySingleton<Dio>(
     () => createDio(config, getIt<SecureTokenStorage>()),
+  );
+  getIt.registerLazySingleton<OrganizationMemberDirectoryService>(
+    () => OrganizationMemberDirectoryService(
+      dio: getIt<Dio>(),
+      tokenStorage: getIt<SecureTokenStorage>(),
+    ),
   );
   getIt.registerLazySingleton<PublicAssetRemoteDatasource>(
     () => PublicAssetRemoteDatasource(getIt<Dio>()),
@@ -458,6 +465,7 @@ void configureDependencies(EnvConfig config) {
     () => EntryHistoryService(
       entries: getIt<EntryRemoteDatasource>(),
       canonical: getIt<CanonicalEntryDetailService>(),
+      memberDirectory: getIt<OrganizationMemberDirectoryService>(),
     ),
   );
   getIt.registerLazySingleton<VaultRepository>(

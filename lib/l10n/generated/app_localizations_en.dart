@@ -3636,14 +3636,61 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryHistoryLoadMore => 'Load older versions';
 
   @override
-  String get entryHistoryReveal => 'Decrypt this version';
+  String get entryHistoryCurrent => 'Current';
 
   @override
-  String get entryHistoryRestore => 'Restore as a new version';
+  String get entryHistoryReveal => 'Reveal';
+
+  @override
+  String get entryHistoryHide => 'Hide';
+
+  @override
+  String get entryHistoryDecrypting => 'Decrypting…';
+
+  @override
+  String get entryHistoryRestore => 'Restore this version';
+
+  @override
+  String get entryHistoryRestoring => 'Restoring…';
 
   @override
   String get entryHistoryRestored =>
       'Historical content restored as a new current version.';
+
+  @override
+  String get entryHistoryDecryptError =>
+      'Could not decrypt this version. The vault may be locked.';
+
+  @override
+  String get entryHistoryRestoreError => 'Could not restore this version.';
+
+  @override
+  String get entryHistoryOperationCreated => 'Created';
+
+  @override
+  String get entryHistoryOperationUpdated => 'Updated';
+
+  @override
+  String get entryHistoryOperationArchived => 'Archived';
+
+  @override
+  String get entryHistoryOperationRestored => 'Restored';
+
+  @override
+  String get entryHistoryOperationDeleted => 'Deleted';
+
+  @override
+  String entryHistoryMemberActor(String name) {
+    return 'Member: $name';
+  }
+
+  @override
+  String entryHistoryAgentActor(String name) {
+    return 'Agent: $name';
+  }
+
+  @override
+  String get entryHistorySystemActor => 'System';
 
   @override
   String get entryHistorySensitiveWarning =>

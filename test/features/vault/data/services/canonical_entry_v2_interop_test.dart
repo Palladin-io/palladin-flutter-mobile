@@ -227,6 +227,16 @@ void main() {
       () => keys.openMemberVaultKey(any(), any()),
     ).thenAnswer((_) async => Uint8List(32));
     when(
+      () => keys.openMemberVaultKey(
+        any(),
+        any(),
+        expectedOrganizationId: any(named: 'expectedOrganizationId'),
+        expectedVaultId: any(named: 'expectedVaultId'),
+        expectedVaultKeyVersion: any(named: 'expectedVaultKeyVersion'),
+        expectedMemberKeyGeneration: any(named: 'expectedMemberKeyGeneration'),
+      ),
+    ).thenAnswer((_) async => Uint8List(32));
+    when(
       () => keys.openDiscoveryKey(any(), any()),
     ).thenAnswer((_) async => Uint8List(32));
     when(
@@ -624,6 +634,175 @@ void main() {
   });
 
   test(
+    'canonical reveal rejects a protocol-v2 scope not bound to the requested Entry',
+    () async {
+      final response = head();
+      final entryKey = Map<String, dynamic>.from(response['entryKey'] as Map);
+      final descriptor = Map<String, dynamic>.from(
+        entryKey['descriptor'] as Map,
+      );
+      descriptor['scope'] = {
+        ...Map<String, dynamic>.from(descriptor['scope'] as Map),
+        'entryId': '44444444-4444-4444-8444-444444444444',
+      };
+      entryKey['descriptor'] = descriptor;
+      response['entryKey'] = entryKey;
+      when(
+        () => entries.getCanonicalEntry(vaultId, entryId),
+      ).thenAnswer((_) async => response);
+
+      await expectLater(
+        service.reveal(
+          expected: EntryEntity(
+            id: entryId,
+            vaultId: vaultId,
+            label: 'Key',
+            type: EntryType.key,
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026),
+          ),
+          memberPrivateKey: Uint8List(32),
+        ),
+        throwsA(
+          isA<CanonicalEntryDetailException>().having(
+            (error) => error.kind,
+            'kind',
+            CanonicalEntryDetailError.corrupt,
+          ),
+        ),
+      );
+      verifyNever(
+        () => crypto.openMemberSecret(
+          entryKey: any(named: 'entryKey'),
+          memberSecret: any(named: 'memberSecret'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      );
+    },
+  );
+
+  test(
+    'canonical reveal rejects a protocol-v2 wrapper not bound to the current Vault key',
+    () async {
+      final response = head();
+      final entryKey = Map<String, dynamic>.from(response['entryKey'] as Map);
+      final descriptor = Map<String, dynamic>.from(
+        entryKey['descriptor'] as Map,
+      );
+      descriptor['binding'] = {'wrappingVaultKeyVersion': 99};
+      entryKey['descriptor'] = descriptor;
+      response['entryKey'] = entryKey;
+      when(
+        () => entries.getCanonicalEntry(vaultId, entryId),
+      ).thenAnswer((_) async => response);
+
+      await expectLater(
+        service.reveal(
+          expected: EntryEntity(
+            id: entryId,
+            vaultId: vaultId,
+            label: 'Key',
+            type: EntryType.key,
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026),
+          ),
+          memberPrivateKey: Uint8List(32),
+        ),
+        throwsA(
+          isA<CanonicalEntryDetailException>().having(
+            (error) => error.kind,
+            'kind',
+            CanonicalEntryDetailError.corrupt,
+          ),
+        ),
+      );
+      verifyNever(
+        () => crypto.openMemberSecret(
+          entryKey: any(named: 'entryKey'),
+          memberSecret: any(named: 'memberSecret'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      );
+    },
+  );
+
+  test(
+    'canonical reveal rejects a fetched head older than the expected revision',
+    () async {
+      when(
+        () => entries.getCanonicalEntry(vaultId, entryId),
+      ).thenAnswer((_) async => head());
+      await expectLater(
+        service.reveal(
+          expected: EntryEntity(
+            id: entryId,
+            vaultId: vaultId,
+            label: 'Key',
+            type: EntryType.key,
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026),
+            currentRevision: '8',
+            currentKeyVersion: 2,
+          ),
+          memberPrivateKey: Uint8List(32),
+        ),
+        throwsA(
+          isA<CanonicalEntryDetailException>().having(
+            (error) => error.kind,
+            'kind',
+            CanonicalEntryDetailError.conflict,
+          ),
+        ),
+      );
+      verifyNever(
+        () => crypto.openMemberSecret(
+          entryKey: any(named: 'entryKey'),
+          memberSecret: any(named: 'memberSecret'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      );
+    },
+  );
+
+  test(
+    'canonical reveal rejects a fetched head with the wrong expected key version',
+    () async {
+      when(
+        () => entries.getCanonicalEntry(vaultId, entryId),
+      ).thenAnswer((_) async => head());
+      await expectLater(
+        service.reveal(
+          expected: EntryEntity(
+            id: entryId,
+            vaultId: vaultId,
+            label: 'Key',
+            type: EntryType.key,
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026),
+            currentRevision: '7',
+            currentKeyVersion: 3,
+          ),
+          memberPrivateKey: Uint8List(32),
+        ),
+        throwsA(
+          isA<CanonicalEntryDetailException>().having(
+            (error) => error.kind,
+            'kind',
+            CanonicalEntryDetailError.conflict,
+          ),
+        ),
+      );
+      verifyNever(
+        () => crypto.openMemberSecret(
+          entryKey: any(named: 'entryKey'),
+          memberSecret: any(named: 'memberSecret'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      );
+    },
+  );
+
+  test(
     'canonical restore emits operation 4 and retries identical request',
     () async {
       when(
@@ -654,6 +833,7 @@ void main() {
           memberLabel: 'Key',
           searchFields: [],
           revision: '7',
+          currentKeyVersion: 2,
           state: MemberEntryState.archived,
         ),
         memberPrivateKey: Uint8List(32),

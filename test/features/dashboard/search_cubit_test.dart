@@ -27,6 +27,8 @@ const _entry = EntrySearchResult(
   displayName: 'Stripe API Key',
   vaultName: 'Production',
   entryType: 1,
+  currentRevision: '7',
+  currentKeyVersion: 3,
 );
 const _agent = AgentSearchResult(agentId: 'a1', displayName: 'Stripe Agent');
 

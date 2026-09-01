@@ -103,6 +103,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   bool _pickingIcon = false;
   bool _uploadingIcon = false;
   bool _reservingIcon = false;
+  bool _submitInFlight = false;
   bool _valueObscured = true;
   bool _passwordObscured = true;
   bool _populated = false;
@@ -396,9 +397,12 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   Future<void> _requestReveal({
     bool editAfter = false,
     EntryEntity? expected,
+    bool forceRemote = false,
   }) async {
     if (context.read<EditEntryCubit>().state is EditEntryRevealing) return;
-    if (context.read<EditEntryCubit>().state is EditEntryConflict) {
+    final recoveringFromConflict =
+        context.read<EditEntryCubit>().state is EditEntryConflict;
+    if (recoveringFromConflict) {
       setState(_clearPlaintextState);
     }
     final auth = context.read<AuthBloc>().state;
@@ -412,6 +416,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         entry: expected ?? widget.entry,
         privateKey: keyCopy,
         wrappedVK: widget.wrappedVK,
+        forceRemote: forceRemote || recoveringFromConflict,
       );
     } finally {
       keyCopy.fillRange(0, keyCopy.length, 0);
@@ -625,6 +630,16 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   };
 
   Future<void> _submit() async {
+    if (_submitInFlight) return;
+    _submitInFlight = true;
+    try {
+      await _submitOnce();
+    } finally {
+      _submitInFlight = false;
+    }
+  }
+
+  Future<void> _submitOnce() async {
     if (_reservingIcon) return;
     if (!_validateUrl()) return;
     final initialAuth = context.read<AuthBloc>().state;
@@ -756,7 +771,11 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     widget.editController?.publishEditing(false);
     widget.onUpdated(entry);
     _showSnackBar(AppLocalizations.of(context)!.entryChangesSaved);
-    await _requestReveal(expected: entry);
+    // The local Member cache is repaired asynchronously after a mutation and
+    // may still expose N while this successful response already returned N+1.
+    // Refresh the form from the authoritative encrypted head so the UI never
+    // misreports that short cache-lag window as a decryption failure.
+    await _requestReveal(expected: entry, forceRemote: true);
   }
 
   Future<bool> _confirmScriptImpact() async {
@@ -886,13 +905,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
           if (!_populated && state is EditEntryError) {
             return _RevealError(
               message: EntryFormUtils.errorMessage(l10n, state.kind),
-              onRetry: _requestReveal,
+              onRetry: () => _requestReveal(forceRemote: true),
             );
           }
           if (state is EditEntryConflict) {
             return _RevealError(
               message: l10n.entryErrorConflict,
-              onRetry: () => _requestReveal(editAfter: true),
+              onRetry: () => _requestReveal(editAfter: true, forceRemote: true),
             );
           }
           if (!_populated) {

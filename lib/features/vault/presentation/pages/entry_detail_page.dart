@@ -142,6 +142,9 @@ class _EntryDetailViewState extends State<_EntryDetailView>
   void _onTabChanged() {
     setState(() {});
     final index = _tabController.index;
+    if (index != _historyTabIndex) {
+      context.read<EntryHistoryCubit>().clearSensitiveState(keepItems: true);
+    }
     if (_tabController.indexIsChanging || index == _lastTrackedTab) return;
     _lastTrackedTab = index;
     if (index == _historyTabIndex) {
@@ -180,10 +183,18 @@ class _EntryDetailViewState extends State<_EntryDetailView>
   }
 
   void _onUpdated(EntryEntity updated) {
+    final history = context.read<EntryHistoryCubit>()..invalidate();
     setState(() {
       _entry = updated;
       _latestUpdate = updated;
     });
+    if (_tabController.index == _historyTabIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _tabController.index == _historyTabIndex) {
+          history.open(_entry);
+        }
+      });
+    }
   }
 
   void _onDeleted(String entryId) {

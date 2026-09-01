@@ -121,6 +121,8 @@ class CreditCardPayload {
 /// this entity — it is loaded lazily from `GET /api/vaults/{vaultId}/entries/{id}`
 /// when the user reveals the entry, and decrypted on-device.
 class EntryEntity {
+  static const unspecifiedRevision = '0';
+
   const EntryEntity({
     required this.id,
     required this.vaultId,
@@ -134,7 +136,7 @@ class EntryEntity {
     this.lastAccessedAt,
     this.accessCount = 0,
     this.lifecycleState = MemberEntryState.active,
-    this.currentRevision = '0',
+    this.currentRevision = unspecifiedRevision,
     this.currentKeyVersion = 1,
     this.corrupt = false,
   });

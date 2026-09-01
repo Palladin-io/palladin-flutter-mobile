@@ -53,6 +53,7 @@ void main() {
           memberLabel: 'Stripe secondary',
           searchFields: [],
           revision: '2',
+          currentKeyVersion: 4,
           state: MemberEntryState.active,
         ),
         MemberIndexEntry(
@@ -90,6 +91,11 @@ void main() {
         'e1',
         'e2',
       ]);
+      final secondary = results.whereType<EntrySearchResult>().singleWhere(
+        (entry) => entry.entryId == 'e2',
+      );
+      expect(secondary.currentRevision, '2');
+      expect(secondary.currentKeyVersion, 4);
     },
   );
 

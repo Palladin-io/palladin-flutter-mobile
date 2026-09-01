@@ -8,6 +8,8 @@ class RecentEntryModel {
     required this.vaultId,
     required this.vaultName,
     required this.type,
+    required this.currentRevision,
+    required this.currentKeyVersion,
     this.icon,
     required this.updatedAt,
     required this.createdAt,
@@ -18,6 +20,8 @@ class RecentEntryModel {
   final String vaultId;
   final String vaultName;
   final int type;
+  final String currentRevision;
+  final int currentKeyVersion;
   final String? icon;
   final String updatedAt;
   final String createdAt;
@@ -29,6 +33,8 @@ class RecentEntryModel {
       vaultId: json['vaultId'] as String,
       vaultName: json['vaultName'] as String,
       type: _parseType(json['type']),
+      currentRevision: json['currentRevision'] as String,
+      currentKeyVersion: json['currentKeyVersion'] as int,
       icon: json['icon'] as String?,
       updatedAt: json['updatedAt'] as String,
       createdAt: json['createdAt'] as String,
@@ -45,13 +51,15 @@ class RecentEntryModel {
   }
 
   RecentEntryEntity toEntity() => RecentEntryEntity(
-        id: id,
-        label: label,
-        vaultId: vaultId,
-        vaultName: vaultName,
-        typeWire: type,
-        icon: icon,
-        updatedAt: DateTime.parse(updatedAt),
-        createdAt: DateTime.parse(createdAt),
-      );
+    id: id,
+    label: label,
+    vaultId: vaultId,
+    vaultName: vaultName,
+    typeWire: type,
+    currentRevision: currentRevision,
+    currentKeyVersion: currentKeyVersion,
+    icon: icon,
+    updatedAt: DateTime.parse(updatedAt),
+    createdAt: DateTime.parse(createdAt),
+  );
 }
