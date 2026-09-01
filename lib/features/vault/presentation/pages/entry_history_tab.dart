@@ -137,7 +137,9 @@ class _EntryHistoryTabState extends State<EntryHistoryTab>
               Align(
                 alignment: Alignment.centerLeft,
                 child: OutlinedButton(
-                  onPressed: state.status == EntryHistoryStatus.ready
+                  onPressed:
+                      state.status == EntryHistoryStatus.ready &&
+                          !state.loadingMore
                       ? () => context.read<EntryHistoryCubit>().loadMore(
                           widget.entry,
                         )

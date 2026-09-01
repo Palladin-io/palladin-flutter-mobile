@@ -727,6 +727,82 @@ void main() {
   );
 
   test(
+    'canonical reveal rejects a fetched head older than the expected revision',
+    () async {
+      when(
+        () => entries.getCanonicalEntry(vaultId, entryId),
+      ).thenAnswer((_) async => head());
+      await expectLater(
+        service.reveal(
+          expected: EntryEntity(
+            id: entryId,
+            vaultId: vaultId,
+            label: 'Key',
+            type: EntryType.key,
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026),
+            currentRevision: '8',
+            currentKeyVersion: 2,
+          ),
+          memberPrivateKey: Uint8List(32),
+        ),
+        throwsA(
+          isA<CanonicalEntryDetailException>().having(
+            (error) => error.kind,
+            'kind',
+            CanonicalEntryDetailError.conflict,
+          ),
+        ),
+      );
+      verifyNever(
+        () => crypto.openMemberSecret(
+          entryKey: any(named: 'entryKey'),
+          memberSecret: any(named: 'memberSecret'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      );
+    },
+  );
+
+  test(
+    'canonical reveal rejects a fetched head with the wrong expected key version',
+    () async {
+      when(
+        () => entries.getCanonicalEntry(vaultId, entryId),
+      ).thenAnswer((_) async => head());
+      await expectLater(
+        service.reveal(
+          expected: EntryEntity(
+            id: entryId,
+            vaultId: vaultId,
+            label: 'Key',
+            type: EntryType.key,
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026),
+            currentRevision: '7',
+            currentKeyVersion: 3,
+          ),
+          memberPrivateKey: Uint8List(32),
+        ),
+        throwsA(
+          isA<CanonicalEntryDetailException>().having(
+            (error) => error.kind,
+            'kind',
+            CanonicalEntryDetailError.conflict,
+          ),
+        ),
+      );
+      verifyNever(
+        () => crypto.openMemberSecret(
+          entryKey: any(named: 'entryKey'),
+          memberSecret: any(named: 'memberSecret'),
+          vaultKey: any(named: 'vaultKey'),
+        ),
+      );
+    },
+  );
+
+  test(
     'canonical restore emits operation 4 and retries identical request',
     () async {
       when(
@@ -757,6 +833,7 @@ void main() {
           memberLabel: 'Key',
           searchFields: [],
           revision: '7',
+          currentKeyVersion: 2,
           state: MemberEntryState.archived,
         ),
         memberPrivateKey: Uint8List(32),

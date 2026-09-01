@@ -874,6 +874,13 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         entry['id'] != expected.id) {
       throw const FormatException('Canonical Entry authority mismatch');
     }
+    if (expected.currentRevision != EntryEntity.unspecifiedRevision &&
+        (entry['currentRevision'] != expected.currentRevision ||
+            entry['currentKeyVersion'] != expected.currentKeyVersion)) {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.conflict,
+      );
+    }
     return (
       organizationId: organizationId,
       memberKeyGeneration: _int(vault, 'memberKeyGeneration'),
@@ -1484,6 +1491,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       updatedAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       lifecycleState: MemberEntryState.archived,
       currentRevision: archived.revision,
+      currentKeyVersion: archived.currentKeyVersion,
     );
     CanonicalEntrySnapshot? snapshot;
     Uint8List? vaultKey;

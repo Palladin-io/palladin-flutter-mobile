@@ -155,4 +155,24 @@ void main() {
       expect(find.text('Restore this version'), findsNothing);
     },
   );
+
+  testWidgets('disables Load more while pagination is in flight', (
+    tester,
+  ) async {
+    cubit.seed(
+      EntryHistoryState(
+        status: EntryHistoryStatus.ready,
+        items: [current],
+        nextCursor: '7',
+        loadingMore: true,
+      ),
+    );
+
+    await pump(tester);
+
+    final button = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Load older versions'),
+    );
+    expect(button.onPressed, isNull);
+  });
 }

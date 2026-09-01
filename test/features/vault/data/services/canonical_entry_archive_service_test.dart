@@ -97,6 +97,7 @@ void main() {
     memberLabel: 'Archived login',
     searchFields: ['member@example.test', 'example.test'],
     revision: '7',
+    currentKeyVersion: 2,
     state: MemberEntryState.archived,
   );
   const deleted = MemberIndexEntry(
@@ -105,6 +106,7 @@ void main() {
     memberLabel: 'Deleted login',
     searchFields: ['member@example.test'],
     revision: '7',
+    currentKeyVersion: 2,
     state: MemberEntryState.deleted,
   );
 
