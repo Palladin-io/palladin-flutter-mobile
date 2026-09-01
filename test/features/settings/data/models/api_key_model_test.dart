@@ -12,17 +12,23 @@ void main() {
         'name': 'Acme',
         'planType': 'Pro',
         'memberCount': 5,
+        'seatUsage': 4,
+        'seatLimit': 6,
       });
       expect(model.orgId, 'o1');
       expect(model.name, 'Acme');
       expect(model.planType, 'Pro');
       expect(model.memberCount, 5);
+      expect(model.seatUsage, 4);
+      expect(model.seatLimit, 6);
     });
 
     test('fromJson defaults memberCount to 1 when missing', () {
       final model = OrgModel.fromJson(const {
         'orgId': 'o1',
         'name': 'Acme',
+        'seatUsage': 1,
+        'seatLimit': 1,
       });
       expect(model.memberCount, 1);
       expect(model.planType, '');
@@ -34,9 +40,13 @@ void main() {
         'name': 'Acme',
         'planType': 'Free',
         'memberCount': 2,
+        'seatUsage': 2,
+        'seatLimit': 5,
       }).toEntity();
       expect(org.orgId, 'o1');
       expect(org.memberCount, 2);
+      expect(org.seatUsage, 2);
+      expect(org.seatLimit, 5);
     });
   });
 

@@ -10,15 +10,17 @@ import '../../../onboarding/presentation/widgets/primary_button.dart';
 import '../bloc/settings_cubit.dart';
 import 'settings_error_text.dart';
 
-/// Organization block of the settings screen — shows the org name in an
-/// editable field with a Save button, plus a member-count subtitle.
+/// Organization settings body with a scrollable name card and pinned Save
+/// footer for callers allowed to rename the organization.
 ///
 /// Loads, error and content states are all handled here so the screen
 /// can drop the section in without branching. Save success / failure is
 /// surfaced via a snackbar driven by [SettingsCubit]'s transient
 /// `orgSave*` flags.
 class OrgSettingsSection extends StatefulWidget {
-  const OrgSettingsSection({super.key});
+  const OrgSettingsSection({super.key, required this.canEdit});
+
+  final bool canEdit;
 
   @override
   State<OrgSettingsSection> createState() => _OrgSettingsSectionState();
@@ -47,6 +49,7 @@ class _OrgSettingsSectionState extends State<OrgSettingsSection> {
   }
 
   bool _canSave(SettingsState state) {
+    if (!widget.canEdit) return false;
     if (state.isSavingOrg) return false;
     final trimmed = _nameController.text.trim();
     return trimmed.isNotEmpty && trimmed != state.org?.name;
@@ -80,25 +83,42 @@ class _OrgSettingsSectionState extends State<OrgSettingsSection> {
         }
       },
       builder: (context, state) {
+        final content = switch (state.orgStatus) {
+          SectionStatus.initial ||
+          SectionStatus.loading => const _OrgSkeleton(),
+          SectionStatus.error => _OrgError(
+            message: settingsErrorMessage(l10n, state.orgError!),
+            onRetry: () => context.read<SettingsCubit>().loadOrg(),
+          ),
+          SectionStatus.loaded => _buildLoaded(
+            context,
+            l10n,
+            brightness,
+            state,
+          ),
+        };
+        final showFooter =
+            widget.canEdit && state.orgStatus == SectionStatus.loaded;
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _SectionHeader(title: l10n.settingsOrganization),
-            const SizedBox(height: AppSpacing.md),
-            switch (state.orgStatus) {
-              SectionStatus.initial ||
-              SectionStatus.loading => const _OrgSkeleton(),
-              SectionStatus.error => _OrgError(
-                message: settingsErrorMessage(l10n, state.orgError!),
-                onRetry: () => context.read<SettingsCubit>().loadOrg(),
+            Expanded(
+              child: RefreshIndicator(
+                color: AppColors.brandRed,
+                backgroundColor: AppColors.cardSurface(brightness),
+                onRefresh: () => context.read<SettingsCubit>().load(),
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.screenH,
+                    0,
+                    AppSpacing.screenH,
+                    showFooter ? AppSpacing.section : AppSpacing.screenBottom,
+                  ),
+                  children: [content],
+                ),
               ),
-              SectionStatus.loaded => _buildLoaded(
-                context,
-                l10n,
-                brightness,
-                state,
-              ),
-            },
+            ),
+            if (showFooter) _buildSaveFooter(brightness, state),
           ],
         );
       },
@@ -112,9 +132,9 @@ class _OrgSettingsSectionState extends State<OrgSettingsSection> {
     SettingsState state,
   ) {
     _syncControllerFromState(state.org?.name ?? '');
-    final memberCount = state.org?.memberCount ?? 1;
 
     return Container(
+      key: const ValueKey('organization-name-card'),
       padding: const EdgeInsets.all(AppSpacing.cardPadding),
       decoration: BoxDecoration(
         color: AppColors.cardFill(brightness),
@@ -130,26 +150,47 @@ class _OrgSettingsSectionState extends State<OrgSettingsSection> {
             hintText: l10n.settingsOrgNameHint,
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.done,
+            enabled: widget.canEdit,
             onChanged: (_) => setState(() {}),
             onSubmitted: (_) {
               if (_canSave(state)) _onSave();
             },
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            l10n.settingsOrgMembers(memberCount),
-            style: TextStyle(
-              fontSize: 11,
-              color: AppColors.onSurfaceSubtle(brightness),
+          if (!widget.canEdit) ...[
+            const SizedBox(height: AppSpacing.section),
+            Text(
+              l10n.settingsReadOnly,
+              style: TextStyle(
+                color: AppColors.onSurfaceMuted(brightness),
+                fontSize: 12,
+                height: 1.4,
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.section),
-          PrimaryButton(
-            label: l10n.settingsSave,
-            isLoading: state.isSavingOrg,
-            onPressed: _canSave(state) ? _onSave : null,
-          ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildSaveFooter(Brightness brightness, SettingsState state) {
+    final l10n = AppLocalizations.of(context)!;
+    return Container(
+      key: const ValueKey('organization-save-footer'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenH,
+        AppSpacing.md,
+        AppSpacing.screenH,
+        AppSpacing.screenBottom,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.cardFill(brightness),
+        border: Border(top: BorderSide(color: AppColors.navBorder(brightness))),
+      ),
+      child: PrimaryButton(
+        label: l10n.settingsSave,
+        isLoading: state.isSavingOrg,
+        onPressed: _canSave(state) ? _onSave : null,
       ),
     );
   }
@@ -158,26 +199,6 @@ class _OrgSettingsSectionState extends State<OrgSettingsSection> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
-  }
-}
-
-/// Uppercase section heading used by the organization block.
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title.toUpperCase(),
-      style: const TextStyle(
-        color: AppColors.textTertiaryMobile,
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.5,
-      ),
-    );
   }
 }
 

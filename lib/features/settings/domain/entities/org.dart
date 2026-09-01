@@ -8,6 +8,8 @@ class Org {
     required this.name,
     required this.planType,
     required this.memberCount,
+    required this.seatUsage,
+    required this.seatLimit,
   });
 
   /// Stable, server-issued identifier.
@@ -22,12 +24,20 @@ class Org {
   /// Number of members that belong to the organization.
   final int memberCount;
 
+  /// Authoritative number of seats consumed by members and pending invitations.
+  final int seatUsage;
+
+  /// Authoritative seat capacity assigned to the organization.
+  final int seatLimit;
+
   Org copyWith({String? name}) {
     return Org(
       orgId: orgId,
       name: name ?? this.name,
       planType: planType,
       memberCount: memberCount,
+      seatUsage: seatUsage,
+      seatLimit: seatLimit,
     );
   }
 }

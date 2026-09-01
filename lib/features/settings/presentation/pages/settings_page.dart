@@ -3,14 +3,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/permissions.dart';
 import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../bloc/settings_cubit.dart';
-import '../widgets/open_source_licenses_section.dart';
 import '../widgets/org_settings_section.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 
 /// Dedicated settings screen — organization details only.
 ///
@@ -38,8 +38,13 @@ class _SettingsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
+    final auth = context.watch<AuthBloc>().state;
+    final canEdit =
+        auth is AuthAuthenticated &&
+        (auth.permissions & Permissions.organizationManagement) != 0;
 
     return AppScreen.appBar(
+      safeAreaBottom: false,
       // Suppress any FAB leaking from the page we were pushed over.
       floatingActionButton: const FabRegistrar(fab: null),
       appBar: AppBar(
@@ -49,28 +54,12 @@ class _SettingsView extends StatelessWidget {
         titleSpacing: 0,
         centerTitle: false,
         iconTheme: IconThemeData(color: AppColors.onSurface(brightness)),
-        title: AppBarTitle(title: l10n.settingsScreenTitle),
-      ),
-      body: RefreshIndicator(
-        color: AppColors.brandRed,
-        backgroundColor: AppColors.cardSurface(brightness),
-        onRefresh: () => context.read<SettingsCubit>().load(),
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          // Title→content gap (headerGap) is owned by AppScreen.appBar.
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenH,
-            0,
-            AppSpacing.screenH,
-            AppSpacing.screenBottom,
-          ),
-          children: const [
-            OrgSettingsSection(),
-            SizedBox(height: AppSpacing.section),
-            OpenSourceLicensesSection(),
-          ],
+        title: AppBarTitle(
+          title: l10n.settingsGeneralTitle,
+          subtitle: l10n.settingsGeneralSubtitle,
         ),
       ),
+      body: OrgSettingsSection(canEdit: canEdit),
     );
   }
 }

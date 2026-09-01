@@ -94,6 +94,8 @@ import '../../features/settings/data/datasources/settings_remote_data_source.dar
 import '../../features/settings/data/repositories/settings_repository_impl.dart';
 import '../../features/settings/domain/repositories/settings_repository.dart';
 import '../../features/settings/presentation/bloc/settings_cubit.dart';
+import '../../features/settings/presentation/bloc/team_cubit.dart';
+import '../../features/settings/presentation/bloc/permissions_cubit.dart';
 import '../../features/vault/presentation/cubit/entry_history_cubit.dart';
 import '../../features/recovery/data/services/recovery_crypto_service.dart';
 import '../../features/recovery/presentation/cubit/recovery_cubit.dart';
@@ -662,6 +664,12 @@ void configureDependencies(EnvConfig config) {
   // so stale loading / error state never leaks across visits).
   getIt.registerFactory<SettingsCubit>(
     () => SettingsCubit(repository: getIt<SettingsRepository>()),
+  );
+  getIt.registerFactory<TeamCubit>(
+    () => TeamCubit(repository: getIt<SettingsRepository>()),
+  );
+  getIt.registerFactory<PermissionsCubit>(
+    () => PermissionsCubit(repository: getIt<SettingsRepository>()),
   );
 
   // API keys — presentation layer (factory: fresh cubit per page mount;

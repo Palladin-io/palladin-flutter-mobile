@@ -2,20 +2,13 @@ import 'package:dio/dio.dart';
 
 import '../models/api_key_model.dart';
 import '../models/org_model.dart';
+import '../models/organization_management_models.dart';
 
-/// Remote data source for the organization and API-key endpoints.
-///
-/// Communicates with the .NET backend at `/api/org` and `/api/api-keys`.
-/// Returns DTOs — domain mapping happens in the repository layer.
-/// DioExceptions surface raw so the repository can classify error
-/// semantics (404 / 403 / 400 / network) into typed
-/// `SettingsException`s.
 class SettingsRemoteDataSource {
   SettingsRemoteDataSource(this._dio);
 
   final Dio _dio;
 
-  /// `GET /api/org` → the caller's organization.
   Future<OrgModel> getOrg() async {
     final response = await _dio.get<Map<String, dynamic>>('/api/org');
     final data = response.data;
@@ -25,15 +18,12 @@ class SettingsRemoteDataSource {
     return OrgModel.fromJson(data);
   }
 
-  /// `PUT /api/org` → 204 No Content.
   Future<void> updateOrgName(String name) async {
     await _dio.put<void>('/api/org', data: {'name': name});
   }
 
-  /// `GET /api/api-keys` → list of API keys for the organization.
   Future<List<ApiKeyModel>> listApiKeys() async {
-    final response =
-        await _dio.get<Map<String, dynamic>>('/api/api-keys');
+    final response = await _dio.get<Map<String, dynamic>>('/api/api-keys');
     final data = response.data;
     if (data == null) {
       throw _emptyBody(response);
@@ -44,7 +34,6 @@ class SettingsRemoteDataSource {
         .toList(growable: false);
   }
 
-  /// `POST /api/api-keys` → the created key with its one-time plaintext.
   Future<NewApiKeyModel> createApiKey(String name) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/api-keys',
@@ -57,25 +46,143 @@ class SettingsRemoteDataSource {
     return NewApiKeyModel.fromJson(data);
   }
 
-  /// `DELETE /api/api-keys/{keyId}` → 204 No Content. Idempotent.
   Future<void> revokeApiKey(String keyId) async {
     await _dio.delete<void>('/api/api-keys/$keyId');
   }
 
-  /// `POST /api/api-keys/{keyId}/activate` → 204 No Content.
   Future<void> activateApiKey(String keyId) async {
     await _dio.post<void>('/api/api-keys/$keyId/activate');
   }
 
-  /// `DELETE /api/api-keys/{keyId}/permanent` → 204 No Content.
   Future<void> deleteApiKey(String keyId) async {
     await _dio.delete<void>('/api/api-keys/$keyId/permanent');
   }
 
+  Future<List<OrganizationMemberModel>> listOrganizationMembers() async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/organization/members',
+    );
+    final data = response.data;
+    if (data == null) throw _emptyBody(response);
+    return (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .map(
+          (item) =>
+              OrganizationMemberModel.fromJson(item as Map<String, dynamic>),
+        )
+        .toList(growable: false);
+  }
+
+  Future<void> updateOrganizationMemberRoles(
+    String userId,
+    List<String> roleIds,
+  ) async {
+    await _dio.put<Map<String, dynamic>>(
+      '/api/organization/members/$userId/roles',
+      data: {'roleIds': roleIds},
+    );
+  }
+
+  Future<OrganizationRolesModel> listOrganizationRoles() async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/organization/roles',
+    );
+    final data = response.data;
+    if (data == null) throw _emptyBody(response);
+    return OrganizationRolesModel.fromJson(data);
+  }
+
+  Future<OrganizationRoleModel> createOrganizationRole(
+    String name,
+    int permissions,
+  ) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/organization/roles',
+      data: {'name': name, 'permissions': permissions},
+    );
+    final data = response.data;
+    if (data == null) throw _emptyBody(response);
+    return OrganizationRoleModel.fromJson(data);
+  }
+
+  Future<OrganizationRoleModel> updateOrganizationRole(
+    String roleId,
+    String name,
+    int permissions,
+  ) async {
+    final response = await _dio.put<Map<String, dynamic>>(
+      '/api/organization/roles/$roleId',
+      data: {'name': name, 'permissions': permissions},
+    );
+    final data = response.data;
+    if (data == null) throw _emptyBody(response);
+    return OrganizationRoleModel.fromJson(data);
+  }
+
+  Future<void> deleteOrganizationRole(String roleId) async {
+    await _dio.delete<void>('/api/organization/roles/$roleId');
+  }
+
+  Future<List<OrganizationInvitationModel>>
+  listOrganizationInvitations() async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/organization/invitations',
+    );
+    final data = response.data;
+    if (data == null) throw _emptyBody(response);
+    return (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .map(
+          (item) => OrganizationInvitationModel.fromJson(
+            item as Map<String, dynamic>,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<List<InvitationRoleModel>> listInvitationRoles() async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/organization/invitation-roles',
+    );
+    final data = response.data;
+    if (data == null) throw _emptyBody(response);
+    return (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .map(
+          (item) => InvitationRoleModel.fromJson(item as Map<String, dynamic>),
+        )
+        .toList(growable: false);
+  }
+
+  Future<void> inviteOrganizationMember(String email, String roleId) async {
+    await _dio.post<void>(
+      '/api/organization/invitations',
+      data: {'email': email, 'roleId': roleId},
+    );
+  }
+
+  Future<void> cancelOrganizationInvitation(String invitationId) async {
+    await _dio.delete<void>('/api/organization/invitations/$invitationId');
+  }
+
+  Future<void> resendOrganizationInvitation(String invitationId) async {
+    await _dio.post<Map<String, dynamic>>(
+      '/api/organization/invitations/$invitationId/resend',
+      data: const <String, dynamic>{},
+    );
+  }
+
+  Future<void> updateOrganizationInvitationRole(
+    String invitationId,
+    String roleId,
+  ) async {
+    await _dio.put<void>(
+      '/api/organization/invitations/$invitationId/role',
+      data: {'roleId': roleId},
+    );
+  }
+
   DioException _emptyBody(Response<dynamic> response) => DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        type: DioExceptionType.badResponse,
-        error: 'Empty response body',
-      );
+    requestOptions: response.requestOptions,
+    response: response,
+    type: DioExceptionType.badResponse,
+    error: 'Empty response body',
+  );
 }

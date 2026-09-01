@@ -26,6 +26,7 @@ void main() {
     int? status,
     DioExceptionType type = DioExceptionType.badResponse,
     Object? error,
+    Object? data,
   }) {
     return DioException(
       requestOptions: RequestOptions(path: '/api/org'),
@@ -34,6 +35,7 @@ void main() {
           : Response<dynamic>(
               requestOptions: RequestOptions(path: '/api/org'),
               statusCode: status,
+              data: data,
             ),
       type: type,
       error: error,
@@ -62,8 +64,9 @@ void main() {
     });
 
     test('400 → SettingsErrorKind.validation', () async {
-      when(() => dataSource.updateOrgName(any()))
-          .thenThrow(dioError(status: 400));
+      when(
+        () => dataSource.updateOrgName(any()),
+      ).thenThrow(dioError(status: 400));
       try {
         await repository.updateOrgName('x');
         fail('expected SettingsException');
@@ -73,9 +76,9 @@ void main() {
     });
 
     test('connection error → SettingsErrorKind.networkError', () async {
-      when(() => dataSource.listApiKeys()).thenThrow(
-        dioError(type: DioExceptionType.connectionError),
-      );
+      when(
+        () => dataSource.listApiKeys(),
+      ).thenThrow(dioError(type: DioExceptionType.connectionError));
       try {
         await repository.listApiKeys();
         fail('expected SettingsException');
@@ -85,9 +88,9 @@ void main() {
     });
 
     test('SocketException → SettingsErrorKind.networkError', () async {
-      when(() => dataSource.listApiKeys()).thenThrow(
-        dioError(error: const SocketException('offline')),
-      );
+      when(
+        () => dataSource.listApiKeys(),
+      ).thenThrow(dioError(error: const SocketException('offline')));
       try {
         await repository.listApiKeys();
         fail('expected SettingsException');
@@ -105,6 +108,79 @@ void main() {
         expect(e.kind, SettingsErrorKind.unknown);
       }
     });
+
+    test('GrantManage cutover 409 maps to the fail-closed error', () async {
+      when(
+        () => dataSource.updateOrganizationRole(any(), any(), any()),
+      ).thenThrow(
+        dioError(
+          status: 409,
+          data: {
+            'errors': [
+              {'code': 'organization-role-grant-manage-cutover-unavailable'},
+            ],
+          },
+        ),
+      );
+
+      await expectLater(
+        repository.updateOrganizationRole('role-1', 'Manager', 32),
+        throwsA(
+          isA<SettingsException>().having(
+            (error) => error.kind,
+            'kind',
+            SettingsErrorKind.grantManageCutoverUnavailable,
+          ),
+        ),
+      );
+    });
+
+    test('seat limit 409 maps to the capacity-specific error', () async {
+      when(() => dataSource.inviteOrganizationMember(any(), any())).thenThrow(
+        dioError(
+          status: 409,
+          data: {
+            'errors': [
+              {'code': 'organization-seat-limit-reached'},
+            ],
+          },
+        ),
+      );
+
+      await expectLater(
+        repository.inviteOrganizationMember('member@example.com', 'role-1'),
+        throwsA(
+          isA<SettingsException>().having(
+            (error) => error.kind,
+            'kind',
+            SettingsErrorKind.seatLimitReached,
+          ),
+        ),
+      );
+    });
+
+    test('unrelated 409 remains a generic conflict', () async {
+      when(() => dataSource.deleteOrganizationRole(any())).thenThrow(
+        dioError(
+          status: 409,
+          data: {
+            'code': 'role-in-use',
+            'detail': 'organization-role-grant-manage-cutover-unavailable',
+          },
+        ),
+      );
+
+      await expectLater(
+        repository.deleteOrganizationRole('role-1'),
+        throwsA(
+          isA<SettingsException>().having(
+            (error) => error.kind,
+            'kind',
+            SettingsErrorKind.conflict,
+          ),
+        ),
+      );
+    });
   });
 
   group('SettingsRepositoryImpl happy path', () {
@@ -115,6 +191,8 @@ void main() {
           name: 'Acme',
           planType: 'Pro',
           memberCount: 3,
+          seatUsage: 4,
+          seatLimit: 5,
         ),
       );
       final org = await repository.getOrg();
@@ -122,6 +200,8 @@ void main() {
       expect(org.name, 'Acme');
       expect(org.planType, 'Pro');
       expect(org.memberCount, 3);
+      expect(org.seatUsage, 4);
+      expect(org.seatLimit, 5);
     });
 
     test('listApiKeys maps every model to a domain entity', () async {

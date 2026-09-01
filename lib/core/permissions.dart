@@ -3,8 +3,23 @@
 /// Convention: `kRead{Resource}` / `kWrite{Resource}` — never per-action.
 /// Bits 256/512 are reserved for billing plan feature flags.
 abstract final class Permissions {
+  /// All-bits mask stored by the immutable system Administrator role.
+  ///
+  /// This is an authorization mask, not a legacy fallback: an Administrator
+  /// intentionally receives every current and future permission bit.
+  static const int administratorRoleMask = 0x7FFFFFFF;
+
+  /// Invite new members and manage pending invitations.
+  static const int addUser = 1;
+
   /// Manage organization membership and roles.
   static const int organizationManagement = 2;
+
+  /// Create organization vaults.
+  static const int vaultCreate = 4;
+
+  /// Manage organization vaults.
+  static const int vaultManage = 8;
 
   /// Manage agents — approve, deactivate, reactivate and edit agents.
   static const int agentManage = 16;

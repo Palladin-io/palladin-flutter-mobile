@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_bar_title.dart';
@@ -58,7 +59,7 @@ class _ApiKeysViewState extends State<_ApiKeysView> {
   /// have happened there.
   Future<void> _onOpenKey(BuildContext context, String keyId) async {
     final cubit = context.read<ApiKeysCubit>();
-    await context.push('/api-keys/$keyId');
+    await context.push(AppRoutes.settingsApiKey(keyId));
     if (context.mounted) {
       // No need to restore the FAB: the detail page's FabRegistrar owns
       // its own stack entry and removes it on dispose, so this list's
@@ -111,7 +112,9 @@ class _ApiKeysViewState extends State<_ApiKeysView> {
                 state.status == ApiKeysStatus.loaded && total > 0;
             return AppBarTitle(
               title: l10n.apiKeysScreenTitle,
-              subtitle: showSummary ? l10n.apiKeysListSummary(total, active) : null,
+              subtitle: showSummary
+                  ? l10n.apiKeysListSummary(total, active)
+                  : null,
             );
           },
         ),

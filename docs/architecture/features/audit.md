@@ -3,7 +3,8 @@
 Audit log viewer — a global page plus tabs embedded in vault/entry detail.
 
 - **Cubits:** `AuditLogCubit`, `EntryLogsCubit`.
-- **Pages:** `GlobalAuditLogPage`.
+- **Pages:** `GlobalAuditLogPage` (reached under `/settings/audit`; the drawer
+  item and route require `AuditView`).
 - **Widgets:** `AuditLogRow`, `AuditLogContent` (reusable — consumed by both `GlobalAuditLogPage` and vault's `VaultAuditLogTab`), `AuditLegendSheet`, `AuditLogFilterSheet`, `EntryLogsTab`, `VaultAuditLogTab`.
 - **Presentation resolver:** `AuditPresentationResolver` is shared by the full
   audit surfaces and Home `Recent Activity`; it resolves agent, Vault, Entry,

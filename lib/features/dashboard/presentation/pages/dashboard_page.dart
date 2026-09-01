@@ -177,7 +177,7 @@ class _DashboardViewState extends State<_DashboardView> {
       case AgentSearchResult(:final agentId):
         context.go(AppRoutes.agentDetail(agentId));
       case MemberSearchResult():
-        context.go('/settings');
+        context.go(AppRoutes.settingsGeneral);
       case VaultSearchResult(:final vaultId):
         context.go(AppRoutes.vaultDetail(vaultId));
       case EntrySearchResult():
@@ -317,7 +317,7 @@ class _DashboardViewState extends State<_DashboardView> {
     final auth = context.read<AuthBloc>().state;
     final permissions = auth is AuthAuthenticated ? auth.permissions : 0;
     final canReadApiKeys = (permissions & Permissions.readApiKey) != 0;
-    context.go(canReadApiKeys ? '/api-keys' : '/vaults');
+    context.go(canReadApiKeys ? AppRoutes.settingsApiKeys : '/vaults');
   }
 
   void _onAgentCta() {
@@ -483,7 +483,7 @@ class _DashboardViewState extends State<_DashboardView> {
     return [
       _SectionHeader(
         title: l10n.dashboardRecentActivity,
-        onSeeAll: () => context.go('/audit'),
+        onSeeAll: () => context.go(AppRoutes.settingsAudit),
       ),
       const SizedBox(height: AppSpacing.cardGap),
       if (logs.isEmpty)

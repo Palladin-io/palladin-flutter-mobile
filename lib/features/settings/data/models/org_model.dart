@@ -10,12 +10,16 @@ class OrgModel {
     required this.name,
     required this.planType,
     required this.memberCount,
+    required this.seatUsage,
+    required this.seatLimit,
   });
 
   final String orgId;
   final String name;
   final String planType;
   final int memberCount;
+  final int seatUsage;
+  final int seatLimit;
 
   factory OrgModel.fromJson(Map<String, dynamic> json) {
     return OrgModel(
@@ -23,6 +27,8 @@ class OrgModel {
       name: json['name'] as String,
       planType: (json['planType'] as String?) ?? '',
       memberCount: (json['memberCount'] as int?) ?? 1,
+      seatUsage: json['seatUsage'] as int,
+      seatLimit: json['seatLimit'] as int,
     );
   }
 
@@ -32,6 +38,8 @@ class OrgModel {
       name: name,
       planType: planType,
       memberCount: memberCount,
+      seatUsage: seatUsage,
+      seatLimit: seatLimit,
     );
   }
 }
