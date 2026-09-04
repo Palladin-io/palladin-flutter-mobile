@@ -16,30 +16,67 @@ class AuthBrandBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: AppColors.backgroundGradient(brightness),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewportWidth = constraints.maxWidth;
+        final viewportHeight = constraints.maxHeight;
+        final landingGlowHeight = viewportHeight * 2.2 > 1800
+            ? viewportHeight * 2.2
+            : 1800.0;
+
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: brightness == Brightness.light
+                  ? Transform.scale(
+                      key: const ValueKey('auth-light-page-gradient'),
+                      scaleX: 2.5,
+                      scaleY: viewportHeight * 2 / viewportWidth,
+                      alignment: AppColors.authLightPageCenter,
+                      child: const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: AppColors.authLightPageGradient,
+                        ),
+                      ),
+                    )
+                  : DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: AppColors.backgroundGradient(brightness),
+                      ),
+                    ),
             ),
-          ),
-        ),
-        Positioned(
-          top: 0,
-          right: 0,
-          left: 0,
-          height: AppSpacing.xxxl * 12,
-          child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: AppColors.authBrandGlow(brightness),
+            if (brightness == Brightness.light)
+              Positioned.fill(
+                child: Transform.scale(
+                  key: const ValueKey('auth-light-logo-glow'),
+                  scaleX: 1.38,
+                  scaleY: landingGlowHeight / viewportWidth,
+                  alignment: AppColors.authLightGlowCenter,
+                  child: const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: AppColors.authLightLogoGlow,
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-        ),
-        Positioned.fill(child: child),
-      ],
+            if (brightness == Brightness.dark)
+              Positioned(
+                top: 0,
+                right: 0,
+                left: 0,
+                height: AppSpacing.xxxl * 12,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: AppColors.darkAuthBrandGlow,
+                    ),
+                  ),
+                ),
+              ),
+            Positioned.fill(child: child),
+          ],
+        );
+      },
     );
   }
 }
