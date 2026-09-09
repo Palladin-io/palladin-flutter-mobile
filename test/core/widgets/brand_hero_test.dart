@@ -25,7 +25,7 @@ void main() {
     final style = wordmark.text.style!;
 
     expect(image.height, 72);
-    expect(gap.height, AppSpacing.xxl);
+    expect(gap.height, AppSpacing.xxl + AppSpacing.xs);
     expect(style.fontSize, 28);
     expect(style.fontWeight, FontWeight.w800);
     expect(style.letterSpacing, -0.28);

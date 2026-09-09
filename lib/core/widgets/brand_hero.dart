@@ -15,7 +15,7 @@ class BrandHero extends StatelessWidget {
     super.key,
     required this.textColor,
     this.wordmarkFontSize = 28,
-    this.logoWordmarkGap = AppSpacing.xxl,
+    this.logoWordmarkGap = AppSpacing.xxl + AppSpacing.xs,
   });
 
   /// Color for the "Palladin" portion of the wordmark. Use [textColorFor] to
