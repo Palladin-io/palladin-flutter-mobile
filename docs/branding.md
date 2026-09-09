@@ -33,3 +33,21 @@ without access to any private asset repository.
 The replacement artwork may be a plain geometric mark or other assets you have
 the right to distribute. Do not reuse the Palladin name or reserved artwork in
 a way that implies an official release.
+
+## Current official artwork: T02
+
+The owner-approved 2026-09-09 mark is the T02 stepped shield without stripe gaps and the centered
+negative-space hex (radius 34, border 15), R04 raster texture and `#EB4747`.
+`assets/images/logo.png` uses tight 96%-height framing and a transparent hex border.
+`icon_light.png` and `icon_with_bg.png` are opaque white/dark launcher sources;
+iOS and macOS derivatives preserve their platform dimensions. iOS icons are RGB.
+
+Android adaptive foregrounds place the complete shield in the 66dp safe circle
+within the 108dp layer. Legacy Android icons use 80% height for circular masks.
+PWA maskable exports fit the central 40%-radius safe circle. Favicon and launcher
+outputs at every size retain the same geometry and R04 grain.
+The web manifest and Android light/dark background resources match these assets.
+
+All platform derivatives are committed. The coordinated source inventory is in
+`assets/brand/` in the Palladin root repository; standalone forks can continue
+using the replacement workflow above with their own assets.
