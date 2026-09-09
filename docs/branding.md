@@ -55,3 +55,5 @@ using the replacement workflow above with their own assets.
 The shared in-app BrandHero renders the mark at 72 logical pixels, separated from the 28 px wordmark by AppSpacing.xxl + AppSpacing.xs (28 logical pixels). Login, unlock and the privacy cover reuse this component. Launcher and favicon framing follow the platform-specific exports above.
 
 AuthBrandHeader separates the wordmark from its rotating login copy or persistent unlock caption by AppSpacing.md (12 logical pixels).
+
+PrimaryButton retains the full AppColors.brandRed background when disabled or loading. Disabled labels stay dimmed; unavailable actions remain non-interactive.

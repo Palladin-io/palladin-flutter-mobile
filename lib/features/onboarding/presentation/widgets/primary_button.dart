@@ -5,7 +5,7 @@ import '../../../../core/theme/app_spacing.dart';
 
 /// Primary button used across onboarding screens.
 ///
-/// Disabled state is visually dimmed; loading state shows a circular
+/// Disabled labels are visually dimmed; loading state shows a circular
 /// progress indicator in place of the label.
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
@@ -31,7 +31,7 @@ class PrimaryButton extends StatelessWidget {
         onPressed: enabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.brandRed,
-          disabledBackgroundColor: AppColors.brandRed.withValues(alpha: 0.3),
+          disabledBackgroundColor: AppColors.brandRed,
           foregroundColor: AppColors.onBrandRed,
           disabledForegroundColor: AppColors.onBrandRed.withValues(alpha: 0.5),
           elevation: 0,
