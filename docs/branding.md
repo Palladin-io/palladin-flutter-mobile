@@ -37,7 +37,7 @@ a way that implies an official release.
 ## Current official artwork: T02
 
 The owner-approved 2026-09-09 mark is the T02 stepped shield without stripe gaps and the centered
-negative-space hex (radius 34, border 15), R04 raster texture and `#EB4747`.
+negative-space hex (radius 34, border 15), R04 raster texture and `#E54645`.
 `assets/images/logo.png` uses tight 96%-height framing and a transparent hex border.
 `icon_light.png` and `icon_with_bg.png` are opaque white/dark launcher sources;
 iOS and macOS derivatives preserve their platform dimensions. iOS icons are RGB.

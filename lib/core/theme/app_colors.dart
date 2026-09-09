@@ -28,7 +28,7 @@ abstract final class AppColors {
   // === Brand ===
 
   /// Brand red — "Vault" wordmark and error states.
-  static const Color brandRed = Color(0xFFEB4747);
+  static const Color brandRed = Color(0xFFE54645);
 
   /// Foreground (text/icon) color used on top of [brandRed] surfaces —
   /// e.g. the destructive "Delete" CTA, the empty-state "New vault"
@@ -48,10 +48,10 @@ abstract final class AppColors {
   static const Color shimmerForeground = Color(0xFFFFFFFF);
 
   /// FAB drop-shadow color — `brandRed` at 35% alpha. Mirrors the
-  /// prototype's `box-shadow: 0 3px 10px rgba(255,79,79,0.35)`. Kept
+  /// prototype's `box-shadow: 0 3px 10px rgba(229,70,69,0.35)`. Kept
   /// as a const (instead of `brandRed.withValues(...)`) so it can be
   /// used inside `const` `BoxShadow` lists.
-  static const Color fabShadow = Color(0x59EB4747);
+  static const Color fabShadow = Color(0x59E54645);
 
   /// FAB hairline border — `onBrandRed` at 20% alpha. Subtle white
   /// outline on the brand-red FAB that lifts it off the gradient
@@ -109,7 +109,7 @@ abstract final class AppColors {
   static const Color positiveAccent = Color(0xFF10B981);
 
   /// Warning banner background used on the recovery-key backup screen.
-  static const Color warningBackground = Color(0x33EB4747);
+  static const Color warningBackground = Color(0x33E54645);
 
   /// Muted icon color — white at 60% opacity (visibility toggles, decorative icons on dark background).
   static const Color iconMuted = Color(0x99FFFFFF);

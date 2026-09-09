@@ -4,7 +4,7 @@
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0D1017",
-    "theme_color": "#EB4747",
+    "theme_color": "#E54645",
     "description": "Palladin — zero-knowledge password manager for AI agents.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,

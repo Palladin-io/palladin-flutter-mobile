@@ -288,7 +288,7 @@ Create and edit forms use the same pinned action-footer pattern. The form fields
 | `AppColors.mobileSurface` | `#23262C` | Graphite card background (vault list/detail) |
 | `AppColors.lightBackground` | `#E8EAED` | Light scaffold background — warm cream |
 | `AppColors.lightSurface` | `#DCDEE2` | Light elevated surfaces |
-| `AppColors.brandRed` | `#EB4747` | Primary/interactive color: "Vault" wordmark, errors, primary buttons, **all interactive actions** (links, Retry, button foregrounds), **active/focused inputs**, loaders |
+| `AppColors.brandRed` | `#E54645` | Primary/interactive color: "Vault" wordmark, errors, primary buttons, **all interactive actions** (links, Retry, button foregrounds), **active/focused inputs**, loaders |
 | `AppColors.positiveAccent` | `#10B981` | Success / positive green — password-strength "strong/veryStrong", positive states. **Same green as web (`--cv-success`); web↔mobile parity. NEVER use teal (`#48ECDF`) or `#2EC4B6` as the success green.** |
 | `AppColors.onBrandRed` | `#FFFFFF` | Text/icons on brandRed backgrounds (`onPrimary`, `foregroundColor`) |
 
