@@ -5,7 +5,7 @@ import 'package:mobile_palladin/core/theme/app_spacing.dart';
 import 'package:mobile_palladin/core/widgets/brand_hero.dart';
 
 void main() {
-  testWidgets('matches the landing page brand lockup proportions', (
+  testWidgets('uses the approved mobile brand lockup proportions', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -24,8 +24,8 @@ void main() {
     final wordmark = tester.widget<RichText>(find.byType(RichText));
     final style = wordmark.text.style!;
 
-    expect(image.height, 64);
-    expect(gap.height, AppSpacing.lg);
+    expect(image.height, 72);
+    expect(gap.height, AppSpacing.xxl);
     expect(style.fontSize, 28);
     expect(style.fontWeight, FontWeight.w800);
     expect(style.letterSpacing, -0.28);
