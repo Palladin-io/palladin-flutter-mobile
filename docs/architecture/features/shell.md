@@ -40,6 +40,9 @@ a plain opaque surface and a fine top border, without grain or a central bloom.
 Drawer grain is weaker and broader in dark mode. The light drawer uses an
 opaque white surface without grain or Material surface tint. The localized version and
 Palladin.io share one compact footer line separated by a pipe, without a shield.
+The footer is right-aligned; Palladin uses a bold theme-aware wordmark with a
+brand-red .io suffix. The settings list has a persistent scrollbar and track
+when it overflows, so offscreen actions remain discoverable before scrolling.
 The footer stays pinned below the scrollable settings list with minimal bottom
 padding inside the device safe area.
 
