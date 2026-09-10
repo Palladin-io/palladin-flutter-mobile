@@ -25,7 +25,7 @@ drawer via `AppShellScope.of(context)` — never mount a duplicate `endDrawer`.
 
 `AppScreen` and the shell use the same `AppBrandBackground` as authentication:
 light radial gray with a soft white bloom, and the existing neutral dark glow.
-`BrandGrainSurface` adds static grayscale texture behind the bottom navigation
+`BrandGrainSurface` adds static grayscale texture behind the dark bottom navigation
 and a weaker version behind the settings drawer. Both keep solid base colors;
 the texture is decorative, isolated in a repaint boundary, and never covers
 labels or changes hit targets. Primary CTA glow is shared by the full-width
@@ -35,4 +35,10 @@ The light surface uses a brighter neutral ramp (#F8FAFC → #F0F2F5 → #E3E7ED)
 with the shared white bloom. Legacy wrappers in Vault list/detail, Entry detail,
 API key detail, recovery and onboarding delegate to the same background so tab
 changes cannot reveal the old gray ramp. Navbar glow originates directly below
-the central shield and fades to both sides; drawer grain is weaker and broader.
+the central shield and fades to both sides in dark mode. The light navbar uses
+a plain opaque surface and a fine top border, without grain or a central bloom.
+Drawer grain is weaker and broader.
+
+Selected navbar icons and Inbox segments reuse `PrimaryButtonGlow`. Detail tabs
+in Vault, Entry, API keys and Agent use `BrandTabIndicator` for a glowing red
+underline. Inactive and disabled tabs have no glow.

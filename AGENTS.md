@@ -217,6 +217,7 @@ lib/
 | `UploadIconButton` | `lib/core/widgets/upload_icon_button.dart` | Upload button with brandRed gradient shimmer label. Param: `onPressed`, upload state |
 | `AppBrandBackground` | `lib/core/widgets/app_brand_background.dart` | Shared full-screen auth/app surface: white bloom over the light radial background, neutral glow in dark. `AuthBrandBackground` delegates to it |
 | `BrandGrainSurface` | `lib/core/widgets/brand_grain_surface.dart` | Opaque navigation background with static neutral grain below content; `subtle` softens drawer grain |
+| `BrandTabIndicator` | `lib/core/widgets/brand_tab_indicator.dart` | Shared active underline with a subtle brand glow for detail tabs |
 | `PrimaryButtonGlow` | `lib/core/widgets/primary_button_glow.dart` | Shared decorative brand shadow for enabled primary actions; no shadow while disabled/loading |
 | `PrimaryButton` | `lib/core/widgets/primary_button.dart` | Brand-red full-width 44px CTA with loading state and subtle brand glow |
 | `CompactPrimaryButton` | `lib/core/widgets/compact_primary_button.dart` | Compact inline primary CTA matching onboarding checklist actions. Params: `label`, `onPressed`, optional colors/loading/minimum width |

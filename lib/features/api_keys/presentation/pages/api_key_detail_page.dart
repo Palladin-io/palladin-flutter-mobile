@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/brand_tab_indicator.dart';
+
 import '../../../../core/widgets/app_brand_background.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -69,7 +71,9 @@ class _ApiKeyDetailView extends StatelessWidget {
             bottom: TabBar(
               labelColor: AppColors.brandRed,
               unselectedLabelColor: AppColors.onSurfaceSubtle(brightness),
-              indicatorColor: AppColors.brandRed,
+              indicator: BrandTabIndicator(
+                glowColor: AppColors.primaryGlow(brightness),
+              ),
               indicatorSize: TabBarIndicatorSize.label,
               indicatorWeight: 2,
               dividerColor: AppColors.navBorder(brightness),

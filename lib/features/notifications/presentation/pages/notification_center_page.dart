@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../../../core/widgets/primary_button_glow.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -844,50 +846,54 @@ class _SegmentButton extends StatelessWidget {
         ? AppColors.onBrandRed
         : AppColors.onSurfaceMuted(brightness);
     return Expanded(
-      child: Material(
-        color: selected ? AppColors.brandRed : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          onTap: onTap,
+      child: PrimaryButtonGlow(
+        enabled: selected,
+        radius: 8,
+        child: Material(
+          color: selected ? AppColors.brandRed : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          // Cell is stretched to the track height — center the label so the
-          // selected pill fills the full height with the text centred.
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: fg,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            // Cell is stretched to the track height — center the label so the
+            // selected pill fills the full height with the text centred.
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                if (badge != null) ...[
-                  const SizedBox(width: AppSpacing.chipGap),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? AppColors.onBrandRed.withValues(alpha: 0.25)
-                          : AppColors.brandRed,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      '$badge',
-                      style: const TextStyle(
-                        color: AppColors.onBrandRed,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
+                  if (badge != null) ...[
+                    const SizedBox(width: AppSpacing.chipGap),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? AppColors.onBrandRed.withValues(alpha: 0.25)
+                            : AppColors.brandRed,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '$badge',
+                        style: const TextStyle(
+                          color: AppColors.onBrandRed,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

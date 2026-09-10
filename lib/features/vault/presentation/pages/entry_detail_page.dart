@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/brand_tab_indicator.dart';
+
 import '../../../../core/widgets/app_brand_background.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -360,7 +362,9 @@ class _EntryDetailAppBar extends StatelessWidget
             ),
             labelColor: AppColors.brandRed,
             unselectedLabelColor: subtle,
-            indicatorColor: AppColors.brandRed,
+            indicator: BrandTabIndicator(
+              glowColor: AppColors.primaryGlow(brightness),
+            ),
             indicatorSize: TabBarIndicatorSize.label,
             indicatorWeight: 2,
             dividerColor: AppColors.navBorder(brightness),
