@@ -366,6 +366,10 @@ abstract final class AppColors {
   static Color modalBackground(Brightness b) =>
       b == Brightness.dark ? mobileSurface : const Color(0xFFF5F7FA);
 
+  /// The light settings drawer is a clean white surface without a tint.
+  static Color drawerBackground(Brightness b) =>
+      b == Brightness.dark ? mobileSurface : onBrandRed;
+
   /// Card / elevated surface — kept for back-compat with code paths that
   /// expect a fully opaque tile (refresh indicators, dropdown menus).
   /// New surfaces should prefer [cardFill] + [cardBorder] for the glass

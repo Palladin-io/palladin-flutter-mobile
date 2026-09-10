@@ -63,105 +63,104 @@ class SettingsDrawer extends StatelessWidget {
         permissions != Permissions.administratorRoleMask &&
         (permissions & _kPremiumPlanBit) != 0;
 
-    return Drawer(
-      // Keep a solid base beneath the decorative grain and settings rows.
-      backgroundColor: AppColors.modalBackground(brightness),
-      shape: const RoundedRectangleBorder(),
-      child: BrandGrainSurface(
-        backgroundColor: AppColors.modalBackground(brightness),
-        subtle: true,
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _DrawerHeader(email: email, isPro: isPro),
-              Divider(color: AppColors.navBorder(brightness), height: 1),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.only(
-                    top: AppSpacing.innerGap,
-                    bottom: AppSpacing.innerGap,
-                  ),
-                  children: [
-                    const _ThemeToggleRow(),
-                    const _LanguageRow(),
-                    const SizedBox(height: AppSpacing.innerGap),
-                    Divider(color: AppColors.navBorder(brightness), height: 1),
-                    const _DrawerSectionHeader(),
-                    _DrawerItem(
-                      icon: Icons.tune,
-                      label: l10n.settingsGeneralTitle,
-                      onTap: () =>
-                          _onNavigate(context, AppRoutes.settingsGeneral),
-                    ),
-                    _DrawerItem(
-                      icon: Icons.group_outlined,
-                      label: l10n.settingsTeam,
-                      onTap: () => _onNavigate(context, AppRoutes.settingsTeam),
-                    ),
-                    if (canManageOrganization)
-                      _DrawerItem(
-                        icon: Icons.admin_panel_settings_outlined,
-                        label: l10n.settingsPermissions,
-                        onTap: () =>
-                            _onNavigate(context, AppRoutes.settingsPermissions),
-                      ),
-                    if (canReadApiKeys)
-                      _DrawerItem(
-                        icon: Icons.vpn_key_outlined,
-                        label: l10n.settingsApiKeys,
-                        onTap: () =>
-                            _onNavigate(context, AppRoutes.settingsApiKeys),
-                      ),
-                    if (canViewAudit)
-                      _DrawerItem(
-                        icon: Icons.history,
-                        label: l10n.settingsAuditLogs,
-                        onTap: () =>
-                            _onNavigate(context, AppRoutes.settingsAudit),
-                      ),
-                    _DrawerItem(
-                      icon: Icons.credit_card_outlined,
-                      label: l10n.settingsBilling,
-                      onTap: () =>
-                          _onNavigate(context, AppRoutes.settingsBilling),
-                    ),
-                    const SizedBox(height: AppSpacing.innerGap),
-                    Divider(color: AppColors.navBorder(brightness), height: 1),
-                    _DrawerSectionHeader(label: l10n.settingsAccountTitle),
-                    _DrawerItem(
-                      icon: Icons.security_outlined,
-                      label: l10n.settingsSecurity,
-                      onTap: () =>
-                          _onNavigate(context, AppRoutes.settingsSecurity),
-                    ),
-                    _DrawerItem(
-                      icon: Icons.file_upload_outlined,
-                      label: l10n.settingsDataImport,
-                      onTap: () =>
-                          _onNavigate(context, AppRoutes.settingsDataImport),
-                    ),
-                    const SizedBox(height: AppSpacing.innerGap),
-                    Divider(color: AppColors.navBorder(brightness), height: 1),
-                    _DrawerSectionHeader(label: l10n.settingsActionsTitle),
-                    _DrawerItem(
-                      icon: Icons.lock_outline,
-                      label: l10n.settingsLockVault,
-                      onTap: () => _onLock(context),
-                    ),
-                    _DrawerItem(
-                      icon: Icons.logout,
-                      label: l10n.settingsLogout,
-                      onTap: () => _onLogout(context),
-                    ),
-                  ],
-                ),
+    final content = SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _DrawerHeader(email: email, isPro: isPro),
+          Divider(color: AppColors.navBorder(brightness), height: 1),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.only(
+                top: AppSpacing.innerGap,
+                bottom: AppSpacing.innerGap,
               ),
-              const _AppVersionFooter(),
-            ],
+              children: [
+                const _ThemeToggleRow(),
+                const _LanguageRow(),
+                const SizedBox(height: AppSpacing.innerGap),
+                Divider(color: AppColors.navBorder(brightness), height: 1),
+                const _DrawerSectionHeader(),
+                _DrawerItem(
+                  icon: Icons.tune,
+                  label: l10n.settingsGeneralTitle,
+                  onTap: () => _onNavigate(context, AppRoutes.settingsGeneral),
+                ),
+                _DrawerItem(
+                  icon: Icons.group_outlined,
+                  label: l10n.settingsTeam,
+                  onTap: () => _onNavigate(context, AppRoutes.settingsTeam),
+                ),
+                if (canManageOrganization)
+                  _DrawerItem(
+                    icon: Icons.admin_panel_settings_outlined,
+                    label: l10n.settingsPermissions,
+                    onTap: () =>
+                        _onNavigate(context, AppRoutes.settingsPermissions),
+                  ),
+                if (canReadApiKeys)
+                  _DrawerItem(
+                    icon: Icons.vpn_key_outlined,
+                    label: l10n.settingsApiKeys,
+                    onTap: () =>
+                        _onNavigate(context, AppRoutes.settingsApiKeys),
+                  ),
+                if (canViewAudit)
+                  _DrawerItem(
+                    icon: Icons.history,
+                    label: l10n.settingsAuditLogs,
+                    onTap: () => _onNavigate(context, AppRoutes.settingsAudit),
+                  ),
+                _DrawerItem(
+                  icon: Icons.credit_card_outlined,
+                  label: l10n.settingsBilling,
+                  onTap: () => _onNavigate(context, AppRoutes.settingsBilling),
+                ),
+                const SizedBox(height: AppSpacing.innerGap),
+                Divider(color: AppColors.navBorder(brightness), height: 1),
+                _DrawerSectionHeader(label: l10n.settingsAccountTitle),
+                _DrawerItem(
+                  icon: Icons.security_outlined,
+                  label: l10n.settingsSecurity,
+                  onTap: () => _onNavigate(context, AppRoutes.settingsSecurity),
+                ),
+                _DrawerItem(
+                  icon: Icons.file_upload_outlined,
+                  label: l10n.settingsDataImport,
+                  onTap: () =>
+                      _onNavigate(context, AppRoutes.settingsDataImport),
+                ),
+                const SizedBox(height: AppSpacing.innerGap),
+                Divider(color: AppColors.navBorder(brightness), height: 1),
+                _DrawerSectionHeader(label: l10n.settingsActionsTitle),
+                _DrawerItem(
+                  icon: Icons.lock_outline,
+                  label: l10n.settingsLockVault,
+                  onTap: () => _onLock(context),
+                ),
+                _DrawerItem(
+                  icon: Icons.logout,
+                  label: l10n.settingsLogout,
+                  onTap: () => _onLogout(context),
+                ),
+              ],
+            ),
           ),
-        ),
+          const _AppVersionFooter(),
+        ],
       ),
+    );
+    return Drawer(
+      backgroundColor: AppColors.drawerBackground(brightness),
+      surfaceTintColor: AppColors.transparent,
+      shape: const RoundedRectangleBorder(),
+      child: brightness == Brightness.dark
+          ? BrandGrainSurface(
+              backgroundColor: AppColors.drawerBackground(brightness),
+              subtle: true,
+              child: content,
+            )
+          : content,
     );
   }
 
@@ -677,12 +676,41 @@ class _AppVersionFooter extends StatelessWidget {
             AppSpacing.screenH,
             AppSpacing.xl,
           ),
-          child: Text(
-            version.isEmpty ? '' : l10n.settingsAppVersion(version),
-            style: const TextStyle(
-              color: AppColors.textTertiaryMobile,
-              fontSize: 11,
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset('assets/images/logo.png', height: 24),
+                  const SizedBox(width: AppSpacing.md),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: l10n.appTitle),
+                        const TextSpan(
+                          text: '.io',
+                          style: TextStyle(color: AppColors.brandRed),
+                        ),
+                      ],
+                    ),
+                    style: TextStyle(
+                      color: AppColors.onSurface(Theme.of(context).brightness),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                version.isEmpty ? '' : l10n.settingsAppVersion(version),
+                style: TextStyle(
+                  color: AppColors.onSurfaceSubtle(Theme.of(context).brightness),
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ),
         );
       },
