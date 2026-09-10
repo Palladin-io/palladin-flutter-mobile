@@ -39,7 +39,7 @@ the central shield and fades to both sides in dark mode. The light navbar uses
 a plain opaque surface and a fine top border, without grain or a central bloom.
 Drawer grain is weaker and broader in dark mode. The light drawer uses an
 opaque white surface without grain or Material surface tint. A small logo,
-Palladin.io wordmark and localized app version stay pinned below the scrollable
+Palladin.io wordmark and localized app version share one row pinned below the scrollable
 settings list, inside the bottom safe area.
 
 Selected Inbox segments reuse `PrimaryButtonGlow`. Navbar icons retain their

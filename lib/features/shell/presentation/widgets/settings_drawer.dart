@@ -676,38 +676,39 @@ class _AppVersionFooter extends StatelessWidget {
             AppSpacing.screenH,
             AppSpacing.xl,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset('assets/images/logo.png', height: 24),
-                  const SizedBox(width: AppSpacing.md),
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(text: l10n.appTitle),
-                        const TextSpan(
-                          text: '.io',
-                          style: TextStyle(color: AppColors.brandRed),
-                        ),
-                      ],
+              Image.asset('assets/images/logo.png', height: 24),
+              const SizedBox(width: AppSpacing.md),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: l10n.appTitle),
+                    const TextSpan(
+                      text: '.io',
+                      style: TextStyle(color: AppColors.brandRed),
                     ),
-                    style: TextStyle(
-                      color: AppColors.onSurface(Theme.of(context).brightness),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                version.isEmpty ? '' : l10n.settingsAppVersion(version),
+                  ],
+                ),
                 style: TextStyle(
-                  color: AppColors.onSurfaceSubtle(Theme.of(context).brightness),
-                  fontSize: 11,
+                  color: AppColors.onSurface(Theme.of(context).brightness),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  version.isEmpty ? '' : l10n.settingsAppVersion(version),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    color: AppColors.onSurfaceSubtle(
+                      Theme.of(context).brightness,
+                    ),
+                    fontSize: 11,
+                  ),
                 ),
               ),
             ],
