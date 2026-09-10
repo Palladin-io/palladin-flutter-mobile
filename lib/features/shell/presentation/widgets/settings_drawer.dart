@@ -674,44 +674,26 @@ class _AppVersionFooter extends StatelessWidget {
             AppSpacing.screenH,
             AppSpacing.innerGap,
             AppSpacing.screenH,
-            AppSpacing.xl,
+            AppSpacing.xs,
           ),
-          child: Row(
-            children: [
-              Image.asset('assets/images/logo.png', height: 24),
-              const SizedBox(width: AppSpacing.md),
-              Text.rich(
+          child: Text.rich(
+            TextSpan(
+              children: [
                 TextSpan(
-                  children: [
-                    TextSpan(text: l10n.appTitle),
-                    const TextSpan(
-                      text: '.io',
-                      style: TextStyle(color: AppColors.brandRed),
-                    ),
-                  ],
+                  text: version.isEmpty
+                      ? ''
+                      : '${l10n.settingsAppVersion(version)} | ',
                 ),
-                style: TextStyle(
-                  color: AppColors.onSurface(Theme.of(context).brightness),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  version.isEmpty ? '' : l10n.settingsAppVersion(version),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: TextStyle(
-                    color: AppColors.onSurfaceSubtle(
-                      Theme.of(context).brightness,
-                    ),
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ],
+                TextSpan(text: '${l10n.appTitle}.io'),
+              ],
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: AppColors.onSurfaceSubtle(Theme.of(context).brightness),
+              fontSize: 11,
+            ),
           ),
         );
       },

@@ -38,9 +38,10 @@ changes cannot reveal the old gray ramp. Navbar glow originates directly below
 the central shield and fades to both sides in dark mode. The light navbar uses
 a plain opaque surface and a fine top border, without grain or a central bloom.
 Drawer grain is weaker and broader in dark mode. The light drawer uses an
-opaque white surface without grain or Material surface tint. A small logo,
-Palladin.io wordmark and localized app version share one row pinned below the scrollable
-settings list, inside the bottom safe area.
+opaque white surface without grain or Material surface tint. The localized version and
+Palladin.io share one compact footer line separated by a pipe, without a shield.
+The footer stays pinned below the scrollable settings list with minimal bottom
+padding inside the device safe area.
 
 Selected Inbox segments reuse `PrimaryButtonGlow`. Navbar icons retain their
 active color without a red glow. Detail tabs
