@@ -10,7 +10,7 @@ import '../../domain/repositories/onboarding_repository.dart';
 import '../cubit/onboarding_cubit.dart';
 import '../widgets/onboarding_scaffold.dart';
 import '../widgets/onboarding_text_field.dart';
-import '../widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 
 /// Screen 3 of onboarding — verifies the user saved their recovery key
 /// by asking them to type 3 specific words from the mnemonic.

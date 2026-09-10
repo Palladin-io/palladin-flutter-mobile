@@ -53,6 +53,18 @@ abstract final class AppColors {
   /// used inside `const` `BoxShadow` lists.
   static const Color fabShadow = Color(0x59E54645);
 
+  /// Primary CTA glow shared with the web and landing (20–22% brand red).
+  static Color primaryGlow(Brightness b) =>
+      brandRed.withValues(alpha: b == Brightness.dark ? 0.20 : 0.22);
+
+  static Color navigationGrain(Brightness b) =>
+      (b == Brightness.dark ? onBrandRed : darkBackground).withValues(
+        alpha: b == Brightness.dark ? 0.07 : 0.04,
+      );
+
+  static Color navigationBloom(Brightness b) =>
+      onBrandRed.withValues(alpha: b == Brightness.dark ? 0.07 : 0.65);
+
   /// FAB hairline border — `onBrandRed` at 20% alpha. Subtle white
   /// outline on the brand-red FAB that lifts it off the gradient
   /// backdrop. Kept as a const so the FAB's `BorderSide` can stay
@@ -146,14 +158,12 @@ abstract final class AppColors {
 
   // === Bottom navigation ===
 
-  /// Translucent graphite used as the bottom-nav background —
-  /// `#212429` at 80 % opacity so the nav reads as a frosted
-  /// rail above the gradient backdrop.
-  static const Color bottomNavBackground = Color(0xCC212429);
+  /// Opaque graphite base beneath the bottom navigation's grain.
+  static const Color bottomNavBackground = Color(0xFF212429);
 
   /// Hairline border on top of the bottom nav — bumped from the
   /// prototype's `rgba(232, 234, 237, 0.06)` (~6%) to ~10% so the 1-px
-  /// stroke actually reads against the translucent graphite backdrop.
+  /// stroke actually reads against the graphite backdrop.
   static const Color bottomNavBorder = Color(0x1AE8EAED);
 
   // === Premium / billing ===
@@ -213,13 +223,13 @@ abstract final class AppColors {
   );
 
   static const Color authLightPageStart = Color(0xFFF8FAFC);
-  static const Color authLightPageMid = Color(0xFFE3E7EC);
-  static const Color authLightPageEdge = Color(0xFFC8CDD6);
+  static const Color authLightPageMid = Color(0xFFF0F2F5);
+  static const Color authLightPageEdge = Color(0xFFE3E7ED);
   static const Alignment authLightPageCenter = Alignment(0.44, -1);
   static const Alignment authLightGlowCenter = Alignment(0, -0.56);
 
-  /// Landing-page light surface: pale at the top-right origin and distinctly
-  /// grey at the outer edge.
+  /// Shared mobile light surface: pale at the top-right origin with a soft
+  /// neutral edge, avoiding a heavy gray lower half.
   static const RadialGradient authLightPageGradient = RadialGradient(
     center: authLightPageCenter,
     radius: 0.5,
@@ -336,12 +346,11 @@ abstract final class AppColors {
           ? const Color(0x05E8EAED)
           : const Color(0x0415171B);
 
-  /// Bottom nav background — translucent graphite (`rgba(33,36,41,0.80)`) in
-  /// dark, translucent cream (`rgba(245, 247, 250,0.75)`) in light.
+  /// Bottom navigation stays opaque beneath its decorative grain.
   static Color navBackground(Brightness b) =>
       b == Brightness.dark
           ? bottomNavBackground
-          : const Color(0xBFF5F7FA);
+          : const Color(0xFFF5F7FA);
 
   /// Bottom nav top border — `rgba(232, 234, 237,0.06)` in dark,
   /// `rgba(12, 14, 18,0.06)` in light.

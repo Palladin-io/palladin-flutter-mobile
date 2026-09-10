@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/widgets/app_brand_background.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../agents/presentation/bloc/agents_cubit.dart';
 import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -118,17 +119,13 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     final currentIndex = _tabIndex(location);
-    final brightness = Theme.of(context).brightness;
 
     return AppShellScope(
       openSettingsDrawer: _openSettingsDrawerRef,
       setBottomNavHidden: _setBottomNavHiddenRef,
       setFab: _setFabRef,
       clearFab: _clearFabRef,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: AppColors.backgroundGradient(brightness),
-        ),
+      child: AppBrandBackground(
         child: Scaffold(
           key: _scaffoldKey,
           backgroundColor: Colors.transparent,

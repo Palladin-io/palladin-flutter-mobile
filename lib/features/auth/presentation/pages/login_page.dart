@@ -11,7 +11,7 @@ import '../../../../core/widgets/auth_legal_footer.dart';
 import '../../../../core/widgets/brand_hero.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/password_auth_exceptions.dart';
 import '../bloc/auth_bloc.dart';

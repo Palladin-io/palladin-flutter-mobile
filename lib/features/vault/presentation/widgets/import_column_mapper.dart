@@ -4,7 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_dropdown_field.dart';
 import '../../../../l10n/generated/app_localizations.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../data/import/import_models.dart';
 
 /// Fallback for CSVs that match no known profile: the user maps each

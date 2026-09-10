@@ -215,6 +215,10 @@ lib/
 | `IconPickerGrid` | `lib/core/widgets/icon_picker_grid.dart` | Grid of selectable icon tiles (used inside `IconColorBrowserSheet` and vault/entry icon pickers) |
 | `MultiSelectDropdown` | `lib/core/widgets/multi_select_dropdown.dart` | Multi-select with chips, generic `<T>` (used in audit filter sheets) |
 | `UploadIconButton` | `lib/core/widgets/upload_icon_button.dart` | Upload button with brandRed gradient shimmer label. Param: `onPressed`, upload state |
+| `AppBrandBackground` | `lib/core/widgets/app_brand_background.dart` | Shared full-screen auth/app surface: white bloom over the light radial background, neutral glow in dark. `AuthBrandBackground` delegates to it |
+| `BrandGrainSurface` | `lib/core/widgets/brand_grain_surface.dart` | Opaque navigation background with static neutral grain below content; `subtle` softens drawer grain |
+| `PrimaryButtonGlow` | `lib/core/widgets/primary_button_glow.dart` | Shared decorative brand shadow for enabled primary actions; no shadow while disabled/loading |
+| `PrimaryButton` | `lib/core/widgets/primary_button.dart` | Brand-red full-width 44px CTA with loading state and subtle brand glow |
 | `CompactPrimaryButton` | `lib/core/widgets/compact_primary_button.dart` | Compact inline primary CTA matching onboarding checklist actions. Params: `label`, `onPressed`, optional colors/loading/minimum width |
 
 ### Cross-feature widgets (live in a feature, reused by 2+ features)
@@ -224,7 +228,6 @@ These belong conceptually to `core` but currently sit in a feature folder. Reuse
 | Widget | File | Purpose / reused by |
 |--------|------|---------------------|
 | `OnboardingTextField` + `FieldFeedbackSlot` | `lib/features/onboarding/presentation/widgets/onboarding_text_field.dart` | Primary 44px text input with label, border, and animated feedback slot below the input. Used by every feature with a form field (auth, onboarding, vault settings, recovery) |
-| `PrimaryButton` | `lib/features/onboarding/presentation/widgets/primary_button.dart` | Brand-red full-width 44px CTA with loading state. Used in 14 files across 6 features — **should move to `lib/core/widgets/`** |
 | `PasswordSecurityCheckController` + `resolvePasswordSecurityFeedback` + `PasswordSecurityStatusLine` | `lib/features/auth/presentation/widgets/password_security_status.dart` | Shared debounced HIBP state, presentation resolver, and compact one-line renderer. Registration reuses the resolver in its pinned copy; master-password screens use the line widget. Never duplicate breach-check state or message precedence |
 | `AppBottomNav` | `lib/features/shell/presentation/widgets/app_bottom_nav.dart` | 5-slot bottom navigation bar with badge counts (used by `AppShell`) |
 | `AgentAvatar` | `lib/features/agents/presentation/widgets/agent_avatar.dart` | Agent icon circle (tinted initials fallback or custom icon/color). Reused by grants (`OrgGrantCard`) + notifications (`NotificationCard`) |
@@ -241,7 +244,6 @@ These patterns are duplicated and have **no** shared widget yet. Extract to `lib
 - **Status pills (×2)** — `AgentStatusBadge` ≡ `ApiKeyStatusBadge` → extract `StatusPill({label, color})` (bg = `color.withValues(alpha:0.12)`, border = `alpha:0.5`, text 10/w700).
 - **Label/value rows (×2)** — `_DetailRow` in `api_key_details_tab.dart` + `agent_detail_body.dart` → extract `LabelValueRow`.
 - **Empty cards (×3)** — `_AgentsEmpty` (agents_page), `_KeysEmpty` (api_keys_page), `_EmptyCard` (notification_center_page) → extract `ListEmptyCard({icon, title, hint})`.
-- **Move `PrimaryButton`** out of `features/onboarding/` into `lib/core/widgets/` — used in 14 files / 6 features; update all import paths.
 
 ### Skeleton reimplementations to replace
 

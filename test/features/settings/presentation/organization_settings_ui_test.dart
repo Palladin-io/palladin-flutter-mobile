@@ -9,7 +9,7 @@ import 'package:mobile_palladin/core/permissions.dart';
 import 'package:mobile_palladin/core/widgets/sheet_action_buttons.dart';
 import 'package:mobile_palladin/core/widgets/sheet_drag_handle.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:mobile_palladin/features/onboarding/presentation/widgets/primary_button.dart';
+import 'package:mobile_palladin/core/widgets/primary_button.dart';
 import 'package:mobile_palladin/features/settings/domain/entities/org.dart';
 import 'package:mobile_palladin/features/settings/domain/entities/organization_management.dart';
 import 'package:mobile_palladin/features/settings/domain/exceptions/settings_exceptions.dart';

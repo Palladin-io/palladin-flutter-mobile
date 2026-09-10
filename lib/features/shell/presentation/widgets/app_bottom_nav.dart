@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/brand_grain_surface.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 
@@ -60,13 +61,16 @@ class AppBottomNav extends StatelessWidget {
             child: Container(
               height: _barHeight + bottomInset,
               decoration: BoxDecoration(
-                color: AppColors.navBackground(brightness),
                 border: Border(
                   top: BorderSide(
                     color: AppColors.navBorder(brightness),
                     width: 1,
                   ),
                 ),
+              ),
+              child: BrandGrainSurface(
+                backgroundColor: AppColors.navBackground(brightness),
+                child: const SizedBox.expand(),
               ),
             ),
           ),
@@ -155,7 +159,8 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = selected ? AppColors.brandRed : AppColors.textTertiary;
-    Widget iconChild = iconWidget ??
+    Widget iconChild =
+        iconWidget ??
         Icon(selected ? (activeIcon ?? icon) : icon, size: 24, color: color);
     if (badgeCount > 0) {
       iconChild = Badge.count(

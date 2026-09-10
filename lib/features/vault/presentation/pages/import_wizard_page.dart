@@ -11,7 +11,7 @@ import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../cubit/import_wizard_cubit.dart';
 import '../widgets/import_column_mapper.dart';
 import '../widgets/import_preview_list.dart';

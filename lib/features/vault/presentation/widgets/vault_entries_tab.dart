@@ -10,7 +10,7 @@ import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../public_asset_catalog/presentation/widgets/public_asset_image.dart';
 import '../../domain/entities/entry_entity.dart';

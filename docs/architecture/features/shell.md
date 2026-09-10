@@ -20,3 +20,19 @@ authorization rules.
 **Cross-feature deps:** hosts all tab features (vault, agents, notifications).
 Settings drawer routes to settings, API keys, and audit. Descendants open the
 drawer via `AppShellScope.of(context)` — never mount a duplicate `endDrawer`.
+
+## Brand surfaces
+
+`AppScreen` and the shell use the same `AppBrandBackground` as authentication:
+light radial gray with a soft white bloom, and the existing neutral dark glow.
+`BrandGrainSurface` adds static grayscale texture behind the bottom navigation
+and a weaker version behind the settings drawer. Both keep solid base colors;
+the texture is decorative, isolated in a repaint boundary, and never covers
+labels or changes hit targets. Primary CTA glow is shared by the full-width
+and compact primary buttons; disabled/loading actions have no glow.
+
+The light surface uses a brighter neutral ramp (#F8FAFC → #F0F2F5 → #E3E7ED)
+with the shared white bloom. Legacy wrappers in Vault list/detail, Entry detail,
+API key detail, recovery and onboarding delegate to the same background so tab
+changes cannot reveal the old gray ramp. Navbar glow originates directly below
+the central shield and fades to both sides; drawer grain is weaker and broader.

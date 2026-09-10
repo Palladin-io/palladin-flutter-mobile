@@ -21,7 +21,7 @@ import '../../../onboarding/domain/mnemonic.dart';
 import '../../../onboarding/domain/password_strength.dart';
 import '../../../onboarding/presentation/widgets/onboarding_scaffold.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../data/services/hibp_service.dart';
 import '../../domain/password_auth_exceptions.dart';
 import '../bloc/auth_bloc.dart';

@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+
+import '../../../../core/widgets/app_brand_background.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -401,14 +403,10 @@ class _VaultDetailViewState extends State<_VaultDetailView>
           }
         },
         builder: (context, state) {
-          final brightness = Theme.of(context).brightness;
           final visibleVault = state is VaultDetailLoaded
               ? state.vault
               : _lastLoadedVault;
-          return Container(
-            decoration: BoxDecoration(
-              gradient: AppColors.backgroundGradient(brightness),
-            ),
+          return AppBrandBackground(
             child: Scaffold(
               backgroundColor: Colors.transparent,
               appBar: _DetailAppBar(

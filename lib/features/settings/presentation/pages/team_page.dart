@@ -19,7 +19,7 @@ import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../../shell/presentation/pages/app_shell.dart';
 import '../../domain/entities/organization_management.dart';
 import '../../domain/exceptions/settings_exceptions.dart';

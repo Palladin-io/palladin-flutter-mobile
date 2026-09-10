@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/theme/app_spacing.dart';
-import 'package:mobile_palladin/features/onboarding/presentation/widgets/primary_button.dart';
+import 'package:mobile_palladin/core/widgets/primary_button.dart';
 
 void main() {
   testWidgets('supports a leading icon while keeping its label centered', (

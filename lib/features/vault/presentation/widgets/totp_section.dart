@@ -6,7 +6,7 @@ import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/widgets/app_menu_sheet.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../data/services/totp_service.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../domain/entities/custom_field.dart';
 import '../../domain/entities/totp_config.dart';
 import 'entry_form_widgets.dart';

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/widgets/app_brand_background.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -46,10 +48,7 @@ class _ApiKeyDetailView extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppColors.backgroundGradient(brightness),
-      ),
+    return AppBrandBackground(
       child: DefaultTabController(
         length: 2,
         child: Scaffold(
@@ -151,9 +150,7 @@ class _AppBarTitle extends StatelessWidget {
     final name = key?.name ?? l10n.apiKeysDetailTitle;
     final statusLabel = key == null
         ? ''
-        : (key.isActive
-            ? l10n.apiKeysStatusActive
-            : l10n.apiKeysStatusRevoked);
+        : (key.isActive ? l10n.apiKeysStatusActive : l10n.apiKeysStatusRevoked);
 
     return AppBarTitle(title: name, subtitle: statusLabel);
   }
@@ -184,7 +181,8 @@ class _DetailsTabBody extends StatelessWidget {
     await cubit.deleteApiKey(key.apiKeyId);
     // Only leave the screen when the delete actually succeeded — on
     // failure the snackbar surfaces the error and the card stays put.
-    final deleted = cubit.state.keyById(key.apiKeyId) == null &&
+    final deleted =
+        cubit.state.keyById(key.apiKeyId) == null &&
         cubit.state.mutationError == null;
     if (deleted && context.mounted) context.pop();
   }

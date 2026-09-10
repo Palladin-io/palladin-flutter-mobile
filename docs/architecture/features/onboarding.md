@@ -19,4 +19,4 @@ Account-setup wizard: set master password, back up mnemonic, confirm.
   treats backend `409` as idempotent success, and persists only a boolean retry
   marker - never key material.
 
-**⚠ Architecture smell — app-wide widgets live here.** `OnboardingTextField` (+ `FieldFeedbackSlot`) and `PrimaryButton` are imported across **every** feature, yet they sit inside the onboarding feature folder. `PrimaryButton` should move to `lib/core/widgets/` (used in 14 files / 6 features). Until moved, import them from their onboarding paths — do **not** duplicate.
+`PrimaryButton` lives in `lib/core/widgets/` and is shared across features. It and `CompactPrimaryButton` use `PrimaryButtonGlow` for enabled brand actions. Disabled/loading buttons retain their existing interaction behavior without the glow. `OnboardingTextField` remains the shared input in this feature; reuse it rather than duplicating it.

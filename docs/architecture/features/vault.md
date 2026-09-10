@@ -239,7 +239,7 @@ owned buffers and clears Flutter's pending/live image cache. Legacy Vault and
 Entry presign/public-URL upload paths are intentionally absent.
 
 **⚠ Architecture smells:**
-- `VaultListPage` builds a raw `Container(gradient) + Scaffold(transparent)` (~line 185) instead of `AppScreen.titled(...)` — the one inconsistent top-level tab.
-- `VaultDetailPage` / `EntryDetailPage` hand-roll `Container + DefaultTabController + Scaffold + AppBar` instead of `AppScreen.appBar(...)` (justified by the `PreferredSize` tab-bar height, but still skips the abstraction).
+- `VaultListPage` keeps its custom header layout, but now shares `AppBrandBackground` with the other tabs.
+- `VaultDetailPage` / `EntryDetailPage` use `AppBrandBackground + DefaultTabController + Scaffold + AppBar` instead of `AppScreen.appBar(...)` (justified by the `PreferredSize` tab-bar height, but still skips the abstraction).
 - `_SkeletonCard` (vault_list) and `_SkeletonRow` (vault_entries_tab) reimplement `SkeletonBox` — replace.
 - AppBar titles duplicate the `AppBarTitle` pattern (see the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md)).

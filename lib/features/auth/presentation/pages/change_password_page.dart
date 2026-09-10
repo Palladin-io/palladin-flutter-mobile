@@ -12,7 +12,7 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/domain/password_strength.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../../onboarding/presentation/widgets/password_strength_bar.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../data/services/password_auth_crypto_service.dart';
 import '../../domain/password_auth_exceptions.dart';
 import '../bloc/auth_bloc.dart';

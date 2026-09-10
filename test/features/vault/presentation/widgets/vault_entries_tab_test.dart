@@ -7,7 +7,7 @@ import 'package:mobile_palladin/core/widgets/skeleton_box.dart';
 import 'package:mobile_palladin/features/vault/data/services/member_entry_list_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 import 'package:mobile_palladin/features/vault/domain/repositories/entry_repository.dart';
-import 'package:mobile_palladin/features/onboarding/presentation/widgets/primary_button.dart';
+import 'package:mobile_palladin/core/widgets/primary_button.dart';
 import 'package:mobile_palladin/features/vault/presentation/cubit/entry_list_cubit.dart';
 import 'package:mobile_palladin/features/vault/presentation/widgets/vault_entries_tab.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
