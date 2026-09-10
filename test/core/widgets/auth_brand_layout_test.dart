@@ -36,15 +36,21 @@ void main() {
       (gradient) => gradient.center == AppColors.authLightPageCenter,
     );
     expect(pageGradient.colors.first, AppColors.authLightPageStart);
-    expect(pageGradient.colors[1], AppColors.authLightPageMid);
-    expect(pageGradient.colors.last, AppColors.authLightPageEdge);
+    expect(
+      pageGradient.colors[1],
+      AppColors.authEntryLightPageGradient.colors[1],
+    );
+    expect(
+      pageGradient.colors.last,
+      AppColors.authEntryLightPageGradient.colors.last,
+    );
     expect(pageGradient.stops, const [0, 0.46, 1]);
 
     final logoGlow = radialGradients.singleWhere(
       (gradient) => gradient.center == AppColors.authLightGlowCenter,
     );
-    expect(logoGlow.stops, const [0, 0.16, 0.32, 0.48, 0.64, 0.82, 1]);
-    expect(logoGlow.colors.first.a, closeTo(0.45, 0.01));
+    expect(logoGlow.stops, const [0, 0.14, 0.30, 0.44, 0.54, 0.68]);
+    expect(logoGlow.colors.first.a, closeTo(0.98, 0.01));
     expect(logoGlow.colors.last.a, 0);
 
     final pageTransform = tester.widget<Transform>(

@@ -23,8 +23,9 @@ drawer via `AppShellScope.of(context)` — never mount a duplicate `endDrawer`.
 
 ## Brand surfaces
 
-`AppScreen` and the shell use the same `AppBrandBackground` as authentication:
-light radial gray with a soft white bloom, and the existing neutral dark glow.
+`AppScreen` and the shell share the background renderer with authentication,
+but keep the softer light palette. `AuthBrandBackground` selects the more
+defined web-login gray ramp and white bloom for entry screens. Dark stays unchanged.
 `BrandGrainSurface` adds static grayscale texture behind the dark bottom navigation
 and a weaker version behind the settings drawer. Both keep solid base colors;
 the texture is decorative, isolated in a repaint boundary, and never covers

@@ -9,9 +9,16 @@ import '../theme/app_spacing.dart';
 /// lockup. Keeping the bloom at screen level avoids clipped rectangular edges
 /// when individual auth forms scroll.
 class AppBrandBackground extends StatelessWidget {
-  const AppBrandBackground({super.key, required this.child});
+  const AppBrandBackground({
+    super.key,
+    required this.child,
+    this.lightPageGradient = AppColors.authLightPageGradient,
+    this.lightLogoGlow = AppColors.authLightLogoGlow,
+  });
 
   final Widget child;
+  final RadialGradient lightPageGradient;
+  final RadialGradient lightLogoGlow;
 
   @override
   Widget build(BuildContext context) {
@@ -33,10 +40,8 @@ class AppBrandBackground extends StatelessWidget {
                       scaleX: 2.5,
                       scaleY: viewportHeight * 2 / viewportWidth,
                       alignment: AppColors.authLightPageCenter,
-                      child: const DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: AppColors.authLightPageGradient,
-                        ),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(gradient: lightPageGradient),
                       ),
                     )
                   : DecoratedBox(
@@ -52,10 +57,8 @@ class AppBrandBackground extends StatelessWidget {
                   scaleX: 1.38,
                   scaleY: landingGlowHeight / viewportWidth,
                   alignment: AppColors.authLightGlowCenter,
-                  child: const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.authLightLogoGlow,
-                    ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(gradient: lightLogoGlow),
                   ),
                 ),
               ),

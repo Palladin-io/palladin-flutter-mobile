@@ -259,6 +259,23 @@ abstract final class AppColors {
     stops: [0, 0.16, 0.32, 0.48, 0.64, 0.82, 1],
   );
 
+  /// Entry screens retain the more defined white-to-gray web login palette.
+  static const RadialGradient authEntryLightPageGradient = RadialGradient(
+    center: authLightPageCenter,
+    radius: 0.5,
+    colors: [authLightPageStart, Color(0xFFE3E7EC), Color(0xFFC8CDD6)],
+    stops: [0, 0.46, 1],
+  );
+  static const RadialGradient authEntryLightLogoGlow = RadialGradient(
+    center: authLightGlowCenter,
+    radius: 0.5,
+    colors: [
+      Color(0xFAFFFFFF), Color(0xFAFFFFFF), Color(0xADFFFFFF),
+      Color(0x29FFFFFF), Color(0x0EFFFFFF), Color(0x00FFFFFF),
+    ],
+    stops: [0, 0.14, 0.30, 0.44, 0.54, 0.68],
+  );
+
   /// Brightness-aware background gradient — picks the dark or light
   /// gradient based on the current theme.
   static LinearGradient backgroundGradient(Brightness b) =>

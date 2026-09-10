@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_spacing.dart';
+import '../theme/app_colors.dart';
 import 'app_brand_background.dart';
 
 /// Auth alias for the shared application background.
@@ -10,7 +11,11 @@ class AuthBrandBackground extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => AppBrandBackground(child: child);
+  Widget build(BuildContext context) => AppBrandBackground(
+    lightPageGradient: AppColors.authEntryLightPageGradient,
+    lightLogoGlow: AppColors.authEntryLightLogoGlow,
+    child: child,
+  );
 }
 
 /// Canonical side margins for auth and confirmation content.
