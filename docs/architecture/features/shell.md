@@ -31,14 +31,15 @@ the texture is decorative, isolated in a repaint boundary, and never covers
 labels or changes hit targets. Primary CTA glow is shared by the full-width
 and compact primary buttons; disabled/loading actions have no glow.
 
-The light surface uses a brighter neutral ramp (#F8FAFC → #F0F2F5 → #E3E7ED)
-with the shared white bloom. Legacy wrappers in Vault list/detail, Entry detail,
+The light surface uses a brighter neutral ramp (#F8FAFC → #F2F4F7 → #E9EDF2)
+with a low-contrast white bloom tapering across its full radius. Legacy wrappers in Vault list/detail, Entry detail,
 API key detail, recovery and onboarding delegate to the same background so tab
 changes cannot reveal the old gray ramp. Navbar glow originates directly below
 the central shield and fades to both sides in dark mode. The light navbar uses
 a plain opaque surface and a fine top border, without grain or a central bloom.
 Drawer grain is weaker and broader.
 
-Selected navbar icons and Inbox segments reuse `PrimaryButtonGlow`. Detail tabs
+Selected Inbox segments reuse `PrimaryButtonGlow`. Navbar icons retain their
+active color without a red glow. Detail tabs
 in Vault, Entry, API keys and Agent use `BrandTabIndicator` for a glowing red
 underline. Inactive and disabled tabs have no glow.

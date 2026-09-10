@@ -223,8 +223,8 @@ abstract final class AppColors {
   );
 
   static const Color authLightPageStart = Color(0xFFF8FAFC);
-  static const Color authLightPageMid = Color(0xFFF0F2F5);
-  static const Color authLightPageEdge = Color(0xFFE3E7ED);
+  static const Color authLightPageMid = Color(0xFFF2F4F7);
+  static const Color authLightPageEdge = Color(0xFFE9EDF2);
   static const Alignment authLightPageCenter = Alignment(0.44, -1);
   static const Alignment authLightGlowCenter = Alignment(0, -0.56);
 
@@ -248,14 +248,15 @@ abstract final class AppColors {
     center: authLightGlowCenter,
     radius: 0.5,
     colors: [
-      Color(0xFAFFFFFF),
-      Color(0xFAFFFFFF),
-      Color(0xADFFFFFF),
-      Color(0x29FFFFFF),
-      Color(0x0EFFFFFF),
-      transparent,
+      Color(0x73FFFFFF),
+      Color(0x6BFFFFFF),
+      Color(0x59FFFFFF),
+      Color(0x3DFFFFFF),
+      Color(0x1FFFFFFF),
+      Color(0x0AFFFFFF),
+      Color(0x00FFFFFF),
     ],
-    stops: [0, 0.14, 0.30, 0.44, 0.54, 0.68],
+    stops: [0, 0.16, 0.32, 0.48, 0.64, 0.82, 1],
   );
 
   /// Brightness-aware background gradient — picks the dark or light

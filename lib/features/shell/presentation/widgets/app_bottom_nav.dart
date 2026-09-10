@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/brand_grain_surface.dart';
-import '../../../../core/widgets/primary_button_glow.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 
@@ -166,11 +165,6 @@ class _NavItem extends StatelessWidget {
     Widget iconChild =
         iconWidget ??
         Icon(selected ? (activeIcon ?? icon) : icon, size: 24, color: color);
-    iconChild = PrimaryButtonGlow(
-      enabled: selected,
-      radius: 24,
-      child: iconChild,
-    );
     if (badgeCount > 0) {
       iconChild = Badge.count(
         count: badgeCount,
