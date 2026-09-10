@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
 import '../../../../core/permissions.dart';
+import '../../../../core/router/shell_tab_page.dart';
 import '../../../agents/presentation/bloc/agents_cubit.dart';
 import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -185,18 +186,22 @@ class _AppShellState extends State<AppShell> {
     getIt<AgentsCubit>().refresh();
     getIt<NotificationCenterCubit>().refreshSummary();
     if (_canManageGrants()) getIt<PendingGrantsCubit>().refresh();
+    final direction = ShellTabDirection.between(
+      _tabIndex(GoRouterState.of(context).matchedLocation),
+      index,
+    );
     switch (index) {
       case AppBottomNav.tabHome:
-        context.go('/');
+        context.go('/', extra: direction);
         break;
       case AppBottomNav.tabVaults:
-        context.go('/vaults');
+        context.go('/vaults', extra: direction);
         break;
       case AppBottomNav.tabAgents:
-        context.go('/agents');
+        context.go('/agents', extra: direction);
         break;
       case AppBottomNav.tabInbox:
-        context.go('/inbox');
+        context.go('/inbox', extra: direction);
         break;
     }
   }

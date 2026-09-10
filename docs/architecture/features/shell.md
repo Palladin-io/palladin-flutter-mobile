@@ -43,3 +43,13 @@ Selected Inbox segments reuse `PrimaryButtonGlow`. Navbar icons retain their
 active color without a red glow. Detail tabs
 in Vault, Entry, API keys and Agent use `BrandTabIndicator` for a glowing red
 underline. Inactive and disabled tabs have no glow.
+
+## Directional navbar transitions
+
+Navbar navigation passes a value-only `ShellTabDirection` based on the current
+and target icon positions. The four root tab routes use `ShellTabPage`: the
+incoming content slides from the tapped side over 260 ms, while the navbar
+stays mounted. Settings still opens the existing drawer. Re-selecting the same
+tab, direct links, auth redirects and reduced-motion navigation have no slide.
+Detail pushes retain their normal platform transitions. The direction travels
+only in that navigation's `extra`, with no global tab-history state or timers.
