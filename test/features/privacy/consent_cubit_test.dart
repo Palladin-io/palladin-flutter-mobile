@@ -51,6 +51,28 @@ void main() {
     },
   );
   test(
+    'a late local read from the previous account cannot activate the new account',
+    () async {
+      await cubit.close();
+      final delayed = _DelayedActivationStore();
+      cubit = ConsentCubit(remote, delayed, analytics);
+      remote.current = consent(
+        status: 'granted',
+        revision: 1,
+        activationRevision: 1,
+      );
+      final oldBinding = cubit.bind('old', 'en');
+      await delayed.started.future;
+      await cubit.bind('new', 'en');
+      delayed.oldRead.complete(const ConsentActivation('test-v1', 1));
+      await oldBinding;
+      await cubit.refresh();
+      expect(cubit.state.userId, 'new');
+      expect(cubit.state.locallyActive, isFalse);
+      expect(analytics.isInitialized, isFalse);
+    },
+  );
+  test(
     'a failed withdrawal immediately stops analytics and retains the identical retry',
     () async {
       await cubit.bind('account', 'en');
@@ -140,4 +162,15 @@ void main() {
       expect(analytics.isInitialized, isFalse);
     },
   );
+}
+
+class _DelayedActivationStore extends MemoryActivationStore {
+  final started = Completer<void>();
+  final oldRead = Completer<ConsentActivation?>();
+  @override
+  Future<ConsentActivation?> read(String userId) async {
+    if (userId != 'old') return null;
+    started.complete();
+    return oldRead.future;
+  }
 }

@@ -67,12 +67,14 @@ class ConsentCubit extends Cubit<ConsentState> {
     if (isClosed || generation != _generation) return;
     emit(ConsentState(userId: userId, loading: userId != null));
     if (userId == null) return;
+    ConsentActivation? activation;
     try {
-      _activation = await _store.read(userId);
+      activation = await _store.read(userId);
     } catch (_) {
-      _activation = null;
+      activation = null;
     }
     if (generation != _generation || isClosed) return;
+    _activation = activation;
     _poll = Timer.periodic(const Duration(seconds: 30), (_) {
       unawaited(refresh());
     });
