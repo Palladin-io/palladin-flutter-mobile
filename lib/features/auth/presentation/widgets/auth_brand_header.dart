@@ -48,7 +48,7 @@ class AuthBrandHeader extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         BrandHero(textColor: BrandHero.textColorFor(brightness)),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
         RotatingWelcome(
           messages: caption != null
               ? [caption!]

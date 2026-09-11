@@ -28,7 +28,7 @@ abstract final class AppColors {
   // === Brand ===
 
   /// Brand red — "Vault" wordmark and error states.
-  static const Color brandRed = Color(0xFFEB4747);
+  static const Color brandRed = Color(0xFFE54645);
 
   /// Foreground (text/icon) color used on top of [brandRed] surfaces —
   /// e.g. the destructive "Delete" CTA, the empty-state "New vault"
@@ -48,10 +48,22 @@ abstract final class AppColors {
   static const Color shimmerForeground = Color(0xFFFFFFFF);
 
   /// FAB drop-shadow color — `brandRed` at 35% alpha. Mirrors the
-  /// prototype's `box-shadow: 0 3px 10px rgba(255,79,79,0.35)`. Kept
+  /// prototype's `box-shadow: 0 3px 10px rgba(229,70,69,0.35)`. Kept
   /// as a const (instead of `brandRed.withValues(...)`) so it can be
   /// used inside `const` `BoxShadow` lists.
-  static const Color fabShadow = Color(0x59EB4747);
+  static const Color fabShadow = Color(0x59E54645);
+
+  /// Primary CTA glow shared with the web and landing (20–22% brand red).
+  static Color primaryGlow(Brightness b) =>
+      brandRed.withValues(alpha: b == Brightness.dark ? 0.20 : 0.22);
+
+  static Color navigationGrain(Brightness b) =>
+      (b == Brightness.dark ? onBrandRed : darkBackground).withValues(
+        alpha: b == Brightness.dark ? 0.07 : 0.04,
+      );
+
+  static Color navigationBloom(Brightness b) =>
+      onBrandRed.withValues(alpha: b == Brightness.dark ? 0.07 : 0.65);
 
   /// FAB hairline border — `onBrandRed` at 20% alpha. Subtle white
   /// outline on the brand-red FAB that lifts it off the gradient
@@ -109,7 +121,7 @@ abstract final class AppColors {
   static const Color positiveAccent = Color(0xFF10B981);
 
   /// Warning banner background used on the recovery-key backup screen.
-  static const Color warningBackground = Color(0x33EB4747);
+  static const Color warningBackground = Color(0x33E54645);
 
   /// Muted icon color — white at 60% opacity (visibility toggles, decorative icons on dark background).
   static const Color iconMuted = Color(0x99FFFFFF);
@@ -146,14 +158,12 @@ abstract final class AppColors {
 
   // === Bottom navigation ===
 
-  /// Translucent graphite used as the bottom-nav background —
-  /// `#212429` at 80 % opacity so the nav reads as a frosted
-  /// rail above the gradient backdrop.
-  static const Color bottomNavBackground = Color(0xCC212429);
+  /// Opaque graphite base beneath the bottom navigation's grain.
+  static const Color bottomNavBackground = Color(0xFF212429);
 
   /// Hairline border on top of the bottom nav — bumped from the
   /// prototype's `rgba(232, 234, 237, 0.06)` (~6%) to ~10% so the 1-px
-  /// stroke actually reads against the translucent graphite backdrop.
+  /// stroke actually reads against the graphite backdrop.
   static const Color bottomNavBorder = Color(0x1AE8EAED);
 
   // === Premium / billing ===
@@ -213,13 +223,13 @@ abstract final class AppColors {
   );
 
   static const Color authLightPageStart = Color(0xFFF8FAFC);
-  static const Color authLightPageMid = Color(0xFFE3E7EC);
-  static const Color authLightPageEdge = Color(0xFFC8CDD6);
+  static const Color authLightPageMid = Color(0xFFF2F4F7);
+  static const Color authLightPageEdge = Color(0xFFE9EDF2);
   static const Alignment authLightPageCenter = Alignment(0.44, -1);
   static const Alignment authLightGlowCenter = Alignment(0, -0.56);
 
-  /// Landing-page light surface: pale at the top-right origin and distinctly
-  /// grey at the outer edge.
+  /// Shared mobile light surface: pale at the top-right origin with a soft
+  /// neutral edge, avoiding a heavy gray lower half.
   static const RadialGradient authLightPageGradient = RadialGradient(
     center: authLightPageCenter,
     radius: 0.5,
@@ -238,12 +248,30 @@ abstract final class AppColors {
     center: authLightGlowCenter,
     radius: 0.5,
     colors: [
-      Color(0xFAFFFFFF),
-      Color(0xFAFFFFFF),
-      Color(0xADFFFFFF),
-      Color(0x29FFFFFF),
-      Color(0x0EFFFFFF),
-      transparent,
+      Color(0x73FFFFFF),
+      Color(0x6BFFFFFF),
+      Color(0x59FFFFFF),
+      Color(0x3DFFFFFF),
+      Color(0x1FFFFFFF),
+      Color(0x0AFFFFFF),
+      Color(0x00FFFFFF),
+    ],
+    stops: [0, 0.16, 0.32, 0.48, 0.64, 0.82, 1],
+  );
+
+  /// Entry screens retain the more defined white-to-gray web login palette.
+  static const RadialGradient authEntryLightPageGradient = RadialGradient(
+    center: authLightPageCenter,
+    radius: 0.5,
+    colors: [authLightPageStart, Color(0xFFE3E7EC), Color(0xFFC8CDD6)],
+    stops: [0, 0.46, 1],
+  );
+  static const RadialGradient authEntryLightLogoGlow = RadialGradient(
+    center: authLightGlowCenter,
+    radius: 0.5,
+    colors: [
+      Color(0xFAFFFFFF), Color(0xFAFFFFFF), Color(0xADFFFFFF),
+      Color(0x29FFFFFF), Color(0x0EFFFFFF), Color(0x00FFFFFF),
     ],
     stops: [0, 0.14, 0.30, 0.44, 0.54, 0.68],
   );
@@ -336,12 +364,11 @@ abstract final class AppColors {
           ? const Color(0x05E8EAED)
           : const Color(0x0415171B);
 
-  /// Bottom nav background — translucent graphite (`rgba(33,36,41,0.80)`) in
-  /// dark, translucent cream (`rgba(245, 247, 250,0.75)`) in light.
+  /// Bottom navigation stays opaque beneath its decorative grain.
   static Color navBackground(Brightness b) =>
       b == Brightness.dark
           ? bottomNavBackground
-          : const Color(0xBFF5F7FA);
+          : const Color(0xFFF5F7FA);
 
   /// Bottom nav top border — `rgba(232, 234, 237,0.06)` in dark,
   /// `rgba(12, 14, 18,0.06)` in light.
@@ -355,6 +382,10 @@ abstract final class AppColors {
   /// settings drawer so they read as opaque surfaces above the gradient.
   static Color modalBackground(Brightness b) =>
       b == Brightness.dark ? mobileSurface : const Color(0xFFF5F7FA);
+
+  /// The light settings drawer is a clean white surface without a tint.
+  static Color drawerBackground(Brightness b) =>
+      b == Brightness.dark ? mobileSurface : onBrandRed;
 
   /// Card / elevated surface — kept for back-compat with code paths that
   /// expect a fully opaque tile (refresh indicators, dropdown menus).

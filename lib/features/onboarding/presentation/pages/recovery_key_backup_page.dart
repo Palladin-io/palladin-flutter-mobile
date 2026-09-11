@@ -12,7 +12,7 @@ import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../cubit/onboarding_cubit.dart';
 import '../widgets/onboarding_scaffold.dart';
-import '../widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 
 /// Screen 2 of onboarding — displays the 24-word recovery mnemonic.
 ///

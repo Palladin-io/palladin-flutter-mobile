@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/widgets/brand_tab_indicator.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/permissions.dart';
@@ -285,14 +287,9 @@ class _TabButton extends StatelessWidget {
           horizontal: AppSpacing.fieldGap,
           vertical: AppSpacing.cardGap,
         ),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isActive ? AppColors.brandRed : Colors.transparent,
-              width: 2,
-            ),
-          ),
-        ),
+        decoration: isActive && !disabled
+            ? BrandTabIndicator(glowColor: AppColors.primaryGlow(brightness))
+            : null,
         child: Text(
           label,
           style: TextStyle(

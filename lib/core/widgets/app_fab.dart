@@ -31,7 +31,7 @@ class AppFab extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
-          // Mirrors prototype `box-shadow: 0 3px 10px rgba(255,79,79,0.35)`
+          // Mirrors prototype `box-shadow: 0 3px 10px rgba(229,70,69,0.35)`
           // — `AppColors.fabShadow` is the brand-red tinted at 35% alpha,
           // kept as a const so this list can stay `const`-friendly.
           BoxShadow(

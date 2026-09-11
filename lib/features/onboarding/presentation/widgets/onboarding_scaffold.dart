@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/app_brand_background.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/auth_brand_layout.dart';
@@ -266,12 +268,7 @@ class _OnboardingBackground extends StatelessWidget {
     if (useAuthBrandLayout) {
       return AuthBrandBackground(child: child);
     }
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: AppColors.backgroundGradient(brightness),
-      ),
-      child: child,
-    );
+    return AppBrandBackground(child: child);
   }
 }
 

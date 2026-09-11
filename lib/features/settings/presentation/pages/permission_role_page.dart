@@ -10,7 +10,7 @@ import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../domain/entities/organization_management.dart';
 import '../bloc/permissions_cubit.dart';
 import '../widgets/permission_fields.dart';

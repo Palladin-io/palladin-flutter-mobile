@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/widgets/app_brand_background.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -192,7 +194,6 @@ class _VaultListViewState extends State<_VaultListView> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
     // Cache the FAB so the same object is reused across rebuilds —
     // FabRegistrar.didUpdateWidget then sees no change and won't
     // re-register on every parent rebuild.
@@ -203,10 +204,7 @@ class _VaultListViewState extends State<_VaultListView> {
       ),
       child: AppFab(onPressed: _onAddTapped, tooltip: l10n.vaultNewVault),
     );
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppColors.backgroundGradient(brightness),
-      ),
+    return AppBrandBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Stack(

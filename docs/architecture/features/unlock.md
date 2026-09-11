@@ -21,4 +21,4 @@ Master-password unlock with a biometric shortcut.
   `AuthVaultUnlocked` to `AuthBloc`. This covers verification followed by an
   application restart; derived keys are zeroed if required provisioning fails.
 
-**Cross-feature deps:** `auth` (posts unlock event). Reuses onboarding widgets — see the `PrimaryButton` relocation note in the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md).
+**Cross-feature deps:** `auth` (posts unlock event). Reuses the core `PrimaryButton` and onboarding input widgets.

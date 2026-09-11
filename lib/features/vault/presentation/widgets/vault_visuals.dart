@@ -18,7 +18,7 @@ abstract final class VaultVisuals {
 
   /// Default vault accent color, in `#RRGGBB` form. Picked to match
   /// the prototype's first swatch (brand red).
-  static const String defaultColorHex = '#EB4747';
+  static const String defaultColorHex = '#E54645';
 
   /// Picker choices for the icon row — keep in sync with the web /
   /// Astro prototype.
@@ -152,7 +152,7 @@ abstract final class VaultVisuals {
   /// Picker choices for the color row — keep in sync with the web /
   /// Astro prototype.
   static const List<String> colorChoices = <String>[
-    '#EB4747', // brand red
+    '#E54645', // brand red
     '#FFAB87', // peach
     '#60A5FA', // sky
     '#10B981', // emerald

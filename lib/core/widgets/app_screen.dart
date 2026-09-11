@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import 'app_brand_background.dart';
+
 import '../theme/app_spacing.dart';
 import 'list_screen_header.dart';
 
@@ -114,16 +115,12 @@ class AppScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
     // The titled variant renders a ListScreenHeader (which owns its own
     // bottom gap), so it never adds an extra headerGap.
     final resolvedHeader = title != null
         ? ListScreenHeader(title: title!, subtitle: subtitle, actions: actions)
         : header;
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppColors.backgroundGradient(brightness),
-      ),
+    return AppBrandBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: appBar,

@@ -8,6 +8,7 @@ import '../../../../core/l10n/locale_cubit.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/brand_grain_surface.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/theme_cubit.dart';
 import '../../../../l10n/generated/app_localizations.dart';
@@ -40,8 +41,21 @@ const int _kPremiumPlanBit = 256;
 /// Pulls user metadata from [AuthBloc]'s [AuthAuthenticated] state and
 /// the version string from [PackageInfo]. Falls back gracefully when
 /// either is missing — never blocks the drawer from rendering.
-class SettingsDrawer extends StatelessWidget {
+class SettingsDrawer extends StatefulWidget {
   const SettingsDrawer({super.key});
+
+  @override
+  State<SettingsDrawer> createState() => _SettingsDrawerState();
+}
+
+class _SettingsDrawerState extends State<SettingsDrawer> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,20 +76,19 @@ class SettingsDrawer extends StatelessWidget {
         permissions != Permissions.administratorRoleMask &&
         (permissions & _kPremiumPlanBit) != 0;
 
-    return Drawer(
-      // Solid surface (`#181B22` in dark, `#F5F7FA` in light) so the
-      // drawer reads as an opaque settings panel above the gradient
-      // backdrop instead of bleeding through the nav's translucency.
-      backgroundColor: AppColors.modalBackground(brightness),
-      shape: const RoundedRectangleBorder(),
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _DrawerHeader(email: email, isPro: isPro),
-            Divider(color: AppColors.navBorder(brightness), height: 1),
-            Expanded(
+    final content = SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _DrawerHeader(email: email, isPro: isPro),
+          Divider(color: AppColors.navBorder(brightness), height: 1),
+          Expanded(
+            child: Scrollbar(
+              controller: _scrollController,
+              thumbVisibility: true,
+              trackVisibility: true,
               child: ListView(
+                controller: _scrollController,
                 padding: const EdgeInsets.only(
                   top: AppSpacing.innerGap,
                   bottom: AppSpacing.innerGap,
@@ -155,10 +168,22 @@ class SettingsDrawer extends StatelessWidget {
                 ],
               ),
             ),
-            const _AppVersionFooter(),
-          ],
-        ),
+          ),
+          const _AppVersionFooter(),
+        ],
       ),
+    );
+    return Drawer(
+      backgroundColor: AppColors.drawerBackground(brightness),
+      surfaceTintColor: AppColors.transparent,
+      shape: const RoundedRectangleBorder(),
+      child: brightness == Brightness.dark
+          ? BrandGrainSurface(
+              backgroundColor: AppColors.drawerBackground(brightness),
+              subtle: true,
+              child: content,
+            )
+          : content,
     );
   }
 
@@ -672,12 +697,37 @@ class _AppVersionFooter extends StatelessWidget {
             AppSpacing.screenH,
             AppSpacing.innerGap,
             AppSpacing.screenH,
-            AppSpacing.xl,
+            AppSpacing.xs,
           ),
-          child: Text(
-            version.isEmpty ? '' : l10n.settingsAppVersion(version),
-            style: const TextStyle(
-              color: AppColors.textTertiaryMobile,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: version.isEmpty
+                      ? ''
+                      : '${l10n.settingsAppVersion(version)} | ',
+                ),
+                TextSpan(
+                  text: l10n.appTitle,
+                  style: TextStyle(
+                    color: AppColors.onSurface(Theme.of(context).brightness),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const TextSpan(
+                  text: '.io',
+                  style: TextStyle(
+                    color: AppColors.brandRed,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            textAlign: TextAlign.end,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: AppColors.onSurfaceSubtle(Theme.of(context).brightness),
               fontSize: 11,
             ),
           ),

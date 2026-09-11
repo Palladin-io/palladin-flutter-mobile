@@ -69,3 +69,10 @@ OAuth 2.0 login (Google, Apple, X via `flutter_appauth`).
 - **Role:** `AuthBloc` is a **singleton read by every other feature** to check authentication + vault-lock state and to extract the in-memory private key. It receives `AuthVaultUnlocked` from `unlock`.
 
 **Cross-feature deps:** none upstream; nearly every feature depends *on* `AuthBloc`.
+
+## Light entry background
+
+`AuthBrandBackground` uses `AppBrandBackground` with the defined web-login
+palette (#F8FAFC → #E3E7EC → #C8CDD6) and white bloom. Login, unlock and
+registration share this variant; the authenticated app keeps its softer pale
+gray palette. Both variants share the same unclipped gradient geometry.

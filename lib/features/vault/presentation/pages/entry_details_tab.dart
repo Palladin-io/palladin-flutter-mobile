@@ -16,7 +16,7 @@ import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../../public_asset_catalog/domain/services/website_icon_service.dart';
 import '../../../public_asset_catalog/presentation/website_icon_auto_resolver.dart';
 import '../../../public_asset_catalog/presentation/widgets/public_asset_picker_sheet.dart';

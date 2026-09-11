@@ -6,7 +6,7 @@ import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../l10n/generated/app_localizations.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../../vault/presentation/pages/import_vault_picker_page.dart';
 
 /// Account-level hand-off to the existing on-device import flow.

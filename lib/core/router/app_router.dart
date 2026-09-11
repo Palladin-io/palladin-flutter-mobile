@@ -33,6 +33,7 @@ import '../../features/unlock/presentation/pages/unlock_page.dart';
 import '../../features/vault/presentation/pages/vault_detail_page.dart';
 import '../../features/vault/presentation/pages/vault_list_page.dart';
 import '../permissions.dart';
+import 'shell_tab_page.dart';
 
 /// Centralized route paths and builders, so widgets navigate via
 /// `AppRoutes.agentDetail(id)` instead of scattering string literals
@@ -103,6 +104,19 @@ CustomTransitionPage<void> _authFadePage(
     },
   );
 }
+
+ShellTabPage _shellTabPage(
+  BuildContext context,
+  GoRouterState state,
+  Widget child,
+) => ShellTabPage(
+  pageKey: state.pageKey,
+  child: child,
+  direction: state.extra is ShellTabDirection
+      ? state.extra as ShellTabDirection
+      : ShellTabDirection.none,
+  disableAnimations: MediaQuery.disableAnimationsOf(context),
+);
 
 /// Creates the app-level [GoRouter] with auth-aware redirects.
 ///
@@ -226,10 +240,15 @@ GoRouter createRouter(
           // Home — landing tab. Dashboard with onboarding
           // checklist, unknown-agent prompt, or normal empty state. Lives
           // at `/` so the post-unlock redirect lands here directly.
-          GoRoute(path: '/', builder: (_, _) => const DashboardPage()),
+          GoRoute(
+            path: '/',
+            pageBuilder: (context, state) =>
+                _shellTabPage(context, state, const DashboardPage()),
+          ),
           GoRoute(
             path: '/vaults',
-            builder: (_, _) => const VaultListPage(),
+            pageBuilder: (context, state) =>
+                _shellTabPage(context, state, const VaultListPage()),
             routes: [
               // Nested under `/vaults` so the shell (and its persistent
               // bottom nav) stays mounted across navigation into the
@@ -248,7 +267,8 @@ GoRouter createRouter(
           // `/vaults/:vaultId`.
           GoRoute(
             path: '/agents',
-            builder: (_, _) => const AgentsPage(),
+            pageBuilder: (context, state) =>
+                _shellTabPage(context, state, const AgentsPage()),
             routes: [
               GoRoute(
                 path: ':agentId',
@@ -267,8 +287,12 @@ GoRouter createRouter(
           // `?focus=<id>` (from a tapped push) marks that item read on open.
           GoRoute(
             path: '/inbox',
-            builder: (_, state) => NotificationCenterPage(
-              focusId: state.uri.queryParameters['focus'],
+            pageBuilder: (context, state) => _shellTabPage(
+              context,
+              state,
+              NotificationCenterPage(
+                focusId: state.uri.queryParameters['focus'],
+              ),
             ),
             routes: [
               // Per-type × per-channel notification preferences. Pushed (not a

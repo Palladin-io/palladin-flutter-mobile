@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/widgets/brand_tab_indicator.dart';
+
+import '../../../../core/widgets/app_brand_background.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/analytics/analytics_service.dart';
@@ -221,10 +225,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
         if (didPop) return;
         Navigator.of(context).pop(EntryDetailUpdated(_latestUpdate!));
       },
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: AppColors.backgroundGradient(brightness),
-        ),
+      child: AppBrandBackground(
         child: Scaffold(
           backgroundColor: Colors.transparent,
           floatingActionButton: _tabController.index == _agentsTabIndex
@@ -361,7 +362,9 @@ class _EntryDetailAppBar extends StatelessWidget
             ),
             labelColor: AppColors.brandRed,
             unselectedLabelColor: subtle,
-            indicatorColor: AppColors.brandRed,
+            indicator: BrandTabIndicator(
+              glowColor: AppColors.primaryGlow(brightness),
+            ),
             indicatorSize: TabBarIndicatorSize.label,
             indicatorWeight: 2,
             dividerColor: AppColors.navBorder(brightness),

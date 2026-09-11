@@ -15,7 +15,7 @@ import '../../../../core/widgets/fab_registrar.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../domain/entities/organization_management.dart';
 import '../bloc/team_cubit.dart';
 import '../widgets/settings_error_text.dart';

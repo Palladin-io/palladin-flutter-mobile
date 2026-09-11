@@ -6,7 +6,7 @@ import '../../../../core/theme/app_spacing.dart';
 /// A row of three circular dots showing the current onboarding step.
 ///
 /// Matches the `.progress-dots / .dot` pattern from the mobile prototype:
-/// active step → brandRed (#EB4747), completed steps → doneDot (#FFAB87),
+/// active step → brandRed (#E54645), completed steps → doneDot (#FFAB87),
 /// upcoming steps → dimmed warm-white at 8 % opacity.
 class OnboardingProgressDots extends StatelessWidget {
   const OnboardingProgressDots({

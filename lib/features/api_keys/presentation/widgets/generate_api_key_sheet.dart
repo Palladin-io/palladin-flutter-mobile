@@ -8,7 +8,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../../settings/domain/entities/api_key.dart';
 import '../../../settings/domain/exceptions/settings_exceptions.dart';
 import '../../../settings/presentation/widgets/settings_error_text.dart';

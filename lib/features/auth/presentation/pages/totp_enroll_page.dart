@@ -13,7 +13,7 @@ import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/warning_zone.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../domain/password_auth_exceptions.dart';
 import '../cubit/totp_enroll_cubit.dart';
 

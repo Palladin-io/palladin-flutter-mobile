@@ -14,7 +14,7 @@ import '../../domain/password_strength.dart';
 import '../cubit/onboarding_cubit.dart';
 import '../widgets/onboarding_scaffold.dart';
 import '../widgets/onboarding_text_field.dart';
-import '../widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 
 /// Screen 1 of onboarding — master password entry + confirmation.
 ///

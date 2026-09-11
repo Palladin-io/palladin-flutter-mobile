@@ -36,8 +36,14 @@ void main() {
       (gradient) => gradient.center == AppColors.authLightPageCenter,
     );
     expect(pageGradient.colors.first, AppColors.authLightPageStart);
-    expect(pageGradient.colors[1], AppColors.authLightPageMid);
-    expect(pageGradient.colors.last, AppColors.authLightPageEdge);
+    expect(
+      pageGradient.colors[1],
+      AppColors.authEntryLightPageGradient.colors[1],
+    );
+    expect(
+      pageGradient.colors.last,
+      AppColors.authEntryLightPageGradient.colors.last,
+    );
     expect(pageGradient.stops, const [0, 0.46, 1]);
 
     final logoGlow = radialGradients.singleWhere(

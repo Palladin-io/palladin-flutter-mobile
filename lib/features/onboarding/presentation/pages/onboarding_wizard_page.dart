@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+
+import '../../../../core/widgets/app_brand_background.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/di/injection.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../cubit/onboarding_cubit.dart';
 import 'master_password_page.dart';
@@ -140,13 +141,9 @@ class _CompletedPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: AppColors.backgroundGradient(brightness),
-        ),
+      body: AppBrandBackground(
         child: const Center(child: CircularProgressIndicator()),
       ),
     );

@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+import '../../../../core/widgets/app_brand_background.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -19,7 +21,7 @@ import '../../../auth/presentation/widgets/auth_brand_header.dart';
 import '../../../auth/presentation/widgets/password_security_status.dart';
 import '../../../onboarding/domain/password_strength.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
-import '../../../onboarding/presentation/widgets/primary_button.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../domain/recovery_exceptions.dart';
 import '../cubit/recovery_cubit.dart';
 
@@ -348,12 +350,7 @@ class _RecoveryBackground extends StatelessWidget {
     if (usesAuthBrandLayout) {
       return AuthBrandBackground(child: child);
     }
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: AppColors.backgroundGradient(brightness),
-      ),
-      child: child,
-    );
+    return AppBrandBackground(child: child);
   }
 }
 
