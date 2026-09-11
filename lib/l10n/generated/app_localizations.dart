@@ -7213,6 +7213,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Grant-management access cannot be changed yet. No role changes were saved.'**
   String get settingsGrantManageCutoverUnavailable;
+
+  /// No description provided for @privacyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get privacyTitle;
+
+  /// No description provided for @privacySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'These choices are optional. You can change them later in Settings → Privacy.'**
+  String get privacySubtitle;
+
+  /// No description provided for @privacyAnalytics.
+  ///
+  /// In en, this message translates to:
+  /// **'Product analytics'**
+  String get privacyAnalytics;
+
+  /// No description provided for @privacyMarketing.
+  ///
+  /// In en, this message translates to:
+  /// **'Email news and offers'**
+  String get privacyMarketing;
+
+  /// No description provided for @privacyContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get privacyContinue;
+
+  /// No description provided for @privacyLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy choices could not be loaded. Analytics stays off.'**
+  String get privacyLoadError;
+
+  /// No description provided for @privacySaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'The choice could not be confirmed. Analytics in this app stays off. Retry or continue using Palladin.'**
+  String get privacySaveError;
+
+  /// No description provided for @privacyMarketingSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'The choice could not be confirmed. Retry or continue using Palladin.'**
+  String get privacyMarketingSaveError;
+
+  /// No description provided for @privacyNoticeUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This option is not available yet.'**
+  String get privacyNoticeUnavailable;
+
+  /// No description provided for @privacyLocalActivation.
+  ///
+  /// In en, this message translates to:
+  /// **'Account consent applies to web and mobile. Analytics also requires activation on each browser or mobile installation. Withdrawing consent disables it across your devices.'**
+  String get privacyLocalActivation;
+
+  /// No description provided for @privacyActivateHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Activate analytics in this app'**
+  String get privacyActivateHere;
+
+  /// No description provided for @privacySaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get privacySaving;
+
+  /// No description provided for @privacySaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy choice saved'**
+  String get privacySaved;
+
+  /// No description provided for @privacyRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry saving'**
+  String get privacyRetry;
+
+  /// No description provided for @privacyUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'No choice recorded'**
+  String get privacyUnknown;
+
+  /// No description provided for @privacyGranted.
+  ///
+  /// In en, this message translates to:
+  /// **'Account consent granted'**
+  String get privacyGranted;
+
+  /// No description provided for @privacyDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent declined'**
+  String get privacyDenied;
+
+  /// No description provided for @privacyWithdrawn.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent withdrawn'**
+  String get privacyWithdrawn;
 }
 
 class _AppLocalizationsDelegate

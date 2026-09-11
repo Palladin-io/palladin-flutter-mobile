@@ -205,3 +205,9 @@ The source code and documentation are licensed under
 [TRADEMARKS.md](TRADEMARKS.md) are reserved and excluded from that grant. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for DCO sign-off requirements and
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for dependency attributions.
+
+## Optional client analytics
+
+Client collection is disabled by default. `POSTHOG_PROJECT_KEY` alone cannot enable
+it; a released build also needs `CLIENT_ANALYTICS_RELEASED=true`, current account
+consent and explicit local activation. See [privacy architecture](docs/architecture/features/privacy.md).

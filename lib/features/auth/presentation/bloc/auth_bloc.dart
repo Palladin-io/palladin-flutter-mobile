@@ -27,6 +27,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<OnboardingCompleted>(_onOnboardingCompleted);
     on<PasswordSessionEstablished>(_onPasswordSessionEstablished);
     on<AuthEmailVerified>(_onEmailVerified);
+    on<PrivacyChoicesCompleted>((event, emit) {
+      final current = state;
+      if (current is AuthAuthenticated) {
+        emit(current.copyWith(needsPrivacyChoices: false));
+      }
+    });
   }
 
   final AuthRepository authRepository;
@@ -54,6 +60,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         AuthAuthenticated(
           userId: result.userId,
           isOnboarded: result.isOnboarded,
+          needsPrivacyChoices: result.isNewUser,
           permissions: permissions,
           email: email,
           emailVerified: emailVerified,
@@ -92,6 +99,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         AuthAuthenticated(
           userId: userId,
           isOnboarded: isOnboarded,
+          needsPrivacyChoices:
+              state is AuthAuthenticated &&
+              (state as AuthAuthenticated).needsPrivacyChoices,
           permissions: permissions,
           email: email,
           emailVerified: emailVerified,
@@ -274,6 +284,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       AuthAuthenticated(
         userId: userId,
         isOnboarded: true,
+        needsPrivacyChoices: event.isNewAccount,
         isVaultLocked: false,
         masterKey: event.masterKey,
         privateKey: event.privateKey,

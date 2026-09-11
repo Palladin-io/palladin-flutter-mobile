@@ -4105,4 +4105,63 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get settingsGrantManageCutoverUnavailable =>
       'Nie można jeszcze zmienić uprawnienia do zarządzania dostępami. Nie zapisano zmian roli.';
+
+  @override
+  String get privacyTitle => 'Prywatność';
+
+  @override
+  String get privacySubtitle =>
+      'Te wybory są dobrowolne. Możesz je później zmienić w Ustawieniach → Prywatność.';
+
+  @override
+  String get privacyAnalytics => 'Analityka produktu';
+
+  @override
+  String get privacyMarketing => 'Wiadomości i oferty e-mail';
+
+  @override
+  String get privacyContinue => 'Kontynuuj';
+
+  @override
+  String get privacyLoadError =>
+      'Nie udało się pobrać ustawień prywatności. Analityka pozostaje wyłączona.';
+
+  @override
+  String get privacySaveError =>
+      'Nie udało się potwierdzić wyboru. Analityka w tej aplikacji pozostaje wyłączona. Ponów zapis lub korzystaj dalej z Palladin.';
+
+  @override
+  String get privacyMarketingSaveError =>
+      'Nie udało się potwierdzić wyboru. Ponów zapis lub korzystaj dalej z Palladin.';
+
+  @override
+  String get privacyNoticeUnavailable => 'Ta opcja nie jest jeszcze dostępna.';
+
+  @override
+  String get privacyLocalActivation =>
+      'Zgoda konta obejmuje web i mobile. Analityka wymaga również aktywacji w każdej przeglądarce lub instalacji aplikacji. Cofnięcie zgody wyłącza ją na wszystkich urządzeniach.';
+
+  @override
+  String get privacyActivateHere => 'Aktywuj analitykę w tej aplikacji';
+
+  @override
+  String get privacySaving => 'Zapisywanie…';
+
+  @override
+  String get privacySaved => 'Zapisano wybór prywatności';
+
+  @override
+  String get privacyRetry => 'Ponów zapis';
+
+  @override
+  String get privacyUnknown => 'Nie zapisano wyboru';
+
+  @override
+  String get privacyGranted => 'Udzielono zgody na koncie';
+
+  @override
+  String get privacyDenied => 'Odmówiono zgody';
+
+  @override
+  String get privacyWithdrawn => 'Cofnięto zgodę';
 }

@@ -76,3 +76,6 @@ OAuth 2.0 login (Google, Apple, X via `flutter_appauth`).
 palette (#F8FAFC → #E3E7EC → #C8CDD6) and white bloom. Login, unlock and
 registration share this variant; the authenticated app keeps its softer pale
 gray palette. Both variants share the same unclipped gradient geometry.
+
+Account analytics and email preferences use the shared [privacy feature](privacy.md).
+The optional privacy step follows new account creation; `/settings/privacy` exposes later changes.

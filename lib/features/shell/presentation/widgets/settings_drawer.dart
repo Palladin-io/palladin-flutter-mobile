@@ -141,6 +141,12 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   Divider(color: AppColors.navBorder(brightness), height: 1),
                   _DrawerSectionHeader(label: l10n.settingsAccountTitle),
                   _DrawerItem(
+                    icon: Icons.privacy_tip_outlined,
+                    label: l10n.privacyTitle,
+                    onTap: () =>
+                        _onNavigate(context, AppRoutes.settingsPrivacy),
+                  ),
+                  _DrawerItem(
                     icon: Icons.security_outlined,
                     label: l10n.settingsSecurity,
                     onTap: () =>

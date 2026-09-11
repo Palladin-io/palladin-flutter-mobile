@@ -20,3 +20,6 @@ Account-setup wizard: set master password, back up mnemonic, confirm.
   marker - never key material.
 
 `PrimaryButton` lives in `lib/core/widgets/` and is shared across features. It and `CompactPrimaryButton` use `PrimaryButtonGlow` for enabled brand actions. Disabled/loading buttons retain their existing interaction behavior without the glow. `OnboardingTextField` remains the shared input in this feature; reuse it rather than duplicating it.
+
+Account analytics and email preferences use the shared [privacy feature](privacy.md).
+The optional privacy step follows new account creation; `/settings/privacy` exposes later changes.

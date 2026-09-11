@@ -100,3 +100,6 @@ in `THIRD_PARTY_NOTICES.md` without a dedicated General-screen row.
 
 **Cross-feature deps:** provides domain/data to `api_keys`; links to the existing
 authentication security and Vault import flows; routed from `shell`.
+
+Account analytics and email preferences use the shared [privacy feature](privacy.md).
+The optional privacy step follows new account creation; `/settings/privacy` exposes later changes.

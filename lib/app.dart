@@ -1,3 +1,8 @@
+import 'core/analytics/analytics_service.dart';
+import 'features/privacy/data/consent_activation_store.dart';
+import 'features/privacy/data/consent_remote_datasource.dart';
+import 'features/privacy/presentation/consent_cubit.dart';
+import 'features/privacy/presentation/privacy_runtime.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -64,6 +69,12 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   // Stable across rebuilds so the push deep-link can navigate via
   // GoRouter regardless of which subtree currently has focus.
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+  late final ConsentCubit _consents = ConsentCubit(
+    ConsentRemoteDataSource(getIt<Dio>()),
+    ConsentActivationStore(),
+    AnalyticsService.instance,
+  );
 
   late final AuthBloc _authBloc = getIt<AuthBloc>()
     ..add(const AuthCheckRequested());
@@ -396,6 +407,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     return MultiBlocProvider(
       providers: [
         BlocProvider.value(value: _authBloc),
+        BlocProvider.value(value: _consents),
         BlocProvider.value(value: _pushNavigationCubit),
         BlocProvider(
           create: (_) => ThemeCubit(
@@ -491,8 +503,11 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               builder: (context, child) {
-                return Stack(
-                  children: [?child, if (_obscured) const PrivacyCover()],
+                return PrivacyRuntime(
+                  router: _router,
+                  child: Stack(
+                    children: [?child, if (_obscured) const PrivacyCover()],
+                  ),
                 );
               },
             );
