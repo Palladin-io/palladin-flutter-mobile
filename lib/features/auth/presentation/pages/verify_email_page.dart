@@ -70,6 +70,12 @@ class _VerifyEmailViewState extends State<_VerifyEmailView> {
         }
         if (state.check == VerificationCheckStatus.verified) {
           context.read<AuthBloc>().add(const AuthEmailVerified());
+          if (widget.token?.isNotEmpty ?? false) {
+            // The refreshed claim and required provisioning have succeeded.
+            // Retire the consumed token so the router's normal privacy,
+            // onboarding and unlock guards can resume as AuthBloc updates.
+            context.go('/verify-email');
+          }
         } else if (state.check == VerificationCheckStatus.pending) {
           _snack(context, AppLocalizations.of(context)!.authVerifyStillPending);
         } else if (state.check == VerificationCheckStatus.error) {

@@ -179,10 +179,15 @@ keep local capture off through partial failure and the pending retry. Confirmed
 account decisions remain visible; only the unconfirmed remainder is retried.
 
 Verification links carrying a token bypass optional privacy and account-setup
-redirects so the real verification page consumes the token. Leaving the result
-page resumes the existing guards, including pending optional privacy choices.
+redirects so the real verification page consumes the token. After successful
+verification, Continue checks the refreshed session claim and required default-vault
+provisioning, dispatches `AuthEmailVerified`, and navigates to token-less
+`/verify-email`. This resumes the existing guards, including pending optional
+privacy choices before setup/unlock and home. The token remains intact until
+that check succeeds, including when the session was already email-verified.
 Regression coverage lives in privacy cubit/widget tests and
-`test/core/router/privacy_verification_router_test.dart`.
+`test/core/router/privacy_verification_router_test.dart`; router regressions click
+the real Continue button with the production router, verification cubit and AuthBloc.
 
 
 ## Delayed runtime prompt and navigation preservation

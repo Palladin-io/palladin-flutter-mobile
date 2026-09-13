@@ -81,4 +81,10 @@ Account analytics and email preferences use the shared [privacy feature](privacy
 The optional privacy step follows new account creation; `/settings/privacy` exposes later changes.
 
 Verification links with `?token=` reach the verification page before optional privacy
-or setup redirects; leaving the result resumes the normal guards. See [privacy](privacy.md).
+or setup redirects, even if the restored session already reports a verified email.
+The real Continue action refreshes the session, checks its server-issued claim,
+and completes required default-vault provisioning before dispatching
+`AuthEmailVerified` and navigating to token-less `/verify-email`. Removing the
+consumed token resumes the normal privacy, onboarding, verification and unlock
+guards; a fully set-up, unlocked session reaches home. Pending claims or failed
+refresh/provisioning keep the token result mounted. See [privacy](privacy.md).
