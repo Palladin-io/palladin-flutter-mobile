@@ -7364,11 +7364,11 @@ abstract class AppLocalizations {
   /// **'Choose whether to receive emails with Palladin news and offers.'**
   String get privacyMarketingDescription;
 
-  /// No description provided for @privacyEssentialOnly.
+  /// No description provided for @privacyAcceptAll.
   ///
   /// In en, this message translates to:
-  /// **'Essential only'**
-  String get privacyEssentialOnly;
+  /// **'Accept all'**
+  String get privacyAcceptAll;
 
   /// No description provided for @privacySaveChoice.
   ///

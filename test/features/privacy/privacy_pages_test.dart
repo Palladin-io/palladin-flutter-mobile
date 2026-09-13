@@ -8,6 +8,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/core/widgets/app_toggle.dart';
 import 'package:mobile_palladin/core/widgets/sheet_surface.dart';
+import 'package:mobile_palladin/core/widgets/sheet_action_buttons.dart';
 import 'package:mobile_palladin/core/theme/app_colors.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/privacy/domain/user_consent.dart';
@@ -33,6 +34,7 @@ class _Remote extends Remote {
     ),
   );
   bool marketingFails = false;
+  bool analyticsFails = false;
   @override
   Future<UserConsents> get(String locale, {dynamic cancelToken}) async {
     if (networkFails) throw StateError('network');
@@ -44,6 +46,10 @@ class _Remote extends Remote {
   @override
   Future<UserConsent> decide(ConsentDecision d, {dynamic cancelToken}) async {
     if (d.purpose != 'email_marketing') {
+      if (analyticsFails) {
+        decisions.add(d);
+        throw StateError('network');
+      }
       return super.decide(d, cancelToken: cancelToken);
     }
     decisions.add(d);
@@ -127,7 +133,7 @@ void main() {
   for (final locale in ['en', 'pl']) {
     for (final startup in [true, false]) {
       testWidgets(
-        'shared surface and immediately enabled primary Save denies both untouched choices: $locale startup=$startup',
+        'shared surface and immediately enabled outlined Save denies both untouched choices: $locale startup=$startup',
         (tester) async {
           tester.view.physicalSize = const Size(390, 900);
           tester.view.devicePixelRatio = 1;
@@ -162,22 +168,29 @@ void main() {
             [false, false],
           );
           final save = find.widgetWithText(
-            FilledButton,
+            OutlinedButton,
             locale == 'pl' ? 'Zapisz wybór' : 'Save choice',
           );
-          final essential = find.widgetWithText(
-            OutlinedButton,
-            locale == 'pl' ? 'Tylko niezbędne' : 'Essential only',
+          final accept = find.widgetWithText(
+            FilledButton,
+            locale == 'pl' ? 'Akceptuj wszystkie' : 'Accept all',
           );
-          final primary = tester.widget<FilledButton>(save);
+          final primary = tester.widget<FilledButton>(accept);
           expect(primary.onPressed, isNotNull);
           expect(
             primary.style!.backgroundColor!.resolve({}),
             AppColors.brandRed,
           );
-          expect(tester.widget<OutlinedButton>(essential).onPressed, isNotNull);
+          expect(tester.widget<OutlinedButton>(save).onPressed, isNotNull);
+          expect(
+            find.descendant(
+              of: find.byType(SheetActionButtons),
+              matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+            ),
+            findsNWidgets(2),
+          );
           expect(tester.getSize(save).height, 44);
-          expect(tester.getSize(save), tester.getSize(essential));
+          expect(tester.getSize(save), tester.getSize(accept));
           await tester.tap(save);
           await tester.pumpAndSettle();
           expect(remote.decisions.map((d) => [d.purpose, d.granted]), [
@@ -295,7 +308,7 @@ void main() {
   );
 
   testWidgets(
-    'empty notices disable primary Save and never fabricate denials',
+    'empty notices disable both actions and never fabricate denials',
     (tester) async {
       remote.current = const UserConsent(
         purpose: 'product_analytics',
@@ -316,13 +329,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester
-            .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Save choice'),
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, 'Save choice'),
             )
             .onPressed,
         isNull,
       );
-      await tester.tap(find.text('Essential only'));
+      await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
       expect(remote.decisions, isEmpty);
       expect(cubit.state.locallyActive, isFalse);
@@ -355,17 +368,97 @@ void main() {
     },
   );
 
-  testWidgets('essential-only saves both refusals with no required opt-in', (
-    tester,
-  ) async {
-    await tester.pumpWidget(app(const PrivacyOnboardingPage()));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Essential only'));
-    await tester.pumpAndSettle();
-    expect(remote.decisions.map((d) => d.granted), [false, false]);
-    expect(cubit.state.locallyActive, isFalse);
-    verify(() => auth.add(const PrivacyChoicesCompleted())).called(1);
-  });
+  for (final locale in ['en', 'pl']) {
+    for (final startup in [true, false]) {
+      testWidgets(
+        'Accept all confirms both and activates locally: $locale startup=$startup',
+        (tester) async {
+          await tester.pumpWidget(
+            app(
+              startup
+                  ? const PrivacyOnboardingPage()
+                  : const PrivacySettingsPage(),
+              locale: locale,
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            tester
+                .widgetList<AppToggle>(find.byType(AppToggle))
+                .map((t) => t.value),
+            [false, false],
+          );
+          await tester.tap(
+            find.text(locale == 'pl' ? 'Akceptuj wszystkie' : 'Accept all'),
+          );
+          await tester.pumpAndSettle();
+          expect(remote.decisions.map((d) => [d.purpose, d.granted]), [
+            ['email_marketing', true],
+            ['product_analytics', true],
+          ]);
+          expect(cubit.state.locallyActive, isTrue);
+          expect(find.byType(BottomSheet), findsNothing);
+        },
+      );
+    }
+  }
+
+  for (final purpose in ['product_analytics', 'email_marketing']) {
+    testWidgets('Accept all disabled when $purpose notice missing', (
+      tester,
+    ) async {
+      final missing = UserConsent(
+        purpose: purpose,
+        scope: 'test',
+        status: 'unknown',
+        revision: 0,
+        activationRevision: 0,
+      );
+      if (purpose == 'product_analytics') {
+        remote.current = missing;
+      } else {
+        remote.marketing = missing;
+      }
+      await cubit.refresh();
+      await tester.pumpWidget(app(const PrivacyOnboardingPage()));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Accept all'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(remote.decisions, isEmpty);
+    });
+  }
+
+  testWidgets(
+    'Accept all partial failure retries only analytics and then activates locally',
+    (tester) async {
+      remote.analyticsFails = true;
+      await tester.pumpWidget(app(const PrivacyOnboardingPage()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Accept all'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(cubit.state.locallyActive, isFalse);
+      verifyNever(() => auth.add(const PrivacyChoicesCompleted()));
+      remote.analyticsFails = false;
+      await tester.ensureVisible(find.text('Retry saving'));
+      await tester.tap(find.text('Retry saving'));
+      await tester.pumpAndSettle();
+      expect(remote.decisions.map((d) => d.purpose), [
+        'email_marketing',
+        'product_analytics',
+        'product_analytics',
+      ]);
+      expect(remote.decisions[2], same(remote.decisions[1]));
+      expect(cubit.state.locallyActive, isTrue);
+      verify(() => auth.add(const PrivacyChoicesCompleted())).called(1);
+    },
+  );
 
   testWidgets(
     'settings keeps another installation off until explicit local activation',
@@ -430,7 +523,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Twoja prywatność'), findsOneWidget);
       expect(find.text('Zawsze aktywne'), findsOneWidget);
-      expect(find.text('Tylko niezbędne'), findsOneWidget);
+      expect(find.text('Akceptuj wszystkie'), findsOneWidget);
       expect(find.text('Zapisz wybór'), findsOneWidget);
       expect(find.byType(AppToggle), findsNWidgets(2));
       expect(tester.takeException(), isNull);

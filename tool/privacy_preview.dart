@@ -95,7 +95,7 @@ class _PreviewState extends State<Preview> {
           }
           if (!invoked &&
               (action == 'save' ||
-                  action == 'essential' ||
+                  action == 'accept' ||
                   action == 'activate' ||
                   action == 'open')) {
             if (widget is ButtonStyleButton && widget.child is Text) {
@@ -103,8 +103,8 @@ class _PreviewState extends State<Preview> {
               if (label ==
                   (action == 'save'
                       ? l10n.privacySaveChoice
-                      : action == 'essential'
-                      ? l10n.privacyEssentialOnly
+                      : action == 'accept'
+                      ? l10n.privacyAcceptAll
                       : action == 'open'
                       ? l10n.privacyManageChoices
                       : l10n.privacyActivateHere)) {

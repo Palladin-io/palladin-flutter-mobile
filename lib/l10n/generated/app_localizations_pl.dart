@@ -4191,7 +4191,7 @@ class AppLocalizationsPl extends AppLocalizations {
       'Wybierz, czy chcesz otrzymywać e-maile z wiadomościami i ofertami Palladin.';
 
   @override
-  String get privacyEssentialOnly => 'Tylko niezbędne';
+  String get privacyAcceptAll => 'Akceptuj wszystkie';
 
   @override
   String get privacySaveChoice => 'Zapisz wybór';

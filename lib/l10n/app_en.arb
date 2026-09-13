@@ -3465,7 +3465,7 @@
   "privacyEssentialDescription": "Enable core features and help protect your account.",
   "privacyAnalyticsDescription": "With your permission, analytics will help us improve the app based on how its features are used. Your vault contents are excluded.",
   "privacyMarketingDescription": "Choose whether to receive emails with Palladin news and offers.",
-  "privacyEssentialOnly": "Essential only",
+  "privacyAcceptAll": "Accept all",
   "privacySaveChoice": "Save choice",
   "privacyInactiveHere": "Off on this device",
   "privacyActiveHere": "Enabled on this device",

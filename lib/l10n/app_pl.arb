@@ -1247,7 +1247,7 @@
   "privacyEssentialDescription": "Zapewniają działanie podstawowych funkcji i ochronę Twojego konta.",
   "privacyAnalyticsDescription": "Za Twoją zgodą pomoże nam ulepszać aplikację na podstawie korzystania z jej funkcji. Bez treści Twojego sejfu.",
   "privacyMarketingDescription": "Wybierz, czy chcesz otrzymywać e-maile z wiadomościami i ofertami Palladin.",
-  "privacyEssentialOnly": "Tylko niezbędne",
+  "privacyAcceptAll": "Akceptuj wszystkie",
   "privacySaveChoice": "Zapisz wybór",
   "privacyInactiveHere": "Wyłączona na tym urządzeniu",
   "privacyActiveHere": "Włączona na tym urządzeniu",

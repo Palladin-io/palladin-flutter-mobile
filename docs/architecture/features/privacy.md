@@ -67,7 +67,8 @@ not a stored denial or permission. The user can continue without optional consen
 
 Essential is informational and always active, without a switch. Product analytics
 and email news/offers start off when unknown. Switches edit a draft, then equal
-Essential only / Save choice actions commit the two purposes. Full current notices
+outlined Save choice / brand-primary Accept all actions commit decisions.
+Save preserves the switches; Accept all explicitly grants both purposes. Full current notices
 remain expandable before deciding; short explanatory labels do not replace the
 backend notice version/text or activate the empty release catalogue.
 
@@ -77,7 +78,7 @@ for an identical idempotent retry. Turning analytics off suspends local capture
 before Save. Errors and dismissal fail closed. Saving an unrelated marketing change
 never activates a previously inactive installation. Settings shows a simple local
 on/off status and an explicit Enable on this device action; only the initial
-analytics grant or that activation action enables the current installation.
+analytics grant, Accept all, or that activation action enables the current installation.
 
 The debug preview uses real widgets/components and the normal consent data path
 against a local synthetic API. It is visibly labelled TEST FIXTURE. It cannot run
@@ -104,11 +105,28 @@ prompt, so it neither stacks nor offers a new prompt after leaving that route.
 This session UI state never authorizes analytics. Source, rather than callback
 presence, selects the settings device state/activation affordance.
 
-Save is primary; unknown optional choices stay off and untouched Save records both
+Save is outlined secondary; unknown optional choices stay off and untouched Save records both
 explicit denials. Valid unchanged Save can close with no fabricated API write.
-Successful Save/Essential only closes the sheet. Failed/partial saves retain retry.
+Successful Save/Accept all closes the sheet. Failed/partial saves retain retry.
 Close/Back cannot dismiss during the entire form write, including refresh and the
 interval between the two purpose writes; the form owns an additional PopScope.
 Dismissal stops local activation without modifying account consent. Existing
 freshness, per-installation activation, empty active notices, keys and release-off
 configuration remain unchanged. Full current notices stay available in details.
+
+## Two-action footer (final owner decision, 2026-09-13)
+
+Startup and settings have exactly two footer actions: Save choice (outlined) and
+Accept all (brand red), with equal width/height. Unknown optional choices still
+start off; untouched Save records two explicit denials when notices are available.
+There is no Essential only footer action. Close/Escape/Back never create consent.
+
+Accept all requires both current notices and forces two affirmative decisions,
+even for existing account grants. It first stops local analytics, confirms marketing,
+then confirms analytics through the existing installation activation mechanism.
+Thus a partial failure leaves capture off and the dialog open; retry uses only the
+unconfirmed remainder with the original request IDs. Successful retry activates
+this installation only after both decisions are confirmed. The endpoints remain
+non-atomic; a confirmed account decision is not rolled back or hidden on failure.
+Ordinary Save retains existing draft/withdrawal/per-device behavior. No backend,
+canonical notices, marketing pipeline, telemetry scope or release gates changed.

@@ -85,28 +85,40 @@ class _ConsentChoicesState extends State<_ConsentForm> {
   }
 
   Future<void> _save({
-    bool essentialOnly = false,
+    bool acceptAll = false,
     bool activateHere = false,
   }) async {
     final cubit = context.read<ConsentCubit>();
-    if (essentialOnly) {
-      await cubit.stopHere();
-      if (!mounted) return;
+    if (_saving ||
+        cubit.state.saving ||
+        cubit.state.loading ||
+        cubit.state.error == ConsentErrorKind.load ||
+        (acceptAll && !_hasCurrentNotices(cubit.state.consents))) {
+      return;
+    }
+    if (acceptAll) {
+      // Stop synchronously before awaiting storage. Lock the whole operation.
       setState(() {
+        _saving = true;
         for (final purpose in _purposes) {
-          _draft[purpose] = false;
+          _draft[purpose] = true;
         }
       });
+      await cubit.stopHere();
+      if (!mounted) return;
     }
     final decisions = <ConsentDecision>[];
-    for (final purpose in _purposes) {
+    // Analytics is last so a successful partial-save retry activates locally
+    // only after both purposes have been confirmed.
+    for (final purpose in acceptAll ? _purposes.reversed : _purposes) {
       final consent = cubit.state.consents
           .where((c) => c.purpose == purpose)
           .firstOrNull;
       if (consent == null) continue;
-      final selected = essentialOnly ? false : _selected(consent);
+      final selected = acceptAll || _selected(consent);
       final activate = activateHere && purpose == 'product_analytics';
-      if (!activate &&
+      if (!acceptAll &&
+          !activate &&
           selected == consent.granted &&
           consent.status != 'unknown') {
         continue;
@@ -116,15 +128,19 @@ class _ConsentChoicesState extends State<_ConsentForm> {
       if (decision != null) decisions.add(decision);
     }
     if (decisions.isEmpty) {
-      if (essentialOnly ||
-          cubit.state.consents.where((c) => c.currentNotice != null).length ==
-              _purposes.length) {
+      setState(() => _saving = false);
+      if (_hasCurrentNotices(cubit.state.consents)) {
         widget.onContinue?.call();
       }
       return;
     }
     await _persist(decisions);
   }
+
+  bool _hasCurrentNotices(List<UserConsent> consents) => _purposes.every(
+    (purpose) =>
+        consents.any((c) => c.purpose == purpose && c.currentNotice != null),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -267,16 +283,21 @@ class _ConsentChoicesState extends State<_ConsentForm> {
     final footer = SheetActionButtons(
       equalActions: true,
       busy: busy,
-      cancelLabel: l10n.privacyEssentialOnly,
-      confirmLabel: busy ? l10n.privacySaving : l10n.privacySaveChoice,
+      cancelLabel: l10n.privacySaveChoice,
+      confirmLabel: busy ? l10n.privacySaving : l10n.privacyAcceptAll,
       confirmColor: AppColors.brandRed,
-      onCancel: () => _save(essentialOnly: true),
-      onConfirm:
+      onCancel:
           state.loading ||
               state.error == ConsentErrorKind.load ||
               !state.consents.any((c) => c.currentNotice != null || c.granted)
           ? null
           : () => _save(),
+      onConfirm:
+          state.loading ||
+              state.error == ConsentErrorKind.load ||
+              !_hasCurrentNotices(state.consents)
+          ? null
+          : () => _save(acceptAll: true),
     );
     return PopScope(
       canPop: !busy,
