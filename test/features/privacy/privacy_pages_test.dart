@@ -37,6 +37,7 @@ class _Remote extends Remote {
   );
   bool marketingFails = false;
   bool analyticsFails = false;
+  bool failReadAfterRejection = false;
   @override
   Future<UserConsents> get(String locale, {dynamic cancelToken}) async {
     if (networkFails) throw StateError('network');
@@ -52,7 +53,12 @@ class _Remote extends Remote {
         decisions.add(d);
         throw StateError('network');
       }
-      return super.decide(d, cancelToken: cancelToken);
+      try {
+        return await super.decide(d, cancelToken: cancelToken);
+      } catch (_) {
+        if (failReadAfterRejection) networkFails = true;
+        rethrow;
+      }
     }
     decisions.add(d);
     if (networkFails || marketingFails) throw StateError('network');
@@ -691,6 +697,65 @@ void main() {
       expect(find.byType(BottomSheet), findsNothing);
     },
   );
+
+  for (final status in [400, 403]) {
+    for (final recoverRead in [false, true]) {
+      testWidgets(
+        '$status retains visible save error and draft through authoritative refresh (read recovers: $recoverRead)',
+        (tester) async {
+          tester.view.physicalSize = const Size(800, 1400);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          await tester.pumpWidget(app(const PrivacySettingsPage()));
+          await tester.pumpAndSettle();
+          await selectBoth(tester);
+          remote.current = consent(status: 'withdrawn', revision: 4);
+          remote.writeStatus = status;
+          remote.failReadAfterRejection = recoverRead;
+          await tester.tap(find.text('Save choice'));
+          await tester.pumpAndSettle();
+          if (recoverRead) {
+            expect(cubit.state.error, ConsentErrorKind.load);
+            remote.networkFails = false;
+            await tester.tap(find.text('Retry saving'));
+          }
+          await tester.pumpAndSettle();
+          final l10n = AppLocalizations.of(
+            tester.element(find.byType(SheetSurface)),
+          )!;
+          for (var poll = 0; poll < 2; poll++) {
+            expect(find.byType(BottomSheet), findsOneWidget);
+            expect(find.text(l10n.privacySaveError), findsOneWidget);
+            expect(find.text(l10n.privacySaved), findsNothing);
+            expect(find.text('Retry saving'), findsNothing);
+            expect(cubit.state.error, ConsentErrorKind.save);
+            expect(cubit.state.failedDecision, isNull);
+            expect(cubit.state.locallyActive, isFalse);
+            expect(
+              tester
+                  .widgetList<AppToggle>(find.byType(AppToggle))
+                  .map((t) => t.value),
+              [true, true],
+            );
+            expect(remote.decisions.length, 2);
+            await cubit.refresh();
+            await tester.pumpAndSettle();
+          }
+          final rejected = remote.decisions.last;
+          remote.writeStatus = null;
+          await tester.tap(find.text('Save choice'));
+          await tester.pumpAndSettle();
+          expect(remote.decisions.length, 3);
+          expect(remote.decisions.last.purpose, 'product_analytics');
+          expect(remote.decisions.last.expectedRevision, 4);
+          expect(remote.decisions.last.requestId, isNot(rejected.requestId));
+          expect(cubit.state.error, isNull);
+          expect(find.byType(BottomSheet), findsNothing);
+        },
+      );
+    }
+  }
 
   testWidgets(
     '409 discards pending form decisions and draft before explicit reconfirmation',

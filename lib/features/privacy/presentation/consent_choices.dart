@@ -64,7 +64,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
             _saving = false;
             if (cubit.state.failedDecision == null) {
               _pending = [];
-              _draft.clear();
+              if (cubit.state.requiresReconfirmation) _draft.clear();
             }
           });
         }
@@ -294,13 +294,14 @@ class _ConsentChoicesState extends State<_ConsentForm> {
               style: const TextStyle(color: AppColors.brandRed),
             ),
           ),
-          if (!state.requiresReconfirmation ||
-              state.error == ConsentErrorKind.load)
+          if (state.error == ConsentErrorKind.load ||
+              _pending.isNotEmpty && !state.requiresReconfirmation)
             TextButton(
               onPressed: busy
                   ? null
                   : () {
-                      if (_pending.isNotEmpty) {
+                      if (state.error != ConsentErrorKind.load &&
+                          _pending.isNotEmpty) {
                         _persist(_pending);
                       } else {
                         cubit.refresh();

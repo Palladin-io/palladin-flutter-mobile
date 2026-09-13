@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/analytics/analytics_service.dart';
 import '../../auth/presentation/bloc/auth_bloc.dart';
 import 'consent_cubit.dart';
+import 'privacy_consent_sheet.dart';
 
 /// One runtime at the app root, shared by onboarding and settings surfaces.
 class PrivacyRuntime extends StatefulWidget {
@@ -21,16 +22,22 @@ class _PrivacyRuntimeState extends State<PrivacyRuntime>
     with WidgetsBindingObserver {
   late final ConsentCubit _consents = context.read<ConsentCubit>();
   final _prompted = <String>{};
-  void _offerChoices() {
+  bool _offerScheduled = false;
+  bool _foreground = true;
+  void _offerChoices({bool present = false}) {
     final auth = context.read<AuthBloc>().state;
-    if (auth is! AuthAuthenticated) return;
+    if (auth is! AuthAuthenticated ||
+        widget.router.routerDelegate.currentConfiguration.isEmpty) {
+      return;
+    }
     if (auth.needsPrivacyChoices ||
-        widget.router.routerDelegate.currentConfiguration.uri.path ==
-            '/settings/privacy') {
+        widget.router.routerDelegate.state.uri.path == '/settings/privacy') {
       _prompted.add(auth.userId);
       return;
     }
     if (!auth.isOnboarded ||
+        !_foreground ||
+        widget.router.routerDelegate.state.uri.path == '/verify-email' ||
         !auth.emailVerified ||
         auth.isVaultLocked ||
         _prompted.contains(auth.userId) ||
@@ -40,8 +47,26 @@ class _PrivacyRuntimeState extends State<PrivacyRuntime>
       return;
     }
     if (_consents.state.consents.any((c) => c.status == 'unknown')) {
+      // Reads can recover while a form is mounted. Push a native sheet above
+      // that flow instead of setting the startup flag that redirects to /privacy-choices.
+      // Recheck account, route and consent after the navigator has finished building.
+      if (!present) {
+        if (_offerScheduled) return;
+        _offerScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _offerScheduled = false;
+          if (mounted) _offerChoices(present: true);
+        });
+        WidgetsBinding.instance.ensureVisualUpdate();
+        return;
+      }
+      final navigatorContext =
+          widget.router.routerDelegate.navigatorKey.currentContext;
+      if (navigatorContext == null) return;
       _prompted.add(auth.userId);
-      context.read<AuthBloc>().add(const PrivacyChoicesRequested());
+      unawaited(
+        showPrivacyConsentSheet(navigatorContext, source: 'mobile_onboarding'),
+      );
     }
   }
 
@@ -79,7 +104,8 @@ class _PrivacyRuntimeState extends State<PrivacyRuntime>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _consents.setForeground(state == AppLifecycleState.resumed);
+    _foreground = state == AppLifecycleState.resumed;
+    _consents.setForeground(_foreground);
   }
 
   @override

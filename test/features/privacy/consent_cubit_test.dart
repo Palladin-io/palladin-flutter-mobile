@@ -223,6 +223,17 @@ void main() {
           cubit.state.failedDecision,
           status == 400 || status == 403 ? isNull : same(failed),
         );
+        expect(cubit.state.error, ConsentErrorKind.save);
+        await cubit.refresh();
+        expect(cubit.state.error, ConsentErrorKind.save);
+        remote.networkFails = true;
+        await cubit.refresh();
+        expect(cubit.state.error, ConsentErrorKind.load);
+        await cubit.stopHere();
+        remote.networkFails = false;
+        await cubit.refresh();
+        expect(cubit.state.error, ConsentErrorKind.save);
+        expect(remote.decisions, [failed]);
       },
     );
   }

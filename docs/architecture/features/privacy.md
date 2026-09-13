@@ -161,8 +161,13 @@ file fails. Other accounts retain their own activation. Only a newer explicit
 grant with successful activation persistence can remove the account's block.
 
 A successful authoritative read clears a recovered load error independently of
-an unresolved write failure; the latter remains retryable without disabling the
-form. HTTP 409 discards the rejected decision and the form's remaining stale
+an unresolved write failure. Save failure is tracked separately from the retryable
+request: definite non-409 rejections (including 400/403) retain the visible save
+error and selected draft through successful reads and failed-read recovery. The
+form remains open and permits correcting, explicitly saving again with the current
+revision/new request ID, or dismissing. Only 409 resets the draft. A load retry
+refreshes authority first; the identical-write retry appears only for a retained
+unconfirmed batch. HTTP 409 discards the rejected decision and the form's remaining stale
 batch/draft, refreshes authoritative choices, and shows a localized instruction
 to review and save again. A failed conflict refresh keeps that instruction pending
 until reads recover. Reconfirmation uses the displayed revision and a new request
@@ -178,3 +183,22 @@ redirects so the real verification page consumes the token. Leaving the result
 page resumes the existing guards, including pending optional privacy choices.
 Regression coverage lives in privacy cubit/widget tests and
 `test/core/router/privacy_verification_router_test.dart`.
+
+
+## Delayed runtime prompt and navigation preservation
+
+New-account startup still uses `needsPrivacyChoices`, `PrivacyOnboardingPage`
+and `PrivacyChoicesCompleted` before setup/verification guards. For eligible
+existing accounts, `PrivacyRuntime` presents the shared root-native sheet over
+the mounted destination, including safe first entry. A slow initial read or later
+successful poll never sets the startup redirect flag. Save and dismissal pop only
+the sheet, retaining the current route, query, form state and previous Back stack.
+The runtime rechecks authentication, foreground state, route and consent after the
+frame before presenting; token verification pages are left uninterrupted. Route
+checks use the delegate's top state, including imperative pushes, so visiting
+Privacy settings consumes the once-per-session offer there as well.
+
+`privacy_runtime_test.dart` exercises slow reads and actual 30-second polling with
+an edited stateful input, both Save and Close, and Back to the original route.
+400/403 widget regressions retain choices/error across repeated authoritative
+reads, recover failed reads, and reconfirm without replaying rejected request IDs.

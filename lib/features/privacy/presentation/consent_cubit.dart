@@ -19,6 +19,7 @@ class ConsentState {
     this.failedDecision,
     this.locallyActive = false,
     this.requiresReconfirmation = false,
+    this.saveFailed = false,
   });
   final String? userId;
   final List<UserConsent> consents;
@@ -28,6 +29,8 @@ class ConsentState {
   final ConsentDecision? failedDecision;
   final bool locallyActive;
   final bool requiresReconfirmation;
+  // A rejected write remains a failure even when its request cannot be retried.
+  final bool saveFailed;
 }
 
 /// Session-bound account preferences and expiring client-analytics authority.
@@ -163,7 +166,8 @@ class ConsentCubit extends Cubit<ConsentState> {
           userId: userId,
           consents: response.consents,
           locallyActive: locallyActive,
-          error: state.failedDecision == null ? null : ConsentErrorKind.save,
+          error: state.saveFailed ? ConsentErrorKind.save : null,
+          saveFailed: state.saveFailed,
           requiresReconfirmation: state.requiresReconfirmation,
           failedDecision: state.failedDecision,
         ),
@@ -178,6 +182,7 @@ class ConsentCubit extends Cubit<ConsentState> {
           userId: userId,
           consents: state.consents,
           error: ConsentErrorKind.load,
+          saveFailed: state.saveFailed,
           requiresReconfirmation: state.requiresReconfirmation,
           failedDecision: state.failedDecision,
         ),
@@ -204,6 +209,7 @@ class ConsentCubit extends Cubit<ConsentState> {
           loading: state.loading,
           saving: state.saving,
           error: state.error,
+          saveFailed: state.saveFailed,
           requiresReconfirmation: state.requiresReconfirmation,
           failedDecision: state.failedDecision,
         ),
@@ -296,6 +302,7 @@ class ConsentCubit extends Cubit<ConsentState> {
             userId: userId,
             consents: state.consents,
             error: ConsentErrorKind.load,
+            saveFailed: true,
             failedDecision: decision,
           ),
         );
@@ -318,6 +325,7 @@ class ConsentCubit extends Cubit<ConsentState> {
           userId: userId,
           consents: state.consents,
           error: ConsentErrorKind.save,
+          saveFailed: !conflict,
           failedDecision: rejected ? null : decision,
           requiresReconfirmation: conflict,
         ),
