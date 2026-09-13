@@ -11,9 +11,15 @@ import 'privacy_consent_sheet.dart';
 
 /// One runtime at the app root, shared by onboarding and settings surfaces.
 class PrivacyRuntime extends StatefulWidget {
-  const PrivacyRuntime({super.key, required this.router, required this.child});
+  const PrivacyRuntime({
+    super.key,
+    required this.router,
+    required this.child,
+    this.analytics,
+  });
   final GoRouter router;
   final Widget child;
+  final AnalyticsService? analytics;
   @override
   State<PrivacyRuntime> createState() => _PrivacyRuntimeState();
 }
@@ -82,10 +88,15 @@ class _PrivacyRuntimeState extends State<PrivacyRuntime>
 
   void _pageview() {
     _offerChoices();
+    final delegate = widget.router.routerDelegate;
+    if (delegate.currentConfiguration.isEmpty) return;
+    // The configuration belongs to the underlying route after context.push().
+    // The top state retains the visible match's template, never its resolved
+    // path parameters, query or fragment. Missing templates fail closed.
+    final template = delegate.state.fullPath;
+    if (template == null || template.isEmpty) return;
     unawaited(
-      AnalyticsService.instance.pageview(
-        widget.router.routerDelegate.currentConfiguration.fullPath,
-      ),
+      (widget.analytics ?? AnalyticsService.instance).pageview(template),
     );
   }
 

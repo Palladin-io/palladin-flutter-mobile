@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:mobile_palladin/features/privacy/data/consent_activation_store.dart';
 import 'package:mobile_palladin/features/shell/presentation/pages/app_shell.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +14,7 @@ import 'package:mobile_palladin/core/widgets/app_toggle.dart';
 import 'package:mobile_palladin/core/widgets/sheet_surface.dart';
 import 'package:mobile_palladin/core/widgets/sheet_action_buttons.dart';
 import 'package:mobile_palladin/core/theme/app_colors.dart';
+import 'package:mobile_palladin/core/theme/app_spacing.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/privacy/domain/user_consent.dart';
 import 'package:mobile_palladin/features/privacy/presentation/consent_cubit.dart';
@@ -77,6 +80,20 @@ class _Remote extends Remote {
 }
 
 void main() {
+  setUpAll(() async {
+    // Use Flutter's bundled font for geometric/glyph assertions. Ahem's square
+    // glyphs exaggerate wrapped labels and do not represent the native UI.
+    final flutterRoot = Platform.environment['FLUTTER_ROOT']!;
+    final loader = FontLoader('Roboto');
+    for (final weight in ['Regular', 'Medium', 'Bold']) {
+      loader.addFont(
+        File(
+          '$flutterRoot/bin/cache/artifacts/material_fonts/Roboto-$weight.ttf',
+        ).readAsBytes().then(ByteData.sublistView),
+      );
+    }
+    await loader.load();
+  });
   late _Remote remote;
   late ConsentCubit cubit;
   late _AuthBloc auth;
@@ -118,6 +135,157 @@ void main() {
           home: page,
         ),
       );
+
+  for (final viewport in [const Size(390, 1200), const Size(320, 568)]) {
+    for (final startup in [false, true]) {
+      for (final scale in [1.0, 2.0]) {
+        testWidgets(
+          'consent layout fills sheet and pins footer: $viewport startup=$startup text=$scale',
+          (tester) async {
+            tester.view.physicalSize = viewport;
+            tester.view.devicePixelRatio = 1;
+            tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            addTearDown(tester.view.resetPhysicalSize);
+            addTearDown(tester.view.resetDevicePixelRatio);
+            addTearDown(tester.view.resetViewPadding);
+            addTearDown(tester.view.resetViewInsets);
+            addTearDown(
+              tester.platformDispatcher.clearTextScaleFactorTestValue,
+            );
+            await tester.pumpWidget(
+              app(
+                startup
+                    ? const PrivacyOnboardingPage()
+                    : const PrivacySettingsPage(),
+                locale: 'pl',
+              ),
+            );
+            await tester.pumpAndSettle();
+            final sheet = find.byType(SheetSurface);
+            final footer = find.byType(SheetActionButtons);
+            final scroll = find.descendant(
+              of: sheet,
+              matching: find.byType(SingleChildScrollView),
+            );
+            Rect assertLayout() {
+              final sheetRect = tester.getRect(sheet);
+              final footerRect = tester.getRect(footer);
+              final scrollRect = tester.getRect(scroll);
+              expect(sheetRect.bottom, closeTo(viewport.height, .01));
+              expect(footerRect.bottom, closeTo(sheetRect.bottom, .01));
+              expect(footerRect.left, sheetRect.left);
+              expect(footerRect.right, sheetRect.right);
+              expect(scrollRect.bottom, closeTo(footerRect.top, .01));
+              expect(scrollRect.height, greaterThan(0));
+              final save = find.widgetWithText(OutlinedButton, 'Zapisz wybór');
+              final accept = find.widgetWithText(
+                FilledButton,
+                'Akceptuj wszystkie',
+              );
+              expect(tester.getSize(save), tester.getSize(accept));
+              for (final button in [save, accept]) {
+                final labelRect = tester.getRect(
+                  find.descendant(of: button, matching: find.byType(Text)),
+                );
+                final buttonRect = tester.getRect(button);
+                expect(labelRect.top, greaterThanOrEqualTo(buttonRect.top));
+                expect(labelRect.bottom, lessThanOrEqualTo(buttonRect.bottom));
+                final paragraph = tester.renderObject<RenderParagraph>(
+                  find.descendant(of: button, matching: find.byType(RichText)),
+                );
+                for (final box in paragraph.getBoxesForSelection(
+                  TextSelection(
+                    baseOffset: 0,
+                    extentOffset: paragraph.text.toPlainText().length,
+                  ),
+                )) {
+                  expect(
+                    paragraph.localToGlobal(Offset(box.left, box.top)).dy,
+                    greaterThanOrEqualTo(buttonRect.top),
+                  );
+                  expect(
+                    paragraph.localToGlobal(Offset(box.right, box.bottom)).dy,
+                    lessThanOrEqualTo(buttonRect.bottom),
+                  );
+                }
+              }
+              expect(save.hitTestable(), findsOneWidget);
+              expect(accept.hitTestable(), findsOneWidget);
+              expect(tester.takeException(), isNull);
+              return footerRect;
+            }
+
+            final initialFooter = assertLayout();
+            for (final toggle in find.byType(AppToggle).evaluate()) {
+              final target = find
+                  .ancestor(
+                    of: find.byWidget(toggle.widget),
+                    matching: find.byType(InkWell),
+                  )
+                  .first;
+              final card = find
+                  .ancestor(
+                    of: target,
+                    matching: find.byWidgetPredicate(
+                      (w) => w is Container && w.decoration is BoxDecoration,
+                    ),
+                  )
+                  .first;
+              expect(
+                tester.getRect(target).right,
+                closeTo(
+                  tester.getRect(card).right - AppSpacing.cardPadding - 1,
+                  .01,
+                ),
+              );
+            }
+
+            // Every intermediate frame must keep the footer pinned, not just
+            // the final collapsed/expanded sizes (a numeric layout golden).
+            for (final tile in find.byType(ExpansionTile).evaluate().toList()) {
+              final title = find.descendant(
+                of: find.byWidget(tile.widget),
+                matching: find.byType(ListTile),
+              );
+              await tester.ensureVisible(title);
+              await tester.tap(title);
+              for (var frame = 0; frame < 5; frame++) {
+                await tester.pump(const Duration(milliseconds: 50));
+                expect(assertLayout(), initialFooter);
+              }
+              await tester.pumpAndSettle();
+              expect(assertLayout(), initialFooter);
+            }
+            final scrollable = tester.state<ScrollableState>(
+              find
+                  .descendant(of: scroll, matching: find.byType(Scrollable))
+                  .first,
+            );
+            scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+            await tester.pumpAndSettle();
+            expect(assertLayout(), initialFooter);
+            if (viewport.height < 600) {
+              expect(scrollable.position.maxScrollExtent, greaterThan(0));
+            }
+            // The shared footer owns the keyboard/safe-area inset once.
+            tester.view.viewInsets = const FakeViewPadding(bottom: 180);
+            await tester.pumpAndSettle();
+            assertLayout();
+            final acceptRect = tester.getRect(
+              find.widgetWithText(FilledButton, 'Akceptuj wszystkie'),
+            );
+            expect(acceptRect.bottom, lessThanOrEqualTo(viewport.height - 180));
+            tester.view.resetViewInsets();
+            await tester.pumpAndSettle();
+            expect(assertLayout(), initialFooter);
+            expect(remote.decisions, isEmpty);
+            expect(cubit.state.locallyActive, isFalse);
+          },
+        );
+      }
+    }
+  }
 
   for (final brightness in Brightness.values) {
     testWidgets(
@@ -313,6 +481,32 @@ void main() {
           );
           expect(tester.getSize(save).height, 44);
           expect(tester.getSize(save), tester.getSize(accept));
+          for (final button in [save, accept]) {
+            final labelRect = tester.getRect(
+              find.descendant(of: button, matching: find.byType(Text)),
+            );
+            final buttonRect = tester.getRect(button);
+            expect(labelRect.top, greaterThanOrEqualTo(buttonRect.top));
+            expect(labelRect.bottom, lessThanOrEqualTo(buttonRect.bottom));
+            final paragraph = tester.renderObject<RenderParagraph>(
+              find.descendant(of: button, matching: find.byType(RichText)),
+            );
+            for (final box in paragraph.getBoxesForSelection(
+              TextSelection(
+                baseOffset: 0,
+                extentOffset: paragraph.text.toPlainText().length,
+              ),
+            )) {
+              expect(
+                paragraph.localToGlobal(Offset(box.left, box.top)).dy,
+                greaterThanOrEqualTo(buttonRect.top),
+              );
+              expect(
+                paragraph.localToGlobal(Offset(box.right, box.bottom)).dy,
+                lessThanOrEqualTo(buttonRect.bottom),
+              );
+            }
+          }
           await tester.tap(save);
           await tester.pumpAndSettle();
           expect(remote.decisions.map((d) => [d.purpose, d.granted]), [

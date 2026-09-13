@@ -39,7 +39,8 @@ class SheetActionButtons extends StatelessWidget {
   /// Shows a spinner on Confirm and disables both buttons.
   final bool busy;
 
-  /// Equal widths; Confirm retains its primary styling.
+  /// Equal widths and natural equal heights (at least 44) for scaled labels;
+  /// Confirm retains its primary styling.
   final bool equalActions;
 
   static const double _height = 44;
@@ -52,6 +53,84 @@ class SheetActionButtons extends StatelessWidget {
         MediaQuery.viewInsetsOf(context).bottom +
         MediaQuery.viewPaddingOf(context).bottom;
 
+    final actions = Row(
+      crossAxisAlignment: equalActions
+          ? CrossAxisAlignment.stretch
+          : CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: _height,
+              maxHeight: equalActions ? double.infinity : _height,
+            ),
+            child: OutlinedButton(
+              onPressed: busy ? null : onCancel,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.onSurfaceMuted(brightness),
+                side: BorderSide(color: AppColors.cardBorder(brightness)),
+                padding: EdgeInsets.zero,
+                minimumSize: equalActions ? Size.zero : null,
+                tapTargetSize: equalActions
+                    ? MaterialTapTargetSize.shrinkWrap
+                    : null,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                cancelLabel ?? l10n.approvalCancel,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          flex: equalActions ? 1 : 2,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: _height,
+              maxHeight: equalActions ? double.infinity : _height,
+            ),
+            child: FilledButton(
+              onPressed: busy ? null : onConfirm,
+              style: FilledButton.styleFrom(
+                backgroundColor: confirmColor,
+                foregroundColor: AppColors.onBrandRed,
+                padding: EdgeInsets.zero,
+                minimumSize: equalActions ? Size.zero : null,
+                tapTargetSize: equalActions
+                    ? MaterialTapTargetSize.shrinkWrap
+                    : null,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.onBrandRed,
+                      ),
+                    )
+                  : Text(
+                      confirmLabel,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      ],
+    );
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -66,67 +145,7 @@ class SheetActionButtons extends StatelessWidget {
         AppSpacing.screenH,
         AppSpacing.cardPadding + safeBottom,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: SizedBox(
-              height: _height,
-              child: OutlinedButton(
-                onPressed: busy ? null : onCancel,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.onSurfaceMuted(brightness),
-                  side: BorderSide(color: AppColors.cardBorder(brightness)),
-                  padding: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Text(
-                  cancelLabel ?? l10n.approvalCancel,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            flex: equalActions ? 1 : 2,
-            child: SizedBox(
-              height: _height,
-              child: FilledButton(
-                onPressed: busy ? null : onConfirm,
-                style: FilledButton.styleFrom(
-                  backgroundColor: confirmColor,
-                  foregroundColor: AppColors.onBrandRed,
-                  padding: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: busy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.onBrandRed,
-                        ),
-                      )
-                    : Text(
-                        confirmLabel,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: equalActions ? IntrinsicHeight(child: actions) : actions,
     );
   }
 }

@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
-/// Shared compact sheet chrome; the host owns routing and modal semantics.
+/// Shared sheet chrome that fills its host's bounded height.
+/// The host owns height constraints, routing and modal semantics.
 class SheetSurface extends StatelessWidget {
   const SheetSurface({
     super.key,
@@ -31,7 +32,6 @@ class SheetSurface extends StatelessWidget {
             border: Border.all(color: AppColors.navBorder(brightness)),
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
@@ -66,7 +66,7 @@ class SheetSurface extends StatelessWidget {
                   ],
                 ),
               ),
-              Flexible(child: child),
+              Expanded(child: child),
             ],
           ),
         ),

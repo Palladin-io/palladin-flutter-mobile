@@ -202,3 +202,30 @@ Privacy settings consumes the once-per-session offer there as well.
 an edited stateful input, both Save and Close, and Back to the original route.
 400/403 widget regressions retain choices/error across repeated authoritative
 reads, recover failed reads, and reconfirm without replaying rejected request IDs.
+
+
+## Visible route analytics and bounded sheet layout (mobile R3)
+
+Pageviews use `routerDelegate.state.fullPath`, the visible top match's route
+**template**, for both declarative navigation and imperative `context.push()`.
+The underlying `currentConfiguration.fullPath` is not the pushed destination.
+Empty configurations and missing/empty templates emit nothing; resolved paths,
+parameter values, query strings and fragments are never used as fallbacks.
+Template-based deduplication suppresses consent refreshes and same-template pushes,
+while Back emits the newly visible template. Runtime tests inspect encoded capture
+payloads through an in-memory adapter, with and without a shell navigator.
+The optional runtime analytics dependency defaults to the production singleton.
+
+`SheetSurface` requires a bounded host height and expands its body below the
+header. `ConsentChoices` fills that body and assigns all space above its footer
+to the scroll viewport. Expanding details changes only scroll content, never the
+footer position. `SheetActionButtons` still owns the keyboard and bottom safe-area
+insets exactly once. Essential's informational label can wrap in the category row
+at large text scales. Equal footer actions retain their 44px minimum and share
+the natural height of the longest scaled label, preventing glyph clipping.
+Borderless notice tiles and the two equal actions remain.
+Numeric layout regressions cover startup/settings at 390×1200 and 320×568, Polish
+text at 1×/2×, both details throughout expansion, bottom scrolling and keyboard
+insets at both scales, using Flutter SDK Roboto metrics instead of synthetic
+Ahem glyphs. The debug-only native preview exports read-only render geometry alongside
+its existing release-off and empty-key state for screenshot verification.

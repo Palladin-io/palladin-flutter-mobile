@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/core/theme/app_colors.dart';
+import 'package:mobile_palladin/core/widgets/sheet_action_buttons.dart';
+import 'package:mobile_palladin/core/widgets/sheet_surface.dart';
 import 'package:mobile_palladin/features/privacy/data/consent_activation_store.dart';
 import 'package:mobile_palladin/features/privacy/data/consent_remote_datasource.dart';
 import 'package:mobile_palladin/features/privacy/presentation/consent_cubit.dart';
@@ -133,12 +135,48 @@ class _PreviewState extends State<Preview> {
           'projectKeyEmpty': true,
           'locallyActive': cubit.state.locallyActive,
           'transportInitialized': analytics.isInitialized,
+          'layout': _sheetLayout(),
           'consents': cubit.state.consents
               .map((c) => {'purpose': c.purpose, 'status': c.status})
               .toList(),
         }),
       );
     });
+  }
+
+  // Read-only geometry from the real render tree for native layout evidence.
+  Map<String, Object> _sheetLayout() {
+    final result = <String, Object>{};
+    final view = WidgetsBinding.instance.platformDispatcher.views.first;
+    result['viewport'] = {
+      'width': view.physicalSize.width / view.devicePixelRatio,
+      'height': view.physicalSize.height / view.devicePixelRatio,
+    };
+    void visit(Element element, bool inSheet) {
+      final widget = element.widget;
+      inSheet = inSheet || widget is SheetSurface;
+      final name = widget is SheetSurface
+          ? 'sheet'
+          : inSheet && widget is SheetActionButtons
+          ? 'footer'
+          : inSheet && widget is SingleChildScrollView
+          ? 'scroll'
+          : null;
+      final box = element.findRenderObject();
+      if (name != null && box is RenderBox) {
+        final position = box.localToGlobal(Offset.zero);
+        result[name] = {
+          'x': position.dx,
+          'y': position.dy,
+          'width': box.size.width,
+          'height': box.size.height,
+        };
+      }
+      element.visitChildren((child) => visit(child, inSheet));
+    }
+
+    WidgetsBinding.instance.rootElement?.visitChildren((e) => visit(e, false));
+    return result;
   }
 
   Future<void> _showNoticeDetails(int index, {required bool bottom}) async {

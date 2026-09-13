@@ -171,7 +171,13 @@ class _ConsentChoicesState extends State<_ConsentForm> {
         _card(
           l10n.privacyEssential,
           l10n.privacyEssentialDescription,
-          Text(l10n.privacyAlwaysActive, style: const TextStyle(fontSize: 12)),
+          Flexible(
+            child: Text(
+              l10n.privacyAlwaysActive,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
         ),
         const SizedBox(height: AppSpacing.cardGap),
         if (state.loading)
@@ -334,10 +340,9 @@ class _ConsentChoicesState extends State<_ConsentForm> {
     return PopScope(
       canPop: !busy,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Flexible(
+          Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(AppSpacing.screenH),
               child: body,
@@ -367,6 +372,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: Text(
