@@ -158,6 +158,20 @@ void main() {
           );
           expect(find.byType(BottomSheet), findsOneWidget);
           expect(
+            find.text(
+              locale == 'pl' ? 'Marketing e-mailowy' : 'Email marketing',
+            ),
+            findsOneWidget,
+          );
+          expect(
+            find.text(
+              locale == 'pl'
+                  ? 'Wybierz, czy chcesz otrzymywać e-maile z nowościami i ofertami Palladin. Niezbędne wiadomości transakcyjne i dotyczące konta wysyłamy niezależnie od tego wyboru.'
+                  : 'Choose whether to receive emails with Palladin news and offers. Essential transactional and account messages are sent regardless of this choice.',
+            ),
+            findsOneWidget,
+          );
+          expect(
             find.text(locale == 'pl' ? 'Twoja prywatność' : 'Your privacy'),
             findsOneWidget,
           );

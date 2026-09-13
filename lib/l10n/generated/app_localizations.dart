@@ -7241,7 +7241,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacyMarketing.
   ///
   /// In en, this message translates to:
-  /// **'Email news and offers'**
+  /// **'Email marketing'**
   String get privacyMarketing;
 
   /// No description provided for @privacyContinue.
@@ -7361,7 +7361,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacyMarketingDescription.
   ///
   /// In en, this message translates to:
-  /// **'Choose whether to receive emails with Palladin news and offers.'**
+  /// **'Choose whether to receive emails with Palladin news and offers. Essential transactional and account messages are sent regardless of this choice.'**
   String get privacyMarketingDescription;
 
   /// No description provided for @privacyAcceptAll.

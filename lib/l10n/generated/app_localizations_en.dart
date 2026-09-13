@@ -4076,7 +4076,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get privacyAnalytics => 'Product analytics';
 
   @override
-  String get privacyMarketing => 'Email news and offers';
+  String get privacyMarketing => 'Email marketing';
 
   @override
   String get privacyContinue => 'Continue';
@@ -4144,7 +4144,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacyMarketingDescription =>
-      'Choose whether to receive emails with Palladin news and offers.';
+      'Choose whether to receive emails with Palladin news and offers. Essential transactional and account messages are sent regardless of this choice.';
 
   @override
   String get privacyAcceptAll => 'Accept all';

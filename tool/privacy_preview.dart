@@ -76,7 +76,12 @@ class _PreviewState extends State<Preview> {
         });
         transitioning = false;
       }
-      if (parameters['action'] == 'back') {
+      if (parameters['action'] == 'details') {
+        await _showNoticeDetails(
+          parameters['purpose'] == 'email_marketing' ? 1 : 0,
+          bottom: parameters['bottom'] == 'true',
+        );
+      } else if (parameters['action'] == 'back') {
         await navigator.currentState?.maybePop();
       } else if (parameters['action'] case final action?) {
         final l10n = await AppLocalizations.delegate.load(Locale(locale));
@@ -134,6 +139,37 @@ class _PreviewState extends State<Preview> {
         }),
       );
     });
+  }
+
+  Future<void> _showNoticeDetails(int index, {required bool bottom}) async {
+    final tiles = <Element>[];
+    void collect(Element element) {
+      if (element.widget is ExpansionTile) tiles.add(element);
+      element.visitChildren(collect);
+    }
+
+    WidgetsBinding.instance.rootElement!.visitChildren(collect);
+    final tile = tiles[index];
+    ExpansibleController? controller;
+    void findController(Element element) {
+      controller ??= ExpansibleController.maybeOf(element);
+      element.visitChildren(findController);
+    }
+
+    tile.visitChildren(findController);
+    controller!.expand();
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    Element? text;
+    void findText(Element element) {
+      final widget = element.widget;
+      if (widget is Text && widget.data?.startsWith('TEST FIXTURE') == true) {
+        text = element;
+      }
+      element.visitChildren(findText);
+    }
+
+    tile.visitChildren(findText);
+    await Scrollable.ensureVisible(text!, alignment: bottom ? 1 : 0);
   }
 
   VoidCallback _completeStartup(int expectedRevision) => () {
