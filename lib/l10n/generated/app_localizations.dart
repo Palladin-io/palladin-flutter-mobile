@@ -7223,7 +7223,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacySubtitle.
   ///
   /// In en, this message translates to:
-  /// **'These choices are optional. You can change them later in Settings → Privacy.'**
+  /// **'Optional consents are voluntary. You can change them later in Privacy settings.'**
   String get privacySubtitle;
 
   /// No description provided for @privacyAnalytics.
@@ -7265,7 +7265,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacyNoticeUnavailable.
   ///
   /// In en, this message translates to:
-  /// **'This option is not available yet.'**
+  /// **'Saving these optional consents is not available yet. You can continue with essential features.'**
   String get privacyNoticeUnavailable;
 
   /// No description provided for @privacyLocalActivation.
@@ -7277,7 +7277,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacyActivateHere.
   ///
   /// In en, this message translates to:
-  /// **'Activate analytics in this app'**
+  /// **'Enable on this device'**
   String get privacyActivateHere;
 
   /// No description provided for @privacySaving.
@@ -7321,6 +7321,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Consent withdrawn'**
   String get privacyWithdrawn;
+
+  /// No description provided for @privacyOnboardingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your privacy'**
+  String get privacyOnboardingTitle;
+
+  /// No description provided for @privacyEssential.
+  ///
+  /// In en, this message translates to:
+  /// **'Essential'**
+  String get privacyEssential;
+
+  /// No description provided for @privacyAlwaysActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Always active'**
+  String get privacyAlwaysActive;
+
+  /// No description provided for @privacyEssentialDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable core features and help protect your account.'**
+  String get privacyEssentialDescription;
+
+  /// No description provided for @privacyAnalyticsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'With your permission, analytics will help us improve the app based on how its features are used. Your vault contents are excluded.'**
+  String get privacyAnalyticsDescription;
+
+  /// No description provided for @privacyMarketingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose whether to receive emails with Palladin news and offers.'**
+  String get privacyMarketingDescription;
+
+  /// No description provided for @privacyEssentialOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Essential only'**
+  String get privacyEssentialOnly;
+
+  /// No description provided for @privacySaveChoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Save choice'**
+  String get privacySaveChoice;
+
+  /// No description provided for @privacyInactiveHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Off on this device'**
+  String get privacyInactiveHere;
+
+  /// No description provided for @privacyActiveHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled on this device'**
+  String get privacyActiveHere;
+
+  /// No description provided for @privacyDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent details'**
+  String get privacyDetails;
 }
 
 class _AppLocalizationsDelegate

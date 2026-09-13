@@ -175,6 +175,32 @@ class ConsentCubit extends Cubit<ConsentState> {
     }
   }
 
+  /// Stop locally before an API decision or dismissal; never treat this as an account withdrawal.
+  Future<void> stopHere() async {
+    _activation = null;
+    unawaited(_analytics.reset());
+    final userId = _userId;
+    if (!isClosed) {
+      emit(
+        ConsentState(
+          userId: userId,
+          consents: state.consents,
+          loading: state.loading,
+          saving: state.saving,
+          error: state.error,
+          failedDecision: state.failedDecision,
+        ),
+      );
+    }
+    if (userId != null) {
+      try {
+        await _store.write(userId, null);
+      } catch (_) {
+        /* remains off */
+      }
+    }
+  }
+
   ConsentDecision? decision(UserConsent consent, bool granted, String source) {
     final version = consent.currentNotice?.version ?? consent.noticeVersion;
     final locale = consent.currentNotice?.locale ?? consent.noticeLocale;
@@ -243,7 +269,7 @@ class ConsentCubit extends Cubit<ConsentState> {
       }
       emit(ConsentState(userId: userId, consents: state.consents));
       await refresh();
-      return generation == _generation && !isClosed;
+      return generation == _generation && !isClosed && state.error == null;
     } catch (_) {
       if (generation != _generation || isClosed) return false;
       if (analyticsPurpose) {

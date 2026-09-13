@@ -17,24 +17,43 @@ import 'privacy_fixture.dart';
 class _AuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
 class _Remote extends Remote {
+  UserConsent marketing = const UserConsent(
+    purpose: 'email_marketing',
+    scope: 'palladin_email_news_and_offers',
+    status: 'unknown',
+    revision: 0,
+    activationRevision: 0,
+    currentNotice: ConsentNotice(
+      version: 'test-v1',
+      locale: 'en',
+      text: 'Test marketing notice',
+    ),
+  );
+  bool marketingFails = false;
   @override
   Future<UserConsents> get(String locale, {dynamic cancelToken}) async {
     if (networkFails) throw StateError('network');
-    return UserConsents([
-      current,
-      const UserConsent(
-        purpose: 'email_marketing',
-        scope: 'palladin_email_news_and_offers',
-        status: 'unknown',
-        revision: 0,
-        activationRevision: 0,
-        currentNotice: ConsentNotice(
-          version: 'test-v1',
-          locale: 'en',
-          text: 'Test marketing notice',
-        ),
-      ),
-    ], 60);
+    return UserConsents([current, marketing], 60);
+  }
+
+  @override
+  Future<UserConsent> decide(ConsentDecision d, {dynamic cancelToken}) async {
+    if (d.purpose != 'email_marketing') {
+      return super.decide(d, cancelToken: cancelToken);
+    }
+    decisions.add(d);
+    if (networkFails || marketingFails) throw StateError('network');
+    marketing = UserConsent(
+      purpose: marketing.purpose,
+      scope: marketing.scope,
+      status: d.granted ? 'granted' : 'denied',
+      revision: d.expectedRevision + 1,
+      activationRevision: 0,
+      noticeVersion: d.noticeVersion,
+      noticeLocale: d.locale,
+      currentNotice: marketing.currentNotice,
+    );
+    return marketing;
   }
 }
 
@@ -78,52 +97,130 @@ void main() {
     ),
   );
 
-  testWidgets('onboarding permits continuing with both options off', (
-    tester,
-  ) async {
-    await tester.pumpWidget(app(const PrivacyOnboardingPage()));
-    expect(
-      tester
-          .widgetList<AppToggle>(find.byType(AppToggle))
-          .map((toggle) => toggle.value),
-      [false, false],
-    );
-    await tester.tap(find.text('Continue'));
-    verify(() => auth.add(const PrivacyChoicesCompleted())).called(1);
-    expect(remote.decisions, isEmpty);
-  });
   testWidgets(
-    'settings grant uses the displayed notice and the settings source',
+    'startup is a modal sheet, optional off and essential always active; dismissal makes no decision',
     (tester) async {
-      await tester.pumpWidget(app(const PrivacySettingsPage()));
-      await tester.tap(find.byType(AppToggle).first);
+      await tester.pumpWidget(app(const PrivacyOnboardingPage()));
       await tester.pumpAndSettle();
-      expect(remote.decisions.single.source, 'mobile_settings');
-      expect(remote.decisions.single.noticeVersion, 'test-v1');
-      expect(find.text('Privacy choice saved'), findsOneWidget);
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.text('Your privacy'), findsOneWidget);
+      expect(find.text('Always active'), findsOneWidget);
+      expect(
+        tester
+            .widgetList<AppToggle>(find.byType(AppToggle))
+            .map((t) => t.value),
+        [false, false],
+      );
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      verify(() => auth.add(const PrivacyChoicesCompleted())).called(1);
+      expect(remote.decisions, isEmpty);
     },
   );
-  testWidgets('save failure remains visible and onboarding can continue', (
+
+  testWidgets(
+    'startup Save commits both draft choices and activates this installation',
+    (tester) async {
+      await tester.pumpWidget(app(const PrivacyOnboardingPage()));
+      await tester.pumpAndSettle();
+      for (final toggle in find.byType(AppToggle).evaluate().toList()) {
+        await tester.ensureVisible(find.byWidget(toggle.widget));
+        await tester.tap(
+          find
+              .ancestor(
+                of: find.byWidget(toggle.widget),
+                matching: find.byType(InkWell),
+              )
+              .first,
+        );
+        await tester.pumpAndSettle();
+      }
+      expect(remote.decisions, isEmpty);
+      await tester.tap(find.text('Save choice'));
+      await tester.pumpAndSettle();
+      expect(remote.decisions.map((d) => d.granted), [true, true]);
+      expect(cubit.state.locallyActive, isTrue);
+      verify(() => auth.add(const PrivacyChoicesCompleted())).called(1);
+    },
+  );
+
+  testWidgets('essential-only saves both refusals with no required opt-in', (
     tester,
   ) async {
-    remote.networkFails = true;
     await tester.pumpWidget(app(const PrivacyOnboardingPage()));
-    await tester.tap(find.byType(AppToggle).first);
     await tester.pumpAndSettle();
-    expect(find.textContaining('could not be confirmed'), findsOneWidget);
-    expect(find.text('Retry saving'), findsOneWidget);
-    await tester.tap(find.text('Continue'));
+    await tester.tap(find.text('Essential only'));
+    await tester.pumpAndSettle();
+    expect(remote.decisions.map((d) => d.granted), [false, false]);
+    expect(cubit.state.locallyActive, isFalse);
     verify(() => auth.add(const PrivacyChoicesCompleted())).called(1);
   });
+
   testWidgets(
-    'Polish small-screen settings have both controls without overflow',
+    'settings keeps another installation off until explicit local activation',
     (tester) async {
-      tester.view.physicalSize = const Size(360, 640);
+      remote.current = consent(
+        status: 'granted',
+        revision: 1,
+        activationRevision: 1,
+      );
+      await cubit.refresh();
+      await tester.pumpWidget(app(const PrivacySettingsPage()));
+      await tester.pumpAndSettle();
+      expect(find.text('Off on this device'), findsOneWidget);
+      await tester.ensureVisible(find.text('Enable on this device'));
+      await tester.tap(find.text('Enable on this device'));
+      await tester.pumpAndSettle();
+      expect(cubit.state.locallyActive, isTrue);
+      expect(remote.decisions.first.source, 'mobile_settings');
+    },
+  );
+
+  testWidgets(
+    'partial save error stays open, stops locally and retries only the failed decision',
+    (tester) async {
+      remote.marketingFails = true;
+      await tester.pumpWidget(app(const PrivacyOnboardingPage()));
+      await tester.pumpAndSettle();
+      for (final toggle in find.byType(AppToggle).evaluate().toList()) {
+        await tester.ensureVisible(find.byWidget(toggle.widget));
+        await tester.tap(
+          find
+              .ancestor(
+                of: find.byWidget(toggle.widget),
+                matching: find.byType(InkWell),
+              )
+              .first,
+        );
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.text('Save choice'));
+      await tester.pumpAndSettle();
+      expect(cubit.state.locallyActive, isFalse);
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(remote.decisions.length, 2);
+      await tester.ensureVisible(find.text('Retry saving'));
+      await tester.tap(find.text('Retry saving'));
+      await tester.pumpAndSettle();
+      expect(remote.decisions.length, 3);
+      expect(remote.decisions[1], same(remote.decisions[2]));
+      verifyNever(() => auth.add(const PrivacyChoicesCompleted()));
+    },
+  );
+
+  testWidgets(
+    'Polish small-screen startup and settings have parity without overflow',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 900);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(app(const PrivacySettingsPage(), locale: 'pl'));
-      expect(find.text('Prywatność'), findsOneWidget);
+      await tester.pumpWidget(app(const PrivacyOnboardingPage(), locale: 'pl'));
+      await tester.pumpAndSettle();
+      expect(find.text('Twoja prywatność'), findsOneWidget);
+      expect(find.text('Zawsze aktywne'), findsOneWidget);
+      expect(find.text('Tylko niezbędne'), findsOneWidget);
+      expect(find.text('Zapisz wybór'), findsOneWidget);
       expect(find.byType(AppToggle), findsNWidgets(2));
       expect(tester.takeException(), isNull);
     },

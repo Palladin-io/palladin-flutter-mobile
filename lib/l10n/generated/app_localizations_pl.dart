@@ -4111,7 +4111,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get privacySubtitle =>
-      'Te wybory są dobrowolne. Możesz je później zmienić w Ustawieniach → Prywatność.';
+      'Opcjonalne zgody są dobrowolne. Możesz je później zmienić w ustawieniach prywatności.';
 
   @override
   String get privacyAnalytics => 'Analityka produktu';
@@ -4135,14 +4135,15 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nie udało się potwierdzić wyboru. Ponów zapis lub korzystaj dalej z Palladin.';
 
   @override
-  String get privacyNoticeUnavailable => 'Ta opcja nie jest jeszcze dostępna.';
+  String get privacyNoticeUnavailable =>
+      'Zapisywanie tych opcjonalnych zgód nie jest jeszcze dostępne. Możesz korzystać z niezbędnych funkcji.';
 
   @override
   String get privacyLocalActivation =>
       'Zgoda konta obejmuje web i mobile. Analityka wymaga również aktywacji w każdej przeglądarce lub instalacji aplikacji. Cofnięcie zgody wyłącza ją na wszystkich urządzeniach.';
 
   @override
-  String get privacyActivateHere => 'Aktywuj analitykę w tej aplikacji';
+  String get privacyActivateHere => 'Włącz na tym urządzeniu';
 
   @override
   String get privacySaving => 'Zapisywanie…';
@@ -4164,4 +4165,40 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get privacyWithdrawn => 'Cofnięto zgodę';
+
+  @override
+  String get privacyOnboardingTitle => 'Twoja prywatność';
+
+  @override
+  String get privacyEssential => 'Niezbędne';
+
+  @override
+  String get privacyAlwaysActive => 'Zawsze aktywne';
+
+  @override
+  String get privacyEssentialDescription =>
+      'Zapewniają działanie podstawowych funkcji i ochronę Twojego konta.';
+
+  @override
+  String get privacyAnalyticsDescription =>
+      'Za Twoją zgodą pomoże nam ulepszać aplikację na podstawie korzystania z jej funkcji. Bez treści Twojego sejfu.';
+
+  @override
+  String get privacyMarketingDescription =>
+      'Wybierz, czy chcesz otrzymywać e-maile z wiadomościami i ofertami Palladin.';
+
+  @override
+  String get privacyEssentialOnly => 'Tylko niezbędne';
+
+  @override
+  String get privacySaveChoice => 'Zapisz wybór';
+
+  @override
+  String get privacyInactiveHere => 'Wyłączona na tym urządzeniu';
+
+  @override
+  String get privacyActiveHere => 'Włączona na tym urządzeniu';
+
+  @override
+  String get privacyDetails => 'Szczegóły zgody';
 }

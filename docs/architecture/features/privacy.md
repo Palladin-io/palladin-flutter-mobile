@@ -54,3 +54,37 @@ review. The controls show this state and still permit continuing. No marketing
 sender was introduced. Final PL/EN notices, privacy text, retention, App Privacy
 and Data Safety declarations remain a coordinated release gate. ATT is a separate
 assessment, not a blanket analytics permission prompt.
+
+
+## Explicit startup choice and settings (CVT-609, 2026-09-13)
+
+The startup presentation is a modal, not the settings page. Web reuses ModalShell
+with focus trapping over the safe pre-verification/key-setup surface; eligible
+first entry can offer it over the authenticated shell. Mobile uses a root-native
+bottom sheet before the existing setup/verification guards. An unknown account
+choice can be offered once per running session; dismissing is only a UI state,
+not a stored denial or permission. The user can continue without optional consent.
+
+Essential is informational and always active, without a switch. Product analytics
+and email news/offers start off when unknown. Switches edit a draft, then equal
+Essential only / Save choice actions commit the two purposes. Full current notices
+remain expandable before deciding; short explanatory labels do not replace the
+backend notice version/text or activate the empty release catalogue.
+
+The two existing endpoints are not atomic. Save processes the decisions in order,
+reports no overall success on partial failure and retains only unconfirmed decisions
+for an identical idempotent retry. Turning analytics off suspends local capture
+before Save. Errors and dismissal fail closed. Saving an unrelated marketing change
+never activates a previously inactive installation. Settings shows a simple local
+on/off status and an explicit Enable on this device action; only the initial
+analytics grant or that activation action enables the current installation.
+
+The debug preview uses real widgets/components and the normal consent data path
+against a local synthetic API. It is visibly labelled TEST FIXTURE. It cannot run
+as a released preview and never configures an analytics key. Production entrypoints,
+active notices, authentication and release configuration are unchanged.
+
+Consent footers reuse `SheetActionButtons(equalActions: true)`; other sheets keep
+their existing confirm/cancel styling. The startup sheet disables drag/backdrop
+dismissal and prevents closing while a request is pending. Close before saving
+suspends local capture, then completes the optional routing step.

@@ -20,7 +20,31 @@ class PrivacyRuntime extends StatefulWidget {
 class _PrivacyRuntimeState extends State<PrivacyRuntime>
     with WidgetsBindingObserver {
   late final ConsentCubit _consents = context.read<ConsentCubit>();
+  final _prompted = <String>{};
+  void _offerChoices() {
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated) return;
+    if (auth.needsPrivacyChoices) {
+      _prompted.add(auth.userId);
+      return;
+    }
+    if (!auth.isOnboarded ||
+        !auth.emailVerified ||
+        auth.isVaultLocked ||
+        _prompted.contains(auth.userId) ||
+        _consents.state.loading ||
+        _consents.state.error != null ||
+        _consents.state.userId != auth.userId) {
+      return;
+    }
+    if (_consents.state.consents.any((c) => c.status == 'unknown')) {
+      _prompted.add(auth.userId);
+      context.read<AuthBloc>().add(const PrivacyChoicesRequested());
+    }
+  }
+
   void _bind(AuthState state) {
+    _offerChoices();
     unawaited(
       _consents.bind(
         state is AuthAuthenticated ? state.userId : null,
@@ -67,7 +91,12 @@ class _PrivacyRuntimeState extends State<PrivacyRuntime>
   Widget build(BuildContext context) => MultiBlocListener(
     listeners: [
       BlocListener<AuthBloc, AuthState>(listener: (_, state) => _bind(state)),
-      BlocListener<ConsentCubit, ConsentState>(listener: (_, _) => _pageview()),
+      BlocListener<ConsentCubit, ConsentState>(
+        listener: (_, _) {
+          _pageview();
+          _offerChoices();
+        },
+      ),
     ],
     child: widget.child,
   );

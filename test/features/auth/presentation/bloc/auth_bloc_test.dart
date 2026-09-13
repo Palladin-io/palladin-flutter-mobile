@@ -96,6 +96,23 @@ void main() {
       ],
     );
 
+    blocTest<AuthBloc, AuthState>(
+      'first-entry privacy request preserves authentication and routing guards',
+      build: () => AuthBloc(authRepository: mockRepo),
+      seed: () => const AuthAuthenticated(
+        userId: 'privacy-fixture',
+        isOnboarded: false,
+        isVaultLocked: true,
+      ),
+      act: (bloc) => bloc.add(const PrivacyChoicesRequested()),
+      expect: () => [
+        isA<AuthAuthenticated>()
+            .having((s) => s.needsPrivacyChoices, 'optional step', true)
+            .having((s) => s.isOnboarded, 'setup still required', false)
+            .having((s) => s.isVaultLocked, 'vault still locked', true),
+      ],
+    );
+
     test('initial state is AuthInitial', () {
       final bloc = AuthBloc(authRepository: mockRepo);
       expect(bloc.state, isA<AuthInitial>());

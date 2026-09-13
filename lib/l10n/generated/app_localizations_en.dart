@@ -4067,7 +4067,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacySubtitle =>
-      'These choices are optional. You can change them later in Settings → Privacy.';
+      'Optional consents are voluntary. You can change them later in Privacy settings.';
 
   @override
   String get privacyAnalytics => 'Product analytics';
@@ -4091,14 +4091,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'The choice could not be confirmed. Retry or continue using Palladin.';
 
   @override
-  String get privacyNoticeUnavailable => 'This option is not available yet.';
+  String get privacyNoticeUnavailable =>
+      'Saving these optional consents is not available yet. You can continue with essential features.';
 
   @override
   String get privacyLocalActivation =>
       'Account consent applies to web and mobile. Analytics also requires activation on each browser or mobile installation. Withdrawing consent disables it across your devices.';
 
   @override
-  String get privacyActivateHere => 'Activate analytics in this app';
+  String get privacyActivateHere => 'Enable on this device';
 
   @override
   String get privacySaving => 'Saving…';
@@ -4120,4 +4121,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacyWithdrawn => 'Consent withdrawn';
+
+  @override
+  String get privacyOnboardingTitle => 'Your privacy';
+
+  @override
+  String get privacyEssential => 'Essential';
+
+  @override
+  String get privacyAlwaysActive => 'Always active';
+
+  @override
+  String get privacyEssentialDescription =>
+      'Enable core features and help protect your account.';
+
+  @override
+  String get privacyAnalyticsDescription =>
+      'With your permission, analytics will help us improve the app based on how its features are used. Your vault contents are excluded.';
+
+  @override
+  String get privacyMarketingDescription =>
+      'Choose whether to receive emails with Palladin news and offers.';
+
+  @override
+  String get privacyEssentialOnly => 'Essential only';
+
+  @override
+  String get privacySaveChoice => 'Save choice';
+
+  @override
+  String get privacyInactiveHere => 'Off on this device';
+
+  @override
+  String get privacyActiveHere => 'Enabled on this device';
+
+  @override
+  String get privacyDetails => 'Consent details';
 }

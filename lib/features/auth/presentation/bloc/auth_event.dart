@@ -92,3 +92,8 @@ final class OnboardingCompleted extends AuthEvent {
 final class PrivacyChoicesCompleted extends AuthEvent {
   const PrivacyChoicesCompleted();
 }
+
+/// Offers the optional choices on the first eligible entry with no recorded choice.
+final class PrivacyChoicesRequested extends AuthEvent {
+  const PrivacyChoicesRequested();
+}

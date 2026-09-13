@@ -27,6 +27,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<OnboardingCompleted>(_onOnboardingCompleted);
     on<PasswordSessionEstablished>(_onPasswordSessionEstablished);
     on<AuthEmailVerified>(_onEmailVerified);
+    on<PrivacyChoicesRequested>((event, emit) {
+      final current = state;
+      if (current is AuthAuthenticated) {
+        emit(current.copyWith(needsPrivacyChoices: true));
+      }
+    });
     on<PrivacyChoicesCompleted>((event, emit) {
       final current = state;
       if (current is AuthAuthenticated) {

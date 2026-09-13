@@ -21,6 +21,7 @@ class SheetActionButtons extends StatelessWidget {
     required this.confirmColor,
     this.cancelLabel,
     this.busy = false,
+    this.equalActions = false,
   });
 
   /// Tapped on the Cancel button. Pass `null` while [busy] to disable it.
@@ -38,13 +39,17 @@ class SheetActionButtons extends StatelessWidget {
   /// Shows a spinner on Confirm and disables both buttons.
   final bool busy;
 
+  /// Equal visual weight for optional consent choices.
+  final bool equalActions;
+
   static const double _height = 44;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
-    final safeBottom = MediaQuery.viewInsetsOf(context).bottom +
+    final safeBottom =
+        MediaQuery.viewInsetsOf(context).bottom +
         MediaQuery.viewPaddingOf(context).bottom;
 
     return Container(
@@ -88,36 +93,58 @@ class SheetActionButtons extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
-            flex: 2,
+            flex: equalActions ? 1 : 2,
             child: SizedBox(
               height: _height,
-              child: FilledButton(
-                onPressed: busy ? null : onConfirm,
-                style: FilledButton.styleFrom(
-                  backgroundColor: confirmColor,
-                  foregroundColor: AppColors.onBrandRed,
-                  padding: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: busy
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.onBrandRed,
+              child: equalActions
+                  ? OutlinedButton(
+                      onPressed: busy ? null : onConfirm,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.onSurfaceMuted(brightness),
+                        side: BorderSide(
+                          color: AppColors.cardBorder(brightness),
                         ),
-                      )
-                    : Text(
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: Text(
                         confirmLabel,
+                        textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-              ),
+                    )
+                  : FilledButton(
+                      onPressed: busy ? null : onConfirm,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: confirmColor,
+                        foregroundColor: AppColors.onBrandRed,
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: busy
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.onBrandRed,
+                              ),
+                            )
+                          : Text(
+                              confirmLabel,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
             ),
           ),
         ],
