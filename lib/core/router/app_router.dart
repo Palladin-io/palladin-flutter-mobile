@@ -171,6 +171,10 @@ GoRouter createRouter(
         return '/login';
       }
 
+      // Consume verification links before optional privacy or setup redirects.
+      // The verification page owns the token; leaving it resumes normal guards.
+      if (isVerificationDeepLink) return null;
+
       if (authState.needsPrivacyChoices) {
         return location == '/privacy-choices' ? null : '/privacy-choices';
       }

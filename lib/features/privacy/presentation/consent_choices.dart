@@ -62,6 +62,10 @@ class _ConsentChoicesState extends State<_ConsentForm> {
         if (mounted) {
           setState(() {
             _saving = false;
+            if (cubit.state.failedDecision == null) {
+              _pending = [];
+              _draft.clear();
+            }
           });
         }
         return;
@@ -108,9 +112,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
       if (!mounted) return;
     }
     final decisions = <ConsentDecision>[];
-    // Analytics is last so a successful partial-save retry activates locally
-    // only after both purposes have been confirmed.
-    for (final purpose in acceptAll ? _purposes.reversed : _purposes) {
+    for (final purpose in _purposes) {
       final consent = cubit.state.consents
           .where((c) => c.purpose == purpose)
           .firstOrNull;
@@ -133,6 +135,19 @@ class _ConsentChoicesState extends State<_ConsentForm> {
         widget.onContinue?.call();
       }
       return;
+    }
+    // Confirm analytics grants last, including ordinary Save. Withdrawals still
+    // run first; no local grant is restored during a partial-save retry.
+    decisions.sort((a, b) {
+      int rank(ConsentDecision d) =>
+          d.purpose == 'product_analytics' && d.granted ? 1 : 0;
+      return rank(a).compareTo(rank(b));
+    });
+    if (!acceptAll &&
+        decisions.any((d) => d.purpose == 'product_analytics' && d.granted)) {
+      setState(() => _saving = true);
+      await cubit.stopHere();
+      if (!mounted) return;
     }
     await _persist(decisions);
   }
@@ -265,28 +280,34 @@ class _ConsentChoicesState extends State<_ConsentForm> {
             l10n.privacyNoticeUnavailable,
             style: const TextStyle(fontSize: 12),
           ),
-        if (state.error != null || _pending.isNotEmpty && !busy) ...[
+        if (state.error != null ||
+            state.requiresReconfirmation ||
+            _pending.isNotEmpty && !busy) ...[
           Semantics(
             liveRegion: true,
             child: Text(
               state.error == ConsentErrorKind.load
                   ? l10n.privacyLoadError
+                  : state.requiresReconfirmation
+                  ? l10n.privacyConflictError
                   : l10n.privacySaveError,
               style: const TextStyle(color: AppColors.brandRed),
             ),
           ),
-          TextButton(
-            onPressed: busy
-                ? null
-                : () {
-                    if (_pending.isNotEmpty) {
-                      _persist(_pending);
-                    } else {
-                      cubit.refresh();
-                    }
-                  },
-            child: Text(l10n.privacyRetry),
-          ),
+          if (!state.requiresReconfirmation ||
+              state.error == ConsentErrorKind.load)
+            TextButton(
+              onPressed: busy
+                  ? null
+                  : () {
+                      if (_pending.isNotEmpty) {
+                        _persist(_pending);
+                      } else {
+                        cubit.refresh();
+                      }
+                    },
+              child: Text(l10n.privacyRetry),
+            ),
         ],
       ],
     );

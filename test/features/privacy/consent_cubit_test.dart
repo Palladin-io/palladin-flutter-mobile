@@ -34,6 +34,198 @@ void main() {
   ConsentDecision decision(bool granted) =>
       cubit.decision(remote.current, granted, 'mobile_settings')!;
 
+  for (final action in ['stop', 'withdraw']) {
+    test('$action fences a cached activation read already in flight', () async {
+      await cubit.close();
+      final delayed = ControlledActivationStore()
+        ..pendingRead = Completer<ConsentActivation?>()
+        ..readStarted = Completer<void>();
+      cubit = ConsentCubit(remote, delayed, analytics);
+      remote.current = consent(
+        status: 'granted',
+        revision: 1,
+        activationRevision: 1,
+      );
+      final binding = cubit.bind('account', 'en');
+      await delayed.readStarted!.future;
+      if (action == 'stop') {
+        await cubit.stopHere();
+      } else {
+        remote.networkFails = true;
+        expect(await cubit.save(decision(false)), isFalse);
+        remote.networkFails = false;
+      }
+      delayed.pendingRead!.complete(const ConsentActivation('test-v1', 1));
+      await binding;
+      await cubit.refresh();
+      expect(cubit.state.locallyActive, isFalse);
+      expect(analytics.isInitialized, isFalse);
+    });
+  }
+
+  for (final action in ['stop', 'withdraw']) {
+    test(
+      'failed $action deletion stays account-scoped across rebinds until explicit successful activation',
+      () async {
+        await cubit.close();
+        final failing = ControlledActivationStore();
+        cubit = ConsentCubit(remote, failing, analytics);
+        await cubit.bind('account', 'en');
+        await cubit.save(decision(true));
+        await failing.write('other', const ConsentActivation('test-v1', 1));
+        failing.failDelete = true;
+        if (action == 'stop') {
+          await cubit.stopHere();
+        } else {
+          remote.networkFails = true;
+          expect(await cubit.save(decision(false)), isFalse);
+          remote.networkFails = false;
+        }
+        expect(await failing.read('account'), isNotNull);
+        await cubit.bind('account', 'pl');
+        await cubit.refresh();
+        expect(analytics.isInitialized, isFalse);
+        await cubit.bind('other', 'en');
+        expect(analytics.isInitialized, isTrue);
+        await cubit.bind(null, 'en');
+        await cubit.bind('account', 'en');
+        cubit.setForeground(false);
+        cubit.setForeground(true);
+        await cubit.refresh();
+        expect(cubit.state.locallyActive, isFalse);
+        expect(analytics.isInitialized, isFalse);
+        failing.failActivation = true;
+        expect(await cubit.save(decision(true)), isFalse);
+        await cubit.bind('account', 'pl');
+        expect(analytics.isInitialized, isFalse);
+        failing.failActivation = false;
+        expect(await cubit.save(decision(true)), isTrue);
+        expect(analytics.isInitialized, isTrue);
+      },
+    );
+  }
+
+  test('stop during activation persistence fences the late grant', () async {
+    await cubit.close();
+    final delayed = ControlledActivationStore()
+      ..pendingActivation = Completer<void>()
+      ..activationStarted = Completer<void>();
+    cubit = ConsentCubit(remote, delayed, analytics);
+    await cubit.bind('account', 'en');
+    final saving = cubit.save(decision(true));
+    await delayed.activationStarted!.future;
+    await cubit.stopHere();
+    delayed.pendingActivation!.complete();
+    await saving;
+    await cubit.bind('account', 'pl');
+    expect(await delayed.read('account'), isNull);
+    expect(cubit.state.locallyActive, isFalse);
+    expect(analytics.isInitialized, isFalse);
+  });
+
+  test('stop fences a pending authoritative refresh', () async {
+    await cubit.bind('account', 'en');
+    await cubit.save(decision(true));
+    remote.pendingRead = Completer<UserConsents>();
+    final refreshing = cubit.refresh();
+    await cubit.stopHere();
+    remote.pendingRead!.complete(UserConsents([remote.current], 60));
+    await refreshing;
+    expect(cubit.state.locallyActive, isFalse);
+    expect(analytics.isInitialized, isFalse);
+  });
+
+  test(
+    'successful refresh recovers load error while preserving failed write retry',
+    () async {
+      await cubit.bind('account', 'en');
+      remote.networkFails = true;
+      final failed = decision(true);
+      await cubit.save(failed);
+      await cubit.refresh();
+      expect(cubit.state.error, ConsentErrorKind.load);
+      remote.networkFails = false;
+      await cubit.refresh();
+      expect(cubit.state.error, ConsentErrorKind.save);
+      expect(cubit.state.failedDecision, same(failed));
+      expect(await cubit.save(failed), isTrue);
+      expect(cubit.state.error, isNull);
+    },
+  );
+
+  for (final failRefresh in [false, true]) {
+    test(
+      '409 drops stale decision and requires reconfirmation after authoritative refresh (read failure: $failRefresh)',
+      () async {
+        await cubit.bind('account', 'en');
+        final stale = decision(true);
+        remote.current = consent(status: 'withdrawn', revision: 4);
+        remote.writeStatus = 409;
+        if (failRefresh) {
+          remote.pendingRead = Completer<UserConsents>();
+          remote.readStarted = Completer<void>();
+        }
+        final saving = cubit.save(stale);
+        if (failRefresh) {
+          await remote.readStarted!.future;
+          remote.readStarted = null;
+          remote.pendingRead!.completeError(StateError('network'));
+        }
+        expect(await saving, isFalse);
+        expect(cubit.state.failedDecision, isNull);
+        expect(cubit.state.requiresReconfirmation, isTrue);
+        remote.pendingRead = null;
+        await cubit.refresh();
+        expect(cubit.state.error, isNull);
+        expect(cubit.state.requiresReconfirmation, isTrue);
+        expect(cubit.state.consents.single.revision, 4);
+        expect(remote.decisions, [stale]);
+        remote.writeStatus = null;
+        final confirmed = cubit.decision(
+          cubit.state.consents.single,
+          true,
+          'mobile_settings',
+        )!;
+        expect(confirmed.expectedRevision, 4);
+        expect(confirmed.requestId, isNot(stale.requestId));
+        expect(await cubit.save(confirmed), isTrue);
+        expect(cubit.state.requiresReconfirmation, isFalse);
+      },
+    );
+  }
+
+  test(
+    'transient refresh failure after a confirmed write retains recoverable retry',
+    () async {
+      await cubit.bind('account', 'en');
+      remote.failReadAfterWrite = true;
+      final chosen = decision(true);
+      expect(await cubit.save(chosen), isFalse);
+      expect(cubit.state.error, ConsentErrorKind.load);
+      expect(cubit.state.failedDecision, same(chosen));
+      await cubit.stopHere();
+      remote.networkFails = false;
+      remote.failReadAfterWrite = false;
+      expect(await cubit.save(chosen), isTrue);
+      expect(cubit.state.locallyActive, isTrue);
+    },
+  );
+
+  for (final status in [400, 403, 408, 429, 500, 503]) {
+    test(
+      'HTTP $status retains identical decisions only for transient failures',
+      () async {
+        await cubit.bind('account', 'en');
+        remote.writeStatus = status;
+        final failed = decision(true);
+        expect(await cubit.save(failed), isFalse);
+        expect(
+          cubit.state.failedDecision,
+          status == 400 || status == 403 ? isNull : same(failed),
+        );
+      },
+    );
+  }
   test(
     'account consent alone does not activate a fresh installation',
     () async {

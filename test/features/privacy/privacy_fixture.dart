@@ -29,10 +29,14 @@ class Remote extends ConsentRemoteDataSource {
   final List<ConsentDecision> decisions = [];
   Completer<UserConsent>? pending;
   Completer<UserConsents>? pendingRead;
+  Completer<void>? readStarted;
   bool networkFails = false;
+  int? writeStatus;
+  bool failReadAfterWrite = false;
   @override
   Future<UserConsents> get(String locale, {CancelToken? cancelToken}) async {
     if (networkFails) throw StateError('network');
+    readStarted?.complete();
     return pendingRead == null
         ? UserConsents([current], 60)
         : pendingRead!.future;
@@ -45,6 +49,8 @@ class Remote extends ConsentRemoteDataSource {
   }) async {
     decisions.add(decision);
     if (networkFails) throw StateError('network');
+    if (writeStatus case final status?) throw consentHttpError(status);
+    if (failReadAfterWrite) networkFails = true;
     if (pending != null) return pending!.future;
     current = consent(
       status: decision.granted ? 'granted' : 'withdrawn',
@@ -75,5 +81,41 @@ class MemoryActivationStore extends ConsentActivationStore {
     } else {
       _values[userId] = activation;
     }
+  }
+}
+
+DioException consentHttpError(int status) {
+  final options = RequestOptions(
+    path: '/api/account/consents/product_analytics',
+  );
+  return DioException(
+    requestOptions: options,
+    type: DioExceptionType.badResponse,
+    response: Response(requestOptions: options, statusCode: status),
+  );
+}
+
+class ControlledActivationStore extends MemoryActivationStore {
+  bool failDelete = false;
+  bool failActivation = false;
+  Completer<ConsentActivation?>? pendingRead;
+  Completer<void>? readStarted;
+  Completer<void>? pendingActivation;
+  Completer<void>? activationStarted;
+  @override
+  Future<ConsentActivation?> read(String userId) async {
+    readStarted?.complete();
+    return pendingRead == null ? super.read(userId) : pendingRead!.future;
+  }
+
+  @override
+  Future<void> write(String userId, ConsentActivation? activation) async {
+    if (activation == null && failDelete) throw StateError('delete');
+    if (activation != null) {
+      if (failActivation) throw StateError('activation');
+      activationStarted?.complete();
+      await pendingActivation?.future;
+    }
+    await super.write(userId, activation);
   }
 }

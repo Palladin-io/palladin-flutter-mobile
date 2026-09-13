@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:mobile_palladin/features/privacy/data/consent_activation_store.dart';
 import 'package:mobile_palladin/features/shell/presentation/pages/app_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -87,7 +88,7 @@ void main() {
     );
   });
   tearDown(() async {
-    await cubit.close();
+    if (!cubit.isClosed) await cubit.close();
     await auth.close();
   });
   Widget app(Widget page, {String locale = 'en', ThemeData? theme}) =>
@@ -595,35 +596,187 @@ void main() {
     },
   );
 
-  testWidgets(
-    'partial save error stays open, stops locally and retries only the failed decision',
-    (tester) async {
-      remote.marketingFails = true;
-      await tester.pumpWidget(app(const PrivacyOnboardingPage()));
+  Future<void> selectBoth(WidgetTester tester) async {
+    for (final toggle in find.byType(AppToggle).evaluate().toList()) {
+      final finder = find.byWidget(toggle.widget);
+      await tester.ensureVisible(finder);
+      await tester.tap(
+        find.ancestor(of: finder, matching: find.byType(InkWell)).first,
+      );
       await tester.pumpAndSettle();
-      for (final toggle in find.byType(AppToggle).evaluate().toList()) {
-        await tester.ensureVisible(find.byWidget(toggle.widget));
-        await tester.tap(
-          find
-              .ancestor(
-                of: find.byWidget(toggle.widget),
-                matching: find.byType(InkWell),
-              )
-              .first,
-        );
+    }
+  }
+
+  for (final failedPurpose in ['email_marketing', 'product_analytics']) {
+    testWidgets(
+      'ordinary Save partial failure at $failedPurpose retries to full local activation',
+      (tester) async {
+        remote.marketingFails = failedPurpose == 'email_marketing';
+        remote.analyticsFails = failedPurpose == 'product_analytics';
+        await tester.pumpWidget(app(const PrivacyOnboardingPage()));
         await tester.pumpAndSettle();
-      }
+        await selectBoth(tester);
+        await tester.tap(find.text('Save choice'));
+        await tester.pumpAndSettle();
+        expect(cubit.state.locallyActive, isFalse);
+        expect(find.byType(BottomSheet), findsOneWidget);
+        expect(remote.decisions.first.purpose, 'email_marketing');
+        final failed = remote.decisions.last;
+        final count = remote.decisions.length;
+        verifyNever(() => auth.add(const PrivacyChoicesCompleted()));
+        remote.marketingFails = false;
+        remote.analyticsFails = false;
+        remote.pending = Completer<UserConsent>();
+        await tester.ensureVisible(find.text('Retry saving'));
+        await tester.tap(find.text('Retry saving'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(remote.decisions[count], same(failed));
+        expect(cubit.state.locallyActive, isFalse);
+        expect(find.byType(BottomSheet), findsOneWidget);
+        remote.current = consent(
+          status: 'granted',
+          revision: 1,
+          activationRevision: 1,
+        );
+        remote.pending!.complete(remote.current);
+        await tester.pumpAndSettle();
+        expect(cubit.state.locallyActive, isTrue);
+        expect(find.byType(BottomSheet), findsNothing);
+        verify(() => auth.add(const PrivacyChoicesCompleted())).called(1);
+      },
+    );
+  }
+
+  testWidgets(
+    'reopened settings recovers load failure and enables choices despite unresolved write',
+    (tester) async {
+      await tester.pumpWidget(app(const PrivacySettingsPage()));
+      await tester.pumpAndSettle();
+      remote.networkFails = true;
       await tester.tap(find.text('Save choice'));
       await tester.pumpAndSettle();
-      expect(cubit.state.locallyActive, isFalse);
-      expect(find.byType(BottomSheet), findsOneWidget);
-      expect(remote.decisions.length, 2);
+      await cubit.refresh();
+      await tester.pumpAndSettle();
+      expect(cubit.state.error, ConsentErrorKind.load);
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Manage choices'));
+      await tester.pumpAndSettle();
+      remote.networkFails = false;
       await tester.ensureVisible(find.text('Retry saving'));
       await tester.tap(find.text('Retry saving'));
       await tester.pumpAndSettle();
-      expect(remote.decisions.length, 3);
-      expect(remote.decisions[1], same(remote.decisions[2]));
-      verifyNever(() => auth.add(const PrivacyChoicesCompleted()));
+      expect(cubit.state.error, ConsentErrorKind.save);
+      expect(
+        tester
+            .widget<SheetActionButtons>(find.byType(SheetActionButtons))
+            .onCancel,
+        isNotNull,
+      );
+      expect(
+        tester
+            .widget<SheetActionButtons>(find.byType(SheetActionButtons))
+            .onConfirm,
+        isNotNull,
+      );
+      expect(
+        tester
+            .widgetList<AppToggle>(find.byType(AppToggle))
+            .every((t) => t.onChanged != null),
+        isTrue,
+      );
+      await tester.tap(find.text('Save choice'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+    },
+  );
+
+  testWidgets(
+    '409 discards pending form decisions and draft before explicit reconfirmation',
+    (tester) async {
+      await tester.pumpWidget(app(const PrivacyOnboardingPage()));
+      await tester.pumpAndSettle();
+      await selectBoth(tester);
+      // The other device changes analytics after this form has loaded revision 0.
+      remote.current = consent(status: 'withdrawn', revision: 4);
+      remote.writeStatus = 409;
+      await tester.tap(find.text('Save choice'));
+      await tester.pumpAndSettle();
+      expect(remote.decisions.map((d) => d.purpose), [
+        'email_marketing',
+        'product_analytics',
+      ]);
+      final stale = remote.decisions.last;
+      expect(stale.expectedRevision, 0);
+      expect(cubit.state.failedDecision, isNull);
+      expect(cubit.state.locallyActive, isFalse);
+      expect(
+        find.text(
+          'Privacy choices changed on another device. Review the current choices and save again to confirm.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Retry saving'), findsNothing);
+      expect(
+        tester
+            .widgetList<AppToggle>(find.byType(AppToggle))
+            .map((t) => t.value),
+        [false, true],
+      );
+      await cubit.refresh();
+      await tester.pumpAndSettle();
+      expect(remote.decisions.length, 2);
+      remote.writeStatus = null;
+      final toggle = find.byType(AppToggle).first;
+      await tester.ensureVisible(toggle);
+      await tester.tap(
+        find.ancestor(of: toggle, matching: find.byType(InkWell)).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save choice'));
+      await tester.pumpAndSettle();
+      expect(remote.decisions.last.expectedRevision, 4);
+      expect(remote.decisions.last.requestId, isNot(stale.requestId));
+      expect(cubit.state.locallyActive, isTrue);
+      verify(() => auth.add(const PrivacyChoicesCompleted())).called(1);
+    },
+  );
+
+  testWidgets(
+    'sheet dismissal during cached activation read cannot resume capture',
+    (tester) async {
+      await cubit.close();
+      final store = ControlledActivationStore()
+        ..pendingRead = Completer()
+        ..readStarted = Completer<void>();
+      final analytics = AnalyticsService()
+        ..configure(
+          projectKey: 'test',
+          host: 'https://eu.i.posthog.com',
+          released: true,
+        );
+      cubit = ConsentCubit(remote, store, analytics);
+      remote.current = consent(
+        status: 'granted',
+        revision: 1,
+        activationRevision: 1,
+      );
+      final binding = cubit.bind('account', 'en');
+      await store.readStarted!.future;
+      await tester.pumpWidget(app(const PrivacySettingsPage()));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pump();
+      store.pendingRead!.complete(const ConsentActivation('test-v1', 1));
+      await binding;
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(cubit.state.locallyActive, isFalse);
+      expect(analytics.isInitialized, isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await cubit.close();
     },
   );
 

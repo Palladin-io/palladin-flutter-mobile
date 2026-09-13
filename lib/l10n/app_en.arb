@@ -3447,6 +3447,7 @@
   "privacyMarketing": "Email marketing",
   "privacyContinue": "Continue",
   "privacyLoadError": "Privacy choices could not be loaded. Analytics stays off.",
+  "privacyConflictError": "Privacy choices changed on another device. Review the current choices and save again to confirm.",
   "privacySaveError": "The choice could not be confirmed. Analytics in this app stays off. Retry or continue using Palladin.",
   "privacyMarketingSaveError": "The choice could not be confirmed. Retry or continue using Palladin.",
   "privacyNoticeUnavailable": "Saving these optional consents is not available yet. You can continue with essential features.",

@@ -1229,6 +1229,7 @@
   "privacyMarketing": "Marketing e-mailowy",
   "privacyContinue": "Kontynuuj",
   "privacyLoadError": "Nie udało się pobrać ustawień prywatności. Analityka pozostaje wyłączona.",
+  "privacyConflictError": "Ustawienia prywatności zmieniły się na innym urządzeniu. Sprawdź aktualne wybory i zapisz je ponownie, aby potwierdzić.",
   "privacySaveError": "Nie udało się potwierdzić wyboru. Analityka w tej aplikacji pozostaje wyłączona. Ponów zapis lub korzystaj dalej z Palladin.",
   "privacyMarketingSaveError": "Nie udało się potwierdzić wyboru. Ponów zapis lub korzystaj dalej z Palladin.",
   "privacyNoticeUnavailable": "Zapisywanie tych opcjonalnych zgód nie jest jeszcze dostępne. Możesz korzystać z niezbędnych funkcji.",

@@ -18,6 +18,7 @@ class ConsentState {
     this.error,
     this.failedDecision,
     this.locallyActive = false,
+    this.requiresReconfirmation = false,
   });
   final String? userId;
   final List<UserConsent> consents;
@@ -26,6 +27,7 @@ class ConsentState {
   final ConsentErrorKind? error;
   final ConsentDecision? failedDecision;
   final bool locallyActive;
+  final bool requiresReconfirmation;
 }
 
 /// Session-bound account preferences and expiring client-analytics authority.
@@ -46,6 +48,8 @@ class ConsentCubit extends Cubit<ConsentState> {
   String _locale = 'en';
   int _generation = 0;
   int _readVersion = 0;
+  int _activationVersion = 0;
+  final _blockedAccounts = <String>{};
   bool _foreground = true;
   ConsentActivation? _activation;
   Timer? _poll;
@@ -62,8 +66,9 @@ class ConsentCubit extends Cubit<ConsentState> {
     _read?.cancel();
     _write?.cancel();
     _poll?.cancel();
-    await _analytics.reset();
+    final activationVersion = _activationVersion;
     _activation = null;
+    await _analytics.reset();
     if (isClosed || generation != _generation) return;
     emit(ConsentState(userId: userId, loading: userId != null));
     if (userId == null) return;
@@ -74,7 +79,10 @@ class ConsentCubit extends Cubit<ConsentState> {
       activation = null;
     }
     if (generation != _generation || isClosed) return;
-    _activation = activation;
+    if (activationVersion == _activationVersion &&
+        !_blockedAccounts.contains(userId)) {
+      _activation = activation;
+    }
     _poll = Timer.periodic(const Duration(seconds: 30), (_) {
       unawaited(refresh());
     });
@@ -113,9 +121,7 @@ class ConsentCubit extends Cubit<ConsentState> {
           .where((value) => value.purpose == 'product_analytics')
           .firstOrNull;
       if (analyticsConsent != null && !analyticsConsent.granted) {
-        _activation = null;
-        // Clear the local grant synchronously before best-effort persistence.
-        unawaited(_analytics.reset());
+        _stopMemory();
         try {
           await _store.write(userId, null);
         } catch (_) {
@@ -129,6 +135,7 @@ class ConsentCubit extends Cubit<ConsentState> {
         return;
       }
       final locallyActive =
+          !_blockedAccounts.contains(userId) &&
           analyticsConsent != null &&
           analyticsConsent.granted &&
           analyticsConsent.currentNotice?.version ==
@@ -144,6 +151,7 @@ class ConsentCubit extends Cubit<ConsentState> {
               _foreground &&
               generation == _generation &&
               _userId == userId &&
+              !_blockedAccounts.contains(userId) &&
               _activation?.revision == analyticsConsent.activationRevision &&
               _activation?.noticeVersion == analyticsConsent.noticeVersion,
         );
@@ -155,7 +163,8 @@ class ConsentCubit extends Cubit<ConsentState> {
           userId: userId,
           consents: response.consents,
           locallyActive: locallyActive,
-          error: state.failedDecision == null ? null : state.error,
+          error: state.failedDecision == null ? null : ConsentErrorKind.save,
+          requiresReconfirmation: state.requiresReconfirmation,
           failedDecision: state.failedDecision,
         ),
       );
@@ -169,16 +178,23 @@ class ConsentCubit extends Cubit<ConsentState> {
           userId: userId,
           consents: state.consents,
           error: ConsentErrorKind.load,
+          requiresReconfirmation: state.requiresReconfirmation,
           failedDecision: state.failedDecision,
         ),
       );
     }
   }
 
-  /// Stop locally before an API decision or dismissal; never treat this as an account withdrawal.
-  Future<void> stopHere() async {
+  void _stopMemory() {
+    _activationVersion++;
+    if (_userId case final userId?) _blockedAccounts.add(userId);
     _activation = null;
     unawaited(_analytics.reset());
+  }
+
+  /// Stop locally before an API decision or dismissal; never treat this as an account withdrawal.
+  Future<void> stopHere() async {
+    _stopMemory();
     final userId = _userId;
     if (!isClosed) {
       emit(
@@ -188,6 +204,7 @@ class ConsentCubit extends Cubit<ConsentState> {
           loading: state.loading,
           saving: state.saving,
           error: state.error,
+          requiresReconfirmation: state.requiresReconfirmation,
           failedDecision: state.failedDecision,
         ),
       );
@@ -224,10 +241,8 @@ class ConsentCubit extends Cubit<ConsentState> {
     _read?.cancel();
     final cancellation = _write = CancelToken();
     final analyticsPurpose = decision.purpose == 'product_analytics';
-    if (analyticsPurpose) {
-      _activation = null;
-      unawaited(_analytics.reset());
-    }
+    if (analyticsPurpose) _stopMemory();
+    final activationVersion = _activationVersion;
     emit(
       ConsentState(
         userId: userId,
@@ -248,6 +263,7 @@ class ConsentCubit extends Cubit<ConsentState> {
       final result = await _remote.decide(decision, cancelToken: cancellation);
       if (generation != _generation || isClosed) return false;
       if (analyticsPurpose &&
+          activationVersion == _activationVersion &&
           decision.granted &&
           result.granted &&
           result.revision == decision.expectedRevision + 1 &&
@@ -257,33 +273,56 @@ class ConsentCubit extends Cubit<ConsentState> {
           result.activationRevision,
         );
         await _store.write(userId, activation);
-        if (generation != _generation || isClosed) {
+        if (generation != _generation ||
+            activationVersion != _activationVersion ||
+            isClosed) {
           try {
             await _store.write(userId, null);
           } catch (_) {
             /* no in-memory activation */
           }
-          return false;
+        } else {
+          _blockedAccounts.remove(userId);
+          _activation = activation;
         }
-        _activation = activation;
       }
+      if (generation != _generation || isClosed) return false;
       emit(ConsentState(userId: userId, consents: state.consents));
       await refresh();
-      return generation == _generation && !isClosed && state.error == null;
-    } catch (_) {
       if (generation != _generation || isClosed) return false;
-      if (analyticsPurpose) {
-        _activation = null;
-        unawaited(_analytics.reset());
+      if (state.error == ConsentErrorKind.load) {
+        emit(
+          ConsentState(
+            userId: userId,
+            consents: state.consents,
+            error: ConsentErrorKind.load,
+            failedDecision: decision,
+          ),
+        );
       }
+      return state.error == null;
+    } catch (error) {
+      if (generation != _generation || isClosed) return false;
+      _stopMemory();
+      final status = error is DioException ? error.response?.statusCode : null;
+      // A definite rejection cannot become valid by replaying the same request.
+      final rejected =
+          status != null &&
+          status >= 400 &&
+          status < 500 &&
+          status != 408 &&
+          status != 429;
+      final conflict = status == 409;
       emit(
         ConsentState(
           userId: userId,
           consents: state.consents,
           error: ConsentErrorKind.save,
-          failedDecision: decision,
+          failedDecision: rejected ? null : decision,
+          requiresReconfirmation: conflict,
         ),
       );
+      if (rejected) await refresh();
       return false;
     }
   }

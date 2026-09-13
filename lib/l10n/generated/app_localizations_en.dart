@@ -4086,6 +4086,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Privacy choices could not be loaded. Analytics stays off.';
 
   @override
+  String get privacyConflictError =>
+      'Privacy choices changed on another device. Review the current choices and save again to confirm.';
+
+  @override
   String get privacySaveError =>
       'The choice could not be confirmed. Analytics in this app stays off. Retry or continue using Palladin.';
 

@@ -7256,6 +7256,12 @@ abstract class AppLocalizations {
   /// **'Privacy choices could not be loaded. Analytics stays off.'**
   String get privacyLoadError;
 
+  /// No description provided for @privacyConflictError.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy choices changed on another device. Review the current choices and save again to confirm.'**
+  String get privacyConflictError;
+
   /// No description provided for @privacySaveError.
   ///
   /// In en, this message translates to:

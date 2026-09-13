@@ -4130,6 +4130,10 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nie udało się pobrać ustawień prywatności. Analityka pozostaje wyłączona.';
 
   @override
+  String get privacyConflictError =>
+      'Ustawienia prywatności zmieniły się na innym urządzeniu. Sprawdź aktualne wybory i zapisz je ponownie, aby potwierdzić.';
+
+  @override
   String get privacySaveError =>
       'Nie udało się potwierdzić wyboru. Analityka w tej aplikacji pozostaje wyłączona. Ponów zapis lub korzystaj dalej z Palladin.';
 

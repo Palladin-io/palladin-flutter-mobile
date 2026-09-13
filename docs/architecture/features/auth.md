@@ -79,3 +79,6 @@ gray palette. Both variants share the same unclipped gradient geometry.
 
 Account analytics and email preferences use the shared [privacy feature](privacy.md).
 The optional privacy step follows new account creation; `/settings/privacy` exposes later changes.
+
+Verification links with `?token=` reach the verification page before optional privacy
+or setup redirects; leaving the result resumes the normal guards. See [privacy](privacy.md).

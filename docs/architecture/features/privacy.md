@@ -22,7 +22,7 @@ to AuthBloc, locale, app foreground/background and generic route templates.
   reactivation. No consent activation is stored in SharedPreferences. See
   [Apple file-system guidance](https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html).
 - Withdrawal stops the in-memory transport before storage/API work, including on
-  failure. Failed decisions remain retryable with the same request ID. Responses
+  failure. Transient or ambiguous failures remain retryable with the same request ID. Responses
   from an older account/session never authorize analytics. Storage failure still
   permits sending a server withdrawal; a failed activation write keeps collection
   off.
@@ -128,7 +128,7 @@ Thus a partial failure leaves capture off and the dialog open; retry uses only t
 unconfirmed remainder with the original request IDs. Successful retry activates
 this installation only after both decisions are confirmed. The endpoints remain
 non-atomic; a confirmed account decision is not rolled back or hidden on failure.
-Ordinary Save retains existing draft/withdrawal/per-device behavior. No backend,
+Ordinary Save also confirms analytics grants last; withdrawals still run first. No backend,
 canonical notices, marketing pipeline, telemetry scope or release gates changed.
 
 
@@ -149,3 +149,32 @@ theme with a transparent divider and borderless expanded/collapsed shapes.
 Explicit shapes also override any inherited ExpansionTile borders when the
 shared form is reused. Card outlines, the pinned action-footer divider, spacing
 and the native ExpansionTile focus/keyboard behavior remain intact.
+
+
+## Review corrections: local opt-out, recovery and conflicts
+
+Local stop, withdrawal and sheet dismissal advance an activation generation before
+any storage work. Cached reads and grant persistence from an older generation
+cannot restore activation. An account-scoped in-memory block survives locale
+changes, logout/rebind, polling and foreground refresh even if deleting the cached
+file fails. Other accounts retain their own activation. Only a newer explicit
+grant with successful activation persistence can remove the account's block.
+
+A successful authoritative read clears a recovered load error independently of
+an unresolved write failure; the latter remains retryable without disabling the
+form. HTTP 409 discards the rejected decision and the form's remaining stale
+batch/draft, refreshes authoritative choices, and shows a localized instruction
+to review and save again. A failed conflict refresh keeps that instruction pending
+until reads recover. Reconfirmation uses the displayed revision and a new request
+ID. Other definite HTTP 4xx rejections also discard the stale batch; identical
+retries are reserved for transient/ambiguous failures (including 408/429/5xx).
+
+Both ordinary Save and Accept all confirm analytics grants after marketing and
+keep local capture off through partial failure and the pending retry. Confirmed
+account decisions remain visible; only the unconfirmed remainder is retried.
+
+Verification links carrying a token bypass optional privacy and account-setup
+redirects so the real verification page consumes the token. Leaving the result
+page resumes the existing guards, including pending optional privacy choices.
+Regression coverage lives in privacy cubit/widget tests and
+`test/core/router/privacy_verification_router_test.dart`.
