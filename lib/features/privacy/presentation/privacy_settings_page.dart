@@ -4,6 +4,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_bar_title.dart';
 import '../../../core/widgets/app_screen.dart';
 import '../../../core/widgets/fab_registrar.dart';
+import '../../../core/widgets/sheet_surface.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import 'consent_choices.dart';
 
@@ -19,18 +20,20 @@ class PrivacySettingsPage extends StatelessWidget {
         centerTitle: false,
         title: AppBarTitle(title: l10n.privacyTitle),
       ),
-      body: ListView(
+      body: Padding(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.screenH,
           0,
           AppSpacing.screenH,
-          AppSpacing.screenBottom,
+          AppSpacing.section,
         ),
-        children: [
-          Text(l10n.privacySubtitle),
-          const SizedBox(height: AppSpacing.section),
-          const ConsentChoices(source: 'mobile_settings'),
-        ],
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: SheetSurface(
+            title: l10n.privacyOnboardingTitle,
+            child: const ConsentChoices(source: 'mobile_settings'),
+          ),
+        ),
       ),
     );
   }

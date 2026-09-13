@@ -39,7 +39,7 @@ class SheetActionButtons extends StatelessWidget {
   /// Shows a spinner on Confirm and disables both buttons.
   final bool busy;
 
-  /// Equal visual weight for optional consent choices.
+  /// Equal widths; Confirm retains its primary styling.
   final bool equalActions;
 
   static const double _height = 44;
@@ -96,55 +96,33 @@ class SheetActionButtons extends StatelessWidget {
             flex: equalActions ? 1 : 2,
             child: SizedBox(
               height: _height,
-              child: equalActions
-                  ? OutlinedButton(
-                      onPressed: busy ? null : onConfirm,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.onSurfaceMuted(brightness),
-                        side: BorderSide(
-                          color: AppColors.cardBorder(brightness),
+              child: FilledButton(
+                onPressed: busy ? null : onConfirm,
+                style: FilledButton.styleFrom(
+                  backgroundColor: confirmColor,
+                  foregroundColor: AppColors.onBrandRed,
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: busy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.onBrandRed,
                         ),
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: Text(
+                      )
+                    : Text(
                         confirmLabel,
-                        textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                    )
-                  : FilledButton(
-                      onPressed: busy ? null : onConfirm,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: confirmColor,
-                        foregroundColor: AppColors.onBrandRed,
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: busy
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppColors.onBrandRed,
-                              ),
-                            )
-                          : Text(
-                              confirmLabel,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                    ),
+              ),
             ),
           ),
         ],

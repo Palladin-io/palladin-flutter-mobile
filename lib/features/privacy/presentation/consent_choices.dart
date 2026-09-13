@@ -131,10 +131,8 @@ class _ConsentChoicesState extends State<_ConsentForm> {
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.onContinue != null) ...[
-          Text(l10n.privacySubtitle),
-          const SizedBox(height: AppSpacing.section),
-        ],
+        Text(l10n.privacySubtitle),
+        const SizedBox(height: AppSpacing.section),
         _card(
           l10n.privacyEssential,
           l10n.privacyEssentialDescription,
@@ -216,13 +214,6 @@ class _ConsentChoicesState extends State<_ConsentForm> {
                           child: Text(l10n.privacyActivateHere),
                         ),
                     ],
-                    if (widget.onContinue == null && consent != null)
-                      Text(switch (consent.status) {
-                        'granted' => l10n.privacyGranted,
-                        'denied' => l10n.privacyDenied,
-                        'withdrawn' => l10n.privacyWithdrawn,
-                        _ => l10n.privacyUnknown,
-                      }, style: const TextStyle(fontSize: 12)),
                     if (consent?.currentNotice case final notice?)
                       ExpansionTile(
                         tilePadding: EdgeInsets.zero,
@@ -287,18 +278,12 @@ class _ConsentChoicesState extends State<_ConsentForm> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.onContinue != null)
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppSpacing.screenH),
-              child: body,
-            ),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.section),
+        Flexible(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.screenH),
             child: body,
           ),
+        ),
         footer,
       ],
     );

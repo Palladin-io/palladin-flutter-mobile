@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/widgets/sheet_surface.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../../auth/presentation/bloc/auth_bloc.dart';
 import 'consent_choices.dart';
@@ -40,47 +41,18 @@ class _PrivacyOnboardingPageState extends State<PrivacyOnboardingPage> {
             canPop: !state.saving,
             child: SizedBox(
               height: MediaQuery.sizeOf(sheetContext).height * .9,
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.screenH,
-                      AppSpacing.lg,
-                      AppSpacing.screenH,
-                      AppSpacing.sm,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            AppLocalizations.of(
-                              sheetContext,
-                            )!.privacyOnboardingTitle,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: MaterialLocalizations.of(
-                            sheetContext,
-                          ).closeButtonTooltip,
-                          onPressed: state.saving
-                              ? null
-                              : () => Navigator.pop(sheetContext),
-                          icon: const Icon(Icons.close),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: ConsentChoices(
-                      source: 'mobile_onboarding',
-                      onContinue: () => Navigator.pop(sheetContext, true),
-                    ),
-                  ),
-                ],
+              child: SheetSurface(
+                title: AppLocalizations.of(
+                  sheetContext,
+                )!.privacyOnboardingTitle,
+                showClose: true,
+                onClose: state.saving
+                    ? null
+                    : () => Navigator.pop(sheetContext),
+                child: ConsentChoices(
+                  source: 'mobile_onboarding',
+                  onContinue: () => Navigator.pop(sheetContext, true),
+                ),
               ),
             ),
           ),

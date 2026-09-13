@@ -6,6 +6,8 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/core/widgets/app_toggle.dart';
+import 'package:mobile_palladin/core/widgets/sheet_surface.dart';
+import 'package:mobile_palladin/core/theme/app_colors.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/privacy/domain/user_consent.dart';
 import 'package:mobile_palladin/features/privacy/presentation/consent_cubit.dart';
@@ -115,6 +117,104 @@ void main() {
       await tester.pumpAndSettle();
       verify(() => auth.add(const PrivacyChoicesCompleted())).called(1);
       expect(remote.decisions, isEmpty);
+    },
+  );
+
+  for (final locale in ['en', 'pl']) {
+    for (final startup in [true, false]) {
+      testWidgets(
+        'shared surface and immediately enabled primary Save denies both untouched choices: $locale startup=$startup',
+        (tester) async {
+          tester.view.physicalSize = const Size(390, 900);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          await tester.pumpWidget(
+            app(
+              startup
+                  ? const PrivacyOnboardingPage()
+                  : const PrivacySettingsPage(),
+              locale: locale,
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.byType(SheetSurface), findsOneWidget);
+          expect(
+            find.byType(BottomSheet),
+            startup ? findsOneWidget : findsNothing,
+          );
+          expect(
+            find.text(locale == 'pl' ? 'Twoja prywatność' : 'Your privacy'),
+            findsOneWidget,
+          );
+          expect(
+            tester
+                .widgetList<AppToggle>(find.byType(AppToggle))
+                .map((t) => t.value),
+            [false, false],
+          );
+          final save = find.widgetWithText(
+            FilledButton,
+            locale == 'pl' ? 'Zapisz wybór' : 'Save choice',
+          );
+          final essential = find.widgetWithText(
+            OutlinedButton,
+            locale == 'pl' ? 'Tylko niezbędne' : 'Essential only',
+          );
+          final primary = tester.widget<FilledButton>(save);
+          expect(primary.onPressed, isNotNull);
+          expect(
+            primary.style!.backgroundColor!.resolve({}),
+            AppColors.brandRed,
+          );
+          expect(tester.widget<OutlinedButton>(essential).onPressed, isNotNull);
+          expect(tester.getSize(save).height, 44);
+          expect(tester.getSize(save), tester.getSize(essential));
+          await tester.tap(save);
+          await tester.pumpAndSettle();
+          expect(remote.decisions.map((d) => [d.purpose, d.granted]), [
+            ['product_analytics', false],
+            ['email_marketing', false],
+          ]);
+          expect(cubit.state.locallyActive, isFalse);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets(
+    'empty notices disable primary Save and never fabricate denials',
+    (tester) async {
+      remote.current = const UserConsent(
+        purpose: 'product_analytics',
+        scope: 'palladin_web_mobile',
+        status: 'unknown',
+        revision: 0,
+        activationRevision: 0,
+      );
+      remote.marketing = const UserConsent(
+        purpose: 'email_marketing',
+        scope: 'palladin_email_news_and_offers',
+        status: 'unknown',
+        revision: 0,
+        activationRevision: 0,
+      );
+      await cubit.refresh();
+      await tester.pumpWidget(app(const PrivacyOnboardingPage()));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Save choice'),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.text('Essential only'));
+      await tester.pumpAndSettle();
+      expect(remote.decisions, isEmpty);
+      expect(cubit.state.locallyActive, isFalse);
     },
   );
 

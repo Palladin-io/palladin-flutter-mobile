@@ -155,7 +155,13 @@ class _PreviewState extends State<Preview> {
               child: const Text('TEST FIXTURE · native Flutter · capture off'),
             ),
           ),
-          Expanded(child: child!),
+          Expanded(
+            child: MediaQuery.removePadding(
+              context: context,
+              removeTop: true,
+              child: child!,
+            ),
+          ),
         ],
       ),
       home: AppShellScope(

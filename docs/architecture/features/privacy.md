@@ -88,3 +88,18 @@ Consent footers reuse `SheetActionButtons(equalActions: true)`; other sheets kee
 their existing confirm/cancel styling. The startup sheet disables drag/backdrop
 dismissal and prevents closing while a request is pending. Close before saving
 suspends local capture, then completes the optional routing step.
+
+## Compact surface and primary Save (owner feedback, 2026-09-13)
+
+Startup and embedded Settings use the shared SheetSurface header and constrained
+surface (max width 640), plus identical ConsentChoices scroll padding/cards and
+pinned SheetActionButtons footer. Settings retains AppScreen navigation; the
+embedded surface adds no modal semantics. Save is the filled brand-red primary;
+Essential only is outlined, with equal widths and 44px targets. equalActions
+controls geometry only and does not neutralize the Confirm styling.
+
+Save is enabled as soon as the loaded notices permit a write. Untouched unknown
+purposes remain off; Save explicitly writes both refusals. Empty notices never
+produce synthetic decisions. Repeated saved-status text was removed; Settings
+still shows local activation state and its explicit per-installation action.
+Backend, notices, release flags, capture transport and consent mechanics are unchanged.
