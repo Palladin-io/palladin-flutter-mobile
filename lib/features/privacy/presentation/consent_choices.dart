@@ -116,7 +116,11 @@ class _ConsentChoicesState extends State<_ConsentForm> {
       if (decision != null) decisions.add(decision);
     }
     if (decisions.isEmpty) {
-      if (essentialOnly) widget.onContinue?.call();
+      if (essentialOnly ||
+          cubit.state.consents.where((c) => c.currentNotice != null).length ==
+              _purposes.length) {
+        widget.onContinue?.call();
+      }
       return;
     }
     await _persist(decisions);
@@ -196,7 +200,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
                     ),
                   ),
                   details: [
-                    if (widget.onContinue == null && analytics) ...[
+                    if (widget.source == 'mobile_settings' && analytics) ...[
                       Text(
                         state.locallyActive
                             ? l10n.privacyActiveHere
@@ -274,18 +278,21 @@ class _ConsentChoicesState extends State<_ConsentForm> {
           ? null
           : () => _save(),
     );
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Flexible(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.screenH),
-            child: body,
+    return PopScope(
+      canPop: !busy,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.screenH),
+              child: body,
+            ),
           ),
-        ),
-        footer,
-      ],
+          footer,
+        ],
+      ),
     );
   }
 

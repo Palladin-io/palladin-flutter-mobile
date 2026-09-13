@@ -7214,6 +7214,12 @@ abstract class AppLocalizations {
   /// **'Grant-management access cannot be changed yet. No role changes were saved.'**
   String get settingsGrantManageCutoverUnavailable;
 
+  /// No description provided for @privacyManageChoices.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage choices'**
+  String get privacyManageChoices;
+
   /// No description provided for @privacyTitle.
   ///
   /// In en, this message translates to:

@@ -89,17 +89,26 @@ their existing confirm/cancel styling. The startup sheet disables drag/backdrop
 dismissal and prevents closing while a request is pending. Close before saving
 suspends local capture, then completes the optional routing step.
 
-## Compact surface and primary Save (owner feedback, 2026-09-13)
+## Dialog-only startup and settings (owner decision, 2026-09-13)
 
-Startup and embedded Settings use the shared SheetSurface header and constrained
-surface (max width 640), plus identical ConsentChoices scroll padding/cards and
-pinned SheetActionButtons footer. Settings retains AppScreen navigation; the
-embedded surface adds no modal semantics. Save is the filled brand-red primary;
-Essential only is outlined, with equal widths and 44px targets. equalActions
-controls geometry only and does not neutralize the Confirm styling.
+Both entry points call showPrivacyConsentSheet: one native root bottom sheet,
+SheetSurface header, scrollable ConsentChoices and pinned primary/secondary footer.
+There is no inline consent panel. PrivacySettingsPage auto-opens once, then retains
+only its AppScreen navigation and Manage choices launcher. Close or system Back
+returns to that launcher; the next Back follows normal navigation. The startup
+completion still dispatches PrivacyChoicesCompleted through the existing guards.
 
-Save is enabled as soon as the loaded notices permit a write. Untouched unknown
-purposes remain off; Save explicitly writes both refusals. Empty notices never
-produce synthetic decisions. Repeated saved-status text was removed; Settings
-still shows local activation state and its explicit per-installation action.
-Backend, notices, release flags, capture transport and consent mechanics are unchanged.
+A navigator-scoped presentation guard prevents duplicate consent sheets. Runtime
+recognizes an explicit /settings/privacy visit before deciding on a first-entry
+prompt, so it neither stacks nor offers a new prompt after leaving that route.
+This session UI state never authorizes analytics. Source, rather than callback
+presence, selects the settings device state/activation affordance.
+
+Save is primary; unknown optional choices stay off and untouched Save records both
+explicit denials. Valid unchanged Save can close with no fabricated API write.
+Successful Save/Essential only closes the sheet. Failed/partial saves retain retry.
+Close/Back cannot dismiss during the entire form write, including refresh and the
+interval between the two purpose writes; the form owns an additional PopScope.
+Dismissal stops local activation without modifying account consent. Existing
+freshness, per-installation activation, empty active notices, keys and release-off
+configuration remain unchanged. Full current notices stay available in details.

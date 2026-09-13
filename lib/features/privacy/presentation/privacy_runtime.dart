@@ -24,7 +24,9 @@ class _PrivacyRuntimeState extends State<PrivacyRuntime>
   void _offerChoices() {
     final auth = context.read<AuthBloc>().state;
     if (auth is! AuthAuthenticated) return;
-    if (auth.needsPrivacyChoices) {
+    if (auth.needsPrivacyChoices ||
+        widget.router.routerDelegate.currentConfiguration.uri.path ==
+            '/settings/privacy') {
       _prompted.add(auth.userId);
       return;
     }
@@ -54,6 +56,7 @@ class _PrivacyRuntimeState extends State<PrivacyRuntime>
   }
 
   void _pageview() {
+    _offerChoices();
     unawaited(
       AnalyticsService.instance.pageview(
         widget.router.routerDelegate.currentConfiguration.fullPath,
@@ -94,7 +97,6 @@ class _PrivacyRuntimeState extends State<PrivacyRuntime>
       BlocListener<ConsentCubit, ConsentState>(
         listener: (_, _) {
           _pageview();
-          _offerChoices();
         },
       ),
     ],

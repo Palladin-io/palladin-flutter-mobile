@@ -3440,6 +3440,7 @@
   "permissionReadApiKey": "View API keys",
   "permissionWriteApiKey": "Manage API keys",
   "settingsGrantManageCutoverUnavailable": "Grant-management access cannot be changed yet. No role changes were saved.",
+  "privacyManageChoices": "Manage choices",
   "privacyTitle": "Privacy",
   "privacySubtitle": "Optional consents are voluntary. You can change them later in Privacy settings.",
   "privacyAnalytics": "Product analytics",

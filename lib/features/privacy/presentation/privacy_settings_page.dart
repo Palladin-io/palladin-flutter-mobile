@@ -4,12 +4,33 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/app_bar_title.dart';
 import '../../../core/widgets/app_screen.dart';
 import '../../../core/widgets/fab_registrar.dart';
-import '../../../core/widgets/sheet_surface.dart';
 import '../../../l10n/generated/app_localizations.dart';
-import 'consent_choices.dart';
+import 'privacy_consent_sheet.dart';
 
-class PrivacySettingsPage extends StatelessWidget {
+/// A settings destination and reopen action, never an inline consent form.
+class PrivacySettingsPage extends StatefulWidget {
   const PrivacySettingsPage({super.key});
+  @override
+  State<PrivacySettingsPage> createState() => _PrivacySettingsPageState();
+}
+
+class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
+  bool _opening = false;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _open();
+    });
+  }
+
+  Future<void> _open() async {
+    if (_opening) return;
+    setState(() => _opening = true);
+    await showPrivacyConsentSheet(context, source: 'mobile_settings');
+    if (mounted) setState(() => _opening = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -20,18 +41,13 @@ class PrivacySettingsPage extends StatelessWidget {
         centerTitle: false,
         title: AppBarTitle(title: l10n.privacyTitle),
       ),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.screenH,
-          0,
-          AppSpacing.screenH,
-          AppSpacing.section,
-        ),
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: SheetSurface(
-            title: l10n.privacyOnboardingTitle,
-            child: const ConsentChoices(source: 'mobile_settings'),
+      body: Align(
+        alignment: Alignment.topLeft,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
+          child: OutlinedButton(
+            onPressed: _opening ? null : _open,
+            child: Text(l10n.privacyManageChoices),
           ),
         ),
       ),

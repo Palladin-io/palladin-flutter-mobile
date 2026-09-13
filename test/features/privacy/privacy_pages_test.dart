@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:mobile_palladin/features/shell/presentation/pages/app_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -35,7 +36,9 @@ class _Remote extends Remote {
   @override
   Future<UserConsents> get(String locale, {dynamic cancelToken}) async {
     if (networkFails) throw StateError('network');
-    return UserConsents([current, marketing], 60);
+    return pendingRead == null
+        ? UserConsents([current, marketing], 60)
+        : pendingRead!.future;
   }
 
   @override
@@ -89,13 +92,14 @@ void main() {
       locale: Locale(locale),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: AppShellScope(
+      builder: (context, child) => AppShellScope(
         openSettingsDrawer: () {},
         setBottomNavHidden: (_) {},
         setFab: (_, _) {},
         clearFab: (_) {},
-        child: page,
+        child: child!,
       ),
+      home: page,
     ),
   );
 
@@ -140,9 +144,13 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byType(SheetSurface), findsOneWidget);
           expect(
-            find.byType(BottomSheet),
-            startup ? findsOneWidget : findsNothing,
+            find.descendant(
+              of: find.byType(PrivacySettingsPage),
+              matching: find.byType(AppToggle),
+            ),
+            findsNothing,
           );
+          expect(find.byType(BottomSheet), findsOneWidget);
           expect(
             find.text(locale == 'pl' ? 'Twoja prywatność' : 'Your privacy'),
             findsOneWidget,
@@ -177,11 +185,114 @@ void main() {
             ['email_marketing', false],
           ]);
           expect(cubit.state.locallyActive, isFalse);
+          if (!startup) {
+            expect(find.byType(BottomSheet), findsNothing);
+            expect(find.byType(AppToggle), findsNothing);
+            expect(
+              find.text(
+                locale == 'pl' ? 'Zarządzaj zgodami' : 'Manage choices',
+              ),
+              findsOneWidget,
+            );
+          }
           expect(tester.takeException(), isNull);
         },
       );
     }
   }
+
+  testWidgets(
+    'settings close and system back leave a usable launcher; reopening never stacks sheets',
+    (tester) async {
+      await tester.pumpWidget(app(const PrivacySettingsPage()));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byType(AppToggle), findsNothing);
+      await tester.tap(find.text('Manage choices'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      final navigator = tester.state<NavigatorState>(
+        find.byType(Navigator).first,
+      );
+      await navigator.maybePop();
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.text('Manage choices'), findsOneWidget);
+      expect(remote.decisions, isEmpty);
+      verifyNever(() => auth.add(const PrivacyChoicesCompleted()));
+      await tester.tap(find.text('Manage choices'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'settings route pops back to its navigation origin after closing the sheet',
+    (tester) async {
+      await tester.pumpWidget(
+        app(
+          Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const PrivacySettingsPage(),
+                  ),
+                ),
+                child: const Text('Settings origin'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Settings origin'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      final navigator = tester.state<NavigatorState>(
+        find.byType(Navigator).first,
+      );
+      await navigator.maybePop();
+      await tester.pumpAndSettle();
+      expect(find.text('Manage choices'), findsOneWidget);
+      await navigator.maybePop();
+      await tester.pumpAndSettle();
+      expect(find.text('Settings origin'), findsOneWidget);
+      expect(find.byType(AppToggle), findsNothing);
+      expect(remote.decisions, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'settings Close and Back stay closed to dismissal throughout post-save refresh',
+    (tester) async {
+      await tester.pumpWidget(app(const PrivacySettingsPage()));
+      await tester.pumpAndSettle();
+      final refresh = Completer<UserConsents>();
+      remote.pendingRead = refresh;
+      await tester.tap(find.text('Save choice'));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        cubit.state.saving,
+        isFalse,
+      ); // API finished; the form is still saving its refresh/remainder.
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(BottomSheet), findsOneWidget);
+      await tester
+          .state<NavigatorState>(find.byType(Navigator).first)
+          .maybePop();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(BottomSheet), findsOneWidget);
+      remote.pendingRead = null;
+      refresh.complete(UserConsents([remote.current, remote.marketing], 60));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(remote.decisions.map((d) => d.granted), [false, false]);
+    },
+  );
 
   testWidgets(
     'empty notices disable primary Save and never fabricate denials',

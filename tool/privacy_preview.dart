@@ -49,6 +49,7 @@ class _PreviewState extends State<Preview> {
   final navigator = GlobalKey<NavigatorState>();
   String locale = 'en';
   bool dialog = true;
+  bool transitioning = false;
   int revision = 0;
   @override
   void initState() {
@@ -62,6 +63,8 @@ class _PreviewState extends State<Preview> {
     developer.registerExtension('ext.palladin.preview', (_, parameters) async {
       if (parameters.containsKey('screen') ||
           parameters.containsKey('locale')) {
+        transitioning = true;
+        revision++;
         navigator.currentState?.popUntil((route) => route.isFirst);
         await Future<void>.delayed(const Duration(milliseconds: 300));
         if (parameters['locale'] case final value?) {
@@ -70,10 +73,12 @@ class _PreviewState extends State<Preview> {
         if (parameters['reset'] == 'true') await _reset();
         setState(() {
           dialog = parameters['screen'] != 'settings';
-          revision++;
         });
+        transitioning = false;
       }
-      if (parameters['action'] case final action?) {
+      if (parameters['action'] == 'back') {
+        await navigator.currentState?.maybePop();
+      } else if (parameters['action'] case final action?) {
         final l10n = await AppLocalizations.delegate.load(Locale(locale));
         var invoked = false;
         void visit(Element element) {
@@ -91,7 +96,8 @@ class _PreviewState extends State<Preview> {
           if (!invoked &&
               (action == 'save' ||
                   action == 'essential' ||
-                  action == 'activate')) {
+                  action == 'activate' ||
+                  action == 'open')) {
             if (widget is ButtonStyleButton && widget.child is Text) {
               final label = (widget.child! as Text).data;
               if (label ==
@@ -99,6 +105,8 @@ class _PreviewState extends State<Preview> {
                       ? l10n.privacySaveChoice
                       : action == 'essential'
                       ? l10n.privacyEssentialOnly
+                      : action == 'open'
+                      ? l10n.privacyManageChoices
                       : l10n.privacyActivateHere)) {
                 widget.onPressed?.call();
                 invoked = true;
@@ -115,6 +123,7 @@ class _PreviewState extends State<Preview> {
         jsonEncode({
           'locale': locale,
           'dialog': dialog,
+          'sheetOpen': navigator.currentState?.canPop() ?? false,
           'release': false,
           'projectKeyEmpty': true,
           'locallyActive': cubit.state.locallyActive,
@@ -126,6 +135,12 @@ class _PreviewState extends State<Preview> {
       );
     });
   }
+
+  VoidCallback _completeStartup(int expectedRevision) => () {
+    // A fixture-mode switch must not be overwritten by the old sheet's dismissal.
+    if (transitioning || expectedRevision != revision || !mounted) return;
+    setState(() => dialog = false);
+  };
 
   Future<void> _reset() async {
     await cubit.bind(null, locale);
@@ -172,9 +187,7 @@ class _PreviewState extends State<Preview> {
         child: dialog
             ? PrivacyOnboardingPage(
                 key: ValueKey('dialog-$revision'),
-                onCompleted: () => setState(() {
-                  dialog = false;
-                }),
+                onCompleted: _completeStartup(revision),
               )
             : PrivacySettingsPage(key: ValueKey('settings-$revision')),
       ),

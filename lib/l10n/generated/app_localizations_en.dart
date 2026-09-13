@@ -4063,6 +4063,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Grant-management access cannot be changed yet. No role changes were saved.';
 
   @override
+  String get privacyManageChoices => 'Manage choices';
+
+  @override
   String get privacyTitle => 'Privacy';
 
   @override

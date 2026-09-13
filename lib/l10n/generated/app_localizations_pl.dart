@@ -4107,6 +4107,9 @@ class AppLocalizationsPl extends AppLocalizations {
       'Nie można jeszcze zmienić uprawnienia do zarządzania dostępami. Nie zapisano zmian roli.';
 
   @override
+  String get privacyManageChoices => 'Zarządzaj zgodami';
+
+  @override
   String get privacyTitle => 'Prywatność';
 
   @override
