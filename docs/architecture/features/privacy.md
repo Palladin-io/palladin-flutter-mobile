@@ -141,3 +141,11 @@ marketing sender. Full PL/EN details come from Identity's versioned catalogue;
 clients do not own or rewrite the notice. Controller identity/contact remain in
 the linked legal documents. Draft review uses the same details only in a marked
 localhost fixture; it does not populate the empty embedded active catalogue.
+
+## Consent detail separators
+
+Only the consent notice ExpansionTiles receive a local copy of the inherited
+theme with a transparent divider and borderless expanded/collapsed shapes.
+Explicit shapes also override any inherited ExpansionTile borders when the
+shared form is reused. Card outlines, the pinned action-footer divider, spacing
+and the native ExpansionTile focus/keyboard behavior remain intact.

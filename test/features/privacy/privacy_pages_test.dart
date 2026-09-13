@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:mobile_palladin/features/shell/presentation/pages/app_shell.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bloc_test/bloc_test.dart';
@@ -89,25 +90,117 @@ void main() {
     await cubit.close();
     await auth.close();
   });
-  Widget app(Widget page, {String locale = 'en'}) => MultiBlocProvider(
-    providers: [
-      BlocProvider.value(value: cubit),
-      BlocProvider<AuthBloc>.value(value: auth),
-    ],
-    child: MaterialApp(
-      locale: Locale(locale),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      builder: (context, child) => AppShellScope(
-        openSettingsDrawer: () {},
-        setBottomNavHidden: (_) {},
-        setFab: (_, _) {},
-        clearFab: (_) {},
-        child: child!,
-      ),
-      home: page,
-    ),
-  );
+  Widget app(Widget page, {String locale = 'en', ThemeData? theme}) =>
+      MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: cubit),
+          BlocProvider<AuthBloc>.value(value: auth),
+        ],
+        child: MaterialApp(
+          theme: theme,
+          locale: Locale(locale),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          builder: (context, child) => AppShellScope(
+            openSettingsDrawer: () {},
+            setBottomNavHidden: (_) {},
+            setFab: (_, _) {},
+            clearFab: (_) {},
+            child: child!,
+          ),
+          home: page,
+        ),
+      );
+
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'consent details have local borderless themes and retain keyboard actions: $brightness',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 1200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final theme = ThemeData(
+          brightness: brightness,
+          dividerColor: AppColors.brandRed,
+          expansionTileTheme: const ExpansionTileThemeData(
+            shape: Border(top: BorderSide(color: AppColors.brandRed)),
+            collapsedShape: Border(
+              bottom: BorderSide(color: AppColors.brandRed),
+            ),
+          ),
+        );
+        await tester.pumpWidget(app(const PrivacySettingsPage(), theme: theme));
+        await tester.pumpAndSettle();
+        final footer = find.byType(SheetActionButtons);
+        final footerPosition = tester.getTopLeft(footer);
+        expect(
+          Theme.of(tester.element(footer)).dividerColor,
+          theme.dividerColor,
+        );
+        final footerContainer = tester.widget<Container>(
+          find.descendant(of: footer, matching: find.byType(Container)).first,
+        );
+        final footerBorder =
+            (footerContainer.decoration! as BoxDecoration).border! as Border;
+        expect(footerBorder.top.color, AppColors.cardBorder(brightness));
+        expect(footerBorder.top.style, BorderStyle.solid);
+
+        final tiles = find.byType(ExpansionTile);
+        expect(tiles, findsNWidgets(2));
+        for (var index = 0; index < 2; index++) {
+          final tile = tiles.at(index);
+          final context = tester.element(tile);
+          final localTheme = Theme.of(context);
+          expect(localTheme.dividerColor, AppColors.transparent);
+          expect(localTheme.focusColor, theme.focusColor);
+          final tileTheme = ExpansionTileTheme.of(context);
+          expect(tileTheme.shape, const Border());
+          expect(tileTheme.collapsedShape, const Border());
+          final card = tester.widget<Container>(
+            find
+                .ancestor(
+                  of: tile,
+                  matching: find.byWidgetPredicate(
+                    (w) => w is Container && w.decoration is BoxDecoration,
+                  ),
+                )
+                .first,
+          );
+          final border = (card.decoration! as BoxDecoration).border! as Border;
+          expect(border, Border.all(color: AppColors.navBorder(brightness)));
+          final title = find.descendant(
+            of: tile,
+            matching: find.text('Consent details'),
+          );
+          await tester.ensureVisible(title);
+          await tester.tap(title);
+          await tester.pumpAndSettle();
+          final notice = index == 0
+              ? remote.current.currentNotice!.text
+              : remote.marketing.currentNotice!.text;
+          expect(find.text(notice), findsOneWidget);
+          final focus = Focus.of(tester.element(title));
+          focus.requestFocus();
+          await tester.pump();
+          expect(focus.hasFocus, isTrue);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(find.text(notice), findsNothing);
+        }
+        expect(tester.getTopLeft(footer), footerPosition);
+        expect(
+          tester
+              .widgetList<AppToggle>(find.byType(AppToggle))
+              .map((t) => t.value),
+          [false, false],
+        );
+        expect(remote.decisions, isEmpty);
+        expect(cubit.state.locallyActive, isFalse);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     'startup is a modal sheet, optional off and essential always active; dismissal makes no decision',

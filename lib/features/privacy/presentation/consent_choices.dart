@@ -235,13 +235,23 @@ class _ConsentChoicesState extends State<_ConsentForm> {
                         ),
                     ],
                     if (consent?.currentNotice case final notice?)
-                      ExpansionTile(
-                        tilePadding: EdgeInsets.zero,
-                        title: Text(
-                          l10n.privacyDetails,
-                          style: const TextStyle(fontSize: 12),
+                      Theme(
+                        data: Theme.of(context).copyWith(
+                          dividerColor: AppColors.transparent,
+                          expansionTileTheme: ExpansionTileTheme.of(context)
+                              .copyWith(
+                                shape: const Border(),
+                                collapsedShape: const Border(),
+                              ),
                         ),
-                        children: [Text(notice.text)],
+                        child: ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          title: Text(
+                            l10n.privacyDetails,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          children: [Text(notice.text)],
+                        ),
                       ),
                   ],
                 );
