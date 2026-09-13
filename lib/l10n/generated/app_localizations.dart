@@ -7213,6 +7213,192 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Grant-management access cannot be changed yet. No role changes were saved.'**
   String get settingsGrantManageCutoverUnavailable;
+
+  /// No description provided for @privacyManageChoices.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage choices'**
+  String get privacyManageChoices;
+
+  /// No description provided for @privacyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get privacyTitle;
+
+  /// No description provided for @privacySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional consents are voluntary. You can change them later in Privacy settings.'**
+  String get privacySubtitle;
+
+  /// No description provided for @privacyAnalytics.
+  ///
+  /// In en, this message translates to:
+  /// **'Product analytics'**
+  String get privacyAnalytics;
+
+  /// No description provided for @privacyMarketing.
+  ///
+  /// In en, this message translates to:
+  /// **'Email marketing'**
+  String get privacyMarketing;
+
+  /// No description provided for @privacyContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get privacyContinue;
+
+  /// No description provided for @privacyLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy choices could not be loaded. Analytics stays off.'**
+  String get privacyLoadError;
+
+  /// No description provided for @privacyConflictError.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy choices changed on another device. Review the current choices and save again to confirm.'**
+  String get privacyConflictError;
+
+  /// No description provided for @privacySaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'The choice could not be confirmed. Analytics in this app stays off. Retry or continue using Palladin.'**
+  String get privacySaveError;
+
+  /// No description provided for @privacyMarketingSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'The choice could not be confirmed. Retry or continue using Palladin.'**
+  String get privacyMarketingSaveError;
+
+  /// No description provided for @privacyNoticeUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving these optional consents is not available yet. You can continue with essential features.'**
+  String get privacyNoticeUnavailable;
+
+  /// No description provided for @privacyLocalActivation.
+  ///
+  /// In en, this message translates to:
+  /// **'Account consent applies to web and mobile. Analytics also requires activation on each browser or mobile installation. Withdrawing consent disables it across your devices.'**
+  String get privacyLocalActivation;
+
+  /// No description provided for @privacyActivateHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable on this device'**
+  String get privacyActivateHere;
+
+  /// No description provided for @privacySaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get privacySaving;
+
+  /// No description provided for @privacySaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy choice saved'**
+  String get privacySaved;
+
+  /// No description provided for @privacyRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry saving'**
+  String get privacyRetry;
+
+  /// No description provided for @privacyUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'No choice recorded'**
+  String get privacyUnknown;
+
+  /// No description provided for @privacyGranted.
+  ///
+  /// In en, this message translates to:
+  /// **'Account consent granted'**
+  String get privacyGranted;
+
+  /// No description provided for @privacyDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent declined'**
+  String get privacyDenied;
+
+  /// No description provided for @privacyWithdrawn.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent withdrawn'**
+  String get privacyWithdrawn;
+
+  /// No description provided for @privacyOnboardingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your privacy'**
+  String get privacyOnboardingTitle;
+
+  /// No description provided for @privacyEssential.
+  ///
+  /// In en, this message translates to:
+  /// **'Essential'**
+  String get privacyEssential;
+
+  /// No description provided for @privacyAlwaysActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Always active'**
+  String get privacyAlwaysActive;
+
+  /// No description provided for @privacyEssentialDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable core features and help protect your account.'**
+  String get privacyEssentialDescription;
+
+  /// No description provided for @privacyAnalyticsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional measurements of how you use app features.'**
+  String get privacyAnalyticsDescription;
+
+  /// No description provided for @privacyMarketingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Palladin news and offers by email.'**
+  String get privacyMarketingDescription;
+
+  /// No description provided for @privacyAcceptAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept all'**
+  String get privacyAcceptAll;
+
+  /// No description provided for @privacySaveChoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Save choice'**
+  String get privacySaveChoice;
+
+  /// No description provided for @privacyInactiveHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Off on this device'**
+  String get privacyInactiveHere;
+
+  /// No description provided for @privacyActiveHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled on this device'**
+  String get privacyActiveHere;
+
+  /// No description provided for @privacyDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent details'**
+  String get privacyDetails;
 }
 
 class _AppLocalizationsDelegate

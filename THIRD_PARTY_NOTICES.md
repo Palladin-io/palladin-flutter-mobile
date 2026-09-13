@@ -168,7 +168,6 @@ The application also exposes Flutter's runtime licence registry from Settings â†
 | `plugin_platform_interface` | `2.1.8` | `89519eca6f7b` |
 | `pointycastle` | `3.9.1` | `fa2766ef666b` |
 | `pool` | `1.5.2` | `3c32b53167c7` |
-| `posthog_flutter` | `5.23.0` | `91169c4ba05a` |
 | `provider` | `6.1.5+1` | `b1e0a35f814c` |
 | `pub_semver` | `2.2.0` | `3c32b53167c7` |
 | `pubspec_parse` | `1.5.0` | `479bb84361ed` |
@@ -33500,34 +33499,6 @@ Applies to: freezed_annotation 3.1.0 (LICENSE)
     MIT License
     
     Copyright (c) 2020 Remi Rousselet
-    
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-    
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-    
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
-### Notice `91169c4ba05a`
-
-SHA-256: `91169c4ba05a651c6eef60386d3c73a77e13768f2d05d777615db788e8ae5db5`
-
-Applies to: posthog_flutter 5.23.0 (LICENSE)
-
-    MIT License
-    
-    Copyright (c) 2020 PostHog 
     
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal

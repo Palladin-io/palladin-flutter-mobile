@@ -7,12 +7,14 @@ class AuthResultModel {
     required this.refreshToken,
     required this.userId,
     required this.isOnboarded,
+    this.isNewUser = false,
   });
 
   final String accessToken;
   final String refreshToken;
   final String userId;
   final bool isOnboarded;
+  final bool isNewUser;
 
   factory AuthResultModel.fromJson(Map<String, dynamic> json) {
     return AuthResultModel(
@@ -20,6 +22,7 @@ class AuthResultModel {
       refreshToken: json['refreshToken'] as String,
       userId: json['userId'] as String,
       isOnboarded: json['isOnboarded'] as bool,
+      isNewUser: json['isNewUser'] as bool? ?? false,
     );
   }
 
@@ -29,6 +32,7 @@ class AuthResultModel {
       'refreshToken': refreshToken,
       'userId': userId,
       'isOnboarded': isOnboarded,
+      'isNewUser': isNewUser,
     };
   }
 }

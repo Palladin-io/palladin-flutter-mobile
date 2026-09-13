@@ -28,6 +28,9 @@ class EnvConfig {
   final String posthogKey;
   final String posthogHost;
 
+  bool get clientAnalyticsReleased =>
+      const bool.fromEnvironment('CLIENT_ANALYTICS_RELEASED');
+
   /// Google OAuth web client ID used as `serverClientId` in GoogleSignIn.
   /// Ensures the ID token audience matches what the backend validates against.
   final String googleServerClientId;
@@ -47,8 +50,8 @@ class EnvConfig {
       appName: 'Palladin (Local)',
       apiBaseUrl: 'http://$host:5000',
       publicAssetBaseUrl: 'http://$host:4566/palladin-local-public-assets',
-      posthogKey: '',
-      posthogHost: 'https://app.posthog.com',
+      posthogKey: const String.fromEnvironment('POSTHOG_PROJECT_KEY'),
+      posthogHost: 'https://eu.i.posthog.com',
       // Staging Firebase project used for local development
       googleServerClientId:
           '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
@@ -62,8 +65,8 @@ class EnvConfig {
       appName: 'Palladin (Stage)',
       apiBaseUrl: 'https://api.stage.palladin.io',
       publicAssetBaseUrl: 'https://assets.palladin.io',
-      posthogKey: '', // TODO: Add PostHog staging project key
-      posthogHost: 'https://app.posthog.com',
+      posthogKey: String.fromEnvironment('POSTHOG_PROJECT_KEY'),
+      posthogHost: 'https://eu.i.posthog.com',
       googleServerClientId:
           '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
     );
@@ -81,8 +84,8 @@ class EnvConfig {
           ? 'https://api.stage.palladin.io'
           : 'https://api.palladin.io',
       publicAssetBaseUrl: 'https://assets.palladin.io',
-      posthogKey: '', // TODO: Add PostHog production project key
-      posthogHost: 'https://app.posthog.com',
+      posthogKey: const String.fromEnvironment('POSTHOG_PROJECT_KEY'),
+      posthogHost: 'https://eu.i.posthog.com',
       googleServerClientId:
           '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
       // Staging and production must never share certificate pin sets.

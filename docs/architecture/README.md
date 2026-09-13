@@ -34,3 +34,5 @@ The **shared widget catalog lives in [`../../CLAUDE.md`](../../CLAUDE.md)** (sec
 | [features/api_keys.md](features/api_keys.md) | API key list/detail/generate/revoke |
 
 **Rule: before working on a feature, read `docs/architecture/features/<feature>.md` first.** It tells you the cubit/bloc, the existing pages and widgets, the layering, and the cross-feature dependencies — so you extend rather than duplicate.
+
+Account consent and the client analytics lifecycle are documented in [features/privacy.md](features/privacy.md).

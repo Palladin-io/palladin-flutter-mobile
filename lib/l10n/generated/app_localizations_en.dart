@@ -4061,4 +4061,107 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsGrantManageCutoverUnavailable =>
       'Grant-management access cannot be changed yet. No role changes were saved.';
+
+  @override
+  String get privacyManageChoices => 'Manage choices';
+
+  @override
+  String get privacyTitle => 'Privacy';
+
+  @override
+  String get privacySubtitle =>
+      'Optional consents are voluntary. You can change them later in Privacy settings.';
+
+  @override
+  String get privacyAnalytics => 'Product analytics';
+
+  @override
+  String get privacyMarketing => 'Email marketing';
+
+  @override
+  String get privacyContinue => 'Continue';
+
+  @override
+  String get privacyLoadError =>
+      'Privacy choices could not be loaded. Analytics stays off.';
+
+  @override
+  String get privacyConflictError =>
+      'Privacy choices changed on another device. Review the current choices and save again to confirm.';
+
+  @override
+  String get privacySaveError =>
+      'The choice could not be confirmed. Analytics in this app stays off. Retry or continue using Palladin.';
+
+  @override
+  String get privacyMarketingSaveError =>
+      'The choice could not be confirmed. Retry or continue using Palladin.';
+
+  @override
+  String get privacyNoticeUnavailable =>
+      'Saving these optional consents is not available yet. You can continue with essential features.';
+
+  @override
+  String get privacyLocalActivation =>
+      'Account consent applies to web and mobile. Analytics also requires activation on each browser or mobile installation. Withdrawing consent disables it across your devices.';
+
+  @override
+  String get privacyActivateHere => 'Enable on this device';
+
+  @override
+  String get privacySaving => 'Saving…';
+
+  @override
+  String get privacySaved => 'Privacy choice saved';
+
+  @override
+  String get privacyRetry => 'Retry saving';
+
+  @override
+  String get privacyUnknown => 'No choice recorded';
+
+  @override
+  String get privacyGranted => 'Account consent granted';
+
+  @override
+  String get privacyDenied => 'Consent declined';
+
+  @override
+  String get privacyWithdrawn => 'Consent withdrawn';
+
+  @override
+  String get privacyOnboardingTitle => 'Your privacy';
+
+  @override
+  String get privacyEssential => 'Essential';
+
+  @override
+  String get privacyAlwaysActive => 'Always active';
+
+  @override
+  String get privacyEssentialDescription =>
+      'Enable core features and help protect your account.';
+
+  @override
+  String get privacyAnalyticsDescription =>
+      'Optional measurements of how you use app features.';
+
+  @override
+  String get privacyMarketingDescription =>
+      'Palladin news and offers by email.';
+
+  @override
+  String get privacyAcceptAll => 'Accept all';
+
+  @override
+  String get privacySaveChoice => 'Save choice';
+
+  @override
+  String get privacyInactiveHere => 'Off on this device';
+
+  @override
+  String get privacyActiveHere => 'Enabled on this device';
+
+  @override
+  String get privacyDetails => 'Consent details';
 }

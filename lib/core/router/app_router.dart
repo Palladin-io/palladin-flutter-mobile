@@ -1,3 +1,5 @@
+import '../../features/privacy/presentation/privacy_onboarding_page.dart';
+import '../../features/privacy/presentation/privacy_settings_page.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -48,6 +50,7 @@ abstract final class AppRoutes {
   static const String settingsAudit = '/settings/audit';
   static const String settingsBilling = '/settings/billing';
   static const String settingsSecurity = '/settings/security';
+  static const String settingsPrivacy = '/settings/privacy';
   static const String settingsDataImport = '/settings/data-import';
   static const String changePassword = '/change-password';
   static const String totpEnroll = '/totp/enroll';
@@ -168,6 +171,13 @@ GoRouter createRouter(
         return '/login';
       }
 
+      // Consume verification links before optional privacy or setup redirects.
+      // The verification page owns the token; leaving it resumes normal guards.
+      if (isVerificationDeepLink) return null;
+
+      if (authState.needsPrivacyChoices) {
+        return location == '/privacy-choices' ? null : '/privacy-choices';
+      }
       final needsOnboarding = !authState.isOnboarded;
       if (needsOnboarding) {
         return isOnOnboardingPage ? null : '/onboarding';
@@ -188,7 +198,8 @@ GoRouter createRouter(
         return '/unlock';
       }
 
-      if (isOnLoginPage ||
+      if (location == '/privacy-choices' ||
+          isOnLoginPage ||
           isOnRegisterPage ||
           isOnVerifyEmailPage ||
           isOnOnboardingPage ||
@@ -199,6 +210,10 @@ GoRouter createRouter(
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/privacy-choices',
+        builder: (_, _) => const PrivacyOnboardingPage(),
+      ),
       GoRoute(
         path: '/login',
         pageBuilder: (context, state) =>
@@ -309,6 +324,10 @@ GoRouter createRouter(
                 builder: (_, _) => const InboxGrantsPage(),
               ),
             ],
+          ),
+          GoRoute(
+            path: '/settings/privacy',
+            builder: (_, _) => const PrivacySettingsPage(),
           ),
           GoRoute(path: '/settings', redirect: (_, _) => '/settings/general'),
           GoRoute(

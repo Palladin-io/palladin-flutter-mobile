@@ -61,6 +61,7 @@ class _RegisterView extends StatelessWidget {
         if (keys != null) {
           context.read<AuthBloc>().add(
             PasswordSessionEstablished(
+              isNewAccount: true,
               masterKey: keys.masterKey,
               privateKey: keys.privateKey,
             ),

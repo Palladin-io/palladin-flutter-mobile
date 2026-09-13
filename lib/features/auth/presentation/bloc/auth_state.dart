@@ -41,10 +41,12 @@ final class AuthAuthenticated extends AuthState {
     this.email,
     this.emailVerified = true,
     this.authProvider,
+    this.needsPrivacyChoices = false,
   });
 
   final String userId;
   final bool isOnboarded;
+  final bool needsPrivacyChoices;
   final bool isVaultLocked;
   final int permissions;
 
@@ -88,6 +90,7 @@ final class AuthAuthenticated extends AuthState {
   AuthAuthenticated copyWith({
     String? userId,
     bool? isOnboarded,
+    bool? needsPrivacyChoices,
     bool? isVaultLocked,
     Uint8List? masterKey,
     Uint8List? privateKey,
@@ -100,6 +103,7 @@ final class AuthAuthenticated extends AuthState {
     return AuthAuthenticated(
       userId: userId ?? this.userId,
       isOnboarded: isOnboarded ?? this.isOnboarded,
+      needsPrivacyChoices: needsPrivacyChoices ?? this.needsPrivacyChoices,
       isVaultLocked: isVaultLocked ?? this.isVaultLocked,
       masterKey: clearKeys ? null : (masterKey ?? this.masterKey),
       privateKey: clearKeys ? null : (privateKey ?? this.privateKey),
