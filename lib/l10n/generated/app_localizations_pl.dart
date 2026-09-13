@@ -4184,11 +4184,11 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get privacyAnalyticsDescription =>
-      'Za Twoją zgodą pomoże nam ulepszać aplikację na podstawie korzystania z jej funkcji. Bez treści Twojego sejfu.';
+      'Opcjonalne pomiary korzystania z funkcji aplikacji.';
 
   @override
   String get privacyMarketingDescription =>
-      'Wybierz, czy chcesz otrzymywać e-maile z nowościami i ofertami Palladin. Niezbędne wiadomości transakcyjne i dotyczące konta wysyłamy niezależnie od tego wyboru.';
+      'Nowości i oferty Palladin e-mailem.';
 
   @override
   String get privacyAcceptAll => 'Akceptuj wszystkie';

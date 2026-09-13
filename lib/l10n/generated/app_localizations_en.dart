@@ -4140,11 +4140,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacyAnalyticsDescription =>
-      'With your permission, analytics will help us improve the app based on how its features are used. Your vault contents are excluded.';
+      'Optional measurements of how you use app features.';
 
   @override
   String get privacyMarketingDescription =>
-      'Choose whether to receive emails with Palladin news and offers. Essential transactional and account messages are sent regardless of this choice.';
+      'Palladin news and offers by email.';
 
   @override
   String get privacyAcceptAll => 'Accept all';

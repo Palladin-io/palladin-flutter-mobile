@@ -7355,13 +7355,13 @@ abstract class AppLocalizations {
   /// No description provided for @privacyAnalyticsDescription.
   ///
   /// In en, this message translates to:
-  /// **'With your permission, analytics will help us improve the app based on how its features are used. Your vault contents are excluded.'**
+  /// **'Optional measurements of how you use app features.'**
   String get privacyAnalyticsDescription;
 
   /// No description provided for @privacyMarketingDescription.
   ///
   /// In en, this message translates to:
-  /// **'Choose whether to receive emails with Palladin news and offers. Essential transactional and account messages are sent regardless of this choice.'**
+  /// **'Palladin news and offers by email.'**
   String get privacyMarketingDescription;
 
   /// No description provided for @privacyAcceptAll.

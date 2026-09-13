@@ -166,8 +166,8 @@ void main() {
           expect(
             find.text(
               locale == 'pl'
-                  ? 'Wybierz, czy chcesz otrzymywać e-maile z nowościami i ofertami Palladin. Niezbędne wiadomości transakcyjne i dotyczące konta wysyłamy niezależnie od tego wyboru.'
-                  : 'Choose whether to receive emails with Palladin news and offers. Essential transactional and account messages are sent regardless of this choice.',
+                  ? 'Nowości i oferty Palladin e-mailem.'
+                  : 'Palladin news and offers by email.',
             ),
             findsOneWidget,
           );
@@ -180,6 +180,14 @@ void main() {
                 .widgetList<AppToggle>(find.byType(AppToggle))
                 .map((t) => t.value),
             [false, false],
+          );
+          expect(
+            find.text(
+              locale == 'pl'
+                  ? 'Opcjonalne pomiary korzystania z funkcji aplikacji.'
+                  : 'Optional measurements of how you use app features.',
+            ),
+            findsOneWidget,
           );
           final save = find.widgetWithText(
             OutlinedButton,
