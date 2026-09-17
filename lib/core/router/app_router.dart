@@ -1,4 +1,3 @@
-import '../../features/privacy/presentation/privacy_onboarding_page.dart';
 import '../../features/privacy/presentation/privacy_settings_page.dart';
 import 'dart:async';
 
@@ -175,9 +174,6 @@ GoRouter createRouter(
       // The verification page owns the token; leaving it resumes normal guards.
       if (isVerificationDeepLink) return null;
 
-      if (authState.needsPrivacyChoices) {
-        return location == '/privacy-choices' ? null : '/privacy-choices';
-      }
       final needsOnboarding = !authState.isOnboarded;
       if (needsOnboarding) {
         return isOnOnboardingPage ? null : '/onboarding';
@@ -210,10 +206,7 @@ GoRouter createRouter(
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/privacy-choices',
-        builder: (_, _) => const PrivacyOnboardingPage(),
-      ),
+      GoRoute(path: '/privacy-choices', redirect: (_, _) => '/'),
       GoRoute(
         path: '/login',
         pageBuilder: (context, state) =>
@@ -327,7 +320,9 @@ GoRouter createRouter(
           ),
           GoRoute(
             path: '/settings/privacy',
-            builder: (_, _) => const PrivacySettingsPage(),
+            builder: (context, _) => PrivacySettingsPage(
+              onClosed: () => context.replace(AppRoutes.settingsSecurity),
+            ),
           ),
           GoRoute(path: '/settings', redirect: (_, _) => '/settings/general'),
           GoRoute(

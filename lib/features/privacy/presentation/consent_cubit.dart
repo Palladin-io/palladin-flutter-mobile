@@ -53,6 +53,10 @@ class ConsentCubit extends Cubit<ConsentState> {
   int _readVersion = 0;
   int _activationVersion = 0;
   final _blockedAccounts = <String>{};
+  // Presentation history only: opening settings never grants consent or capture.
+  final _offeredChoices = <String>{};
+  bool hasOfferedChoices(String userId) => _offeredChoices.contains(userId);
+  void markChoicesOffered(String userId) => _offeredChoices.add(userId);
   bool _foreground = true;
   ConsentActivation? _activation;
   Timer? _poll;

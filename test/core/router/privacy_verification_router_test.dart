@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:io';
+import 'package:flutter/services.dart';
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
@@ -10,13 +11,15 @@ import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
 import 'package:mobile_palladin/core/router/app_router.dart';
 import 'package:mobile_palladin/features/auth/data/datasources/password_auth_remote_datasource.dart';
+import 'package:mobile_palladin/features/auth/data/services/hibp_service.dart';
 import 'package:mobile_palladin/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/auth/presentation/cubit/verify_email_cubit.dart';
 import 'package:mobile_palladin/features/auth/presentation/pages/verify_email_page.dart';
 import 'package:mobile_palladin/features/onboarding/data/services/default_vault_provisioner.dart';
 import 'package:mobile_palladin/features/privacy/presentation/consent_cubit.dart';
-import 'package:mobile_palladin/features/privacy/presentation/privacy_onboarding_page.dart';
+import 'package:mobile_palladin/features/onboarding/presentation/pages/onboarding_wizard_page.dart';
+import 'package:mobile_palladin/features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 
 import 'package:mobile_palladin/features/agents/presentation/bloc/agents_cubit.dart';
@@ -25,11 +28,17 @@ import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_cub
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_state.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/cubit/search_session_controller.dart';
 import 'package:mobile_palladin/features/dashboard/presentation/pages/dashboard_page.dart';
+import 'package:mobile_palladin/features/settings/presentation/pages/security_page.dart';
 import 'package:mobile_palladin/features/notifications/presentation/cubit/notification_center_cubit.dart';
 import 'package:mobile_palladin/features/unlock/presentation/cubit/unlock_cubit.dart';
 import 'package:mobile_palladin/features/unlock/presentation/pages/unlock_page.dart';
 
 import '../../features/privacy/privacy_fixture.dart';
+
+class _Hibp extends Mock implements HibpService {}
+
+class _OnboardingCubit extends MockCubit<OnboardingState>
+    implements OnboardingCubit {}
 
 class _AuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
@@ -52,41 +61,28 @@ class _NotificationsCubit extends MockCubit<NotificationCenterState>
     implements NotificationCenterCubit {}
 
 void main() {
+  setUpAll(() async {
+    final root = Platform.environment['FLUTTER_ROOT']!;
+    final loader = FontLoader('Roboto');
+    for (final weight in ['Regular', 'Medium', 'Bold']) {
+      loader.addFont(
+        File(
+          '$root/bin/cache/artifacts/material_fonts/Roboto-$weight.ttf',
+        ).readAsBytes().then(ByteData.sublistView),
+      );
+    }
+    await loader.load();
+  });
   for (final scenario in [
-    (
-      privacy: true,
-      onboarded: false,
-      locked: true,
-      verified: false,
-      path: '/privacy-choices',
-    ),
-    (
-      privacy: true,
-      onboarded: true,
-      locked: true,
-      verified: false,
-      path: '/privacy-choices',
-    ),
-    (
-      privacy: false,
-      onboarded: true,
-      locked: true,
-      verified: false,
-      path: '/unlock',
-    ),
-    (
-      privacy: false,
-      onboarded: true,
-      locked: false,
-      verified: false,
-      path: '/',
-    ),
-    (privacy: false, onboarded: true, locked: false, verified: true, path: '/'),
+    (onboarded: false, locked: true, verified: false, path: '/onboarding'),
+    (onboarded: true, locked: true, verified: false, path: '/unlock'),
+    (onboarded: true, locked: true, verified: false, path: '/unlock'),
+    (onboarded: true, locked: false, verified: false, path: '/'),
+    (onboarded: true, locked: false, verified: true, path: '/'),
   ]) {
     testWidgets('real Continue resumes guards: $scenario', (tester) async {
       final fixture = await _VerificationFixture.mount(
         tester,
-        privacy: scenario.privacy,
         onboarded: scenario.onboarded,
         locked: scenario.locked,
         verified: scenario.verified,
@@ -147,14 +143,25 @@ void main() {
           ),
         );
       }
-      if (scenario.privacy) {
-        expect(find.byType(PrivacyOnboardingPage), findsOneWidget);
-        expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.byType(BottomSheet), findsNothing);
+      if (!scenario.onboarded) {
+        expect(find.byType(OnboardingWizardPage), findsOneWidget);
       } else if (scenario.locked) {
         expect(find.byType(UnlockPage), findsOneWidget);
         expect(find.byType(DashboardPage), findsNothing);
       } else {
         expect(find.byType(DashboardPage), findsOneWidget);
+      }
+      if (scenario.verified && !scenario.locked && scenario.onboarded) {
+        fixture.router.go('/settings/privacy');
+        await tester.pumpAndSettle();
+        expect(find.byType(SecurityPage), findsOneWidget);
+        expect(find.byType(BottomSheet), findsOneWidget);
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(fixture.uri.path, '/settings/security');
+        expect(find.byType(SecurityPage), findsOneWidget);
+        expect(find.byType(BottomSheet), findsNothing);
       }
       await fixture.dispose();
     });
@@ -194,7 +201,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(fixture.uri, fixture.destination);
       expect(find.byType(VerifyEmailPage), findsOneWidget);
-      expect(find.byType(PrivacyOnboardingPage), findsNothing);
+      expect(find.byType(BottomSheet), findsNothing);
       expect(find.byType(DashboardPage), findsNothing);
       expect((fixture.auth.state as AuthAuthenticated).emailVerified, isFalse);
       await fixture.dispose();
@@ -212,7 +219,6 @@ void main() {
             userId: 'account',
             isOnboarded: onboarded,
             emailVerified: false,
-            needsPrivacyChoices: true,
           ),
         );
         final datasource = _Datasource();
@@ -257,7 +263,7 @@ void main() {
           token,
         );
         verify(() => datasource.verifyEmail(token)).called(1);
-        expect(find.byType(PrivacyOnboardingPage), findsNothing);
+        expect(find.byType(BottomSheet), findsNothing);
         await tester.pumpWidget(const SizedBox.shrink());
         router.dispose();
         await auth.close();
@@ -289,12 +295,15 @@ class _VerificationFixture {
 
   static Future<_VerificationFixture> mount(
     WidgetTester tester, {
-    bool privacy = false,
     bool onboarded = true,
     bool locked = false,
     bool verified = false,
   }) async {
     await getIt.reset();
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     registerFallbackValue(Uint8List(32));
     final f = _VerificationFixture();
     when(() => f.repository.isAuthenticated()).thenAnswer((_) async => true);
@@ -319,12 +328,6 @@ class _VerificationFixture {
         (state) => state is AuthAuthenticated && !state.isVaultLocked,
       );
     }
-    if (privacy) {
-      f.auth.add(const PrivacyChoicesRequested());
-      await f.auth.stream.firstWhere(
-        (state) => state is AuthAuthenticated && state.needsPrivacyChoices,
-      );
-    }
     when(
       () => f.datasource.verifyEmail(token),
     ).thenAnswer((_) => f.verification.future);
@@ -343,6 +346,10 @@ class _VerificationFixture {
         defaultVaultProvisioner: f.provisioner,
       ),
     );
+    getIt.registerSingleton<HibpService>(_Hibp());
+    final onboarding = _OnboardingCubit();
+    when(() => onboarding.state).thenReturn(const OnboardingState());
+    getIt.registerFactory<OnboardingCubit>(() => onboarding);
     final unlock = _UnlockCubit();
     when(() => unlock.state).thenReturn(const UnlockInitial());
     when(() => unlock.isBiometricAvailable()).thenAnswer((_) async => false);

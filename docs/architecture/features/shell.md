@@ -63,4 +63,4 @@ Detail pushes retain their normal platform transitions. The direction travels
 only in that navigation's `extra`, with no global tab-history state or timers.
 
 Account analytics and email preferences use the shared [privacy feature](privacy.md).
-The optional privacy step follows new account creation; `/settings/privacy` exposes later changes.
+Optional privacy choices appear on first entry to the ready application, after registration, verification, setup and unlock; `/settings/privacy` exposes later changes.

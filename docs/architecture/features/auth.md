@@ -78,7 +78,7 @@ registration share this variant; the authenticated app keeps its softer pale
 gray palette. Both variants share the same unclipped gradient geometry.
 
 Account analytics and email preferences use the shared [privacy feature](privacy.md).
-The optional privacy step follows new account creation; `/settings/privacy` exposes later changes.
+Optional privacy choices appear on first entry to the ready application, after registration, verification, setup and unlock; `/settings/privacy` exposes later changes.
 
 Verification links with `?token=` reach the verification page before optional privacy
 or setup redirects, even if the restored session already reports a verified email.
