@@ -14,7 +14,7 @@ to AuthBloc, locale, app foreground/background and generic route templates.
   Security behind the sheet and replace the route with `/settings/security` on close.
   Both surfaces reuse `ConsentChoices`; analytics and marketing are independent.
 - Data comes from authenticated `/api/account/consents`. Writes send the displayed
-  server notice version/locale, expected revision, random request ID and exact
+  client notice version/locale, expected revision, random request ID and exact
   source (`mobile_onboarding` or `mobile_settings`). The server owns all domain
   validation; clients deserialize the version-matched contract.
 - A file in the application cache retains only the notice version and `activationRevision` for
@@ -53,8 +53,8 @@ Build configuration requires `POSTHOG_PROJECT_KEY` plus
 keys empty. The capture host is the EU endpoint. Use separate staging/production
 projects, including production-identity store builds targeting staging.
 
-The Identity notice catalogue is intentionally unavailable until final legal
-review. The controls show this state and still permit continuing. No marketing
+Consent text is bundled with the client independently of the receipt API.
+Failed receipt reads keep controls unavailable and permit continuing. No marketing
 sender was introduced. Final PL/EN notices, privacy text, retention, App Privacy
 and Data Safety declarations remain a coordinated release gate. ATT is a separate
 assessment, not a blanket analytics permission prompt.
@@ -62,10 +62,9 @@ assessment, not a blanket analytics permission prompt.
 
 ## Explicit startup choice and settings (CVT-609, 2026-09-13)
 
-The startup presentation is a modal, not the settings page. Web reuses ModalShell
-with focus trapping over the safe pre-verification/key-setup surface; eligible
-first entry can offer it over the authenticated shell. Mobile uses a root-native
-bottom sheet before the existing setup/verification guards. An unknown account
+The startup presentation is a modal over the ready authenticated application,
+after setup, verification and unlock. Web uses ModalShell; mobile uses a
+root-native bottom sheet. An unknown account
 choice can be offered once per running session; dismissing is only a UI state,
 not a stored denial or permission. The user can continue without optional consent.
 
@@ -74,7 +73,7 @@ and email news/offers start off when unknown. Switches edit a draft, then equal
 outlined Save choice / brand-primary Accept all actions commit decisions.
 Save preserves the switches; Accept all explicitly grants both purposes. Full current notices
 remain expandable before deciding; short explanatory labels do not replace the
-backend notice version/text or activate the empty release catalogue.
+versioned full notice. The backend registry contains version metadata only.
 
 The two existing endpoints are not atomic. Save processes the decisions in order,
 reports no overall success on partial failure and retains only unconfirmed decisions
@@ -87,7 +86,7 @@ analytics grant, Accept all, or that activation action enables the current insta
 The debug preview uses real widgets/components and the normal consent data path
 against a local synthetic API. It is visibly labelled TEST FIXTURE. It cannot run
 as a released preview and never configures an analytics key. Production entrypoints,
-active notices, authentication and release configuration are unchanged.
+authentication and processing release configuration are unchanged.
 
 Consent footers reuse `SheetActionButtons(equalActions: true)`; other sheets keep
 their existing confirm/cancel styling. The startup sheet disables drag/backdrop
@@ -113,12 +112,13 @@ This session UI state never authorizes analytics. Source, rather than callback
 presence, selects the settings device state/activation affordance.
 
 Save is outlined secondary; unknown optional choices stay off and untouched Save records both
-explicit denials. Valid unchanged Save can close with no fabricated API write.
+explicit denials. Unchanged Save can close without a write when the displayed version is already recorded.
+An explicit Save of a new displayed version records the choices against that version.
 Successful Save/Accept all closes the sheet. Failed/partial saves retain retry.
 Close/Back cannot dismiss during the entire form write, including refresh and the
 interval between the two purpose writes; the form owns an additional PopScope.
 Dismissal stops local activation without modifying account consent. Existing
-freshness, per-installation activation, empty active notices, keys and release-off
+freshness, per-installation activation, keys and release-off
 configuration remain unchanged. Full current notices stay available in details.
 
 ## Two-action footer (final owner decision, 2026-09-13)
@@ -139,15 +139,14 @@ Ordinary Save also confirms analytics grants last; withdrawals still run first. 
 canonical notices, marketing pipeline, telemetry scope or release gates changed.
 
 
-## Email marketing copy and draft detail ownership
+## Email marketing copy and detail ownership
 
 The category is Email marketing / Marketing e-mailowy. Its one-line description identifies Palladin news/offers by email; the expanded
 three-sentence notice explains that essential transactional, account and security
 messages do not depend on marketing consent. This does not implement a
-marketing sender. Full PL/EN details come from Identity's versioned catalogue;
-clients do not own or rewrite the notice. Controller identity/contact remain in
-the linked legal documents. Draft review uses the same details only in a marked
-localhost fixture; it does not populate the empty embedded active catalogue.
+marketing sender. Full PL/EN details come from the client catalogue, with an immutable version
+and a matching archive in `docs/consent-notices/`. Identity stores the decision receipt. Controller identity/contact remain in
+the linked legal documents. The original draft.3 wording is retained exactly in the first client-owned version.
 
 ## Consent detail separators
 
@@ -159,7 +158,7 @@ and the native ExpansionTile focus/keyboard behavior remain intact.
 
 Consent cards use `AppColors.cardFooterOverlay`, matching the pinned action
 footer. The detail trigger follows the description without an extra spacer and
-retains a 44px row. Expanded server-owned notice text is left-aligned, 12px with
+retains a 44px row. Expanded client-owned notice text is left-aligned, 12px with
 1.5 line height; the client does not replace or rewrite the notice body.
 
 
@@ -253,3 +252,29 @@ including their outgoing navigation frame. Unknown purposes without current noti
 do not trigger a sheet. The once-per-session offer is consumed only by presentation
 or an explicit visit to Privacy settings. Existing consent write, activation,
 idempotent retry, capture release gates and native sheet controls remain intact.
+
+
+## Client-owned notices and version receipts (2026-09-18)
+
+The client displays its own PL/EN notice and submits the exact displayed
+`noticeVersion`, locale, purpose and choice. Version `2026-09-18T00:00:00Z`
+identifies the first client-owned release and its UTC effective-from instant.
+Identity returns receipt state without `currentNotice`; the data adapter attaches
+the local notice. A legacy response's text cannot override the bundled wording.
+
+`docs/consent-notices/2026-09-18.json` archives the exact four texts and pins the
+linked policies. Tests compare every localized notice with this archive. Never
+edit published text under the same version: add a new archive and matching
+backend metadata entry before releasing a new client notice.
+
+The server records authenticated user, purpose/scope, choice, displayed version,
+locale, source and its own UTC timestamp. It rejects unknown or future versions
+and never infers the displayed version from the acceptance time. An older
+installed client may still submit a known effective older version. Existing
+revision fencing, retries, history and withdrawals remain unchanged.
+
+An explicit Save records an updated displayed version even if its switch value
+has not changed. Enable on this device reconfirms analytics without reconfirming
+an unchanged marketing choice. Reading a receipt or updating the client version
+never constitutes consent. Receipt storage does not enable analytics release
+flags or add a marketing sender.

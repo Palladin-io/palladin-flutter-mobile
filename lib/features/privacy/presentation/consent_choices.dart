@@ -122,7 +122,10 @@ class _ConsentChoicesState extends State<_ConsentForm> {
       if (!acceptAll &&
           !activate &&
           selected == consent.granted &&
-          consent.status != 'unknown') {
+          consent.status != 'unknown' &&
+          (activateHere ||
+              consent.currentNotice == null ||
+              consent.noticeVersion == consent.currentNotice?.version)) {
         continue;
       }
       if (selected && consent.currentNotice == null) continue;

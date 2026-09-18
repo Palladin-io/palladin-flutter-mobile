@@ -5,13 +5,14 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/privacy/data/consent_remote_datasource.dart';
 import 'package:mobile_palladin/features/privacy/domain/user_consent.dart';
+import 'package:mobile_palladin/features/privacy/data/consent_notice_catalog.dart';
 
 void main() {
   test(
     'consumes the versioned Identity consent fixture and sends an explicit decision',
     () async {
       final fixture =
-          jsonDecode(File('test/fixtures/consents-v1.json').readAsStringSync())
+          jsonDecode(File('test/fixtures/consents-v2.json').readAsStringSync())
               as Map<String, dynamic>;
       final calls = <RequestOptions>[];
       final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test'))
@@ -40,11 +41,14 @@ void main() {
       expect(response.consents.first.recordedAt, DateTime.utc(2026, 9, 11, 12));
       expect(
         response.consents.first.currentNotice?.text,
-        'Test analytics consent.',
+        consentNotice('product_analytics', 'en')!.text,
       );
       expect(response.consents.last.status, 'unknown');
       expect(response.consents.last.recordedAt, isNull);
-      expect(response.consents.last.currentNotice, isNull);
+      expect(
+        response.consents.last.currentNotice?.version,
+        consentNoticeVersion,
+      );
       expect(calls.single.queryParameters, {'locale': 'en'});
       expect(calls.single.headers['Cache-Control'], 'no-store');
 

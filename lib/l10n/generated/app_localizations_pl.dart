@@ -4208,4 +4208,12 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get privacyDetails => 'Szczegóły zgody';
+
+  @override
+  String get privacyAnalyticsNotice =>
+      'Za zgodą mierzymy w PostHog EU korzystanie z funkcji Palladin, aby ulepszać aplikację. Nie zbieramy treści sejfu ani formularzy, haseł lub kluczy i nie nagrywamy sesji. Zgodę możesz wycofać w ustawieniach prywatności.';
+
+  @override
+  String get privacyMarketingNotice =>
+      'Za zgodą wyślemy Ci e-maile z nowościami i ofertami Palladin. Niezbędne wiadomości transakcyjne, dotyczące konta i bezpieczeństwa wysyłamy niezależnie od tej zgody. Zgodę możesz wycofać w ustawieniach prywatności.';
 }

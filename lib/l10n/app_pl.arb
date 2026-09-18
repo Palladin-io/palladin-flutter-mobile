@@ -1252,5 +1252,7 @@
   "privacySaveChoice": "Zapisz wybór",
   "privacyInactiveHere": "Wyłączona na tym urządzeniu",
   "privacyActiveHere": "Włączona na tym urządzeniu",
-  "privacyDetails": "Szczegóły zgody"
+  "privacyDetails": "Szczegóły zgody",
+  "privacyAnalyticsNotice": "Za zgodą mierzymy w PostHog EU korzystanie z funkcji Palladin, aby ulepszać aplikację. Nie zbieramy treści sejfu ani formularzy, haseł lub kluczy i nie nagrywamy sesji. Zgodę możesz wycofać w ustawieniach prywatności.",
+  "privacyMarketingNotice": "Za zgodą wyślemy Ci e-maile z nowościami i ofertami Palladin. Niezbędne wiadomości transakcyjne, dotyczące konta i bezpieczeństwa wysyłamy niezależnie od tej zgody. Zgodę możesz wycofać w ustawieniach prywatności."
 }

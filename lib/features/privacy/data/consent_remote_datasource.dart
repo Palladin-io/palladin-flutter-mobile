@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../domain/user_consent.dart';
+import 'consent_notice_catalog.dart';
 
 class ConsentRemoteDataSource {
   ConsentRemoteDataSource(this._dio);
@@ -15,7 +16,7 @@ class ConsentRemoteDataSource {
     final data = response.data!;
     return UserConsents(
       (data['consents'] as List)
-          .map((value) => _consent(value as Map<String, dynamic>))
+          .map((value) => _consent(value as Map<String, dynamic>, locale))
           .toList(),
       data['maxAgeSeconds'] as int,
     );
@@ -37,11 +38,10 @@ class ConsentRemoteDataSource {
         'source': decision.source,
       },
     );
-    return _consent(response.data!);
+    return _consent(response.data!, decision.locale);
   }
 
-  UserConsent _consent(Map<String, dynamic> data) {
-    final notice = data['currentNotice'] as Map<String, dynamic>?;
+  UserConsent _consent(Map<String, dynamic> data, String locale) {
     return UserConsent(
       purpose: data['purpose'] as String,
       scope: data['scope'] as String,
@@ -53,13 +53,7 @@ class ConsentRemoteDataSource {
           : DateTime.parse(data['recordedAt'] as String),
       noticeVersion: data['noticeVersion'] as String?,
       noticeLocale: data['noticeLocale'] as String?,
-      currentNotice: notice == null
-          ? null
-          : ConsentNotice(
-              version: notice['version'] as String,
-              locale: notice['locale'] as String,
-              text: notice['text'] as String,
-            ),
+      currentNotice: consentNotice(data['purpose'] as String, locale),
     );
   }
 }
