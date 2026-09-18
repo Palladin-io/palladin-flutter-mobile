@@ -140,6 +140,54 @@ void main() {
         ),
       );
 
+  testWidgets(
+    'explicit Save records the displayed new version for unchanged choices',
+    (tester) async {
+      remote.current = const UserConsent(
+        purpose: 'product_analytics',
+        scope: 'palladin_web_mobile',
+        status: 'granted',
+        revision: 1,
+        activationRevision: 1,
+        noticeVersion: 'older-notice',
+        noticeLocale: 'en',
+        currentNotice: ConsentNotice(
+          version: 'test-v1',
+          locale: 'en',
+          text: 'Test analytics notice',
+        ),
+      );
+      remote.marketing = const UserConsent(
+        purpose: 'email_marketing',
+        scope: 'palladin_email_news_and_offers',
+        status: 'denied',
+        revision: 1,
+        activationRevision: 0,
+        noticeVersion: 'older-notice',
+        noticeLocale: 'en',
+        currentNotice: ConsentNotice(
+          version: 'test-v1',
+          locale: 'en',
+          text: 'Test marketing notice',
+        ),
+      );
+      await cubit.refresh();
+      await tester.pumpWidget(app(const PrivacySettingsPage()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save choice'));
+      await tester.pumpAndSettle();
+      expect(remote.decisions.map((d) => d.noticeVersion), [
+        'test-v1',
+        'test-v1',
+      ]);
+      expect(remote.decisions.map((d) => d.purpose), [
+        'email_marketing',
+        'product_analytics',
+      ]);
+      expect(remote.decisions.map((d) => d.granted), [false, true]);
+    },
+  );
+
   for (final viewport in [const Size(390, 1200), const Size(320, 568)]) {
     for (final startup in [false, true]) {
       for (final scale in [1.0, 2.0]) {
@@ -814,7 +862,10 @@ void main() {
       await tester.tap(find.text('Enable on this device'));
       await tester.pumpAndSettle();
       expect(cubit.state.locallyActive, isTrue);
-      expect(remote.decisions.first.source, 'mobile_settings');
+      expect(remote.decisions, hasLength(1));
+      expect(remote.decisions.single.purpose, 'product_analytics');
+      expect(remote.decisions.single.source, 'mobile_settings');
+      expect(remote.marketing.status, 'unknown');
     },
   );
 

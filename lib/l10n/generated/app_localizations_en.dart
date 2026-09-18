@@ -4164,4 +4164,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacyDetails => 'Consent details';
+
+  @override
+  String get privacyAnalyticsNotice =>
+      'With your consent, we use PostHog EU to measure how Palladin features are used and improve the app. We do not collect vault or form contents, passwords or keys, or record sessions. You can withdraw consent in Privacy settings.';
+
+  @override
+  String get privacyMarketingNotice =>
+      'With your consent, we will send you emails with Palladin news and offers. Essential transactional, account and security messages are sent independently of this consent. You can withdraw consent in Privacy settings.';
 }

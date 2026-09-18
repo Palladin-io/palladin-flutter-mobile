@@ -7399,6 +7399,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Consent details'**
   String get privacyDetails;
+
+  /// No description provided for @privacyAnalyticsNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'With your consent, we use PostHog EU to measure how Palladin features are used and improve the app. We do not collect vault or form contents, passwords or keys, or record sessions. You can withdraw consent in Privacy settings.'**
+  String get privacyAnalyticsNotice;
+
+  /// No description provided for @privacyMarketingNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'With your consent, we will send you emails with Palladin news and offers. Essential transactional, account and security messages are sent independently of this consent. You can withdraw consent in Privacy settings.'**
+  String get privacyMarketingNotice;
 }
 
 class _AppLocalizationsDelegate
