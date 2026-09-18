@@ -113,6 +113,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
     }
     final decisions = <ConsentDecision>[];
     for (final purpose in _purposes) {
+      if (activateHere && purpose != 'product_analytics') continue;
       final consent = cubit.state.consents
           .where((c) => c.purpose == purpose)
           .firstOrNull;
@@ -123,8 +124,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
           !activate &&
           selected == consent.granted &&
           consent.status != 'unknown' &&
-          (activateHere ||
-              consent.currentNotice == null ||
+          (consent.currentNotice == null ||
               consent.noticeVersion == consent.currentNotice?.version)) {
         continue;
       }

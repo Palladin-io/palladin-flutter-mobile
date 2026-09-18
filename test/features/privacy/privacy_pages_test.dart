@@ -862,7 +862,10 @@ void main() {
       await tester.tap(find.text('Enable on this device'));
       await tester.pumpAndSettle();
       expect(cubit.state.locallyActive, isTrue);
-      expect(remote.decisions.first.source, 'mobile_settings');
+      expect(remote.decisions, hasLength(1));
+      expect(remote.decisions.single.purpose, 'product_analytics');
+      expect(remote.decisions.single.source, 'mobile_settings');
+      expect(remote.marketing.status, 'unknown');
     },
   );
 
