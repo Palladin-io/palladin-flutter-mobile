@@ -32,6 +32,7 @@ class MasterPasswordPage extends StatefulWidget {
 class _MasterPasswordPageState extends State<MasterPasswordPage> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+  final _confirmFocus = FocusNode();
   bool _passwordVisible = false;
   bool _confirmVisible = false;
   late final PasswordSecurityCubit _passwordSecurity;
@@ -70,6 +71,7 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
     _passwordSecurity.close();
     _passwordController.dispose();
     _confirmController.dispose();
+    _confirmFocus.dispose();
     super.dispose();
   }
 
@@ -100,11 +102,21 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
       currentStep: 0,
       title: l10n.onboardingMasterPasswordTitle,
       subtitle: l10n.onboardingMasterPasswordSubtitle,
-      titleFontSize: 18,
-      centerContent: true,
+      showTitleBlock: false,
+      contentTopSpacing: AuthBrandHeader.denseFormTopSpacing,
+      centerFooterAbovePinnedBottom: true,
       useAuthBrandLayout: true,
       header: const AuthBrandHeader(),
-      footer: PrimaryButton(
+      footer: PasswordSecurityStatusLine(
+        password: password,
+        isAcceptable: strength.isAcceptable,
+        securityState: securityState,
+        supportingText: l10n.onboardingMasterPasswordSubtitle,
+        message: confirm.isNotEmpty && !passwordsMatch
+            ? l10n.onboardingPasswordsDoNotMatch
+            : null,
+      ),
+      bottom: PrimaryButton(
         label: l10n.onboardingContinue,
         onPressed: canSubmit ? () => _submit(password) : null,
       ),
@@ -112,6 +124,8 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
         OnboardingTextField(
           label: l10n.onboardingMasterPasswordLabel,
           controller: _passwordController,
+          textInputAction: TextInputAction.next,
+          onSubmitted: (_) => _confirmFocus.requestFocus(),
           obscureText: !_passwordVisible,
           suffixIcon: _visibilityButton(
             _passwordVisible,
@@ -122,6 +136,11 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
         OnboardingTextField(
           label: l10n.onboardingConfirmPasswordLabel,
           controller: _confirmController,
+          focusNode: _confirmFocus,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) {
+            if (canSubmit) _submit(password);
+          },
           obscureText: !_confirmVisible,
           borderColor: (confirm.isNotEmpty && !passwordsMatch)
               ? AppColors.brandRed
@@ -134,17 +153,8 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
             () => setState(() => _confirmVisible = !_confirmVisible),
           ),
         ),
-        const SizedBox(height: AppSpacing.fieldGap),
-        _RequirementsCard(l10n: l10n, password: password),
-        const SizedBox(height: AppSpacing.fieldGap),
-        PasswordSecurityStatusLine(
-          password: password,
-          isAcceptable: strength.isAcceptable,
-          securityState: securityState,
-          message: confirm.isNotEmpty && !passwordsMatch
-              ? l10n.onboardingPasswordsDoNotMatch
-              : null,
-        ),
+        const SizedBox(height: AppSpacing.section),
+        _PasswordRequirements(l10n: l10n, password: password),
       ],
     );
   }
@@ -166,8 +176,8 @@ class _MasterPasswordPageState extends State<MasterPasswordPage> {
   }
 }
 
-class _RequirementsCard extends StatelessWidget {
-  const _RequirementsCard({required this.l10n, required this.password});
+class _PasswordRequirements extends StatelessWidget {
+  const _PasswordRequirements({required this.l10n, required this.password});
 
   final AppLocalizations l10n;
   final String password;
@@ -195,9 +205,9 @@ class _RequirementsCard extends StatelessWidget {
           Text(
             l10n.onboardingPasswordRequirementsTitle,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: AppColors.onSurface(brightness),
+              color: AppColors.onSurfaceMuted(brightness),
             ),
           ),
           const SizedBox(height: AppSpacing.innerGap),
@@ -223,13 +233,15 @@ class _RequirementsCard extends StatelessWidget {
                 : AppColors.onSurfaceSubtle(brightness),
           ),
           const SizedBox(width: AppSpacing.innerGap),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: met
-                  ? AppColors.onSurface(brightness)
-                  : AppColors.onSurfaceMuted(brightness),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: met
+                    ? AppColors.onSurface(brightness)
+                    : AppColors.onSurfaceMuted(brightness),
+              ),
             ),
           ),
         ],

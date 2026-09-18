@@ -70,7 +70,12 @@ OAuth 2.0 login (Google, Apple, X via `flutter_appauth`).
 
 **Cross-feature deps:** none upstream; nearly every feature depends *on* `AuthBloc`.
 
-## Light entry background
+## Entry background
+
+In dark mode, `AuthBrandBackground` adds a static `BrandGrainOverlay` above
+the existing gradient/glow and below all content. It reuses the navigation
+texture, ignores pointer events, and is isolated in a repaint boundary.
+The layer is limited to auth/confirmation surfaces and absent in light mode.
 
 `AuthBrandBackground` uses `AppBrandBackground` with the defined web-login
 palette (#F8FAFC → #E3E7EC → #C8CDD6) and white bloom. Login, unlock and

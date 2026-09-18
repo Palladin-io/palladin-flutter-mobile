@@ -27,18 +27,10 @@ class BrandGrainSurface extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(
-            child: IgnorePointer(
-              child: RepaintBoundary(
-                child: CustomPaint(
-                  painter: _NavigationGrainPainter(
-                    grain: subtle
-                        ? grain.withValues(alpha: grain.a * 0.55)
-                        : grain,
-                    bloom: AppColors.navigationBloom(brightness),
-                    centeredAtShield: !subtle,
-                  ),
-                ),
-              ),
+            child: BrandGrainOverlay(
+              grain: subtle ? grain.withValues(alpha: grain.a * 0.55) : grain,
+              bloom: AppColors.navigationBloom(brightness),
+              centeredAtShield: !subtle,
             ),
           ),
           child,
@@ -48,8 +40,34 @@ class BrandGrainSurface extends StatelessWidget {
   }
 }
 
-class _NavigationGrainPainter extends CustomPainter {
-  const _NavigationGrainPainter({
+class BrandGrainOverlay extends StatelessWidget {
+  const BrandGrainOverlay({
+    super.key,
+    required this.grain,
+    this.bloom = AppColors.transparent,
+    this.centeredAtShield = false,
+  });
+
+  final Color grain;
+  final Color bloom;
+  final bool centeredAtShield;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: RepaintBoundary(
+      child: CustomPaint(
+        painter: _BrandGrainPainter(
+          grain: grain,
+          bloom: bloom,
+          centeredAtShield: centeredAtShield,
+        ),
+      ),
+    ),
+  );
+}
+
+class _BrandGrainPainter extends CustomPainter {
+  const _BrandGrainPainter({
     required this.grain,
     required this.bloom,
     required this.centeredAtShield,
@@ -114,7 +132,7 @@ class _NavigationGrainPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_NavigationGrainPainter oldDelegate) =>
+  bool shouldRepaint(_BrandGrainPainter oldDelegate) =>
       oldDelegate.grain != grain ||
       oldDelegate.bloom != bloom ||
       oldDelegate.centeredAtShield != centeredAtShield;

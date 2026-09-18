@@ -217,6 +217,7 @@ lib/
 | `MultiSelectDropdown` | `lib/core/widgets/multi_select_dropdown.dart` | Multi-select with chips, generic `<T>` (used in audit filter sheets) |
 | `UploadIconButton` | `lib/core/widgets/upload_icon_button.dart` | Upload button with brandRed gradient shimmer label. Param: `onPressed`, upload state |
 | `AppBrandBackground` | `lib/core/widgets/app_brand_background.dart` | Shared full-screen auth/app surface: white bloom over the light radial background, neutral glow in dark. `AuthBrandBackground` delegates to it |
+| `BrandGrainOverlay` | `lib/core/widgets/brand_grain_surface.dart` | Static, pointer-transparent grain shared by navigation and dark auth backgrounds; colors from `AppColors` |
 | `BrandGrainSurface` | `lib/core/widgets/brand_grain_surface.dart` | Opaque navigation background with static neutral grain below content; `subtle` softens drawer grain |
 | `BrandTabIndicator` | `lib/core/widgets/brand_tab_indicator.dart` | Shared active underline with a subtle brand glow for detail tabs |
 | `PrimaryButtonGlow` | `lib/core/widgets/primary_button_glow.dart` | Shared decorative brand shadow for enabled primary actions; no shadow while disabled/loading |

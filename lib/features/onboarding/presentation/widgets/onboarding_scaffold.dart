@@ -29,8 +29,10 @@ class OnboardingScaffold extends StatelessWidget {
     this.contentTopSpacing,
     this.showTitleBlock = true,
     this.centerFooterInRemainingSpace = false,
+    this.centerFooterAbovePinnedBottom = false,
   }) : assert(
-         !centerFooterInRemainingSpace || contentTopSpacing != null,
+         !(centerFooterInRemainingSpace || centerFooterAbovePinnedBottom) ||
+             contentTopSpacing != null,
          'A fixed content start is required when centering the footer.',
        );
 
@@ -50,6 +52,7 @@ class OnboardingScaffold extends StatelessWidget {
   /// last child and [bottom]. All three regions stay in one scroll view, so a
   /// compact screen scrolls instead of clipping the final form actions.
   final bool centerFooterInRemainingSpace;
+  final bool centerFooterAbovePinnedBottom;
 
   /// When non-null, a back arrow is shown to the left of the progress dots.
   final VoidCallback? onBack;
@@ -105,7 +108,9 @@ class OnboardingScaffold extends StatelessWidget {
                           const SizedBox(width: 28),
                         ],
                       ),
-                  if (contentTopSpacing != null && centerFooterInRemainingSpace)
+                  if (contentTopSpacing != null &&
+                      (centerFooterInRemainingSpace ||
+                          centerFooterAbovePinnedBottom))
                     Expanded(
                       child: LayoutBuilder(
                         builder: (context, constraints) {
@@ -141,7 +146,7 @@ class OnboardingScaffold extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                    ?bottom,
+                                    if (centerFooterInRemainingSpace) ?bottom,
                                   ],
                                 ),
                               ),
@@ -239,7 +244,8 @@ class OnboardingScaffold extends StatelessWidget {
                     ],
                   ],
                   if (bottom != null && !centerFooterInRemainingSpace) ...[
-                    const SizedBox(height: AppSpacing.fieldGap),
+                    if (!centerFooterAbovePinnedBottom)
+                      const SizedBox(height: AppSpacing.fieldGap),
                     bottom!,
                   ],
                 ],
@@ -268,7 +274,7 @@ class _OnboardingBackground extends StatelessWidget {
     if (useAuthBrandLayout) {
       return AuthBrandBackground(child: child);
     }
-    return AppBrandBackground(child: child);
+    return AppBrandBackground(showDarkGrain: true, child: child);
   }
 }
 

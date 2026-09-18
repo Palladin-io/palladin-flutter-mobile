@@ -14,6 +14,7 @@ class AuthBrandBackground extends StatelessWidget {
   Widget build(BuildContext context) => AppBrandBackground(
     lightPageGradient: AppColors.authEntryLightPageGradient,
     lightLogoGlow: AppColors.authEntryLightLogoGlow,
+    showDarkGrain: true,
     child: child,
   );
 }

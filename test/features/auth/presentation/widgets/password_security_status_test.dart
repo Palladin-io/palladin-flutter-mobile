@@ -11,6 +11,51 @@ import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations_en.dart';
 
 void main() {
+  testWidgets('fades supporting copy into a breach warning and back', (
+    tester,
+  ) async {
+    const supportingText = 'This password encrypts your vault locally.';
+    final breachText = AppLocalizationsEn().authPasswordBreached;
+    Widget app({bool breached = false}) => MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: PasswordSecurityStatusLine(
+          password: breached ? 'test-only-password' : '',
+          isAcceptable: breached,
+          securityState: PasswordSecurityState(
+            result: breached ? HibpResult.pwned : HibpResult.unknown,
+          ),
+          supportingText: supportingText,
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(app());
+    expect(find.text(supportingText), findsOneWidget);
+    expect(find.text(breachText), findsNothing);
+
+    await tester.pumpWidget(app(breached: true));
+    await tester.pump(const Duration(milliseconds: 100));
+    final fade = tester.widget<FadeTransition>(
+      find
+          .ancestor(
+            of: find.text(breachText),
+            matching: find.byType(FadeTransition),
+          )
+          .first,
+    );
+    expect(fade.opacity.value, inExclusiveRange(0, 1));
+    await tester.pumpAndSettle();
+    expect(find.text(supportingText), findsNothing);
+    expect(find.text(breachText), findsOneWidget);
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(find.text(supportingText), findsOneWidget);
+    expect(find.text(breachText), findsNothing);
+  });
+
   test('checks an eligible password and blocks while checking', () async {
     final cubit = PasswordSecurityCubit(
       debounce: Duration.zero,

@@ -144,6 +144,7 @@ class _CompletedPlaceholder extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: AppBrandBackground(
+        showDarkGrain: true,
         child: const Center(child: CircularProgressIndicator()),
       ),
     );

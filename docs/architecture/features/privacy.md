@@ -157,6 +157,11 @@ Explicit shapes also override any inherited ExpansionTile borders when the
 shared form is reused. Card outlines, the pinned action-footer divider, spacing
 and the native ExpansionTile focus/keyboard behavior remain intact.
 
+Consent cards use `AppColors.cardFooterOverlay`, matching the pinned action
+footer. The detail trigger follows the description without an extra spacer and
+retains a 44px row. Expanded server-owned notice text is left-aligned, 12px with
+1.5 line height; the client does not replace or rewrite the notice body.
+
 
 ## Review corrections: local opt-out, recovery and conflicts
 

@@ -350,7 +350,7 @@ class _RecoveryBackground extends StatelessWidget {
     if (usesAuthBrandLayout) {
       return AuthBrandBackground(child: child);
     }
-    return AppBrandBackground(child: child);
+    return AppBrandBackground(showDarkGrain: true, child: child);
   }
 }
 

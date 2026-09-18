@@ -281,6 +281,8 @@ abstract final class AppColors {
   static LinearGradient backgroundGradient(Brightness b) =>
       b == Brightness.dark ? darkBackgroundGradient : lightBackgroundGradient;
 
+  static Color get darkAuthGrain => onBrandRed.withValues(alpha: 0.12);
+
   /// Existing dark-auth bloom retained independently from the light surface.
   static RadialGradient get darkAuthBrandGlow => RadialGradient(
     center: const Alignment(0, -0.2),

@@ -5,6 +5,38 @@ import 'package:mobile_palladin/features/onboarding/presentation/widgets/onboard
 import 'package:mobile_palladin/features/onboarding/presentation/widgets/onboarding_progress_dots.dart';
 
 void main() {
+  testWidgets('centers feedback between content and the pinned action', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: OnboardingScaffold(
+          currentStep: 0,
+          title: '',
+          subtitle: '',
+          header: SizedBox(height: 120),
+          contentTopSpacing: 64,
+          showTitleBlock: false,
+          centerFooterAbovePinnedBottom: true,
+          footer: Text('feedback'),
+          bottom: SizedBox(key: Key('action'), height: 44),
+          children: [SizedBox(key: Key('requirements'), height: 120)],
+        ),
+      ),
+    );
+
+    final contentBottom = tester
+        .getBottomLeft(find.byKey(const Key('requirements')))
+        .dy;
+    final feedbackCenter = tester.getCenter(find.text('feedback')).dy;
+    final actionTop = tester.getTopLeft(find.byKey(const Key('action'))).dy;
+    expect(
+      feedbackCenter - contentBottom,
+      closeTo(actionTop - feedbackCenter, 1),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('can vertically center form content', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
