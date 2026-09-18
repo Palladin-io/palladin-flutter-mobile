@@ -2,6 +2,9 @@
 
 Mnemonic-based account recovery (re-derive keys from the recovery phrase).
 
+Every recovery step uses the same dark-only grain as login and onboarding;
+light backgrounds and the existing per-step layout remain unchanged.
+
 - **Cubit:** `RecoveryCubit`.
 - **Pages:** `RecoveryPage`. **Widgets:** reuses `OnboardingTextField`,
   `PrimaryButton`, auth's shared brand frame, and the shared debounced HIBP

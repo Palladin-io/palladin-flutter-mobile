@@ -237,7 +237,41 @@ class _ConsentChoicesState extends State<_ConsentForm> {
                     ),
                   ),
                   details: [
+                    if (consent?.currentNotice case final notice?)
+                      Theme(
+                        data: Theme.of(context).copyWith(
+                          dividerColor: AppColors.transparent,
+                          expansionTileTheme: ExpansionTileTheme.of(context)
+                              .copyWith(
+                                shape: const Border(),
+                                collapsedShape: const Border(),
+                              ),
+                        ),
+                        child: ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          minTileHeight: AppSpacing.controlHeight,
+                          dense: true,
+                          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                          title: Text(
+                            l10n.privacyDetails,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          children: [
+                            Text(
+                              notice.text,
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.5,
+                                color: AppColors.onSurfaceMuted(
+                                  Theme.of(context).brightness,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     if (widget.source == 'mobile_settings' && analytics) ...[
+                      const SizedBox(height: AppSpacing.innerGap),
                       Text(
                         state.locallyActive
                             ? l10n.privacyActiveHere
@@ -255,25 +289,6 @@ class _ConsentChoicesState extends State<_ConsentForm> {
                           child: Text(l10n.privacyActivateHere),
                         ),
                     ],
-                    if (consent?.currentNotice case final notice?)
-                      Theme(
-                        data: Theme.of(context).copyWith(
-                          dividerColor: AppColors.transparent,
-                          expansionTileTheme: ExpansionTileTheme.of(context)
-                              .copyWith(
-                                shape: const Border(),
-                                collapsedShape: const Border(),
-                              ),
-                        ),
-                        child: ExpansionTile(
-                          tilePadding: EdgeInsets.zero,
-                          title: Text(
-                            l10n.privacyDetails,
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          children: [Text(notice.text)],
-                        ),
-                      ),
                   ],
                 );
               },
@@ -364,7 +379,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.cardPadding),
       decoration: BoxDecoration(
-        color: AppColors.cardFill(brightness),
+        color: AppColors.cardFooterOverlay(brightness),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.navBorder(brightness)),
       ),
@@ -389,10 +404,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
           ),
           const SizedBox(height: AppSpacing.innerGap),
           Text(description),
-          if (details.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.innerGap),
-            ...details,
-          ],
+          ...details,
         ],
       ),
     );

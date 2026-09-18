@@ -4,10 +4,14 @@
 request idempotency and the runtime freshness deadline. `PrivacyRuntime` binds it
 to AuthBloc, locale, app foreground/background and generic route templates.
 
-- `PrivacyOnboardingPage` is the separate optional step after password registration
-  or an OAuth response with `isNewUser: true`. Continuing does not require either
-  consent and does not grant it. Existing sessions do not silently opt in.
-- `PrivacySettingsPage` lives at `/settings/privacy` in the Account drawer group.
+- `PrivacyRuntime` offers the native sheet over the ready application on first
+  eligible entry, after registration, setup, verification and unlock. An unknown
+  purpose must have a current notice; an unavailable catalogue never interrupts
+  entry and may be offered after a later successful read. Dismissal grants nothing.
+  The legacy `/privacy-choices` URL resumes the normal auth guards.
+- The Account drawer opens the settings sheet over the current screen without
+  navigation. Direct `/settings/privacy` links use `PrivacySettingsPage` with
+  Security behind the sheet and replace the route with `/settings/security` on close.
   Both surfaces reuse `ConsentChoices`; analytics and marketing are independent.
 - Data comes from authenticated `/api/account/consents`. Writes send the displayed
   server notice version/locale, expected revision, random request ID and exact
@@ -88,16 +92,19 @@ active notices, authentication and release configuration are unchanged.
 Consent footers reuse `SheetActionButtons(equalActions: true)`; other sheets keep
 their existing confirm/cancel styling. The startup sheet disables drag/backdrop
 dismissal and prevents closing while a request is pending. Close before saving
-suspends local capture, then completes the optional routing step.
+suspends local capture, then returns to the current application screen.
 
 ## Dialog-only startup and settings (owner decision, 2026-09-13)
 
 Both entry points call showPrivacyConsentSheet: one native root bottom sheet,
 SheetSurface header, scrollable ConsentChoices and pinned primary/secondary footer.
-There is no inline consent panel. PrivacySettingsPage auto-opens once, then retains
-only its AppScreen navigation and Manage choices launcher. Close or system Back
-returns to that launcher; the next Back follows normal navigation. The startup
-completion still dispatches PrivacyChoicesCompleted through the existing guards.
+There is no inline consent panel. The drawer closes itself and opens the sheet
+without pushing a page, preserving the current route, edited fields and Back stack.
+Direct privacy links open once over Security and replace the route with Security
+after Close, system Back or successful Save. Startup completion pops only the
+sheet; it does not mutate authentication or routing. `ConsentCubit` keeps a
+memory-only offered-account set shared by the runtime and explicit sheets, so
+opening from the drawer also prevents a later duplicate automatic prompt.
 
 A navigator-scoped presentation guard prevents duplicate consent sheets. Runtime
 recognizes an explicit /settings/privacy visit before deciding on a first-entry
@@ -150,6 +157,11 @@ Explicit shapes also override any inherited ExpansionTile borders when the
 shared form is reused. Card outlines, the pinned action-footer divider, spacing
 and the native ExpansionTile focus/keyboard behavior remain intact.
 
+Consent cards use `AppColors.cardFooterOverlay`, matching the pinned action
+footer. The detail trigger follows the description without an extra spacer and
+retains a 44px row. Expanded server-owned notice text is left-aligned, 12px with
+1.5 line height; the client does not replace or rewrite the notice body.
+
 
 ## Review corrections: local opt-out, recovery and conflicts
 
@@ -182,8 +194,7 @@ Verification links carrying a token bypass optional privacy and account-setup
 redirects so the real verification page consumes the token. After successful
 verification, Continue checks the refreshed session claim and required default-vault
 provisioning, dispatches `AuthEmailVerified`, and navigates to token-less
-`/verify-email`. This resumes the existing guards, including pending optional
-privacy choices before setup/unlock and home. The token remains intact until
+`/verify-email`. This resumes the existing guards, including setup/unlock before home. The token remains intact until
 that check succeeds, including when the session was already email-verified.
 Regression coverage lives in privacy cubit/widget tests and
 `test/core/router/privacy_verification_router_test.dart`; router regressions click
@@ -192,11 +203,9 @@ the real Continue button with the production router, verification cubit and Auth
 
 ## Delayed runtime prompt and navigation preservation
 
-New-account startup still uses `needsPrivacyChoices`, `PrivacyOnboardingPage`
-and `PrivacyChoicesCompleted` before setup/verification guards. For eligible
-existing accounts, `PrivacyRuntime` presents the shared root-native sheet over
+For both new and existing accounts, `PrivacyRuntime` presents the shared root-native sheet over
 the mounted destination, including safe first entry. A slow initial read or later
-successful poll never sets the startup redirect flag. Save and dismissal pop only
+successful poll never redirects away from the destination. Save and dismissal pop only
 the sheet, retaining the current route, query, form state and previous Back stack.
 The runtime rechecks authentication, foreground state, route and consent after the
 frame before presenting; token verification pages are left uninterrupted. Route
@@ -234,3 +243,13 @@ text at 1×/2×, both details throughout expansion, bottom scrolling and keyboar
 insets at both scales, using Flutter SDK Roboto metrics instead of synthetic
 Ahem glyphs. The debug-only native preview exports read-only render geometry alongside
 its existing release-off and empty-key state for screenshot verification.
+
+## Entry timing correction (owner decision, 2026-09-15)
+
+The separate pre-verification privacy route, auth flag and auth events have been
+removed. The runtime requires an onboarded, verified, unlocked account and leaves
+login, registration, setup, verification, unlock and recovery routes uninterrupted,
+including their outgoing navigation frame. Unknown purposes without current notices
+do not trigger a sheet. The once-per-session offer is consumed only by presentation
+or an explicit visit to Privacy settings. Existing consent write, activation,
+idempotent retry, capture release gates and native sheet controls remain intact.

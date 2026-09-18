@@ -54,9 +54,8 @@ PasswordSecurityFeedback resolvePasswordSecurityFeedback({
   };
 }
 
-/// One-line renderer for the shared password feedback presentation. Account
-/// registration reuses [resolvePasswordSecurityFeedback] in its pinned copy
-/// slot; onboarding and recovery render this fixed-height widget directly.
+/// Shared feedback with a compact line by default, or wrapping supporting
+/// copy that fades into feedback when [supportingText] is provided.
 class PasswordSecurityStatusLine extends StatelessWidget {
   const PasswordSecurityStatusLine({
     super.key,
@@ -65,6 +64,7 @@ class PasswordSecurityStatusLine extends StatelessWidget {
     required this.securityState,
     this.message,
     this.messageColor,
+    this.supportingText,
   });
 
   final String password;
@@ -75,6 +75,7 @@ class PasswordSecurityStatusLine extends StatelessWidget {
   /// error, keeping every password state in the same fixed one-line slot.
   final String? message;
   final Color? messageColor;
+  final String? supportingText;
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +87,45 @@ class PasswordSecurityStatusLine extends StatelessWidget {
       securityState: securityState,
       message: message,
       messageColor: messageColor,
+      secureMessage: supportingText != null ? '' : null,
     );
+
+    if (supportingText != null) {
+      final hasFeedback = feedback.text.isNotEmpty;
+      final text = hasFeedback ? feedback.text : supportingText!;
+      return ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: AppSpacing.xxxl + AppSpacing.xs,
+        ),
+        child: AnimatedSwitcher(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
+          layoutBuilder: (currentChild, previousChildren) => Stack(
+            alignment: Alignment.center,
+            children: [...previousChildren, ?currentChild],
+          ),
+          child: Semantics(
+            key: ValueKey(text),
+            liveRegion: hasFeedback,
+            child: SizedBox(
+              width: double.infinity,
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.4,
+                  color: hasFeedback
+                      ? feedback.color
+                      : AppColors.onSurfaceSubtle(Theme.of(context).brightness),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return SizedBox(
       height: AppSpacing.xxl,

@@ -70,7 +70,12 @@ OAuth 2.0 login (Google, Apple, X via `flutter_appauth`).
 
 **Cross-feature deps:** none upstream; nearly every feature depends *on* `AuthBloc`.
 
-## Light entry background
+## Entry background
+
+In dark mode, `AuthBrandBackground` adds a static `BrandGrainOverlay` above
+the existing gradient/glow and below all content. It reuses the navigation
+texture, ignores pointer events, and is isolated in a repaint boundary.
+The layer is limited to auth/confirmation surfaces and absent in light mode.
 
 `AuthBrandBackground` uses `AppBrandBackground` with the defined web-login
 palette (#F8FAFC → #E3E7EC → #C8CDD6) and white bloom. Login, unlock and
@@ -78,7 +83,7 @@ registration share this variant; the authenticated app keeps its softer pale
 gray palette. Both variants share the same unclipped gradient geometry.
 
 Account analytics and email preferences use the shared [privacy feature](privacy.md).
-The optional privacy step follows new account creation; `/settings/privacy` exposes later changes.
+Optional privacy choices appear on first entry to the ready application, after registration, verification, setup and unlock; `/settings/privacy` exposes later changes.
 
 Verification links with `?token=` reach the verification page before optional privacy
 or setup redirects, even if the restored session already reports a verified email.

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
+import 'brand_grain_surface.dart';
 
 /// Shared page background for authentication and authenticated screens.
 ///
@@ -14,11 +15,13 @@ class AppBrandBackground extends StatelessWidget {
     required this.child,
     this.lightPageGradient = AppColors.authLightPageGradient,
     this.lightLogoGlow = AppColors.authLightLogoGlow,
+    this.showDarkGrain = false,
   });
 
   final Widget child;
   final RadialGradient lightPageGradient;
   final RadialGradient lightLogoGlow;
+  final bool showDarkGrain;
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +78,10 @@ class AppBrandBackground extends StatelessWidget {
                     ),
                   ),
                 ),
+              ),
+            if (showDarkGrain && brightness == Brightness.dark)
+              Positioned.fill(
+                child: BrandGrainOverlay(grain: AppColors.darkAuthGrain),
               ),
             Positioned.fill(child: child),
           ],

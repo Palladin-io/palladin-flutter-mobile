@@ -39,7 +39,7 @@ void main() {
 
   group('AuthBloc', () {
     blocTest<AuthBloc, AuthState>(
-      'new OAuth accounts receive the optional privacy step',
+      'new OAuth accounts still require setup',
       build: () {
         when(() => mockRepo.loginWithGoogle()).thenAnswer(
           (_) async => const AuthResultModel(
@@ -56,63 +56,32 @@ void main() {
       expect: () => [
         isA<AuthLoading>(),
         isA<AuthAuthenticated>().having(
-          (state) => state.needsPrivacyChoices,
-          'privacy step',
-          true,
+          (state) => state.isOnboarded,
+          'setup required',
+          false,
         ),
       ],
     );
     blocTest<AuthBloc, AuthState>(
-      'password registration receives the optional privacy step',
-      build: () => AuthBloc(authRepository: mockRepo),
+      'password registration retains the email verification gate',
+      build: () {
+        when(() => mockRepo.isEmailVerified()).thenAnswer((_) async => false);
+        return AuthBloc(authRepository: mockRepo);
+      },
       act: (bloc) => bloc.add(
         PasswordSessionEstablished(
           masterKey: Uint8List(32),
           privateKey: Uint8List(32),
-          isNewAccount: true,
         ),
       ),
       expect: () => [
         isA<AuthAuthenticated>().having(
-          (state) => state.needsPrivacyChoices,
-          'privacy step',
-          true,
+          (state) => state.emailVerified,
+          'verification required',
+          false,
         ),
       ],
     );
-    blocTest<AuthBloc, AuthState>(
-      'privacy continue preserves the session without requiring consent',
-      build: () => AuthBloc(authRepository: mockRepo),
-      seed: () => const AuthAuthenticated(
-        userId: 'user-789',
-        isOnboarded: true,
-        needsPrivacyChoices: true,
-      ),
-      act: (bloc) => bloc.add(const PrivacyChoicesCompleted()),
-      expect: () => [
-        isA<AuthAuthenticated>()
-            .having((state) => state.needsPrivacyChoices, 'privacy step', false)
-            .having((state) => state.userId, 'same account', 'user-789'),
-      ],
-    );
-
-    blocTest<AuthBloc, AuthState>(
-      'first-entry privacy request preserves authentication and routing guards',
-      build: () => AuthBloc(authRepository: mockRepo),
-      seed: () => const AuthAuthenticated(
-        userId: 'privacy-fixture',
-        isOnboarded: false,
-        isVaultLocked: true,
-      ),
-      act: (bloc) => bloc.add(const PrivacyChoicesRequested()),
-      expect: () => [
-        isA<AuthAuthenticated>()
-            .having((s) => s.needsPrivacyChoices, 'optional step', true)
-            .having((s) => s.isOnboarded, 'setup still required', false)
-            .having((s) => s.isVaultLocked, 'vault still locked', true),
-      ],
-    );
-
     test('initial state is AuthInitial', () {
       final bloc = AuthBloc(authRepository: mockRepo);
       expect(bloc.state, isA<AuthInitial>());

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../privacy/presentation/privacy_consent_sheet.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -143,8 +145,15 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   _DrawerItem(
                     icon: Icons.privacy_tip_outlined,
                     label: l10n.privacyTitle,
-                    onTap: () =>
-                        _onNavigate(context, AppRoutes.settingsPrivacy),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      unawaited(
+                        showPrivacyConsentSheet(
+                          context,
+                          source: 'mobile_settings',
+                        ),
+                      );
+                    },
                   ),
                   _DrawerItem(
                     icon: Icons.security_outlined,

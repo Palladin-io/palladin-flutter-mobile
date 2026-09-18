@@ -18,12 +18,18 @@ import 'package:mobile_palladin/core/theme/app_spacing.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/privacy/domain/user_consent.dart';
 import 'package:mobile_palladin/features/privacy/presentation/consent_cubit.dart';
-import 'package:mobile_palladin/features/privacy/presentation/privacy_onboarding_page.dart';
+import 'privacy_sheet_harness.dart';
 import 'package:mobile_palladin/features/privacy/presentation/privacy_settings_page.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 import 'privacy_fixture.dart';
+import 'package:mobile_palladin/features/settings/presentation/pages/security_page.dart';
+import 'package:mobile_palladin/features/privacy/presentation/privacy_consent_sheet.dart';
 
 class _AuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
+
+class _Completion extends Mock {
+  void call();
+}
 
 class _Remote extends Remote {
   UserConsent marketing = const UserConsent(
@@ -97,18 +103,16 @@ void main() {
   late _Remote remote;
   late ConsentCubit cubit;
   late _AuthBloc auth;
+  late _Completion completed;
   setUp(() async {
+    completed = _Completion();
     remote = _Remote();
     cubit = ConsentCubit(remote, MemoryActivationStore(), AnalyticsService());
     await cubit.bind('account', 'en');
     auth = _AuthBloc();
-    when(() => auth.state).thenReturn(
-      const AuthAuthenticated(
-        userId: 'account',
-        isOnboarded: true,
-        needsPrivacyChoices: true,
-      ),
-    );
+    when(
+      () => auth.state,
+    ).thenReturn(const AuthAuthenticated(userId: 'account', isOnboarded: true));
   });
   tearDown(() async {
     if (!cubit.isClosed) await cubit.close();
@@ -156,7 +160,7 @@ void main() {
             await tester.pumpWidget(
               app(
                 startup
-                    ? const PrivacyOnboardingPage()
+                    ? PrivacySheetHarness(onCompleted: completed.call)
                     : const PrivacySettingsPage(),
                 locale: 'pl',
               ),
@@ -380,7 +384,9 @@ void main() {
   testWidgets(
     'startup is a modal sheet, optional off and essential always active; dismissal makes no decision',
     (tester) async {
-      await tester.pumpWidget(app(const PrivacyOnboardingPage()));
+      await tester.pumpWidget(
+        app(PrivacySheetHarness(onCompleted: completed.call)),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
       expect(find.text('Your privacy'), findsOneWidget);
@@ -393,7 +399,7 @@ void main() {
       );
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
-      verify(() => auth.add(const PrivacyChoicesCompleted())).called(1);
+      verify(() => completed()).called(1);
       expect(remote.decisions, isEmpty);
     },
   );
@@ -410,7 +416,7 @@ void main() {
           await tester.pumpWidget(
             app(
               startup
-                  ? const PrivacyOnboardingPage()
+                  ? PrivacySheetHarness(onCompleted: completed.call)
                   : const PrivacySettingsPage(),
               locale: locale,
             ),
@@ -518,9 +524,7 @@ void main() {
             expect(find.byType(BottomSheet), findsNothing);
             expect(find.byType(AppToggle), findsNothing);
             expect(
-              find.text(
-                locale == 'pl' ? 'Zarządzaj zgodami' : 'Manage choices',
-              ),
+              find.text(locale == 'pl' ? 'Bezpieczeństwo' : 'Security'),
               findsOneWidget,
             );
           }
@@ -531,7 +535,7 @@ void main() {
   }
 
   testWidgets(
-    'settings close and system back leave a usable launcher; reopening never stacks sheets',
+    'direct privacy entry reveals Security after close/back; explicit reopen never stacks sheets',
     (tester) async {
       await tester.pumpWidget(app(const PrivacySettingsPage()));
       await tester.pumpAndSettle();
@@ -540,7 +544,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsNothing);
       expect(find.byType(AppToggle), findsNothing);
-      await tester.tap(find.text('Manage choices'));
+      unawaited(
+        showPrivacyConsentSheet(
+          tester.element(find.byType(SecurityPage)),
+          source: 'mobile_settings',
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
       final navigator = tester.state<NavigatorState>(
@@ -549,10 +558,15 @@ void main() {
       await navigator.maybePop();
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsNothing);
-      expect(find.text('Manage choices'), findsOneWidget);
+      expect(find.byType(SecurityPage), findsOneWidget);
       expect(remote.decisions, isEmpty);
-      verifyNever(() => auth.add(const PrivacyChoicesCompleted()));
-      await tester.tap(find.text('Manage choices'));
+      verifyNever(() => completed());
+      unawaited(
+        showPrivacyConsentSheet(
+          tester.element(find.byType(SecurityPage)),
+          source: 'mobile_settings',
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
     },
@@ -585,7 +599,7 @@ void main() {
       );
       await navigator.maybePop();
       await tester.pumpAndSettle();
-      expect(find.text('Manage choices'), findsOneWidget);
+      expect(find.byType(SecurityPage), findsOneWidget);
       await navigator.maybePop();
       await tester.pumpAndSettle();
       expect(find.text('Settings origin'), findsOneWidget);
@@ -641,7 +655,9 @@ void main() {
         activationRevision: 0,
       );
       await cubit.refresh();
-      await tester.pumpWidget(app(const PrivacyOnboardingPage()));
+      await tester.pumpWidget(
+        app(PrivacySheetHarness(onCompleted: completed.call)),
+      );
       await tester.pumpAndSettle();
       expect(
         tester
@@ -661,7 +677,9 @@ void main() {
   testWidgets(
     'startup Save commits both draft choices and activates this installation',
     (tester) async {
-      await tester.pumpWidget(app(const PrivacyOnboardingPage()));
+      await tester.pumpWidget(
+        app(PrivacySheetHarness(onCompleted: completed.call)),
+      );
       await tester.pumpAndSettle();
       for (final toggle in find.byType(AppToggle).evaluate().toList()) {
         await tester.ensureVisible(find.byWidget(toggle.widget));
@@ -680,7 +698,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(remote.decisions.map((d) => d.granted), [true, true]);
       expect(cubit.state.locallyActive, isTrue);
-      verify(() => auth.add(const PrivacyChoicesCompleted())).called(1);
+      verify(() => completed()).called(1);
     },
   );
 
@@ -692,7 +710,7 @@ void main() {
           await tester.pumpWidget(
             app(
               startup
-                  ? const PrivacyOnboardingPage()
+                  ? PrivacySheetHarness(onCompleted: completed.call)
                   : const PrivacySettingsPage(),
               locale: locale,
             ),
@@ -736,7 +754,9 @@ void main() {
         remote.marketing = missing;
       }
       await cubit.refresh();
-      await tester.pumpWidget(app(const PrivacyOnboardingPage()));
+      await tester.pumpWidget(
+        app(PrivacySheetHarness(onCompleted: completed.call)),
+      );
       await tester.pumpAndSettle();
       expect(
         tester
@@ -754,13 +774,15 @@ void main() {
     'Accept all partial failure retries only analytics and then activates locally',
     (tester) async {
       remote.analyticsFails = true;
-      await tester.pumpWidget(app(const PrivacyOnboardingPage()));
+      await tester.pumpWidget(
+        app(PrivacySheetHarness(onCompleted: completed.call)),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Accept all'));
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
       expect(cubit.state.locallyActive, isFalse);
-      verifyNever(() => auth.add(const PrivacyChoicesCompleted()));
+      verifyNever(() => completed());
       remote.analyticsFails = false;
       await tester.ensureVisible(find.text('Retry saving'));
       await tester.tap(find.text('Retry saving'));
@@ -772,7 +794,7 @@ void main() {
       ]);
       expect(remote.decisions[2], same(remote.decisions[1]));
       expect(cubit.state.locallyActive, isTrue);
-      verify(() => auth.add(const PrivacyChoicesCompleted())).called(1);
+      verify(() => completed()).called(1);
     },
   );
 
@@ -813,7 +835,9 @@ void main() {
       (tester) async {
         remote.marketingFails = failedPurpose == 'email_marketing';
         remote.analyticsFails = failedPurpose == 'product_analytics';
-        await tester.pumpWidget(app(const PrivacyOnboardingPage()));
+        await tester.pumpWidget(
+          app(PrivacySheetHarness(onCompleted: completed.call)),
+        );
         await tester.pumpAndSettle();
         await selectBoth(tester);
         await tester.tap(find.text('Save choice'));
@@ -823,7 +847,7 @@ void main() {
         expect(remote.decisions.first.purpose, 'email_marketing');
         final failed = remote.decisions.last;
         final count = remote.decisions.length;
-        verifyNever(() => auth.add(const PrivacyChoicesCompleted()));
+        verifyNever(() => completed());
         remote.marketingFails = false;
         remote.analyticsFails = false;
         remote.pending = Completer<UserConsent>();
@@ -843,7 +867,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(cubit.state.locallyActive, isTrue);
         expect(find.byType(BottomSheet), findsNothing);
-        verify(() => auth.add(const PrivacyChoicesCompleted())).called(1);
+        verify(() => completed()).called(1);
       },
     );
   }
@@ -861,7 +885,12 @@ void main() {
       expect(cubit.state.error, ConsentErrorKind.load);
       await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Manage choices'));
+      unawaited(
+        showPrivacyConsentSheet(
+          tester.element(find.byType(SecurityPage)),
+          source: 'mobile_settings',
+        ),
+      );
       await tester.pumpAndSettle();
       remote.networkFails = false;
       await tester.ensureVisible(find.text('Retry saving'));
@@ -954,7 +983,9 @@ void main() {
   testWidgets(
     '409 discards pending form decisions and draft before explicit reconfirmation',
     (tester) async {
-      await tester.pumpWidget(app(const PrivacyOnboardingPage()));
+      await tester.pumpWidget(
+        app(PrivacySheetHarness(onCompleted: completed.call)),
+      );
       await tester.pumpAndSettle();
       await selectBoth(tester);
       // The other device changes analytics after this form has loaded revision 0.
@@ -998,7 +1029,7 @@ void main() {
       expect(remote.decisions.last.expectedRevision, 4);
       expect(remote.decisions.last.requestId, isNot(stale.requestId));
       expect(cubit.state.locallyActive, isTrue);
-      verify(() => auth.add(const PrivacyChoicesCompleted())).called(1);
+      verify(() => completed()).called(1);
     },
   );
 
@@ -1046,7 +1077,9 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(app(const PrivacyOnboardingPage(), locale: 'pl'));
+      await tester.pumpWidget(
+        app(PrivacySheetHarness(onCompleted: completed.call), locale: 'pl'),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Twoja prywatność'), findsOneWidget);
       expect(find.text('Zawsze aktywne'), findsOneWidget);

@@ -27,7 +27,6 @@ class PrivacyRuntime extends StatefulWidget {
 class _PrivacyRuntimeState extends State<PrivacyRuntime>
     with WidgetsBindingObserver {
   late final ConsentCubit _consents = context.read<ConsentCubit>();
-  final _prompted = <String>{};
   bool _offerScheduled = false;
   bool _foreground = true;
   void _offerChoices({bool present = false}) {
@@ -36,25 +35,35 @@ class _PrivacyRuntimeState extends State<PrivacyRuntime>
         widget.router.routerDelegate.currentConfiguration.isEmpty) {
       return;
     }
-    if (auth.needsPrivacyChoices ||
-        widget.router.routerDelegate.state.uri.path == '/settings/privacy') {
-      _prompted.add(auth.userId);
+    final path = widget.router.routerDelegate.state.uri.path;
+    if (path == '/settings/privacy') {
+      _consents.markChoicesOffered(auth.userId);
       return;
     }
     if (!auth.isOnboarded ||
         !_foreground ||
-        widget.router.routerDelegate.state.uri.path == '/verify-email' ||
+        const {
+          '/login',
+          '/register',
+          '/onboarding',
+          '/verify-email',
+          '/unlock',
+          '/recovery',
+          '/privacy-choices',
+        }.contains(path) ||
         !auth.emailVerified ||
         auth.isVaultLocked ||
-        _prompted.contains(auth.userId) ||
+        _consents.hasOfferedChoices(auth.userId) ||
         _consents.state.loading ||
         _consents.state.error != null ||
         _consents.state.userId != auth.userId) {
       return;
     }
-    if (_consents.state.consents.any((c) => c.status == 'unknown')) {
-      // Reads can recover while a form is mounted. Push a native sheet above
-      // that flow instead of setting the startup flag that redirects to /privacy-choices.
+    if (_consents.state.consents.any(
+      (c) => c.status == 'unknown' && c.currentNotice != null,
+    )) {
+      // Optional choices belong above the ready app, never inside registration,
+      // verification, setup or unlock. A late read preserves the current route.
       // Recheck account, route and consent after the navigator has finished building.
       if (!present) {
         if (_offerScheduled) return;
@@ -69,7 +78,7 @@ class _PrivacyRuntimeState extends State<PrivacyRuntime>
       final navigatorContext =
           widget.router.routerDelegate.navigatorKey.currentContext;
       if (navigatorContext == null) return;
-      _prompted.add(auth.userId);
+      _consents.markChoicesOffered(auth.userId);
       unawaited(
         showPrivacyConsentSheet(navigatorContext, source: 'mobile_onboarding'),
       );

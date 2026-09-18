@@ -16,12 +16,206 @@ import 'package:mobile_palladin/features/privacy/domain/user_consent.dart';
 import 'package:mobile_palladin/features/privacy/presentation/privacy_runtime.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 import 'privacy_fixture.dart';
+import 'package:mobile_palladin/core/l10n/locale_cubit.dart';
+import 'package:mobile_palladin/core/theme/theme_cubit.dart';
+import 'package:mobile_palladin/features/shell/presentation/widgets/settings_drawer.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/analytics/analytics_service_test.dart' show CaptureAdapter;
 import 'package:mobile_palladin/features/privacy/data/consent_activation_store.dart';
+
+class _Theme extends MockCubit<ThemeMode> implements ThemeCubit {}
+
+class _Locale extends MockCubit<Locale> implements LocaleCubit {}
 
 class _Auth extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
 void main() {
+  testWidgets(
+    'Privacy in the drawer preserves route and edited input, and does not prompt again on polling',
+    (tester) async {
+      PackageInfo.setMockInitialValues(
+        appName: 'Test',
+        packageName: 'test',
+        version: '1',
+        buildNumber: '1',
+        buildSignature: '',
+      );
+      final auth = _Auth();
+      when(() => auth.state).thenReturn(
+        const AuthAuthenticated(
+          userId: 'account',
+          isOnboarded: true,
+          emailVerified: true,
+          isVaultLocked: false,
+        ),
+      );
+      final theme = _Theme();
+      when(() => theme.state).thenReturn(ThemeMode.light);
+      final locale = _Locale();
+      when(() => locale.state).thenReturn(const Locale('en'));
+      final remote = Remote()..current = consent(status: 'denied', revision: 1);
+      final cubit = ConsentCubit(
+        remote,
+        MemoryActivationStore(),
+        AnalyticsService(),
+      );
+      final router = GoRouter(
+        initialLocation: '/form',
+        routes: [
+          GoRoute(
+            path: '/form',
+            builder: (_, _) => Scaffold(
+              endDrawer: const SettingsDrawer(),
+              appBar: AppBar(title: const Text('Editing')),
+              body: const TextField(
+                decoration: InputDecoration(labelText: 'Draft'),
+              ),
+            ),
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        MultiBlocProvider(
+          providers: [
+            BlocProvider<AuthBloc>.value(value: auth),
+            BlocProvider.value(value: cubit),
+            BlocProvider<ThemeCubit>.value(value: theme),
+            BlocProvider<LocaleCubit>.value(value: locale),
+          ],
+          child: MaterialApp.router(
+            routerConfig: router,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            builder: (_, child) =>
+                PrivacyRuntime(router: router, child: child!),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Unsaved draft');
+      tester.state<ScaffoldState>(find.byType(Scaffold)).openEndDrawer();
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Privacy'));
+      await tester.tap(find.text('Privacy'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(router.routerDelegate.state.uri.path, '/form');
+      remote.current = consent();
+      await cubit.refresh();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.text('Unsaved draft'), findsOneWidget);
+      expect(router.routerDelegate.state.uri.path, '/form');
+      await cubit.refresh();
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(remote.decisions, isEmpty);
+      await tester.pumpWidget(const SizedBox());
+      router.dispose();
+      if (!cubit.isClosed) await cubit.close();
+      await auth.close();
+      await theme.close();
+      await locale.close();
+    },
+  );
+
+  for (final blockedPath in [
+    '/register',
+    '/onboarding',
+    '/verify-email',
+    '/unlock',
+    '/recovery',
+  ]) {
+    testWidgets(
+      'offers choices only after leaving $blockedPath for the ready app',
+      (tester) async {
+        final auth = _Auth();
+        var currentAuth = const AuthAuthenticated(
+          userId: 'account',
+          isOnboarded: false,
+          emailVerified: false,
+          isVaultLocked: true,
+        );
+        when(() => auth.state).thenAnswer((_) => currentAuth);
+        final remote = Remote();
+        final cubit = ConsentCubit(
+          remote,
+          MemoryActivationStore(),
+          AnalyticsService(),
+        );
+        final router = GoRouter(
+          initialLocation: blockedPath,
+          routes: [
+            GoRoute(
+              path: blockedPath,
+              builder: (_, _) => const Scaffold(body: Text('Auth flow')),
+            ),
+            GoRoute(
+              path: '/',
+              builder: (_, _) => const Scaffold(body: Text('Home')),
+            ),
+          ],
+        );
+        await tester.pumpWidget(
+          MultiBlocProvider(
+            providers: [
+              BlocProvider<AuthBloc>.value(value: auth),
+              BlocProvider.value(value: cubit),
+            ],
+            child: MaterialApp.router(
+              routerConfig: router,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              builder: (_, child) =>
+                  PrivacyRuntime(router: router, child: child!),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+        // Even after auth becomes ready, the outgoing registration/result screen
+        // is not a place to present optional choices during navigation.
+        currentAuth = currentAuth.copyWith(
+          isOnboarded: true,
+          emailVerified: true,
+          isVaultLocked: false,
+        );
+        await cubit.refresh();
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+        // Missing notices should not interrupt the first actual app entry either.
+        remote.current = const UserConsent(
+          purpose: 'product_analytics',
+          scope: 'palladin_web_mobile',
+          status: 'unknown',
+          revision: 0,
+          activationRevision: 0,
+        );
+        await cubit.refresh();
+        router.go('/');
+        await tester.pumpAndSettle();
+        expect(find.text('Home'), findsOneWidget);
+        expect(find.byType(BottomSheet), findsNothing);
+        remote.current = consent();
+        await cubit.refresh();
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsOneWidget);
+        expect(router.routerDelegate.state.uri.path, '/');
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        await cubit.refresh();
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+        expect(remote.decisions, isEmpty);
+        await tester.pumpWidget(const SizedBox());
+        router.dispose();
+        if (!cubit.isClosed) await cubit.close();
+        await auth.close();
+      },
+    );
+  }
   for (final shell in [false, true]) {
     testWidgets(
       'imperative pageviews use visible templates, dedupe and redact IDs/query/fragment: shell=$shell',
@@ -214,14 +408,12 @@ void main() {
         );
         await tester.pumpAndSettle();
         if (explicitSettings) {
-          verifyNever(() => auth.add(const PrivacyChoicesRequested()));
           router.go('/settings/security');
           await tester.pumpAndSettle();
           expect(find.text('Security route'), findsOneWidget);
           expect(find.byType(BottomSheet), findsNothing);
           await cubit.refresh();
           await tester.pumpAndSettle();
-          verifyNever(() => auth.add(const PrivacyChoicesRequested()));
         } else {
           expect(find.byType(BottomSheet), findsOneWidget);
           expect(router.routerDelegate.state.uri.path, '/');
@@ -229,7 +421,6 @@ void main() {
           await tester.pumpAndSettle();
           await cubit.refresh();
           await tester.pumpAndSettle();
-          verifyNever(() => auth.add(const PrivacyChoicesRequested()));
           expect(find.byType(BottomSheet), findsNothing);
         }
         await tester.pumpWidget(const SizedBox());
@@ -328,8 +519,6 @@ void main() {
           await cubit.refresh();
           await tester.pumpAndSettle();
           expect(find.byType(BottomSheet), findsNothing);
-          verifyNever(() => auth.add(const PrivacyChoicesRequested()));
-          verifyNever(() => auth.add(const PrivacyChoicesCompleted()));
           expect(analytics.isInitialized, isFalse);
           expect(AnalyticsService.instance.isInitialized, isFalse);
           router.pop();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/theme/app_colors.dart';
 import 'package:mobile_palladin/core/widgets/auth_brand_layout.dart';
+import 'package:mobile_palladin/core/widgets/brand_grain_surface.dart';
 
 void main() {
   testWidgets('light mode mirrors the landing page background layers', (
@@ -29,6 +30,7 @@ void main() {
         .whereType<Gradient>();
 
     expect(gradients.whereType<LinearGradient>(), isEmpty);
+    expect(find.byType(BrandGrainOverlay), findsNothing);
     final radialGradients = gradients.whereType<RadialGradient>().toList();
     expect(radialGradients, hasLength(2));
 
@@ -71,7 +73,7 @@ void main() {
     );
   });
 
-  testWidgets('dark mode keeps the existing background treatment', (
+  testWidgets('dark mode adds grain over the existing gradient and glow', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -91,6 +93,7 @@ void main() {
         .whereType<Gradient>();
 
     expect(gradients.whereType<LinearGradient>(), hasLength(1));
+    expect(find.byType(BrandGrainOverlay), findsOneWidget);
     final radialGradients = gradients.whereType<RadialGradient>().toList();
     expect(radialGradients, hasLength(1));
     expect(radialGradients.single.center, const Alignment(0, -0.2));

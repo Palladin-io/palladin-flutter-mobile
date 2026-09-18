@@ -13,8 +13,7 @@ import 'package:mobile_palladin/core/widgets/sheet_surface.dart';
 import 'package:mobile_palladin/features/privacy/data/consent_activation_store.dart';
 import 'package:mobile_palladin/features/privacy/data/consent_remote_datasource.dart';
 import 'package:mobile_palladin/features/privacy/presentation/consent_cubit.dart';
-import 'package:mobile_palladin/features/privacy/presentation/privacy_onboarding_page.dart';
-import 'package:mobile_palladin/features/privacy/presentation/privacy_settings_page.dart';
+import 'package:mobile_palladin/features/privacy/presentation/privacy_consent_sheet.dart';
 import 'package:mobile_palladin/features/shell/presentation/pages/app_shell.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
 
@@ -259,12 +258,45 @@ class _PreviewState extends State<Preview> {
         setFab: (_, _) {},
         clearFab: (_) {},
         child: dialog
-            ? PrivacyOnboardingPage(
+            ? _StartupSheetPreview(
                 key: ValueKey('dialog-$revision'),
                 onCompleted: _completeStartup(revision),
               )
-            : PrivacySettingsPage(key: ValueKey('settings-$revision')),
+            : _StartupSheetPreview(
+                key: ValueKey('settings-$revision'),
+                source: 'mobile_settings',
+                onCompleted: () {},
+              ),
       ),
     ),
   );
+}
+
+/// The preview opens the same sheet the runtime presents above the ready app.
+class _StartupSheetPreview extends StatefulWidget {
+  const _StartupSheetPreview({
+    super.key,
+    required this.onCompleted,
+    this.source = 'mobile_onboarding',
+  });
+  final String source;
+  final VoidCallback onCompleted;
+  @override
+  State<_StartupSheetPreview> createState() => _StartupSheetPreviewState();
+}
+
+class _StartupSheetPreviewState extends State<_StartupSheetPreview> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await showPrivacyConsentSheet(context, source: widget.source);
+      if (mounted) widget.onCompleted();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      const Scaffold(body: Text('Application'));
 }

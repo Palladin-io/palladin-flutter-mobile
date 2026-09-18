@@ -53,14 +53,12 @@ final class VaultLockRequested extends AuthEvent {
 /// unlock step.
 final class PasswordSessionEstablished extends AuthEvent {
   const PasswordSessionEstablished({
-    this.isNewAccount = false,
     required this.masterKey,
     required this.privateKey,
   });
 
   final Uint8List masterKey;
   final Uint8List privateKey;
-  final bool isNewAccount;
 }
 
 /// Fired after the user's email is verified (via the deep-link result
@@ -86,14 +84,4 @@ final class OnboardingCompleted extends AuthEvent {
 
   final Uint8List? masterKey;
   final Uint8List? privateKey;
-}
-
-/// Completes the optional privacy step without requiring either consent.
-final class PrivacyChoicesCompleted extends AuthEvent {
-  const PrivacyChoicesCompleted();
-}
-
-/// Offers the optional choices on the first eligible entry with no recorded choice.
-final class PrivacyChoicesRequested extends AuthEvent {
-  const PrivacyChoicesRequested();
 }

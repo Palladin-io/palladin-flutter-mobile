@@ -102,4 +102,8 @@ in `THIRD_PARTY_NOTICES.md` without a dedicated General-screen row.
 authentication security and Vault import flows; routed from `shell`.
 
 Account analytics and email preferences use the shared [privacy feature](privacy.md).
-The optional privacy step follows new account creation; `/settings/privacy` exposes later changes.
+Optional privacy choices appear on first entry to the ready application, after registration, verification, setup and unlock; `/settings/privacy` exposes later changes.
+
+The Privacy drawer item is a sheet action over the current screen, preserving its
+route and unsaved state. Direct `/settings/privacy` links use Security behind the
+sheet and settle on `/settings/security` when dismissed.
