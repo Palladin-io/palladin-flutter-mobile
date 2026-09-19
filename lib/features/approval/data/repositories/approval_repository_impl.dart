@@ -368,6 +368,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
   Future<void> createGranularGrant({
     required String vaultId,
     required String entryId,
+    List<String>? selectedFieldIds,
     required String agentId,
     required String agentPublicKey,
     required int recipientKeyVersion,
@@ -432,7 +433,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           description: snapshot.secret['description'] as String? ?? '',
           content: snapshot.payload,
           policy: policy,
-          approvedFieldIds: approved,
+          approvedFieldIds: selectedFieldIds ?? approved,
         );
         final envelopeFieldIds = AgentVisibilityProjector.grantPayloadFieldIds(
           payload,
@@ -462,6 +463,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           grantId: grantId,
           agentId: agentId,
           grantEntry: Map<String, dynamic>.from(envelope),
+          selectedFieldIds: selectedFieldIds,
           expiresAt: wire.expiresAt,
           queryLimit: wire.queryLimit,
           methods: serializeGrantMethods(methods),

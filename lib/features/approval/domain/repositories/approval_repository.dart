@@ -97,6 +97,7 @@ abstract interface class ApprovalRepository {
   Future<void> createGranularGrant({
     required String vaultId,
     required String entryId,
+    List<String>? selectedFieldIds,
     required String agentId,
     required String agentPublicKey,
     required int recipientKeyVersion,

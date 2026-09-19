@@ -243,3 +243,7 @@ Entry presign/public-URL upload paths are intentionally absent.
 - `VaultDetailPage` / `EntryDetailPage` use `AppBrandBackground + DefaultTabController + Scaffold + AppBar` instead of `AppScreen.appBar(...)` (justified by the `PreferredSize` tab-bar height, but still skips the abstraction).
 - `_SkeletonCard` (vault_list) and `_SkeletonRow` (vault_entries_tab) reimplement `SkeletonBox` — replace.
 - AppBar titles duplicate the `AppBarTitle` pattern (see the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md)).
+
+## Entry grant field selection
+
+Both ordinary and canonical Entry updates refresh all-fields grants from current grantable fields. Selected grants intersect their retained allowlist with current policy; missing metadata preserves the delivered field list. Empty resulting scope blocks the update. Recipient, methods, expiry and remaining uses are unchanged.

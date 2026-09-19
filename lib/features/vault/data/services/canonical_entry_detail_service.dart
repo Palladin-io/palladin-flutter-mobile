@@ -2169,21 +2169,24 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         base64.decode(grant.agentPublicKey!),
       );
       try {
-        final allowed = secret.agentFieldAccess.entries
-            .where(
-              (item) =>
-                  item.value == AgentFieldAccess.onGrantValue ||
-                  item.value == AgentFieldAccess.onGrantDerived ||
-                  item.value == AgentFieldAccess.onGrantRuntime,
-            )
-            .map((item) => item.key)
-            .toSet();
-        final fields = scope.fieldIds
-            .map((id) => _canonicalGrantFieldId(secret.entryType, id))
-            .where(allowed.contains)
-            .toList();
-        if (fields.length != scope.fieldIds.length || fields.isEmpty) {
-          throw const FormatException('Grant scope exceeds policy');
+        final projection = _grantProjection(secret);
+        final allowed = AgentVisibilityProjector.grantableFieldIds(
+          type: projection.type,
+          agentLabel: projection.agentLabel,
+          description: projection.description,
+          content: projection.content,
+          policy: projection.policy,
+        ).map((id) => _canonicalGrantFieldId(secret.entryType, id)).toSet();
+        final fields =
+            (scope.fieldSelectionMode == 'all'
+                    ? allowed
+                    : scope.selectedFieldIds ?? scope.fieldIds)
+                .map((id) => _canonicalGrantFieldId(secret.entryType, id))
+                .where(allowed.contains)
+                .toList()
+              ..sort();
+        if (fields.isEmpty) {
+          throw const FormatException('Entry has no grantable fields');
         }
         final remaining = grant.queryLimit == null
             ? null
@@ -2195,7 +2198,6 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         if (agentId == null) {
           throw const FormatException('Active grant has no Agent principal');
         }
-        final projection = _grantProjection(secret);
         final payload = AgentVisibilityProjector.grantPayload(
           type: projection.type,
           vaultId: vaultId,
@@ -2652,7 +2654,34 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       final expiresAt = grant.expiresAt == null
           ? null
           : _canonicalInstant(grant.expiresAt!);
-      final approvedFieldIds = scope.fieldIds;
+      final grantable =
+          AgentVisibilityProjector.grantableFieldIds(
+                type: type,
+                agentLabel: agentLabel,
+                description: description,
+                content: content,
+                policy: policy,
+              )
+              .map(
+                (id) => _canonicalGrantFieldId(
+                  VaultEntryType.values.byName(type.name),
+                  id,
+                ),
+              )
+              .toSet();
+      final approvedFieldIds =
+          (scope.fieldSelectionMode == 'all'
+                  ? grantable
+                  : scope.selectedFieldIds ?? scope.fieldIds)
+              .map(
+                (id) => _canonicalGrantFieldId(
+                  VaultEntryType.values.byName(type.name),
+                  id,
+                ),
+              )
+              .where(grantable.contains)
+              .toList()
+            ..sort();
       if (approvedFieldIds.isEmpty) {
         throw const FormatException('Entry has no grantable fields');
       }

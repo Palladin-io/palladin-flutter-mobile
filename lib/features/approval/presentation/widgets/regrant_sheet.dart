@@ -32,6 +32,9 @@ class RegrantSheet extends StatelessWidget {
     if (agentId == null) {
       throw StateError('Agent re-grant requires an Agent');
     }
+    final previousScope = grant.entryScopes
+        .where((scope) => scope.entryId == grant.entryId)
+        .firstOrNull;
     final RegrantArgs args = switch ((grant.scope, grant.entryId)) {
       (GrantScope.full, _) => FullRegrantArgs(
         vaultId: grant.vaultId,
@@ -41,6 +44,11 @@ class RegrantSheet extends StatelessWidget {
         vaultId: grant.vaultId,
         agentId: agentId,
         entryId: entryId,
+        selectedFieldIds: previousScope?.fieldSelectionMode == 'all'
+            ? null
+            : previousScope?.selectedFieldIds ??
+                  previousScope?.fieldIds ??
+                  const [],
       ),
       (GrantScope.scriptExecution, final String entryId) =>
         ScriptExecutionRegrantArgs(

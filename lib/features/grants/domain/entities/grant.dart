@@ -247,6 +247,8 @@ class GrantEntryScope {
   const GrantEntryScope({
     required this.entryId,
     required this.fieldIds,
+    this.fieldSelectionMode,
+    this.selectedFieldIds,
     this.grantEnvelopeRevision,
     this.entryRevision,
     this.grantKeyVersion,
@@ -257,6 +259,8 @@ class GrantEntryScope {
 
   final String entryId;
   final List<String> fieldIds;
+  final String? fieldSelectionMode;
+  final List<String>? selectedFieldIds;
   final String? grantEnvelopeRevision;
   final String? entryRevision;
   final int? grantKeyVersion;

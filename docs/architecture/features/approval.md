@@ -34,3 +34,7 @@ Zero-knowledge grant approval/denial — the crypto-sensitive heart of access co
 **Cross-feature deps:** `auth` (private key), `grants` (domain entities). Its sheets are invoked from `vault`, `agents`, and `notifications`.
 
 **⚠ Architecture smell:** every sheet inlines the 36×4 drag handle → extract `SheetDragHandle` (see the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md)). Use `SheetActionButtons` for the footer.
+
+## Entry grant field selection
+
+New granular grants explicitly request `all` fields by default. Re-grant preserves the previous all/selected choice; a restricted re-grant projects only the retained selected IDs. A new field-selection picker is not yet available on mobile.

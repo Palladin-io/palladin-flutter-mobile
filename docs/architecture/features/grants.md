@@ -38,3 +38,7 @@ entities), `vault` (`MemberEntryListLoader` for local Entry presentation).
 Embedded by `vault`.
 
 **⚠ Architecture smell:** `RevokeGrantSheet` inlines the drag handle → extract `SheetDragHandle`. `GrantDetailRow` is a 76px-label variant of the duplicated label/value row pattern — fold into `LabelValueRow` if generalizing. See the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md).
+
+## Entry grant field selection
+
+Grant Entry scopes retain `fieldSelectionMode` and `selectedFieldIds` separately from currently delivered `fieldIds`. Missing metadata keeps the existing field list.
