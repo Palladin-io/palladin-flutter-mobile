@@ -125,4 +125,36 @@ void main() {
       throwsA(isA<FormatException>()),
     );
   });
+
+  for (final fraction in ['1234567', '123456789']) {
+    test(
+      'accepts backend Instant timestamps with ${fraction.length} fractional digits',
+      () async {
+        snapshot['accessContext']['issuedAt'] =
+            '2026-09-19T17:00:00.${fraction}Z';
+        snapshot['accessContext']['notAfter'] =
+            '2026-09-19T18:00:00.${fraction}Z';
+        final datasource = MemberSyncRemoteDatasource(
+          Dio()..httpClientAdapter = _RecordingAdapter(snapshot),
+        );
+
+        final page = await datasource.snapshot(
+          vaultId: snapshot['accessContext']['vaultId'] as String,
+        );
+
+        expect(
+          page.accessContext.issuedAt,
+          DateTime.utc(2026, 9, 19, 17, 0, 0, 123, 456),
+        );
+        expect(
+          page.accessContext.notAfter,
+          DateTime.utc(2026, 9, 19, 18, 0, 0, 123, 456),
+        );
+        expect(
+          page.accessContext.notAfter.difference(page.accessContext.issuedAt),
+          const Duration(hours: 1),
+        );
+      },
+    );
+  }
 }

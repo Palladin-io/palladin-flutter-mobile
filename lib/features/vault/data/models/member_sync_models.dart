@@ -393,7 +393,7 @@ bool _hasExactKeys(Map<String, dynamic> value, Set<String> expected) =>
 DateTime _instant(Object? value, String field) {
   if (value is! String ||
       !RegExp(
-        r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$',
+        r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$',
       ).hasMatch(value)) {
     throw FormatException('$field must be a canonical UTC instant');
   }
