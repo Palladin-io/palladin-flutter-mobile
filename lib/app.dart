@@ -1,5 +1,4 @@
 import 'core/analytics/analytics_service.dart';
-import 'features/privacy/data/consent_activation_store.dart';
 import 'features/privacy/data/consent_remote_datasource.dart';
 import 'features/privacy/presentation/consent_cubit.dart';
 import 'features/privacy/presentation/privacy_runtime.dart';
@@ -72,7 +71,6 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
 
   late final ConsentCubit _consents = ConsentCubit(
     ConsentRemoteDataSource(getIt<Dio>()),
-    ConsentActivationStore(),
     AnalyticsService.instance,
   );
 

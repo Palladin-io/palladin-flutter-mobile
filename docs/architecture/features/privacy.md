@@ -1,6 +1,6 @@
 # Account privacy
 
-`ConsentCubit` owns the current Identity response, local installation activation,
+`ConsentCubit` owns the current Identity response, temporary form suspension,
 request idempotency and the runtime freshness deadline. `PrivacyRuntime` binds it
 to AuthBloc, locale, app foreground/background and generic route templates.
 
@@ -17,19 +17,20 @@ to AuthBloc, locale, app foreground/background and generic route templates.
   client notice version/locale, expected revision, random request ID and exact
   source (`mobile_onboarding` or `mobile_settings`). The server owns all domain
   validation; clients deserialize the version-matched contract.
-- A file in the application cache retains only the notice version and `activationRevision` for
-  that account. They contain no key material, tokens or analytics session. Account
-  consent alone does not activate a new installation. A later withdrawal/regrant
-  changes the epoch and makes earlier local activations unusable. Application cache
-  is excluded from normal mobile backups; restoring ordinary preferences cannot
-  enable a new installation. Cache eviction also disables analytics until explicit
-  reactivation. No consent activation is stored in SharedPreferences. See
-  [Apple file-system guidance](https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/FileSystemProgrammingGuide/FileSystemOverview/FileSystemOverview.html).
-- Withdrawal stops the in-memory transport before storage/API work, including on
-  failure. Transient or ambiguous failures remain retryable with the same request ID. Responses
-  from an older account/session never authorize analytics. Storage failure still
-  permits sending a server withdrawal; a failed activation write keeps collection
-  off.
+Account analytics consent automatically applies on every signed-in web/mobile
+installation after a fresh authenticated response for the accepted notice version.
+No device activation, browser preference, localStorage entry or mobile cache file
+is required. Old activation records are ignored. Changing language does not revoke
+an accepted version. A different current notice version still requires explicit Save.
+Unknown, denied and withdrawn choices never authorize capture.
+
+A form holds a memory-only suspension while editing a withdrawal or saving a batch.
+Polling cannot override that suspension. Successful completion releases it;
+closing/cancelling the form discards its draft and resumes the saved account choice
+within the normal freshness/lifecycle rules. Closing Privacy never revokes a grant.
+Failed writes remain visible with an explicit retry; no reconnect queues a decision.
+Account replacement and logout invalidate in-flight reads/writes.
+
 
 The client reads consent on authentication, locale change and foreground resume,
 and polls every 30 seconds while foregrounded. Polling also discovers network
@@ -59,6 +60,20 @@ sender was introduced. Final PL/EN notices, privacy text, retention, App Privacy
 and Data Safety declarations remain a coordinated release gate. ATT is a separate
 assessment, not a blanket analytics permission prompt.
 
+
+## Account consent decision — 2026-09-19
+
+This decision supersedes all historical references below to per-installation
+activation, local on/off status and dismissal disabling capture. The UI has only
+the account switches, expandable notice details and Save choice / Accept all.
+Capture still requires the independently configured analytics release flag and
+project key. Removing device activation does not publish or enable that configuration.
+The API receipt contract, archived notice texts, event scope and transport stay unchanged.
+
+## Historical presentation decisions
+
+The dated sections below retain the previous design record. Their per-device
+activation behavior is superseded by the account-consent decision above.
 
 ## Explicit startup choice and settings (CVT-609, 2026-09-13)
 
@@ -164,12 +179,9 @@ retains a 44px row. Expanded client-owned notice text is left-aligned, 12px with
 
 ## Review corrections: local opt-out, recovery and conflicts
 
-Local stop, withdrawal and sheet dismissal advance an activation generation before
-any storage work. Cached reads and grant persistence from an older generation
-cannot restore activation. An account-scoped in-memory block survives locale
-changes, logout/rebind, polling and foreground refresh even if deleting the cached
-file fails. Other accounts retain their own activation. Only a newer explicit
-grant with successful activation persistence can remove the account's block.
+The account grant is now sufficient after a fresh read (owner decision 2026-09-19).
+Temporary form pauses are scoped to the current session and released on completion
+or dismissal; no disk activation generation or persistent account block remains.
 
 A successful authoritative read clears a recovered load error independently of
 an unresolved write failure. Save failure is tracked separately from the retryable

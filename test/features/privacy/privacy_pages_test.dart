@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:mobile_palladin/features/privacy/data/consent_activation_store.dart';
 import 'package:mobile_palladin/features/shell/presentation/pages/app_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -107,7 +106,7 @@ void main() {
   setUp(() async {
     completed = _Completion();
     remote = _Remote();
-    cubit = ConsentCubit(remote, MemoryActivationStore(), AnalyticsService());
+    cubit = ConsentCubit(remote, AnalyticsService());
     await cubit.bind('account', 'en');
     auth = _AuthBloc();
     when(
@@ -332,7 +331,7 @@ void main() {
             await tester.pumpAndSettle();
             expect(assertLayout(), initialFooter);
             expect(remote.decisions, isEmpty);
-            expect(cubit.state.locallyActive, isFalse);
+            expect(cubit.state.analyticsAuthorized, isFalse);
           },
         );
       }
@@ -423,7 +422,7 @@ void main() {
           [false, false],
         );
         expect(remote.decisions, isEmpty);
-        expect(cubit.state.locallyActive, isFalse);
+        expect(cubit.state.analyticsAuthorized, isFalse);
         expect(tester.takeException(), isNull);
       },
     );
@@ -567,7 +566,7 @@ void main() {
             ['product_analytics', false],
             ['email_marketing', false],
           ]);
-          expect(cubit.state.locallyActive, isFalse);
+          expect(cubit.state.analyticsAuthorized, isFalse);
           if (!startup) {
             expect(find.byType(BottomSheet), findsNothing);
             expect(find.byType(AppToggle), findsNothing);
@@ -718,7 +717,7 @@ void main() {
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
       expect(remote.decisions, isEmpty);
-      expect(cubit.state.locallyActive, isFalse);
+      expect(cubit.state.analyticsAuthorized, isFalse);
     },
   );
 
@@ -745,7 +744,7 @@ void main() {
       await tester.tap(find.text('Save choice'));
       await tester.pumpAndSettle();
       expect(remote.decisions.map((d) => d.granted), [true, true]);
-      expect(cubit.state.locallyActive, isTrue);
+      expect(cubit.state.analyticsAuthorized, isTrue);
       verify(() => completed()).called(1);
     },
   );
@@ -778,7 +777,7 @@ void main() {
             ['email_marketing', true],
             ['product_analytics', true],
           ]);
-          expect(cubit.state.locallyActive, isTrue);
+          expect(cubit.state.analyticsAuthorized, isTrue);
           expect(find.byType(BottomSheet), findsNothing);
         },
       );
@@ -829,7 +828,7 @@ void main() {
       await tester.tap(find.text('Accept all'));
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
-      expect(cubit.state.locallyActive, isFalse);
+      expect(cubit.state.analyticsAuthorized, isFalse);
       verifyNever(() => completed());
       remote.analyticsFails = false;
       await tester.ensureVisible(find.text('Retry saving'));
@@ -841,13 +840,13 @@ void main() {
         'product_analytics',
       ]);
       expect(remote.decisions[2], same(remote.decisions[1]));
-      expect(cubit.state.locallyActive, isTrue);
+      expect(cubit.state.analyticsAuthorized, isTrue);
       verify(() => completed()).called(1);
     },
   );
 
   testWidgets(
-    'settings keeps another installation off until explicit local activation',
+    'settings automatically uses the account grant without another action',
     (tester) async {
       remote.current = consent(
         status: 'granted',
@@ -857,15 +856,14 @@ void main() {
       await cubit.refresh();
       await tester.pumpWidget(app(const PrivacySettingsPage()));
       await tester.pumpAndSettle();
-      expect(find.text('Off on this device'), findsOneWidget);
-      await tester.ensureVisible(find.text('Enable on this device'));
-      await tester.tap(find.text('Enable on this device'));
+      expect(cubit.state.analyticsAuthorized, isTrue);
+      expect(find.text('Off on this device'), findsNothing);
+      expect(find.text('Enable on this device'), findsNothing);
+      expect(remote.decisions, isEmpty);
+      await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
-      expect(cubit.state.locallyActive, isTrue);
-      expect(remote.decisions, hasLength(1));
-      expect(remote.decisions.single.purpose, 'product_analytics');
-      expect(remote.decisions.single.source, 'mobile_settings');
-      expect(remote.marketing.status, 'unknown');
+      expect(cubit.state.analyticsAuthorized, isTrue);
+      expect(remote.decisions, isEmpty);
     },
   );
 
@@ -893,7 +891,7 @@ void main() {
         await selectBoth(tester);
         await tester.tap(find.text('Save choice'));
         await tester.pumpAndSettle();
-        expect(cubit.state.locallyActive, isFalse);
+        expect(cubit.state.analyticsAuthorized, isFalse);
         expect(find.byType(BottomSheet), findsOneWidget);
         expect(remote.decisions.first.purpose, 'email_marketing');
         final failed = remote.decisions.last;
@@ -907,7 +905,7 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
         expect(remote.decisions[count], same(failed));
-        expect(cubit.state.locallyActive, isFalse);
+        expect(cubit.state.analyticsAuthorized, isFalse);
         expect(find.byType(BottomSheet), findsOneWidget);
         remote.current = consent(
           status: 'granted',
@@ -916,7 +914,7 @@ void main() {
         );
         remote.pending!.complete(remote.current);
         await tester.pumpAndSettle();
-        expect(cubit.state.locallyActive, isTrue);
+        expect(cubit.state.analyticsAuthorized, isTrue);
         expect(find.byType(BottomSheet), findsNothing);
         verify(() => completed()).called(1);
       },
@@ -924,7 +922,7 @@ void main() {
   }
 
   testWidgets(
-    'reopened settings recovers load failure and enables choices despite unresolved write',
+    'reopened settings recovers load failure after cancelling the previous draft',
     (tester) async {
       await tester.pumpWidget(app(const PrivacySettingsPage()));
       await tester.pumpAndSettle();
@@ -947,7 +945,7 @@ void main() {
       await tester.ensureVisible(find.text('Retry saving'));
       await tester.tap(find.text('Retry saving'));
       await tester.pumpAndSettle();
-      expect(cubit.state.error, ConsentErrorKind.save);
+      expect(cubit.state.error, isNull);
       expect(
         tester
             .widget<SheetActionButtons>(find.byType(SheetActionButtons))
@@ -1005,7 +1003,7 @@ void main() {
             expect(find.text('Retry saving'), findsNothing);
             expect(cubit.state.error, ConsentErrorKind.save);
             expect(cubit.state.failedDecision, isNull);
-            expect(cubit.state.locallyActive, isFalse);
+            expect(cubit.state.analyticsAuthorized, isFalse);
             expect(
               tester
                   .widgetList<AppToggle>(find.byType(AppToggle))
@@ -1051,7 +1049,7 @@ void main() {
       final stale = remote.decisions.last;
       expect(stale.expectedRevision, 0);
       expect(cubit.state.failedDecision, isNull);
-      expect(cubit.state.locallyActive, isFalse);
+      expect(cubit.state.analyticsAuthorized, isFalse);
       expect(
         find.text(
           'Privacy choices changed on another device. Review the current choices and save again to confirm.',
@@ -1079,45 +1077,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(remote.decisions.last.expectedRevision, 4);
       expect(remote.decisions.last.requestId, isNot(stale.requestId));
-      expect(cubit.state.locallyActive, isTrue);
+      expect(cubit.state.analyticsAuthorized, isTrue);
       verify(() => completed()).called(1);
-    },
-  );
-
-  testWidgets(
-    'sheet dismissal during cached activation read cannot resume capture',
-    (tester) async {
-      await cubit.close();
-      final store = ControlledActivationStore()
-        ..pendingRead = Completer()
-        ..readStarted = Completer<void>();
-      final analytics = AnalyticsService()
-        ..configure(
-          projectKey: 'test',
-          host: 'https://eu.i.posthog.com',
-          released: true,
-        );
-      cubit = ConsentCubit(remote, store, analytics);
-      remote.current = consent(
-        status: 'granted',
-        revision: 1,
-        activationRevision: 1,
-      );
-      final binding = cubit.bind('account', 'en');
-      await store.readStarted!.future;
-      await tester.pumpWidget(app(const PrivacySettingsPage()));
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-      await tester.tap(find.byIcon(Icons.close));
-      await tester.pump();
-      store.pendingRead!.complete(const ConsentActivation('test-v1', 1));
-      await binding;
-      await tester.pumpAndSettle();
-      expect(find.byType(BottomSheet), findsNothing);
-      expect(cubit.state.locallyActive, isFalse);
-      expect(analytics.isInitialized, isFalse);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await cubit.close();
     },
   );
 

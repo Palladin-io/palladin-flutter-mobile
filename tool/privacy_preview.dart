@@ -10,7 +10,6 @@ import 'package:mobile_palladin/core/analytics/analytics_service.dart';
 import 'package:mobile_palladin/core/theme/app_colors.dart';
 import 'package:mobile_palladin/core/widgets/sheet_action_buttons.dart';
 import 'package:mobile_palladin/core/widgets/sheet_surface.dart';
-import 'package:mobile_palladin/features/privacy/data/consent_activation_store.dart';
 import 'package:mobile_palladin/features/privacy/data/consent_remote_datasource.dart';
 import 'package:mobile_palladin/features/privacy/presentation/consent_cubit.dart';
 import 'package:mobile_palladin/features/privacy/presentation/privacy_consent_sheet.dart';
@@ -39,14 +38,7 @@ class _PreviewState extends State<Preview> {
       headers: {'X-Preview-Account': 'fixture-native'},
     ),
   );
-  late final cubit = ConsentCubit(
-    ConsentRemoteDataSource(dio),
-    ConsentActivationStore(
-      cacheDirectory: () async =>
-          Directory('${Directory.systemTemp.path}/cvt609-preview'),
-    ),
-    analytics,
-  );
+  late final cubit = ConsentCubit(ConsentRemoteDataSource(dio), analytics);
   final navigator = GlobalKey<NavigatorState>();
   String locale = 'en';
   bool dialog = true;
@@ -100,10 +92,7 @@ class _PreviewState extends State<Preview> {
             invoked = true;
           }
           if (!invoked &&
-              (action == 'save' ||
-                  action == 'accept' ||
-                  action == 'activate' ||
-                  action == 'open')) {
+              (action == 'save' || action == 'accept' || action == 'open')) {
             if (widget is ButtonStyleButton && widget.child is Text) {
               final label = (widget.child! as Text).data;
               if (label ==
@@ -111,9 +100,7 @@ class _PreviewState extends State<Preview> {
                       ? l10n.privacySaveChoice
                       : action == 'accept'
                       ? l10n.privacyAcceptAll
-                      : action == 'open'
-                      ? l10n.privacyManageChoices
-                      : l10n.privacyActivateHere)) {
+                      : l10n.privacyManageChoices)) {
                 widget.onPressed?.call();
                 invoked = true;
               }
@@ -132,7 +119,7 @@ class _PreviewState extends State<Preview> {
           'sheetOpen': navigator.currentState?.canPop() ?? false,
           'release': false,
           'projectKeyEmpty': true,
-          'locallyActive': cubit.state.locallyActive,
+          'analyticsAuthorized': cubit.state.analyticsAuthorized,
           'transportInitialized': analytics.isInitialized,
           'layout': _sheetLayout(),
           'consents': cubit.state.consents

@@ -231,11 +231,7 @@ void main() {
             defaultVaultProvisioner: _Provisioner(),
           ),
         );
-        final consents = ConsentCubit(
-          Remote(),
-          MemoryActivationStore(),
-          AnalyticsService(),
-        );
+        final consents = ConsentCubit(Remote(), AnalyticsService());
         await consents.bind('account', 'en');
         final router = createRouter(auth);
         final destination = Uri(
@@ -372,11 +368,7 @@ class _VerificationFixture {
     when(() => notifications.state).thenReturn(const NotificationCenterState());
     when(() => notifications.refreshSummary()).thenAnswer((_) async {});
     getIt.registerSingleton<NotificationCenterCubit>(notifications);
-    final consents = ConsentCubit(
-      Remote(),
-      MemoryActivationStore(),
-      AnalyticsService(),
-    );
+    final consents = ConsentCubit(Remote(), AnalyticsService());
     await consents.bind('account', 'en');
     f.dispose = () async {
       final closing = consents.close();

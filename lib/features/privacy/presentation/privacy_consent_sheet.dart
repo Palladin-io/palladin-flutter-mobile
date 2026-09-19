@@ -19,7 +19,7 @@ Future<void> showPrivacyConsentSheet(
   final cubit = context.read<ConsentCubit>();
   if (cubit.state.userId case final userId?) cubit.markChoicesOffered(userId);
   try {
-    final saved = await showModalBottomSheet<bool>(
+    await showModalBottomSheet<bool>(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
@@ -52,7 +52,6 @@ Future<void> showPrivacyConsentSheet(
         ),
       ),
     );
-    if (saved != true) await cubit.stopHere();
   } finally {
     _openNavigators.remove(navigator);
   }

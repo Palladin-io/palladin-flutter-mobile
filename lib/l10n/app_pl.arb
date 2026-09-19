@@ -1234,7 +1234,6 @@
   "privacyMarketingSaveError": "Nie udało się potwierdzić wyboru. Ponów zapis lub korzystaj dalej z Palladin.",
   "privacyNoticeUnavailable": "Zapisywanie tych opcjonalnych zgód nie jest jeszcze dostępne. Możesz korzystać z niezbędnych funkcji.",
   "privacyLocalActivation": "Zgoda konta obejmuje web i mobile. Analityka wymaga również aktywacji w każdej przeglądarce lub instalacji aplikacji. Cofnięcie zgody wyłącza ją na wszystkich urządzeniach.",
-  "privacyActivateHere": "Włącz na tym urządzeniu",
   "privacySaving": "Zapisywanie…",
   "privacySaved": "Zapisano wybór prywatności",
   "privacyRetry": "Ponów zapis",
@@ -1250,8 +1249,6 @@
   "privacyMarketingDescription": "Nowości i oferty Palladin e-mailem.",
   "privacyAcceptAll": "Akceptuj wszystkie",
   "privacySaveChoice": "Zapisz wybór",
-  "privacyInactiveHere": "Wyłączona na tym urządzeniu",
-  "privacyActiveHere": "Włączona na tym urządzeniu",
   "privacyDetails": "Szczegóły zgody",
   "privacyAnalyticsNotice": "Za zgodą mierzymy w PostHog EU korzystanie z funkcji Palladin, aby ulepszać aplikację. Nie zbieramy treści sejfu ani formularzy, haseł lub kluczy i nie nagrywamy sesji. Zgodę możesz wycofać w ustawieniach prywatności.",
   "privacyMarketingNotice": "Za zgodą wyślemy Ci e-maile z nowościami i ofertami Palladin. Niezbędne wiadomości transakcyjne, dotyczące konta i bezpieczeństwa wysyłamy niezależnie od tej zgody. Zgodę możesz wycofać w ustawieniach prywatności."

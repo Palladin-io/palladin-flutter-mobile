@@ -3452,7 +3452,6 @@
   "privacyMarketingSaveError": "The choice could not be confirmed. Retry or continue using Palladin.",
   "privacyNoticeUnavailable": "Saving these optional consents is not available yet. You can continue with essential features.",
   "privacyLocalActivation": "Account consent applies to web and mobile. Analytics also requires activation on each browser or mobile installation. Withdrawing consent disables it across your devices.",
-  "privacyActivateHere": "Enable on this device",
   "privacySaving": "Saving…",
   "privacySaved": "Privacy choice saved",
   "privacyRetry": "Retry saving",
@@ -3468,8 +3467,6 @@
   "privacyMarketingDescription": "Palladin news and offers by email.",
   "privacyAcceptAll": "Accept all",
   "privacySaveChoice": "Save choice",
-  "privacyInactiveHere": "Off on this device",
-  "privacyActiveHere": "Enabled on this device",
   "privacyDetails": "Consent details",
   "privacyAnalyticsNotice": "With your consent, we use PostHog EU to measure how Palladin features are used and improve the app. We do not collect vault or form contents, passwords or keys, or record sessions. You can withdraw consent in Privacy settings.",
   "privacyMarketingNotice": "With your consent, we will send you emails with Palladin news and offers. Essential transactional, account and security messages are sent independently of this consent. You can withdraw consent in Privacy settings."

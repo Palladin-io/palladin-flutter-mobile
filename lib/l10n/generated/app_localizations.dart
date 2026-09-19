@@ -7286,12 +7286,6 @@ abstract class AppLocalizations {
   /// **'Account consent applies to web and mobile. Analytics also requires activation on each browser or mobile installation. Withdrawing consent disables it across your devices.'**
   String get privacyLocalActivation;
 
-  /// No description provided for @privacyActivateHere.
-  ///
-  /// In en, this message translates to:
-  /// **'Enable on this device'**
-  String get privacyActivateHere;
-
   /// No description provided for @privacySaving.
   ///
   /// In en, this message translates to:
@@ -7381,18 +7375,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save choice'**
   String get privacySaveChoice;
-
-  /// No description provided for @privacyInactiveHere.
-  ///
-  /// In en, this message translates to:
-  /// **'Off on this device'**
-  String get privacyInactiveHere;
-
-  /// No description provided for @privacyActiveHere.
-  ///
-  /// In en, this message translates to:
-  /// **'Enabled on this device'**
-  String get privacyActiveHere;
 
   /// No description provided for @privacyDetails.
   ///
