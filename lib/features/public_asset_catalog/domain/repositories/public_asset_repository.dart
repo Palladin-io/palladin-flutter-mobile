@@ -1,6 +1,6 @@
 import '../entities/public_asset.dart';
 
-enum WebsiteIconEnsureStatus { pending, ready, failed }
+enum WebsiteIconEnsureStatus { pending, ready, failed, unknown }
 
 class WebsiteIconEnsureResult {
   const WebsiteIconEnsureResult({required this.assets, required this.statuses});

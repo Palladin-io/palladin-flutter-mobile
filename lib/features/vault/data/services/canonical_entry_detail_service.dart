@@ -7,6 +7,7 @@ import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../approval/data/services/script_execution_package_service.dart';
 
 import '../../../autofill/data/autofill_mutation_notifier.dart';
+import '../../domain/entities/totp_config.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/agent_visibility_policy.dart'
     hide AgentFieldAccess;
@@ -765,6 +766,21 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       _ => throw const FormatException('Unknown canonical Entry type'),
     };
     final content = Map<String, dynamic>.from(value['content'] as Map);
+    final custom = content.remove('customFields');
+    content['fields'] = custom is List
+        ? custom
+              .whereType<Map>()
+              .map(
+                (field) => <String, dynamic>{
+                  'id': field['id'],
+                  'label': field['label'],
+                  'type': field['kind'],
+                  'value': field['value'],
+                  'agentVisible': field['includeInMemberIndex'] == true,
+                },
+              )
+              .toList(growable: false)
+        : const <Map<String, dynamic>>[];
     _rejectRetiredCreditCardFields(entryType: type, content: content);
     final policyFields = <String, dynamic>{};
     for (final field in (value['agentFieldAccess'] as Map).entries) {
@@ -1059,6 +1075,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         type,
         content,
         agentVisibilityPolicy ?? parsedPreviousPolicy,
+        previousContent: snapshot.payload,
       );
       final policyJson = policy.toJson();
       final nextColor = color ?? snapshot.secret['color'] as String?;
@@ -1327,6 +1344,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           nextContent: content,
           policy: policyOverride ?? previousPolicy,
         ),
+        previousContent: snapshot.payload,
       );
       final nextAgentLabel =
           agentLabelOverride ??
@@ -2025,9 +2043,16 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         password: content['password'] as String,
         url: content['url'] as String?,
         urlDomain: _domain(content['url'] as String? ?? ''),
-        totp: content['totp'] is Map
-            ? Map<String, Object?>.from(content['totp'] as Map)
-            : null,
+        totp: switch (content['totp']) {
+          null => null,
+          final Map config => Map<String, Object?>.from(config),
+          final String uri =>
+            TotpConfig.parseUri(uri)?.toJson() ??
+                (throw const FormatException(
+                  'Invalid native TOTP configuration',
+                )),
+          _ => throw const FormatException('Invalid native TOTP configuration'),
+        },
         notes: content['notes'] as String?,
         customFields: custom,
       ),
@@ -2106,6 +2131,20 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     for (final field in custom) {
       access.putIfAbsent(field.fieldId, () => AgentFieldAccess.never);
     }
+    // Editing can remove fields while the form still carries their previous
+    // policy. Retain policy only for the new schema; never change the access
+    // mode of a surviving field or the owner's retained grant selection.
+    final currentFieldIds = {
+      'memberLabel',
+      'agentLabel',
+      'description',
+      'icon',
+      'color',
+      'entryType',
+      ...body.fieldValues().keys,
+      ...custom.map((field) => field.fieldId),
+    };
+    access.removeWhere((id, _) => !currentFieldIds.contains(id));
     return MemberSecret(
       entryType: VaultEntryType.values[type.index],
       memberLabel: label,
@@ -2169,21 +2208,26 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         base64.decode(grant.agentPublicKey!),
       );
       try {
-        final allowed = secret.agentFieldAccess.entries
-            .where(
-              (item) =>
-                  item.value == AgentFieldAccess.onGrantValue ||
-                  item.value == AgentFieldAccess.onGrantDerived ||
-                  item.value == AgentFieldAccess.onGrantRuntime,
-            )
-            .map((item) => item.key)
-            .toSet();
-        final fields = scope.fieldIds
-            .map((id) => _canonicalGrantFieldId(secret.entryType, id))
-            .where(allowed.contains)
-            .toList();
-        if (fields.length != scope.fieldIds.length || fields.isEmpty) {
-          throw const FormatException('Grant scope exceeds policy');
+        final projection = _grantProjection(secret);
+        final allowed = AgentVisibilityProjector.grantableFieldIds(
+          type: projection.type,
+          agentLabel: projection.agentLabel,
+          description: projection.description,
+          content: projection.content,
+          policy: projection.policy,
+        ).map((id) => _canonicalGrantFieldId(secret.entryType, id)).toSet();
+        final fields =
+            (scope.fieldSelectionMode == 'all'
+                    ? allowed
+                    : scope.fieldSelectionMode == 'selected'
+                    ? scope.selectedFieldIds ?? scope.fieldIds
+                    : scope.fieldIds)
+                .map((id) => _canonicalGrantFieldId(secret.entryType, id))
+                .where(allowed.contains)
+                .toList()
+              ..sort();
+        if (fields.isEmpty) {
+          throw const FormatException('Entry has no grantable fields');
         }
         final remaining = grant.queryLimit == null
             ? null
@@ -2195,7 +2239,6 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         if (agentId == null) {
           throw const FormatException('Active grant has no Agent principal');
         }
-        final projection = _grantProjection(secret);
         final payload = AgentVisibilityProjector.grantPayload(
           type: projection.type,
           vaultId: vaultId,
@@ -2540,21 +2583,6 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     if (type == EntryType.script) {
       content['script'] = content.remove('source');
     }
-    final custom = content.remove('customFields');
-    content['fields'] = custom is List
-        ? custom
-              .whereType<Map>()
-              .map(
-                (field) => <String, dynamic>{
-                  'id': field['id'],
-                  'label': field['label'],
-                  'type': field['kind'],
-                  'value': field['value'],
-                  'agentVisible': field['includeInMemberIndex'] == true,
-                },
-              )
-              .toList(growable: false)
-        : const <Map<String, dynamic>>[];
     final policy = AgentVisibilityPolicy.fromJson(
       type,
       Map<String, dynamic>.from(adapted['agentVisibilityPolicy'] as Map),
@@ -2652,7 +2680,36 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       final expiresAt = grant.expiresAt == null
           ? null
           : _canonicalInstant(grant.expiresAt!);
-      final approvedFieldIds = scope.fieldIds;
+      final grantable =
+          AgentVisibilityProjector.grantableFieldIds(
+                type: type,
+                agentLabel: agentLabel,
+                description: description,
+                content: content,
+                policy: policy,
+              )
+              .map(
+                (id) => _canonicalGrantFieldId(
+                  VaultEntryType.values.byName(type.name),
+                  id,
+                ),
+              )
+              .toSet();
+      final approvedFieldIds =
+          (scope.fieldSelectionMode == 'all'
+                  ? grantable
+                  : scope.fieldSelectionMode == 'selected'
+                  ? scope.selectedFieldIds ?? scope.fieldIds
+                  : scope.fieldIds)
+              .map(
+                (id) => _canonicalGrantFieldId(
+                  VaultEntryType.values.byName(type.name),
+                  id,
+                ),
+              )
+              .where(grantable.contains)
+              .toList()
+            ..sort();
       if (approvedFieldIds.isEmpty) {
         throw const FormatException('Entry has no grantable fields');
       }
@@ -2822,10 +2879,22 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
   AgentVisibilityPolicy _policyForUpdatedContent(
     EntryType type,
     Map<String, dynamic> content,
-    AgentVisibilityPolicy policy,
-  ) {
-    if (type != EntryType.creditCard) return policy;
+    AgentVisibilityPolicy policy, {
+    required Map<String, dynamic> previousContent,
+  }) {
+    final previousFields =
+        previousContent['fields'] ?? previousContent['customFields'];
+    final previousIds = previousFields is List
+        ? previousFields.whereType<Map>().map((field) => field['id']).toSet()
+        : <Object?>{};
     final fields = Map<String, visibility.AgentFieldAccess>.from(policy.fields);
+    if (type == EntryType.credential &&
+        previousContent['totp'] != null &&
+        !fields.containsKey('totp') &&
+        !fields.containsKey('credential.totp')) {
+      // Normalizing an existing native configuration must not grant access.
+      fields['totp'] = visibility.AgentFieldAccess.never;
+    }
     final customFields = <String, visibility.AgentFieldAccess>{};
     final rawCustomFields = content['fields'];
     if (rawCustomFields is List) {
@@ -2841,6 +2910,16 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         };
       }
     }
+    // Default only newly added identities. Missing policy on an existing field
+    // remains private, and an owner's explicit restriction survives replacement.
+    for (final entry in customFields.entries) {
+      if (!previousIds.contains(entry.key) &&
+          (type == EntryType.creditCard ||
+              entry.value == visibility.AgentFieldAccess.onGrantDerived)) {
+        fields.putIfAbsent(entry.key, () => entry.value);
+      }
+    }
+    if (type != EntryType.creditCard) return policy.copyWith(fields: fields);
     fields.removeWhere(
       (id, _) =>
           !const {
@@ -2859,7 +2938,6 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           }.contains(id) &&
           !customFields.containsKey(id),
     );
-    fields.addAll(customFields);
     for (final field in const ['billingAddress']) {
       final value = content[field];
       fields[field] = value is String && value.isNotEmpty

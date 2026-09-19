@@ -18,7 +18,7 @@ class VaultRotationRemoteDatasource {
       cancelToken: cancelToken,
     );
     final items = _body(response)['items'];
-    if (items is! List || items.length > 200) {
+    if (items is! List) {
       throw const FormatException('Pending rotation list exceeds limit');
     }
     return items
@@ -131,7 +131,7 @@ class VaultRotationRemoteDatasource {
       final body = _body(response);
       final vaults = body['vaults'];
       final total = body['total'];
-      if (vaults is! List || total is! int || vaults.length > 200) {
+      if (vaults is! List || total is! int) {
         throw const FormatException('Malformed Vault metadata page');
       }
       for (final raw in vaults) {

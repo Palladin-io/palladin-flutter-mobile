@@ -55,6 +55,38 @@ void main() {
     ]);
   });
 
+  for (final status in [
+    WebsiteIconEnsureStatus.pending,
+    WebsiteIconEnsureStatus.failed,
+    WebsiteIconEnsureStatus.unknown,
+  ]) {
+    test(
+      '$status metadata is not usable before the catalog reports ready',
+      () async {
+        final service = WebsiteIconService(_AssetWithStatusRepository(status));
+        expect(await service.ensureOne('example.com'), isNull);
+        expect(await service.ensureBatch(['example.com']), isEmpty);
+      },
+    );
+  }
+
+  test(
+    'pending metadata is polled instead of being persisted as ready',
+    () async {
+      final repository = _AssetWithStatusRepository(
+        WebsiteIconEnsureStatus.pending,
+        readyOnSecond: true,
+      );
+      final service = WebsiteIconService(
+        repository,
+        pollInterval: Duration.zero,
+      );
+      final result = await service.ensureBatchUntilResolved(['example.com']);
+      expect(repository.calls, 2);
+      expect(result.keys, ['example.com']);
+    },
+  );
+
   test('ensure batch remains non-blocking when catalog fails', () async {
     final service = WebsiteIconService(_ThrowingRepository());
     expect(await service.ensureBatch(['example.com']), isEmpty);
@@ -141,17 +173,18 @@ void main() {
     expect(remote.calls.last.last, 'host-538.example.com');
   });
 
-  test('repository rejects ensure responses that omit a requested host', () {
-    final repository = PublicAssetRepositoryImpl(_OmittingRemoteDatasource());
-
-    expect(
-      () => repository.ensureWebsiteIcons([
+  test(
+    'repository keeps usable results when an ensure response omits a host',
+    () async {
+      final repository = PublicAssetRepositoryImpl(_OmittingRemoteDatasource());
+      final result = await repository.ensureWebsiteIcons([
         'first.example.com',
         'second.example.com',
-      ]),
-      throwsA(isA<FormatException>()),
-    );
-  });
+      ]);
+      expect(result.statuses, contains('first.example.com'));
+      expect(result.statuses, isNot(contains('second.example.com')));
+    },
+  );
 
   test(
     'repository sends the canonical API type and parses the server contract',
@@ -314,4 +347,39 @@ class _StaticAdapter implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+class _AssetWithStatusRepository implements PublicAssetRepository {
+  _AssetWithStatusRepository(this.status, {this.readyOnSecond = false});
+  final WebsiteIconEnsureStatus status;
+  final bool readyOnSecond;
+  int calls = 0;
+
+  @override
+  Future<WebsiteIconEnsureResult> ensureWebsiteIcons(
+    Iterable<String> hostnames,
+  ) async {
+    calls++;
+    return WebsiteIconEnsureResult(
+      assets: {
+        'example.com': PublicAsset(
+          id: 'fixture',
+          type: 'websiteIcon',
+          name: 'Fixture',
+          revision: 1,
+          deliveryUrl: Uri.parse('https://assets.example.com/icon.png'),
+        ),
+      },
+      statuses: {
+        'example.com': readyOnSecond && calls > 1
+            ? WebsiteIconEnsureStatus.ready
+            : status,
+      },
+    );
+  }
+
+  @override
+  Future<PublicAsset?> getById(String assetId, {int? revision}) async => null;
+  @override
+  Future<List<PublicAsset>> searchWebsiteIcons(String query) async => const [];
 }

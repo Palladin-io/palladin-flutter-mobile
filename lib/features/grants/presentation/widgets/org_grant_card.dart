@@ -302,7 +302,7 @@ class _Footer extends StatelessWidget {
       );
     }
 
-    if (grant.canGrantAgain) {
+    if (grant.canGrantAgain && grant.scope != GrantScope.unknown) {
       return _FooterShell(
         brightness: brightness,
         child: _FilledFooterAction(

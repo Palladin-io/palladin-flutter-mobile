@@ -17,10 +17,10 @@ import '../../../vault/data/services/vault_protocol/vault_protocol_signature_ser
 import '../../../vault/data/services/vault_rotation_crypto_service.dart';
 import '../../../vault/domain/entities/agent_visibility_policy.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
-import '../../../grants/domain/entities/grant_method.dart';
 import '../datasources/approval_remote_datasource.dart';
 import '../../domain/entities/pending_grant.dart';
 import 'encrypted_reason_crypto_service.dart';
+import 'pending_grant_reason_binding.dart';
 
 final class GrantableApprovalField {
   const GrantableApprovalField({
@@ -107,9 +107,8 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
       final freshModel = await _approval.getGrant(grant.vaultId, grant.grantId);
       stage = 'grant-parse';
       final fresh = freshModel.toEntity();
-      final reason = fresh.encryptedReason;
       stage = 'scope-validation';
-      _validateScope(fresh);
+      final reason = requireBoundGrantReason(fresh);
       stage = 'vault-fetch';
       final vault = await _vaults.getEncryptedVault(grant.vaultId);
       stage = 'vault-validation';
@@ -270,36 +269,12 @@ final class GrantApprovalReviewService implements GrantApprovalReviewer {
     return id;
   }
 
-  void _validateScope(PendingGrant grant) {
-    final reason = grant.encryptedReason;
-    if (reason.vaultId != grant.vaultId ||
-        reason.entryId != grant.entryId ||
-        reason.grantRequestId != grant.grantId ||
-        reason.agentId != grant.agentId ||
-        reason.descriptor['protocolVersion'] != 2 ||
-        !const {'encryptedReason', 9}.contains(reason.descriptor['purpose']) ||
-        reason.requestedMethods != _methodBits(grant.requestedMethods)) {
-      throw const FormatException('Encrypted reason scope mismatch');
-    }
-  }
-
   void _validateVaultContext(PendingGrant grant, Map<String, dynamic> vault) {
     final reason = grant.encryptedReason;
-    if (reason.organizationId != vault['organizationId'] ||
+    if (reason == null ||
+        reason.organizationId != vault['organizationId'] ||
         reason.memberKeyGeneration != vault['memberKeyGeneration']) {
       throw const FormatException('Encrypted reason Vault context mismatch');
     }
-  }
-
-  int _methodBits(Iterable<GrantMethod> methods) {
-    var bits = 0;
-    for (final method in methods) {
-      bits |= switch (method) {
-        GrantMethod.get => 1,
-        GrantMethod.exec => 2,
-        GrantMethod.inject => 4,
-      };
-    }
-    return bits;
   }
 }

@@ -535,6 +535,7 @@ class _EntryCard extends StatelessWidget {
               entry.urlDomain ?? entry.description ?? '',
             MemberEntryState.archived => l10n.entryArchivedRecoverability,
             MemberEntryState.deleted => l10n.entryDeletedRecoverability,
+            MemberEntryState.unknown => l10n.responseUnknownValue,
           };
 
     return Material(

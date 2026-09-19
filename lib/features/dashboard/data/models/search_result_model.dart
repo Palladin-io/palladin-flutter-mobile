@@ -1,20 +1,17 @@
 import '../../domain/entities/search_result_entity.dart';
 
-/// Strict DTO for one authorization-scoped administrative search hit.
+/// Typed DTO for one authorization-scoped administrative search hit.
 sealed class SearchResultModel {
   const SearchResultModel();
 
   factory SearchResultModel.fromJson(Map<String, dynamic> json) {
-    final type = json['type'];
-    final id = json['id'];
-    final name = json['name'];
-    if (id is! String || id.isEmpty || name is! String || name.isEmpty) {
-      throw const FormatException('Malformed administrative search hit');
-    }
+    final type = json['type'] as String;
+    final id = json['id'] as String;
+    final name = json['name'] as String;
     return switch (type) {
       'agent' => AgentSearchResultModel(agentId: id, name: name),
       'member' => MemberSearchResultModel(memberId: id, name: name),
-      _ => throw const FormatException('Unsupported remote search hit type'),
+      _ => UnknownSearchResultModel(rawType: type, id: id, name: name),
     };
   }
 
@@ -39,4 +36,19 @@ final class MemberSearchResultModel extends SearchResultModel {
   @override
   MemberSearchResult toEntity() =>
       MemberSearchResult(memberId: memberId, displayName: name);
+}
+
+/// Future server types stay visible without acquiring navigation capabilities.
+final class UnknownSearchResultModel extends SearchResultModel {
+  const UnknownSearchResultModel({
+    required this.rawType,
+    required this.id,
+    required this.name,
+  });
+  final String rawType;
+  final String id;
+  final String name;
+  @override
+  UnknownSearchResult toEntity() =>
+      UnknownSearchResult(rawType: rawType, id: id, name: name);
 }

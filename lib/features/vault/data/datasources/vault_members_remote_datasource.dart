@@ -30,7 +30,7 @@ final class VaultMembersRemoteDatasource implements VaultMembersRemote {
     );
     final body = response.data;
     final rawItems = body?['items'];
-    if (body == null || rawItems is! List || rawItems.length > 100) {
+    if (body == null || rawItems is! List) {
       throw const FormatException('Malformed Vault Member page');
     }
     return VaultMemberPage(

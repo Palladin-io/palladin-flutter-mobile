@@ -95,6 +95,54 @@ void main() {
     },
   );
 
+  test('retains restricted fields while renewing access', () async {
+    await cubit.close();
+    cubit = GranularRegrantCubit(
+      repository: repository,
+      agentsRepository: agentsRepository,
+      vaultId: args.vaultId,
+      agentId: args.agentId,
+      entryId: args.entryId,
+      selectedFieldIds: const ['credential.password'],
+    );
+    when(
+      () => repository.createGranularGrant(
+        vaultId: any(named: 'vaultId'),
+        entryId: any(named: 'entryId'),
+        selectedFieldIds: const ['credential.password'],
+        agentId: any(named: 'agentId'),
+        agentPublicKey: any(named: 'agentPublicKey'),
+        recipientKeyVersion: any(named: 'recipientKeyVersion'),
+        agentAccessEpoch: any(named: 'agentAccessEpoch'),
+        privateKey: any(named: 'privateKey'),
+        limit: any(named: 'limit'),
+        methods: any(named: 'methods'),
+      ),
+    ).thenAnswer((_) async {});
+
+    await cubit.submit(
+      privateKey: Uint8List.fromList([1, 2, 3]),
+      limit: const GrantLifetime(),
+      methods: const [GrantMethod.get],
+    );
+
+    verify(
+      () => repository.createGranularGrant(
+        vaultId: 'vault-1',
+        entryId: 'entry-1',
+        selectedFieldIds: const ['credential.password'],
+        agentId: 'agent-1',
+        agentPublicKey: 'fresh-public-key',
+        recipientKeyVersion: 8,
+        agentAccessEpoch: 5,
+        privateKey: any(named: 'privateKey'),
+        limit: any(named: 'limit'),
+        methods: const [GrantMethod.get],
+      ),
+    ).called(1);
+    verify(() => agentsRepository.getAgent('agent-1')).called(1);
+  });
+
   test('FULL flow cannot carry an Entry contract', () async {
     await cubit.close();
     cubit = FullRegrantCubit(

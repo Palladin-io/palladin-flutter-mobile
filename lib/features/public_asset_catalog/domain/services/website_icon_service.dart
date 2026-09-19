@@ -33,9 +33,9 @@ class WebsiteIconService {
     final hostname = PublicHostname.normalize(urlOrHostname);
     if (hostname == null) return null;
     try {
-      return (await _repository.ensureWebsiteIcons([
-        hostname,
-      ])).assets[hostname];
+      return _readyAssets(
+        await _repository.ensureWebsiteIcons([hostname]),
+      )[hostname];
     } catch (_) {
       return null;
     }
@@ -64,7 +64,7 @@ class WebsiteIconService {
     final unique = PublicHostname.unique(domains, limit: 10000);
     if (unique.isEmpty) return const {};
     try {
-      return (await _repository.ensureWebsiteIcons(unique)).assets;
+      return _readyAssets(await _repository.ensureWebsiteIcons(unique));
     } catch (_) {
       return const {};
     }
@@ -138,11 +138,20 @@ class WebsiteIconService {
                   (_) => throw const _WebsiteIconPreparationCancelled(),
                 ),
               ]);
-        ready.addAll(result.assets);
+        ready.addEntries(
+          _readyAssets(
+            result,
+          ).entries.where((entry) => unique.contains(entry.key)),
+        );
+        // Only an explicit Pending outcome warrants another request. An
+        // unknown/omitted result or an unusable Ready icon is unavailable for
+        // this optional preparation, without discarding other ready icons.
         failed.addAll(
-          result.statuses.entries
-              .where((entry) => entry.value == WebsiteIconEnsureStatus.failed)
-              .map((entry) => entry.key),
+          unresolved.where(
+            (hostname) =>
+                !ready.containsKey(hostname) &&
+                result.statuses[hostname] != WebsiteIconEnsureStatus.pending,
+          ),
         );
       } on _WebsiteIconPreparationCancelled {
         break;
@@ -168,6 +177,16 @@ class WebsiteIconService {
     report();
     return ready;
   }
+
+  // Metadata can arrive before publication. Use the backend's authoritative
+  // readiness for this action; do not reject or revalidate its response rows.
+  Map<String, PublicAsset> _readyAssets(WebsiteIconEnsureResult result) =>
+      Map.fromEntries(
+        result.assets.entries.where(
+          (entry) =>
+              result.statuses[entry.key] == WebsiteIconEnsureStatus.ready,
+        ),
+      );
 
   Future<List<PublicAsset>> search(String query) async {
     if (query.trim().isEmpty) return const [];

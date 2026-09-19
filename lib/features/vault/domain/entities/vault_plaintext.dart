@@ -65,6 +65,10 @@ sealed class VaultPlaintextIcon {
           'Invalid public asset icon reference.',
         );
       }
+      // An optional icon without an immutable identity cannot be encoded into
+      // the Vault plaintext contract. Omit it before encryption, so a catalog
+      // metadata issue cannot make the whole saved Entry unreadable.
+      if (parts[0].isEmpty) return null;
       final revision = int.tryParse(parts[1]);
       Uri? url;
       try {
