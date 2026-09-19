@@ -433,7 +433,13 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           description: snapshot.secret['description'] as String? ?? '',
           content: snapshot.payload,
           policy: policy,
-          approvedFieldIds: selectedFieldIds ?? approved,
+          approvedFieldIds: selectedFieldIds == null
+              ? approved
+              : AgentVisibilityProjector.retainGrantableFields(
+                  type: type,
+                  selectedFieldIds: selectedFieldIds,
+                  grantableFieldIds: approved,
+                ),
         );
         final envelopeFieldIds = AgentVisibilityProjector.grantPayloadFieldIds(
           payload,

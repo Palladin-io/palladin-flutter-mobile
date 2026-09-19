@@ -9,6 +9,28 @@ import 'package:mobile_palladin/features/vault/domain/entities/agent_visibility_
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
 
 void main() {
+  test(
+    'retained scope normalizes payload IDs and never adds unselected fields',
+    () {
+      expect(
+        AgentVisibilityProjector.retainGrantableFields(
+          type: EntryType.credential,
+          selectedFieldIds: const ['credential.password', 'credential.totp'],
+          grantableFieldIds: const ['password', 'username'],
+        ),
+        ['password'],
+      );
+      expect(
+        AgentVisibilityProjector.retainGrantableFields(
+          type: EntryType.credential,
+          selectedFieldIds: const ['credential.totp'],
+          grantableFieldIds: const ['password', 'username'],
+        ),
+        isEmpty,
+      );
+    },
+  );
+
   test('grant payload matches the public cross-client contract bytes', () {
     final contract =
         jsonDecode(
