@@ -162,7 +162,8 @@ type-specific(+URL / injected data) → 2FA → Additional fields → Notes.
   Native `credential.totp` remains a native field during editing: the form
   carries canonical maps and legacy `otpauth://` URIs without a string cast.
   The canonical writer preserves maps and normalizes valid legacy URIs to a
-  configuration map while retaining the field identity and owner policy.
+  configuration map while retaining the field identity and owner policy. Missing
+  policy on an existing native field remains `never` after normalization.
 - **Additional fields** (`CustomFieldsEditor`) is a grouped card of one-line
   rows (type glyph + inline label/value + "⋯"). The row menu (`showAppMenuSheet`)
   changes type, toggles **Visible to agents** (text/multiline only), reorders,

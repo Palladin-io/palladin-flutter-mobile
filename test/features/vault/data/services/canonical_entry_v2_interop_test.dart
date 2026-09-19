@@ -323,7 +323,7 @@ void main() {
   });
 
   for (final representation in ['map', 'uri']) {
-    for (final access in ['never', 'onGrantDerived']) {
+    for (final access in ['never', 'onGrantDerived', 'missing']) {
       test(
         'native TOTP $representation edit preserves $access and canonical identity',
         () async {
@@ -365,7 +365,7 @@ void main() {
                   'fields': {
                     'agentLabel': 'discovery',
                     'urlDomain': 'discovery',
-                    'totp': access,
+                    if (access != 'missing') 'totp': access,
                   },
                 },
               },
@@ -410,7 +410,10 @@ void main() {
                   as MemberSecret;
           expect((captured.content as CredentialSecretContent).totp, config);
           expect(captured.content.customFields, isEmpty);
-          expect(captured.agentFieldAccess['credential.totp']?.name, access);
+          expect(
+            captured.agentFieldAccess['credential.totp']?.name,
+            access == 'missing' ? 'never' : access,
+          );
         },
       );
     }

@@ -2888,6 +2888,13 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         ? previousFields.whereType<Map>().map((field) => field['id']).toSet()
         : <Object?>{};
     final fields = Map<String, visibility.AgentFieldAccess>.from(policy.fields);
+    if (type == EntryType.credential &&
+        previousContent['totp'] != null &&
+        !fields.containsKey('totp') &&
+        !fields.containsKey('credential.totp')) {
+      // Normalizing an existing native configuration must not grant access.
+      fields['totp'] = visibility.AgentFieldAccess.never;
+    }
     final customFields = <String, visibility.AgentFieldAccess>{};
     final rawCustomFields = content['fields'];
     if (rawCustomFields is List) {
