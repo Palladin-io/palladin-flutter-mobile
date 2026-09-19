@@ -34,7 +34,7 @@ class PendingGrantModel {
   final String? vaultName;
   final String? agentName;
   final String? entryLabel;
-  final EncryptedReason encryptedReason;
+  final EncryptedReason? encryptedReason;
   final int? recipientAgentKeyVersion;
 
   /// Combined-flags string the agent requested, e.g. "get, exec".
@@ -93,36 +93,15 @@ class PendingGrantModel {
     _ => null,
   };
 
-  static EncryptedReason _encryptedReason(Map<String, dynamic> grant) {
-    final result = EncryptedReasonModel.fromJson(grant['encryptedReason']);
-    final descriptor = result.descriptor;
-    final scope = Map<String, dynamic>.from(descriptor['scope'] as Map);
-    final binding = Map<String, dynamic>.from(descriptor['binding'] as Map);
-    if (result.vaultId != grant['vaultId'] ||
-        result.entryId != grant['entryId'] ||
-        result.grantRequestId != (grant['grantId'] ?? grant['id']) ||
-        result.agentId != grant['agentId'] ||
-        descriptor['protocolVersion'] != 2 ||
-        descriptor['cryptoSuiteId'] != 'palladin-vault-xchacha-v1' ||
-        !const {'encryptedReason', 9}.contains(descriptor['purpose']) ||
-        scope['memberId'] != null ||
-        binding['wrapperSuiteId'] != 'palladin-x25519-sealed-box-v1' ||
-        result.requestedMethods != _methodMask(grant['methods'])) {
-      throw const FormatException('Encrypted reason scope mismatch');
+  // A missing or unreadable reason makes this request unavailable for approval,
+  // not unavailable for listing. Authentication happens in the review service.
+  static EncryptedReason? _encryptedReason(Map<String, dynamic> grant) {
+    try {
+      return EncryptedReasonModel.fromJson(grant['encryptedReason']);
+    } on FormatException {
+      return null;
+    } on TypeError {
+      return null;
     }
-    return result;
-  }
-
-  static int _methodMask(Object? value) {
-    if (value is int) return value;
-    var result = 0;
-    for (final method in parseGrantMethods(value as String?)) {
-      result |= switch (method) {
-        GrantMethod.get => 1,
-        GrantMethod.exec => 2,
-        GrantMethod.inject => 4,
-      };
-    }
-    return result;
   }
 }

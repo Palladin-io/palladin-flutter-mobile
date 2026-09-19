@@ -9,6 +9,9 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get responseUnknownValue => 'Nieznane';
+
+  @override
   String get appTitle => 'Palladin';
 
   @override

@@ -25,14 +25,15 @@ void main() {
     expect(entity.deduplicationKey, 'member:m1');
   });
 
-  test('rejects Vault, Entry, unknown and unscoped remote hits', () {
+  test('preserves future remote types without known navigation scope', () {
     for (final json in <Map<String, dynamic>>[
       {'type': 'vault', 'id': 'v1', 'name': 'Vault'},
       {'type': 'entry', 'id': 'e1', 'name': 'Entry'},
       {'type': 'future', 'id': 'x1', 'name': 'Future'},
-      {'type': 'agent', 'id': '', 'name': 'Missing id'},
     ]) {
-      expect(() => SearchResultModel.fromJson(json), throwsFormatException);
+      final result = SearchResultModel.fromJson(json).toEntity();
+      expect(result, isA<UnknownSearchResult>());
+      expect(result.id, json['id']);
     }
   });
 }

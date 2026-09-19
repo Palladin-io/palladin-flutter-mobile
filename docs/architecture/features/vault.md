@@ -37,8 +37,8 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
   stale completions after a newer query or security transition.
 - The administrative query is ephemeral and sent only in the body of
   `POST /api/search`. It never appears in URL parameters, logs, analytics,
-  crash breadcrumbs or a client cache. The response parser rejects Vault,
-  Entry, unknown and unscoped results.
+  crash breadcrumbs or a client cache. Unknown remote types remain visible as display-only hits. They cannot become
+  locally authenticated Vault/Entry identities or reveal secrets.
 - Results are sealed Agent/Member/Vault/Entry identities. Ranking is
   deterministic within local source groups, never compares local and remote
   score scales, and deduplicates by scoped identity. Candidate traversal is
@@ -243,3 +243,10 @@ Entry presign/public-URL upload paths are intentionally absent.
 - `VaultDetailPage` / `EntryDetailPage` use `AppBrandBackground + DefaultTabController + Scaffold + AppBar` instead of `AppScreen.appBar(...)` (justified by the `PreferredSize` tab-bar height, but still skips the abstraction).
 - `_SkeletonCard` (vault_list) and `_SkeletonRow` (vault_entries_tab) reimplement `SkeletonBox` — replace.
 - AppBar titles duplicate the `AppBarTitle` pattern (see the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md)).
+
+### Trusted response metadata
+
+Member-sync wrappers accept additional server metadata and nine-digit .NET
+Instant fractions. Required fields and cryptographic/offline authority checks
+remain enforced. See [API response boundaries](../api-response-validation.md)
+for the audit of retained checks and forward-compatible display values.

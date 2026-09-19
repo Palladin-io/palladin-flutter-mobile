@@ -176,6 +176,8 @@ class _DashboardViewState extends State<_DashboardView> {
     switch (result) {
       case AgentSearchResult(:final agentId):
         context.go(AppRoutes.agentDetail(agentId));
+      case UnknownSearchResult():
+        return;
       case MemberSearchResult():
         context.go(AppRoutes.settingsGeneral);
       case VaultSearchResult(:final vaultId):
@@ -1572,6 +1574,7 @@ class _SearchResultRowState extends State<_SearchResultRow> {
     SearchResultType.member => AppColors.onboardingStepAmber,
     SearchResultType.vault => AppColors.brandRed,
     SearchResultType.entry => AppColors.positiveAccent,
+    SearchResultType.unknown => AppColors.textTertiary,
   };
 
   static String _typeLabel(AppLocalizations l10n, SearchResultType type) =>
@@ -1580,6 +1583,7 @@ class _SearchResultRowState extends State<_SearchResultRow> {
         SearchResultType.member => l10n.searchTypeBadgeMember,
         SearchResultType.vault => l10n.searchTypeBadgeVault,
         SearchResultType.entry => l10n.searchTypeBadgeEntry,
+        SearchResultType.unknown => l10n.responseUnknownValue,
       };
 
   static IconData _typeIcon(SearchResultEntity result) => switch (result.type) {
@@ -1587,6 +1591,7 @@ class _SearchResultRowState extends State<_SearchResultRow> {
     SearchResultType.member => Icons.person_outline,
     SearchResultType.vault => VaultVisuals.iconFor(result.icon),
     SearchResultType.entry => EntryVisuals.iconFor(result.icon),
+    SearchResultType.unknown => Icons.search,
   };
 }
 

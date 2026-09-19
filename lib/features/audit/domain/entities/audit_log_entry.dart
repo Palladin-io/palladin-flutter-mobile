@@ -13,16 +13,17 @@ library;
 enum AuditActorType {
   user,
   agent,
-  system;
+  system,
+  unknown;
 
   /// Maps the backend wire value (int ordinal or string) to a typed
-  /// value. Unknown values fall back to [system] (an automatic actor).
+  /// value. Unknown values stay [unknown] instead of inventing a system actor.
   static AuditActorType fromWire(Object? raw) {
     return switch (raw) {
       1 || 'user' || 'User' => AuditActorType.user,
       2 || 'agent' || 'Agent' => AuditActorType.agent,
       3 || 'system' || 'System' => AuditActorType.system,
-      _ => AuditActorType.system,
+      _ => AuditActorType.unknown,
     };
   }
 }

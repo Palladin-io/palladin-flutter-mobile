@@ -544,6 +544,31 @@ void main() {
     },
   );
 
+  test(
+    'future lifecycle metadata does not reject an authenticated generation',
+    () async {
+      final itemJson = snapshot.items.single.toJson()..['state'] = 'future';
+      remote.snapshotPage = MemberSnapshotPage(
+        snapshotBaseSequence: snapshot.snapshotBaseSequence,
+        accessContext: snapshot.accessContext,
+        memberVaultKey: snapshot.memberVaultKey,
+        items: [MemberSyncItemModel.fromJson(itemJson)],
+      );
+      await service.synchronize(
+        vaultId: snapshot.accessContext.vaultId,
+        vaultKey: Uint8List(32),
+        minimumMemberKeyGeneration: snapshot.accessContext.memberKeyGeneration,
+        authority: authority,
+        authoritativeMemberVaultKey: snapshot.memberVaultKey,
+      );
+      expect(
+        service.entries(snapshot.accessContext.vaultId).single.state.name,
+        'unknown',
+      );
+      expect(cache.active[snapshot.accessContext.vaultId], hasLength(1));
+    },
+  );
+
   test('corrupt MemberSecret binding rejects whole generation', () async {
     final itemJson = snapshot.items.single.toJson();
     final secret = Map<String, dynamic>.from(itemJson['memberSecret'] as Map);

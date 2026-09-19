@@ -138,11 +138,18 @@ class WebsiteIconService {
                   (_) => throw const _WebsiteIconPreparationCancelled(),
                 ),
               ]);
-        ready.addAll(result.assets);
+        ready.addEntries(
+          result.assets.entries.where((entry) => unique.contains(entry.key)),
+        );
+        // Only an explicit Pending outcome warrants another request. An
+        // unknown/omitted result or an unusable Ready icon is unavailable for
+        // this optional preparation, without discarding other ready icons.
         failed.addAll(
-          result.statuses.entries
-              .where((entry) => entry.value == WebsiteIconEnsureStatus.failed)
-              .map((entry) => entry.key),
+          unresolved.where(
+            (hostname) =>
+                !ready.containsKey(hostname) &&
+                result.statuses[hostname] != WebsiteIconEnsureStatus.pending,
+          ),
         );
       } on _WebsiteIconPreparationCancelled {
         break;

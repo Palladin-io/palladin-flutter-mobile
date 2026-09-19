@@ -55,6 +55,27 @@ void main() {
     snapshot = Map<String, dynamic>.from(fixture['response'] as Map);
   });
 
+  test(
+    'additive API metadata and nanosecond timestamps keep sync readable',
+    () async {
+      snapshot['displayCount'] = 0;
+      snapshot['accessContext']['futureMetadata'] = 'accepted';
+      snapshot['accessContext']['issuedAt'] = '2026-09-19T12:00:00.123456789Z';
+      final items = snapshot['items'] as List;
+      for (final item in items) {
+        item['futureMetadata'] = true;
+      }
+      final adapter = _RecordingAdapter(snapshot);
+      final datasource = MemberSyncRemoteDatasource(
+        Dio()..httpClientAdapter = adapter,
+      );
+      final page = await datasource.snapshot(
+        vaultId: snapshot['accessContext']['vaultId'] as String,
+      );
+      expect(page.items.length, items.length);
+    },
+  );
+
   test('uses only the frozen policy-2 snapshot route and headers', () async {
     final adapter = _RecordingAdapter(snapshot);
     final datasource = MemberSyncRemoteDatasource(

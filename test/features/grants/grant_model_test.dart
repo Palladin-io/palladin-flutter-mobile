@@ -140,9 +140,9 @@ void main() {
       expect(entity.expiresAt, isNull);
     });
 
-    test('unknown status fails closed to revoked', () {
-      expect(GrantStatus.fromWire('???'), GrantStatus.revoked);
-      expect(GrantStatus.fromWire(null), GrantStatus.revoked);
+    test('unknown status does not invent a revoked lifecycle', () {
+      expect(GrantStatus.fromWire('???'), GrantStatus.unknown);
+      expect(GrantStatus.fromWire(null), GrantStatus.unknown);
     });
 
     test('requires the authoritative grant type discriminator', () {
@@ -170,17 +170,17 @@ void main() {
         }),
         throwsFormatException,
       );
-      expect(
-        () => GrantModel.fromJson(<String, dynamic>{
-          'id': 'g-unknown-type',
-          'vaultId': 'v-1',
-          'agentId': 'a-1',
-          'status': 'active',
-          'type': 'vault-wide',
-          'createdAt': '2026-06-01T10:00:00Z',
-        }),
-        throwsFormatException,
-      );
+      final future = GrantModel.fromJson(<String, dynamic>{
+        'id': 'g-unknown-type',
+        'vaultId': 'v-1',
+        'agentId': 'a-1',
+        'status': 'future-state',
+        'type': 'future-type',
+        'createdAt': '2026-06-01T10:00:00Z',
+      }).toEntity();
+      expect(future.scope, GrantScope.unknown);
+      expect(future.status, GrantStatus.unknown);
+      expect(future.id, 'g-unknown-type');
     });
 
     test('numeric enum values match the canonical backend ordinals', () {

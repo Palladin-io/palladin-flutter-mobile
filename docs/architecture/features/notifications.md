@@ -12,6 +12,8 @@ Inbox (notification center) + preferences + push/real-time transport.
 
 - FCM/APNs data accepts exactly `type`, `category`, `subjectId`, and
   `occurredAt`; resource ids, rendered copy, and deep links are rejected.
+- Future category strings still trigger the authoritative Inbox refresh; they
+  do not gain an action or a deep link merely by being accepted.
 - Foreground/background duplicates use a bounded, session-memory composite
   key. Nothing from the filter is persisted.
 - A tap performs a bounded cursor-based Inbox re-fetch and navigates only when

@@ -15,6 +15,7 @@ import '../../../vault/data/services/entry_v2_crypto_service.dart';
 import '../../../vault/data/services/vault_rotation_crypto_service.dart';
 import '../../../vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import '../services/script_execution_package_service.dart';
+import '../services/pending_grant_reason_binding.dart';
 import '../../../vault/data/datasources/agent_discovery_remote_datasource.dart';
 import '../../../vault/domain/entities/agent_visibility_policy.dart';
 import '../../../vault/domain/entities/entry_entity.dart';
@@ -105,8 +106,9 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         grant.grantId,
       )).toEntity();
       stage = 'request-validation';
-      if (freshGrant.encryptedReason.requestRevision !=
-          grant.encryptedReason.requestRevision) {
+      final reason = requireBoundGrantReason(grant);
+      final freshReason = requireBoundGrantReason(freshGrant);
+      if (freshReason.requestRevision != reason.requestRevision) {
         throw const ApprovalException(ApprovalErrorKind.conflict);
       }
       stage = 'entry-reveal';
@@ -168,7 +170,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         throw const FormatException('Entry has no grantable fields');
       }
       final approvedMethods = _methodBits(methods);
-      final requestedMethods = grant.encryptedReason.requestedMethods;
+      final requestedMethods = reason.requestedMethods;
       if (approvedMethods == 0 ||
           (approvedMethods & requestedMethods) != approvedMethods) {
         throw const FormatException('Approval methods exceed request');
