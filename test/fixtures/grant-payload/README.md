@@ -11,7 +11,7 @@ first, then vendor the same bytes into every producer and consumer.
 
 `v2/registry.json` and `v2/vectors.json` are byte-identical public files from
 `Palladin-io/palladin-protocol`, source commit
-`eae7dca8d9fcf4bbb69895db4a44bc648de26a6b` (merged via protocol PR #14).
+`5783fc4f5578981ba22326c3b28de13e6a5839bc` (merged via protocol PR #14).
 The seeds are public RFC 6238 / synthetic boundary test data, never accounts.
 
 SHA-256:

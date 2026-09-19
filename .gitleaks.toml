@@ -15,7 +15,6 @@ paths = [
 [[allowlists]]
 description = "Deterministic cryptographic fixtures with no production secrets"
 paths = [
-  '''^test/fixtures/grant-payload/v2/vectors\.json$''',
   '''^test/fixtures/crypto/envelope-xchacha-hkdf\.json$''',
   '''^test/fixtures/current_member_entry_sync_v2/(?:valid-snapshot|tombstone-reset)\.json$''',
   '''^test/fixtures/vault_protocol_2/negative/corruption\.json$''',
@@ -32,10 +31,6 @@ paths = [
   '''^test/features/recovery/presentation/cubit/recovery_cubit_test\.dart$''',
   '''^test/features/unlock/presentation/cubit/unlock_cubit_test\.dart$''',
   '''^test/features/vault/data/services/totp_service_test\.dart$''',
-  '''^test/features/vault/data/services/grant_payload_v2_test\.dart$''',
-  '''^test/features/vault/data/services/canonical_entry_v2_interop_test\.dart$''',
-  '''^test/features/approval/grant_protocol_security_test\.dart$''',
-  '''^test/features/approval/approval_repository_method_policy_test\.dart$''',
   '''^test/features/vault/entry_details_tab_test\.dart$''',
 ]
 
@@ -44,4 +39,27 @@ description = "Non-secret cryptographic names and dependency checksums"
 paths = [
   '''^docs/architecture/features/vault\.md$''',
   '''^ios/Podfile\.lock$''',
+]
+
+[[allowlists]]
+description = "Pinned public RFC 6238 V2 test seeds only; paths and exact values must both match"
+condition = "AND"
+targetRules = ["generic-api-key"]
+regexTarget = "secret"
+paths = [
+  '''^test/fixtures/grant-payload/v2/vectors\.json$''',
+  '''^test/features/vault/data/services/grant_payload_v2_test\.dart$''',
+  '''^test/features/vault/data/services/canonical_entry_v2_interop_test\.dart$''',
+  '''^test/features/approval/grant_protocol_security_test\.dart$''',
+  '''^test/features/approval/approval_repository_method_policy_test\.dart$''',
+]
+regexes = [
+  '''^AAAAAAAAAAAAAAAAAAAAAAAAAB$''',
+  '''^GEZDGNBVGY3TQOJQGEZDGNBV$''',
+  '''^GEZDGNBVGY3TQOJQGEZDGNBVGY$''',
+  '''^GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ$''',
+  '''^GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA$''',
+  '''^GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNA$''',
+  '''^GEZDGNBVGY3TQOJQGEZDGNBVGY======$''',
+  '''^gezdgnbvgy3tqojqgezdgnbvgy3tqojq$''',
 ]
