@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +24,7 @@ import 'package:mobile_palladin/features/vault/domain/entities/agent_visibility_
     as visibility;
 import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
+import 'package:mobile_palladin/features/vault/presentation/widgets/entry_form_utils.dart';
 
 class _Entries extends Mock implements EntryRemoteDatasource {}
 
@@ -321,6 +321,100 @@ void main() {
     expect(payload.containsKey('customFields'), isFalse);
     expect((source['content'] as Map)['customFields'], hasLength(1));
   });
+
+  for (final representation in ['map', 'uri']) {
+    for (final access in ['never', 'onGrantDerived']) {
+      test(
+        'native TOTP $representation edit preserves $access and canonical identity',
+        () async {
+          const config = {
+            'secret': 'JBSWY3DPEHPK3PXP',
+            'algorithm': 'SHA1',
+            'digits': 6,
+            'period': 30,
+          };
+          final dynamic native = representation == 'map'
+              ? config
+              : 'otpauth://totp/?secret=JBSWY3DPEHPK3PXP';
+          final parsed = CredentialPayload.fromJson({
+            'username': 'fixture',
+            'password': 'fixture',
+            'totp': native,
+          });
+          final content = EntryFormUtils.buildPayload(
+            type: EntryType.credential,
+            username: parsed.username,
+            password: parsed.password,
+            credentialTotp: parsed.totp,
+          );
+          when(
+            () => entries.updateCanonicalEntry(vaultId, entryId, any()),
+          ).thenAnswer(
+            (_) async => Response(
+              requestOptions: RequestOptions(path: '/update'),
+              statusCode: 200,
+            ),
+          );
+          await service.update(
+            snapshot: CanonicalEntrySnapshot(
+              entry: head(),
+              secret: {
+                'entryType': EntryType.credential.toWire(),
+                'agentVisibilityPolicy': {
+                  'discoverable': true,
+                  'fields': {
+                    'agentLabel': 'discovery',
+                    'urlDomain': 'discovery',
+                    'totp': access,
+                  },
+                },
+              },
+              payload: content,
+            ),
+            expected: EntryEntity(
+              id: entryId,
+              vaultId: vaultId,
+              label: 'Fixture',
+              type: EntryType.credential,
+              createdAt: DateTime.utc(2026),
+              updatedAt: DateTime.utc(2026),
+            ),
+            label: 'Fixture',
+            description: '',
+            icon: '',
+            type: EntryType.credential,
+            content: content,
+            memberPrivateKey: Uint8List(32),
+          );
+          final captured =
+              verify(
+                    () => crypto.seal(
+                      organizationId: orgId,
+                      vaultId: vaultId,
+                      entryId: entryId,
+                      revision: 8,
+                      entryKeyRevision: 4,
+                      memberIndexRevision: 4,
+                      agentDiscoveryRevision: 6,
+                      entryKeyVersion: 2,
+                      vaultKeyVersion: 4,
+                      vdkVersion: 6,
+                      memberKeyGeneration: 3,
+                      operation: 2,
+                      secret: captureAny(named: 'secret'),
+                      vaultKey: any(named: 'vaultKey'),
+                      vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+                      existingEntryDek: any(named: 'existingEntryDek'),
+                    ),
+                  ).captured.single
+                  as MemberSecret;
+          expect((captured.content as CredentialSecretContent).totp, config);
+          expect(captured.content.customFields, isEmpty);
+          expect(captured.agentFieldAccess['credential.totp']?.name, access);
+        },
+      );
+    }
+  }
 
   for (final mode in ['all', 'selected']) {
     test('v2 $mode grant refresh handles a later custom field', () async {

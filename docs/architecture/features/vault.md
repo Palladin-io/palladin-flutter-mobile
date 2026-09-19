@@ -159,9 +159,10 @@ type-specific(+URL / injected data) → 2FA → Additional fields → Notes.
   refresh keeps the approved field identity when its TOTP configuration changes;
   the derived payload contains a short-lived code, never the source seed.
   Regression coverage: `canonical_entry_v2_interop_test.dart`.
-  Native `credential.totp` is a separate legacy edit concern: the detail form
-  still expects a string while canonical content can contain a map. This custom
-  TOTP policy change does not convert native fields or verify that legacy path.
+  Native `credential.totp` remains a native field during editing: the form
+  carries canonical maps and legacy `otpauth://` URIs without a string cast.
+  The canonical writer preserves maps and normalizes valid legacy URIs to a
+  configuration map while retaining the field identity and owner policy.
 - **Additional fields** (`CustomFieldsEditor`) is a grouped card of one-line
   rows (type glyph + inline label/value + "⋯"). The row menu (`showAppMenuSheet`)
   changes type, toggles **Visible to agents** (text/multiline only), reorders,

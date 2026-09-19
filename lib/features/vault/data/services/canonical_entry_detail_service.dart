@@ -7,6 +7,7 @@ import '../../../../core/crypto/envelope/envelope_contract.dart';
 import '../../../approval/data/services/script_execution_package_service.dart';
 
 import '../../../autofill/data/autofill_mutation_notifier.dart';
+import '../../domain/entities/totp_config.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/agent_visibility_policy.dart'
     hide AgentFieldAccess;
@@ -2042,9 +2043,16 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         password: content['password'] as String,
         url: content['url'] as String?,
         urlDomain: _domain(content['url'] as String? ?? ''),
-        totp: content['totp'] is Map
-            ? Map<String, Object?>.from(content['totp'] as Map)
-            : null,
+        totp: switch (content['totp']) {
+          null => null,
+          final Map config => Map<String, Object?>.from(config),
+          final String uri =>
+            TotpConfig.parseUri(uri)?.toJson() ??
+                (throw const FormatException(
+                  'Invalid native TOTP configuration',
+                )),
+          _ => throw const FormatException('Invalid native TOTP configuration'),
+        },
         notes: content['notes'] as String?,
         customFields: custom,
       ),

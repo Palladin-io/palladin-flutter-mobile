@@ -57,10 +57,8 @@ class EntryFormUtils {
   /// The result is what the cubit will encrypt on-device before sending to
   /// the API.
   ///
-  /// [credentialTotp] carries a legacy `otpauth://` TOTP string forward on
-  /// a credential edit so it is not silently dropped (v2 moves TOTP into a
-  /// custom field, but older imported entries may still carry the flat
-  /// field).
+  /// [credentialTotp] preserves the native TOTP configuration or imported
+  /// `otpauth://` URI without migrating its stable `credential.totp` identity.
   static Map<String, dynamic> buildPayload({
     required EntryType type,
     String value = '',
@@ -75,7 +73,7 @@ class EntryFormUtils {
     String scriptDescription = '',
     List<ScriptParameterDefinition> scriptParameters = const [],
     bool returnResultToAgent = true,
-    String? credentialTotp,
+    Object? credentialTotp,
     String cardholderName = '',
     String cardNumber = '',
     String expiryMonth = '',

@@ -257,12 +257,9 @@ class CredentialPayload {
   /// entries.
   final List<CustomField> fields;
 
-  /// Optional TOTP seed as an `otpauth://` URI. Populated when a
-  /// credential is imported from a manager that carries a 2FA secret.
-  /// Treated as an opaque blob on-device — the reveal UI may ignore it,
-  /// but keeping it in the encrypted payload means it survives an
-  /// import/export round-trip.
-  final String? totp;
+  /// Native TOTP configuration map or an imported legacy `otpauth://` URI.
+  /// Retained on-device under the same field identity during an edit.
+  final Object? totp;
 
   Map<String, dynamic> toJson() => {
     'v': 2,
@@ -281,7 +278,7 @@ class CredentialPayload {
         password: (json['password'] as String?) ?? '',
         url: json['url'] as String?,
         notes: json['notes'] as String?,
-        totp: json['totp'] as String?,
+        totp: json['totp'],
         fields: CustomField.listFromPayload(json),
       );
 }
