@@ -21,7 +21,6 @@ import 'package:mobile_palladin/core/theme/theme_cubit.dart';
 import 'package:mobile_palladin/features/shell/presentation/widgets/settings_drawer.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../core/analytics/analytics_service_test.dart' show CaptureAdapter;
-import 'package:mobile_palladin/features/privacy/data/consent_activation_store.dart';
 
 class _Theme extends MockCubit<ThemeMode> implements ThemeCubit {}
 
@@ -54,11 +53,7 @@ void main() {
       final locale = _Locale();
       when(() => locale.state).thenReturn(const Locale('en'));
       final remote = Remote()..current = consent(status: 'denied', revision: 1);
-      final cubit = ConsentCubit(
-        remote,
-        MemoryActivationStore(),
-        AnalyticsService(),
-      );
+      final cubit = ConsentCubit(remote, AnalyticsService());
       final router = GoRouter(
         initialLocation: '/form',
         routes: [
@@ -140,11 +135,7 @@ void main() {
         );
         when(() => auth.state).thenAnswer((_) => currentAuth);
         final remote = Remote();
-        final cubit = ConsentCubit(
-          remote,
-          MemoryActivationStore(),
-          AnalyticsService(),
-        );
+        final cubit = ConsentCubit(remote, AnalyticsService());
         final router = GoRouter(
           initialLocation: blockedPath,
           routes: [
@@ -237,15 +228,13 @@ void main() {
                 host: 'https://eu.i.posthog.com',
                 released: true,
               );
-        final store = MemoryActivationStore();
-        await store.write('account', const ConsentActivation('test-v1', 1));
         final remote = Remote()
           ..current = consent(
             status: 'granted',
             revision: 1,
             activationRevision: 1,
           );
-        final cubit = ConsentCubit(remote, store, analytics);
+        final cubit = ConsentCubit(remote, analytics);
         final routes = [
           GoRoute(
             path: '/vaults',
@@ -369,11 +358,7 @@ void main() {
             isVaultLocked: false,
           ),
         );
-        final cubit = ConsentCubit(
-          Remote(),
-          MemoryActivationStore(),
-          AnalyticsService(),
-        );
+        final cubit = ConsentCubit(Remote(), AnalyticsService());
         final router = GoRouter(
           initialLocation: explicitSettings ? '/settings/privacy' : '/',
           routes: [
@@ -448,11 +433,7 @@ void main() {
             ..networkFails = !slowRead
             ..pendingRead = slowRead ? Completer<UserConsents>() : null;
           final analytics = AnalyticsService();
-          final cubit = ConsentCubit(
-            remote,
-            MemoryActivationStore(),
-            analytics,
-          );
+          final cubit = ConsentCubit(remote, analytics);
           final router = GoRouter(
             routes: [
               GoRoute(

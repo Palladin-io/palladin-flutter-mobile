@@ -36,7 +36,7 @@ class AnalyticsService {
   String? _sessionId;
   String? _lastRoute;
   DateTime? _validUntil;
-  bool Function()? _activationAllowed;
+  bool Function()? _consentAllowed;
   Timer? _expiry;
 
   static const _events = {
@@ -85,7 +85,7 @@ class AnalyticsService {
         _userId == null ||
         _validUntil == null ||
         !_now().isBefore(_validUntil!) ||
-        !(_activationAllowed?.call() ?? false)) {
+        !(_consentAllowed?.call() ?? false)) {
       reset();
       return false;
     }
@@ -95,12 +95,12 @@ class AnalyticsService {
   void authorize(
     String userId,
     DateTime validUntil,
-    bool Function() activationAllowed,
+    bool Function() consentAllowed,
   ) {
     if (_userId != userId) reset();
     _userId = userId;
     _validUntil = validUntil;
-    _activationAllowed = activationAllowed;
+    _consentAllowed = consentAllowed;
     if (!_allowed) return;
     _expiry?.cancel();
     _expiry = Timer(validUntil.difference(_now()), reset);
@@ -167,7 +167,7 @@ class AnalyticsService {
     _sessionId = null;
     _lastRoute = null;
     _validUntil = null;
-    _activationAllowed = null;
+    _consentAllowed = null;
     for (final pending in _pending) {
       pending.cancel();
     }

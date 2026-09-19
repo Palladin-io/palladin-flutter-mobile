@@ -1,137 +1,76 @@
 import 'privacy_fixture.dart';
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/core/analytics/analytics_service.dart';
-import 'package:mobile_palladin/features/privacy/data/consent_activation_store.dart';
 import 'package:mobile_palladin/features/privacy/domain/user_consent.dart';
 import 'package:mobile_palladin/features/privacy/presentation/consent_cubit.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Remote remote;
-  late ConsentActivationStore store;
   late AnalyticsService analytics;
   late ConsentCubit cubit;
-  late Directory cache;
   setUp(() async {
-    cache = await Directory.systemTemp.createTemp('palladin-consent-test-');
     remote = Remote();
-    store = ConsentActivationStore(cacheDirectory: () async => cache);
     analytics = AnalyticsService();
     analytics.configure(
       projectKey: 'test-project',
       host: 'https://eu.i.posthog.com',
       released: true,
     );
-    cubit = ConsentCubit(remote, store, analytics);
+    cubit = ConsentCubit(remote, analytics);
   });
   tearDown(() async {
     await cubit.close();
-    await cache.delete(recursive: true);
   });
   ConsentDecision decision(bool granted) =>
       cubit.decision(remote.current, granted, 'mobile_settings')!;
 
-  for (final action in ['stop', 'withdraw']) {
-    test('$action fences a cached activation read already in flight', () async {
-      await cubit.close();
-      final delayed = ControlledActivationStore()
-        ..pendingRead = Completer<ConsentActivation?>()
-        ..readStarted = Completer<void>();
-      cubit = ConsentCubit(remote, delayed, analytics);
+  test(
+    'an existing account grant works on a fresh installation and after language change',
+    () async {
       remote.current = consent(
         status: 'granted',
         revision: 1,
         activationRevision: 1,
       );
-      final binding = cubit.bind('account', 'en');
-      await delayed.readStarted!.future;
-      if (action == 'stop') {
-        await cubit.stopHere();
-      } else {
-        remote.networkFails = true;
-        expect(await cubit.save(decision(false)), isFalse);
-        remote.networkFails = false;
-      }
-      delayed.pendingRead!.complete(const ConsentActivation('test-v1', 1));
-      await binding;
+      await cubit.bind('account', 'en');
+      expect(analytics.isInitialized, isTrue);
+      await cubit.bind('account', 'pl');
+      expect(analytics.isInitialized, isTrue);
+      expect(remote.decisions, isEmpty);
+    },
+  );
+
+  test(
+    'cancelling a draft withdrawal restores only a freshly read saved choice',
+    () async {
+      remote.current = consent(
+        status: 'granted',
+        revision: 1,
+        activationRevision: 1,
+      );
+      await cubit.bind('account', 'en');
+      final resume = cubit.pauseAnalytics();
       await cubit.refresh();
-      expect(cubit.state.locallyActive, isFalse);
       expect(analytics.isInitialized, isFalse);
-    });
-  }
-
-  for (final action in ['stop', 'withdraw']) {
-    test(
-      'failed $action deletion stays account-scoped across rebinds until explicit successful activation',
-      () async {
-        await cubit.close();
-        final failing = ControlledActivationStore();
-        cubit = ConsentCubit(remote, failing, analytics);
-        await cubit.bind('account', 'en');
-        await cubit.save(decision(true));
-        await failing.write('other', const ConsentActivation('test-v1', 1));
-        failing.failDelete = true;
-        if (action == 'stop') {
-          await cubit.stopHere();
-        } else {
-          remote.networkFails = true;
-          expect(await cubit.save(decision(false)), isFalse);
-          remote.networkFails = false;
-        }
-        expect(await failing.read('account'), isNotNull);
-        await cubit.bind('account', 'pl');
-        await cubit.refresh();
-        expect(analytics.isInitialized, isFalse);
-        await cubit.bind('other', 'en');
-        expect(analytics.isInitialized, isTrue);
-        await cubit.bind(null, 'en');
-        await cubit.bind('account', 'en');
-        cubit.setForeground(false);
-        cubit.setForeground(true);
-        await cubit.refresh();
-        expect(cubit.state.locallyActive, isFalse);
-        expect(analytics.isInitialized, isFalse);
-        failing.failActivation = true;
-        expect(await cubit.save(decision(true)), isFalse);
-        await cubit.bind('account', 'pl');
-        expect(analytics.isInitialized, isFalse);
-        failing.failActivation = false;
-        expect(await cubit.save(decision(true)), isTrue);
-        expect(analytics.isInitialized, isTrue);
-      },
-    );
-  }
-
-  test('stop during activation persistence fences the late grant', () async {
-    await cubit.close();
-    final delayed = ControlledActivationStore()
-      ..pendingActivation = Completer<void>()
-      ..activationStarted = Completer<void>();
-    cubit = ConsentCubit(remote, delayed, analytics);
-    await cubit.bind('account', 'en');
-    final saving = cubit.save(decision(true));
-    await delayed.activationStarted!.future;
-    await cubit.stopHere();
-    delayed.pendingActivation!.complete();
-    await saving;
-    await cubit.bind('account', 'pl');
-    expect(await delayed.read('account'), isNull);
-    expect(cubit.state.locallyActive, isFalse);
-    expect(analytics.isInitialized, isFalse);
-  });
+      resume();
+      await Future<void>.delayed(Duration.zero);
+      expect(analytics.isInitialized, isTrue);
+      expect(remote.decisions, isEmpty);
+    },
+  );
 
   test('stop fences a pending authoritative refresh', () async {
     await cubit.bind('account', 'en');
     await cubit.save(decision(true));
     remote.pendingRead = Completer<UserConsents>();
     final refreshing = cubit.refresh();
-    await cubit.stopHere();
+    cubit.pauseAnalytics();
     remote.pendingRead!.complete(UserConsents([remote.current], 60));
     await refreshing;
-    expect(cubit.state.locallyActive, isFalse);
+    expect(cubit.state.analyticsAuthorized, isFalse);
     expect(analytics.isInitialized, isFalse);
   });
 
@@ -203,11 +142,10 @@ void main() {
       expect(await cubit.save(chosen), isFalse);
       expect(cubit.state.error, ConsentErrorKind.load);
       expect(cubit.state.failedDecision, same(chosen));
-      await cubit.stopHere();
       remote.networkFails = false;
       remote.failReadAfterWrite = false;
       expect(await cubit.save(chosen), isTrue);
-      expect(cubit.state.locallyActive, isTrue);
+      expect(cubit.state.analyticsAuthorized, isTrue);
     },
   );
 
@@ -229,7 +167,7 @@ void main() {
         remote.networkFails = true;
         await cubit.refresh();
         expect(cubit.state.error, ConsentErrorKind.load);
-        await cubit.stopHere();
+        cubit.pauseAnalytics();
         remote.networkFails = false;
         await cubit.refresh();
         expect(cubit.state.error, ConsentErrorKind.save);
@@ -237,44 +175,25 @@ void main() {
       },
     );
   }
-  test(
-    'account consent alone does not activate a fresh installation',
-    () async {
-      remote.current = consent(
-        status: 'granted',
-        revision: 1,
-        activationRevision: 1,
-      );
-      await cubit.bind('account', 'en');
-      expect(cubit.state.locallyActive, isFalse);
-      expect(analytics.isInitialized, isFalse);
-      expect(await cubit.save(decision(true)), isTrue);
-      expect(cubit.state.locallyActive, isTrue);
-      expect(analytics.isInitialized, isTrue);
-    },
-  );
-  test(
-    'a late local read from the previous account cannot activate the new account',
-    () async {
-      await cubit.close();
-      final delayed = _DelayedActivationStore();
-      cubit = ConsentCubit(remote, delayed, analytics);
-      remote.current = consent(
-        status: 'granted',
-        revision: 1,
-        activationRevision: 1,
-      );
-      final oldBinding = cubit.bind('old', 'en');
-      await delayed.started.future;
-      await cubit.bind('new', 'en');
-      delayed.oldRead.complete(const ConsentActivation('test-v1', 1));
-      await oldBinding;
-      await cubit.refresh();
-      expect(cubit.state.userId, 'new');
-      expect(cubit.state.locallyActive, isFalse);
-      expect(analytics.isInitialized, isFalse);
-    },
-  );
+  test('a late account read cannot authorize a replacement account', () async {
+    remote.pendingRead = Completer<UserConsents>();
+    remote.readStarted = Completer<void>();
+    final oldRead = remote.pendingRead!;
+    final binding = cubit.bind('old', 'en');
+    await remote.readStarted!.future;
+    remote.pendingRead = null;
+    remote.readStarted = null;
+    await cubit.bind('new', 'en');
+    oldRead.complete(
+      UserConsents([
+        consent(status: 'granted', revision: 1, activationRevision: 1),
+      ], 60),
+    );
+    await binding;
+    expect(cubit.state.userId, 'new');
+    expect(analytics.isInitialized, isFalse);
+  });
+
   test(
     'a failed withdrawal immediately stops analytics and retains the identical retry',
     () async {
@@ -284,7 +203,6 @@ void main() {
       final withdrawal = decision(false);
       expect(await cubit.save(withdrawal), isFalse);
       expect(analytics.isInitialized, isFalse);
-      expect(await store.read('account'), isNull);
       expect(cubit.state.failedDecision, same(withdrawal));
       expect(cubit.state.saving, isFalse);
       await cubit.save(cubit.state.failedDecision!);
@@ -302,7 +220,6 @@ void main() {
     );
     expect(await saving, isFalse);
     expect(analytics.isInitialized, isFalse);
-    expect(await store.read('old'), isNull);
   });
   test(
     'background and stale request completions cannot authorize analytics',
@@ -322,34 +239,20 @@ void main() {
     },
   );
   test(
-    'withdrawal and regrant on another device invalidates the previous local epoch',
+    'withdrawal and regrant on another device automatically follow fresh account state',
     () async {
       await cubit.bind('account', 'en');
       await cubit.save(decision(true));
+      remote.current = consent(status: 'withdrawn', revision: 2);
+      await cubit.refresh();
+      expect(analytics.isInitialized, isFalse);
       remote.current = consent(
         status: 'granted',
         revision: 3,
         activationRevision: 3,
       );
       await cubit.refresh();
-      expect(analytics.isInitialized, isFalse);
-      expect(cubit.state.locallyActive, isFalse);
-    },
-  );
-  test(
-    'storage failure does not prevent sending the account withdrawal',
-    () async {
-      await cubit.close();
-      cubit = ConsentCubit(remote, FailingStore(), analytics);
-      remote.current = consent(
-        status: 'granted',
-        revision: 1,
-        activationRevision: 1,
-      );
-      await cubit.bind('account', 'en');
-      expect(await cubit.save(decision(false)), isTrue);
-      expect(remote.decisions.single.granted, isFalse);
-      expect(analytics.isInitialized, isFalse);
+      expect(analytics.isInitialized, isTrue);
     },
   );
   test(
@@ -361,19 +264,7 @@ void main() {
           consent(status: 'granted', revision: 3, activationRevision: 3),
         );
       expect(await cubit.save(decision(true)), isTrue);
-      expect(await store.read('account'), isNull);
       expect(analytics.isInitialized, isFalse);
     },
   );
-}
-
-class _DelayedActivationStore extends MemoryActivationStore {
-  final started = Completer<void>();
-  final oldRead = Completer<ConsentActivation?>();
-  @override
-  Future<ConsentActivation?> read(String userId) async {
-    if (userId != 'old') return null;
-    started.complete();
-    return oldRead.future;
-  }
 }

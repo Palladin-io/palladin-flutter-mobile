@@ -43,6 +43,22 @@ class _ConsentChoicesState extends State<_ConsentForm> {
   final _draft = <String, bool>{};
   List<ConsentDecision> _pending = [];
   bool _saving = false;
+  VoidCallback? _resumeAnalytics;
+  void _pause(ConsentCubit cubit) {
+    _resumeAnalytics ??= cubit.pauseAnalytics();
+  }
+
+  void _resume() {
+    _resumeAnalytics?.call();
+    _resumeAnalytics = null;
+  }
+
+  @override
+  void dispose() {
+    _resume();
+    super.dispose();
+  }
+
   static const _purposes = ['product_analytics', 'email_marketing'];
 
   bool _selected(UserConsent consent) =>
@@ -50,6 +66,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
 
   Future<void> _persist(List<ConsentDecision> decisions) async {
     final cubit = context.read<ConsentCubit>();
+    _pause(cubit);
     setState(() {
       _saving = true;
       _pending = decisions;
@@ -58,7 +75,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
       final success = await cubit.save(decision);
       if (!mounted) return;
       if (!success) {
-        await cubit.stopHere();
+        _pause(cubit);
         if (mounted) {
           setState(() {
             _saving = false;
@@ -79,6 +96,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
       _saving = false;
       _draft.clear();
     });
+    _resume();
     if (widget.onContinue case final next?) {
       next();
     } else {
@@ -88,10 +106,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
     }
   }
 
-  Future<void> _save({
-    bool acceptAll = false,
-    bool activateHere = false,
-  }) async {
+  Future<void> _save({bool acceptAll = false}) async {
     final cubit = context.read<ConsentCubit>();
     if (_saving ||
         cubit.state.saving ||
@@ -101,27 +116,24 @@ class _ConsentChoicesState extends State<_ConsentForm> {
       return;
     }
     if (acceptAll) {
-      // Stop synchronously before awaiting storage. Lock the whole operation.
+      // Suspend capture for the whole batch, including authoritative refresh.
       setState(() {
         _saving = true;
         for (final purpose in _purposes) {
           _draft[purpose] = true;
         }
       });
-      await cubit.stopHere();
+      _pause(cubit);
       if (!mounted) return;
     }
     final decisions = <ConsentDecision>[];
     for (final purpose in _purposes) {
-      if (activateHere && purpose != 'product_analytics') continue;
       final consent = cubit.state.consents
           .where((c) => c.purpose == purpose)
           .firstOrNull;
       if (consent == null) continue;
       final selected = acceptAll || _selected(consent);
-      final activate = activateHere && purpose == 'product_analytics';
       if (!acceptAll &&
-          !activate &&
           selected == consent.granted &&
           consent.status != 'unknown' &&
           (consent.currentNotice == null ||
@@ -133,6 +145,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
       if (decision != null) decisions.add(decision);
     }
     if (decisions.isEmpty) {
+      _resume();
       setState(() => _saving = false);
       if (_hasCurrentNotices(cubit.state.consents)) {
         widget.onContinue?.call();
@@ -149,7 +162,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
     if (!acceptAll &&
         decisions.any((d) => d.purpose == 'product_analytics' && d.granted)) {
       setState(() => _saving = true);
-      await cubit.stopHere();
+      _pause(cubit);
       if (!mounted) return;
     }
     await _persist(decisions);
@@ -204,7 +217,7 @@ class _ConsentChoicesState extends State<_ConsentForm> {
                     (consent.currentNotice != null || value);
                 void change() {
                   if (!enabled) return;
-                  if (analytics && value) cubit.stopHere();
+                  if (analytics && value) _pause(cubit);
                   setState(() {
                     _draft[purpose] = !value;
                     _pending = [];
@@ -273,25 +286,6 @@ class _ConsentChoicesState extends State<_ConsentForm> {
                           ],
                         ),
                       ),
-                    if (widget.source == 'mobile_settings' && analytics) ...[
-                      const SizedBox(height: AppSpacing.innerGap),
-                      Text(
-                        state.locallyActive
-                            ? l10n.privacyActiveHere
-                            : l10n.privacyInactiveHere,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      if (consent?.granted == true &&
-                          value &&
-                          !state.locallyActive &&
-                          consent.currentNotice != null)
-                        TextButton(
-                          onPressed: busy
-                              ? null
-                              : () => _save(activateHere: true),
-                          child: Text(l10n.privacyActivateHere),
-                        ),
-                    ],
                   ],
                 );
               },

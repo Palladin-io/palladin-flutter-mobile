@@ -4106,9 +4106,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Account consent applies to web and mobile. Analytics also requires activation on each browser or mobile installation. Withdrawing consent disables it across your devices.';
 
   @override
-  String get privacyActivateHere => 'Enable on this device';
-
-  @override
   String get privacySaving => 'Saving…';
 
   @override
@@ -4155,12 +4152,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacySaveChoice => 'Save choice';
-
-  @override
-  String get privacyInactiveHere => 'Off on this device';
-
-  @override
-  String get privacyActiveHere => 'Enabled on this device';
 
   @override
   String get privacyDetails => 'Consent details';

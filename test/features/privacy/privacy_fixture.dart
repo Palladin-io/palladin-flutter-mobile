@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
-import 'package:mobile_palladin/features/privacy/data/consent_activation_store.dart';
 import 'package:mobile_palladin/features/privacy/data/consent_remote_datasource.dart';
 import 'package:mobile_palladin/features/privacy/domain/user_consent.dart';
 
@@ -61,29 +60,6 @@ class Remote extends ConsentRemoteDataSource {
   }
 }
 
-class FailingStore extends ConsentActivationStore {
-  @override
-  Future<ConsentActivation?> read(String userId) async => null;
-
-  @override
-  Future<void> write(String userId, ConsentActivation? activation) async =>
-      throw StateError('storage');
-}
-
-class MemoryActivationStore extends ConsentActivationStore {
-  final _values = <String, ConsentActivation>{};
-  @override
-  Future<ConsentActivation?> read(String userId) async => _values[userId];
-  @override
-  Future<void> write(String userId, ConsentActivation? activation) async {
-    if (activation == null) {
-      _values.remove(userId);
-    } else {
-      _values[userId] = activation;
-    }
-  }
-}
-
 DioException consentHttpError(int status) {
   final options = RequestOptions(
     path: '/api/account/consents/product_analytics',
@@ -93,29 +69,4 @@ DioException consentHttpError(int status) {
     type: DioExceptionType.badResponse,
     response: Response(requestOptions: options, statusCode: status),
   );
-}
-
-class ControlledActivationStore extends MemoryActivationStore {
-  bool failDelete = false;
-  bool failActivation = false;
-  Completer<ConsentActivation?>? pendingRead;
-  Completer<void>? readStarted;
-  Completer<void>? pendingActivation;
-  Completer<void>? activationStarted;
-  @override
-  Future<ConsentActivation?> read(String userId) async {
-    readStarted?.complete();
-    return pendingRead == null ? super.read(userId) : pendingRead!.future;
-  }
-
-  @override
-  Future<void> write(String userId, ConsentActivation? activation) async {
-    if (activation == null && failDelete) throw StateError('delete');
-    if (activation != null) {
-      if (failActivation) throw StateError('activation');
-      activationStarted?.complete();
-      await pendingActivation?.future;
-    }
-    await super.write(userId, activation);
-  }
 }

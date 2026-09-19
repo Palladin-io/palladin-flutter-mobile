@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/analytics/analytics_service.dart';
 import '../../../core/utils/request_id.dart';
-import '../data/consent_activation_store.dart';
 import '../data/consent_remote_datasource.dart';
 import '../domain/user_consent.dart';
 
@@ -17,7 +16,7 @@ class ConsentState {
     this.saving = false,
     this.error,
     this.failedDecision,
-    this.locallyActive = false,
+    this.analyticsAuthorized = false,
     this.requiresReconfirmation = false,
     this.saveFailed = false,
   });
@@ -27,7 +26,7 @@ class ConsentState {
   final bool saving;
   final ConsentErrorKind? error;
   final ConsentDecision? failedDecision;
-  final bool locallyActive;
+  final bool analyticsAuthorized;
   final bool requiresReconfirmation;
   // A rejected write remains a failure even when its request cannot be retried.
   final bool saveFailed;
@@ -36,29 +35,22 @@ class ConsentState {
 /// Session-bound account preferences and expiring client-analytics authority.
 /// The backend owns revisions and decisions; local state never predicts them.
 class ConsentCubit extends Cubit<ConsentState> {
-  ConsentCubit(
-    this._remote,
-    this._store,
-    this._analytics, {
-    DateTime Function()? now,
-  }) : _now = now ?? DateTime.now,
-       super(const ConsentState());
+  ConsentCubit(this._remote, this._analytics, {DateTime Function()? now})
+    : _now = now ?? DateTime.now,
+      super(const ConsentState());
   final ConsentRemoteDataSource _remote;
-  final ConsentActivationStore _store;
   final AnalyticsService _analytics;
   final DateTime Function() _now;
   String? _userId;
   String _locale = 'en';
   int _generation = 0;
   int _readVersion = 0;
-  int _activationVersion = 0;
-  final _blockedAccounts = <String>{};
+  final _pauses = <Object>{};
   // Presentation history only: opening settings never grants consent or capture.
   final _offeredChoices = <String>{};
   bool hasOfferedChoices(String userId) => _offeredChoices.contains(userId);
   void markChoicesOffered(String userId) => _offeredChoices.add(userId);
   bool _foreground = true;
-  ConsentActivation? _activation;
   Timer? _poll;
   CancelToken? _read;
   CancelToken? _write;
@@ -73,27 +65,15 @@ class ConsentCubit extends Cubit<ConsentState> {
     _read?.cancel();
     _write?.cancel();
     _poll?.cancel();
-    final activationVersion = _activationVersion;
-    _activation = null;
+    _pauses.clear();
     await _analytics.reset();
     if (isClosed || generation != _generation) return;
     emit(ConsentState(userId: userId, loading: userId != null));
     if (userId == null) return;
-    ConsentActivation? activation;
-    try {
-      activation = await _store.read(userId);
-    } catch (_) {
-      activation = null;
-    }
-    if (generation != _generation || isClosed) return;
-    if (activationVersion == _activationVersion &&
-        !_blockedAccounts.contains(userId)) {
-      _activation = activation;
-    }
     _poll = Timer.periodic(const Duration(seconds: 30), (_) {
       unawaited(refresh());
     });
-    // Account changes never inherit another principal's local activation.
+    // Every account/session requires its own authoritative response.
     if (accountChanged || _foreground) await refresh();
   }
 
@@ -127,29 +107,15 @@ class ConsentCubit extends Cubit<ConsentState> {
       final analyticsConsent = response.consents
           .where((value) => value.purpose == 'product_analytics')
           .firstOrNull;
-      if (analyticsConsent != null && !analyticsConsent.granted) {
-        _stopMemory();
-        try {
-          await _store.write(userId, null);
-        } catch (_) {
-          /* stays off */
-        }
-      }
-      if (generation != _generation ||
-          version != _readVersion ||
-          isClosed ||
-          !_foreground) {
-        return;
-      }
-      final locallyActive =
-          !_blockedAccounts.contains(userId) &&
+      final analyticsAuthorized =
+          _pauses.isEmpty &&
+          !state.saveFailed &&
+          !state.requiresReconfirmation &&
           analyticsConsent != null &&
           analyticsConsent.granted &&
           analyticsConsent.currentNotice?.version ==
-              analyticsConsent.noticeVersion &&
-          _activation?.noticeVersion == analyticsConsent.noticeVersion &&
-          _activation?.revision == analyticsConsent.activationRevision;
-      if (locallyActive) {
+              analyticsConsent.noticeVersion;
+      if (analyticsAuthorized) {
         _analytics.authorize(
           userId,
           observedAt.add(Duration(seconds: response.maxAgeSeconds)),
@@ -158,9 +124,10 @@ class ConsentCubit extends Cubit<ConsentState> {
               _foreground &&
               generation == _generation &&
               _userId == userId &&
-              !_blockedAccounts.contains(userId) &&
-              _activation?.revision == analyticsConsent.activationRevision &&
-              _activation?.noticeVersion == analyticsConsent.noticeVersion,
+              _pauses.isEmpty &&
+              !state.saving &&
+              !state.saveFailed &&
+              !state.requiresReconfirmation,
         );
       } else {
         unawaited(_analytics.reset());
@@ -169,7 +136,7 @@ class ConsentCubit extends Cubit<ConsentState> {
         ConsentState(
           userId: userId,
           consents: response.consents,
-          locallyActive: locallyActive,
+          analyticsAuthorized: analyticsAuthorized,
           error: state.saveFailed ? ConsentErrorKind.save : null,
           saveFailed: state.saveFailed,
           requiresReconfirmation: state.requiresReconfirmation,
@@ -194,38 +161,39 @@ class ConsentCubit extends Cubit<ConsentState> {
     }
   }
 
-  void _stopMemory() {
-    _activationVersion++;
-    if (_userId case final userId?) _blockedAccounts.add(userId);
-    _activation = null;
+  /// A draft withdrawal or pending form pauses capture only until saved/cancelled.
+  void Function() pauseAnalytics() {
+    final owner = Object();
+    final generation = _generation;
+    _pauses.add(owner);
     unawaited(_analytics.reset());
-  }
-
-  /// Stop locally before an API decision or dismissal; never treat this as an account withdrawal.
-  Future<void> stopHere() async {
-    _stopMemory();
-    final userId = _userId;
-    if (!isClosed) {
-      emit(
-        ConsentState(
-          userId: userId,
-          consents: state.consents,
-          loading: state.loading,
-          saving: state.saving,
-          error: state.error,
-          saveFailed: state.saveFailed,
-          requiresReconfirmation: state.requiresReconfirmation,
-          failedDecision: state.failedDecision,
-        ),
-      );
-    }
-    if (userId != null) {
-      try {
-        await _store.write(userId, null);
-      } catch (_) {
-        /* remains off */
-      }
-    }
+    emit(
+      ConsentState(
+        userId: state.userId,
+        consents: state.consents,
+        loading: state.loading,
+        saving: state.saving,
+        error: state.error,
+        saveFailed: state.saveFailed,
+        requiresReconfirmation: state.requiresReconfirmation,
+        failedDecision: state.failedDecision,
+      ),
+    );
+    return () {
+      if (generation != _generation || isClosed) return;
+      if (!_pauses.remove(owner)) return;
+      // Disposal can happen during a widget rebuild. Resume from a fresh read.
+      scheduleMicrotask(() {
+        if (isClosed ||
+            generation != _generation ||
+            state.saving ||
+            _pauses.isNotEmpty) {
+          return;
+        }
+        emit(ConsentState(userId: _userId, consents: state.consents));
+        unawaited(refresh());
+      });
+    };
   }
 
   ConsentDecision? decision(UserConsent consent, bool granted, String source) {
@@ -251,51 +219,20 @@ class ConsentCubit extends Cubit<ConsentState> {
     _read?.cancel();
     final cancellation = _write = CancelToken();
     final analyticsPurpose = decision.purpose == 'product_analytics';
-    if (analyticsPurpose) _stopMemory();
-    final activationVersion = _activationVersion;
+    unawaited(_analytics.reset());
     emit(
       ConsentState(
         userId: userId,
         consents: state.consents,
         saving: true,
-        locallyActive: analyticsPurpose ? false : state.locallyActive,
+        analyticsAuthorized: analyticsPurpose
+            ? false
+            : state.analyticsAuthorized,
       ),
     );
     try {
-      if (analyticsPurpose) {
-        try {
-          await _store.write(userId, null);
-        } catch (_) {
-          /* Still attempt the account withdrawal. */
-        }
-      }
       if (generation != _generation || cancellation.isCancelled) return false;
-      final result = await _remote.decide(decision, cancelToken: cancellation);
-      if (generation != _generation || isClosed) return false;
-      if (analyticsPurpose &&
-          activationVersion == _activationVersion &&
-          decision.granted &&
-          result.granted &&
-          result.revision == decision.expectedRevision + 1 &&
-          result.noticeVersion == decision.noticeVersion) {
-        final activation = ConsentActivation(
-          result.noticeVersion!,
-          result.activationRevision,
-        );
-        await _store.write(userId, activation);
-        if (generation != _generation ||
-            activationVersion != _activationVersion ||
-            isClosed) {
-          try {
-            await _store.write(userId, null);
-          } catch (_) {
-            /* no in-memory activation */
-          }
-        } else {
-          _blockedAccounts.remove(userId);
-          _activation = activation;
-        }
-      }
+      await _remote.decide(decision, cancelToken: cancellation);
       if (generation != _generation || isClosed) return false;
       emit(ConsentState(userId: userId, consents: state.consents));
       await refresh();
@@ -314,7 +251,7 @@ class ConsentCubit extends Cubit<ConsentState> {
       return state.error == null;
     } catch (error) {
       if (generation != _generation || isClosed) return false;
-      _stopMemory();
+      unawaited(_analytics.reset());
       final status = error is DioException ? error.response?.statusCode : null;
       // A definite rejection cannot become valid by replaying the same request.
       final rejected =

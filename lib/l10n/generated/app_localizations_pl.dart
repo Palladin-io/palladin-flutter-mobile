@@ -4150,9 +4150,6 @@ class AppLocalizationsPl extends AppLocalizations {
       'Zgoda konta obejmuje web i mobile. Analityka wymaga również aktywacji w każdej przeglądarce lub instalacji aplikacji. Cofnięcie zgody wyłącza ją na wszystkich urządzeniach.';
 
   @override
-  String get privacyActivateHere => 'Włącz na tym urządzeniu';
-
-  @override
   String get privacySaving => 'Zapisywanie…';
 
   @override
@@ -4199,12 +4196,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get privacySaveChoice => 'Zapisz wybór';
-
-  @override
-  String get privacyInactiveHere => 'Wyłączona na tym urządzeniu';
-
-  @override
-  String get privacyActiveHere => 'Włączona na tym urządzeniu';
 
   @override
   String get privacyDetails => 'Szczegóły zgody';
