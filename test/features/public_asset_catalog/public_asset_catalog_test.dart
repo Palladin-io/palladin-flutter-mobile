@@ -141,17 +141,18 @@ void main() {
     expect(remote.calls.last.last, 'host-538.example.com');
   });
 
-  test('repository rejects ensure responses that omit a requested host', () {
-    final repository = PublicAssetRepositoryImpl(_OmittingRemoteDatasource());
-
-    expect(
-      () => repository.ensureWebsiteIcons([
+  test(
+    'repository keeps usable results when an ensure response omits a host',
+    () async {
+      final repository = PublicAssetRepositoryImpl(_OmittingRemoteDatasource());
+      final result = await repository.ensureWebsiteIcons([
         'first.example.com',
         'second.example.com',
-      ]),
-      throwsA(isA<FormatException>()),
-    );
-  });
+      ]);
+      expect(result.statuses, contains('first.example.com'));
+      expect(result.statuses, isNot(contains('second.example.com')));
+    },
+  );
 
   test(
     'repository sends the canonical API type and parses the server contract',

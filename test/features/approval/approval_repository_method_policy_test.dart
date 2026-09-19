@@ -209,6 +209,182 @@ void main() {
     );
   }
 
+  for (final fixture
+      in <
+        ({
+          EntryType type,
+          Map<String, dynamic> content,
+          Map<String, dynamic> fields,
+        })
+      >[
+        (
+          type: EntryType.key,
+          content: const {'value': 'secret'},
+          fields: const {'agentLabel': 'discovery', 'value': 'onGrantValue'},
+        ),
+        (
+          type: EntryType.credential,
+          content: const {'password': 'secret'},
+          fields: const {'agentLabel': 'discovery', 'password': 'onGrantValue'},
+        ),
+        (
+          type: EntryType.creditCard,
+          content: const {'cardNumber': '4242424242424242'},
+          fields: const {
+            'agentLabel': 'discovery',
+            'cardNumber': 'onGrantRuntime',
+          },
+        ),
+      ]) {
+    test(
+      '${fixture.type.name} regrant retains only currently shareable selected fields',
+      () async {
+        final approval = _Approval();
+        final entries = _Entries();
+        final vaults = _Vaults();
+        final crypto = _Crypto();
+        final vaultKeys = _VaultKeys();
+        final canonical = _CanonicalEntries();
+        final discovery = _Discovery();
+        int? approvedMethods;
+        int? deliveryPolicy;
+        List<String>? deliveredFieldIds;
+        final retained = fixture.type == EntryType.key
+            ? ['key.value', 'key.notes']
+            : ['credential.password', 'credential.totp'];
+
+        when(
+          () => canonical.reveal(
+            expected: any(named: 'expected'),
+            memberPrivateKey: any(named: 'memberPrivateKey'),
+          ),
+        ).thenAnswer(
+          (_) async => CanonicalEntrySnapshot(
+            entry: {
+              'organizationId': '11111111-1111-4111-8111-111111111111',
+              'currentRevision': '7',
+              'memberKeyGeneration': 3,
+            },
+            secret: {
+              'entryType': fixture.type.toWire(),
+              'memberLabel': 'Entry',
+              'agentVisibilityPolicy': {
+                'discoverable': true,
+                'fields': fixture.fields,
+              },
+            },
+            payload: Map<String, dynamic>.from(fixture.content),
+          ),
+        );
+        when(
+          () => crypto.sealGrant(
+            organizationId: any(named: 'organizationId'),
+            vaultId: any(named: 'vaultId'),
+            entryId: any(named: 'entryId'),
+            grantId: any(named: 'grantId'),
+            agentId: any(named: 'agentId'),
+            entryRevision: any(named: 'entryRevision'),
+            memberKeyGeneration: any(named: 'memberKeyGeneration'),
+            agentPublicKey: any(named: 'agentPublicKey'),
+            recipientKeyVersion: any(named: 'recipientKeyVersion'),
+            approvedMethods: any(named: 'approvedMethods'),
+            deliveryPolicy: any(named: 'deliveryPolicy'),
+            fieldIds: any(named: 'fieldIds'),
+            grantPayload: any(named: 'grantPayload'),
+            grantEnvelopeRevision: any(named: 'grantEnvelopeRevision'),
+            grantKeyVersion: any(named: 'grantKeyVersion'),
+            expiresAt: any(named: 'expiresAt'),
+            remainingUses: any(named: 'remainingUses'),
+          ),
+        ).thenAnswer((invocation) async {
+          deliveredFieldIds =
+              invocation.namedArguments[#fieldIds] as List<String>;
+          approvedMethods = invocation.namedArguments[#approvedMethods]! as int;
+          deliveryPolicy = invocation.namedArguments[#deliveryPolicy]! as int;
+          return <String, Object?>{'sealed': true};
+        });
+        when(
+          () => approval.createGranularGrant(
+            vaultId: any(named: 'vaultId'),
+            entryId: any(named: 'entryId'),
+            selectedFieldIds: retained,
+            grantId: any(named: 'grantId'),
+            agentId: any(named: 'agentId'),
+            grantEntry: any(named: 'grantEntry'),
+            expiresAt: any(named: 'expiresAt'),
+            queryLimit: any(named: 'queryLimit'),
+            methods: any(named: 'methods'),
+          ),
+        ).thenAnswer((_) async => 'grant-id');
+
+        final repository = ApprovalRepositoryImpl(
+          approvalDatasource: approval,
+          entryDatasource: entries,
+          vaultDatasource: vaults,
+          cryptoService: crypto,
+          vaultKeys: vaultKeys,
+          canonicalEntries: canonical,
+          discovery: discovery,
+        );
+        final create = repository.createGranularGrant(
+          vaultId: vaultId,
+          entryId: entryId,
+          selectedFieldIds: retained,
+          agentId: agentId,
+          agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+          recipientKeyVersion: 3,
+          agentAccessEpoch: 1,
+          privateKey: Uint8List.fromList(List<int>.filled(32, 7)),
+          limit: const GrantLifetime(),
+          methods: const [GrantMethod.get, GrantMethod.exec],
+        );
+
+        if (fixture.type == EntryType.creditCard) {
+          await expectLater(
+            create,
+            throwsA(
+              isA<ApprovalException>().having(
+                (error) => error.kind,
+                'kind',
+                ApprovalErrorKind.cryptoFailure,
+              ),
+            ),
+          );
+          verifyNever(
+            () => crypto.sealGrant(
+              organizationId: any(named: 'organizationId'),
+              vaultId: any(named: 'vaultId'),
+              entryId: any(named: 'entryId'),
+              grantId: any(named: 'grantId'),
+              agentId: any(named: 'agentId'),
+              entryRevision: any(named: 'entryRevision'),
+              memberKeyGeneration: any(named: 'memberKeyGeneration'),
+              agentPublicKey: any(named: 'agentPublicKey'),
+              recipientKeyVersion: any(named: 'recipientKeyVersion'),
+              approvedMethods: any(named: 'approvedMethods'),
+              deliveryPolicy: any(named: 'deliveryPolicy'),
+              fieldIds: any(named: 'fieldIds'),
+              grantPayload: any(named: 'grantPayload'),
+              grantEnvelopeRevision: any(named: 'grantEnvelopeRevision'),
+              grantKeyVersion: any(named: 'grantKeyVersion'),
+              expiresAt: any(named: 'expiresAt'),
+              remainingUses: any(named: 'remainingUses'),
+            ),
+          );
+          return;
+        }
+
+        await create;
+
+        expect(deliveredFieldIds, [
+          fixture.type == EntryType.key ? 'key.value' : 'credential.password',
+        ]);
+        expect(approvedMethods, 3);
+        expect(deliveryPolicy, fixture.type.deliveryPolicyCode());
+      },
+    );
+  }
+
   test(
     'FULL seals one Vault key wrapper, never creates a per-Entry envelope, and wipes the opened key',
     () async {

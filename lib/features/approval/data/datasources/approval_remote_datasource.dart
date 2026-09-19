@@ -48,6 +48,7 @@ class ApprovalRemoteDatasource {
   Future<String> createGranularGrant({
     required String vaultId,
     required String entryId,
+    List<String>? selectedFieldIds,
     required String grantId,
     required String agentId,
     required Map<String, dynamic> grantEntry,
@@ -59,6 +60,7 @@ class ApprovalRemoteDatasource {
       'grantId': grantId,
       'agentId': agentId,
       'grantEntry': grantEntry,
+      'fieldSelectionMode': selectedFieldIds == null ? 'all' : 'selected',
       'expiresAt': ?expiresAt,
       'queryLimit': ?queryLimit,
       'methods': ?methods,

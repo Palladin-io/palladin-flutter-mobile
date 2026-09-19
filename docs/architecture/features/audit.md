@@ -33,3 +33,8 @@ Audit log viewer — a global page plus tabs embedded in vault/entry detail.
   members when only local Entry labels may have changed.
 
 **Cross-feature deps:** embedded by `vault` (Logs tab). Filter/legend sheets inline the drag handle → extract `SheetDragHandle`.
+
+Unknown actor values render as unknown rather than being attributed to System.
+Ordinary audit metadata remains displayable without response enum validation;
+local identity resolution and removal of server-supplied sensitive presentation
+remain unchanged.

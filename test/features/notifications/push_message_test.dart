@@ -50,7 +50,7 @@ void main() {
         final malformed = Map<String, dynamic>.from(raw)..remove(key);
         expect(PushMessage.fromData(malformed), isNull, reason: key);
       }
-      expect(PushMessage.fromData({...raw, 'category': 'forged'}), isNull);
+      expect(PushMessage.fromData({...raw, 'category': 'future'})?.category, 'future');
       expect(
         PushMessage.fromData({...raw, 'occurredAt': 'not-an-instant'}),
         isNull,

@@ -71,6 +71,7 @@ final class CanonicalExportService {
                   MemberEntryState.active => true,
                   MemberEntryState.archived => options.includeArchived,
                   MemberEntryState.deleted => options.includeDeleted,
+                  MemberEntryState.unknown => false,
                 };
               })
               .toList(growable: false)

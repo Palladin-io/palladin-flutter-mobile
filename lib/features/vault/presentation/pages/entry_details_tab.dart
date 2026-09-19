@@ -123,7 +123,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
 
   /// Legacy flat `otpauth://` TOTP string on an imported credential — kept
   /// so an edit does not drop it (v2 moves TOTP into a custom field).
-  String? _credentialTotp;
+  Object? _credentialTotp;
 
   /// Candidate reference targets for a Script entry, loaded lazily on edit.
   List<EntryEntity>? _vaultEntries;
@@ -340,7 +340,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
       case EntryType.credential:
         _usernameController.text = (payload['username'] as String?) ?? '';
         _passwordController.text = (payload['password'] as String?) ?? '';
-        _credentialTotp = payload['totp'] as String?;
+        _credentialTotp = payload['totp'];
       case EntryType.script:
         _scriptController.text = (payload['script'] as String?) ?? '';
         _interpreter = ScriptInterpreter.fromName(

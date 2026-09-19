@@ -28,6 +28,7 @@ String grantStatusLabel(AppLocalizations l10n, GrantStatus status) {
     GrantStatus.expired => l10n.grantStatusExpired,
     GrantStatus.consumed => l10n.grantStatusConsumed,
     GrantStatus.superseded => l10n.grantStatusSuperseded,
+    GrantStatus.unknown => l10n.responseUnknownValue,
   };
 }
 
@@ -41,7 +42,8 @@ Color grantStatusColor(GrantStatus status) {
     GrantStatus.denied || GrantStatus.revoked => AppColors.brandRed,
     GrantStatus.expired ||
     GrantStatus.consumed ||
-    GrantStatus.superseded => AppColors.textTertiary,
+    GrantStatus.superseded ||
+    GrantStatus.unknown => AppColors.textTertiary,
   };
 }
 
@@ -51,6 +53,7 @@ String grantScopeLabel(AppLocalizations l10n, GrantScope scope) {
     GrantScope.full => l10n.grantScopeFull,
     GrantScope.granular => l10n.grantScopeGranular,
     GrantScope.scriptExecution => l10n.grantScopeScriptExecution,
+    GrantScope.unknown => l10n.responseUnknownValue,
   };
 }
 

@@ -7,7 +7,7 @@ Org-wide grant history feed + per-context grants tab (vault / entry / agent).
 - **Widgets:** `OrgGrantCard`, `ContextGrantsTab`, `RevokeGrantSheet`, and `GrantDetailRow` (exported, also used by `notifications`).
 - **Layering:** full data / domain / presentation split. Holds the grant domain entities consumed by `approval`.
 - **Scopes:** `Granular`, `Full`, and `ScriptExecution` are separate domain cases. Script grants expose only value-free structural `scriptScopes` and `scriptPackageRevision` to Member UI; ciphertext is never returned by list/detail endpoints. Grant cards and re-grant sheets label Script execution explicitly and lock its method to `Exec`.
-- **Authoritative grant discriminator:** management DTOs require the backend's explicit `type` (`full`, `granular`, or `scriptExecution`). The data boundary rejects missing, unknown, and legacy alias-only values instead of reconstructing access scope from `entryId`, payload shape, endpoint, `mode`, `scope`, or `grantMode`.
+- **Authoritative grant discriminator:** management DTOs require the backend's explicit `type` (`full`, `granular`, or `scriptExecution`). The data boundary requires the discriminator and displays future values as unknown without selecting a known mutation producer. It never reconstructs access scope from `entryId`, payload shape, endpoint, `mode`, `scope`, or `grantMode`.
 - **Encrypted history reasons:** list/detail DTOs retain the backend's canonical
   `EncryptedReason` envelope only in the data layer. `GrantReasonResolver`
   authenticates the Agent signing identity and Vault message-key fingerprint,
@@ -38,3 +38,7 @@ entities), `vault` (`MemberEntryListLoader` for local Entry presentation).
 Embedded by `vault`.
 
 **⚠ Architecture smell:** `RevokeGrantSheet` inlines the drag handle → extract `SheetDragHandle`. `GrantDetailRow` is a 76px-label variant of the duplicated label/value row pattern — fold into `LabelValueRow` if generalizing. See the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md).
+
+## Entry grant field selection
+
+Grant Entry scopes retain `fieldSelectionMode` and `selectedFieldIds` separately from currently delivered `fieldIds`. Missing metadata keeps the existing field list.

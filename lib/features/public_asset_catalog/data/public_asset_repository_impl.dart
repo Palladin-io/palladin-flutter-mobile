@@ -3,7 +3,7 @@ import '../domain/repositories/public_asset_repository.dart';
 import '../domain/services/public_hostname.dart';
 import 'public_asset_remote_datasource.dart';
 
-/// Validating repository implementation. Malformed catalog rows fail closed.
+/// Catalog metadata mapper. Delivery URLs retain their network boundary.
 class PublicAssetRepositoryImpl implements PublicAssetRepository {
   PublicAssetRepositoryImpl(this._remote);
   final PublicAssetRemoteDatasource _remote;
@@ -29,8 +29,6 @@ class PublicAssetRepositoryImpl implements PublicAssetRepository {
     for (var offset = 0; offset < normalized.length; offset += 500) {
       final end = (offset + 500).clamp(0, normalized.length);
       final page = normalized.sublist(offset, end);
-      final expectedHostnames = page.toSet();
-      final returnedHostnames = <String>{};
       final rows = await _remote.ensure(page);
       for (final row in rows) {
         final hostname = PublicHostname.normalize(row['hostname'] as String?);
@@ -38,27 +36,17 @@ class PublicAssetRepositoryImpl implements PublicAssetRepository {
           'pending' => WebsiteIconEnsureStatus.pending,
           'ready' => WebsiteIconEnsureStatus.ready,
           'failed' => WebsiteIconEnsureStatus.failed,
-          _ => throw const FormatException(
-            'Malformed website icon ensure status',
-          ),
+          _ => WebsiteIconEnsureStatus.unknown,
         };
         final assetValue = row['asset'];
         final asset = _parse(
           assetValue is Map ? Map<String, dynamic>.from(assetValue) : row,
         );
-        if (hostname == null ||
-            !expectedHostnames.contains(hostname) ||
-            !returnedHostnames.add(hostname) ||
-            (status == WebsiteIconEnsureStatus.ready) != (asset != null)) {
-          throw const FormatException('Malformed website icon ensure item');
-        }
+        // Hostname normalization is shared with caller input and cache keys.
+        // An unusable icon must not discard usable icons from the same batch.
+        if (hostname == null) continue;
         statuses[hostname] = status;
         if (asset != null) assets[hostname] = asset;
-      }
-      if (returnedHostnames.length != expectedHostnames.length) {
-        throw const FormatException(
-          'Website icon ensure response omitted a requested hostname',
-        );
       }
     }
     return WebsiteIconEnsureResult(assets: assets, statuses: statuses);
@@ -86,16 +74,14 @@ class PublicAssetRepositoryImpl implements PublicAssetRepository {
     final urlValue = row['deliveryUrl'] as String? ?? row['url'] as String?;
     final url = Uri.tryParse(urlValue ?? '');
     if (id == null ||
-        id.isEmpty ||
-        (type != 'websiteIcon' && type != 'agentIcon') ||
+        type == null ||
         name == null ||
-        name.isEmpty ||
         revision is! num ||
         url == null ||
         (url.scheme != 'https' && url.scheme != 'http')) {
       return null;
     }
-    final canonicalType = type!;
+    final canonicalType = type;
     final asset = PublicAsset(
       id: id,
       type: canonicalType,

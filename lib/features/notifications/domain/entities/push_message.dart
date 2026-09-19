@@ -101,14 +101,14 @@ class PushMessage {
     final subjectId = str('subjectId');
     final occurredAt = DateTime.tryParse(str('occurredAt') ?? '');
     if (type == null ||
-        (category != 'actionRequired' && category != 'update') ||
+        category == null ||
         subjectId == null ||
         occurredAt == null) {
       return null;
     }
     return PushMessage(
       type: PushNotificationType.fromRaw(type),
-      category: category!,
+      category: category,
       subjectId: subjectId,
       occurredAt: occurredAt.toUtc(),
     );

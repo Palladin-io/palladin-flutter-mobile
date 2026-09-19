@@ -16,6 +16,7 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 ### Encrypted Member sync and local search
 
 - `MemberSyncService` consumes the frozen policy-2 routes under `current-entries/sync` and requires protocol/policy response headers `2`/`2`. Each bounded item carries the complete current `EntryKey`, `MemberIndex` and `MemberSecret`. Snapshot pages stay in a staging SQLite generation until the closing delta is exhausted; only then are the ciphertext generation, applied sequence, finite access context and authoritative `memberVaultKey` swapped atomically. `resetRequired` removes the active generation before a replacement is staged.
+- Access-context UTC timestamps accept the backend NodaTime Instant precision (up to nine fractional digits). Dart truncates sub-microsecond precision; expiry is never rounded up. Ciphertext and cryptographic bindings are unchanged.
 - **Retained runtime checks:** authenticated envelope scope, Entry/Vault/organization, key version, member generation, wrapping Vault-key version, projection revision-to-head bindings, current `MemberIndex`/`MemberSecret` revision alignment, lease authority, cursor monotonicity and device resource limits remain fail-closed.
 - **Removed duplicate/non-invariant check:** the client does not assert `EntryKey.resourceRevision == Entry.currentRevision`. The EntryKey wrapper has its own revision and normally stays unchanged when an edit reuses the existing Entry DEK; the backend-owned Entry head revision is not an independent authority for that wrapper revision.
 - The SQLite cache contains only structural cursors, the finite access context, the encrypted Member Vault-key wrapper and serialized opaque `EntryKey` / `MemberIndex` / `MemberSecret` envelopes. It never stores a decrypted label, search term, secret, Entry DEK, VK, private key or master key. Reads use entry-id keyset pages of 100 instead of materializing the cache at once, and the complete profile is capped at 512 MiB.
@@ -37,8 +38,8 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
   stale completions after a newer query or security transition.
 - The administrative query is ephemeral and sent only in the body of
   `POST /api/search`. It never appears in URL parameters, logs, analytics,
-  crash breadcrumbs or a client cache. The response parser rejects Vault,
-  Entry, unknown and unscoped results.
+  crash breadcrumbs or a client cache. Unknown remote types remain visible as display-only hits. They cannot become
+  locally authenticated Vault/Entry identities or reveal secrets.
 - Results are sealed Agent/Member/Vault/Entry identities. Ranking is
   deterministic within local source groups, never compares local and remote
   score scales, and deduplicates by scoped identity. Candidate traversal is
@@ -56,6 +57,7 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 
 ### Canonical Entry detail and versioned edit
 
+- The canonical-to-form adapter maps `customFields` to the form's `fields` shape once, including stable ids, kind/type and index-visibility flags. Detail, local-cache reveal and grant projection share that adapter. Edits remove policy entries for fields absent from the new schema while preserving access modes for surviving fields; this does not change the retained owner selection on a grant.
 - Entry Detail renders the already-decrypted in-memory MemberIndex first and automatically authenticates and decrypts MemberSecret on entry. Sensitive values remain masked and are revealed per field. A canonical authentication failure never falls back to the legacy plaintext/blob repository path.
 - A save emits exactly one optimistic backend transition: immutable MemberSecret revision `N+1`, the next MemberIndex head and the next AgentDiscovery high-watermark revision are encrypted locally and switched atomically. A stale Member generation also rewraps the Entry DEK as the next key version before binding all projections to it.
 - HTTP `409` is a dedicated edit-conflict state rather than a generic validation error. Lock, background and widget disposal drop decrypted Cubit state, controller values, reveal flags and TOTP state; keys and temporary plaintext byte buffers are wiped in `finally` paths.
@@ -149,6 +151,18 @@ type-specific(+URL / injected data) → 2FA → Additional fields → Notes.
   Data-wise these are ordinary `totp` custom fields; `CustomFieldsEditor`
   excludes them so 2FA has a single home. The page keeps `_totpFields` +
   `_customFields` and folds `_allCustomFields` (2FA first) into the blob.
+  During edit, a new custom TOTP identity defaults to `onGrantDerived`, matching
+  creation. Replacement keeps the UUID and existing policy; explicit `never`
+  (including an override for a new field) and a missing policy on an existing
+  identity remain private. Credit-card edits follow the same rule instead of
+  overwriting existing custom-field restrictions with defaults. Scoped grant
+  refresh keeps the approved field identity when its TOTP configuration changes;
+  the derived payload contains a short-lived code, never the source seed.
+  Regression coverage: `canonical_entry_v2_interop_test.dart`.
+  Native `credential.totp` remains a native field during editing: the form
+  carries canonical maps and legacy `otpauth://` URIs without a string cast.
+  The canonical writer preserves maps and normalizes valid legacy URIs to a
+  configuration map while retaining the field identity and owner policy.
 - **Additional fields** (`CustomFieldsEditor`) is a grouped card of one-line
   rows (type glyph + inline label/value + "⋯"). The row menu (`showAppMenuSheet`)
   changes type, toggles **Visible to agents** (text/multiline only), reorders,
@@ -243,3 +257,14 @@ Entry presign/public-URL upload paths are intentionally absent.
 - `VaultDetailPage` / `EntryDetailPage` use `AppBrandBackground + DefaultTabController + Scaffold + AppBar` instead of `AppScreen.appBar(...)` (justified by the `PreferredSize` tab-bar height, but still skips the abstraction).
 - `_SkeletonCard` (vault_list) and `_SkeletonRow` (vault_entries_tab) reimplement `SkeletonBox` — replace.
 - AppBar titles duplicate the `AppBarTitle` pattern (see the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md)).
+
+## Entry grant field selection
+
+Both ordinary and canonical Entry updates refresh all-fields grants from current grantable fields. Selected grants intersect their retained allowlist with current policy; missing metadata preserves the delivered field list. Empty resulting scope blocks the update. Recipient, methods, expiry and remaining uses are unchanged.
+
+### Trusted response metadata
+
+Member-sync wrappers accept additional server metadata and nine-digit .NET
+Instant fractions. Required fields and cryptographic/offline authority checks
+remain enforced. See [API response boundaries](../api-response-validation.md)
+for the audit of retained checks and forward-compatible display values.

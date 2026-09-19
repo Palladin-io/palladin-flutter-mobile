@@ -909,13 +909,19 @@ void configureDependencies(EnvConfig config) {
         vaultId: vaultId,
         agentId: agentId,
       ),
-      GranularRegrantArgs(:final vaultId, :final agentId, :final entryId) =>
+      GranularRegrantArgs(
+        :final vaultId,
+        :final agentId,
+        :final entryId,
+        :final selectedFieldIds,
+      ) =>
         GranularRegrantCubit(
           repository: getIt<ApprovalRepository>(),
           agentsRepository: getIt<AgentsRepository>(),
           vaultId: vaultId,
           agentId: agentId,
           entryId: entryId,
+          selectedFieldIds: selectedFieldIds,
         ),
       ScriptExecutionRegrantArgs(
         :final vaultId,

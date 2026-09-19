@@ -76,6 +76,19 @@ abstract final class AgentVisibilityProjector {
     };
   }
 
+  static List<String> retainGrantableFields({
+    required EntryType type,
+    required List<String> selectedFieldIds,
+    required List<String> grantableFieldIds,
+  }) {
+    final selected = selectedFieldIds
+        .map((id) => _policyFieldId(type, id))
+        .toSet();
+    return grantableFieldIds
+        .where((id) => selected.contains(_policyFieldId(type, id)))
+        .toList(growable: false);
+  }
+
   /// Builds a payload for an existing grant scope without widening policy.
   static Map<String, dynamic> grantPayload({
     required EntryType type,

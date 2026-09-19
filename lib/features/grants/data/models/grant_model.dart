@@ -105,6 +105,9 @@ class GrantModel {
               fieldIds: (scope['fieldIds'] as List<dynamic>? ?? const [])
                   .whereType<String>()
                   .toList(growable: false),
+              fieldSelectionMode: scope['fieldSelectionMode'] as String?,
+              selectedFieldIds: (scope['selectedFieldIds'] as List<dynamic>?)
+                  ?.cast<String>(),
               grantEnvelopeRevision: scope['grantEnvelopeRevision'] as String?,
               entryRevision: scope['entryRevision'] as String?,
               grantKeyVersion: scope['grantKeyVersion'] as int?,

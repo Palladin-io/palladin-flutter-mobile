@@ -59,9 +59,6 @@ class DashboardRemoteDatasource {
       );
     }
     final raw = (data['results'] as List<dynamic>? ?? const <dynamic>[]);
-    if (raw.length > limit) {
-      throw const FormatException('Remote search exceeded requested limit');
-    }
     return raw
         .map((e) => SearchResultModel.fromJson(e as Map<String, dynamic>))
         .toList(growable: false);

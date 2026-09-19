@@ -1490,7 +1490,7 @@ final class MemberSyncService
     'active' || 'Active' || 0 || 1 => MemberEntryState.active,
     'archived' || 'Archived' || 2 => MemberEntryState.archived,
     'deleted' || 'Deleted' || 3 => MemberEntryState.deleted,
-    _ => throw const FormatException('Malformed Member Entry state'),
+    _ => MemberEntryState.unknown,
   };
 
   Stream<List<MemberSyncItemModel>> _chunk(

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_palladin/features/dashboard/domain/entities/search_result_entity.dart';
 import 'package:mobile_palladin/features/dashboard/data/datasources/dashboard_remote_datasource.dart';
 
 void main() {
@@ -33,7 +34,7 @@ void main() {
   });
 
   test(
-    'Vault and Entry response types fail closed at remote boundary',
+    'future remote types remain display-only without Entry navigation',
     () async {
       final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test'));
       dio.interceptors.add(
@@ -53,12 +54,10 @@ void main() {
           },
         ),
       );
-      expect(
-        () => DashboardRemoteDatasource(
-          dio,
-        ).globalSearch('xx', 10, cancelToken: CancelToken()),
-        throwsA(isA<FormatException>()),
-      );
+      final results = await DashboardRemoteDatasource(
+        dio,
+      ).globalSearch('xx', 10, cancelToken: CancelToken());
+      expect(results.single.toEntity(), isA<UnknownSearchResult>());
     },
   );
 }

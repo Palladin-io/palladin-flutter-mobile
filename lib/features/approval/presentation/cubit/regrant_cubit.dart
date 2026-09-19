@@ -29,9 +29,11 @@ final class GranularRegrantArgs extends RegrantArgs {
     required super.vaultId,
     required super.agentId,
     required this.entryId,
+    this.selectedFieldIds,
   });
 
   final String entryId;
+  final List<String>? selectedFieldIds;
 }
 
 final class ScriptExecutionRegrantArgs extends RegrantArgs {
@@ -183,9 +185,11 @@ final class GranularRegrantCubit extends RegrantCubit {
     required super.vaultId,
     required super.agentId,
     required this.entryId,
+    this.selectedFieldIds,
   });
 
   final String entryId;
+  final List<String>? selectedFieldIds;
 
   @override
   Future<void> _createGrant({
@@ -198,6 +202,7 @@ final class GranularRegrantCubit extends RegrantCubit {
   }) => repository.createGranularGrant(
     vaultId: vaultId,
     entryId: entryId,
+    selectedFieldIds: selectedFieldIds,
     agentId: agentId,
     agentPublicKey: agentPublicKey,
     recipientKeyVersion: recipientKeyVersion,

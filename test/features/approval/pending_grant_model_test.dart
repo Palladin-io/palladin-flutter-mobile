@@ -1,3 +1,14 @@
+import 'dart:typed_data';
+import 'package:dio/dio.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:mobile_palladin/features/approval/data/datasources/approval_remote_datasource.dart';
+import 'package:mobile_palladin/features/approval/data/services/grant_approval_review_service.dart';
+import 'package:mobile_palladin/features/vault/data/datasources/vault_remote_datasource.dart';
+import 'package:mobile_palladin/features/vault/data/datasources/agent_discovery_remote_datasource.dart';
+import 'package:mobile_palladin/features/vault/data/services/canonical_entry_detail_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_signature_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_palladin/features/approval/data/models/pending_grant_model.dart';
 
@@ -38,6 +49,72 @@ Map<String, dynamic> _reason(
 };
 
 void main() {
+  test('unavailable reason does not hide a pending request', () {
+    final model = PendingGrantModel.fromJson({
+      'grantId': 'g-1',
+      'vaultId': 'v-1',
+      'agentId': 'a-1',
+      'entryId': 'e-1',
+      'agentPublicKey': 'public',
+      'createdAt': '2026-09-19T12:00:00Z',
+      'encryptedReason': null,
+    });
+    expect(model.toEntity().grantId, 'g-1');
+    expect(model.encryptedReason, isNull);
+  });
+  for (final variant in ['missing', 'substituted', 'widened']) {
+    test('review rejects $variant reason before opening keys', () async {
+      final reason = _reason(
+        variant == 'substituted' ? 'other' : 'g-1',
+        'v-1',
+        'a-1',
+        'e-1',
+      );
+      if (variant == 'widened') {
+        ((reason['descriptor'] as Map)['binding'] as Map)['requestedMethods'] =
+            3;
+      }
+      final wire = <String, dynamic>{
+        'grantId': 'g-1',
+        'vaultId': 'v-1',
+        'agentId': 'a-1',
+        'entryId': 'e-1',
+        'agentPublicKey': 'public',
+        'methods': 1,
+        'createdAt': '2026-09-19T12:00:00Z',
+        'encryptedReason': variant == 'missing' ? null : reason,
+      };
+      final calls = <String>[];
+      final dio = Dio()
+        ..interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (request, handler) {
+              calls.add(request.path);
+              handler.resolve(Response(requestOptions: request, data: wire));
+            },
+          ),
+        );
+      final keys = _Keys();
+      final entries = _Entries();
+      final review = GrantApprovalReviewService(
+        vaults: VaultRemoteDatasource(dio),
+        entries: entries,
+        keys: keys,
+        envelopes: VaultProtocolEnvelopeService(),
+        signatures: VaultProtocolSignatureService(),
+        discovery: AgentDiscoveryRemoteDatasource(dio),
+        approval: ApprovalRemoteDatasource(dio),
+      );
+      final grant = PendingGrantModel.fromJson(wire).toEntity();
+      await expectLater(
+        review.open(grant: grant, memberPrivateKey: Uint8List(32)),
+        throwsFormatException,
+      );
+      expect(calls, ['/api/vaults/v-1/grants/g-1']);
+      verifyZeroInteractions(keys);
+      verifyZeroInteractions(entries);
+    });
+  }
   group('PendingGrantModel.fromJson → toEntity', () {
     test('maps a full pending request with reason + agent public key', () {
       final entity = PendingGrantModel.fromJson(<String, dynamic>{
@@ -62,7 +139,7 @@ void main() {
       expect(entity.vaultName, isNull);
       expect(entity.agentName, isNull);
       expect(entity.entryLabel, isNull);
-      expect(entity.encryptedReason.requestRevision, '1');
+      expect(entity.encryptedReason?.requestRevision, '1');
       expect(entity.createdAt.isUtc, isFalse); // normalized to local
     });
 
@@ -118,7 +195,7 @@ void main() {
       expect(entity.isAgentRegistered, isFalse);
     });
 
-    test('rejects a reason envelope substituted from another request', () {
+    test('keeps a substituted reason row for review to reject', () {
       expect(
         () => PendingGrantModel.fromJson(<String, dynamic>{
           'grantId': 'g-5',
@@ -130,11 +207,11 @@ void main() {
           'encryptedReason': _reason('other', 'v-5', 'a-5', 'e-5'),
           'createdAt': '2026-06-02T08:00:00Z',
         }),
-        throwsFormatException,
+        returnsNormally,
       );
     });
 
-    test('rejects a reason envelope with widened requested methods', () {
+    test('keeps widened methods visible for review to reject', () {
       final reason = _reason('g-6', 'v-6', 'a-6', 'e-6');
       ((reason['descriptor'] as Map)['binding'] as Map)['requestedMethods'] = 3;
       expect(
@@ -148,8 +225,12 @@ void main() {
           'encryptedReason': reason,
           'createdAt': '2026-06-02T08:00:00Z',
         }),
-        throwsFormatException,
+        returnsNormally,
       );
     });
   });
 }
+
+class _Keys extends Mock implements VaultRotationCryptoService {}
+
+class _Entries extends Mock implements CanonicalEntryDetailService {}

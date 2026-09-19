@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -19,8 +20,11 @@ import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vaul
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/agent_visibility_policy.dart'
+    as visibility;
 import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
+import 'package:mobile_palladin/features/vault/presentation/widgets/entry_form_utils.dart';
 
 class _Entries extends Mock implements EntryRemoteDatasource {}
 
@@ -281,6 +285,285 @@ void main() {
       ),
     ).thenAnswer((_) async => bundle);
   });
+
+  test('canonical custom fields survive the detail/edit adapter', () {
+    const fieldId = '88888888-8888-4888-8888-888888888888';
+    final source = <String, dynamic>{
+      ...canonicalSecret,
+      'content': {
+        'value': 'synthetic-key',
+        'customFields': [
+          {
+            'id': fieldId,
+            'label': 'QA later field',
+            'kind': 'concealed',
+            'value': 'synthetic-later-field',
+            'includeInMemberIndex': false,
+          },
+        ],
+      },
+      'agentFieldAccess': {
+        ...canonicalSecret['agentFieldAccess'] as Map,
+        'custom:$fieldId': 'onGrantValue',
+      },
+    };
+    final adapted = service.adaptCanonicalSecret(source);
+    final payload = adapted['content'] as Map<String, dynamic>;
+    expect(payload['fields'], [
+      {
+        'id': fieldId,
+        'label': 'QA later field',
+        'type': 'concealed',
+        'value': 'synthetic-later-field',
+        'agentVisible': false,
+      },
+    ]);
+    expect(payload.containsKey('customFields'), isFalse);
+    expect((source['content'] as Map)['customFields'], hasLength(1));
+  });
+
+  for (final representation in ['map', 'uri']) {
+    for (final access in ['never', 'onGrantDerived']) {
+      test(
+        'native TOTP $representation edit preserves $access and canonical identity',
+        () async {
+          const config = {
+            'secret': 'JBSWY3DPEHPK3PXP',
+            'algorithm': 'SHA1',
+            'digits': 6,
+            'period': 30,
+          };
+          final dynamic native = representation == 'map'
+              ? config
+              : 'otpauth://totp/?secret=JBSWY3DPEHPK3PXP';
+          final parsed = CredentialPayload.fromJson({
+            'username': 'fixture',
+            'password': 'fixture',
+            'totp': native,
+          });
+          final content = EntryFormUtils.buildPayload(
+            type: EntryType.credential,
+            username: parsed.username,
+            password: parsed.password,
+            credentialTotp: parsed.totp,
+          );
+          when(
+            () => entries.updateCanonicalEntry(vaultId, entryId, any()),
+          ).thenAnswer(
+            (_) async => Response(
+              requestOptions: RequestOptions(path: '/update'),
+              statusCode: 200,
+            ),
+          );
+          await service.update(
+            snapshot: CanonicalEntrySnapshot(
+              entry: head(),
+              secret: {
+                'entryType': EntryType.credential.toWire(),
+                'agentVisibilityPolicy': {
+                  'discoverable': true,
+                  'fields': {
+                    'agentLabel': 'discovery',
+                    'urlDomain': 'discovery',
+                    'totp': access,
+                  },
+                },
+              },
+              payload: content,
+            ),
+            expected: EntryEntity(
+              id: entryId,
+              vaultId: vaultId,
+              label: 'Fixture',
+              type: EntryType.credential,
+              createdAt: DateTime.utc(2026),
+              updatedAt: DateTime.utc(2026),
+            ),
+            label: 'Fixture',
+            description: '',
+            icon: '',
+            type: EntryType.credential,
+            content: content,
+            memberPrivateKey: Uint8List(32),
+          );
+          final captured =
+              verify(
+                    () => crypto.seal(
+                      organizationId: orgId,
+                      vaultId: vaultId,
+                      entryId: entryId,
+                      revision: 8,
+                      entryKeyRevision: 4,
+                      memberIndexRevision: 4,
+                      agentDiscoveryRevision: 6,
+                      entryKeyVersion: 2,
+                      vaultKeyVersion: 4,
+                      vdkVersion: 6,
+                      memberKeyGeneration: 3,
+                      operation: 2,
+                      secret: captureAny(named: 'secret'),
+                      vaultKey: any(named: 'vaultKey'),
+                      vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+                      existingEntryDek: any(named: 'existingEntryDek'),
+                    ),
+                  ).captured.single
+                  as MemberSecret;
+          expect((captured.content as CredentialSecretContent).totp, config);
+          expect(captured.content.customFields, isEmpty);
+          expect(captured.agentFieldAccess['credential.totp']?.name, access);
+        },
+      );
+    }
+  }
+
+  for (final mode in ['all', 'selected']) {
+    test('v2 $mode grant refresh handles a later custom field', () async {
+      const fieldId = '88888888-8888-4888-8888-888888888888';
+      when(
+        () => grants.listGrants(
+          vaultId,
+          status: 'active',
+          cursor: any(named: 'cursor'),
+          pageSize: 100,
+        ),
+      ).thenAnswer(
+        (_) async => GrantPage(
+          grants: [
+            GrantModel(
+              id: '44444444-4444-4444-8444-444444444444',
+              vaultId: vaultId,
+              agentId: '55555555-5555-4555-8555-555555555555',
+              status: 'active',
+              type: GrantScope.granular,
+              createdAt: '2026-09-19T00:00:00Z',
+              agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+              recipientAgentKeyVersion: 1,
+              methods: 'Inject',
+              entryScopes: [
+                GrantEntryScope(
+                  entryId: entryId,
+                  fieldIds: ['key.value'],
+                  fieldSelectionMode: mode,
+                  selectedFieldIds: mode == 'selected' ? ['key.value'] : null,
+                  grantEnvelopeRevision: '1',
+                  grantKeyVersion: 1,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      Map<String, Object?>? delivered;
+      when(
+        () => crypto.sealGrant(
+          organizationId: any(named: 'organizationId'),
+          vaultId: any(named: 'vaultId'),
+          entryId: any(named: 'entryId'),
+          grantId: any(named: 'grantId'),
+          agentId: any(named: 'agentId'),
+          entryRevision: any(named: 'entryRevision'),
+          memberKeyGeneration: any(named: 'memberKeyGeneration'),
+          agentPublicKey: any(named: 'agentPublicKey'),
+          recipientKeyVersion: any(named: 'recipientKeyVersion'),
+          approvedMethods: any(named: 'approvedMethods'),
+          deliveryPolicy: any(named: 'deliveryPolicy'),
+          fieldIds: any(named: 'fieldIds'),
+          grantPayload: any(named: 'grantPayload'),
+          grantEnvelopeRevision: any(named: 'grantEnvelopeRevision'),
+          grantKeyVersion: any(named: 'grantKeyVersion'),
+          expiresAt: any(named: 'expiresAt'),
+          remainingUses: any(named: 'remainingUses'),
+        ),
+      ).thenAnswer((invocation) async {
+        delivered =
+            invocation.namedArguments[#grantPayload] as Map<String, Object?>;
+        return {'fieldIds': invocation.namedArguments[#fieldIds]};
+      });
+      when(
+        () => entries.updateCanonicalEntry(vaultId, entryId, any()),
+      ).thenAnswer(
+        (_) async => Response(
+          requestOptions: RequestOptions(path: '/update'),
+          statusCode: 200,
+        ),
+      );
+      await service.update(
+        snapshot: CanonicalEntrySnapshot(
+          entry: head(),
+          secret: {
+            'agentLabel': 'Key',
+            'agentVisibilityPolicy': {
+              'discoverable': true,
+              'fields': {'agentLabel': 'discovery', 'value': 'onGrantValue'},
+            },
+          },
+          payload: {'value': 'synthetic-key'},
+        ),
+        expected: EntryEntity(
+          id: entryId,
+          vaultId: vaultId,
+          label: 'Key',
+          type: EntryType.key,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+        label: 'Key',
+        description: '',
+        icon: '',
+        type: EntryType.key,
+        agentVisibilityPolicy: visibility.AgentVisibilityPolicy(
+          discoverable: true,
+          fields: {
+            'agentLabel': visibility.AgentFieldAccess.discovery,
+            'value': visibility.AgentFieldAccess.onGrantValue,
+            fieldId: visibility.AgentFieldAccess.onGrantValue,
+            '99999999-9999-4999-8999-999999999999':
+                visibility.AgentFieldAccess.never,
+          },
+        ),
+        content: {
+          'value': 'synthetic-key',
+          'fields': [
+            {
+              'id': fieldId,
+              'label': 'Later',
+              'type': 'concealed',
+              'value': 'synthetic-new',
+              'agentVisible': false,
+            },
+          ],
+        },
+        memberPrivateKey: Uint8List(32),
+      );
+      expect(
+        (delivered!['fields'] as List).map((field) => (field as Map)['id']),
+        mode == 'all' ? ['custom:$fieldId', 'key.value'] : ['key.value'],
+      );
+      final saved =
+          verify(
+                () => crypto.seal(
+                  organizationId: any(named: 'organizationId'),
+                  vaultId: any(named: 'vaultId'),
+                  entryId: any(named: 'entryId'),
+                  revision: any(named: 'revision'),
+                  entryKeyRevision: any(named: 'entryKeyRevision'),
+                  memberIndexRevision: any(named: 'memberIndexRevision'),
+                  agentDiscoveryRevision: any(named: 'agentDiscoveryRevision'),
+                  entryKeyVersion: any(named: 'entryKeyVersion'),
+                  vaultKeyVersion: any(named: 'vaultKeyVersion'),
+                  vdkVersion: any(named: 'vdkVersion'),
+                  memberKeyGeneration: any(named: 'memberKeyGeneration'),
+                  operation: any(named: 'operation'),
+                  secret: captureAny(named: 'secret'),
+                  vaultKey: any(named: 'vaultKey'),
+                  vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+                  existingEntryDek: any(named: 'existingEntryDek'),
+                ),
+              ).captured.single
+              as MemberSecret;
+      expect(saved.content.customFields.single.id, fieldId);
+    });
+  }
 
   test(
     'canonical update preserves independent revisions and reuses EntryDEK',
@@ -575,6 +858,221 @@ void main() {
       expect(captured.agentFieldAccess, isNot(contains('custom:$removedId')));
     },
   );
+
+  for (final type in [
+    EntryType.credential,
+    EntryType.key,
+    EntryType.creditCard,
+  ]) {
+    for (final scenario in [
+      'new',
+      'new-never',
+      'never',
+      'derived',
+      'missing',
+      'missing-canonical',
+    ]) {
+      test(
+        '${type.name} TOTP edit preserves identity and $scenario policy',
+        () async {
+          const id = '66666666-6666-4666-8666-666666666666';
+          Map<String, dynamic> field(String secret) => {
+            'id': id,
+            'label': 'TOTP',
+            'type': 'totp',
+            'value': {
+              'secret': secret,
+              'algorithm': 'SHA1',
+              'digits': 6,
+              'period': 30,
+            },
+          };
+          final base = <String, dynamic>{
+            if (type == EntryType.credential) ...{
+              'username': 'fixture',
+              'password': 'fixture',
+            },
+            if (type == EntryType.key) 'value': 'fixture',
+            if (type == EntryType.creditCard) ...{
+              'cardholderName': 'Fixture',
+              'cardNumber': '4111111111111111',
+              'expiryMonth': '12',
+              'expiryYear': '2030',
+            },
+          };
+          when(
+            () => entries.updateCanonicalEntry(vaultId, entryId, any()),
+          ).thenAnswer(
+            (_) async => Response(
+              requestOptions: RequestOptions(path: '/update'),
+              statusCode: 200,
+            ),
+          );
+          Map<String, Object?>? refreshedPayload;
+          if (scenario == 'derived' && type != EntryType.creditCard) {
+            const grantId = '77777777-7777-4777-8777-777777777777';
+            const agentId = '88888888-8888-4888-8888-888888888888';
+            when(
+              () => grants.listGrants(
+                vaultId,
+                status: 'active',
+                cursor: any(named: 'cursor'),
+                pageSize: 100,
+              ),
+            ).thenAnswer(
+              (_) async => GrantPage(
+                grants: [
+                  GrantModel(
+                    id: grantId,
+                    vaultId: vaultId,
+                    agentId: agentId,
+                    status: 'active',
+                    type: GrantScope.granular,
+                    createdAt: '2026-07-01T00:00:00Z',
+                    agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+                    recipientAgentKeyVersion: 3,
+                    methods: 'Inject',
+                    entryScopes: const [
+                      GrantEntryScope(
+                        entryId: entryId,
+                        fieldIds: ['custom:$id'],
+                        grantEnvelopeRevision: '4',
+                        entryRevision: '7',
+                        grantKeyVersion: 5,
+                        memberKeyGeneration: 3,
+                        recipientAgentKeyVersion: 3,
+                        agentKeyFingerprint: 'fixture',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+            when(
+              () => crypto.sealGrant(
+                organizationId: orgId,
+                vaultId: vaultId,
+                entryId: entryId,
+                grantId: grantId,
+                agentId: agentId,
+                entryRevision: 8,
+                memberKeyGeneration: 3,
+                agentPublicKey: any(named: 'agentPublicKey'),
+                recipientKeyVersion: 3,
+                approvedMethods: any(named: 'approvedMethods'),
+                deliveryPolicy: 0,
+                fieldIds: ['custom:$id'],
+                grantPayload: any(named: 'grantPayload'),
+                grantEnvelopeRevision: 5,
+                grantKeyVersion: 6,
+                expiresAt: null,
+                remainingUses: null,
+              ),
+            ).thenAnswer((invocation) async {
+              refreshedPayload =
+                  invocation.namedArguments[#grantPayload]
+                      as Map<String, Object?>;
+              return {'fixture': true};
+            });
+          }
+          final snapshot = CanonicalEntrySnapshot(
+            entry: head(),
+            secret: {
+              'entryType': type.toWire(),
+              'agentVisibilityPolicy': {
+                'discoverable': true,
+                'fields': {
+                  'agentLabel': 'discovery',
+                  if (type == EntryType.creditCard) ...{
+                    'cardholderName': 'onGrantRuntime',
+                    'cardNumber': 'onGrantRuntime',
+                    'expiryMonth': 'onGrantRuntime',
+                    'expiryYear': 'onGrantRuntime',
+                  },
+                  if (type == EntryType.credential) 'urlDomain': 'discovery',
+                  if (scenario == 'never' || scenario == 'new-never')
+                    id: 'never',
+                  if (scenario == 'derived') id: 'onGrantDerived',
+                },
+              },
+            },
+            payload: {
+              ...base,
+              if (scenario == 'missing-canonical')
+                'customFields': [
+                  {...field('JBSWY3DPEHPK3PXP'), 'kind': 'totp'},
+                ]
+              else
+                'fields': [
+                  if (!scenario.startsWith('new')) field('JBSWY3DPEHPK3PXP'),
+                ],
+            },
+          );
+          await service.update(
+            snapshot: snapshot,
+            expected: EntryEntity(
+              id: entryId,
+              vaultId: vaultId,
+              label: 'Fixture',
+              type: type,
+              createdAt: DateTime.utc(2026),
+              updatedAt: DateTime.utc(2026),
+            ),
+            label: 'Fixture',
+            description: '',
+            icon: '',
+            type: type,
+            content: {
+              ...base,
+              'fields': [field('GEZDGNBVGY3TQOJQ')],
+            },
+            memberPrivateKey: Uint8List(32),
+          );
+          final captured =
+              verify(
+                    () => crypto.seal(
+                      organizationId: orgId,
+                      vaultId: vaultId,
+                      entryId: entryId,
+                      revision: 8,
+                      entryKeyRevision: 4,
+                      memberIndexRevision: 4,
+                      agentDiscoveryRevision: 6,
+                      entryKeyVersion: 2,
+                      vaultKeyVersion: 4,
+                      vdkVersion: 6,
+                      memberKeyGeneration: 3,
+                      operation: 2,
+                      secret: captureAny(named: 'secret'),
+                      vaultKey: any(named: 'vaultKey'),
+                      vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+                      existingEntryDek: any(named: 'existingEntryDek'),
+                    ),
+                  ).captured.single
+                  as MemberSecret;
+          expect(captured.content.customFields.single.id, id);
+          if (scenario == 'derived' && type != EntryType.creditCard) {
+            expect(refreshedPayload, isNotNull);
+            final fields = refreshedPayload!['fields'] as List;
+            expect(fields, hasLength(1));
+            expect(fields.single, containsPair('id', 'custom:$id'));
+            expect(fields.single, containsPair('mode', 'derived'));
+            final value = (fields.single as Map)['value'] as Map;
+            expect(value['code'], matches(r'^\d{6}$'));
+            expect(value['expiresIn'], inInclusiveRange(1, 30));
+            expect(value, isNot(contains('secret')));
+          }
+
+          expect(
+            captured.agentFieldAccess['custom:$id'],
+            scenario == 'new' || scenario == 'derived'
+                ? AgentFieldAccess.onGrantDerived
+                : AgentFieldAccess.never,
+          );
+        },
+      );
+    }
+  }
 
   test('canonical reveal rejects the retired strict card payload', () async {
     when(

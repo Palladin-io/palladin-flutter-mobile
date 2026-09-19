@@ -1,4 +1,4 @@
-enum MemberEntryState { active, archived, deleted }
+enum MemberEntryState { active, archived, deleted, unknown }
 
 /// Decrypted, runtime-only projection used by local Vault search.
 final class MemberIndexEntry {
