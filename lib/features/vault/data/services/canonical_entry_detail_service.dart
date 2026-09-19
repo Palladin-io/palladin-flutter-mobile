@@ -1074,6 +1074,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         type,
         content,
         agentVisibilityPolicy ?? parsedPreviousPolicy,
+        previousContent: snapshot.payload,
       );
       final policyJson = policy.toJson();
       final nextColor = color ?? snapshot.secret['color'] as String?;
@@ -1342,6 +1343,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           nextContent: content,
           policy: policyOverride ?? previousPolicy,
         ),
+        previousContent: snapshot.payload,
       );
       final nextAgentLabel =
           agentLabelOverride ??
@@ -2869,9 +2871,14 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
   AgentVisibilityPolicy _policyForUpdatedContent(
     EntryType type,
     Map<String, dynamic> content,
-    AgentVisibilityPolicy policy,
-  ) {
-    if (type != EntryType.creditCard) return policy;
+    AgentVisibilityPolicy policy, {
+    required Map<String, dynamic> previousContent,
+  }) {
+    final previousFields =
+        previousContent['fields'] ?? previousContent['customFields'];
+    final previousIds = previousFields is List
+        ? previousFields.whereType<Map>().map((field) => field['id']).toSet()
+        : <Object?>{};
     final fields = Map<String, visibility.AgentFieldAccess>.from(policy.fields);
     final customFields = <String, visibility.AgentFieldAccess>{};
     final rawCustomFields = content['fields'];
@@ -2888,6 +2895,16 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         };
       }
     }
+    // Default only newly added identities. Missing policy on an existing field
+    // remains private, and an owner's explicit restriction survives replacement.
+    for (final entry in customFields.entries) {
+      if (!previousIds.contains(entry.key) &&
+          (type == EntryType.creditCard ||
+              entry.value == visibility.AgentFieldAccess.onGrantDerived)) {
+        fields.putIfAbsent(entry.key, () => entry.value);
+      }
+    }
+    if (type != EntryType.creditCard) return policy.copyWith(fields: fields);
     fields.removeWhere(
       (id, _) =>
           !const {
@@ -2906,7 +2923,6 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
           }.contains(id) &&
           !customFields.containsKey(id),
     );
-    fields.addAll(customFields);
     for (final field in const ['billingAddress']) {
       final value = content[field];
       fields[field] = value is String && value.isNotEmpty

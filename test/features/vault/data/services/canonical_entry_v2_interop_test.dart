@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:convert';
 
@@ -763,6 +764,221 @@ void main() {
       expect(captured.agentFieldAccess, isNot(contains('custom:$removedId')));
     },
   );
+
+  for (final type in [
+    EntryType.credential,
+    EntryType.key,
+    EntryType.creditCard,
+  ]) {
+    for (final scenario in [
+      'new',
+      'new-never',
+      'never',
+      'derived',
+      'missing',
+      'missing-canonical',
+    ]) {
+      test(
+        '${type.name} TOTP edit preserves identity and $scenario policy',
+        () async {
+          const id = '66666666-6666-4666-8666-666666666666';
+          Map<String, dynamic> field(String secret) => {
+            'id': id,
+            'label': 'TOTP',
+            'type': 'totp',
+            'value': {
+              'secret': secret,
+              'algorithm': 'SHA1',
+              'digits': 6,
+              'period': 30,
+            },
+          };
+          final base = <String, dynamic>{
+            if (type == EntryType.credential) ...{
+              'username': 'fixture',
+              'password': 'fixture',
+            },
+            if (type == EntryType.key) 'value': 'fixture',
+            if (type == EntryType.creditCard) ...{
+              'cardholderName': 'Fixture',
+              'cardNumber': '4111111111111111',
+              'expiryMonth': '12',
+              'expiryYear': '2030',
+            },
+          };
+          when(
+            () => entries.updateCanonicalEntry(vaultId, entryId, any()),
+          ).thenAnswer(
+            (_) async => Response(
+              requestOptions: RequestOptions(path: '/update'),
+              statusCode: 200,
+            ),
+          );
+          Map<String, Object?>? refreshedPayload;
+          if (scenario == 'derived' && type != EntryType.creditCard) {
+            const grantId = '77777777-7777-4777-8777-777777777777';
+            const agentId = '88888888-8888-4888-8888-888888888888';
+            when(
+              () => grants.listGrants(
+                vaultId,
+                status: 'active',
+                cursor: any(named: 'cursor'),
+                pageSize: 100,
+              ),
+            ).thenAnswer(
+              (_) async => GrantPage(
+                grants: [
+                  GrantModel(
+                    id: grantId,
+                    vaultId: vaultId,
+                    agentId: agentId,
+                    status: 'active',
+                    type: GrantScope.granular,
+                    createdAt: '2026-07-01T00:00:00Z',
+                    agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+                    recipientAgentKeyVersion: 3,
+                    methods: 'Inject',
+                    entryScopes: const [
+                      GrantEntryScope(
+                        entryId: entryId,
+                        fieldIds: ['custom:$id'],
+                        grantEnvelopeRevision: '4',
+                        entryRevision: '7',
+                        grantKeyVersion: 5,
+                        memberKeyGeneration: 3,
+                        recipientAgentKeyVersion: 3,
+                        agentKeyFingerprint: 'fixture',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+            when(
+              () => crypto.sealGrant(
+                organizationId: orgId,
+                vaultId: vaultId,
+                entryId: entryId,
+                grantId: grantId,
+                agentId: agentId,
+                entryRevision: 8,
+                memberKeyGeneration: 3,
+                agentPublicKey: any(named: 'agentPublicKey'),
+                recipientKeyVersion: 3,
+                approvedMethods: any(named: 'approvedMethods'),
+                deliveryPolicy: 0,
+                fieldIds: ['custom:$id'],
+                grantPayload: any(named: 'grantPayload'),
+                grantEnvelopeRevision: 5,
+                grantKeyVersion: 6,
+                expiresAt: null,
+                remainingUses: null,
+              ),
+            ).thenAnswer((invocation) async {
+              refreshedPayload =
+                  invocation.namedArguments[#grantPayload]
+                      as Map<String, Object?>;
+              return {'fixture': true};
+            });
+          }
+          final snapshot = CanonicalEntrySnapshot(
+            entry: head(),
+            secret: {
+              'entryType': type.toWire(),
+              'agentVisibilityPolicy': {
+                'discoverable': true,
+                'fields': {
+                  'agentLabel': 'discovery',
+                  if (type == EntryType.creditCard) ...{
+                    'cardholderName': 'onGrantRuntime',
+                    'cardNumber': 'onGrantRuntime',
+                    'expiryMonth': 'onGrantRuntime',
+                    'expiryYear': 'onGrantRuntime',
+                  },
+                  if (type == EntryType.credential) 'urlDomain': 'discovery',
+                  if (scenario == 'never' || scenario == 'new-never')
+                    id: 'never',
+                  if (scenario == 'derived') id: 'onGrantDerived',
+                },
+              },
+            },
+            payload: {
+              ...base,
+              if (scenario == 'missing-canonical')
+                'customFields': [
+                  {...field('JBSWY3DPEHPK3PXP'), 'kind': 'totp'},
+                ]
+              else
+                'fields': [
+                  if (!scenario.startsWith('new')) field('JBSWY3DPEHPK3PXP'),
+                ],
+            },
+          );
+          await service.update(
+            snapshot: snapshot,
+            expected: EntryEntity(
+              id: entryId,
+              vaultId: vaultId,
+              label: 'Fixture',
+              type: type,
+              createdAt: DateTime.utc(2026),
+              updatedAt: DateTime.utc(2026),
+            ),
+            label: 'Fixture',
+            description: '',
+            icon: '',
+            type: type,
+            content: {
+              ...base,
+              'fields': [field('GEZDGNBVGY3TQOJQ')],
+            },
+            memberPrivateKey: Uint8List(32),
+          );
+          final captured =
+              verify(
+                    () => crypto.seal(
+                      organizationId: orgId,
+                      vaultId: vaultId,
+                      entryId: entryId,
+                      revision: 8,
+                      entryKeyRevision: 4,
+                      memberIndexRevision: 4,
+                      agentDiscoveryRevision: 6,
+                      entryKeyVersion: 2,
+                      vaultKeyVersion: 4,
+                      vdkVersion: 6,
+                      memberKeyGeneration: 3,
+                      operation: 2,
+                      secret: captureAny(named: 'secret'),
+                      vaultKey: any(named: 'vaultKey'),
+                      vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+                      existingEntryDek: any(named: 'existingEntryDek'),
+                    ),
+                  ).captured.single
+                  as MemberSecret;
+          expect(captured.content.customFields.single.id, id);
+          if (scenario == 'derived' && type != EntryType.creditCard) {
+            expect(refreshedPayload, isNotNull);
+            final fields = refreshedPayload!['fields'] as List;
+            expect(fields, hasLength(1));
+            expect(fields.single, containsPair('id', 'custom:$id'));
+            expect(fields.single, containsPair('mode', 'derived'));
+            final value = (fields.single as Map)['value'] as Map;
+            expect(value['code'], matches(r'^\d{6}$'));
+            expect(value['expiresIn'], inInclusiveRange(1, 30));
+            expect(value, isNot(contains('secret')));
+          }
+
+          expect(
+            captured.agentFieldAccess['custom:$id'],
+            scenario == 'new' || scenario == 'derived'
+                ? AgentFieldAccess.onGrantDerived
+                : AgentFieldAccess.never,
+          );
+        },
+      );
+    }
+  }
 
   test('canonical reveal rejects the retired strict card payload', () async {
     when(
