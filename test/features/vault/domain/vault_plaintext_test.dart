@@ -103,6 +103,20 @@ void main() {
     );
   });
 
+  test(
+    'an optional catalog icon without identity cannot corrupt a saved index',
+    () {
+      final icon = VaultPlaintextIcon.fromReference(
+        'public-asset:|1|https%3A%2F%2Fassets.example.com%2Ficon.png',
+      );
+      final roundTrip = MemberIndex.fromJson({
+        ...VaultPlaintextProjector.memberIndex(credential).toJson(),
+        'icon': icon?.toJson(),
+      });
+      expect(roundTrip.icon, isNull);
+    },
+  );
+
   test('MemberIndex contains only safe list projection fields', () {
     final index = VaultPlaintextProjector.memberIndex(credential).toJson();
     expect(index['username'], 'patryk@example.com');

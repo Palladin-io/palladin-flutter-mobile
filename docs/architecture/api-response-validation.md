@@ -26,7 +26,11 @@ provider/consumer tests before release.
   omitted output or an unknown lifecycle. HTTP(S) delivery URL and public
   hostname checks remain independent network boundaries. Icon preparation retries
   only explicit pending outcomes, so unknown or omitted results cannot stall
-  an import.
+  an import. WebsiteIconService uses only assets explicitly reported ready for
+  save/import; pending metadata remains available to the mapper without becoming
+  a usable icon. Empty optional catalog identities are omitted at the Vault
+  plaintext serialization boundary to avoid producing unreadable ciphertext;
+  this does not discard response rows or reintroduce API lifecycle assertions.
 - Ordinary settings, organization, roles, invitations, preferences and Entry
   history responses already deserialize without repeated business validation.
 
