@@ -149,6 +149,17 @@ type-specific(+URL / injected data) → 2FA → Additional fields → Notes.
   Data-wise these are ordinary `totp` custom fields; `CustomFieldsEditor`
   excludes them so 2FA has a single home. The page keeps `_totpFields` +
   `_customFields` and folds `_allCustomFields` (2FA first) into the blob.
+  During edit, a new custom TOTP identity defaults to `onGrantDerived`, matching
+  creation. Replacement keeps the UUID and existing policy; explicit `never`
+  (including an override for a new field) and a missing policy on an existing
+  identity remain private. Credit-card edits follow the same rule instead of
+  overwriting existing custom-field restrictions with defaults. Scoped grant
+  refresh keeps the approved field identity when its TOTP configuration changes;
+  the derived payload contains a short-lived code, never the source seed.
+  Regression coverage: `canonical_entry_v2_interop_test.dart`.
+  Native `credential.totp` is a separate legacy edit concern: the detail form
+  still expects a string while canonical content can contain a map. This custom
+  TOTP policy change does not convert native fields or verify that legacy path.
 - **Additional fields** (`CustomFieldsEditor`) is a grouped card of one-line
   rows (type glyph + inline label/value + "⋯"). The row menu (`showAppMenuSheet`)
   changes type, toggles **Visible to agents** (text/multiline only), reorders,
