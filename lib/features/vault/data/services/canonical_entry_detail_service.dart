@@ -2180,7 +2180,9 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         final fields =
             (scope.fieldSelectionMode == 'all'
                     ? allowed
-                    : scope.selectedFieldIds ?? scope.fieldIds)
+                    : scope.fieldSelectionMode == 'selected'
+                    ? scope.selectedFieldIds ?? scope.fieldIds
+                    : scope.fieldIds)
                 .map((id) => _canonicalGrantFieldId(secret.entryType, id))
                 .where(allowed.contains)
                 .toList()
@@ -2672,7 +2674,9 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       final approvedFieldIds =
           (scope.fieldSelectionMode == 'all'
                   ? grantable
-                  : scope.selectedFieldIds ?? scope.fieldIds)
+                  : scope.fieldSelectionMode == 'selected'
+                  ? scope.selectedFieldIds ?? scope.fieldIds
+                  : scope.fieldIds)
               .map(
                 (id) => _canonicalGrantFieldId(
                   VaultEntryType.values.byName(type.name),

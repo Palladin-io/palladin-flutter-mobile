@@ -46,7 +46,9 @@ class RegrantSheet extends StatelessWidget {
         entryId: entryId,
         selectedFieldIds: previousScope?.fieldSelectionMode == 'all'
             ? null
-            : previousScope?.selectedFieldIds ??
+            : (previousScope?.fieldSelectionMode == 'selected'
+                      ? previousScope?.selectedFieldIds
+                      : null) ??
                   previousScope?.fieldIds ??
                   const [],
       ),
