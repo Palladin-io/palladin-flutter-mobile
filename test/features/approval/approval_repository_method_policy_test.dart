@@ -1,5 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:mobile_palladin/features/approval/data/models/pending_grant_model.dart';
+import 'package:mobile_palladin/features/approval/domain/entities/encrypted_reason.dart';
+import 'package:mobile_palladin/features/vault/data/models/agent_discovery_provisioning.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -59,8 +62,20 @@ void main() {
         ),
         (
           type: EntryType.credential,
-          content: const {'password': 'secret'},
-          fields: const {'agentLabel': 'discovery', 'password': 'onGrantValue'},
+          content: const {
+            'password': 'secret',
+            'totp': {
+              'secret': 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ',
+              'algorithm': 'SHA1',
+              'digits': 6,
+              'period': 30,
+            },
+          },
+          fields: const {
+            'agentLabel': 'discovery',
+            'password': 'onGrantValue',
+            'totp': 'onGrantDerived',
+          },
         ),
         (
           type: EntryType.creditCard,
@@ -83,6 +98,7 @@ void main() {
         final discovery = _Discovery();
         int? approvedMethods;
         int? deliveryPolicy;
+        Map<String, Object?>? deliveredPayload;
 
         when(
           () => canonical.reveal(
@@ -128,6 +144,8 @@ void main() {
             remainingUses: any(named: 'remainingUses'),
           ),
         ).thenAnswer((invocation) async {
+          deliveredPayload =
+              invocation.namedArguments[#grantPayload] as Map<String, Object?>;
           approvedMethods = invocation.namedArguments[#approvedMethods]! as int;
           deliveryPolicy = invocation.namedArguments[#deliveryPolicy]! as int;
           return <String, Object?>{'sealed': true};
@@ -203,8 +221,96 @@ void main() {
 
         await create;
 
+        expect(deliveredPayload!['schema'], 'palladin.grant-payload.v2');
+        if (fixture.type == EntryType.credential) {
+          final totp =
+              (deliveredPayload!['fields'] as List).singleWhere(
+                    (dynamic f) => f['id'] == 'credential.totp',
+                  )['value']
+                  as Map;
+          expect(totp['source'], 'totp');
+          expect(totp.containsKey('code'), isFalse);
+        }
         expect(approvedMethods, 3);
         expect(deliveryPolicy, fixture.type.deliveryPolicyCode());
+        if (fixture.type == EntryType.credential) {
+          const grantId = '77777777-7777-4777-8777-777777777777';
+          final pending = PendingGrantModel(
+            grantId: grantId,
+            vaultId: vaultId,
+            agentId: agentId,
+            entryId: entryId,
+            agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+            createdAt: '2026-09-19T00:00:00Z',
+            methods: 'Inject',
+            encryptedReason: const EncryptedReason(
+              descriptor: {
+                'protocolVersion': 2,
+                'cryptoSuiteId': 'palladin-vault-xchacha-v1',
+                'purpose': 'encryptedReason',
+                'resourceRevision': '1',
+                'scope': {
+                  'vaultId': vaultId,
+                  'entryId': entryId,
+                  'agentId': agentId,
+                  'grantOrRequestId': grantId,
+                },
+                'binding': {
+                  'wrapperSuiteId': 'palladin-x25519-sealed-box-v1',
+                  'requestedMethods': 4,
+                },
+              },
+              encodedSuitePayload: 'synthetic',
+              wrappedReasonDek: {},
+              agentSignature: 'synthetic',
+            ),
+          );
+          when(
+            () => approval.getGrant(vaultId, grantId),
+          ).thenAnswer((_) async => pending);
+          when(
+            () => vaults.getEncryptedVault(vaultId),
+          ).thenAnswer((_) async => {'memberKeyGeneration': 3});
+          when(() => discovery.list(vaultId)).thenAnswer(
+            (_) async => [
+              AgentDiscoveryProvisioning(
+                agentId: agentId,
+                recipientKeyVersion: 3,
+                status: 'current',
+                x25519PublicKey: pending.agentPublicKey,
+                ed25519PublicKey: pending.agentPublicKey,
+              ),
+            ],
+          );
+          when(
+            () => entries.getCanonicalEntry(vaultId, entryId),
+          ).thenAnswer((_) async => {'currentRevision': '7'});
+          when(
+            () => approval.approveGrant(
+              vaultId: vaultId,
+              grantId: grantId,
+              grantEntry: any(named: 'grantEntry'),
+              methods: any(named: 'methods'),
+              expiresAt: any(named: 'expiresAt'),
+              queryLimit: any(named: 'queryLimit'),
+            ),
+          ).thenAnswer((_) async {});
+          deliveredPayload = null;
+          await repository.approveGrant(
+            grant: pending.toEntity(),
+            privateKey: Uint8List(32),
+            limit: const GrantLifetime(),
+            methods: const [GrantMethod.inject],
+            fieldIds: const ['password', 'totp'],
+            reviewedEntryRevision: '7',
+          );
+          expect(deliveredPayload!['schema'], 'palladin.grant-payload.v2');
+          final source =
+              (deliveredPayload!['fields'] as List).last['value'] as Map;
+          expect(source['source'], 'totp');
+          expect(source.containsKey('code'), isFalse);
+          expect(approvedMethods, 4);
+        }
       },
     );
   }

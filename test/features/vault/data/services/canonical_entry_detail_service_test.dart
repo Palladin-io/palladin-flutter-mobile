@@ -648,7 +648,7 @@ void main() {
       );
       final payload = jsonDecode(utf8.decode(encryptedGrant.plaintext)) as Map;
       expect(payload, {
-        'schema': 'palladin.grant-payload.v1',
+        'schema': 'palladin.grant-payload.v2',
         'entryType': 'credential',
         'fields': [
           {
@@ -753,7 +753,7 @@ void main() {
       );
       final payload = jsonDecode(utf8.decode(encryptedGrant.plaintext)) as Map;
       expect(payload, {
-        'schema': 'palladin.grant-payload.v1',
+        'schema': 'palladin.grant-payload.v2',
         'entryType': 'key',
         'fields': [
           {

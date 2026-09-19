@@ -192,7 +192,8 @@ void main() {
         description: '',
         content: const {
           'username': 'ada',
-          'totp': 'otpauth://totp/example?secret=SECRET',
+          'totp':
+              'otpauth://totp/example?secret=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ',
         },
         policy: policy,
         approvedFieldIds: const ['totp'],
@@ -252,7 +253,7 @@ void main() {
         ),
       );
       final payload = jsonDecode(utf8.decode(opened)) as Map<String, dynamic>;
-      expect(payload['schema'], 'palladin.grant-payload.v1');
+      expect(payload['schema'], 'palladin.grant-payload.v2');
       expect(payload['entryType'], 'credential');
       final fields = payload['fields'] as List;
       expect(fields, hasLength(1));
@@ -261,10 +262,17 @@ void main() {
       expect(totp['kind'], 'totp');
       expect(totp['mode'], 'derived');
       final derivedTotp = totp['value'] as Map;
-      expect(derivedTotp.keys, unorderedEquals(['code', 'expiresIn']));
-      expect(derivedTotp['code'], matches(RegExp(r'^\d{6}$')));
-      expect(derivedTotp['expiresIn'], inInclusiveRange(1, 30));
-      expect(derivedTotp, isNot(contains('secret')));
+      expect(derivedTotp, {
+        'source': 'totp',
+        'secret': 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ',
+        'algorithm': 'SHA1',
+        'digits': 6,
+        'period': 30,
+      });
+      expect(
+        first.toString(),
+        isNot(contains('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ')),
+      );
       grantKey.fillRange(0, grantKey.length, 0);
       opened.fillRange(0, opened.length, 0);
       agent.dispose();
@@ -306,12 +314,24 @@ void main() {
       const entryId = '33333333-3333-4333-8333-333333333333';
       const agentId = '55555555-5555-4555-8555-555555555555';
       const grantId = '77777777-7777-4777-8777-777777777777';
-      const fieldIds = ['key.value'];
+      const fieldIds = ['credential.totp'];
       const payload = {
-        'schema': 'palladin.grant-payload.v1',
-        'fields': {
-          'key.value': {'access': 'onGrantValue', 'value': 'secret'},
-        },
+        'schema': 'palladin.grant-payload.v2',
+        'entryType': 'credential',
+        'fields': [
+          {
+            'id': 'credential.totp',
+            'kind': 'totp',
+            'mode': 'derived',
+            'value': {
+              'source': 'totp',
+              'secret': 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ',
+              'algorithm': 'SHA1',
+              'digits': 6,
+              'period': 30,
+            },
+          },
+        ],
       };
       final expiry = DateTime.utc(2026, 8, 8, 12, 34, 56, 123, 456);
       final agent = crypto.crypto.box.keyPair();

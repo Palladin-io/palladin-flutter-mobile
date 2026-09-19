@@ -419,153 +419,183 @@ void main() {
     }
   }
 
-  for (final mode in ['all', 'selected']) {
-    test('v2 $mode grant refresh handles a later custom field', () async {
-      const fieldId = '88888888-8888-4888-8888-888888888888';
-      when(
-        () => grants.listGrants(
-          vaultId,
-          status: 'active',
-          cursor: any(named: 'cursor'),
-          pageSize: 100,
-        ),
-      ).thenAnswer(
-        (_) async => GrantPage(
-          grants: [
-            GrantModel(
-              id: '44444444-4444-4444-8444-444444444444',
-              vaultId: vaultId,
-              agentId: '55555555-5555-4555-8555-555555555555',
+  for (final kind in ['concealed', 'totp']) {
+    for (final mode in ['all', 'selected', 'never']) {
+      test(
+        'v2 $mode grant refresh retains V2 for a later $kind field',
+        () async {
+          const fieldId = '88888888-8888-4888-8888-888888888888';
+          when(
+            () => grants.listGrants(
+              vaultId,
               status: 'active',
-              type: GrantScope.granular,
-              createdAt: '2026-09-19T00:00:00Z',
-              agentPublicKey: base64.encode(List<int>.filled(32, 4)),
-              recipientAgentKeyVersion: 1,
-              methods: 'Inject',
-              entryScopes: [
-                GrantEntryScope(
-                  entryId: entryId,
-                  fieldIds: ['key.value'],
-                  fieldSelectionMode: mode,
-                  selectedFieldIds: mode == 'selected' ? ['key.value'] : null,
-                  grantEnvelopeRevision: '1',
-                  grantKeyVersion: 1,
+              cursor: any(named: 'cursor'),
+              pageSize: 100,
+            ),
+          ).thenAnswer(
+            (_) async => GrantPage(
+              grants: [
+                GrantModel(
+                  id: '44444444-4444-4444-8444-444444444444',
+                  vaultId: vaultId,
+                  agentId: '55555555-5555-4555-8555-555555555555',
+                  status: 'active',
+                  type: GrantScope.granular,
+                  createdAt: '2026-09-19T00:00:00Z',
+                  agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+                  recipientAgentKeyVersion: 1,
+                  methods: 'Inject',
+                  entryScopes: [
+                    GrantEntryScope(
+                      entryId: entryId,
+                      fieldIds: ['key.value'],
+                      fieldSelectionMode: mode == 'never' ? 'all' : mode,
+                      selectedFieldIds: mode == 'selected'
+                          ? ['key.value']
+                          : null,
+                      grantEnvelopeRevision: '1',
+                      grantKeyVersion: 1,
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-      );
-      Map<String, Object?>? delivered;
-      when(
-        () => crypto.sealGrant(
-          organizationId: any(named: 'organizationId'),
-          vaultId: any(named: 'vaultId'),
-          entryId: any(named: 'entryId'),
-          grantId: any(named: 'grantId'),
-          agentId: any(named: 'agentId'),
-          entryRevision: any(named: 'entryRevision'),
-          memberKeyGeneration: any(named: 'memberKeyGeneration'),
-          agentPublicKey: any(named: 'agentPublicKey'),
-          recipientKeyVersion: any(named: 'recipientKeyVersion'),
-          approvedMethods: any(named: 'approvedMethods'),
-          deliveryPolicy: any(named: 'deliveryPolicy'),
-          fieldIds: any(named: 'fieldIds'),
-          grantPayload: any(named: 'grantPayload'),
-          grantEnvelopeRevision: any(named: 'grantEnvelopeRevision'),
-          grantKeyVersion: any(named: 'grantKeyVersion'),
-          expiresAt: any(named: 'expiresAt'),
-          remainingUses: any(named: 'remainingUses'),
-        ),
-      ).thenAnswer((invocation) async {
-        delivered =
-            invocation.namedArguments[#grantPayload] as Map<String, Object?>;
-        return {'fieldIds': invocation.namedArguments[#fieldIds]};
-      });
-      when(
-        () => entries.updateCanonicalEntry(vaultId, entryId, any()),
-      ).thenAnswer(
-        (_) async => Response(
-          requestOptions: RequestOptions(path: '/update'),
-          statusCode: 200,
-        ),
-      );
-      await service.update(
-        snapshot: CanonicalEntrySnapshot(
-          entry: head(),
-          secret: {
-            'agentLabel': 'Key',
-            'agentVisibilityPolicy': {
-              'discoverable': true,
-              'fields': {'agentLabel': 'discovery', 'value': 'onGrantValue'},
+          );
+          Map<String, Object?>? delivered;
+          when(
+            () => crypto.sealGrant(
+              organizationId: any(named: 'organizationId'),
+              vaultId: any(named: 'vaultId'),
+              entryId: any(named: 'entryId'),
+              grantId: any(named: 'grantId'),
+              agentId: any(named: 'agentId'),
+              entryRevision: any(named: 'entryRevision'),
+              memberKeyGeneration: any(named: 'memberKeyGeneration'),
+              agentPublicKey: any(named: 'agentPublicKey'),
+              recipientKeyVersion: any(named: 'recipientKeyVersion'),
+              approvedMethods: any(named: 'approvedMethods'),
+              deliveryPolicy: any(named: 'deliveryPolicy'),
+              fieldIds: any(named: 'fieldIds'),
+              grantPayload: any(named: 'grantPayload'),
+              grantEnvelopeRevision: any(named: 'grantEnvelopeRevision'),
+              grantKeyVersion: any(named: 'grantKeyVersion'),
+              expiresAt: any(named: 'expiresAt'),
+              remainingUses: any(named: 'remainingUses'),
+            ),
+          ).thenAnswer((invocation) async {
+            delivered =
+                invocation.namedArguments[#grantPayload]
+                    as Map<String, Object?>;
+            return {'fieldIds': invocation.namedArguments[#fieldIds]};
+          });
+          when(
+            () => entries.updateCanonicalEntry(vaultId, entryId, any()),
+          ).thenAnswer(
+            (_) async => Response(
+              requestOptions: RequestOptions(path: '/update'),
+              statusCode: 200,
+            ),
+          );
+          await service.update(
+            snapshot: CanonicalEntrySnapshot(
+              entry: head(),
+              secret: {
+                'agentLabel': 'Key',
+                'agentVisibilityPolicy': {
+                  'discoverable': true,
+                  'fields': {
+                    'agentLabel': 'discovery',
+                    'value': 'onGrantValue',
+                  },
+                },
+              },
+              payload: {'value': 'synthetic-key'},
+            ),
+            expected: EntryEntity(
+              id: entryId,
+              vaultId: vaultId,
+              label: 'Key',
+              type: EntryType.key,
+              createdAt: DateTime.utc(2026),
+              updatedAt: DateTime.utc(2026),
+            ),
+            label: 'Key',
+            description: '',
+            icon: '',
+            type: EntryType.key,
+            agentVisibilityPolicy: visibility.AgentVisibilityPolicy(
+              discoverable: true,
+              fields: {
+                'agentLabel': visibility.AgentFieldAccess.discovery,
+                'value': visibility.AgentFieldAccess.onGrantValue,
+                fieldId: mode == 'never'
+                    ? visibility.AgentFieldAccess.never
+                    : kind == 'totp'
+                    ? visibility.AgentFieldAccess.onGrantDerived
+                    : visibility.AgentFieldAccess.onGrantValue,
+                '99999999-9999-4999-8999-999999999999':
+                    visibility.AgentFieldAccess.never,
+              },
+            ),
+            content: {
+              'value': 'synthetic-key',
+              'fields': [
+                {
+                  'id': fieldId,
+                  'label': 'Later',
+                  'type': kind,
+                  'value': kind == 'totp'
+                      ? {
+                          'secret': 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ',
+                          'algorithm': 'SHA1',
+                          'digits': 6,
+                          'period': 30,
+                        }
+                      : 'synthetic-new',
+                  'agentVisible': false,
+                },
+              ],
             },
-          },
-          payload: {'value': 'synthetic-key'},
-        ),
-        expected: EntryEntity(
-          id: entryId,
-          vaultId: vaultId,
-          label: 'Key',
-          type: EntryType.key,
-          createdAt: DateTime.utc(2026),
-          updatedAt: DateTime.utc(2026),
-        ),
-        label: 'Key',
-        description: '',
-        icon: '',
-        type: EntryType.key,
-        agentVisibilityPolicy: visibility.AgentVisibilityPolicy(
-          discoverable: true,
-          fields: {
-            'agentLabel': visibility.AgentFieldAccess.discovery,
-            'value': visibility.AgentFieldAccess.onGrantValue,
-            fieldId: visibility.AgentFieldAccess.onGrantValue,
-            '99999999-9999-4999-8999-999999999999':
-                visibility.AgentFieldAccess.never,
-          },
-        ),
-        content: {
-          'value': 'synthetic-key',
-          'fields': [
-            {
-              'id': fieldId,
-              'label': 'Later',
-              'type': 'concealed',
-              'value': 'synthetic-new',
-              'agentVisible': false,
-            },
-          ],
+            memberPrivateKey: Uint8List(32),
+          );
+          expect(
+            (delivered!['fields'] as List).map((field) => (field as Map)['id']),
+            mode == 'all' ? ['custom:$fieldId', 'key.value'] : ['key.value'],
+          );
+          expect(delivered!['schema'], 'palladin.grant-payload.v2');
+          if (mode == 'all' && kind == 'totp') {
+            final value = (delivered!['fields'] as List).first['value'] as Map;
+            expect(value['source'], 'totp');
+            expect(value.containsKey('code'), isFalse);
+          }
+          final saved =
+              verify(
+                    () => crypto.seal(
+                      organizationId: any(named: 'organizationId'),
+                      vaultId: any(named: 'vaultId'),
+                      entryId: any(named: 'entryId'),
+                      revision: any(named: 'revision'),
+                      entryKeyRevision: any(named: 'entryKeyRevision'),
+                      memberIndexRevision: any(named: 'memberIndexRevision'),
+                      agentDiscoveryRevision: any(
+                        named: 'agentDiscoveryRevision',
+                      ),
+                      entryKeyVersion: any(named: 'entryKeyVersion'),
+                      vaultKeyVersion: any(named: 'vaultKeyVersion'),
+                      vdkVersion: any(named: 'vdkVersion'),
+                      memberKeyGeneration: any(named: 'memberKeyGeneration'),
+                      operation: any(named: 'operation'),
+                      secret: captureAny(named: 'secret'),
+                      vaultKey: any(named: 'vaultKey'),
+                      vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+                      existingEntryDek: any(named: 'existingEntryDek'),
+                    ),
+                  ).captured.single
+                  as MemberSecret;
+          expect(saved.content.customFields.single.id, fieldId);
         },
-        memberPrivateKey: Uint8List(32),
       );
-      expect(
-        (delivered!['fields'] as List).map((field) => (field as Map)['id']),
-        mode == 'all' ? ['custom:$fieldId', 'key.value'] : ['key.value'],
-      );
-      final saved =
-          verify(
-                () => crypto.seal(
-                  organizationId: any(named: 'organizationId'),
-                  vaultId: any(named: 'vaultId'),
-                  entryId: any(named: 'entryId'),
-                  revision: any(named: 'revision'),
-                  entryKeyRevision: any(named: 'entryKeyRevision'),
-                  memberIndexRevision: any(named: 'memberIndexRevision'),
-                  agentDiscoveryRevision: any(named: 'agentDiscoveryRevision'),
-                  entryKeyVersion: any(named: 'entryKeyVersion'),
-                  vaultKeyVersion: any(named: 'vaultKeyVersion'),
-                  vdkVersion: any(named: 'vdkVersion'),
-                  memberKeyGeneration: any(named: 'memberKeyGeneration'),
-                  operation: any(named: 'operation'),
-                  secret: captureAny(named: 'secret'),
-                  vaultKey: any(named: 'vaultKey'),
-                  vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
-                  existingEntryDek: any(named: 'existingEntryDek'),
-                ),
-              ).captured.single
-              as MemberSecret;
-      expect(saved.content.customFields.single.id, fieldId);
-    });
+    }
   }
 
   test(
@@ -1003,11 +1033,15 @@ void main() {
               ...base,
               if (scenario == 'missing-canonical')
                 'customFields': [
-                  {...field('JBSWY3DPEHPK3PXP'), 'kind': 'totp'},
+                  {
+                    ...field('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'),
+                    'kind': 'totp',
+                  },
                 ]
               else
                 'fields': [
-                  if (!scenario.startsWith('new')) field('JBSWY3DPEHPK3PXP'),
+                  if (!scenario.startsWith('new'))
+                    field('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'),
                 ],
             },
           );
@@ -1027,7 +1061,7 @@ void main() {
             type: type,
             content: {
               ...base,
-              'fields': [field('GEZDGNBVGY3TQOJQ')],
+              'fields': [field('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ')],
             },
             memberPrivateKey: Uint8List(32),
           );
@@ -1061,9 +1095,10 @@ void main() {
             expect(fields.single, containsPair('id', 'custom:$id'));
             expect(fields.single, containsPair('mode', 'derived'));
             final value = (fields.single as Map)['value'] as Map;
-            expect(value['code'], matches(r'^\d{6}$'));
-            expect(value['expiresIn'], inInclusiveRange(1, 30));
-            expect(value, isNot(contains('secret')));
+            expect(refreshedPayload!['schema'], 'palladin.grant-payload.v2');
+            expect(value['source'], 'totp');
+            expect(value['secret'], 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ');
+            expect(value, isNot(contains('code')));
           }
 
           expect(

@@ -40,3 +40,26 @@ paths = [
   '''^docs/architecture/features/vault\.md$''',
   '''^ios/Podfile\.lock$''',
 ]
+
+[[allowlists]]
+description = "Pinned public RFC 6238 V2 test seeds only; paths and exact values must both match"
+condition = "AND"
+targetRules = ["generic-api-key"]
+regexTarget = "secret"
+paths = [
+  '''^test/fixtures/grant-payload/v2/vectors\.json$''',
+  '''^test/features/vault/data/services/grant_payload_v2_test\.dart$''',
+  '''^test/features/vault/data/services/canonical_entry_v2_interop_test\.dart$''',
+  '''^test/features/approval/grant_protocol_security_test\.dart$''',
+  '''^test/features/approval/approval_repository_method_policy_test\.dart$''',
+]
+regexes = [
+  '''^AAAAAAAAAAAAAAAAAAAAAAAAAB$''',
+  '''^GEZDGNBVGY3TQOJQGEZDGNBV$''',
+  '''^GEZDGNBVGY3TQOJQGEZDGNBVGY$''',
+  '''^GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ$''',
+  '''^GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA$''',
+  '''^GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNA$''',
+  '''^GEZDGNBVGY3TQOJQGEZDGNBVGY======$''',
+  '''^gezdgnbvgy3tqojqgezdgnbvgy3tqojq$''',
+]

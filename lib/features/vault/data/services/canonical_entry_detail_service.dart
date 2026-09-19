@@ -2239,7 +2239,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         if (agentId == null) {
           throw const FormatException('Active grant has no Agent principal');
         }
-        final payload = AgentVisibilityProjector.grantPayload(
+        final payload = AgentVisibilityProjector.grantPayloadV2(
           type: projection.type,
           vaultId: vaultId,
           agentLabel: projection.agentLabel,
@@ -2713,7 +2713,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       if (approvedFieldIds.isEmpty) {
         throw const FormatException('Entry has no grantable fields');
       }
-      final payload = AgentVisibilityProjector.grantPayload(
+      final payload = AgentVisibilityProjector.grantPayloadV2(
         type: type,
         vaultId: grant.vaultId,
         agentLabel: agentLabel,

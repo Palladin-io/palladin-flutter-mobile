@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../domain/entities/totp_config.dart';
+import 'totp_service.dart';
+
 /// Projects only requested Agent-grant fields from authenticated canonical
 /// MemberSecret bytes. Unrequested values are skipped as bytes and are never
 /// decoded into Dart Strings or a complete object graph.
@@ -58,7 +61,35 @@ final class _CanonicalGrantProjectionParser {
         output.add(ascii.encode(',"mode":'));
         output.add(utf8.encode(jsonEncode(mode)));
         output.add(ascii.encode(',"value":'));
-        output.add(_values[id]!);
+        // Script reference packages retain V1. Never copy a Member TOTP
+        // configuration into that value: V1 consumers expect a derived code.
+        if (kind == 'totp') {
+          if (mode != 'derived') {
+            throw const FormatException('Invalid Script TOTP access');
+          }
+          final raw = jsonDecode(utf8.decode(_values[id]!));
+          final config = switch (raw) {
+            final String uri => TotpConfig.parseUri(uri),
+            final Map value => TotpConfig.fromJson(
+              Map<String, dynamic>.from(value),
+            ),
+            _ => null,
+          };
+          if (config == null) {
+            throw const FormatException('Invalid Script TOTP');
+          }
+          final code = const TotpService().generate(config);
+          output.add(
+            utf8.encode(
+              jsonEncode({
+                'code': code.code,
+                'expiresIn': code.secondsRemaining,
+              }),
+            ),
+          );
+        } else {
+          output.add(_values[id]!);
+        }
         output.addByte(0x7d);
       }
       output.add(ascii.encode('],"schema":"palladin.grant-payload.v1"}'));
