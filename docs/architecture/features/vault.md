@@ -38,8 +38,8 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
   stale completions after a newer query or security transition.
 - The administrative query is ephemeral and sent only in the body of
   `POST /api/search`. It never appears in URL parameters, logs, analytics,
-  crash breadcrumbs or a client cache. The response parser rejects Vault,
-  Entry, unknown and unscoped results.
+  crash breadcrumbs or a client cache. Unknown remote types remain visible as display-only hits. They cannot become
+  locally authenticated Vault/Entry identities or reveal secrets.
 - Results are sealed Agent/Member/Vault/Entry identities. Ranking is
   deterministic within local source groups, never compares local and remote
   score scales, and deduplicates by scoped identity. Candidate traversal is
@@ -249,3 +249,10 @@ Entry presign/public-URL upload paths are intentionally absent.
 ## Entry grant field selection
 
 Both ordinary and canonical Entry updates refresh all-fields grants from current grantable fields. Selected grants intersect their retained allowlist with current policy; missing metadata preserves the delivered field list. Empty resulting scope blocks the update. Recipient, methods, expiry and remaining uses are unchanged.
+
+### Trusted response metadata
+
+Member-sync wrappers accept additional server metadata and nine-digit .NET
+Instant fractions. Required fields and cryptographic/offline authority checks
+remain enforced. See [API response boundaries](../api-response-validation.md)
+for the audit of retained checks and forward-compatible display values.

@@ -49,6 +49,15 @@ The **shared widget catalog lives in this file** (see "## Shared Widget Catalog"
 - When variants materially differ in authorization, validation, cryptographic material, lifecycle, or transaction semantics, keep separate repository methods and feature flows instead of branching one generic operation by a type flag. Share only focused mechanics.
 - When the backend provides an authoritative discriminator such as `GrantType`, require and consume that exact field at the data boundary. Never infer it from nullable fields, payload shape, endpoint, aliases, or current UI behavior.
 
+## Trusted first-party responses
+
+Backend-owned business rules are not client response validators. Deserialize
+trusted REST metadata without rejecting additive fields, unknown presentation
+states or whole lists because one optional display field is unavailable.
+Compatibility belongs in contract tests. Retain cryptographic scope/signature
+verification, independent network/input boundaries and documented device
+budgets. See `docs/architecture/api-response-validation.md`.
+
 ## Build & Run
 
 ```bash

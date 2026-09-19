@@ -1,5 +1,5 @@
 /// The kind of object a global-search hit points to.
-enum SearchResultType { agent, member, vault, entry }
+enum SearchResultType { agent, member, vault, entry, unknown }
 
 /// Discriminated global-search identity.
 ///
@@ -107,4 +107,24 @@ final class EntrySearchResult extends SearchResultEntity {
   String? get icon => iconReference;
   @override
   String get deduplicationKey => 'entry:$vaultId:$entryId';
+}
+
+/// Display-only forward-compatible hit; never treated as a known target.
+final class UnknownSearchResult extends SearchResultEntity {
+  const UnknownSearchResult({
+    required this.rawType,
+    required this.id,
+    required this.name,
+  });
+  final String rawType;
+  @override
+  final String id;
+  @override
+  final String name;
+  @override
+  SearchResultType get type => SearchResultType.unknown;
+  @override
+  String? get icon => null;
+  @override
+  String get deduplicationKey => '$rawType:$id';
 }

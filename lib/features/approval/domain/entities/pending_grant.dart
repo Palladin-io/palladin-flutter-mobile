@@ -44,7 +44,7 @@ class PendingGrant {
 
   /// Ciphertext-only while listed/locked. Decrypted only in an ephemeral
   /// approval review after explicit unlock.
-  final EncryptedReason encryptedReason;
+  final EncryptedReason? encryptedReason;
 
   final int? recipientAgentKeyVersion;
 

@@ -37,11 +37,13 @@ enum GrantStatus {
   consumed,
 
   /// Replaced by a newer FULL grant for the same Agent and Vault.
-  superseded;
+  superseded,
+
+  /// Future backend lifecycle value, displayed without inventing a state.
+  unknown;
 
   /// Maps the backend wire value (camelCase string or int ordinal) to a
-  /// typed value. Unknown values fall back to [revoked] so a malformed
-  /// payload fails closed (renders as no-access rather than active).
+  /// typed value. Unknown values remain [unknown]; presentation never invents a lifecycle.
   static GrantStatus fromWire(Object? raw) {
     return switch (raw) {
       'pending' || 1 => GrantStatus.pending,
@@ -51,7 +53,7 @@ enum GrantStatus {
       'consumed' || 5 => GrantStatus.consumed,
       'denied' || 6 => GrantStatus.denied,
       'superseded' || 7 => GrantStatus.superseded,
-      _ => GrantStatus.revoked,
+      _ => GrantStatus.unknown,
     };
   }
 
@@ -59,7 +61,9 @@ enum GrantStatus {
   /// mirrors the web `isTerminal` helper. Used to decide whether to show the
   /// "already active" footer when no action is available.
   bool get isTerminal =>
-      this != GrantStatus.active && this != GrantStatus.pending;
+      this != GrantStatus.active &&
+      this != GrantStatus.pending &&
+      this != GrantStatus.unknown;
 }
 
 /// Access scope of a grant. Mirrors the backend `GrantType` enum
@@ -72,14 +76,18 @@ enum GrantScope {
   granular,
 
   /// One atomic executable package for a Script and all of its references.
-  scriptExecution;
+  scriptExecution,
+
+  /// Future authoritative type; never routed through a known grant producer.
+  unknown;
 
   static GrantScope fromWire(Object? raw) {
     return switch (raw) {
       'full' || 2 => GrantScope.full,
       'granular' || 1 => GrantScope.granular,
       'scriptExecution' || 3 => GrantScope.scriptExecution,
-      _ => throw const FormatException('Unsupported grant type.'),
+      String() || int() => GrantScope.unknown,
+      _ => throw const FormatException('Missing grant type.'),
     };
   }
 }

@@ -85,7 +85,7 @@ void main() {
       expect(AuditActorType.fromWire(1), AuditActorType.user);
       expect(AuditActorType.fromWire('user'), AuditActorType.user);
       expect(AuditActorType.fromWire('Agent'), AuditActorType.agent);
-      expect(AuditActorType.fromWire(99), AuditActorType.system);
+      expect(AuditActorType.fromWire(99), AuditActorType.unknown);
       expect(AuditResult.fromWire(1), AuditResult.succeeded);
       expect(AuditResult.fromWire('Denied'), AuditResult.denied);
       expect(AuditResult.fromWire(99), AuditResult.unknown);

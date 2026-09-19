@@ -175,6 +175,7 @@ String auditActorName(
           ? _shortId(entry.userId!)
           : l10n.auditActorOwner,
     AuditActorType.system => l10n.auditActorSystem,
+    AuditActorType.unknown => l10n.responseUnknownValue,
   };
 }
 

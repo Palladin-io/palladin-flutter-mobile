@@ -98,6 +98,12 @@ abstract class AppLocalizations {
     Locale('pl'),
   ];
 
+  /// No description provided for @responseUnknownValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get responseUnknownValue;
+
   /// The application title shown in the app bar and OS task switcher
   ///
   /// In en, this message translates to:

@@ -35,7 +35,7 @@ final class MemberOfflineAccessContext {
       'notAfter',
     };
     final policy = json['offlinePolicy'];
-    if (!_hasExactKeys(json, fields) ||
+    if (!_hasRequiredKeys(json, fields) ||
         json['contextVersion'] != 1 ||
         policy is! String ||
         !const {'disabled', '1h', '4h', '24h'}.contains(policy)) {
@@ -143,7 +143,7 @@ final class MemberSyncItemModel {
       'memberIndex',
       'memberSecret',
     };
-    if (!_hasExactKeys(json, requiredFields)) {
+    if (!_hasRequiredKeys(json, requiredFields)) {
       throw const FormatException('Incomplete Member sync item');
     }
     final kind = json['kind'];
@@ -170,7 +170,7 @@ final class MemberSyncItemModel {
     if (entryKey is! Map ||
         memberIndex is! Map ||
         memberSecret is! Map ||
-        !const {'active', 'archived', 'deleted'}.contains(state)) {
+        state is! String) {
       throw const FormatException('Member head has no complete material');
     }
     return MemberSyncItemModel(
@@ -238,7 +238,7 @@ final class MemberSnapshotPage {
       'items',
       'nextCursor',
     };
-    if (!_hasExactKeys(json, fields)) {
+    if (!_hasRequiredKeys(json, fields)) {
       throw const FormatException('Snapshot cursor field is missing');
     }
     return MemberSnapshotPage(
@@ -282,7 +282,7 @@ final class MemberDeltaPage {
       'items',
       'continuationCursor',
     };
-    if (!_hasExactKeys(json, fields)) {
+    if (!_hasRequiredKeys(json, fields)) {
       throw const FormatException('Delta cursor field is missing');
     }
     return MemberDeltaPage(
@@ -325,7 +325,7 @@ final class MemberSyncReset {
       'minRetainedSequence',
       'newSnapshotRequired',
     };
-    if (!_hasExactKeys(json, fields) ||
+    if (!_hasRequiredKeys(json, fields) ||
         json['outcome'] != 'resetRequired' ||
         json['newSnapshotRequired'] != true) {
       throw const FormatException('Malformed Member sync reset response');
@@ -387,8 +387,8 @@ String? _nullableString(Object? value, String field) {
   return text;
 }
 
-bool _hasExactKeys(Map<String, dynamic> value, Set<String> expected) =>
-    value.length == expected.length && value.keys.toSet().containsAll(expected);
+bool _hasRequiredKeys(Map<String, dynamic> value, Set<String> expected) =>
+    value.keys.toSet().containsAll(expected);
 
 DateTime _instant(Object? value, String field) {
   if (value is! String ||
