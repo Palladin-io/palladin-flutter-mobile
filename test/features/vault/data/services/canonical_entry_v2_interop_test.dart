@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +20,8 @@ import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vaul
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_envelope_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_rotation_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_entity.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/agent_visibility_policy.dart'
+    as visibility;
 import 'package:mobile_palladin/features/vault/domain/entities/member_index_entry.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/vault_plaintext.dart';
 
@@ -281,6 +284,191 @@ void main() {
       ),
     ).thenAnswer((_) async => bundle);
   });
+
+  test('canonical custom fields survive the detail/edit adapter', () {
+    const fieldId = '88888888-8888-4888-8888-888888888888';
+    final source = <String, dynamic>{
+      ...canonicalSecret,
+      'content': {
+        'value': 'synthetic-key',
+        'customFields': [
+          {
+            'id': fieldId,
+            'label': 'QA later field',
+            'kind': 'concealed',
+            'value': 'synthetic-later-field',
+            'includeInMemberIndex': false,
+          },
+        ],
+      },
+      'agentFieldAccess': {
+        ...canonicalSecret['agentFieldAccess'] as Map,
+        'custom:$fieldId': 'onGrantValue',
+      },
+    };
+    final adapted = service.adaptCanonicalSecret(source);
+    final payload = adapted['content'] as Map<String, dynamic>;
+    expect(payload['fields'], [
+      {
+        'id': fieldId,
+        'label': 'QA later field',
+        'type': 'concealed',
+        'value': 'synthetic-later-field',
+        'agentVisible': false,
+      },
+    ]);
+    expect(payload.containsKey('customFields'), isFalse);
+    expect((source['content'] as Map)['customFields'], hasLength(1));
+  });
+
+  for (final mode in ['all', 'selected']) {
+    test('v2 $mode grant refresh handles a later custom field', () async {
+      const fieldId = '88888888-8888-4888-8888-888888888888';
+      when(
+        () => grants.listGrants(
+          vaultId,
+          status: 'active',
+          cursor: any(named: 'cursor'),
+          pageSize: 100,
+        ),
+      ).thenAnswer(
+        (_) async => GrantPage(
+          grants: [
+            GrantModel(
+              id: '44444444-4444-4444-8444-444444444444',
+              vaultId: vaultId,
+              agentId: '55555555-5555-4555-8555-555555555555',
+              status: 'active',
+              type: GrantScope.granular,
+              createdAt: '2026-09-19T00:00:00Z',
+              agentPublicKey: base64.encode(List<int>.filled(32, 4)),
+              recipientAgentKeyVersion: 1,
+              methods: 'Inject',
+              entryScopes: [
+                GrantEntryScope(
+                  entryId: entryId,
+                  fieldIds: ['key.value'],
+                  fieldSelectionMode: mode,
+                  selectedFieldIds: mode == 'selected' ? ['key.value'] : null,
+                  grantEnvelopeRevision: '1',
+                  grantKeyVersion: 1,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      Map<String, Object?>? delivered;
+      when(
+        () => crypto.sealGrant(
+          organizationId: any(named: 'organizationId'),
+          vaultId: any(named: 'vaultId'),
+          entryId: any(named: 'entryId'),
+          grantId: any(named: 'grantId'),
+          agentId: any(named: 'agentId'),
+          entryRevision: any(named: 'entryRevision'),
+          memberKeyGeneration: any(named: 'memberKeyGeneration'),
+          agentPublicKey: any(named: 'agentPublicKey'),
+          recipientKeyVersion: any(named: 'recipientKeyVersion'),
+          approvedMethods: any(named: 'approvedMethods'),
+          deliveryPolicy: any(named: 'deliveryPolicy'),
+          fieldIds: any(named: 'fieldIds'),
+          grantPayload: any(named: 'grantPayload'),
+          grantEnvelopeRevision: any(named: 'grantEnvelopeRevision'),
+          grantKeyVersion: any(named: 'grantKeyVersion'),
+          expiresAt: any(named: 'expiresAt'),
+          remainingUses: any(named: 'remainingUses'),
+        ),
+      ).thenAnswer((invocation) async {
+        delivered =
+            invocation.namedArguments[#grantPayload] as Map<String, Object?>;
+        return {'fieldIds': invocation.namedArguments[#fieldIds]};
+      });
+      when(
+        () => entries.updateCanonicalEntry(vaultId, entryId, any()),
+      ).thenAnswer(
+        (_) async => Response(
+          requestOptions: RequestOptions(path: '/update'),
+          statusCode: 200,
+        ),
+      );
+      await service.update(
+        snapshot: CanonicalEntrySnapshot(
+          entry: head(),
+          secret: {
+            'agentLabel': 'Key',
+            'agentVisibilityPolicy': {
+              'discoverable': true,
+              'fields': {'agentLabel': 'discovery', 'value': 'onGrantValue'},
+            },
+          },
+          payload: {'value': 'synthetic-key'},
+        ),
+        expected: EntryEntity(
+          id: entryId,
+          vaultId: vaultId,
+          label: 'Key',
+          type: EntryType.key,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+        label: 'Key',
+        description: '',
+        icon: '',
+        type: EntryType.key,
+        agentVisibilityPolicy: visibility.AgentVisibilityPolicy(
+          discoverable: true,
+          fields: {
+            'agentLabel': visibility.AgentFieldAccess.discovery,
+            'value': visibility.AgentFieldAccess.onGrantValue,
+            fieldId: visibility.AgentFieldAccess.onGrantValue,
+            '99999999-9999-4999-8999-999999999999':
+                visibility.AgentFieldAccess.never,
+          },
+        ),
+        content: {
+          'value': 'synthetic-key',
+          'fields': [
+            {
+              'id': fieldId,
+              'label': 'Later',
+              'type': 'concealed',
+              'value': 'synthetic-new',
+              'agentVisible': false,
+            },
+          ],
+        },
+        memberPrivateKey: Uint8List(32),
+      );
+      expect(
+        (delivered!['fields'] as List).map((field) => (field as Map)['id']),
+        mode == 'all' ? ['custom:$fieldId', 'key.value'] : ['key.value'],
+      );
+      final saved =
+          verify(
+                () => crypto.seal(
+                  organizationId: any(named: 'organizationId'),
+                  vaultId: any(named: 'vaultId'),
+                  entryId: any(named: 'entryId'),
+                  revision: any(named: 'revision'),
+                  entryKeyRevision: any(named: 'entryKeyRevision'),
+                  memberIndexRevision: any(named: 'memberIndexRevision'),
+                  agentDiscoveryRevision: any(named: 'agentDiscoveryRevision'),
+                  entryKeyVersion: any(named: 'entryKeyVersion'),
+                  vaultKeyVersion: any(named: 'vaultKeyVersion'),
+                  vdkVersion: any(named: 'vdkVersion'),
+                  memberKeyGeneration: any(named: 'memberKeyGeneration'),
+                  operation: any(named: 'operation'),
+                  secret: captureAny(named: 'secret'),
+                  vaultKey: any(named: 'vaultKey'),
+                  vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+                  existingEntryDek: any(named: 'existingEntryDek'),
+                ),
+              ).captured.single
+              as MemberSecret;
+      expect(saved.content.customFields.single.id, fieldId);
+    });
+  }
 
   test(
     'canonical update preserves independent revisions and reuses EntryDEK',

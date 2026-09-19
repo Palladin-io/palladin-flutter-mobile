@@ -765,6 +765,21 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       _ => throw const FormatException('Unknown canonical Entry type'),
     };
     final content = Map<String, dynamic>.from(value['content'] as Map);
+    final custom = content.remove('customFields');
+    content['fields'] = custom is List
+        ? custom
+              .whereType<Map>()
+              .map(
+                (field) => <String, dynamic>{
+                  'id': field['id'],
+                  'label': field['label'],
+                  'type': field['kind'],
+                  'value': field['value'],
+                  'agentVisible': field['includeInMemberIndex'] == true,
+                },
+              )
+              .toList(growable: false)
+        : const <Map<String, dynamic>>[];
     _rejectRetiredCreditCardFields(entryType: type, content: content);
     final policyFields = <String, dynamic>{};
     for (final field in (value['agentFieldAccess'] as Map).entries) {
@@ -2106,6 +2121,20 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     for (final field in custom) {
       access.putIfAbsent(field.fieldId, () => AgentFieldAccess.never);
     }
+    // Editing can remove fields while the form still carries their previous
+    // policy. Retain policy only for the new schema; never change the access
+    // mode of a surviving field or the owner's retained grant selection.
+    final currentFieldIds = {
+      'memberLabel',
+      'agentLabel',
+      'description',
+      'icon',
+      'color',
+      'entryType',
+      ...body.fieldValues().keys,
+      ...custom.map((field) => field.fieldId),
+    };
+    access.removeWhere((id, _) => !currentFieldIds.contains(id));
     return MemberSecret(
       entryType: VaultEntryType.values[type.index],
       memberLabel: label,
@@ -2544,21 +2573,6 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     if (type == EntryType.script) {
       content['script'] = content.remove('source');
     }
-    final custom = content.remove('customFields');
-    content['fields'] = custom is List
-        ? custom
-              .whereType<Map>()
-              .map(
-                (field) => <String, dynamic>{
-                  'id': field['id'],
-                  'label': field['label'],
-                  'type': field['kind'],
-                  'value': field['value'],
-                  'agentVisible': field['includeInMemberIndex'] == true,
-                },
-              )
-              .toList(growable: false)
-        : const <Map<String, dynamic>>[];
     final policy = AgentVisibilityPolicy.fromJson(
       type,
       Map<String, dynamic>.from(adapted['agentVisibilityPolicy'] as Map),
