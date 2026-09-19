@@ -6,3 +6,18 @@
 
 Do not edit the local vector independently. Update the public protocol contract
 first, then vendor the same bytes into every producer and consumer.
+
+## V2 operation-time TOTP
+
+`v2/registry.json` and `v2/vectors.json` are byte-identical public files from
+`Palladin-io/palladin-protocol`, source commit
+`eae7dca8d9fcf4bbb69895db4a44bc648de26a6b` (merged via protocol PR #14).
+The seeds are public RFC 6238 / synthetic boundary test data, never accounts.
+
+SHA-256:
+- registry: `45fb5f68ed7170f2d1ea840ead308950375bdc60c6c8ed9036c3cdea8faa07db`
+- vectors: `4c321c375be8b35ea22a34deae375f96e0a69e8f50515a87e7fd0a79ec00ad73`
+
+Eight positive vectors prove canonical payload bytes and operation-time code
+outputs; fourteen invalid-source vectors enforce the closed protocol boundary.
+V1 fixtures stay unchanged for Script packages and legacy compatibility.

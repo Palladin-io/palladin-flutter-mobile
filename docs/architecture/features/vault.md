@@ -127,13 +127,14 @@ unchanged** on save so an older client never drops a newer client's fields.
   the CLI and never enter backend requests.
 - **Granular Grant projection** — `AgentVisibilityProjector` converts the
   authenticated MemberSecret policy into the production
-  `palladin.grant-payload.v1` plaintext consumed by the native runtime. It maps
+  `palladin.grant-payload.v2` plaintext consumed by the native runtime. It maps
   built-ins to canonical IDs, prefixes custom UUIDs with `custom:`, sorts the
   completed field array, and only then derives the structural Grant field list.
   Legacy Script references without `vaultId` are normalized to the Script
-  Entry's current Vault before encryption. Vault Protocol 2 does not bind that
-  structural field list into Grant-payload AAD; changing that outer binding is
-  a separate versioned protocol change.
+  Entry's current Vault before encryption. Existing envelope profiles and their
+  bindings are unchanged: canonical envelopes retain their field-set commitment;
+  the legacy frozen Grant AAD profile carries a structural field list only.
+  Script reference packages explicitly retain their separate V1 payload contract.
 
 ### Add/Edit redesign + agent-visible fields (mockup parity)
 
@@ -157,7 +158,9 @@ type-specific(+URL / injected data) → 2FA → Additional fields → Notes.
   identity remain private. Credit-card edits follow the same rule instead of
   overwriting existing custom-field restrictions with defaults. Scoped grant
   refresh keeps the approved field identity when its TOTP configuration changes;
-  the derived payload contains a short-lived code, never the source seed.
+  standard Entry grants carry the encrypted V2 source to the native runtime,
+  which derives a fresh code at operation time. Script reference packages keep
+  V1 derived codes and never include a raw source.
   Regression coverage: `canonical_entry_v2_interop_test.dart`.
   Native `credential.totp` remains a native field during editing: the form
   carries canonical maps and legacy `otpauth://` URIs without a string cast.

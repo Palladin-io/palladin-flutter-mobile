@@ -2,6 +2,7 @@ import '../../domain/entities/agent_visibility_policy.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/totp_config.dart';
 import 'totp_service.dart';
+import 'grant_totp_source.dart';
 
 /// Pure, schema-aware projection boundary for Agent Discovery and grants.
 abstract final class AgentVisibilityProjector {
@@ -89,7 +90,7 @@ abstract final class AgentVisibilityProjector {
         .toList(growable: false);
   }
 
-  /// Builds a payload for an existing grant scope without widening policy.
+  /// Legacy V1 projection for the separately versioned Script references.
   static Map<String, dynamic> grantPayload({
     required EntryType type,
     required String vaultId,
@@ -99,6 +100,49 @@ abstract final class AgentVisibilityProjector {
     required AgentVisibilityPolicy policy,
     required List<String> approvedFieldIds,
     DateTime? now,
+  }) => _grantPayload(
+    type: type,
+    vaultId: vaultId,
+    agentLabel: agentLabel,
+    description: description,
+    content: content,
+    policy: policy,
+    approvedFieldIds: approvedFieldIds,
+    now: now,
+    renewableTotp: false,
+  );
+
+  /// Standard Entry grants carry a renewable source encrypted to the runtime.
+  /// Get/Exec/Inject output only freshly derived codes, never this source.
+  static Map<String, dynamic> grantPayloadV2({
+    required EntryType type,
+    required String vaultId,
+    required String agentLabel,
+    required String description,
+    required Map<String, dynamic> content,
+    required AgentVisibilityPolicy policy,
+    required List<String> approvedFieldIds,
+  }) => _grantPayload(
+    type: type,
+    vaultId: vaultId,
+    agentLabel: agentLabel,
+    description: description,
+    content: content,
+    policy: policy,
+    approvedFieldIds: approvedFieldIds,
+    renewableTotp: true,
+  );
+
+  static Map<String, dynamic> _grantPayload({
+    required EntryType type,
+    required String vaultId,
+    required String agentLabel,
+    required String description,
+    required Map<String, dynamic> content,
+    required AgentVisibilityPolicy policy,
+    required List<String> approvedFieldIds,
+    DateTime? now,
+    required bool renewableTotp,
   }) {
     if (type == EntryType.creditCard) {
       throw const FormatException('Entry type is not registered for Grants');
@@ -125,6 +169,14 @@ abstract final class AgentVisibilityProjector {
           access != AgentFieldAccess.onGrantRuntime) {
         throw const FormatException('Grant attempts to widen Entry policy');
       }
+      if (renewableTotp &&
+          !AgentVisibilityPolicy.allowedFor(
+            type,
+            policyId,
+            content,
+          ).contains(access)) {
+        throw const FormatException('Grant field mode is invalid');
+      }
       final value = values[policyId];
       if (value == null) {
         throw const FormatException('Granted field is missing');
@@ -141,7 +193,7 @@ abstract final class AgentVisibilityProjector {
           AgentFieldAccess.onGrantRuntime => 'runtime',
           _ => throw const FormatException('Grant field mode is invalid'),
         },
-        'value': _grantValue(descriptor, value, vaultId, now),
+        'value': _grantValue(descriptor, value, vaultId, now, renewableTotp),
       });
     }
     if (fields.isEmpty) throw const FormatException('Grant scope is empty');
@@ -150,7 +202,9 @@ abstract final class AgentVisibilityProjector {
           (left['id']! as String).compareTo(right['id']! as String),
     );
     return {
-      'schema': 'palladin.grant-payload.v1',
+      'schema': renewableTotp
+          ? 'palladin.grant-payload.v2'
+          : 'palladin.grant-payload.v1',
       'entryType': type.name,
       'fields': fields,
     };
@@ -164,7 +218,11 @@ abstract final class AgentVisibilityProjector {
   /// inconsistent structural record.
   static List<String> grantPayloadFieldIds(Map<String, dynamic> payload) {
     final fields = payload['fields'];
-    if (payload['schema'] != 'palladin.grant-payload.v1' || fields is! List) {
+    if (!const {
+          'palladin.grant-payload.v1',
+          'palladin.grant-payload.v2',
+        }.contains(payload['schema']) ||
+        fields is! List) {
       throw const FormatException('Malformed production Grant payload');
     }
     final ids = <String>[];
@@ -254,8 +312,10 @@ abstract final class AgentVisibilityProjector {
     Object? value,
     String vaultId,
     DateTime? now,
+    bool renewableTotp,
   ) {
     if (descriptor.kind == 'totp') {
+      if (renewableTotp) return GrantTotpSource.fromMemberValue(value!);
       final config = switch (value) {
         final String raw => TotpConfig.parseUri(raw),
         final Map raw => TotpConfig.fromJson(Map<String, dynamic>.from(raw)),

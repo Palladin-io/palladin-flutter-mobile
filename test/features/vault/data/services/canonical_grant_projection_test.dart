@@ -42,6 +42,52 @@ void main() {
     },
   };
 
+  for (final custom in [false, true]) {
+    test(
+      'Script V1 ${custom ? "custom" : "primary"} TOTP never exports source',
+      () {
+        const seed = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+        const customId = '11111111-2222-4333-8444-555555555555';
+        final id = custom ? 'custom:$customId' : 'credential.totp';
+        final encoded = canonicalVaultJson({
+          ...memberSecret,
+          'content': {
+            if (!custom)
+              'totp': {
+                'secret': seed,
+                'algorithm': 'SHA1',
+                'digits': 6,
+                'period': 30,
+              },
+            if (custom)
+              'customFields': [
+                {
+                  'id': customId,
+                  'kind': 'totp',
+                  'value': {
+                    'secret': seed,
+                    'algorithm': 'SHA1',
+                    'digits': 6,
+                    'period': 30,
+                  },
+                },
+              ],
+          },
+          'agentFieldAccess': {id: 'onGrantDerived'},
+        });
+        final bytes = projectCanonicalGrantPayload(encoded, {id});
+        final wire = utf8.decode(bytes);
+        final payload = jsonDecode(wire) as Map;
+        expect(payload['schema'], 'palladin.grant-payload.v1');
+        expect(wire, isNot(contains(seed)));
+        final value = (payload['fields'] as List).single['value'] as Map;
+        expect(value.keys, unorderedEquals(['code', 'expiresIn']));
+        expect(value['code'], matches(r'^\d{6}$'));
+        expect(value['expiresIn'], inInclusiveRange(1, 30));
+      },
+    );
+  }
+
   test('projects only selected values into the canonical grant payload', () {
     final result = projectCanonicalGrantPayload(
       canonicalVaultJson(memberSecret),

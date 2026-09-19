@@ -176,7 +176,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
         throw const FormatException('Approval methods exceed request');
       }
       final wire = limit.toWire();
-      final grantPayload = AgentVisibilityProjector.grantPayload(
+      final grantPayload = AgentVisibilityProjector.grantPayloadV2(
         type: type,
         vaultId: grant.vaultId,
         agentLabel: agentLabel,
@@ -426,7 +426,7 @@ class ApprovalRepositoryImpl implements ApprovalRepository {
           content: snapshot.payload,
           policy: policy,
         );
-        final payload = AgentVisibilityProjector.grantPayload(
+        final payload = AgentVisibilityProjector.grantPayloadV2(
           type: type,
           vaultId: vaultId,
           agentLabel:

@@ -15,6 +15,7 @@ paths = [
 [[allowlists]]
 description = "Deterministic cryptographic fixtures with no production secrets"
 paths = [
+  '''^test/fixtures/grant-payload/v2/vectors\.json$''',
   '''^test/fixtures/crypto/envelope-xchacha-hkdf\.json$''',
   '''^test/fixtures/current_member_entry_sync_v2/(?:valid-snapshot|tombstone-reset)\.json$''',
   '''^test/fixtures/vault_protocol_2/negative/corruption\.json$''',
@@ -31,6 +32,10 @@ paths = [
   '''^test/features/recovery/presentation/cubit/recovery_cubit_test\.dart$''',
   '''^test/features/unlock/presentation/cubit/unlock_cubit_test\.dart$''',
   '''^test/features/vault/data/services/totp_service_test\.dart$''',
+  '''^test/features/vault/data/services/grant_payload_v2_test\.dart$''',
+  '''^test/features/vault/data/services/canonical_entry_v2_interop_test\.dart$''',
+  '''^test/features/approval/grant_protocol_security_test\.dart$''',
+  '''^test/features/approval/approval_repository_method_policy_test\.dart$''',
   '''^test/features/vault/entry_details_tab_test\.dart$''',
 ]
 

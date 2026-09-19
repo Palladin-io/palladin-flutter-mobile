@@ -79,7 +79,7 @@ class GrantCryptoService {
         recipientKey,
       );
       final fingerprintWire = VaultProtocolBytes.base64UrlEncode(fingerprint);
-      final payload = AgentVisibilityProjector.grantPayload(
+      final payload = AgentVisibilityProjector.grantPayloadV2(
         type: type,
         vaultId: vaultId,
         agentLabel: agentLabel,

@@ -1,0 +1,298 @@
+{
+  "vaultProtocolVersion": 2,
+  "methodBits": {
+    "get": 1,
+    "exec": 2,
+    "inject": 4
+  },
+  "kinds": [
+    "text",
+    "multiline",
+    "concealed",
+    "url",
+    "totp",
+    "script",
+    "refs"
+  ],
+  "modes": [
+    "value",
+    "derived",
+    "runtime"
+  ],
+  "customFieldId": {
+    "pattern": "^custom:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+    "labelIsIdentifier": false
+  },
+  "entryTypes": [
+    {
+      "name": "key",
+      "allowedMethods": [
+        "get",
+        "inject"
+      ],
+      "builtInFields": [
+        {
+          "id": "key.value",
+          "kind": "concealed",
+          "mode": "value",
+          "allowedMethods": [
+            "get",
+            "inject"
+          ],
+          "nullable": false
+        },
+        {
+          "id": "key.url",
+          "kind": "url",
+          "mode": "value",
+          "allowedMethods": [
+            "get",
+            "inject"
+          ],
+          "nullable": true
+        },
+        {
+          "id": "key.notes",
+          "kind": "multiline",
+          "mode": "value",
+          "allowedMethods": [
+            "get"
+          ],
+          "nullable": true
+        }
+      ],
+      "customFields": [
+        {
+          "kind": "text",
+          "mode": "value",
+          "allowedMethods": [
+            "get",
+            "inject"
+          ]
+        },
+        {
+          "kind": "multiline",
+          "mode": "value",
+          "allowedMethods": [
+            "get",
+            "inject"
+          ]
+        },
+        {
+          "kind": "concealed",
+          "mode": "value",
+          "allowedMethods": [
+            "get",
+            "inject"
+          ]
+        },
+        {
+          "kind": "totp",
+          "mode": "derived",
+          "allowedMethods": [
+            "get",
+            "inject"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "credential",
+      "allowedMethods": [
+        "get",
+        "inject"
+      ],
+      "builtInFields": [
+        {
+          "id": "credential.username",
+          "kind": "text",
+          "mode": "value",
+          "allowedMethods": [
+            "get",
+            "inject"
+          ],
+          "nullable": false
+        },
+        {
+          "id": "credential.url",
+          "kind": "url",
+          "mode": "value",
+          "allowedMethods": [
+            "get",
+            "inject"
+          ],
+          "nullable": true
+        },
+        {
+          "id": "credential.password",
+          "kind": "concealed",
+          "mode": "value",
+          "allowedMethods": [
+            "get",
+            "inject"
+          ],
+          "nullable": false
+        },
+        {
+          "id": "credential.notes",
+          "kind": "multiline",
+          "mode": "value",
+          "allowedMethods": [
+            "get"
+          ],
+          "nullable": true
+        },
+        {
+          "id": "credential.totp",
+          "kind": "totp",
+          "mode": "derived",
+          "allowedMethods": [
+            "get",
+            "inject"
+          ],
+          "nullable": true
+        }
+      ],
+      "customFields": [
+        {
+          "kind": "text",
+          "mode": "value",
+          "allowedMethods": [
+            "get",
+            "inject"
+          ]
+        },
+        {
+          "kind": "multiline",
+          "mode": "value",
+          "allowedMethods": [
+            "get",
+            "inject"
+          ]
+        },
+        {
+          "kind": "concealed",
+          "mode": "value",
+          "allowedMethods": [
+            "get",
+            "inject"
+          ]
+        },
+        {
+          "kind": "totp",
+          "mode": "derived",
+          "allowedMethods": [
+            "get",
+            "inject"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "script",
+      "allowedMethods": [
+        "exec"
+      ],
+      "builtInFields": [
+        {
+          "id": "script.source",
+          "kind": "script",
+          "mode": "runtime",
+          "allowedMethods": [
+            "exec"
+          ],
+          "nullable": false
+        },
+        {
+          "id": "script.refs",
+          "kind": "refs",
+          "mode": "runtime",
+          "allowedMethods": [
+            "exec"
+          ],
+          "nullable": false
+        },
+        {
+          "id": "script.notes",
+          "kind": "multiline",
+          "mode": "runtime",
+          "allowedMethods": [
+            "exec"
+          ],
+          "nullable": true
+        }
+      ],
+      "customFields": [
+        {
+          "kind": "text",
+          "mode": "runtime",
+          "allowedMethods": [
+            "exec"
+          ]
+        },
+        {
+          "kind": "multiline",
+          "mode": "runtime",
+          "allowedMethods": [
+            "exec"
+          ]
+        },
+        {
+          "kind": "concealed",
+          "mode": "runtime",
+          "allowedMethods": [
+            "exec"
+          ]
+        },
+        {
+          "kind": "totp",
+          "mode": "derived",
+          "allowedMethods": [
+            "exec"
+          ]
+        }
+      ]
+    }
+  ],
+  "contract": "palladin.grant-payload.v2",
+  "schemaVersion": 2,
+  "totpSource": {
+    "exactKeys": [
+      "source",
+      "secret",
+      "algorithm",
+      "digits",
+      "period"
+    ],
+    "source": "totp",
+    "secretEncoding": "uppercase-unpadded-canonical-RFC4648-base32",
+    "secretMinCharacters": 26,
+    "secretMaxCharacters": 1024,
+    "algorithms": [
+      "SHA1",
+      "SHA256",
+      "SHA512"
+    ],
+    "digits": [
+      6,
+      8
+    ],
+    "periodMinSeconds": 15,
+    "periodMaxSeconds": 120,
+    "secretMinDecodedBytes": 16
+  },
+  "delivery": {
+    "getField": "code-and-expiresIn",
+    "getEntry": "redacted-source",
+    "exec": "fresh-code-in-environment",
+    "inject": "fresh-code-only",
+    "sourceVisibility": "Member-and-native-runtime-memory-only"
+  },
+  "envelope": {
+    "required": "authenticated-vault-grant-envelope",
+    "fieldSet": "exact-ordered-equality-with-authenticated-plaintext",
+    "outerFieldSetAuthentication": "not-defined-by-this-plaintext-contract; governed-by-the-selected-envelope-profile",
+    "authority": "authenticated-grant-delivery-contract",
+    "legacyV1": "read-only-compatibility; frozen TOTP codes must not be treated as renewable sources"
+  }
+}
