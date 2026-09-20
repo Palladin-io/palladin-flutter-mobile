@@ -10,10 +10,62 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    return super.application(application, didFinishLaunchingWithOptions: sharingSafe(launchOptions))
+  }
+
+  override func application(
+    _ application: UIApplication,
+    willFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+  ) -> Bool {
+    return super.application(application, willFinishLaunchingWithOptions: sharingSafe(launchOptions))
+  }
+
+  override func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    if EntryShareLinkPolicy.intercepts(url) {
+      EntryShareNativeIngress.shared.reject()
+      return true
+    }
+    return super.application(app, open: url, options: options)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    continue userActivity: NSUserActivity,
+    restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+  ) -> Bool {
+    if EntryShareNativeIngress.shared.consume(userActivity) { return true }
+    return super.application(application, continue: userActivity, restorationHandler: restorationHandler)
+  }
+
+  private func sharingSafe(
+    _ options: [UIApplication.LaunchOptionsKey: Any]?
+  ) -> [UIApplication.LaunchOptionsKey: Any]? {
+    guard var options else { return nil }
+    if let url = options[.url] as? URL, EntryShareLinkPolicy.intercepts(url) {
+      options.removeValue(forKey: .url)
+      EntryShareNativeIngress.shared.reject()
+    }
+    if let activities = options[.userActivityDictionary] as? [AnyHashable: Any] {
+      let sensitive = activities.values.compactMap { $0 as? NSUserActivity }
+        .filter(EntryShareActivityPrivacy.intercepts)
+      if !sensitive.isEmpty {
+        // Launch dictionaries are not a verified Universal Link continuation.
+        sensitive.forEach(EntryShareActivityPrivacy.scrub)
+        options.removeValue(forKey: .userActivityDictionary)
+        EntryShareNativeIngress.shared.reject()
+      }
+    }
+    return options
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PalladinEntrySharing") {
+      EntryShareIngressPlugin.register(with: registrar)
+    }
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     guard let registrar = engineBridge.pluginRegistry.registrar(
       forPlugin: "PalladinAutoFillBridge"

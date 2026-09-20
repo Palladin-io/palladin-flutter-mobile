@@ -25,8 +25,9 @@ The public `/share` receiver is outside the authenticated shell. Its app-owned
 ingress navigates using only that constant route; the secret capability stays in
 the bounded RAM handoff, never route state. It permits guest/locked/new-account
 reception but grants no Vault access. Closing disposes local reception and returns
-to `/` through normal guards. Native iOS interception and account/save continuation
-remain pending; see [Entry sharing](entry-sharing.md).
+to `/` through normal guards. Native interception is wired on both platforms;
+device/domain acceptance and account/save continuation remain pending;
+see [Entry sharing](entry-sharing.md).
 
 ## Brand surfaces
 

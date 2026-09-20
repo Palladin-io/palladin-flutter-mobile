@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C64400010000000000000001 /* EntryShareMailbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64400020000000000000001 /* EntryShareMailbox.swift */; };
+		C64400010000000000000002 /* EntryShareActivityPrivacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64400020000000000000002 /* EntryShareActivityPrivacy.swift */; };
+		C64400010000000000000003 /* EntryShareNativeIngress.swift in Sources */ = {isa = PBXBuildFile; fileRef = C64400020000000000000003 /* EntryShareNativeIngress.swift */; };
 		043748E03DCB8DC3F3E4FFBB /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F6260E78E8942529C354D6E1 /* Localizable.strings */; };
 		0D9F10D53F8635E2DF7989B1 /* CredentialProviderViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 568D0ABBB8BDD3725AE45AE1 /* CredentialProviderViewController.swift */; };
 		AFA100021AAAA00100000002 /* AutoFillCacheStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFA100031AAAA00100000003 /* AutoFillCacheStore.swift */; };
@@ -66,6 +69,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C64400020000000000000001 /* EntryShareMailbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EntryShareMailbox.swift; path = ../EntrySharingCore/Sources/EntrySharingCore/EntryShareMailbox.swift; sourceTree = "<group>"; };
+		C64400020000000000000002 /* EntryShareActivityPrivacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EntryShareActivityPrivacy.swift; path = ../EntrySharingCore/Sources/EntrySharingCore/EntryShareActivityPrivacy.swift; sourceTree = "<group>"; };
+		C64400020000000000000003 /* EntryShareNativeIngress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryShareNativeIngress.swift; sourceTree = "<group>"; };
 		0A6A5ED5140DFE490C4E8FB8 /* Pods-Runner.profile-staging.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile-staging.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile-staging.xcconfig"; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
@@ -245,6 +251,9 @@
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
+				C64400020000000000000001 /* EntryShareMailbox.swift */,
+				C64400020000000000000002 /* EntryShareActivityPrivacy.swift */,
+				C64400020000000000000003 /* EntryShareNativeIngress.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -560,6 +569,9 @@
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
+				C64400010000000000000001 /* EntryShareMailbox.swift in Sources */,
+				C64400010000000000000002 /* EntryShareActivityPrivacy.swift in Sources */,
+				C64400010000000000000003 /* EntryShareNativeIngress.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
