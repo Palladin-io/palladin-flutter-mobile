@@ -15,6 +15,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sharingReceiveTitle => 'Shared entry';
 
   @override
+  String get sharingClose => 'Close sharing';
+
+  @override
+  String get sharingReceiveUnavailable =>
+      'This sharing link is unavailable. Reopen the original link if it is still valid.';
+
+  @override
   String get sharingReceiveWelcome =>
       'View a shared copy without creating an account. Opening the verification step does not use a receipt. You choose when to receive the entry.';
 

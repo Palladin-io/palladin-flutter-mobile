@@ -45,6 +45,10 @@ import 'features/vault/data/export/canonical_export_service.dart';
 import 'features/vault/data/export/protected_export_staging.dart';
 import 'features/vault/domain/exceptions/vault_exceptions.dart';
 import 'features/vault/presentation/cubit/vault_list_cubit.dart';
+import 'features/vault/data/services/entry_sharing/entry_share_ingress.dart';
+import 'features/vault/data/services/entry_sharing/entry_share_link_service.dart';
+import 'features/vault/domain/entities/entry_share.dart';
+import 'features/vault/presentation/entry_share_navigation.dart';
 
 class PalladinApp extends StatefulWidget {
   const PalladinApp({
@@ -79,7 +83,18 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   late final GoRouter _router = createRouter(
     _authBloc,
     navigatorKey: _navigatorKey,
+    sharingIngress: _sharingIngress,
   );
+  late final EntryShareIngress? _sharingIngress = _createSharingIngress();
+  late final EntryShareNavigation? _sharingNavigation;
+
+  EntryShareIngress? _createSharingIngress() {
+    try {
+      return EntryShareIngress(links: EntryShareLinkService(widget.config));
+    } on EntryShareException {
+      return null;
+    }
+  }
 
   final DeepLinkService _deepLink = getIt<DeepLinkService>();
   final PushNavigationCubit _pushNavigationCubit = getIt<PushNavigationCubit>();
@@ -126,6 +141,12 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    final ingress = _sharingIngress;
+    _sharingNavigation = ingress == null
+        ? null
+        : EntryShareNavigation(ingress, _router);
+    _sharingNavigation?.start();
+    if (ingress != null) unawaited(ingress.start());
     unawaited(_sweepExportStaging());
     // Forward tapped notifications (background / terminated / cold start)
     // into the navigation cubit, which the BlocListener below consumes.
@@ -188,6 +209,8 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
     unawaited(_durableAutoFillRepair.dispose());
     _autoFillMutationNotifier.detachHandler();
     _deepLink.dispose();
+    _sharingNavigation?.dispose();
+    _sharingIngress?.dispose();
     _signalR.disconnect();
     _authBloc.close();
     super.dispose();

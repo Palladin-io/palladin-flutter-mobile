@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 
 import '../../features/vault/data/datasources/entry_sharing_remote_datasource.dart';
 import '../../features/vault/data/services/entry_sharing/entry_share_crypto_service.dart';
+import '../../features/vault/data/services/entry_sharing/entry_share_recipient_authority.dart';
 import '../../config/env_config.dart';
 import '../crypto/vault_session_store.dart';
 import '../identity/organization_member_directory_service.dart';
@@ -537,6 +538,12 @@ void configureDependencies(EnvConfig config) {
   );
   getIt.registerLazySingleton<EntryShareCryptoService>(
     EntryShareCryptoService.new,
+  );
+  getIt.registerLazySingleton<EntryShareRecipientAuthority>(
+    () => EntryShareRecipientAuthority(
+      getIt<SecureTokenStorage>(),
+      getIt<VaultSessionStore>(),
+    ),
   );
   getIt.registerLazySingleton<LocalCurrentEntryService>(
     () => LocalCurrentEntryService(

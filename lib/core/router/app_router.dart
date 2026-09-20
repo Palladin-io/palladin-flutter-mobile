@@ -33,6 +33,14 @@ import '../../features/shell/presentation/pages/app_shell.dart';
 import '../../features/unlock/presentation/pages/unlock_page.dart';
 import '../../features/vault/presentation/pages/vault_detail_page.dart';
 import '../../features/vault/presentation/pages/vault_list_page.dart';
+import '../../features/vault/presentation/pages/entry_share_receiver_host.dart';
+import '../../features/vault/presentation/widgets/entry_share_receiver_frame.dart';
+import '../../features/vault/data/datasources/entry_share_recipient_datasource.dart';
+import '../../features/vault/data/services/entry_sharing/entry_share_ingress.dart';
+import '../../features/vault/data/services/entry_sharing/entry_share_crypto_service.dart';
+import '../../features/vault/data/services/entry_sharing/entry_share_recipient_authority.dart';
+import '../../config/env_config.dart';
+import '../di/injection.dart';
 import '../permissions.dart';
 import 'shell_tab_page.dart';
 
@@ -41,6 +49,7 @@ import 'shell_tab_page.dart';
 /// (CLAUDE.md routing criteria #6). Keep every path used by `context.go/push`
 /// here next to its [GoRoute] definition below.
 abstract final class AppRoutes {
+  static const String entryShare = '/share';
   static const String settings = '/settings';
   static const String settingsGeneral = '/settings/general';
   static const String settingsTeam = '/settings/team';
@@ -136,14 +145,21 @@ ShellTabPage _shellTabPage(
 GoRouter createRouter(
   AuthBloc authBloc, {
   GlobalKey<NavigatorState>? navigatorKey,
+  EntryShareIngress? sharingIngress,
 }) {
   return GoRouter(
     navigatorKey: navigatorKey,
     initialLocation: '/login',
+    overridePlatformDefaultLocation: true,
     refreshListenable: _AuthBlocListenable(authBloc),
     redirect: (context, state) {
       final authState = authBloc.state;
       final location = state.matchedLocation;
+      if (location == AppRoutes.entryShare) {
+        return state.uri.hasQuery || state.uri.hasFragment
+            ? AppRoutes.entryShare
+            : null;
+      }
       final isOnLoginPage = location == '/login';
       final isOnRegisterPage = location == '/register';
       final isOnVerifyEmailPage = location == '/verify-email';
@@ -206,6 +222,21 @@ GoRouter createRouter(
       return null;
     },
     routes: [
+      GoRoute(
+        path: AppRoutes.entryShare,
+        builder: (context, _) => sharingIngress == null
+            ? EntryShareReceiverPlaceholder(
+                onClose: () => GoRouter.of(context).go('/'),
+              )
+            : EntryShareReceiverHost(
+                ingress: sharingIngress,
+                crypto: getIt<EntryShareCryptoService>(),
+                remoteFactory: () =>
+                    EntryShareRecipientDatasource(getIt<EnvConfig>()),
+                ownerReader: getIt<EntryShareRecipientAuthority>().read,
+                onClose: () => GoRouter.of(context).go('/'),
+              ),
+      ),
       GoRoute(path: '/privacy-choices', redirect: (_, _) => '/'),
       GoRoute(
         path: '/login',

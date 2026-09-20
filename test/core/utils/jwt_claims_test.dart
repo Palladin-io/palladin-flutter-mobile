@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logger/logger.dart';
 import 'package:mobile_palladin/core/utils/jwt_claims.dart';
 
 /// Builds a syntactically valid JWT (header.payload.signature) carrying
@@ -18,6 +19,23 @@ String _makeJwt(Map<String, Object?> payload) {
 }
 
 void main() {
+  test('malformed token diagnostics never log payload excerpts', () {
+    const sentinel = 'synthetic-secret-must-not-be-logged';
+    final messages = <String>[];
+    void capture(LogEvent event) => messages.add(event.message.toString());
+    Logger.addLogListener(capture);
+    try {
+      final payload = base64Url.encode(
+        utf8.encode('{"token":"$sentinel" invalid-json'),
+      );
+      expect(JwtClaims.decodePayload('header.$payload.signature'), isEmpty);
+      expect(messages.join(), contains('Failed to decode JWT payload'));
+      expect(messages.join(), isNot(contains(sentinel)));
+      expect(messages.join(), isNot(contains(payload)));
+    } finally {
+      Logger.removeLogListener(capture);
+    }
+  });
   group('JwtClaims.permissionsFrom', () {
     test('returns the integer permissions claim', () {
       // 256 = PERMISSION_MULTIPLE_VAULTS in the cross-platform contract.
