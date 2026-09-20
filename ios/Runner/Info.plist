@@ -4,6 +4,8 @@
 <dict>
 	<key>FlutterDeepLinkingEnabled</key>
 	<false/>
+	<key>PalladinSharingHost</key>
+	<string>$(PALLADIN_SHARING_HOST)</string>
 	<key>PalladinAutoFillAppGroupIdentifier</key>
 	<string>$(APP_GROUP_IDENTIFIER)</string>
 	<key>NSCameraUsageDescription</key>

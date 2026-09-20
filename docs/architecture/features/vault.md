@@ -15,10 +15,10 @@ It does not reuse source Entry/Vault keys. Selected-field projection, create POS
 the session-fenced creation Cubit and a separate sender form are wired from the
 list CTA. Guest reception has a tested page and isolated transport/Cubit connected
 through an app-owned ingress host and the public constant `/share` route.
-Android intake uses the Dart one-shot RAM handoff; local ownership is checked
+Android and iOS intake use the Dart one-shot RAM handoff; local ownership is checked
 before claiming it, including guest/new/locked account contexts. Original ingress
 deadlines survive mounting and can only shorten. Save/account continuation,
-iOS intake and real HTTP/device acceptance remain open; see the sharing
+native domain/provisioning and real HTTP/device acceptance remain open; see the sharing
 document for the native plugin-retention boundary and verification limits.
 
 - `data/services/vault_protocol/` owns the frozen protocol primitives: strict canonical bytes/base64url/UUID validation, binary TLV AAD profiles, HKDF-SHA-256 projection keys, XChaCha20-Poly1305 envelopes, bounded X25519 sealed packages and RFC 8785/Ed25519 signatures. Widgets, Cubits and remote datasources must not reproduce these operations.

@@ -3,9 +3,9 @@
 The mobile snapshot crypto boundary, sender list/revoke tab and creation page
 are implemented on the feature branch. The isolated guest transport and reception
 Cubit now have a mounted receiver page and an app-owned ingress/router host.
-Android has an isolated native intake connected through the one-shot Dart RAM
-handoff. iOS intake, save-copy/account
-continuation and Inbox/audit remain pending. Local tests
+Android and iOS have native intake wired to the one-shot Dart RAM handoff.
+Native device/domain acceptance, save-copy/account continuation and Inbox/audit
+remain pending. Local tests
 are not evidence of deployed end-to-end sharing.
 
 ## Guest reception boundary
@@ -112,7 +112,7 @@ incoming URL, share ID, fragment or route extras. The public route remains usabl
 for guests, new/unverified accounts and locked users; it does not grant Vault
 access. Close returns to `/`, where normal account/Vault guards apply. Framework
 deep-link routing is disabled on Android and iOS and the router overrides the
-platform default location. iOS still needs interception before `app_links`.
+platform default location. iOS intercepts before `app_links` as described below.
 
 `EntryShareReceiverHost` waits for stable AuthBloc identity and an independent
 `EntryShareRecipientAuthority` read before consuming the pending capability.
@@ -143,7 +143,7 @@ plugin-only skips**, analyze, notices and six structural budgets PASS. The added
 JWT logging test checks that malformed payload contents never appear in logs.
 No CI, APK/IPA or deployment was run.
 
-## Native intake and RAM handoff (partially wired)
+## Native intake and RAM handoff (device acceptance pending)
 
 `EntryShareLinkService.parse` compares the original bounded URL against the exact
 configured origin and canonical share UUID/fragment. It rejects URI-normalized
@@ -184,8 +184,8 @@ This bypass is required because installed `app_links` 6.4.1 retains initial/late
 URLs and its Android handler logs `Intent.toString()`. It remains in use for
 existing non-sharing email verification; the generic Dart unknown-host log is
 now value-free, but this work does not claim a complete audit of that legacy
-email/native path. **iOS interception, real
-domain association and device/mail/browser acceptance are still missing.**
+email/native path. **Real domain association and device/mail/browser acceptance
+are still missing.**
 Do not enable sharing release on the basis of these unit tests. No attempt is
 made to erase browser/OS-originated copies outside Palladin's control, and native
 or Dart immutable URL strings can only be dropped, not securely zeroed.
@@ -197,6 +197,61 @@ and six structural budgets PASS. A standalone compiler check covers the two new
 Kotlin intake files against Android/Flutter APIs, using stand-ins only for the
 generated R and MainActivity symbol. It is not a complete native app compilation
 or device test. No APK/IPA, CI or deployment was run.
+
+### iOS Universal Link boundary
+
+`SceneDelegate` consumes a single browsing activity before `super` can retain its
+connection options or forward to plugins. `EntryShareNativeIngress` captures only
+a canonical HTTPS URL for the independently configured host; other candidates
+publish an invalidation. Before forwarding cold-start options, the original
+`NSUserActivity` has its URL, referrer, userInfo, title, keywords, restoration
+identifiers and Spotlight attributes cleared, and Handoff/search/prediction are
+disabled. Warm continuation is consumed without forwarding the activity. No raw
+link enters `app_links`, routes, restoration data, logs or persistent storage
+through these sharing handlers. Immutable URL strings can only be dropped.
+
+Direct HTTP(S), fragment-bearing and sharing custom URLs are rejected, not
+treated as verified Universal Links. Warm URL-context sets forward only unrelated
+URLs. Cold sets containing an unsafe immutable URL context are rejected as a
+whole and are **not** passed to Flutter's retaining connect callback; the
+storyboard engine is registered for later lifecycle callbacks. This rejection
+branch needs device startup/regression acceptance. Multiple sharing activities
+fail closed instead of choosing arbitrary Set order. Sharing restoration is
+rejected, and a scene that received sharing does not produce a restoration
+activity. AppDelegate launch dictionaries and legacy URL/continuation callbacks
+apply the same interception boundary. Existing non-sharing callbacks continue
+to `super`; real email verification and OAuth regression remain required.
+
+The UIKit/Flutter-free `EntryShareMailbox` shares Android's channel contract and
+one-shot generation semantics. It uses wall time plus `CLOCK_MONOTONIC_RAW`,
+which includes system sleep, for the original 15-minute ceiling. A main-queue
+expiry drops unclaimed state; take/reattachment never restarts its deadline.
+Plugin attachment IDs prevent an obsolete engine from taking the newer slot or
+detaching its channel. Scene disconnect and timer expiry invalidate only their
+expected generation, never a newer link received by another scene.
+
+`PALLADIN_SHARING_HOST` is an iOS user-defined build setting, defaulting to
+`sharing.invalid` in every flavor, used by Info.plist and the `applinks:`
+entitlement. Approved release configuration must override it with the exact host
+matching Dart `PALLADIN_SHARING_WEB_ORIGIN`. Associated Domains capability,
+provisioning and the hosted AASA file must match the actual bundle identity,
+including production-identity store tests against staging. These are not
+configured or verified by a passing parser test.
+
+Run the standalone native core tests on macOS with
+`swift test --package-path ios/EntrySharingCore`. Runner compiles the same source
+files directly; the package is a local test harness, not a new runtime dependency.
+Twelve tests cover one-shot transfer, replacement/rejection, expiry including
+rollback, canonical URL boundaries, activity cleanup, unrelated activity/URL
+classification and late scene cleanup after replacement.
+Narrow `swiftc -typecheck` also passes for the real AppDelegate, SceneDelegate and
+bridge against UIKit/Flutter simulator headers, using the existing local AutoFill
+framework module and the generated registrant header. This does not link/build
+the app, validate provisioning or execute UIKit callbacks. No IPA/CI/deployment.
+
+References: [Flutter scene lifecycle](https://docs.flutter.dev/release/breaking-changes/uiscenedelegate),
+[Apple connection options](https://developer.apple.com/documentation/uikit/uiscene/connectionoptions),
+[continuous time including sleep](https://developer.apple.com/documentation/kernel/1646199-mach_continuous_time).
 
 Platform references: [Flutter deep-link opt-out](https://docs.flutter.dev/ui/navigation/deep-linking)
 and [Android App Link verification](https://developer.android.com/training/app-links/add-applinks).
