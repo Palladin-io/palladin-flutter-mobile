@@ -9,6 +9,88 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get sharingEndConfirm => 'Zakończ link';
+
+  @override
+  String get sharingReceiveTitle => 'Udostępniony wpis';
+
+  @override
+  String get sharingReceiveWelcome =>
+      'Odbierz kopię wpisu bez zakładania konta. Otwarcie weryfikacji nie zużywa limitu. Samodzielnie wybierasz moment odbioru.';
+
+  @override
+  String get sharingOpen => 'Otwórz udostępnienie';
+
+  @override
+  String get sharingReceive => 'Odbierz wpis';
+
+  @override
+  String get sharingReceiveError =>
+      'Nie udało się wykonać tej czynności. Sprawdź kod lub hasło, jeśli są wymagane, i spróbuj ponownie. Link mógł wygasnąć lub zostać zakończony.';
+
+  @override
+  String get sharingOtpNotice =>
+      'Wyślij kod na adres e-mail wskazany przez nadawcę. Konto Palladin nie jest wymagane.';
+
+  @override
+  String get sharingSendOtp => 'Wyślij kod e-mail';
+
+  @override
+  String get sharingResendOtp => 'Wyślij nowy kod';
+
+  @override
+  String get sharingRetryOtp => 'Ponów wysyłkę kodu';
+
+  @override
+  String get sharingOtpCode => 'Kod e-mail';
+
+  @override
+  String get sharingOtpFormatError => 'Wpisz sześciocyfrowy kod e-mail.';
+
+  @override
+  String get sharingVerifyOtp => 'Potwierdź kod e-mail';
+
+  @override
+  String get sharingVerifySecret => 'Potwierdź';
+
+  @override
+  String get sharingReadyToReceive =>
+      'Weryfikacja zakończona. Odbiór wpisu zużywa jeden odbiór z limitu; ponowienie tej samej operacji nie zużywa kolejnego.';
+
+  @override
+  String get sharingReceivedNotice =>
+      'To niezależna kopia. Zmiany oryginału jej nie aktualizują. Zakończenie linku nie odbiera już pobranych kopii i nie zmienia hasła w innym serwisie.';
+
+  @override
+  String get sharingCopyValue => 'Kopiuj wartość';
+
+  @override
+  String get sharingCopiedValue =>
+      'Skopiowano. Schowek zostanie wyczyszczony po 45 sekundach, jeśli jego zawartość się nie zmieni.';
+
+  @override
+  String get sharingConfirmationFailed =>
+      'Wpis jest dostępny, ale nie udało się wysłać potwierdzenia wyświetlenia. Ponowienie potwierdzenia nie pobiera wpisu ponownie.';
+
+  @override
+  String get sharingRetryConfirmation => 'Ponów potwierdzenie';
+
+  @override
+  String get sharingEnd => 'Zakończ udostępnianie';
+
+  @override
+  String get sharingEndNotice =>
+      'Zakończyć ten link dla wszystkich uprawnionych odbiorców? Tej czynności nie można cofnąć. Nie usuwa ona oryginalnego wpisu ani zapisanych kopii.';
+
+  @override
+  String get sharingEnded =>
+      'Udostępnianie zakończone. Ten link nie pozwala już odebrać wpisu.';
+
+  @override
+  String get sharingUnsupportedGate =>
+      'Ten link używa weryfikacji nieobsługiwanej przez tę wersję aplikacji. Zaktualizuj aplikację lub poproś nadawcę o inny link.';
+
+  @override
   String get sharingCreate => 'Utwórz link';
 
   @override

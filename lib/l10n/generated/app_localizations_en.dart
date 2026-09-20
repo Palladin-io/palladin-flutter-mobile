@@ -9,6 +9,88 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get sharingEndConfirm => 'End link';
+
+  @override
+  String get sharingReceiveTitle => 'Shared entry';
+
+  @override
+  String get sharingReceiveWelcome =>
+      'View a shared copy without creating an account. Opening the verification step does not use a receipt. You choose when to receive the entry.';
+
+  @override
+  String get sharingOpen => 'Open sharing';
+
+  @override
+  String get sharingReceive => 'Receive entry';
+
+  @override
+  String get sharingReceiveError =>
+      'This action could not be completed. Check the code or password if required, then try again. The link may have expired or been ended.';
+
+  @override
+  String get sharingOtpNotice =>
+      'Request a code at the email address chosen by the sender. No Palladin account is required.';
+
+  @override
+  String get sharingSendOtp => 'Send email code';
+
+  @override
+  String get sharingResendOtp => 'Send a new code';
+
+  @override
+  String get sharingRetryOtp => 'Retry code delivery';
+
+  @override
+  String get sharingOtpCode => 'Email code';
+
+  @override
+  String get sharingOtpFormatError => 'Enter the six-digit email code.';
+
+  @override
+  String get sharingVerifyOtp => 'Verify email code';
+
+  @override
+  String get sharingVerifySecret => 'Verify protection';
+
+  @override
+  String get sharingReadyToReceive =>
+      'Verification is complete. Receiving the entry uses one receipt; retrying the same delivery does not use another.';
+
+  @override
+  String get sharingReceivedNotice =>
+      'This is a separate copy. Changes to the original do not update it. Ending the link cannot recall copies already received or change a password in another service.';
+
+  @override
+  String get sharingCopyValue => 'Copy value';
+
+  @override
+  String get sharingCopiedValue =>
+      'Copied. The clipboard clears after 45 seconds if its contents have not changed.';
+
+  @override
+  String get sharingConfirmationFailed =>
+      'The entry is available, but display confirmation could not be sent. Retrying confirmation does not receive the entry again.';
+
+  @override
+  String get sharingRetryConfirmation => 'Retry confirmation';
+
+  @override
+  String get sharingEnd => 'End sharing';
+
+  @override
+  String get sharingEndNotice =>
+      'End this link for everyone who can use it? This cannot be undone. It does not delete the original entry or any copies already saved.';
+
+  @override
+  String get sharingEnded =>
+      'Sharing ended. This link can no longer deliver the entry.';
+
+  @override
+  String get sharingUnsupportedGate =>
+      'This link uses a verification method this app version does not support. Update the app or ask the sender for another link.';
+
+  @override
   String get sharingCreate => 'Create sharing link';
 
   @override

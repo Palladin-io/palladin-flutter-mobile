@@ -62,6 +62,7 @@ void main() {
   late DateTime now;
   late Duration elapsed;
   late Future<SodiumSumo> Function() sodiumLoader;
+  late Future<EntryShareRecipientOwner?> Function() ownerReader;
 
   setUpAll(() async {
     registerFallbackValue(CancelToken());
@@ -102,7 +103,7 @@ void main() {
     shareId: _shareId,
     secrets: secrets,
     owner: _guest,
-    ownerReader: () async => owner,
+    ownerReader: () => ownerReader(),
     now: () => now,
     elapsed: () => elapsed,
   );
@@ -110,6 +111,7 @@ void main() {
   setUp(() {
     remote = _Remote();
     owner = _guest;
+    ownerReader = () async => owner;
     now = _initialTime;
     elapsed = Duration.zero;
     sodiumLoader = () async => sodium;
@@ -622,4 +624,136 @@ void main() {
       expect(cubit.state.phase, EntryShareReceptionPhase.unavailable);
     },
   );
+
+  test(
+    'email suspension blocks all proof and delivery operations until resume',
+    () async {
+      session = makeSession(mode: 'namedRecipient', protection: 'pin');
+      await cubit.open();
+      await cubit.requestOtp('en');
+      expect(cubit.suspendForEmail(), true);
+      expect(cubit.state.snapshot, isNull);
+      clearInteractions(remote);
+      expect(await cubit.open(), EntryShareReceptionOutcome.ignored);
+      expect(await cubit.requestOtp('en'), EntryShareReceptionOutcome.ignored);
+      expect(
+        await cubit.verifyOtp('012345'),
+        EntryShareReceptionOutcome.ignored,
+      );
+      expect(
+        await cubit.verifySecret('001234'),
+        EntryShareReceptionOutcome.ignored,
+      );
+      expect(await cubit.receive(), EntryShareReceptionOutcome.ignored);
+      expect(await cubit.confirmDisplay(), EntryShareReceptionOutcome.ignored);
+      expect(await cubit.end(), EntryShareReceptionOutcome.ignored);
+      verifyZeroInteractions(remote);
+      await cubit.resumeFromEmail();
+      expect(cubit.state.suspended, false);
+      await cubit.verifyOtp('012345');
+      verify(
+        () => remote.verifyOtp(
+          _shareId,
+          session,
+          generation: 1,
+          code: '012345',
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).called(1);
+    },
+  );
+
+  for (final monotonic in [false, true]) {
+    test(
+      'email resume never extends original expiry: monotonic=$monotonic',
+      () async {
+        session = makeSession(mode: 'namedRecipient');
+        await cubit.open();
+        await cubit.requestOtp('en');
+        expect(cubit.suspendForEmail(), true);
+        if (monotonic) {
+          now = _initialTime.subtract(const Duration(hours: 1));
+          elapsed = const Duration(minutes: 10);
+        } else {
+          now = _initialTime.add(const Duration(minutes: 10));
+        }
+        await cubit.resumeFromEmail();
+        expect(cubit.state.phase, EntryShareReceptionPhase.unavailable);
+        expect(secrets.key, everyElement(0));
+        expect(secrets.accessToken, everyElement(0));
+        expect(
+          await cubit.verifyOtp('012345'),
+          EntryShareReceptionOutcome.ignored,
+        );
+      },
+    );
+  }
+
+  test(
+    'changed owner on email resume destroys the pending capability',
+    () async {
+      session = makeSession(mode: 'namedRecipient');
+      await cubit.open();
+      await cubit.requestOtp('en');
+      expect(cubit.suspendForEmail(), true);
+      owner = null;
+      await cubit.resumeFromEmail();
+      expect(cubit.state.phase, EntryShareReceptionPhase.unavailable);
+      expect(secrets.key, everyElement(0));
+    },
+  );
+
+  test(
+    'late foreground validation cannot resume after another background transition',
+    () async {
+      session = makeSession(mode: 'namedRecipient');
+      await cubit.open();
+      await cubit.requestOtp('en');
+      expect(cubit.suspendForEmail(), true);
+      final pending = Completer<EntryShareRecipientOwner?>();
+      ownerReader = () => pending.future;
+      final resuming = cubit.resumeFromEmail();
+      expect(cubit.suspendForEmail(), true);
+      pending.complete(_guest);
+      await resuming;
+      expect(cubit.state.suspended, true);
+      ownerReader = () async => owner;
+      await cubit.resumeFromEmail();
+      expect(cubit.state.suspended, false);
+    },
+  );
+
+  test(
+    'only idle, requested, unverified named-email proof may suspend',
+    () async {
+      expect(cubit.suspendForEmail(), false);
+      session = makeSession(mode: 'namedRecipient');
+      await cubit.open();
+      expect(cubit.suspendForEmail(), false);
+      final pending = Completer<void>();
+      when(
+        () => remote.requestOtp(
+          any(),
+          any(),
+          generation: any(named: 'generation'),
+          language: any(named: 'language'),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((_) => pending.future);
+      final sending = cubit.requestOtp('en');
+      expect(cubit.suspendForEmail(), false);
+      pending.complete();
+      await sending;
+      await cubit.verifyOtp('012345');
+      expect(cubit.suspendForEmail(), false);
+      await cubit.receive();
+      expect(cubit.suspendForEmail(), false);
+    },
+  );
+
+  test('anyone link cannot retain a capability for an email detour', () async {
+    await cubit.open();
+    expect(cubit.suspendForEmail(), false);
+    expect(cubit.state.suspended, false);
+  });
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'entry_share_field_card.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -400,7 +401,7 @@ class EntryShareActionFooter extends StatelessWidget {
   }
 }
 
-class _FieldChoice extends StatefulWidget {
+class _FieldChoice extends StatelessWidget {
   const _FieldChoice({
     super.key,
     required this.field,
@@ -412,82 +413,22 @@ class _FieldChoice extends StatefulWidget {
   final bool selected, enabled;
   final ValueChanged<bool> onChanged;
   @override
-  State<_FieldChoice> createState() => _FieldChoiceState();
-}
-
-class _FieldChoiceState extends State<_FieldChoice> {
-  bool _revealed = false;
-  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    final field = widget.field;
-    final sensitive = field.type == 'concealed' || field.type == 'totp';
     final label = entryShareFieldLabel(l10n, field.id, field.label);
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.cardPadding),
-      decoration: BoxDecoration(
-        color: AppColors.cardFill(brightness),
-        border: Border.all(color: AppColors.cardBorder(brightness)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.onSurface(brightness),
-                  ),
-                ),
-              ),
-              if (sensitive)
-                IconButton(
-                  tooltip: _revealed
-                      ? l10n.sharingHidePreview
-                      : l10n.vaultRevealValue,
-                  onPressed: widget.enabled
-                      ? () => setState(() => _revealed = !_revealed)
-                      : null,
-                  icon: Icon(
-                    _revealed
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 18,
-                    color: AppColors.onSurfaceSubtle(brightness),
-                  ),
-                ),
-              const SizedBox(width: AppSpacing.innerGap),
-              Semantics(
-                label: label,
-                toggled: widget.selected,
-                enabled: widget.enabled,
-                child: AppToggle(
-                  value: widget.selected,
-                  onChanged: widget.enabled ? widget.onChanged : null,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.innerGap),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 120),
-            child: SingleChildScrollView(
-              child: Text(
-                sensitive && !_revealed ? '••••••••' : field.value,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.onSurfaceSubtle(brightness),
-                ),
-              ),
-            ),
-          ),
-        ],
+    return EntryShareFieldCard(
+      label: label,
+      type: field.type,
+      value: field.value,
+      enabled: enabled,
+      trailing: Semantics(
+        label: label,
+        toggled: selected,
+        enabled: enabled,
+        child: AppToggle(
+          value: selected,
+          onChanged: enabled ? onChanged : null,
+        ),
       ),
     );
   }

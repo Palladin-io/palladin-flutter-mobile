@@ -98,6 +98,150 @@ abstract class AppLocalizations {
     Locale('pl'),
   ];
 
+  /// No description provided for @sharingEndConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'End link'**
+  String get sharingEndConfirm;
+
+  /// No description provided for @sharingReceiveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared entry'**
+  String get sharingReceiveTitle;
+
+  /// No description provided for @sharingReceiveWelcome.
+  ///
+  /// In en, this message translates to:
+  /// **'View a shared copy without creating an account. Opening the verification step does not use a receipt. You choose when to receive the entry.'**
+  String get sharingReceiveWelcome;
+
+  /// No description provided for @sharingOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open sharing'**
+  String get sharingOpen;
+
+  /// No description provided for @sharingReceive.
+  ///
+  /// In en, this message translates to:
+  /// **'Receive entry'**
+  String get sharingReceive;
+
+  /// No description provided for @sharingReceiveError.
+  ///
+  /// In en, this message translates to:
+  /// **'This action could not be completed. Check the code or password if required, then try again. The link may have expired or been ended.'**
+  String get sharingReceiveError;
+
+  /// No description provided for @sharingOtpNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Request a code at the email address chosen by the sender. No Palladin account is required.'**
+  String get sharingOtpNotice;
+
+  /// No description provided for @sharingSendOtp.
+  ///
+  /// In en, this message translates to:
+  /// **'Send email code'**
+  String get sharingSendOtp;
+
+  /// No description provided for @sharingResendOtp.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a new code'**
+  String get sharingResendOtp;
+
+  /// No description provided for @sharingRetryOtp.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry code delivery'**
+  String get sharingRetryOtp;
+
+  /// No description provided for @sharingOtpCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Email code'**
+  String get sharingOtpCode;
+
+  /// No description provided for @sharingOtpFormatError.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the six-digit email code.'**
+  String get sharingOtpFormatError;
+
+  /// No description provided for @sharingVerifyOtp.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify email code'**
+  String get sharingVerifyOtp;
+
+  /// No description provided for @sharingVerifySecret.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify protection'**
+  String get sharingVerifySecret;
+
+  /// No description provided for @sharingReadyToReceive.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification is complete. Receiving the entry uses one receipt; retrying the same delivery does not use another.'**
+  String get sharingReadyToReceive;
+
+  /// No description provided for @sharingReceivedNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'This is a separate copy. Changes to the original do not update it. Ending the link cannot recall copies already received or change a password in another service.'**
+  String get sharingReceivedNotice;
+
+  /// No description provided for @sharingCopyValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy value'**
+  String get sharingCopyValue;
+
+  /// No description provided for @sharingCopiedValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied. The clipboard clears after 45 seconds if its contents have not changed.'**
+  String get sharingCopiedValue;
+
+  /// No description provided for @sharingConfirmationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The entry is available, but display confirmation could not be sent. Retrying confirmation does not receive the entry again.'**
+  String get sharingConfirmationFailed;
+
+  /// No description provided for @sharingRetryConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry confirmation'**
+  String get sharingRetryConfirmation;
+
+  /// No description provided for @sharingEnd.
+  ///
+  /// In en, this message translates to:
+  /// **'End sharing'**
+  String get sharingEnd;
+
+  /// No description provided for @sharingEndNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'End this link for everyone who can use it? This cannot be undone. It does not delete the original entry or any copies already saved.'**
+  String get sharingEndNotice;
+
+  /// No description provided for @sharingEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing ended. This link can no longer deliver the entry.'**
+  String get sharingEnded;
+
+  /// No description provided for @sharingUnsupportedGate.
+  ///
+  /// In en, this message translates to:
+  /// **'This link uses a verification method this app version does not support. Update the app or ask the sender for another link.'**
+  String get sharingUnsupportedGate;
+
   /// No description provided for @sharingCreate.
   ///
   /// In en, this message translates to:

@@ -33,6 +33,7 @@ final class EntryShareReceptionState {
   const EntryShareReceptionState({
     this.phase = EntryShareReceptionPhase.welcome,
     this.busy = false,
+    this.suspended = false,
     this.recipientMode = '',
     this.protection = '',
     this.otpRequested = false,
@@ -45,6 +46,7 @@ final class EntryShareReceptionState {
 
   final EntryShareReceptionPhase phase;
   final bool busy, otpRequested, otpRetry, emailVerified, secretVerified;
+  final bool suspended;
   final String recipientMode, protection;
   final EntryShareSnapshot? snapshot;
   final EntryShareConfirmation confirmation;
@@ -58,6 +60,7 @@ final class EntryShareReceptionState {
   EntryShareReceptionState copyWith({
     EntryShareReceptionPhase? phase,
     bool? busy,
+    bool? suspended,
     String? recipientMode,
     String? protection,
     bool? otpRequested,
@@ -69,6 +72,7 @@ final class EntryShareReceptionState {
   }) => EntryShareReceptionState(
     phase: phase ?? this.phase,
     busy: busy ?? this.busy,
+    suspended: suspended ?? this.suspended,
     recipientMode: recipientMode ?? this.recipientMode,
     protection: protection ?? this.protection,
     otpRequested: otpRequested ?? this.otpRequested,
@@ -118,6 +122,7 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
   late DateTime _wallDeadline;
   late Duration _monotonicDeadline;
   int _epoch = 0, _otpGeneration = 0;
+  int _visibilityGeneration = 0;
   int? _pendingOtp;
   static const _maximumLifetime = Duration(minutes: 15);
 
@@ -148,10 +153,35 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
 
   Future<bool> revalidate() => _valid(_epoch);
 
+  bool suspendForEmail() {
+    if (!_live(_epoch) ||
+        state.phase != EntryShareReceptionPhase.verification ||
+        state.recipientMode != 'namedRecipient' ||
+        !state.otpRequested ||
+        state.otpRetry ||
+        state.emailVerified ||
+        state.busy ||
+        state.snapshot != null) {
+      return false;
+    }
+    // Checking another app's email must not create a new receipt or extend TTL.
+    _visibilityGeneration++;
+    emit(state.copyWith(suspended: true));
+    return true;
+  }
+
+  Future<void> resumeFromEmail() async {
+    if (!state.suspended) return;
+    final visibility = _visibilityGeneration;
+    if (await _valid(_epoch) && visibility == _visibilityGeneration) {
+      emit(state.copyWith(suspended: false));
+    }
+  }
+
   Future<EntryShareReceptionOutcome> _run(
     Future<void> Function(int) action,
   ) async {
-    if (isClosed || state.busy || _secrets == null) {
+    if (isClosed || state.busy || state.suspended || _secrets == null) {
       return EntryShareReceptionOutcome.ignored;
     }
     final epoch = _epoch;
