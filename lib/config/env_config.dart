@@ -17,6 +17,7 @@ class EnvConfig {
     required this.posthogKey,
     required this.posthogHost,
     required this.googleServerClientId,
+    required this.sharingWebOrigin,
     this.certificatePins = const [],
   });
 
@@ -25,6 +26,7 @@ class EnvConfig {
   final String apiBaseUrl;
   final String posthogKey;
   final String posthogHost;
+  final String sharingWebOrigin;
 
   bool get clientAnalyticsReleased =>
       const bool.fromEnvironment('CLIENT_ANALYTICS_RELEASED');
@@ -41,10 +43,15 @@ class EnvConfig {
   ///
   /// Uses `10.0.2.2` on Android emulator (special alias for host loopback)
   /// and `localhost` on iOS simulator and physical devices via USB proxy.
-  factory EnvConfig.local() {
+  factory EnvConfig.local({
+    String sharingWebOrigin = const String.fromEnvironment(
+      'PALLADIN_SHARING_WEB_ORIGIN',
+    ),
+  }) {
     final host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
     return EnvConfig._(
       flavor: AppFlavor.local,
+      sharingWebOrigin: sharingWebOrigin,
       appName: 'Palladin (Local)',
       apiBaseUrl: 'http://$host:5000',
       posthogKey: const String.fromEnvironment('POSTHOG_PROJECT_KEY'),
@@ -56,12 +63,17 @@ class EnvConfig {
   }
 
   /// Staging environment targeting `api.stage.palladin.io`.
-  factory EnvConfig.staging() {
-    return const EnvConfig._(
+  factory EnvConfig.staging({
+    String sharingWebOrigin = const String.fromEnvironment(
+      'PALLADIN_SHARING_WEB_ORIGIN',
+    ),
+  }) {
+    return EnvConfig._(
       flavor: AppFlavor.staging,
+      sharingWebOrigin: sharingWebOrigin,
       appName: 'Palladin (Stage)',
       apiBaseUrl: 'https://api.stage.palladin.io',
-      posthogKey: String.fromEnvironment('POSTHOG_PROJECT_KEY'),
+      posthogKey: const String.fromEnvironment('POSTHOG_PROJECT_KEY'),
       posthogHost: 'https://eu.i.posthog.com',
       googleServerClientId:
           '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
@@ -72,9 +84,15 @@ class EnvConfig {
   ///
   /// Store testing keeps the production app identity and Firebase/signing
   /// configuration while temporarily targeting the staging API.
-  factory EnvConfig.production({bool useStagingBackend = false}) {
+  factory EnvConfig.production({
+    bool useStagingBackend = false,
+    String sharingWebOrigin = const String.fromEnvironment(
+      'PALLADIN_SHARING_WEB_ORIGIN',
+    ),
+  }) {
     return EnvConfig._(
       flavor: AppFlavor.production,
+      sharingWebOrigin: sharingWebOrigin,
       appName: 'Palladin',
       apiBaseUrl: useStagingBackend
           ? 'https://api.stage.palladin.io'

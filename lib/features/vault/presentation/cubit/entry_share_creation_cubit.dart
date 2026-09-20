@@ -221,6 +221,15 @@ class EntryShareCreationCubit extends Cubit<EntryShareCreationState> {
     }
   }
 
+  Future<bool> revalidate() => _valid(_epoch);
+
+  Future<String?> fragmentForCopy() async {
+    if (state.phase != EntryShareCreationPhase.created || !await _valid(_epoch)) {
+      return null;
+    }
+    return state.fragment;
+  }
+
   Future<void> _send(int epoch, CancelToken token) async {
     final prepared = _prepared!;
     try {
