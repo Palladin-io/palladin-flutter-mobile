@@ -24,3 +24,10 @@ final class EntryShareRecipientRequestException implements Exception {
   @override
   String toString() => 'EntryShareRecipientRequestException';
 }
+
+typedef EntryShareRecipientOwner = ({
+  String? principalId,
+  String? organizationId,
+  String? authorizationGeneration,
+  int keyGeneration,
+});

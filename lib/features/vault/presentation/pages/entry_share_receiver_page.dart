@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,8 +6,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/secure_clipboard.dart';
-import '../../../../core/widgets/app_bar_title.dart';
-import '../../../../core/widgets/app_screen.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
 import '../../../../core/widgets/sheet_drag_handle.dart';
@@ -17,12 +14,21 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../domain/entities/entry_share.dart';
 import '../cubit/entry_share_reception_cubit.dart';
+import '../entry_share_auth_binding.dart';
 import '../widgets/entry_share_creation_form.dart';
 import '../widgets/entry_share_field_card.dart';
+import '../widgets/entry_share_receiver_frame.dart';
 
 class EntryShareReceiverPage extends StatefulWidget {
-  const EntryShareReceiverPage({super.key, required this.cubit});
+  const EntryShareReceiverPage({
+    super.key,
+    required this.cubit,
+    this.ownsCubit = true,
+    this.onClose,
+  });
   final EntryShareReceptionCubit cubit;
+  final bool ownsCubit;
+  final VoidCallback? onClose;
 
   @override
   State<EntryShareReceiverPage> createState() => _EntryShareReceiverPageState();
@@ -33,8 +39,7 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
   final _secret = TextEditingController();
   final _otp = TextEditingController();
   late final AuthBloc _auth;
-  late final Object _initialAuth;
-  Uint8List? _initialKey;
+  Object? _initialAuth;
   late final StreamSubscription<AuthState> _authSubscription;
   late final StreamSubscription<EntryShareReceptionState> _flowSubscription;
   Timer? _authorityCheck;
@@ -46,30 +51,13 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
   bool _displayScheduled = false;
   EntryShareReceptionCubit get _cubit => widget.cubit;
 
-  Object _authIdentity(AuthState state) => switch (state) {
-    AuthAuthenticated() => (
-      state.userId,
-      state.isVaultLocked,
-      state.isOnboarded,
-      state.emailVerified,
-      state.permissions,
-    ),
-    AuthUnauthenticated() => AuthUnauthenticated,
-    _ => state,
-  };
-
   @override
   void initState() {
     super.initState();
     _auth = context.read<AuthBloc>();
-    _initialAuth = _authIdentity(_auth.state);
-    if (_auth.state case final AuthAuthenticated state) {
-      _initialKey = state.privateKey;
-    }
+    _initialAuth = entryShareAuthBinding(_auth.state);
     _authSubscription = _auth.stream.listen((state) {
-      final key = state is AuthAuthenticated ? state.privateKey : null;
-      if (_authIdentity(state) != _initialAuth ||
-          !identical(key, _initialKey)) {
+      if (entryShareAuthBinding(state) != _initialAuth) {
         _discard();
       } else if (_active) {
         unawaited(_cubit.revalidate());
@@ -103,7 +91,7 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
 
   void _clearLocal() {
     _invalidated = true;
-    _initialKey = null;
+    _initialAuth = null;
     _authorityCheck?.cancel();
     _secret.clear();
     _otp.clear();
@@ -159,20 +147,20 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
   void didUpdateWidget(EntryShareReceiverPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.cubit, widget.cubit)) {
-      unawaited(oldWidget.cubit.close());
+      if (oldWidget.ownsCubit) unawaited(oldWidget.cubit.close());
       _discard();
     }
   }
 
   @override
   void dispose() {
-    _initialKey = null;
+    _initialAuth = null;
     _authorityCheck?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _coverAnimation?.removeStatusListener(_covered);
     unawaited(_authSubscription.cancel());
     unawaited(_flowSubscription.cancel());
-    unawaited(_cubit.close());
+    if (widget.ownsCubit) unawaited(_cubit.close());
     _secret.clear();
     _otp.clear();
     _secret.dispose();
@@ -298,17 +286,14 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) _discard();
       },
-      child: AppScreen.appBar(
-        appBar: AppBar(
-          titleSpacing: 0,
-          centerTitle: false,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          backgroundColor: AppColors.transparent,
-          surfaceTintColor: AppColors.transparent,
-          title: AppBarTitle(title: l10n.sharingReceiveTitle),
-        ),
-        body: BlocBuilder<EntryShareReceptionCubit, EntryShareReceptionState>(
+      child: EntryShareReceiverFrame(
+        onClose: widget.onClose == null
+            ? null
+            : () {
+                _discard();
+                widget.onClose!();
+              },
+        child: BlocBuilder<EntryShareReceptionCubit, EntryShareReceptionState>(
           bloc: _cubit,
           builder: (context, state) {
             if (state.suspended) return const SizedBox.shrink();
@@ -328,7 +313,7 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
                       if (state.phase == EntryShareReceptionPhase.welcome)
                         Text(l10n.sharingReceiveWelcome),
                       if (state.phase == EntryShareReceptionPhase.unavailable)
-                        Text(l10n.sharingUnavailable),
+                        Text(l10n.sharingReceiveUnavailable),
                       if (state.phase == EntryShareReceptionPhase.ended)
                         Text(l10n.sharingEnded),
                       if (state.phase == EntryShareReceptionPhase.verification)

@@ -11,12 +11,8 @@ import '../../data/services/vault_protocol/vault_protocol_bytes.dart';
 import '../../domain/entities/entry_share.dart';
 import '../../domain/entities/entry_share_reception.dart';
 
-typedef EntryShareRecipientOwner = ({
-  String? principalId,
-  String? organizationId,
-  String? authorizationGeneration,
-  int keyGeneration,
-});
+export '../../domain/entities/entry_share_reception.dart'
+    show EntryShareRecipientOwner;
 
 enum EntryShareReceptionPhase {
   welcome,

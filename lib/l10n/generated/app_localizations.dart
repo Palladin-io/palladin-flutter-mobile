@@ -110,6 +110,18 @@ abstract class AppLocalizations {
   /// **'Shared entry'**
   String get sharingReceiveTitle;
 
+  /// No description provided for @sharingClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close sharing'**
+  String get sharingClose;
+
+  /// No description provided for @sharingReceiveUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This sharing link is unavailable. Reopen the original link if it is still valid.'**
+  String get sharingReceiveUnavailable;
+
   /// No description provided for @sharingReceiveWelcome.
   ///
   /// In en, this message translates to:

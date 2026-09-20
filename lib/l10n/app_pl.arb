@@ -1,6 +1,8 @@
 {
   "sharingEndConfirm": "Zakończ link",
   "sharingReceiveTitle": "Udostępniony wpis",
+  "sharingClose": "Zamknij udostępnienie",
+  "sharingReceiveUnavailable": "Ten link udostępnienia jest niedostępny. Otwórz ponownie oryginalny link, jeśli nadal jest ważny.",
   "sharingReceiveWelcome": "Odbierz kopię wpisu bez zakładania konta. Otwarcie weryfikacji nie zużywa limitu. Samodzielnie wybierasz moment odbioru.",
   "sharingOpen": "Otwórz udostępnienie",
   "sharingReceive": "Odbierz wpis",

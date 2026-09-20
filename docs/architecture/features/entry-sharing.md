@@ -2,9 +2,9 @@
 
 The mobile snapshot crypto boundary, sender list/revoke tab and creation page
 are implemented on the feature branch. The isolated guest transport and reception
-Cubit now have a mounted/tested receiver page, but no production route or native
-ingress host yet. Android has an isolated native intake and Dart has a tested RAM
-handoff, still not wired to the app/router. iOS intake, save-copy/account
+Cubit now have a mounted receiver page and an app-owned ingress/router host.
+Android has an isolated native intake connected through the one-shot Dart RAM
+handoff. iOS intake, save-copy/account
 continuation and Inbox/audit remain pending. Local tests
 are not evidence of deployed end-to-end sharing.
 
@@ -59,12 +59,14 @@ all request contracts, redirects/cookies, malformed/oversize bodies, cancellatio
 before/after headers, optional gates, exact retry, separate ACK, concurrency,
 scope substitution, delayed crypto and both success/error after owner changes.
 The loopback server is a synthetic fixture, not the Palladin API or real email
-provider. Production route mounting, auth/save continuation and device E2E remain required.
+provider. Auth/save continuation and device E2E remain required.
 
 ### Receiver page and email detour
 
-`EntryShareReceiverPage` owns one caller-supplied Cubit and requires a stable
+`EntryShareReceiverPage` uses one caller-supplied Cubit and requires a stable
 `AuthBloc` context. It opens no network session until the explicit Open action.
+The production host owns disposal (`ownsCubit: false`); standalone callers retain
+the default page-owned disposal behavior.
 Separate EN/PL email-code and optional PIN/password inputs clear their exact
 values before sending; format errors remain inline. Unsupported future gates
 remain readable but cannot enable delivery. The receive action is pinned, and
@@ -99,9 +101,47 @@ field-card tests cover mask/reveal and late, denied or failed authorization. The
 31 Cubit cases include seven email-suspension lifecycle/deadline/operation tests.
 Synthetic Inter renders were reviewed in light EN 390px and dark PL 320px/150%,
 including the destructive sheet and keyboard. They are not physical-device or
-real API/email evidence. The future ingress host must pass only a RAM-owned
-capability, wait for stable auth/foreground, and never put the fragment in routes,
-logs or analytics; installing this page alone does not fulfill native link handling.
+real API/email evidence. The ingress host passes only a RAM-owned capability and
+waits for stable auth/foreground; device acceptance is a separate release gate.
+
+### App-owned receiver host
+
+`PalladinApp` owns `EntryShareIngress` and `EntryShareNavigation`. Navigation waits
+for the foreground and passes only the constant `/share` to GoRouter, never the
+incoming URL, share ID, fragment or route extras. The public route remains usable
+for guests, new/unverified accounts and locked users; it does not grant Vault
+access. Close returns to `/`, where normal account/Vault guards apply. Framework
+deep-link routing is disabled on Android and iOS and the router overrides the
+platform default location. iOS still needs interception before `app_links`.
+
+`EntryShareReceiverHost` waits for stable AuthBloc identity and an independent
+`EntryShareRecipientAuthority` read before consuming the pending capability.
+An explicit guest never reads account-token storage. Authenticated ownership
+binds the expected principal to local token claims, authorization version and
+RAM key generation, without requiring an unlocked Vault or offline policy.
+This is local lifetime ownership, not server authorization. Token decode failures
+log only the exception type, never token/parser excerpts.
+
+The host passes the original lifetime to a fresh owned transport/Cubit. Its async
+owner lookup is fenced by ingress generation, auth/key identity and host epoch.
+New same-ID links dispose the old Cubit and its confirmation sheet; stale lookup
+successes/errors cannot affect the replacement. Background lookup waits in RAM
+under the original deadline; a mounted receiver retains only its narrowly scoped
+email detour. Route cover, auth failure/change, detach, close and disposal clear
+the capability. Close is local disposal, never server-side link termination.
+
+Tests cover 19 mounted host cases, five local-authority cases and 11 navigation/
+production-router cases. They include auth restoration, guest/new/locked account
+routing, replacement races, email-app return, close during lookup, original
+deadline continuity and no automatic remote open. Router observations contain
+only `/share`; a defensive redirect also strips query/fragment from that route.
+These tests substitute the channel/auth/transport and do not prove physical
+Android/iOS callbacks or real API/email/account continuation.
+
+Host checkpoint (2026-09-21): full Flutter regression **1,556 PASS / two existing
+plugin-only skips**, analyze, notices and six structural budgets PASS. The added
+JWT logging test checks that malformed payload contents never appear in logs.
+No CI, APK/IPA or deployment was run.
 
 ## Native intake and RAM handoff (partially wired)
 
@@ -144,7 +184,7 @@ This bypass is required because installed `app_links` 6.4.1 retains initial/late
 URLs and its Android handler logs `Intent.toString()`. It remains in use for
 existing non-sharing email verification; the generic Dart unknown-host log is
 now value-free, but this work does not claim a complete audit of that legacy
-email/native path. **iOS interception, app-owned ingress/route mounting, real
+email/native path. **iOS interception, real
 domain association and device/mail/browser acceptance are still missing.**
 Do not enable sharing release on the basis of these unit tests. No attempt is
 made to erase browser/OS-originated copies outside Palladin's control, and native

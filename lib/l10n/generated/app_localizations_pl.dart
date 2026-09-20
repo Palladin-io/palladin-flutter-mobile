@@ -15,6 +15,13 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sharingReceiveTitle => 'Udostępniony wpis';
 
   @override
+  String get sharingClose => 'Zamknij udostępnienie';
+
+  @override
+  String get sharingReceiveUnavailable =>
+      'Ten link udostępnienia jest niedostępny. Otwórz ponownie oryginalny link, jeśli nadal jest ważny.';
+
+  @override
   String get sharingReceiveWelcome =>
       'Odbierz kopię wpisu bez zakładania konta. Otwarcie weryfikacji nie zużywa limitu. Samodzielnie wybierasz moment odbioru.';
 
