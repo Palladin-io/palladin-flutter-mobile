@@ -1,10 +1,9 @@
 # Individual Entry sharing — CVT-644 (in progress)
 
-The mobile snapshot crypto boundary, sender list/revoke tab and headless creation
-flow are implemented on the feature branch. The creation form and guest receiver
-screens, remaining public HTTP lifecycle, save-copy/account continuation, native
-ingress and Inbox/audit are not yet connected. Local tests are not evidence of
-deployed end-to-end sharing.
+The mobile snapshot crypto boundary, sender list/revoke tab and creation page
+are implemented on the feature branch. Guest receiver screens, remaining public
+HTTP lifecycle, save-copy/account continuation, native ingress and Inbox/audit
+are not yet connected. Local tests are not evidence of deployed end-to-end sharing.
 
 ## Sender creation boundary
 
@@ -40,13 +39,49 @@ selection and protection request and returns the fragment once; disposal, explic
 clear or finite expiry removes it. Every await and error publication checks the
 owning session. Late material is disposed instead of entering state.
 
-The future creation page must supply the canonical source reader with a copied
-private key wiped in `finally`, connect lock/background/navigation to `clear`,
-validate the configured first-party link origin and offer preview/copy controls.
-These callbacks are not wired by the headless Cubit itself. Tests cover native
-crypto roundtrip, byte-identical retry, source substitution, cancellation at read,
-challenge/crypto/POST, success/error session replacement and expiry. They do not
-prove actual HTTP delivery or device UI behavior.
+`EntryShareCreationPage` opens from the list CTA as a separate root-navigator
+page. The pinned primary action follows the shared form footer, while fields and
+options scroll. EN/PL controls reuse AppScreen/AppBarTitle, OnboardingTextField,
+AppDropdownField, AppToggle, WarningZone and PrimaryButton. The shared dropdown
+now preserves the theme's font family. Sensitive field previews start masked;
+changing the selected fields resets explicit preview confirmation. Email/PIN/
+password validation is inline, and changing protection or recipient mode clears
+the now-irrelevant controller. An uncertain POST removes editable plaintext
+controls and offers only the original request retry. No additional page-view
+event or secret-bearing route argument is introduced.
+
+The page reads through `LocalCurrentEntryService.reveal(expected: ...)`, copies
+the current private key and wipes it in `finally` and immediately on invalidation,
+even when the reader is pending. Lock, account/key/permission change, background,
+pop, covering the page and disposal discard draft controllers, reveal flags,
+pending operations and the returned fragment. Resuming does not resurrect them.
+A five-second foreground session check repairs authority changes; create/retry/
+copy recheck immediately. Clipboard completion and failure revalidate before
+publishing UI feedback. A negative widget test reproduced retaining the old link
+on the clipboard error path after key replacement before this was fixed.
+
+Only explicit Copy writes the full link through SecureClipboard's existing
+45-second conditional clear. The full capability is not displayed, logged, sent
+to analytics or persisted. It cannot be recovered after leaving the page. System
+clipboard managers/cloud sync remain outside the application's deletion guarantee.
+The covered sharing list suspends polling and refreshes after the form returns.
+
+`PALLADIN_SHARING_WEB_ORIGIN` is a required, build-owned bare origin, empty by
+default. `EntryShareLinkService` rejects credentials, paths, queries, fragments,
+unapproved hosts and insecure non-local origins before opening the source. Stage
+API requires the stage panel even with the production store identity; production
+rejects the stage host. Local HTTP needs explicit configuration reachable from
+the recipient device. Domain association/actual receiver deployment remains a
+release prerequisite, not something inferred from a successful URL parser.
+
+Tests cover native crypto roundtrip, identical retry, source substitution,
+cancellation at read/challenge/crypto/POST, session replacement, expiry, the real
+list CTA, foreground ownership, validation, optional PIN/OTP, opt-in Inbox,
+keyboard layout and clipboard. Optional synthetic widget captures load a supplied
+Inter font via `PALLADIN_SHARING_VISUAL_FONT` and write to
+`PALLADIN_SHARING_VISUAL_DIR`; no font network fetch happens in normal tests.
+390px light EN and 320px dark PL at 150% were inspected. These renderings and mock
+transport tests do not prove physical-device behavior or actual HTTP delivery.
 
 ## Sender list and revocation
 
@@ -168,6 +203,6 @@ Negative cases cover scope/key/nonce/ciphertext substitution, invalid authentica
 plaintext, byte limits, malformed encodings, UTF-8, field types and redacted errors.
 See [fixture provenance](../../../test/fixtures/crypto/ENTRY-SHARE-PROVENANCE.md).
 
-Real web↔mobile HTTP flows, sender form wiring, public transport isolation,
+Real web↔mobile HTTP flows, public transport isolation,
 limit=1 account/save continuation, physical-device Universal/App Links, visual
 acceptance and the user test environment remain release gates.

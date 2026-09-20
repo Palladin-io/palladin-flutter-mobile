@@ -98,6 +98,258 @@ abstract class AppLocalizations {
     Locale('pl'),
   ];
 
+  /// No description provided for @sharingCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create sharing link'**
+  String get sharingCreate;
+
+  /// No description provided for @sharingSelectFields.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose fields to share'**
+  String get sharingSelectFields;
+
+  /// No description provided for @sharingSelectNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Only selected fields will be copied. Notes, recovery codes and authenticator setup data require your explicit choice.'**
+  String get sharingSelectNotice;
+
+  /// No description provided for @sharingPreviewConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'I have checked the selected fields'**
+  String get sharingPreviewConfirmed;
+
+  /// No description provided for @sharingUnsupportedField.
+  ///
+  /// In en, this message translates to:
+  /// **'This field cannot be shared by this version of the app.'**
+  String get sharingUnsupportedField;
+
+  /// No description provided for @sharingRecipient.
+  ///
+  /// In en, this message translates to:
+  /// **'Who can receive this copy?'**
+  String get sharingRecipient;
+
+  /// No description provided for @sharingNamedRecipient.
+  ///
+  /// In en, this message translates to:
+  /// **'Only this person (email code)'**
+  String get sharingNamedRecipient;
+
+  /// No description provided for @sharingEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Recipient email'**
+  String get sharingEmail;
+
+  /// No description provided for @sharingEmailNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Send the copied link yourself. Palladin emails only the verification code, not the link. Create a separate link for each person.'**
+  String get sharingEmailNotice;
+
+  /// No description provided for @sharingAnyoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Anyone with the link'**
+  String get sharingAnyoneTitle;
+
+  /// No description provided for @sharingAnyoneWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'The link can be forwarded. Its receipt limit is shared by everyone who has it; any authorized recipient can end it for everyone.'**
+  String get sharingAnyoneWarning;
+
+  /// No description provided for @sharingSecretNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Send the password or PIN through a separate channel. It can be combined with the email code.'**
+  String get sharingSecretNotice;
+
+  /// No description provided for @sharingPinWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'A PIN is weaker than a long password. Use at least 6 digits; a password is recommended for stronger protection.'**
+  String get sharingPinWarning;
+
+  /// No description provided for @sharingLifetime.
+  ///
+  /// In en, this message translates to:
+  /// **'Link lifetime'**
+  String get sharingLifetime;
+
+  /// No description provided for @sharingLifetimeHour.
+  ///
+  /// In en, this message translates to:
+  /// **'1 hour'**
+  String get sharingLifetimeHour;
+
+  /// No description provided for @sharingLifetimeDay.
+  ///
+  /// In en, this message translates to:
+  /// **'1 day'**
+  String get sharingLifetimeDay;
+
+  /// No description provided for @sharingLifetimeThreeDays.
+  ///
+  /// In en, this message translates to:
+  /// **'3 days'**
+  String get sharingLifetimeThreeDays;
+
+  /// No description provided for @sharingLifetimeWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'7 days'**
+  String get sharingLifetimeWeek;
+
+  /// No description provided for @sharingMaximumReceipts.
+  ///
+  /// In en, this message translates to:
+  /// **'Receipt limit'**
+  String get sharingMaximumReceipts;
+
+  /// No description provided for @sharingNotifyChoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Notify me of the first receipt'**
+  String get sharingNotifyChoice;
+
+  /// No description provided for @sharingNotifyNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'One Inbox notification after the recipient confirms display. Audit events are always recorded; this is not proof a person read it.'**
+  String get sharingNotifyNotice;
+
+  /// No description provided for @sharingCreateNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'This is an independent copy, not access to your vault. It will not follow later edits. Revoking the link cannot recall downloaded copies.'**
+  String get sharingCreateNotice;
+
+  /// No description provided for @sharingCancelNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'If you leave after sending a request, check your sharing list: the link may already exist even if its response was lost.'**
+  String get sharingCancelNotice;
+
+  /// No description provided for @sharingEmailError.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter one valid recipient email address.'**
+  String get sharingEmailError;
+
+  /// No description provided for @sharingPasswordError.
+  ///
+  /// In en, this message translates to:
+  /// **'Use 8–128 characters. Spaces count as part of the password.'**
+  String get sharingPasswordError;
+
+  /// No description provided for @sharingPinError.
+  ///
+  /// In en, this message translates to:
+  /// **'Use 6–128 digits (0–9), without spaces.'**
+  String get sharingPinError;
+
+  /// No description provided for @sharingLimitError.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a whole number from 1 to 100.'**
+  String get sharingLimitError;
+
+  /// No description provided for @sharingLifetimeError.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose one of the available lifetimes.'**
+  String get sharingLifetimeError;
+
+  /// No description provided for @sharingSelectionError.
+  ///
+  /// In en, this message translates to:
+  /// **'Select at least one available field and check the preview.'**
+  String get sharingSelectionError;
+
+  /// No description provided for @sharingCreateError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not create the link. Check your connection and try again.'**
+  String get sharingCreateError;
+
+  /// No description provided for @sharingSourceError.
+  ///
+  /// In en, this message translates to:
+  /// **'The entry changed. Reopen it and check the fields before sharing again.'**
+  String get sharingSourceError;
+
+  /// No description provided for @sharingSourceLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open this entry for sharing. Try again while unlocked.'**
+  String get sharingSourceLoadError;
+
+  /// No description provided for @sharingRetryNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'The result is uncertain. Retry sends the exact same encrypted copy and does not create a second link. Options are locked until this is resolved.'**
+  String get sharingRetryNotice;
+
+  /// No description provided for @sharingRetryCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry same request'**
+  String get sharingRetryCreate;
+
+  /// No description provided for @sharingCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Your sharing link is ready'**
+  String get sharingCreated;
+
+  /// No description provided for @sharingCopyLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy sharing link'**
+  String get sharingCopyLink;
+
+  /// No description provided for @sharingCopiedLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing link copied. Clipboard clears after 45 seconds if unchanged.'**
+  String get sharingCopiedLink;
+
+  /// No description provided for @sharingCopyError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not copy the link. Try again while this screen is open.'**
+  String get sharingCopyError;
+
+  /// No description provided for @sharingLinkOnceNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy this link before leaving. Palladin cannot recover its decryption key later. You can still revoke it from the sharing list.'**
+  String get sharingLinkOnceNotice;
+
+  /// No description provided for @sharingConfigurationError.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing is not configured for this app environment. No link has been created.'**
+  String get sharingConfigurationError;
+
+  /// No description provided for @sharingTotpSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Authenticator setup data'**
+  String get sharingTotpSource;
+
+  /// No description provided for @sharingHidePreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide value'**
+  String get sharingHidePreview;
+
   /// No description provided for @sharingTab.
   ///
   /// In en, this message translates to:

@@ -10,6 +10,7 @@ import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/sheet_action_buttons.dart';
+import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/sheet_drag_handle.dart';
 import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../core/widgets/warning_zone.dart';
@@ -20,6 +21,7 @@ import '../../data/services/member_sync_session_authority_provider.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/entry_share_list.dart';
 import '../cubit/entry_sharing_cubit.dart';
+import 'entry_share_creation_page.dart';
 
 class EntrySharingTab extends StatefulWidget {
   const EntrySharingTab({super.key, required this.entry, required this.active});
@@ -38,6 +40,7 @@ class _EntrySharingTabState extends State<EntrySharingTab>
   Timer? _poll;
   bool _foreground = true;
   bool _identityInvalidated = false;
+  bool _creating = false;
   BuildContext? _sheetContext;
 
   @override
@@ -79,6 +82,7 @@ class _EntrySharingTabState extends State<EntrySharingTab>
 
   Future<EntrySharingSession?> _session() async {
     if (_identityInvalidated ||
+        _creating ||
         !mounted ||
         !widget.active ||
         !_foreground ||
@@ -90,6 +94,7 @@ class _EntrySharingTabState extends State<EntrySharingTab>
     final authority = await getIt<MemberSyncSessionAuthorityProvider>()
         .current();
     if (_identityInvalidated ||
+        _creating ||
         !mounted ||
         !widget.active ||
         !_foreground ||
@@ -107,11 +112,13 @@ class _EntrySharingTabState extends State<EntrySharingTab>
   }
 
   void _start() {
-    if (!widget.active || !_foreground || _identityInvalidated) return;
+    if (!widget.active || !_foreground || _identityInvalidated || _creating) {
+      return;
+    }
     unawaited(_cubit.load());
     _poll?.cancel();
     _poll = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (_sheetContext == null) unawaited(_cubit.load());
+      if (_sheetContext == null && !_creating) unawaited(_cubit.load());
     });
   }
 
@@ -235,6 +242,21 @@ class _EntrySharingTabState extends State<EntrySharingTab>
     }
   }
 
+  Future<void> _create() async {
+    if (_creating ||
+        _identityInvalidated ||
+        !_foreground ||
+        !_sameAuth(_auth.state)) {
+      return;
+    }
+    _creating = true;
+    _poll?.cancel();
+    _cubit.clear();
+    await EntryShareCreationPage.push(context, widget.entry);
+    _creating = false;
+    if (mounted) _start();
+  }
+
   @override
   Widget build(BuildContext context) =>
       BlocBuilder<EntrySharingCubit, EntrySharingState>(
@@ -244,6 +266,10 @@ class _EntrySharingTabState extends State<EntrySharingTab>
           onRefresh: () => _cubit.load(),
           onMore: () => _cubit.load(more: true),
           onRevoke: _revoke,
+          onCreate:
+              !_creating && state.failure != EntrySharingFailure.unavailable
+              ? _create
+              : null,
         ),
       );
 }
@@ -255,10 +281,12 @@ class EntrySharingListBody extends StatelessWidget {
     required this.onRefresh,
     required this.onMore,
     required this.onRevoke,
+    this.onCreate,
   });
   final EntrySharingState state;
   final VoidCallback onRefresh, onMore;
   final ValueChanged<EntryShareListItem> onRevoke;
+  final VoidCallback? onCreate;
 
   @override
   Widget build(BuildContext context) {
@@ -276,6 +304,13 @@ class EntrySharingListBody extends StatelessWidget {
         AppSpacing.listBottom,
       ),
       children: [
+        if (onCreate != null) ...[
+          PrimaryButton(
+            label: l10n.sharingCreate,
+            onPressed: state.busy ? null : onCreate,
+          ),
+          const SizedBox(height: AppSpacing.section),
+        ],
         Text(l10n.sharingListNotice, style: textStyle),
         const SizedBox(height: AppSpacing.section),
         if (state.failure != null) ...[

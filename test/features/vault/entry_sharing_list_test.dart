@@ -760,6 +760,7 @@ void main() {
       (tester) async {
         await pump(tester, locale: 'pl');
         await tester.ensureVisible(find.text('Odwołaj link'));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Odwołaj link'));
         await tester.pumpAndSettle();
         expect(
@@ -805,8 +806,13 @@ void main() {
       (tester) async {
         await pump(tester);
         await tester.ensureVisible(find.text('Revoke link'));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Revoke link'));
         await tester.pumpAndSettle();
+        expect(
+          find.textContaining('It cannot remove downloaded copies'),
+          findsOneWidget,
+        );
         authEvents.add(unlocked.copyWith(clearKeys: true, isVaultLocked: true));
         await tester.pumpAndSettle();
         expect(

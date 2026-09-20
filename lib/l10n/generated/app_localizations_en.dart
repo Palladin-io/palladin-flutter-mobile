@@ -9,6 +9,151 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get sharingCreate => 'Create sharing link';
+
+  @override
+  String get sharingSelectFields => 'Choose fields to share';
+
+  @override
+  String get sharingSelectNotice =>
+      'Only selected fields will be copied. Notes, recovery codes and authenticator setup data require your explicit choice.';
+
+  @override
+  String get sharingPreviewConfirmed => 'I have checked the selected fields';
+
+  @override
+  String get sharingUnsupportedField =>
+      'This field cannot be shared by this version of the app.';
+
+  @override
+  String get sharingRecipient => 'Who can receive this copy?';
+
+  @override
+  String get sharingNamedRecipient => 'Only this person (email code)';
+
+  @override
+  String get sharingEmail => 'Recipient email';
+
+  @override
+  String get sharingEmailNotice =>
+      'Send the copied link yourself. Palladin emails only the verification code, not the link. Create a separate link for each person.';
+
+  @override
+  String get sharingAnyoneTitle => 'Anyone with the link';
+
+  @override
+  String get sharingAnyoneWarning =>
+      'The link can be forwarded. Its receipt limit is shared by everyone who has it; any authorized recipient can end it for everyone.';
+
+  @override
+  String get sharingSecretNotice =>
+      'Send the password or PIN through a separate channel. It can be combined with the email code.';
+
+  @override
+  String get sharingPinWarning =>
+      'A PIN is weaker than a long password. Use at least 6 digits; a password is recommended for stronger protection.';
+
+  @override
+  String get sharingLifetime => 'Link lifetime';
+
+  @override
+  String get sharingLifetimeHour => '1 hour';
+
+  @override
+  String get sharingLifetimeDay => '1 day';
+
+  @override
+  String get sharingLifetimeThreeDays => '3 days';
+
+  @override
+  String get sharingLifetimeWeek => '7 days';
+
+  @override
+  String get sharingMaximumReceipts => 'Receipt limit';
+
+  @override
+  String get sharingNotifyChoice => 'Notify me of the first receipt';
+
+  @override
+  String get sharingNotifyNotice =>
+      'One Inbox notification after the recipient confirms display. Audit events are always recorded; this is not proof a person read it.';
+
+  @override
+  String get sharingCreateNotice =>
+      'This is an independent copy, not access to your vault. It will not follow later edits. Revoking the link cannot recall downloaded copies.';
+
+  @override
+  String get sharingCancelNotice =>
+      'If you leave after sending a request, check your sharing list: the link may already exist even if its response was lost.';
+
+  @override
+  String get sharingEmailError => 'Enter one valid recipient email address.';
+
+  @override
+  String get sharingPasswordError =>
+      'Use 8–128 characters. Spaces count as part of the password.';
+
+  @override
+  String get sharingPinError => 'Use 6–128 digits (0–9), without spaces.';
+
+  @override
+  String get sharingLimitError => 'Enter a whole number from 1 to 100.';
+
+  @override
+  String get sharingLifetimeError => 'Choose one of the available lifetimes.';
+
+  @override
+  String get sharingSelectionError =>
+      'Select at least one available field and check the preview.';
+
+  @override
+  String get sharingCreateError =>
+      'Could not create the link. Check your connection and try again.';
+
+  @override
+  String get sharingSourceError =>
+      'The entry changed. Reopen it and check the fields before sharing again.';
+
+  @override
+  String get sharingSourceLoadError =>
+      'Could not open this entry for sharing. Try again while unlocked.';
+
+  @override
+  String get sharingRetryNotice =>
+      'The result is uncertain. Retry sends the exact same encrypted copy and does not create a second link. Options are locked until this is resolved.';
+
+  @override
+  String get sharingRetryCreate => 'Retry same request';
+
+  @override
+  String get sharingCreated => 'Your sharing link is ready';
+
+  @override
+  String get sharingCopyLink => 'Copy sharing link';
+
+  @override
+  String get sharingCopiedLink =>
+      'Sharing link copied. Clipboard clears after 45 seconds if unchanged.';
+
+  @override
+  String get sharingCopyError =>
+      'Could not copy the link. Try again while this screen is open.';
+
+  @override
+  String get sharingLinkOnceNotice =>
+      'Copy this link before leaving. Palladin cannot recover its decryption key later. You can still revoke it from the sharing list.';
+
+  @override
+  String get sharingConfigurationError =>
+      'Sharing is not configured for this app environment. No link has been created.';
+
+  @override
+  String get sharingTotpSource => 'Authenticator setup data';
+
+  @override
+  String get sharingHidePreview => 'Hide value';
+
+  @override
   String get sharingTab => 'Sharing';
 
   @override

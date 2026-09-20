@@ -9,6 +9,152 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get sharingCreate => 'Utwórz link';
+
+  @override
+  String get sharingSelectFields => 'Wybierz pola do udostępnienia';
+
+  @override
+  String get sharingSelectNotice =>
+      'Skopiowane zostaną tylko wybrane pola. Notatki, kody odzyskiwania i dane konfiguracji 2FA wymagają Twojego jawnego wyboru.';
+
+  @override
+  String get sharingPreviewConfirmed => 'Sprawdziłem wybrane pola';
+
+  @override
+  String get sharingUnsupportedField =>
+      'Tej wartości nie można udostępnić w tej wersji aplikacji.';
+
+  @override
+  String get sharingRecipient => 'Kto może odebrać tę kopię?';
+
+  @override
+  String get sharingNamedRecipient => 'Tylko ta osoba (kod e-mail)';
+
+  @override
+  String get sharingEmail => 'E-mail odbiorcy';
+
+  @override
+  String get sharingEmailNotice =>
+      'Samodzielnie przekaż skopiowany link. Palladin wysyła e-mailem tylko kod weryfikacji, nie link. Dla każdej osoby utwórz osobny link.';
+
+  @override
+  String get sharingAnyoneTitle => 'Każdy, kto ma link';
+
+  @override
+  String get sharingAnyoneWarning =>
+      'Link można przekazać dalej. Limit odbiorów jest wspólny dla jego posiadaczy; każdy uprawniony odbiorca może zakończyć go dla wszystkich.';
+
+  @override
+  String get sharingSecretNotice =>
+      'Przekaż hasło lub PIN osobnym kanałem. Możesz połączyć je z kodem e-mail.';
+
+  @override
+  String get sharingPinWarning =>
+      'PIN jest słabszy od długiego hasła. Użyj co najmniej 6 cyfr; dla mocniejszej ochrony zalecamy hasło.';
+
+  @override
+  String get sharingLifetime => 'Ważność linku';
+
+  @override
+  String get sharingLifetimeHour => '1 godzina';
+
+  @override
+  String get sharingLifetimeDay => '1 dzień';
+
+  @override
+  String get sharingLifetimeThreeDays => '3 dni';
+
+  @override
+  String get sharingLifetimeWeek => '7 dni';
+
+  @override
+  String get sharingMaximumReceipts => 'Limit odbiorów';
+
+  @override
+  String get sharingNotifyChoice => 'Powiadom mnie o pierwszym odbiorze';
+
+  @override
+  String get sharingNotifyNotice =>
+      'Jeden komunikat w Inbox po potwierdzeniu wyświetlenia przez klienta odbiorcy. Audyt działa zawsze; to nie dowód przeczytania przez człowieka.';
+
+  @override
+  String get sharingCreateNotice =>
+      'To niezależna kopia, nie dostęp do sejfu. Późniejsze zmiany jej nie aktualizują. Odwołanie linku nie usuwa pobranych kopii.';
+
+  @override
+  String get sharingCancelNotice =>
+      'Jeśli wyjdziesz po wysłaniu żądania, sprawdź listę udostępnień: link mógł powstać mimo utraty odpowiedzi.';
+
+  @override
+  String get sharingEmailError => 'Podaj jeden poprawny adres e-mail odbiorcy.';
+
+  @override
+  String get sharingPasswordError =>
+      'Użyj 8–128 znaków. Spacje są częścią hasła.';
+
+  @override
+  String get sharingPinError => 'Użyj 6–128 cyfr (0–9), bez spacji.';
+
+  @override
+  String get sharingLimitError => 'Podaj liczbę całkowitą od 1 do 100.';
+
+  @override
+  String get sharingLifetimeError =>
+      'Wybierz jeden z dostępnych terminów ważności.';
+
+  @override
+  String get sharingSelectionError =>
+      'Wybierz co najmniej jedno dostępne pole i potwierdź podgląd.';
+
+  @override
+  String get sharingCreateError =>
+      'Nie udało się utworzyć linku. Sprawdź połączenie i spróbuj ponownie.';
+
+  @override
+  String get sharingSourceError =>
+      'Wpis się zmienił. Otwórz go ponownie i sprawdź pola przed udostępnieniem.';
+
+  @override
+  String get sharingSourceLoadError =>
+      'Nie udało się otworzyć wpisu do udostępnienia. Spróbuj ponownie po odblokowaniu.';
+
+  @override
+  String get sharingRetryNotice =>
+      'Wynik jest niepewny. Ponowienie wysyła tę samą zaszyfrowaną kopię i nie tworzy drugiego linku. Do tego czasu opcje pozostają zablokowane.';
+
+  @override
+  String get sharingRetryCreate => 'Ponów to samo żądanie';
+
+  @override
+  String get sharingCreated => 'Twój link jest gotowy';
+
+  @override
+  String get sharingCopyLink => 'Kopiuj link';
+
+  @override
+  String get sharingCopiedLink =>
+      'Link skopiowany. Schowek wyczyści się po 45 sekundach, jeśli jego zawartość się nie zmieni.';
+
+  @override
+  String get sharingCopyError =>
+      'Nie udało się skopiować linku. Spróbuj ponownie, pozostając na tym ekranie.';
+
+  @override
+  String get sharingLinkOnceNotice =>
+      'Skopiuj link przed wyjściem. Palladin nie odzyska później jego klucza odszyfrowania. Nadal możesz odwołać link na liście udostępnień.';
+
+  @override
+  String get sharingConfigurationError =>
+      'Udostępnianie nie jest skonfigurowane dla tego środowiska aplikacji. Nie utworzono linku.';
+
+  @override
+  String get sharingTotpSource => 'Dane konfiguracji 2FA';
+
+  @override
+  String get sharingHidePreview => 'Ukryj wartość';
+
+  @override
   String get sharingTab => 'Udostępnienia';
 
   @override
