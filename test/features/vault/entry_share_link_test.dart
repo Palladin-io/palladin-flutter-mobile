@@ -5,6 +5,57 @@ import 'package:mobile_palladin/features/vault/domain/entities/entry_share.dart'
 
 void main() {
   final invalid = throwsA(isA<EntryShareException>());
+  const shareId = '00112233-4455-4677-8899-aabbccddeeff';
+  final fragment = '#v=1&key=${'A' * 43}&access=${'A' * 43}';
+  final receiver = EntryShareLinkService(
+    EnvConfig.staging(sharingWebOrigin: 'https://stage.palladin.io'),
+  );
+  test(
+    'receiver parses only the configured exact link and owns wipeable bytes',
+    () {
+      final parsed = receiver.parse(
+        receiver.create(shareId: shareId, fragment: fragment),
+      );
+      expect(parsed.shareId, shareId);
+      expect(parsed.secrets.toFragment(), fragment);
+      parsed.secrets.dispose();
+      expect(parsed.secrets.key, everyElement(0));
+      expect(parsed.secrets.toFragment, invalid);
+    },
+  );
+  test('receiver rejects origin, path, query and normalized aliases', () {
+    for (final url in [
+      'http://stage.palladin.io/share/$shareId$fragment',
+      'https://palladin.io/share/$shareId$fragment',
+      'https://stage.palladin.io.evil.test/share/$shareId$fragment',
+      'https://stage.palladin.io@evil.test/share/$shareId$fragment',
+      'https://user@stage.palladin.io/share/$shareId$fragment',
+      'https://STAGE.palladin.io/share/$shareId$fragment',
+      'https://stage.palladin.io:443/share/$shareId$fragment',
+      'https://stage.palladin.io/share/../share/$shareId$fragment',
+      'https://stage.palladin.io/share/%30${shareId.substring(1)}$fragment',
+      'https://stage.palladin.io/share/$shareId/$fragment',
+      'https://stage.palladin.io/share/$shareId?redirect=/login$fragment',
+      'https://stage.palladin.io/share/${shareId.toUpperCase()}$fragment',
+      'https://stage.palladin.io/share/$shareId',
+      ' https://stage.palladin.io/share/$shareId$fragment',
+      'https://stage.palladin.io/share/$shareId$fragment\n',
+      'https://stage.palladin.io/share/$shareId${'x' * 2050}$fragment',
+    ]) {
+      expect(() => receiver.parse(url), invalid);
+    }
+  });
+  test('receiver errors never include an untrusted URL or fragment', () {
+    try {
+      receiver.parse(
+        'https://stage.palladin.io/share/$shareId#sentinel-secret',
+      );
+      fail('Invalid fragment accepted');
+    } catch (error) {
+      expect(error, isA<EntryShareException>());
+      expect(error.toString(), isNot(contains('sentinel-secret')));
+    }
+  });
   test('missing, insecure and non-origin configurations fail closed', () {
     for (final origin in [
       '',

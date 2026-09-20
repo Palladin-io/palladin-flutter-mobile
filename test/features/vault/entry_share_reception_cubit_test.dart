@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/entry_share_recipient_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_lifetime.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_secrets.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_bytes.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share.dart';
@@ -97,16 +98,18 @@ void main() {
     protection: protection,
   );
 
-  EntryShareReceptionCubit makeCubit() => EntryShareReceptionCubit(
-    remote: remote,
-    crypto: EntryShareCryptoService(sodiumLoader: () => sodiumLoader()),
-    shareId: _shareId,
-    secrets: secrets,
-    owner: _guest,
-    ownerReader: () => ownerReader(),
-    now: () => now,
-    elapsed: () => elapsed,
-  );
+  EntryShareReceptionCubit makeCubit({EntryShareLifetime? lifetime}) =>
+      EntryShareReceptionCubit(
+        remote: remote,
+        crypto: EntryShareCryptoService(sodiumLoader: () => sodiumLoader()),
+        shareId: _shareId,
+        secrets: secrets,
+        owner: _guest,
+        ownerReader: () => ownerReader(),
+        now: () => now,
+        elapsed: () => elapsed,
+        lifetime: lifetime,
+      );
 
   setUp(() {
     remote = _Remote();
@@ -166,6 +169,53 @@ void main() {
     cubit = makeCubit();
   });
   tearDown(() async => cubit.close());
+
+  test(
+    'ingress deadline survives mounting and a longer remote session',
+    () async {
+      await cubit.close();
+      secrets = EntryShareSecrets(
+        key: Uint8List(32)..fillRange(0, 32, 7),
+        accessToken: Uint8List(32)..fillRange(0, 32, 8),
+      );
+      final lifetime = EntryShareLifetime(
+        now: () => now,
+        elapsed: () => elapsed,
+      );
+      elapsed = const Duration(minutes: 14);
+      cubit = makeCubit(lifetime: lifetime);
+      expect(await cubit.open(), EntryShareReceptionOutcome.completed);
+      elapsed = const Duration(minutes: 15);
+      expect(await cubit.revalidate(), false);
+      expect(cubit.state.phase, EntryShareReceptionPhase.unavailable);
+      expect(secrets.key, everyElement(0));
+      expect(secrets.accessToken, everyElement(0));
+    },
+  );
+
+  test(
+    'expired ingress capability is wiped before any recipient request',
+    () async {
+      await cubit.close();
+      secrets = EntryShareSecrets(
+        key: Uint8List(32)..fillRange(0, 32, 7),
+        accessToken: Uint8List(32)..fillRange(0, 32, 8),
+      );
+      final lifetime = EntryShareLifetime(
+        now: () => now,
+        elapsed: () => elapsed,
+      );
+      elapsed = const Duration(minutes: 15);
+      cubit = makeCubit(lifetime: lifetime);
+      expect(cubit.state.phase, EntryShareReceptionPhase.unavailable);
+      expect(await cubit.open(), EntryShareReceptionOutcome.ignored);
+      verifyNever(
+        () => remote.open(any(), any(), cancelToken: any(named: 'cancelToken')),
+      );
+      expect(secrets.key, everyElement(0));
+      expect(secrets.accessToken, everyElement(0));
+    },
+  );
 
   test(
     'guest explicitly opens, decrypts native fixture, then separately confirms display',

@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/datasources/entry_share_recipient_datasource.dart';
 import '../../data/services/entry_sharing/entry_share_crypto_service.dart';
+import '../../data/services/entry_sharing/entry_share_lifetime.dart';
 import '../../data/services/entry_sharing/entry_share_secrets.dart';
 import '../../data/services/vault_protocol/vault_protocol_bytes.dart';
 import '../../domain/entities/entry_share.dart';
@@ -94,18 +95,20 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
     required Future<EntryShareRecipientOwner?> Function() ownerReader,
     DateTime Function()? now,
     Duration Function()? elapsed,
+    EntryShareLifetime? lifetime,
   }) : _remote = remote,
        _crypto = crypto,
        _shareId = shareId,
        _secrets = secrets,
        _owner = owner,
        _ownerReader = ownerReader,
-       _now = now ?? DateTime.now,
-       _elapsed = elapsed ?? (Stopwatch()..start()).elapsedGetter,
+       _lifetime = lifetime ?? EntryShareLifetime(now: now, elapsed: elapsed),
        super(const EntryShareReceptionState()) {
-    _wallDeadline = _now().add(_maximumLifetime);
-    _monotonicDeadline = _elapsed() + _maximumLifetime;
-    _expiry = Timer(_maximumLifetime, clear);
+    if (_lifetime.isLive) {
+      _expiry = Timer(_lifetime.remaining, clear);
+    } else {
+      clear();
+    }
   }
 
   final EntryShareRecipientDatasource _remote;
@@ -113,22 +116,18 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
   final String _shareId;
   final EntryShareRecipientOwner _owner;
   final Future<EntryShareRecipientOwner?> Function() _ownerReader;
-  final DateTime Function() _now;
-  final Duration Function() _elapsed;
+  final EntryShareLifetime _lifetime;
   EntryShareSecrets? _secrets;
   EntryShareRecipientSession? _session;
   final _cancel = CancelToken();
   Timer? _expiry;
-  late DateTime _wallDeadline;
-  late Duration _monotonicDeadline;
   int _epoch = 0, _otpGeneration = 0;
   int _visibilityGeneration = 0;
   int? _pendingOtp;
-  static const _maximumLifetime = Duration(minutes: 15);
 
   bool _live(int epoch) {
     if (isClosed || epoch != _epoch || _secrets == null) return false;
-    if (!_now().isBefore(_wallDeadline) || _elapsed() >= _monotonicDeadline) {
+    if (!_lifetime.isLive) {
       clear();
       return false;
     }
@@ -216,20 +215,17 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
       );
       if (!await _valid(epoch)) return;
       final expires = DateTime.tryParse(session.expiresAt);
-      if (expires == null || !expires.isAfter(_now())) {
+      if (expires == null) {
         clear();
         return;
       }
-      if (expires.isBefore(_wallDeadline)) {
-        _wallDeadline = expires;
-        final remaining = expires.difference(_now());
-        final deadline = _elapsed() + remaining;
-        if (deadline < _monotonicDeadline) _monotonicDeadline = deadline;
+      _lifetime.shortenTo(expires);
+      if (!_lifetime.isLive) {
+        clear();
+        return;
       }
       _expiry?.cancel();
-      final wall = _wallDeadline.difference(_now());
-      final monotonic = _monotonicDeadline - _elapsed();
-      _expiry = Timer(wall < monotonic ? wall : monotonic, clear);
+      _expiry = Timer(_lifetime.remaining, clear);
       _session = session;
       emit(
         state.copyWith(
@@ -392,8 +388,4 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
     clear();
     return super.close();
   }
-}
-
-extension on Stopwatch {
-  Duration elapsedGetter() => elapsed;
 }

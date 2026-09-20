@@ -15,6 +15,10 @@ It does not reuse source Entry/Vault keys. Selected-field projection, create POS
 the session-fenced creation Cubit and a separate sender form are wired from the
 list CTA. Guest reception has a tested page and isolated transport/Cubit, still
 awaiting its production ingress host, save/account continuation and real HTTP/device acceptance.
+Android intake and the Dart one-shot RAM handoff are now implemented separately;
+they are not yet connected to that receiver host. Original ingress deadlines
+survive mounting and can only shorten. iOS intake remains open; see the sharing
+document for the native plugin-retention boundary and verification limits.
 
 - `data/services/vault_protocol/` owns the frozen protocol primitives: strict canonical bytes/base64url/UUID validation, binary TLV AAD profiles, HKDF-SHA-256 projection keys, XChaCha20-Poly1305 envelopes, bounded X25519 sealed packages and RFC 8785/Ed25519 signatures. Widgets, Cubits and remote datasources must not reproduce these operations.
 - Native fixture tests consume the minimal public snapshot in `test/fixtures/vault_protocol_2/`, pinned to source commit `b370b56e4f65ecf5350bc4f9203fee6429572955` and verified against the manifest's SHA-256 list. `PROVENANCE.md` records the source digests and the single deterministic sanitization of an internal label in synthetic metadata. Tests always use the vendored snapshot, so a parent or private repository checkout is never required.
