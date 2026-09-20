@@ -1,9 +1,60 @@
 # Individual Entry sharing — CVT-644 (in progress)
 
 The mobile snapshot crypto boundary, sender list/revoke tab and creation page
-are implemented on the feature branch. Guest receiver screens, remaining public
-HTTP lifecycle, save-copy/account continuation, native ingress and Inbox/audit
-are not yet connected. Local tests are not evidence of deployed end-to-end sharing.
+are implemented on the feature branch. The isolated guest transport and reception
+Cubit are tested foundations, not yet connected to receiver screens. Save-copy/
+account continuation, native ingress and Inbox/audit remain pending. Local tests
+are not evidence of deployed end-to-end sharing.
+
+## Guest reception boundary
+
+`EntryShareRecipientDatasource` owns a separate Dio/IO transport, never the
+authenticated singleton. It has no auth/refresh, cookies, analytics or HTTP
+logging interceptors and never follows redirects or automatically retries.
+System certificate trust and configured environment SPKI pins still apply.
+Only explicit POST methods exist: session open, OTP request/verification,
+optional secret verification, delivery, display confirmation and ending the link.
+Capability/proof strings are request bodies, never URLs or headers. The decryption
+key is not a transport input. Errors expose only a typed, value-free exception.
+Responses are bounded streams (16 KiB metadata; 512 KiB delivery, allowing a
+base64-encoded 256 KiB ciphertext and scope), decoded locally with strict UTF-8.
+Those are device resource budgets, not duplicated server business rules.
+Cancellation covers both awaiting headers and consuming a streamed response;
+buffer cleanup and stream cancellation run on every exit.
+
+`EntryShareReceptionCubit` owns one transport, link capability and recipient
+session. The hosting page must supply an independently captured owner record and
+reader (guest is an explicit nullable-principal record, not absent authority).
+Every success/error and post-await publication rechecks that owner, generation
+and expiry. Clear/dispose cancels and closes the transport, wipes key/bearer arrays
+and drops the recipient token and plaintext references. The page must still wire
+background, lock, account/permission/key changes, route departure and immediate
+revalidation; having the Cubit alone does not establish those UI boundaries.
+
+No network call occurs on construction. Open and each subsequent operation are
+explicit. Named recipient OTP and optional password/PIN must both succeed before
+the client offers delivery/end; the server remains the authorization boundary.
+Unknown future gate values stay readable without enabling an unsupported action.
+OTP send retry retains its pending generation and blocks verification with an
+older code until the send resolves. Delivery retry reuses the same session and
+never opens another one. Confirmation is a separate action after display, never
+automatic on decryption; failed confirmation retains the copy and retries only
+confirmation. Ending drops the copy locally only after an authorized success.
+
+Crypto consumes the canonical delivery scope and independently requested share ID
+through `EntryShareCryptoService`; failed authentication retires the capability,
+not a fallback plaintext path. A 15-minute local RAM ceiling starts when the Cubit
+takes ownership and can only shorten to session expiry. Both wall and monotonic clocks
+are checked before actions and after awaits, so clock rollback or delayed timers
+cannot extend it. Invalid/unusable expiry fails closed for this local secret
+lifetime boundary. Immutable Dart strings can be dropped, not securely zeroed.
+
+Tests cover 19 actual loopback-HTTP cases and 24 reception/native-crypto cases:
+all request contracts, redirects/cookies, malformed/oversize bodies, cancellation
+before/after headers, optional gates, exact retry, separate ACK, concurrency,
+scope substitution, delayed crypto and both success/error after owner changes.
+The loopback server is a synthetic fixture, not the Palladin API or real email
+provider. Screen mounting, auth/save continuation and device E2E remain required.
 
 ## Sender creation boundary
 
