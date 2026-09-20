@@ -3,7 +3,9 @@
 The mobile snapshot crypto boundary, sender list/revoke tab and creation page
 are implemented on the feature branch. The isolated guest transport and reception
 Cubit now have a mounted/tested receiver page, but no production route or native
-ingress host yet. Save-copy/account continuation and Inbox/audit remain pending. Local tests
+ingress host yet. Android has an isolated native intake and Dart has a tested RAM
+handoff, still not wired to the app/router. iOS intake, save-copy/account
+continuation and Inbox/audit remain pending. Local tests
 are not evidence of deployed end-to-end sharing.
 
 ## Guest reception boundary
@@ -44,8 +46,10 @@ confirmation. Ending drops the copy locally only after an authorized success.
 
 Crypto consumes the canonical delivery scope and independently requested share ID
 through `EntryShareCryptoService`; failed authentication retires the capability,
-not a fallback plaintext path. A 15-minute local RAM ceiling starts when the Cubit
-takes ownership and can only shorten to session expiry. Both wall and monotonic clocks
+not a fallback plaintext path. `EntryShareLifetime` carries the original 15-minute
+RAM ceiling from ingress through reception and can only shorten to session expiry.
+The ingress host must pass that same instance to the Cubit; constructing a new
+deadline on mounting or resuming is not a continuation. Both wall and monotonic clocks
 are checked before actions and after awaits, so clock rollback or delayed timers
 cannot extend it. Invalid/unusable expiry fails closed for this local secret
 lifetime boundary. Immutable Dart strings can be dropped, not securely zeroed.
@@ -98,6 +102,64 @@ including the destructive sheet and keyboard. They are not physical-device or
 real API/email evidence. The future ingress host must pass only a RAM-owned
 capability, wait for stable auth/foreground, and never put the fragment in routes,
 logs or analytics; installing this page alone does not fulfill native link handling.
+
+## Native intake and RAM handoff (partially wired)
+
+`EntryShareLinkService.parse` compares the original bounded URL against the exact
+configured origin and canonical share UUID/fragment. It rejects URI-normalized
+aliases, queries, credentials, alternate hosts/ports, escaped paths and extra
+fragment fields before transferring owned key/bearer bytes. Errors remain typed
+and value-free; the full URL never becomes a route or display value.
+
+`EntryShareIngress` owns one unclaimed capability and listens on
+`io.palladin.mobile/entry-sharing`. Native `pending` messages contain only a
+monotonic generation. `takePending` transfers the URL once together with
+`generation`, `receivedAtUnixMs` and `ageMilliseconds`; no parameters are sent.
+An empty/invalidated native slot returns its generation without a URL. Newer
+announcements invalidate the previous Dart generation immediately, even before
+the new payload arrives. Delayed older replies, duplicate events, disposal and
+explicit clear cannot revive it. Native residence, conservative channel wait and
+subsequent Dart residence all count against the same wall/monotonic deadline.
+Expiry wipes unclaimed buffers. Taking is version-fenced and one-shot; the host
+then owns disposal and must clear an active Cubit on every version change.
+
+Android uses a separate `EntryShareLinkActivity` with no saved state/history,
+excluded from Recents and its own single-instance task. It clears its local
+Intent before `super.onCreate`, accepts only the configured canonical HTTPS
+sharing URL, publishes to the process-memory `EntryShareMailbox`, starts
+MainActivity without URL/extras and removes its temporary task. History restore
+does not replay the link. MainActivity rejects direct HTTP(S), sharing and
+fragment-bearing Intents before Flutter/plugin callbacks. The default Flutter
+deep-link handler is disabled. A channel attachment fence prevents an older
+Activity's disposal from detaching a newer engine; the pending mailbox's finite
+timer survives reattachment and `takePending` removes its copy.
+
+The Android Gradle property `PALLADIN_SHARING_HOST` defaults to `sharing.invalid`.
+An approved build must provide the exact host matching the independently checked
+Dart `PALLADIN_SHARING_WEB_ORIGIN`, plus the matching public domain association.
+The manifest is narrowly scoped to HTTPS `/share/`; it deliberately does not
+upgrade HTTP secret links. No Palladin cloud host is a runnable default here.
+
+This bypass is required because installed `app_links` 6.4.1 retains initial/latest
+URLs and its Android handler logs `Intent.toString()`. It remains in use for
+existing non-sharing email verification; the generic Dart unknown-host log is
+now value-free, but this work does not claim a complete audit of that legacy
+email/native path. **iOS interception, app-owned ingress/route mounting, real
+domain association and device/mail/browser acceptance are still missing.**
+Do not enable sharing release on the basis of these unit tests. No attempt is
+made to erase browser/OS-originated copies outside Palladin's control, and native
+or Dart immutable URL strings can only be dropped, not securely zeroed.
+
+Verification: 14 channel/handoff tests, eight deadline tests, three added parser
+tests, two reception deadline-continuity tests and eight JVM mailbox tests.
+Full Flutter suite: 1,520 PASS / two existing plugin-only skips; analyze, notices
+and six structural budgets PASS. A standalone compiler check covers the two new
+Kotlin intake files against Android/Flutter APIs, using stand-ins only for the
+generated R and MainActivity symbol. It is not a complete native app compilation
+or device test. No APK/IPA, CI or deployment was run.
+
+Platform references: [Flutter deep-link opt-out](https://docs.flutter.dev/ui/navigation/deep-linking)
+and [Android App Link verification](https://developer.android.com/training/app-links/add-applinks).
 
 ## Sender creation boundary
 
@@ -272,8 +334,9 @@ Changing any scope component (including one nanosecond) rejects authentication.
 the fragment serializer unusable. The exact fragment is
 `#v=1&key={canonical-unpadded-base64url}&access={canonical-unpadded-base64url}`.
 Aliases, reordering, duplicate/unknown fields, padding and nonzero unused bits are
-rejected. No persistence API exists. Full URL/domain validation and native ingress
-scrubbing remain separate required work; this parser does not itself install a
+rejected. No persistence API exists. Full URL validation belongs to
+`EntryShareLinkService`; complete native ingress wiring/scrubbing remains
+required work. The fragment parser does not itself install a
 deep-link handler or authorize a host.
 
 Crypto copies a borrowed decryption key before its first await and wipes that

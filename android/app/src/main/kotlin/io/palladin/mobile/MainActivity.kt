@@ -1,19 +1,45 @@
 package io.palladin.mobile
 
 import android.os.Build
+import android.os.Bundle
+import android.content.Intent
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.MethodChannel
 import io.palladin.mobile.autofill.AutoFillCacheStore
 import io.palladin.mobile.export.ProtectedExportStore
+import io.palladin.mobile.sharing.EntryShareIngressBridge
 import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val cacheExecutor = Executors.newSingleThreadExecutor()
     private val exportExecutor = Executors.newSingleThreadExecutor()
+    private var sharingAttachment: Any? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        intent = sanitizeDirectIntent(intent)
+        super.onCreate(savedInstanceState)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(sanitizeDirectIntent(intent))
+    }
+
+    private fun sanitizeDirectIntent(source: Intent): Intent {
+        val uri = source.data ?: return source
+        if (uri.scheme == "https" || uri.scheme == "http" ||
+            uri.fragment != null || uri.host == "share" || uri.path?.startsWith("/share") == true
+        ) {
+            // Sharing enters only through the no-history activity, before plugins.
+            EntryShareIngressBridge.offer(this, null)
+            return Intent(this, MainActivity::class.java)
+        }
+        return source
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        sharingAttachment = EntryShareIngressBridge.attach(flutterEngine.dartExecutor.binaryMessenger)
         val cacheStore = AutoFillCacheStore(applicationContext)
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -137,6 +163,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        EntryShareIngressBridge.detach(sharingAttachment)
         cacheExecutor.shutdownNow()
         exportExecutor.shutdownNow()
         super.onDestroy()

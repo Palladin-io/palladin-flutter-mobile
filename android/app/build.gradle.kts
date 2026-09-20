@@ -14,6 +14,10 @@ val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 val hasReleaseKeystore = keystorePropertiesFile.exists()
 val isCiBuild = System.getenv("CI") == "true"
+val entrySharingHost = providers.gradleProperty("PALLADIN_SHARING_HOST").orElse("sharing.invalid").get()
+require(entrySharingHost.matches(Regex("[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?"))) {
+    "PALLADIN_SHARING_HOST must be a bare lowercase DNS host"
+}
 
 if (hasReleaseKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
@@ -39,6 +43,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["entrySharingHost"] = entrySharingHost
+        resValue("string", "entry_sharing_host", entrySharingHost)
     }
 
     flavorDimensions += "environment"
