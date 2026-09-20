@@ -22,6 +22,7 @@ import '../cubit/entry_history_cubit.dart';
 import 'entry_agents_tab.dart';
 import 'entry_details_tab.dart';
 import 'entry_history_tab.dart';
+import 'entry_sharing_tab.dart';
 
 /// Result of [EntryDetailPage.push].
 sealed class EntryDetailResult {}
@@ -150,6 +151,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
   static const int _agentsTabIndex = 1;
   static const int _logsTabIndex = 2;
   static const int _historyTabIndex = 3;
+  static const int _sharingTabIndex = 4;
 
   // Last tab index reported to analytics — dedupes the multiple listener
   // callbacks a single switch fires during the indicator animation.
@@ -160,7 +162,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     super.initState();
     _lastTrackedTab = widget.openAgentsTab ? _agentsTabIndex : 0;
     _tabController =
-        TabController(length: 4, vsync: this, initialIndex: _lastTrackedTab)
+        TabController(length: 5, vsync: this, initialIndex: _lastTrackedTab)
           // Rebuild so the FAB shows only on the Agents tab.
           ..addListener(_onTabChanged);
   }
@@ -176,7 +178,7 @@ class _EntryDetailViewState extends State<_EntryDetailView>
     if (index == _historyTabIndex) {
       context.read<EntryHistoryCubit>().open(_entry);
     }
-    const tabNames = ['details', 'agents', 'logs', 'history'];
+    const tabNames = ['details', 'agents', 'logs', 'history', 'sharing'];
     AnalyticsService.instance.capture(
       'entry',
       'detail-tab-switched',
@@ -294,6 +296,11 @@ class _EntryDetailViewState extends State<_EntryDetailView>
                   ),
                 ),
                 EntryHistoryTab(entry: _entry, onUpdated: _onUpdated),
+                EntrySharingTab(
+                  key: ValueKey('sharing-${_entry.vaultId}-${_entry.id}'),
+                  entry: _entry,
+                  active: _tabController.index == _sharingTabIndex,
+                ),
               ],
             ),
           ),
@@ -403,6 +410,7 @@ class _EntryDetailAppBar extends StatelessWidget
               Tab(text: l10n.vaultTabAgents),
               Tab(text: l10n.vaultTabLogs),
               Tab(text: l10n.entryTabHistory),
+              Tab(text: l10n.sharingTab),
             ],
           ),
         ),

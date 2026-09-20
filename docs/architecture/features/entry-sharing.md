@@ -1,9 +1,44 @@
 # Individual Entry sharing — CVT-644 (in progress)
 
-This increment implements only the mobile snapshot crypto boundary. Sender and
-guest receiver screens, HTTP lifecycle, save-copy/account continuation, native
-link ingress and Inbox/audit presentation are not yet connected. Passing primitive
-tests is not evidence that sharing works in the application.
+The mobile snapshot crypto boundary and sender list/revoke tab are implemented
+on the feature branch. Creation and guest receiver screens, the remaining HTTP
+lifecycle, save-copy/account continuation, native ingress and Inbox/audit are not
+yet connected. Local tests are not evidence of deployed end-to-end sharing.
+
+## Sender list and revocation
+
+Entry Detail has a fifth Sharing tab, separate from Details, Agents, Logs and
+History. `EntrySharingTab` owns its `EntrySharingCubit` and mounts no shared global
+metadata cache. The authenticated `EntrySharingRemoteDatasource` calls the scoped
+GET list and body-less DELETE routes; every request has a cancellation token and
+disables redirects. JSON is decoded within the redacted feature boundary so
+parser excerpts cannot reach shared transport logging. Neither route uses an
+Entry/Vault encryption key or sends decrypted Entry content.
+
+Cards distinguish delivery count/limit, first/last delivery and first display
+confirmation. They show finite expiry, optional protection, notification choice
+and stale-source warning. Unavailable timestamps display a dash; additive fields
+and future server statuses/protection remain readable. Unknown statuses do not
+enable a guessed mutation. All copy is EN/PL and shared theme/spacing tokens and
+sheet controls are reused. Explicit revocation confirmation explains that old
+copies cannot be recalled or an external password changed.
+
+Only the visible foreground tab requests metadata, with 30-second repair and
+explicit cursor pagination/retry. Background, tab departure, lock, account/key
+replacement, permission loss and disposal cancel requests and drop rows and any
+open confirmation. The Cubit binds its first valid principal/organization,
+authorization generation and memory key generation. It checks that authority
+before requests and before either success or failure can publish. A replacement
+session cannot silently rebind an existing Entry surface. Revocation completion
+re-fetches the list instead of inventing a server status. No plaintext persistence
+or feature page-view analytics is introduced.
+
+`entry_sharing_list_test.dart` uses real Dio request encoding with a test adapter,
+controlled session/race tests and mounted widget interactions. It covers retry,
+confirmation/cancel, active/background polling, unknown statuses and 320px EN/PL
+layout including dark mode and 150% text. Two tests reproduced stale metadata
+restoration on the error path after organization replacement before the fix.
+Device visual review and real HTTP/API acceptance remain required.
 
 ## Independent encrypted snapshot
 
