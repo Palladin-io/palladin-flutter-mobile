@@ -9,6 +9,104 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get sharingTab => 'Udostępnienia';
+
+  @override
+  String get sharingListNotice =>
+      'Linki zawierają niezależne kopie. Wydanie paczki i potwierdzenie wyświetlenia są osobne; żadne nie dowodzi przeczytania wpisu przez człowieka.';
+
+  @override
+  String get sharingEmpty => 'Ten wpis nie ma jeszcze linków udostępniania.';
+
+  @override
+  String get sharingUnavailable =>
+      'Udostępnienia są niedostępne w tej sesji. Otwórz wpis ponownie po odblokowaniu.';
+
+  @override
+  String get sharingLoadError => 'Nie udało się wczytać linków udostępniania.';
+
+  @override
+  String get sharingRevokeError =>
+      'Nie udało się odwołać linku. Sprawdź jego status i spróbuj ponownie.';
+
+  @override
+  String get sharingRevoke => 'Odwołaj link';
+
+  @override
+  String get sharingRevokeNotice =>
+      'To zatrzyma kolejne odbiory przez link. Nie usunie pobranych kopii ani nie zmieni hasła w zewnętrznym serwisie.';
+
+  @override
+  String get sharingRevoked => 'Link udostępniania odwołany.';
+
+  @override
+  String get sharingRefresh => 'Odśwież';
+
+  @override
+  String get sharingAnyone => 'Każdy, kto ma link';
+
+  @override
+  String get sharingActive => 'Aktywny';
+
+  @override
+  String get sharingRevokedStatus => 'Odwołany';
+
+  @override
+  String get sharingExpired => 'Wygasły';
+
+  @override
+  String get sharingSuspended => 'Zawieszony';
+
+  @override
+  String get sharingLocked => 'Tymczasowo zablokowany';
+
+  @override
+  String get sharingConsumed => 'Limit odbiorów wykorzystany';
+
+  @override
+  String get sharingProtectionNone => 'Bez dodatkowego sekretu';
+
+  @override
+  String get sharingProtectionPassword => 'Hasło';
+
+  @override
+  String get sharingProtectionPin => 'PIN';
+
+  @override
+  String get sharingValidUntil => 'Link ważny do';
+
+  @override
+  String get sharingReceipts => 'Odbiory / limit';
+
+  @override
+  String get sharingFirstDelivery => 'Pierwsze wydanie paczki';
+
+  @override
+  String get sharingLastDelivery => 'Ostatnie wydanie paczki';
+
+  @override
+  String get sharingConfirmation => 'Pierwsze potwierdzenie wyświetlenia';
+
+  @override
+  String get sharingProtection => 'Dodatkowe zabezpieczenie';
+
+  @override
+  String get sharingNotification => 'Powiadomienie o pierwszym odbiorze';
+
+  @override
+  String get sharingNotificationOn => 'Włączone — jeden komunikat w Inbox';
+
+  @override
+  String get sharingNotificationOff => 'Wyłączone';
+
+  @override
+  String get sharingSourceChangedTitle => 'Źródło zmienione';
+
+  @override
+  String get sharingSourceChanged =>
+      'Ta kopia nie aktualizuje się po zmianie oryginalnego wpisu. Odwołaj ją, jeśli nie powinna być już dostępna.';
+
+  @override
   String get responseUnknownValue => 'Nieznane';
 
   @override

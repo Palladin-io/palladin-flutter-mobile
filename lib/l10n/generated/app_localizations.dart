@@ -98,6 +98,192 @@ abstract class AppLocalizations {
     Locale('pl'),
   ];
 
+  /// No description provided for @sharingTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing'**
+  String get sharingTab;
+
+  /// No description provided for @sharingListNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Links contain independent copies. Delivery and display confirmation are separate; neither proves a person read the entry.'**
+  String get sharingListNotice;
+
+  /// No description provided for @sharingEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No sharing links for this entry.'**
+  String get sharingEmpty;
+
+  /// No description provided for @sharingUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing is unavailable in this session. Reopen the entry after unlocking.'**
+  String get sharingUnavailable;
+
+  /// No description provided for @sharingLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load sharing links.'**
+  String get sharingLoadError;
+
+  /// No description provided for @sharingRevokeError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not revoke the link. Check its status and try again.'**
+  String get sharingRevokeError;
+
+  /// No description provided for @sharingRevoke.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke link'**
+  String get sharingRevoke;
+
+  /// No description provided for @sharingRevokeNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'This stops future access through the link. It cannot remove downloaded copies or change the password in another service.'**
+  String get sharingRevokeNotice;
+
+  /// No description provided for @sharingRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing link revoked.'**
+  String get sharingRevoked;
+
+  /// No description provided for @sharingRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get sharingRefresh;
+
+  /// No description provided for @sharingAnyone.
+  ///
+  /// In en, this message translates to:
+  /// **'Anyone with the link'**
+  String get sharingAnyone;
+
+  /// No description provided for @sharingActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get sharingActive;
+
+  /// No description provided for @sharingRevokedStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked'**
+  String get sharingRevokedStatus;
+
+  /// No description provided for @sharingExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get sharingExpired;
+
+  /// No description provided for @sharingSuspended.
+  ///
+  /// In en, this message translates to:
+  /// **'Suspended'**
+  String get sharingSuspended;
+
+  /// No description provided for @sharingLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Temporarily locked'**
+  String get sharingLocked;
+
+  /// No description provided for @sharingConsumed.
+  ///
+  /// In en, this message translates to:
+  /// **'Receipt limit reached'**
+  String get sharingConsumed;
+
+  /// No description provided for @sharingProtectionNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No additional secret'**
+  String get sharingProtectionNone;
+
+  /// No description provided for @sharingProtectionPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get sharingProtectionPassword;
+
+  /// No description provided for @sharingProtectionPin.
+  ///
+  /// In en, this message translates to:
+  /// **'PIN'**
+  String get sharingProtectionPin;
+
+  /// No description provided for @sharingValidUntil.
+  ///
+  /// In en, this message translates to:
+  /// **'Link valid until'**
+  String get sharingValidUntil;
+
+  /// No description provided for @sharingReceipts.
+  ///
+  /// In en, this message translates to:
+  /// **'Receipts / limit'**
+  String get sharingReceipts;
+
+  /// No description provided for @sharingFirstDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'First delivery'**
+  String get sharingFirstDelivery;
+
+  /// No description provided for @sharingLastDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'Last delivery'**
+  String get sharingLastDelivery;
+
+  /// No description provided for @sharingConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'First display confirmation'**
+  String get sharingConfirmation;
+
+  /// No description provided for @sharingProtection.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional protection'**
+  String get sharingProtection;
+
+  /// No description provided for @sharingNotification.
+  ///
+  /// In en, this message translates to:
+  /// **'First-receipt notification'**
+  String get sharingNotification;
+
+  /// No description provided for @sharingNotificationOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled — one Inbox notification'**
+  String get sharingNotificationOn;
+
+  /// No description provided for @sharingNotificationOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get sharingNotificationOff;
+
+  /// No description provided for @sharingSourceChangedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Source changed'**
+  String get sharingSourceChangedTitle;
+
+  /// No description provided for @sharingSourceChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'This copy does not update when the original entry changes. Revoke it if it should no longer be available.'**
+  String get sharingSourceChanged;
+
   /// No description provided for @responseUnknownValue.
   ///
   /// In en, this message translates to:

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
+import '../../features/vault/data/datasources/entry_sharing_remote_datasource.dart';
 import '../../config/env_config.dart';
 import '../crypto/vault_session_store.dart';
 import '../identity/organization_member_directory_service.dart';
@@ -529,6 +530,9 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<TotpService>(() => const TotpService());
   getIt.registerLazySingleton<EntryRemoteDatasource>(
     () => EntryRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<EntrySharingRemoteDatasource>(
+    () => EntrySharingRemoteDatasource(getIt<Dio>()),
   );
   getIt.registerLazySingleton<LocalCurrentEntryService>(
     () => LocalCurrentEntryService(

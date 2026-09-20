@@ -9,6 +9,104 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get sharingTab => 'Sharing';
+
+  @override
+  String get sharingListNotice =>
+      'Links contain independent copies. Delivery and display confirmation are separate; neither proves a person read the entry.';
+
+  @override
+  String get sharingEmpty => 'No sharing links for this entry.';
+
+  @override
+  String get sharingUnavailable =>
+      'Sharing is unavailable in this session. Reopen the entry after unlocking.';
+
+  @override
+  String get sharingLoadError => 'Could not load sharing links.';
+
+  @override
+  String get sharingRevokeError =>
+      'Could not revoke the link. Check its status and try again.';
+
+  @override
+  String get sharingRevoke => 'Revoke link';
+
+  @override
+  String get sharingRevokeNotice =>
+      'This stops future access through the link. It cannot remove downloaded copies or change the password in another service.';
+
+  @override
+  String get sharingRevoked => 'Sharing link revoked.';
+
+  @override
+  String get sharingRefresh => 'Refresh';
+
+  @override
+  String get sharingAnyone => 'Anyone with the link';
+
+  @override
+  String get sharingActive => 'Active';
+
+  @override
+  String get sharingRevokedStatus => 'Revoked';
+
+  @override
+  String get sharingExpired => 'Expired';
+
+  @override
+  String get sharingSuspended => 'Suspended';
+
+  @override
+  String get sharingLocked => 'Temporarily locked';
+
+  @override
+  String get sharingConsumed => 'Receipt limit reached';
+
+  @override
+  String get sharingProtectionNone => 'No additional secret';
+
+  @override
+  String get sharingProtectionPassword => 'Password';
+
+  @override
+  String get sharingProtectionPin => 'PIN';
+
+  @override
+  String get sharingValidUntil => 'Link valid until';
+
+  @override
+  String get sharingReceipts => 'Receipts / limit';
+
+  @override
+  String get sharingFirstDelivery => 'First delivery';
+
+  @override
+  String get sharingLastDelivery => 'Last delivery';
+
+  @override
+  String get sharingConfirmation => 'First display confirmation';
+
+  @override
+  String get sharingProtection => 'Additional protection';
+
+  @override
+  String get sharingNotification => 'First-receipt notification';
+
+  @override
+  String get sharingNotificationOn => 'Enabled — one Inbox notification';
+
+  @override
+  String get sharingNotificationOff => 'Disabled';
+
+  @override
+  String get sharingSourceChangedTitle => 'Source changed';
+
+  @override
+  String get sharingSourceChanged =>
+      'This copy does not update when the original entry changes. Revoke it if it should no longer be available.';
+
+  @override
   String get responseUnknownValue => 'Unknown';
 
   @override
