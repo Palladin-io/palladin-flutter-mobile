@@ -1,9 +1,52 @@
 # Individual Entry sharing — CVT-644 (in progress)
 
-The mobile snapshot crypto boundary and sender list/revoke tab are implemented
-on the feature branch. Creation and guest receiver screens, the remaining HTTP
-lifecycle, save-copy/account continuation, native ingress and Inbox/audit are not
-yet connected. Local tests are not evidence of deployed end-to-end sharing.
+The mobile snapshot crypto boundary, sender list/revoke tab and headless creation
+flow are implemented on the feature branch. The creation form and guest receiver
+screens, remaining public HTTP lifecycle, save-copy/account continuation, native
+ingress and Inbox/audit are not yet connected. Local tests are not evidence of
+deployed end-to-end sharing.
+
+## Sender creation boundary
+
+`EntryShareSelectionService` projects the authenticated current snapshot returned
+by `LocalCurrentEntryService`, not permissive legacy payload constructors. Native
+fields are allowlisted per Entry type. TOTP, description, notes, billing address
+and every custom field are off by default, regardless of Agent visibility. Native
+labels are empty for UI localization; custom labels and selected values retain
+their exact strings. Unsupported field types/values remain explicitly unavailable
+and cannot be selected. Missing/duplicate custom identity fails without inventing
+an ID. The full TOTP configuration is encoded as an `otpauth` URI only when its
+fields are supported exactly; no silent algorithm/period/seed normalization is
+performed. Script refs, execution policy, history and source keys are never copied.
+
+`EntryShareCreationOptions` validates user form input: named email is the default,
+additional protection is optional, password is 8–128 characters, PIN is 6–128 ASCII
+digits, lifetime choices are 1/24/72/168 hours and the receipt limit is 1–100. Email
+and receipt-count input are trimmed; protection secrets are deliberately exact.
+Changing to anyone mode drops a stale email; choosing no protection drops a stale
+secret. The explicit create serializer has no decryption-key or plaintext field.
+The authenticated datasource exposes challenge/create POSTs with cancellation,
+no redirects/no-store and redacted feature-level errors.
+
+`EntryShareCreationCubit` binds its initial principal/organization/authorization
+and memory-key generation. Source scope/revision is independently compared with
+the requested Entry and session; the challenge revision must match before crypto.
+The original mutable source maps are cleared even when a delayed read is rejected.
+Crypto uses the challenge ID plus independent source scope and selected expiry.
+An ambiguous create error retains one exact immutable request and key capability
+in RAM. Only explicit retry reuses it; changed options or repeated taps cannot
+issue another challenge or create a different ciphertext. Success drops the input
+selection and protection request and returns the fragment once; disposal, explicit
+clear or finite expiry removes it. Every await and error publication checks the
+owning session. Late material is disposed instead of entering state.
+
+The future creation page must supply the canonical source reader with a copied
+private key wiped in `finally`, connect lock/background/navigation to `clear`,
+validate the configured first-party link origin and offer preview/copy controls.
+These callbacks are not wired by the headless Cubit itself. Tests cover native
+crypto roundtrip, byte-identical retry, source substitution, cancellation at read,
+challenge/crypto/POST, success/error session replacement and expiry. They do not
+prove actual HTTP delivery or device UI behavior.
 
 ## Sender list and revocation
 
@@ -57,9 +100,9 @@ field type downgrade fail closed. This is validation of independently decrypted
 input, not revalidation of backend-owned domain state.
 
 The explicit serializer cannot include source policies, history, grants, keys or
-Script references. The future sender projector must still require explicit field
-selection and leave TOTP, notes and all custom fields off by default. Values are
-never trimmed or Unicode-normalized by this layer. Snapshot lists are immutable.
+Script references. The sender projector requires explicit field selection and
+leaves TOTP, notes and all custom fields off by default. Values are never trimmed
+or Unicode-normalized by this layer. Snapshot lists are immutable.
 
 Nonce and ciphertext use canonical padded base64; ciphertext including its
 16-byte tag is limited to 262,144 bytes. Decode bounds apply before native crypto.
@@ -125,6 +168,6 @@ Negative cases cover scope/key/nonce/ciphertext substitution, invalid authentica
 plaintext, byte limits, malformed encodings, UTF-8, field types and redacted errors.
 See [fixture provenance](../../../test/fixtures/crypto/ENTRY-SHARE-PROVENANCE.md).
 
-Real web↔mobile HTTP flows, sender field projection, public transport isolation,
+Real web↔mobile HTTP flows, sender form wiring, public transport isolation,
 limit=1 account/save continuation, physical-device Universal/App Links, visual
 acceptance and the user test environment remain release gates.

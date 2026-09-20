@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import '../../domain/entities/entry_share_creation.dart';
 import '../../domain/entities/entry_share_list.dart';
 
 class EntrySharingRemoteDatasource {
@@ -16,6 +17,46 @@ class EntrySharingRemoteDatasource {
     followRedirects: false,
     headers: {'Cache-Control': 'no-store'},
   );
+
+  Future<EntryShareCreationChallenge> challenge(
+    String vaultId,
+    String entryId, {
+    required CancelToken cancelToken,
+  }) async {
+    try {
+      final response = await _dio.post<String>(
+        '${_path(vaultId, entryId)}/creation-challenge',
+        options: _options,
+        cancelToken: cancelToken,
+      );
+      final data = jsonDecode(response.data!) as Map<String, dynamic>;
+      return EntryShareCreationChallenge(
+        shareId: data['shareId'] as String,
+        sourceRevision: data['sourceRevision'] as String,
+        expiresAt: data['expiresAt'] as String,
+      );
+    } catch (_) {
+      throw const EntrySharingRequestException();
+    }
+  }
+
+  Future<void> create(
+    String vaultId,
+    String entryId,
+    EntryShareCreationRequest request, {
+    required CancelToken cancelToken,
+  }) async {
+    try {
+      await _dio.post<void>(
+        _path(vaultId, entryId),
+        data: request.toJson(),
+        options: _options,
+        cancelToken: cancelToken,
+      );
+    } catch (_) {
+      throw const EntrySharingRequestException();
+    }
+  }
 
   Future<EntrySharesPage> list(
     String vaultId,
