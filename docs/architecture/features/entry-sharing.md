@@ -2,8 +2,8 @@
 
 The mobile snapshot crypto boundary, sender list/revoke tab and creation page
 are implemented on the feature branch. The isolated guest transport and reception
-Cubit are tested foundations, not yet connected to receiver screens. Save-copy/
-account continuation, native ingress and Inbox/audit remain pending. Local tests
+Cubit now have a mounted/tested receiver page, but no production route or native
+ingress host yet. Save-copy/account continuation and Inbox/audit remain pending. Local tests
 are not evidence of deployed end-to-end sharing.
 
 ## Guest reception boundary
@@ -27,9 +27,10 @@ session. The hosting page must supply an independently captured owner record and
 reader (guest is an explicit nullable-principal record, not absent authority).
 Every success/error and post-await publication rechecks that owner, generation
 and expiry. Clear/dispose cancels and closes the transport, wipes key/bearer arrays
-and drops the recipient token and plaintext references. The page must still wire
-background, lock, account/permission/key changes, route departure and immediate
-revalidation; having the Cubit alone does not establish those UI boundaries.
+and drops the recipient token and plaintext references. The receiver page wires
+lock, account/permission/key changes, route departure and immediate revalidation.
+Its only background-retention exception is the pre-delivery email detour below;
+this does not retain decrypted Entry content.
 
 No network call occurs on construction. Open and each subsequent operation are
 explicit. Named recipient OTP and optional password/PIN must both succeed before
@@ -49,12 +50,54 @@ are checked before actions and after awaits, so clock rollback or delayed timers
 cannot extend it. Invalid/unusable expiry fails closed for this local secret
 lifetime boundary. Immutable Dart strings can be dropped, not securely zeroed.
 
-Tests cover 19 actual loopback-HTTP cases and 24 reception/native-crypto cases:
+Tests cover 19 actual loopback-HTTP cases and 31 reception/native-crypto cases:
 all request contracts, redirects/cookies, malformed/oversize bodies, cancellation
 before/after headers, optional gates, exact retry, separate ACK, concurrency,
 scope substitution, delayed crypto and both success/error after owner changes.
 The loopback server is a synthetic fixture, not the Palladin API or real email
-provider. Screen mounting, auth/save continuation and device E2E remain required.
+provider. Production route mounting, auth/save continuation and device E2E remain required.
+
+### Receiver page and email detour
+
+`EntryShareReceiverPage` owns one caller-supplied Cubit and requires a stable
+`AuthBloc` context. It opens no network session until the explicit Open action.
+Separate EN/PL email-code and optional PIN/password inputs clear their exact
+values before sending; format errors remain inline. Unsupported future gates
+remain readable but cannot enable delivery. The receive action is pinned, and
+the field preview reuses `EntryShareFieldCard` with the sender form. Concealed
+and TOTP fields start masked; reveal/copy revalidate ownership immediately.
+Only explicit Copy uses the existing 45-second conditional clipboard clear.
+Immutable strings and external clipboard histories cannot be securely erased.
+
+The first display acknowledgement is scheduled after a rendered frame and after
+delivery finishes, not when decryption returns. A failed ACK retains the copy;
+retry sends only the ACK. Ending a link needs a separate confirmation sheet,
+which closes on authority loss. A five-second foreground ownership repair backs
+up the immediate checks. Pop, covering the route, account/lock/permission/key
+changes and disposal retire the capability and drop controllers/plaintext.
+Background also destroys an already received copy or an in-flight operation.
+
+An **idle named-recipient session with an acknowledged OTP request, still awaiting
+OTP verification and with no delivered snapshot**, may suspend in RAM while the
+user checks email in another app. Controllers and the visible body are cleared,
+all remote operations are blocked, and the original wall/monotonic deadline and
+expiry timer remain unchanged. Foreground return revalidates the original owner;
+a subsequent background transition fences a pending resume. There is no durable
+storage, new session, redelivery, or automatic proof submission. Detach, expiry,
+auth change, route exit, any in-flight request, or an already verified email
+falls back to full discard. This bounded pre-delivery exception fixes a reproduced
+widget failure where reading the email made the code impossible to submit.
+
+Sixteen mounted receiver tests cover explicit gates, ACK timing/retry, clipboard,
+end/cancel and sheet invalidation, delayed failures, plaintext/input cleanup,
+email app roundtrip, unknown gates, route changes and ownership repair. Six shared
+field-card tests cover mask/reveal and late, denied or failed authorization. The
+31 Cubit cases include seven email-suspension lifecycle/deadline/operation tests.
+Synthetic Inter renders were reviewed in light EN 390px and dark PL 320px/150%,
+including the destructive sheet and keyboard. They are not physical-device or
+real API/email evidence. The future ingress host must pass only a RAM-owned
+capability, wait for stable auth/foreground, and never put the fragment in routes,
+logs or analytics; installing this page alone does not fulfill native link handling.
 
 ## Sender creation boundary
 
