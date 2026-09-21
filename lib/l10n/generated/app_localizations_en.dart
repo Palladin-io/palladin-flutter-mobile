@@ -9,6 +9,80 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get sharingSaveCopy => 'Save a copy';
+
+  @override
+  String get sharingCopyCorruptVaults =>
+      'Some vaults could not be decrypted and are not offered as destinations. Other vaults remain available.';
+
+  @override
+  String get sharingCopySaved =>
+      'Copy saved in your vault. It will not sync with the original.';
+
+  @override
+  String get sharingCopyNotice =>
+      'Save the received fields as a new entry. This does not receive the link again or change the original.';
+
+  @override
+  String get sharingCopyVault => 'Destination vault';
+
+  @override
+  String get sharingCopyChooseVault => 'Choose a vault';
+
+  @override
+  String get sharingCopyVaultError =>
+      'Could not load your vaults. Try again while this sharing session is open.';
+
+  @override
+  String get sharingCopyNoVault =>
+      'There is no available destination vault for this account.';
+
+  @override
+  String get sharingCopyAccessTitle => 'Access in the destination vault';
+
+  @override
+  String get sharingCopyAccessNotice =>
+      'Existing members and fully trusted Agents of this vault can access the copy. Source permissions are not copied; Discovery and individual field access for Agents start disabled.';
+
+  @override
+  String get sharingCopyTitleError =>
+      'Enter a name of 1–200 characters. The received name is never shortened automatically.';
+
+  @override
+  String get sharingCopyMissingNotice =>
+      'The sender left out fields required for a saved entry. Complete them here; received values stay unchanged.';
+
+  @override
+  String get sharingCopyRequired => 'Complete this required field.';
+
+  @override
+  String get sharingCopyScriptDescription =>
+      'Execution description for your copy';
+
+  @override
+  String get sharingCopyScriptError =>
+      'Provide a script, a supported interpreter (bash, sh, node or python), and an execution description of up to 4096 characters.';
+
+  @override
+  String get sharingCopyUnsupported =>
+      'This copy contains data this version cannot save without changing it. Nothing was saved.';
+
+  @override
+  String get sharingCopySaveError =>
+      'Could not prepare the copy for saving. Check your connection and destination access, then try again.';
+
+  @override
+  String get sharingCopyRetryNotice =>
+      'The save result is not yet confirmed. Retry sends the same encrypted entry, not a duplicate. Do not start another save for this copy.';
+
+  @override
+  String get sharingCopyBack => 'Back to received entry';
+
+  @override
+  String get sharingCopySessionNotice =>
+      'Leaving this sharing session, locking the app or switching apps discards this in-memory copy. It cannot undo a save already accepted by the server.';
+
+  @override
   String get sharingEndConfirm => 'End link';
 
   @override

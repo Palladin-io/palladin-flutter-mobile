@@ -34,6 +34,7 @@ import '../../features/unlock/presentation/pages/unlock_page.dart';
 import '../../features/vault/presentation/pages/vault_detail_page.dart';
 import '../../features/vault/presentation/pages/vault_list_page.dart';
 import '../../features/vault/presentation/pages/entry_share_receiver_host.dart';
+import '../../features/vault/data/services/entry_sharing/entry_share_copy_service.dart';
 import '../../features/vault/presentation/widgets/entry_share_receiver_frame.dart';
 import '../../features/vault/data/datasources/entry_share_recipient_datasource.dart';
 import '../../features/vault/data/services/entry_sharing/entry_share_ingress.dart';
@@ -234,6 +235,7 @@ GoRouter createRouter(
                 remoteFactory: () =>
                     EntryShareRecipientDatasource(getIt<EnvConfig>()),
                 ownerReader: getIt<EntryShareRecipientAuthority>().read,
+                copyServiceFactory: () => getIt<EntryShareCopyService>(),
                 onClose: () => GoRouter.of(context).go('/'),
               ),
       ),

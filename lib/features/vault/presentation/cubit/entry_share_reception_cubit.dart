@@ -113,6 +113,8 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
   final EntryShareRecipientOwner _owner;
   final Future<EntryShareRecipientOwner?> Function() _ownerReader;
   final EntryShareLifetime _lifetime;
+  EntryShareLifetime get lifetime => _lifetime;
+  EntryShareRecipientOwner get owner => _owner;
   EntryShareSecrets? _secrets;
   EntryShareRecipientSession? _session;
   final _cancel = CancelToken();

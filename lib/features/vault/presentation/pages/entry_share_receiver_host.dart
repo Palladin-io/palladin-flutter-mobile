@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../data/datasources/entry_share_recipient_datasource.dart';
 import '../../data/services/entry_sharing/entry_share_crypto_service.dart';
+import '../../data/services/entry_sharing/entry_share_copy_service.dart';
 import '../../data/services/entry_sharing/entry_share_ingress.dart';
 import '../cubit/entry_share_reception_cubit.dart';
 import '../entry_share_auth_binding.dart';
@@ -20,10 +21,12 @@ class EntryShareReceiverHost extends StatefulWidget {
     required this.remoteFactory,
     required this.ownerReader,
     this.onClose,
+    this.copyServiceFactory,
   });
 
   final EntryShareIngress ingress;
   final VoidCallback? onClose;
+  final EntryShareCopyService Function()? copyServiceFactory;
   final EntryShareCryptoService crypto;
   final EntryShareRecipientDatasource Function() remoteFactory;
   final Future<EntryShareRecipientOwner?> Function(String? principalId)
@@ -258,6 +261,7 @@ class _EntryShareReceiverHostState extends State<EntryShareReceiverHost>
         key: ObjectKey(cubit),
         cubit: cubit,
         ownsCubit: false,
+        copyServiceFactory: widget.copyServiceFactory,
         onClose: widget.onClose == null ? null : _close,
       );
     }

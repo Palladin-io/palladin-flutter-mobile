@@ -46,6 +46,93 @@ class EntryShareCopyService {
   final EntryV2CryptoService _entryCrypto;
   final AutoFillMutationNotifier _autoFill;
 
+  Future<EntryShareCopyDestinations> destinations({
+    required EntrySharingSession owner,
+    required Uint8List memberPrivateKey,
+    required Future<bool> Function() validateOwner,
+    required CancelToken cancelToken,
+  }) async {
+    final key = Uint8List.fromList(memberPrivateKey);
+    final result = <EntryShareCopyDestination>[];
+    final ownedKeys = <Uint8List>[key];
+    void wipe() {
+      for (final owned in ownedKeys) {
+        owned.fillRange(0, owned.length, 0);
+      }
+      ownedKeys.clear();
+    }
+
+    unawaited(
+      cancelToken.whenCancel.then((_) {
+        wipe();
+        result.clear();
+      }),
+    );
+    var offset = 0, unavailable = 0;
+    try {
+      while (true) {
+        await _requireCurrent(validateOwner, cancelToken);
+        final page = await _remote.vaults(offset, owner, cancelToken);
+        await _requireCurrent(validateOwner, cancelToken);
+        final vaults = page['vaults'] as List;
+        final total = page['total'] as int;
+        // Bound both server-declared total and actual work, including changing pages.
+        if (total > 2000 ||
+            offset + vaults.length > 2000 ||
+            vaults.length > 50 ||
+            vaults.isEmpty && offset < total) {
+          throw const EntryShareCopyException(EntryShareCopyError.request);
+        }
+        for (final raw in vaults) {
+          await _requireCurrent(validateOwner, cancelToken);
+          OpenedVaultProjection? opened;
+          try {
+            final vault = raw as Map<String, dynamic>;
+            EntryShareCopyVaultAuthority.readSummary(vault, owner);
+            opened = await _vaultCrypto.openVaultProjection(
+              json: vault,
+              memberPrivateKey: key,
+            );
+            ownedKeys.add(opened.vaultKey);
+            final discoveryKey = opened.vaultDiscoveryKey;
+            if (discoveryKey != null) ownedKeys.add(discoveryKey);
+            await _requireCurrent(validateOwner, cancelToken);
+            final id = vault['id'] as String;
+            if (!result.any((item) => item.id == id)) {
+              result.add(
+                EntryShareCopyDestination(id: id, name: opened.metadata.name),
+              );
+            }
+          } on EntryShareCopyException catch (error) {
+            if (error.kind == EntryShareCopyError.cancelled) rethrow;
+            unavailable++;
+          } catch (_) {
+            unavailable++;
+          } finally {
+            opened?.vaultKey.fillRange(0, opened.vaultKey.length, 0);
+            opened?.vaultDiscoveryKey?.fillRange(
+              0,
+              opened.vaultDiscoveryKey!.length,
+              0,
+            );
+            ownedKeys.remove(opened?.vaultKey);
+            ownedKeys.remove(opened?.vaultDiscoveryKey);
+          }
+          await _requireCurrent(validateOwner, cancelToken);
+        }
+        offset += vaults.length;
+        if (offset >= total) break;
+      }
+      return EntryShareCopyDestinations(result, unavailable);
+    } on EntryShareCopyException {
+      rethrow;
+    } catch (_) {
+      throw const EntryShareCopyException(EntryShareCopyError.request);
+    } finally {
+      wipe();
+    }
+  }
+
   Future<PreparedEntryShareCopy> prepare({
     required EntryShareSnapshot snapshot,
     required String vaultId,

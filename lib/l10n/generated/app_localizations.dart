@@ -98,6 +98,126 @@ abstract class AppLocalizations {
     Locale('pl'),
   ];
 
+  /// No description provided for @sharingSaveCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Save a copy'**
+  String get sharingSaveCopy;
+
+  /// No description provided for @sharingCopyCorruptVaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Some vaults could not be decrypted and are not offered as destinations. Other vaults remain available.'**
+  String get sharingCopyCorruptVaults;
+
+  /// No description provided for @sharingCopySaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy saved in your vault. It will not sync with the original.'**
+  String get sharingCopySaved;
+
+  /// No description provided for @sharingCopyNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Save the received fields as a new entry. This does not receive the link again or change the original.'**
+  String get sharingCopyNotice;
+
+  /// No description provided for @sharingCopyVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Destination vault'**
+  String get sharingCopyVault;
+
+  /// No description provided for @sharingCopyChooseVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a vault'**
+  String get sharingCopyChooseVault;
+
+  /// No description provided for @sharingCopyVaultError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load your vaults. Try again while this sharing session is open.'**
+  String get sharingCopyVaultError;
+
+  /// No description provided for @sharingCopyNoVault.
+  ///
+  /// In en, this message translates to:
+  /// **'There is no available destination vault for this account.'**
+  String get sharingCopyNoVault;
+
+  /// No description provided for @sharingCopyAccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Access in the destination vault'**
+  String get sharingCopyAccessTitle;
+
+  /// No description provided for @sharingCopyAccessNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Existing members and fully trusted Agents of this vault can access the copy. Source permissions are not copied; Discovery and individual field access for Agents start disabled.'**
+  String get sharingCopyAccessNotice;
+
+  /// No description provided for @sharingCopyTitleError.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a name of 1–200 characters. The received name is never shortened automatically.'**
+  String get sharingCopyTitleError;
+
+  /// No description provided for @sharingCopyMissingNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'The sender left out fields required for a saved entry. Complete them here; received values stay unchanged.'**
+  String get sharingCopyMissingNotice;
+
+  /// No description provided for @sharingCopyRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete this required field.'**
+  String get sharingCopyRequired;
+
+  /// No description provided for @sharingCopyScriptDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Execution description for your copy'**
+  String get sharingCopyScriptDescription;
+
+  /// No description provided for @sharingCopyScriptError.
+  ///
+  /// In en, this message translates to:
+  /// **'Provide a script, a supported interpreter (bash, sh, node or python), and an execution description of up to 4096 characters.'**
+  String get sharingCopyScriptError;
+
+  /// No description provided for @sharingCopyUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'This copy contains data this version cannot save without changing it. Nothing was saved.'**
+  String get sharingCopyUnsupported;
+
+  /// No description provided for @sharingCopySaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not prepare the copy for saving. Check your connection and destination access, then try again.'**
+  String get sharingCopySaveError;
+
+  /// No description provided for @sharingCopyRetryNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'The save result is not yet confirmed. Retry sends the same encrypted entry, not a duplicate. Do not start another save for this copy.'**
+  String get sharingCopyRetryNotice;
+
+  /// No description provided for @sharingCopyBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to received entry'**
+  String get sharingCopyBack;
+
+  /// No description provided for @sharingCopySessionNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Leaving this sharing session, locking the app or switching apps discards this in-memory copy. It cannot undo a save already accepted by the server.'**
+  String get sharingCopySessionNotice;
+
   /// No description provided for @sharingEndConfirm.
   ///
   /// In en, this message translates to:

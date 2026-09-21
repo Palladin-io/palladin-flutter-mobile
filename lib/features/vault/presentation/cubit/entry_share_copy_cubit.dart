@@ -66,8 +66,37 @@ class EntryShareCopyCubit extends Cubit<EntryShareCopyState> {
   Uint8List? _privateKey;
   Timer? _expiry;
   int _epoch = 0;
+  bool _loadingDestinations = false;
 
   Future<bool> revalidate() => _valid(_epoch);
+
+  Future<EntryShareCopyDestinations> loadDestinations() async {
+    if (_loadingDestinations || state.phase != EntryShareCopyPhase.editing) {
+      throw const EntryShareCopyException(EntryShareCopyError.cancelled);
+    }
+    _loadingDestinations = true;
+    final epoch = _epoch;
+    final request = _request = CancelToken();
+    try {
+      if (!await _valid(epoch)) {
+        throw const EntryShareCopyException(EntryShareCopyError.cancelled);
+      }
+      final key = _privateKey = _copyMemberPrivateKey();
+      final destinations = await _service.destinations(
+        owner: _owner,
+        memberPrivateKey: key,
+        validateOwner: () => _valid(epoch),
+        cancelToken: request,
+      );
+      if (!await _valid(epoch)) {
+        throw const EntryShareCopyException(EntryShareCopyError.cancelled);
+      }
+      return destinations;
+    } finally {
+      _wipeKey();
+      _loadingDestinations = false;
+    }
+  }
 
   bool _live(int epoch) {
     if (isClosed ||
@@ -104,6 +133,7 @@ class EntryShareCopyCubit extends Cubit<EntryShareCopyState> {
     Map<String, String> completedFields = const {},
   }) async {
     if (isClosed ||
+        _loadingDestinations ||
         state.phase != EntryShareCopyPhase.editing ||
         _snapshot == null) {
       return;

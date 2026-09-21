@@ -16,14 +16,34 @@ final class EntryShareCopyVaultAuthority {
     String selectedVaultId,
     EntrySharingSession owner,
   ) {
+    if (vault['id'] != selectedVaultId ||
+        vault['organizationId'] != owner.organizationId ||
+        vault['metadataRevision'] is! String) {
+      throw const EntryShareCopyException(EntryShareCopyError.invalidAuthority);
+    }
+    return _read(
+      vault,
+      selectedVaultId,
+      owner,
+      metadataRevision: vault['metadataRevision'],
+    );
+  }
+
+  static EntryShareCopyVaultAuthority readSummary(
+    Map<String, dynamic> vault,
+    EntrySharingSession owner,
+  ) => _read(vault, vault['id'] as String, owner);
+
+  static EntryShareCopyVaultAuthority _read(
+    Map<String, dynamic> vault,
+    String selectedVaultId,
+    EntrySharingSession owner, {
+    Object? metadataRevision,
+  }) {
     const invalid = EntryShareCopyException(
       EntryShareCopyError.invalidAuthority,
     );
     try {
-      if (vault['id'] != selectedVaultId ||
-          vault['organizationId'] != owner.organizationId) {
-        throw invalid;
-      }
       final epoch = vault['currentKeyEpoch'] as Map;
       final vkVersion = epoch['vaultKeyVersion'] as int;
       final vdkVersion = epoch['vdkVersion'] as int;
@@ -58,7 +78,8 @@ final class EntryShareCopyVaultAuthority {
           throw invalid;
         }
         if (field == 'memberVaultMetadata' &&
-            descriptor['resourceRevision'] != vault['metadataRevision']) {
+            metadataRevision != null &&
+            descriptor['resourceRevision'] != metadataRevision) {
           throw invalid;
         }
         if (field == 'discoveryKey' &&

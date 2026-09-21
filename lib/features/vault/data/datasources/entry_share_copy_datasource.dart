@@ -21,6 +21,27 @@ class EntryShareCopyDatasource {
   String _vaultPath(String vaultId) =>
       '/api/vaults/${Uri.encodeComponent(vaultId)}';
 
+  Future<Map<String, dynamic>> vaults(
+    int offset,
+    EntrySharingSession owner,
+    CancelToken cancelToken,
+  ) async {
+    try {
+      final body = await _request(
+        'GET',
+        '/api/vaults?limit=50&offset=$offset',
+        owner,
+        cancelToken,
+        maximumBytes: 2 * 1024 * 1024,
+      );
+      return jsonDecode(body) as Map<String, dynamic>;
+    } on EntryShareCopyException {
+      rethrow;
+    } catch (_) {
+      throw const EntryShareCopyException(EntryShareCopyError.request);
+    }
+  }
+
   Future<Map<String, dynamic>> vault(
     String vaultId,
     EntrySharingSession owner,
