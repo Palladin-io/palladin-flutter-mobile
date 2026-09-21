@@ -107,7 +107,7 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
     }
   }
 
-  final EntryShareRecipientDatasource _remote;
+  EntryShareRecipientDatasource? _remote;
   final EntryShareCryptoService _crypto;
   final String _shareId;
   final EntryShareRecipientOwner _owner;
@@ -149,6 +149,61 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
   }
 
   Future<bool> revalidate() => _valid(_epoch);
+
+  Future<EntryShareReceptionTransfer?> detachForAccount() async {
+    if (isClosed || state.busy || state.suspended || !_live(_epoch)) {
+      return null;
+    }
+    final epoch = _epoch;
+    emit(state.copyWith(busy: true));
+    if (!await _valid(epoch)) return null;
+    final transfer = EntryShareReceptionTransfer._(
+      remote: _remote!,
+      crypto: _crypto,
+      shareId: _shareId,
+      secrets: _secrets!,
+      initialOwner: _owner,
+      lifetime: _lifetime,
+      session: _session,
+      state: state.copyWith(busy: false),
+      otpGeneration: _otpGeneration,
+      pendingOtp: _pendingOtp,
+    );
+    _remote = null;
+    _secrets = null;
+    clear();
+    return transfer;
+  }
+
+  static EntryShareReceptionCubit? _resume(
+    EntryShareReceptionTransfer transfer,
+    EntryShareRecipientOwner owner,
+    Future<EntryShareRecipientOwner?> Function() ownerReader,
+  ) {
+    final result = EntryShareReceptionCubit(
+      remote: transfer._remote!,
+      crypto: transfer._crypto,
+      shareId: transfer._shareId,
+      secrets: transfer._secrets!,
+      owner: owner,
+      ownerReader: ownerReader,
+      lifetime: transfer._lifetime,
+    );
+    if (result._live(result._epoch)) {
+      result._session = transfer._session;
+      result._otpGeneration = transfer._otpGeneration;
+      result._pendingOtp = transfer._pendingOtp;
+      result.emit(transfer._state!);
+    }
+    transfer._remote = null;
+    transfer._secrets = null;
+    transfer.dispose();
+    if (result.state.phase == EntryShareReceptionPhase.unavailable) {
+      unawaited(result.close());
+      return null;
+    }
+    return result;
+  }
 
   bool suspendForEmail() {
     if (!_live(_epoch) ||
@@ -206,7 +261,7 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
       return Future.value(EntryShareReceptionOutcome.ignored);
     }
     return _run((epoch) async {
-      final session = await _remote.open(
+      final session = await _remote!.open(
         _shareId,
         VaultProtocolBytes.base64UrlEncode(_secrets!.accessToken),
         cancelToken: _cancel,
@@ -244,7 +299,7 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
     return _run((epoch) async {
       _pendingOtp ??= _otpGeneration + 1;
       emit(state.copyWith(otpRetry: true));
-      await _remote.requestOtp(
+      await _remote!.requestOtp(
         _shareId,
         _session!,
         generation: _pendingOtp!,
@@ -266,7 +321,7 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
       return Future.value(EntryShareReceptionOutcome.ignored);
     }
     return _run((epoch) async {
-      await _remote.verifyOtp(
+      await _remote!.verifyOtp(
         _shareId,
         _session!,
         generation: _otpGeneration,
@@ -284,7 +339,7 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
       return Future.value(EntryShareReceptionOutcome.ignored);
     }
     return _run((epoch) async {
-      await _remote.verifySecret(
+      await _remote!.verifySecret(
         _shareId,
         _session!,
         secret: secret,
@@ -299,7 +354,7 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
       return Future.value(EntryShareReceptionOutcome.ignored);
     }
     return _run((epoch) async {
-      final delivery = await _remote.receive(
+      final delivery = await _remote!.receive(
         _shareId,
         _session!,
         cancelToken: _cancel,
@@ -336,7 +391,11 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
     }
     return _run((epoch) async {
       try {
-        await _remote.confirmDisplay(_shareId, _session!, cancelToken: _cancel);
+        await _remote!.confirmDisplay(
+          _shareId,
+          _session!,
+          cancelToken: _cancel,
+        );
       } catch (_) {
         if (await _valid(epoch)) {
           emit(state.copyWith(confirmation: EntryShareConfirmation.failed));
@@ -354,7 +413,7 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
       return Future.value(EntryShareReceptionOutcome.ignored);
     }
     return _run((epoch) async {
-      await _remote.end(_shareId, _session!, cancelToken: _cancel);
+      await _remote!.end(_shareId, _session!, cancelToken: _cancel);
       if (await _valid(epoch)) clear(ended: true);
     });
   }
@@ -362,7 +421,8 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
   void clear({bool ended = false}) {
     _epoch++;
     _cancel.cancel();
-    _remote.close();
+    _remote?.close();
+    _remote = null;
     _expiry?.cancel();
     _expiry = null;
     _secrets?.dispose();
@@ -385,5 +445,93 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
   Future<void> close() {
     clear();
     return super.close();
+  }
+}
+
+/// A one-shot RAM owner used only after an explicit account-continuation action.
+/// The app-level coordinator must dispose it on abandonment or session loss.
+final class EntryShareReceptionTransfer {
+  EntryShareReceptionTransfer._({
+    required EntryShareRecipientDatasource remote,
+    required EntryShareCryptoService crypto,
+    required String shareId,
+    required EntryShareSecrets secrets,
+    required this.initialOwner,
+    required EntryShareLifetime lifetime,
+    required EntryShareRecipientSession? session,
+    required EntryShareReceptionState state,
+    required int otpGeneration,
+    required int? pendingOtp,
+  }) : _remote = remote,
+       _crypto = crypto,
+       _shareId = shareId,
+       _secrets = secrets,
+       _lifetime = lifetime,
+       _session = session,
+       _state = state,
+       _otpGeneration = otpGeneration,
+       _pendingOtp = pendingOtp {
+    _expiry = Timer(lifetime.remaining, dispose);
+  }
+
+  EntryShareRecipientDatasource? _remote;
+  final EntryShareCryptoService _crypto;
+  final String _shareId;
+  EntryShareSecrets? _secrets;
+  final EntryShareRecipientOwner initialOwner;
+  final EntryShareLifetime _lifetime;
+  EntryShareRecipientSession? _session;
+  EntryShareReceptionState? _state;
+  final int _otpGeneration;
+  int? _pendingOtp;
+  Timer? _expiry;
+  bool _resuming = false;
+
+  bool get isAvailable {
+    if (!_lifetime.isLive) dispose();
+    return _secrets != null;
+  }
+
+  Future<EntryShareReceptionCubit?> resume({
+    required EntryShareRecipientOwner owner,
+    required Future<EntryShareRecipientOwner?> Function() ownerReader,
+  }) async {
+    if (_resuming || !isAvailable) return null;
+    _resuming = true;
+    try {
+      if (owner.principalId == null ||
+          owner.organizationId == null ||
+          owner.authorizationGeneration == null ||
+          initialOwner.principalId != null &&
+              (owner.principalId != initialOwner.principalId ||
+                  owner.organizationId != initialOwner.organizationId)) {
+        dispose();
+        return null;
+      }
+      final current = await ownerReader();
+      if (!isAvailable) return null;
+      if (current != owner) {
+        dispose();
+        return null;
+      }
+      return EntryShareReceptionCubit._resume(this, owner, ownerReader);
+    } catch (_) {
+      dispose();
+      return null;
+    } finally {
+      _resuming = false;
+    }
+  }
+
+  void dispose() {
+    _expiry?.cancel();
+    _expiry = null;
+    _remote?.close();
+    _remote = null;
+    _secrets?.dispose();
+    _secrets = null;
+    _session = null;
+    _state = null;
+    _pendingOtp = null;
   }
 }

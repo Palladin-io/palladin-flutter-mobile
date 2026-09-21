@@ -133,6 +133,39 @@ Mounted-save checkpoint (2026-09-21): **25 new cases; full Flutter 1,657 PASS /
 two existing plugin-only skips**, analyze, notices, six structural budgets and
 staged-tree Gitleaks PASS. No CI, native app build, merge or deployment was run.
 
+### One-shot account transfer (coordinator/UI wiring pending)
+
+`EntryShareReceptionCubit.detachForAccount()` validates the original owner before
+moving an idle reception into `EntryShareReceptionTransfer`. It cannot run during
+a request or a suspended email detour. The old Cubit immediately loses its
+snapshot, capability and transport; closing the old widget cannot close the
+transferred transport. The transfer keeps the same session, verification gates,
+OTP generation (including an uncertain send retry), snapshot and display ACK.
+There is no new open/delivery/confirmation request or reconstructed link.
+
+The transfer is an opaque, one-shot RAM owner with the original shortened
+wall/monotonic lifetime and its own expiry timer. Resume requires a non-anonymous
+owner and a separate authoritative read that matches it. A transfer that started
+on an account cannot move to another principal or organization; the same-account
+unlock can adopt the newly established key generation. Concurrent/second resumes,
+late owner results after disposal/expiry and authority failures cannot resurrect
+it. Expiry/abandonment closes transport, wipes key/bearer bytes and drops the
+snapshot/session references. Successful resume moves ownership into a new Cubit
+and retires the transfer without destroying the moved material.
+
+This primitive is **not yet called by the receiver host**. The required app-owned
+coordinator must make account continuation explicit, fence allowed routes and
+auth transitions, handle guest login/register/verification/onboarding/unlock and
+the first-Vault step, and dispose on abandonment, unrelated account/key changes,
+new link, background policy and process teardown. The existing host/page still
+retire reception on ordinary auth changes. These unit tests do not prove mounted
+account continuation, background-email/OAuth acceptance or limit=1 HTTP E2E.
+
+Transfer checkpoint (2026-09-21): **17 added cases; 1,674 Flutter PASS / two
+existing plugin-only skips**, analyze, notices, six structural budgets and
+staged-tree Gitleaks PASS. Existing receiver/host cancellation tests also pass.
+No CI, native app build, merge or deployment was run.
+
 ## Guest reception boundary
 
 `EntryShareRecipientDatasource` owns a separate Dio/IO transport, never the
