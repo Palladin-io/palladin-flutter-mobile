@@ -3211,6 +3211,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardSearchHint => 'Agents, vaults, entries…';
 
   @override
+  String get sharingCopyCreateVault => 'Create my personal vault';
+
+  @override
+  String get sharingCopyCreateVaultNotice =>
+      'Create an encrypted personal vault without leaving this received copy. Then choose the vault and save the entry. Creating a vault does not save the entry automatically.';
+
+  @override
+  String get sharingCopyCreateVaultError =>
+      'The vault could not be created. Retry here while this reception is still available.';
+
+  @override
   String get defaultVaultName => 'Personal';
 
   @override

@@ -12,6 +12,7 @@ import '../../domain/entities/entry_share_list.dart';
 
 enum EntryShareCopyPhase {
   editing,
+  creatingVault,
   preparing,
   saving,
   retry,
@@ -24,12 +25,14 @@ final class EntryShareCopyState {
     this.phase = EntryShareCopyPhase.editing,
     this.inputError,
     this.failed = false,
+    this.vaultCreationFailed = false,
     this.vaultId,
     this.entryId,
   });
   final EntryShareCopyPhase phase;
   final EntryShareCopyInputError? inputError;
   final bool failed;
+  final bool vaultCreationFailed;
   final String? vaultId, entryId;
 }
 
@@ -41,12 +44,14 @@ class EntryShareCopyCubit extends Cubit<EntryShareCopyState> {
     required Future<EntrySharingSession?> Function() ownerReader,
     required Uint8List Function() copyMemberPrivateKey,
     required EntryShareLifetime lifetime,
+    bool canCreateDefaultVault = false,
   }) : _service = service,
        _snapshot = snapshot,
        _owner = owner,
        _ownerReader = ownerReader,
        _copyMemberPrivateKey = copyMemberPrivateKey,
        _lifetime = lifetime,
+       _canCreateDefaultVault = canCreateDefaultVault,
        super(const EntryShareCopyState()) {
     if (lifetime.isLive) {
       _expiry = Timer(lifetime.remaining, clear);
@@ -62,6 +67,14 @@ class EntryShareCopyCubit extends Cubit<EntryShareCopyState> {
   final Uint8List Function() _copyMemberPrivateKey;
   final EntryShareLifetime _lifetime;
   PreparedEntryShareCopy? _prepared;
+  PreparedEntryShareDefaultVault? _preparedVault;
+  final bool _canCreateDefaultVault;
+  bool _emptyDestinations = false, _defaultVaultCreated = false;
+  bool get canCreatePersonalVault =>
+      _canCreateDefaultVault &&
+      _emptyDestinations &&
+      state.phase == EntryShareCopyPhase.editing &&
+      !_loadingDestinations;
   CancelToken? _request;
   Uint8List? _privateKey;
   Timer? _expiry;
@@ -75,6 +88,7 @@ class EntryShareCopyCubit extends Cubit<EntryShareCopyState> {
       throw const EntryShareCopyException(EntryShareCopyError.cancelled);
     }
     _loadingDestinations = true;
+    _emptyDestinations = false;
     final epoch = _epoch;
     final request = _request = CancelToken();
     try {
@@ -91,10 +105,65 @@ class EntryShareCopyCubit extends Cubit<EntryShareCopyState> {
       if (!await _valid(epoch)) {
         throw const EntryShareCopyException(EntryShareCopyError.cancelled);
       }
+      _emptyDestinations =
+          destinations.items.isEmpty && destinations.unavailable == 0;
       return destinations;
     } finally {
       _wipeKey();
       _loadingDestinations = false;
+    }
+  }
+
+  Future<bool> createPersonalVault(String name) async {
+    if (!canCreatePersonalVault || isClosed) return false;
+    final epoch = ++_epoch;
+    final request = _request = CancelToken();
+    emit(const EntryShareCopyState(phase: EntryShareCopyPhase.creatingVault));
+    PreparedEntryShareDefaultVault? prepared;
+    try {
+      if (!await _valid(epoch)) return false;
+      if (!_defaultVaultCreated) {
+        if (_preparedVault == null) {
+          final key = _privateKey = _copyMemberPrivateKey();
+          prepared = await _service.prepareDefaultVault(
+            owner: _owner,
+            memberPrivateKey: key,
+            name: name,
+            validateOwner: () => _valid(epoch),
+            cancelToken: request,
+          );
+          if (!await _valid(epoch)) return false;
+          _preparedVault = prepared;
+          prepared = null;
+          _wipeKey();
+        }
+        _defaultVaultCreated = await _service.commitDefaultVault(
+          _preparedVault!,
+          validateOwner: () => _valid(epoch),
+          cancelToken: request,
+        );
+        _preparedVault = null;
+      }
+      if (!await _valid(epoch)) return false;
+      emit(const EntryShareCopyState());
+      return true;
+    } on EntryShareCopyException catch (error) {
+      if (_preparedVault?.isDisposed == true) _preparedVault = null;
+      if (!await _valid(epoch)) return false;
+      if (error.kind == EntryShareCopyError.cancelled) {
+        clear();
+      } else {
+        emit(const EntryShareCopyState(vaultCreationFailed: true));
+      }
+      return false;
+    } catch (_) {
+      if (await _valid(epoch)) {
+        emit(const EntryShareCopyState(vaultCreationFailed: true));
+      }
+      return false;
+    } finally {
+      prepared?.dispose();
+      _wipeKey();
     }
   }
 
@@ -242,6 +311,9 @@ class EntryShareCopyCubit extends Cubit<EntryShareCopyState> {
     _snapshot = null;
     _prepared?.dispose();
     _prepared = null;
+    _preparedVault?.dispose();
+    _preparedVault = null;
+    _emptyDestinations = false;
     _wipeKey();
     _service.close();
     if (!isClosed) {

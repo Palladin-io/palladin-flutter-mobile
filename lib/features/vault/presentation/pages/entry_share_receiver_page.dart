@@ -286,6 +286,10 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
         ownerReader: _copyOwner,
         copyMemberPrivateKey: _copyPrivateKey,
         lifetime: _cubit.lifetime,
+        canCreateDefaultVault:
+            (_auth.state as AuthAuthenticated).permissions &
+                Permissions.vaultCreate !=
+            0,
       );
       setState(() => _copyCubit = copy);
     } catch (_) {

@@ -5,7 +5,8 @@ are implemented on the feature branch. The isolated guest transport and receptio
 Cubit now have a mounted receiver page and an app-owned ingress/router host.
 Android and iOS have native intake wired to the one-shot Dart RAM handoff.
 The explicit account continuation is wired to the existing authentication routes.
-Native device/domain acceptance, first-Vault creation, combined account/save E2E
+First personal-Vault creation is wired inside the received-copy form.
+Native device/domain acceptance, combined account/save E2E
 and Inbox/audit remain pending. Local tests
 are not evidence of deployed end-to-end sharing.
 
@@ -127,12 +128,58 @@ private create, byte-identical retry, no duplicate copy, corrupt-row isolation,
 empty/error states, permission gates and cancellation through list/create. They
 also cover original expiry and the PL dark 320px/150% layout with keyboard inset.
 Synthetic Inter captures are visual evidence only, not device or backend E2E.
-Guest registration/login/unlock, email verification and creating the first
-personal Vault remain required and are not replaced by the current empty state.
+Guest registration/login/unlock, email verification and the combined account/save
+acceptance remain required. The first personal-Vault action is described below.
 
 Mounted-save checkpoint (2026-09-21): **25 new cases; full Flutter 1,657 PASS /
 two existing plugin-only skips**, analyze, notices, six structural budgets and
 staged-tree Gitleaks PASS. No CI, native app build, merge or deployment was run.
+
+### First personal Vault inside the received-copy form
+
+After a successful, fully empty destination list, a recipient with `vaultCreate`
+can explicitly create the personal Vault without leaving the form. A failed list
+or a list with unreadable Vaults never implies an empty account. Creation keeps
+the same snapshot, receipt, ACK and original RAM deadline. The recipient must
+still choose the refreshed destination and explicitly save the Entry; neither
+action happens automatically. EN/PL reuse the existing form, tokens and footer.
+
+The copy datasource uses its isolated captured-account transport for `GET
+/api/account`, `POST /api/vaults/creation-challenges` and `POST
+/api/account/default-vault`. The account's top-level user id must match the
+independently captured principal before existing `VaultCryptoService` seals the
+new Vault. Member key version comes from that authenticated account contract;
+organization/principal are never inferred from the generated wrapper. Only
+ciphertext and structural fields leave the client. The existing onboarding
+provisioner's global transport/persistent marker are not used by this flow.
+
+Duplicate taps are blocked before the first await. Ambiguous failure retains
+one exact encrypted request/challenge in RAM; explicit retry cannot create a
+different package. Definite 4xx errors except 408/429 retire that request. Only
+a conflict from the default-Vault POST requests list reconciliation; a challenge
+conflict stays a failure. A conflict does not assert that a Vault was created.
+Confirmed creation is not repeated when the subsequent list fails or remains
+empty. Refresh is read-only, and destination selection remains explicit.
+
+Every await is fenced by account, key generation, cancellation and original
+deadline. Private-key copies and returned VK/VDK are wiped on completion or
+invalidation, including late crypto results. Background/lock remove form values
+and cancel the request; a late response cannot revive it. Local cancellation
+cannot undo a server write that was already accepted.
+
+Sixteen added service cases use real loopback HTTP and native crypto; seven
+added mounted cases use the real crypto/save service with substituted transport.
+They include empty/permission/corrupt-list gates, exact retry, scoped conflicts,
+late crypto/key cleanup, expiry, list repair, background/lock and explicit
+creation → destination selection → decryptable private Entry with one receive
+and one ACK. Synthetic EN light 390px and PL dark 320px/150% captures were reviewed.
+These tests do not prove real signup/email/OAuth, a combined production-router
+guest-to-save path, native devices or a deployed user test environment.
+
+First-Vault checkpoint (2026-09-21): **1,728 Flutter PASS / two existing plugin-only
+skips**, including six structural budgets; analyze and notice verification PASS.
+The 41 receiver widget cases also pass with the synthetic Inter font. No CI,
+native app build, merge or deployment ran.
 
 ### One-shot account transfer and explicit account continuation
 
@@ -178,8 +225,9 @@ returned copy; consent state is unchanged.
 Coordinator tests exercise real snapshot decryption and reuse the same receipt,
 ACK and lifetime across account binding. Mounted host tests click the actual
 login/register CTAs and return to the same remote session after replacement of
-the receiver route. Auth and transport are substituted. First-Vault creation,
-combined guest-to-copy-save and real email/OAuth/limit=1 HTTP/device E2E remain
+the receiver route. Auth and transport are substituted. The first-Vault form now
+has separate evidence above; combined guest-to-copy-save and real
+email/OAuth/limit=1 HTTP/device E2E remain
 required. These narrower tests do not establish those outcomes.
 
 `EntryShareAccountFrame` now exposes local cancellation on login, registration,

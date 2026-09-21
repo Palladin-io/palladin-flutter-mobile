@@ -21,6 +21,63 @@ class EntryShareCopyDatasource {
   String _vaultPath(String vaultId) =>
       '/api/vaults/${Uri.encodeComponent(vaultId)}';
 
+  Future<({String memberId, int keyVersion})> memberContext(
+    EntrySharingSession owner,
+    CancelToken cancelToken,
+  ) async {
+    try {
+      final body = await _request(
+        'GET',
+        '/api/account',
+        owner,
+        cancelToken,
+        maximumBytes: 64 * 1024,
+      );
+      final data = jsonDecode(body) as Map<String, dynamic>;
+      return (
+        memberId: data['userId'] as String,
+        keyVersion: data['memberKeyVersion'] as int,
+      );
+    } on EntryShareCopyException {
+      rethrow;
+    } catch (_) {
+      throw const EntryShareCopyException(EntryShareCopyError.request);
+    }
+  }
+
+  Future<String> vaultChallenge(
+    EntrySharingSession owner,
+    CancelToken cancelToken,
+  ) async {
+    try {
+      final body = await _request(
+        'POST',
+        '/api/vaults/creation-challenges',
+        owner,
+        cancelToken,
+        maximumBytes: 4096,
+      );
+      return (jsonDecode(body) as Map<String, dynamic>)['vaultId'] as String;
+    } on EntryShareCopyException {
+      rethrow;
+    } catch (_) {
+      throw const EntryShareCopyException(EntryShareCopyError.request);
+    }
+  }
+
+  Future<void> createDefaultVault(
+    String encodedBody,
+    EntrySharingSession owner,
+    CancelToken cancelToken,
+  ) async => _request(
+    'POST',
+    '/api/account/default-vault',
+    owner,
+    cancelToken,
+    encodedBody: encodedBody,
+    maximumBytes: 256 * 1024,
+  );
+
   Future<Map<String, dynamic>> vaults(
     int offset,
     EntrySharingSession owner,
@@ -137,6 +194,11 @@ class EntryShareCopyDatasource {
       );
     } on EntryShareCopyException {
       rethrow;
+    } on EntryShareHttpException catch (error) {
+      throw EntryShareCopyException(
+        EntryShareCopyError.request,
+        statusCode: error.statusCode,
+      );
     } catch (_) {
       throw const EntryShareCopyException(EntryShareCopyError.request);
     }

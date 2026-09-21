@@ -107,6 +107,14 @@ class _EntryShareCopyPanelState extends State<EntryShareCopyPanel> {
     }
   }
 
+  Future<void> _createPersonalVault() async {
+    final generation = _generation;
+    final reload = await widget.cubit.createPersonalVault(
+      AppLocalizations.of(context)!.defaultVaultName,
+    );
+    if (reload && _live(generation)) await _load();
+  }
+
   @override
   void dispose() {
     _generation++;
@@ -158,6 +166,7 @@ class _EntryShareCopyPanelState extends State<EntryShareCopyPanel> {
         }
         final editing = state.phase == EntryShareCopyPhase.editing;
         final busy =
+            state.phase == EntryShareCopyPhase.creatingVault ||
             state.phase == EntryShareCopyPhase.preparing ||
             state.phase == EntryShareCopyPhase.saving;
         final retry = state.phase == EntryShareCopyPhase.retry;
@@ -195,6 +204,20 @@ class _EntryShareCopyPanelState extends State<EntryShareCopyPanel> {
                       gap,
                     ] else if (_vaults.isEmpty) ...[
                       Text(l10n.sharingCopyNoVault),
+                      if (widget.cubit.canCreatePersonalVault ||
+                          state.phase == EntryShareCopyPhase.creatingVault) ...[
+                        gap,
+                        Text(l10n.sharingCopyCreateVaultNotice),
+                        TextButton(
+                          onPressed: editing ? _createPersonalVault : null,
+                          child: Text(l10n.sharingCopyCreateVault),
+                        ),
+                      ],
+                      if (state.vaultCreationFailed)
+                        Text(
+                          l10n.sharingCopyCreateVaultError,
+                          style: const TextStyle(color: AppColors.brandRed),
+                        ),
                       gap,
                     ] else ...[
                       AppDropdownField<String>(
@@ -312,7 +335,11 @@ class _EntryShareCopyPanelState extends State<EntryShareCopyPanel> {
             ),
             if (!saved)
               EntryShareActionFooter(
-                label: retry ? l10n.sharingRetryCreate : l10n.sharingSaveCopy,
+                label: state.phase == EntryShareCopyPhase.creatingVault
+                    ? l10n.sharingCopyCreateVault
+                    : retry
+                    ? l10n.sharingRetryCreate
+                    : l10n.sharingSaveCopy,
                 busy: busy,
                 onPressed: retry
                     ? () => unawaited(widget.cubit.retry())

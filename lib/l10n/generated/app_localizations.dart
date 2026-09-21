@@ -5762,6 +5762,24 @@ abstract class AppLocalizations {
   /// **'Agents, vaults, entries…'**
   String get dashboardSearchHint;
 
+  /// No description provided for @sharingCopyCreateVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Create my personal vault'**
+  String get sharingCopyCreateVault;
+
+  /// No description provided for @sharingCopyCreateVaultNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an encrypted personal vault without leaving this received copy. Then choose the vault and save the entry. Creating a vault does not save the entry automatically.'**
+  String get sharingCopyCreateVaultNotice;
+
+  /// No description provided for @sharingCopyCreateVaultError.
+  ///
+  /// In en, this message translates to:
+  /// **'The vault could not be created. Retry here while this reception is still available.'**
+  String get sharingCopyCreateVaultError;
+
   /// Localized name for the default vault auto-created during onboarding
   ///
   /// In en, this message translates to:

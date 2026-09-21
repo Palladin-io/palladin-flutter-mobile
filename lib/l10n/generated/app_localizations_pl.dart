@@ -3234,6 +3234,17 @@ class AppLocalizationsPl extends AppLocalizations {
   String get dashboardSearchHint => 'Agenci, sejfy, wpisy…';
 
   @override
+  String get sharingCopyCreateVault => 'Utwórz mój osobisty sejf';
+
+  @override
+  String get sharingCopyCreateVaultNotice =>
+      'Utwórz zaszyfrowany osobisty sejf bez opuszczania odebranej kopii. Następnie wybierz sejf i zapisz wpis. Utworzenie sejfu nie zapisuje wpisu automatycznie.';
+
+  @override
+  String get sharingCopyCreateVaultError =>
+      'Nie udało się utworzyć sejfu. Spróbuj ponownie tutaj, dopóki ten odbiór jest dostępny.';
+
+  @override
   String get defaultVaultName => 'Osobisty';
 
   @override
