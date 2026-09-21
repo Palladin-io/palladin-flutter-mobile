@@ -274,10 +274,15 @@ final class NotificationRouteDestination extends NotificationDestination {
 }
 
 final class NotificationEntryDestination extends NotificationDestination {
-  const NotificationEntryDestination(this.vaultId, this.entryId);
+  const NotificationEntryDestination(
+    this.vaultId,
+    this.entryId, {
+    this.openAgentsTab = false,
+  });
 
   final String vaultId;
   final String entryId;
+  final bool openAgentsTab;
 }
 
 /// Uses authoritative structural metadata, never the supplied actionDeepLink.
@@ -300,7 +305,7 @@ NotificationDestination? notificationDeepLink(InboxNotification n) {
       switch (n.metadata['grantType']) {
         case 'full':
         case 2:
-          return NotificationRouteDestination(AppRoutes.vaultDetail(vaultId));
+          return NotificationRouteDestination(AppRoutes.vaultAgents(vaultId));
         case 'granular':
         case 'scriptExecution':
         case 1:
@@ -308,7 +313,11 @@ NotificationDestination? notificationDeepLink(InboxNotification n) {
           final entryId = _str(n, 'entryId');
           return entryId == null
               ? null
-              : NotificationEntryDestination(vaultId, entryId);
+              : NotificationEntryDestination(
+                  vaultId,
+                  entryId,
+                  openAgentsTab: true,
+                );
         default:
           return null;
       }

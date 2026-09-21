@@ -36,7 +36,12 @@ void main() {
           notificationDeepLink(n),
           isA<NotificationEntryDestination>()
               .having((target) => target.vaultId, 'vaultId', 'v-1')
-              .having((target) => target.entryId, 'entryId', 'e-1'),
+              .having((target) => target.entryId, 'entryId', 'e-1')
+              .having(
+                (target) => target.openAgentsTab,
+                'openAgentsTab',
+                isTrue,
+              ),
         );
       });
     }
@@ -67,7 +72,7 @@ void main() {
         isA<NotificationRouteDestination>().having(
           (target) => target.route,
           'route',
-          '/vaults/v-1',
+          '/vaults/v-1?tab=agents',
         ),
       );
     });
@@ -82,7 +87,8 @@ void main() {
         notificationDeepLink(n),
         isA<NotificationEntryDestination>()
             .having((target) => target.vaultId, 'vaultId', 'v-2')
-            .having((target) => target.entryId, 'entryId', 'e-1'),
+            .having((target) => target.entryId, 'entryId', 'e-1')
+            .having((target) => target.openAgentsTab, 'openAgentsTab', isFalse),
       );
     });
 
@@ -118,7 +124,7 @@ void main() {
         isA<NotificationRouteDestination>().having(
           (target) => target.route,
           'route',
-          '/vaults/v-3',
+          '/vaults/v-3?tab=agents',
         ),
       );
     });
@@ -155,7 +161,12 @@ void main() {
           ),
           isA<NotificationEntryDestination>()
               .having((target) => target.vaultId, 'vaultId', 'v')
-              .having((target) => target.entryId, 'entryId', 'e'),
+              .having((target) => target.entryId, 'entryId', 'e')
+              .having(
+                (target) => target.openAgentsTab,
+                'openAgentsTab',
+                isTrue,
+              ),
         );
       });
     }

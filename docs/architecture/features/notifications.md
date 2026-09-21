@@ -24,13 +24,13 @@ Inbox (notification center) + preferences + push/real-time transport.
 - Card routes use an allowlisted type plus authoritative Inbox metadata.
   `actionDeepLink` from transport or Inbox metadata is never trusted.
 - View Access uses the explicit grant type, enriched from the existing Grant
-  detail read for historical items: FULL opens Vault detail; GRANULAR and
-  ScriptExecution open the exact Entry detail. Entry navigation resolves the
+  detail read for historical items: FULL opens Vault detail on Agents; GRANULAR
+  and ScriptExecution open the exact Entry detail on Agents. Entry navigation resolves the
   current revision and key version from the unlocked, Vault-scoped MemberIndex
   at tap time and reuses `EntryDetailPage.push`, retaining Inbox on back.
   Missing, deleted or corrupt Entries show the existing unavailable message;
   they never fall back to the Vault's Entries list. Credential-stale links use
-  the same Entry path. Unknown grant types have no navigation action.
+  the same Entry path, starting on Details. Unknown grant types have no navigation action.
 - Notification logs omit payloads, resource identifiers, and raw exceptions.
 - Pending and historical Grant notifications resolve `Reason` from the
   authoritative grant's encrypted envelope and `By` from its actor id plus the

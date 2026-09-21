@@ -277,7 +277,11 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     switch (target) {
       case NotificationRouteDestination(:final route):
         context.go(route);
-      case NotificationEntryDestination(:final vaultId, :final entryId):
+      case NotificationEntryDestination(
+        :final vaultId,
+        :final entryId,
+        :final openAgentsTab,
+      ):
         final auth = context.read<AuthBloc>().state;
         final vaults = getIt<VaultListCubit>().state;
         if (auth is! AuthAuthenticated ||
@@ -299,7 +303,11 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
           );
           return;
         }
-        EntryDetailPage.push(context, entry: entry);
+        EntryDetailPage.push(
+          context,
+          entry: entry,
+          openAgentsTab: openAgentsTab,
+        );
       case null:
         return;
     }
