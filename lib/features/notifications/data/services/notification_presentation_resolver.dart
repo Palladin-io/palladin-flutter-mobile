@@ -53,19 +53,8 @@ final class NotificationPresentationResolver {
         }
         final entryId = _string(metadata, 'entryId');
         if (entryId != null) {
-          await _index.waitForCurrent(vault.id);
-          final matches = _index
-              .entries(vault.id)
-              .where(
-                (entry) =>
-                    entry.entryId == entryId &&
-                    entry.state != MemberEntryState.deleted &&
-                    !entry.corrupt,
-              )
-              .toList(growable: false);
-          if (matches.length == 1) {
-            metadata['entryLabel'] = matches.single.memberLabel;
-          }
+          final label = await _entryLabel(vault.id, entryId);
+          if (label != null) metadata['entryLabel'] = label;
         }
         final agentId = _string(metadata, 'agentId');
         final agentName = agentId == null ? null : agentNames[agentId];
@@ -96,6 +85,25 @@ final class NotificationPresentationResolver {
   /// Removes locally resolved names and decrypted free text on lock/logout.
   List<InboxNotification> redact(List<InboxNotification> items) =>
       _generic(items);
+
+  Future<String?> _entryLabel(String vaultId, String entryId) async {
+    try {
+      await _index.waitForCurrent(vaultId);
+      final matches = _index
+          .entries(vaultId)
+          .where(
+            (entry) =>
+                entry.entryId == entryId &&
+                entry.state != MemberEntryState.deleted &&
+                !entry.corrupt,
+          )
+          .toList(growable: false);
+      return matches.length == 1 ? matches.single.memberLabel : null;
+    } catch (_) {
+      AppLogger.w('Notifications', 'Local Entry-label resolution failed');
+      return null;
+    }
+  }
 
   Future<EntryEntity?> resolveEntry(String vaultId, String entryId) async {
     await _index.waitForCurrent(vaultId);

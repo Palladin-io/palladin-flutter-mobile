@@ -160,6 +160,57 @@ void main() {
     },
   );
 
+  for (final scope in [GrantScope.granular, GrantScope.scriptExecution]) {
+    test('historical $scope label failure preserves the Inbox', () async {
+      final index = _Index();
+      final grants = _Grants();
+      when(
+        () => index.waitForCurrent('vault'),
+      ).thenAnswer((_) async => throw StateError('sync failed'));
+      when(() => grants.getGrant('vault', 'grant')).thenAnswer(
+        (_) async => Grant(
+          id: 'grant',
+          vaultId: 'vault',
+          entryId: 'entry',
+          status: GrantStatus.active,
+          scope: scope,
+          createdAt: DateTime.utc(2026, 9, 1),
+        ),
+      );
+      final resolved =
+          await NotificationPresentationResolver(
+            index: index,
+            grants: grants,
+          ).resolve(
+            items: [
+              _inbox(
+                type: 'grant_approved',
+                metadata: const {
+                  'vaultId': 'vault',
+                  'grantId': 'grant',
+                  'entryLabel': 'Untrusted',
+                },
+              ),
+              _inbox(
+                id: 'unrelated',
+                type: 'agent_approved',
+                metadata: const {'agentId': 'agent'},
+              ),
+            ],
+            unlocked: true,
+            activeAccountId: 'account',
+            activeOrganizationId: 'organization',
+            activeVaults: [_vault],
+          );
+      expect(resolved.map((item) => item.id), ['notification', 'unrelated']);
+      expect(resolved.first.metadata['entryId'], 'entry');
+      expect(resolved.first.metadata['grantType'], scope.name);
+      expect(resolved.first.metadata['entryLabel'], isNull);
+      expect(resolved.last.metadata['agentId'], 'agent');
+      verifyNever(() => index.entries(any()));
+    });
+  }
+
   test(
     'grant notifications resolve decrypted reason and actor from authoritative data',
     () async {

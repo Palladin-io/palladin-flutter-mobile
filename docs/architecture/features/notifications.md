@@ -30,6 +30,9 @@ Inbox (notification center) + preferences + push/real-time transport.
   at tap time after waiting for in-flight Vault synchronization, then rechecks
   the same unlocked account/key session before `EntryDetailPage.push`, retaining
   Inbox on back. A failed sync cannot fall back to the previous index head.
+  Optional label resolution isolates sync failures per notification: the item
+  stays generic and unrelated Inbox items remain visible, without reading a
+  stale index as a fallback.
   Missing, deleted or corrupt Entries show the existing unavailable message;
   they never fall back to the Vault's Entries list. Credential-stale links use
   the same Entry path, starting on Details. Unknown grant types have no navigation action.
