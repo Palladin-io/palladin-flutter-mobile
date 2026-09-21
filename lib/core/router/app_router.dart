@@ -34,6 +34,7 @@ import '../../features/unlock/presentation/pages/unlock_page.dart';
 import '../../features/vault/presentation/pages/vault_detail_page.dart';
 import '../../features/vault/presentation/pages/vault_list_page.dart';
 import '../../features/vault/presentation/pages/entry_share_receiver_host.dart';
+import '../../features/vault/presentation/entry_share_account_continuation.dart';
 import '../../features/vault/data/services/entry_sharing/entry_share_copy_service.dart';
 import '../../features/vault/presentation/widgets/entry_share_receiver_frame.dart';
 import '../../features/vault/data/datasources/entry_share_recipient_datasource.dart';
@@ -147,15 +148,21 @@ GoRouter createRouter(
   AuthBloc authBloc, {
   GlobalKey<NavigatorState>? navigatorKey,
   EntryShareIngress? sharingIngress,
+  EntryShareAccountContinuation? sharingAccount,
 }) {
   return GoRouter(
     navigatorKey: navigatorKey,
     initialLocation: '/login',
     overridePlatformDefaultLocation: true,
-    refreshListenable: _AuthBlocListenable(authBloc),
+    refreshListenable: Listenable.merge([
+      _AuthBlocListenable(authBloc),
+      sharingAccount,
+    ]),
     redirect: (context, state) {
       final authState = authBloc.state;
       final location = state.matchedLocation;
+      final accountRedirect = sharingAccount?.guardRoute(state.uri);
+      if (accountRedirect != null) return accountRedirect;
       if (location == AppRoutes.entryShare) {
         return state.uri.hasQuery || state.uri.hasFragment
             ? AppRoutes.entryShare
@@ -218,6 +225,9 @@ GoRouter createRouter(
           isOnOnboardingPage ||
           isOnUnlockPage ||
           isOnRecoveryPage) {
+        if (sharingAccount?.active == true) {
+          return sharingAccount!.ready ? AppRoutes.entryShare : null;
+        }
         return '/';
       }
       return null;
@@ -236,6 +246,8 @@ GoRouter createRouter(
                     EntryShareRecipientDatasource(getIt<EnvConfig>()),
                 ownerReader: getIt<EntryShareRecipientAuthority>().read,
                 copyServiceFactory: () => getIt<EntryShareCopyService>(),
+                accountContinuation: sharingAccount,
+                onAccountRoute: (route) => GoRouter.of(context).go(route),
                 onClose: () => GoRouter.of(context).go('/'),
               ),
       ),

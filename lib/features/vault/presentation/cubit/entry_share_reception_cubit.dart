@@ -487,6 +487,8 @@ final class EntryShareReceptionTransfer {
   Timer? _expiry;
   bool _resuming = false;
 
+  Duration get remaining => _lifetime.remaining;
+
   bool get isAvailable {
     if (!_lifetime.isLive) dispose();
     return _secrets != null;

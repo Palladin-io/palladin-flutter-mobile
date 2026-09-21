@@ -20,6 +20,7 @@ import '../../data/services/entry_sharing/entry_share_copy_service.dart';
 import '../cubit/entry_share_copy_cubit.dart';
 import '../cubit/entry_share_reception_cubit.dart';
 import '../entry_share_auth_binding.dart';
+import '../entry_share_account_continuation.dart';
 import '../widgets/entry_share_creation_form.dart';
 import '../widgets/entry_share_field_card.dart';
 import '../widgets/entry_share_receiver_frame.dart';
@@ -32,11 +33,13 @@ class EntryShareReceiverPage extends StatefulWidget {
     this.ownsCubit = true,
     this.onClose,
     this.copyServiceFactory,
+    this.onAccount,
   });
   final EntryShareReceptionCubit cubit;
   final bool ownsCubit;
   final VoidCallback? onClose;
   final EntryShareCopyService Function()? copyServiceFactory;
+  final Future<void> Function(EntryShareAccountAction)? onAccount;
 
   @override
   State<EntryShareReceiverPage> createState() => _EntryShareReceiverPageState();
@@ -431,6 +434,45 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
                         Text(l10n.sharingReceiveUnavailable),
                       if (state.phase == EntryShareReceptionPhase.ended)
                         Text(l10n.sharingEnded),
+                      if (!terminal &&
+                          widget.onAccount != null &&
+                          (_auth.state is AuthUnauthenticated ||
+                              _auth.state is AuthAuthenticated &&
+                                  (!(_auth.state as AuthAuthenticated)
+                                          .isOnboarded ||
+                                      !(_auth.state as AuthAuthenticated)
+                                          .emailVerified ||
+                                      (_auth.state as AuthAuthenticated)
+                                          .isVaultLocked))) ...[
+                        const SizedBox(height: AppSpacing.fieldGap),
+                        Text(l10n.sharingAccountNotice),
+                        if (_auth.state is AuthUnauthenticated) ...[
+                          TextButton(
+                            onPressed: state.busy
+                                ? null
+                                : () => widget.onAccount!(
+                                    EntryShareAccountAction.register,
+                                  ),
+                            child: Text(l10n.sharingRegister),
+                          ),
+                          TextButton(
+                            onPressed: state.busy
+                                ? null
+                                : () => widget.onAccount!(
+                                    EntryShareAccountAction.login,
+                                  ),
+                            child: Text(l10n.sharingLogin),
+                          ),
+                        ] else
+                          TextButton(
+                            onPressed: state.busy
+                                ? null
+                                : () => widget.onAccount!(
+                                    EntryShareAccountAction.continueAccount,
+                                  ),
+                            child: Text(l10n.sharingContinueAccount),
+                          ),
+                      ],
                       if (state.phase == EntryShareReceptionPhase.verification)
                         ..._proofs(state, l10n),
                       if (snapshot != null) ...[

@@ -26,9 +26,11 @@ its copy service and Cubit now compose canonical creation with scoped destinatio
 crypto, an account-bound isolated transport and byte-identical encrypted retries.
 The receiver now wires a Save CTA for an already authenticated, verified and
 unlocked recipient. Its account-bound destination picker, completion form and
-exact encrypted retry remain inside the original reception lifetime. Guest
-account/unlock/default-Vault continuation is still pending; local service/widget
-tests are not evidence of deployed end-to-end saving.
+exact encrypted retry remain inside the original reception lifetime. Explicit
+guest account/unlock continuation is now wired through an app-owned RAM transfer
+and the existing auth routes. First-Vault creation and combined account/save
+acceptance remain pending; local service/widget tests are not evidence of
+deployed end-to-end saving.
 
 - `data/services/vault_protocol/` owns the frozen protocol primitives: strict canonical bytes/base64url/UUID validation, binary TLV AAD profiles, HKDF-SHA-256 projection keys, XChaCha20-Poly1305 envelopes, bounded X25519 sealed packages and RFC 8785/Ed25519 signatures. Widgets, Cubits and remote datasources must not reproduce these operations.
 - Native fixture tests consume the minimal public snapshot in `test/fixtures/vault_protocol_2/`, pinned to source commit `b370b56e4f65ecf5350bc4f9203fee6429572955` and verified against the manifest's SHA-256 list. `PROVENANCE.md` records the source digests and the single deterministic sanitization of an internal label in synthetic metadata. Tests always use the vendored snapshot, so a parent or private repository checkout is never required.

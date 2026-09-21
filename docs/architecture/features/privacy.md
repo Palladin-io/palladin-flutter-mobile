@@ -1,5 +1,11 @@
 # Account privacy
 
+The optional first-entry sheet is deferred while `/share` is visible, including
+after explicit account continuation. Covering that one-shot receiver would retire
+its RAM copy. Leaving sharing resumes the normal offer; no consent is granted,
+denied or marked as offered by this deferral. The mounted runtime regression
+first reproduced the unwanted sheet after authentication became ready.
+
 `ConsentCubit` owns the current Identity response, temporary form suspension,
 request idempotency and the runtime freshness deadline. `PrivacyRuntime` binds it
 to AuthBloc, locale, app foreground/background and generic route templates.

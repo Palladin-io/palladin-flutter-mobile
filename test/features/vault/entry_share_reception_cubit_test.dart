@@ -6,8 +6,14 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:mobile_palladin/config/env_config.dart';
+import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_ingress.dart';
+import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_link_service.dart';
+import 'package:mobile_palladin/features/vault/presentation/entry_share_account_continuation.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/entry_share_recipient_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_lifetime.dart';
@@ -20,6 +26,8 @@ import 'package:sodium/sodium_sumo.dart' as sodium_ffi;
 import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 class _Remote extends Mock implements EntryShareRecipientDatasource {}
+
+class _Auth extends Mock implements AuthBloc {}
 
 const EntryShareRecipientOwner _guest = (
   principalId: null,
@@ -60,6 +68,7 @@ EntryShareDelivery _delivery({String? shareId}) {
 }
 
 void main() {
+  final binding = TestWidgetsFlutterBinding.ensureInitialized();
   late SodiumSumo sodium;
   late _Remote remote;
   late EntryShareReceptionCubit cubit;
@@ -175,6 +184,289 @@ void main() {
     cubit = makeCubit();
   });
   tearDown(() async => cubit.close());
+
+  group('account continuation coordinator', () {
+    late _Auth auth;
+    late AuthState authState;
+    late StreamController<AuthState> authEvents;
+    late EntryShareIngress ingress;
+    late EntryShareAccountContinuation continuation;
+    late Future<EntryShareRecipientOwner?> Function(String?) readAuthority;
+
+    Future<void> changeAuth(AuthState value) async {
+      authState = value;
+      authEvents.add(value);
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    AuthAuthenticated readyAccount() => AuthAuthenticated(
+      userId: _account.principalId!,
+      isOnboarded: true,
+      emailVerified: true,
+      isVaultLocked: false,
+      privateKey: Uint8List(32),
+    );
+
+    setUp(() {
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      auth = _Auth();
+      authState = const AuthUnauthenticated();
+      authEvents = StreamController<AuthState>.broadcast(sync: true);
+      when(() => auth.state).thenAnswer((_) => authState);
+      when(() => auth.stream).thenAnswer((_) => authEvents.stream);
+      ingress = EntryShareIngress(
+        links: EntryShareLinkService(
+          EnvConfig.local(sharingWebOrigin: 'http://localhost'),
+        ),
+      );
+      readAuthority = (_) async => owner;
+      continuation = EntryShareAccountContinuation(
+        auth: auth,
+        ingress: ingress,
+        ownerReader: (principal) => readAuthority(principal),
+      );
+    });
+
+    tearDown(() async {
+      continuation.dispose();
+      ingress.dispose();
+      await authEvents.close();
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    });
+
+    test(
+      'guest login returns the same received copy without a second delivery or ACK',
+      () async {
+        await cubit.open();
+        await cubit.receive();
+        await cubit.confirmDisplay();
+        final snapshot = cubit.state.snapshot;
+        final lifetime = cubit.lifetime;
+        expect(
+          await continuation.begin(cubit, EntryShareAccountAction.login),
+          true,
+        );
+        expect(continuation.accountRoute, '/login');
+        continuation.guardRoute(Uri.parse('/login'));
+        await cubit.close();
+        owner = _account;
+        await changeAuth(readyAccount());
+        expect(continuation.ready, true);
+        final resumed = await continuation.take(
+          version: ingress.version,
+          owner: _account,
+          ownerReader: () async => owner,
+        );
+        expect(resumed, isNotNull);
+        addTearDown(resumed!.close);
+        expect(resumed.state.snapshot, same(snapshot));
+        expect(resumed.lifetime, same(lifetime));
+        expect(resumed.state.confirmation, EntryShareConfirmation.confirmed);
+        expect(continuation.active, false);
+        verify(
+          () => remote.receive(
+            any(),
+            any(),
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        ).called(1);
+        verify(
+          () => remote.confirmDisplay(
+            any(),
+            any(),
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        ).called(1);
+      },
+    );
+
+    test(
+      'guest can retry cancelled login without opening a receiver session',
+      () async {
+        expect(
+          await continuation.begin(cubit, EntryShareAccountAction.register),
+          true,
+        );
+        expect(continuation.accountRoute, '/register');
+        continuation.guardRoute(Uri.parse('/register'));
+        await changeAuth(const AuthLoading());
+        await changeAuth(AuthError(StateError('synthetic failure')));
+        await changeAuth(const AuthUnauthenticated());
+        expect(continuation.active, true);
+        expect(continuation.ready, false);
+        expect(continuation.guardRoute(Uri.parse('/share')), '/register');
+        verifyNever(
+          () =>
+              remote.open(any(), any(), cancelToken: any(named: 'cancelToken')),
+        );
+      },
+    );
+
+    test(
+      'registration, verification and unlock must all finish before claim',
+      () async {
+        await continuation.begin(cubit, EntryShareAccountAction.register);
+        continuation.guardRoute(Uri.parse('/register'));
+        owner = _account;
+        const initial = AuthAuthenticated(
+          userId: 'recipient',
+          isOnboarded: false,
+          emailVerified: false,
+        );
+        await changeAuth(initial);
+        expect(continuation.accountRoute, '/onboarding');
+        expect(continuation.ready, false);
+        await changeAuth(initial.copyWith(isOnboarded: true));
+        expect(continuation.accountRoute, '/verify-email');
+        expect(continuation.ready, false);
+        await changeAuth(
+          initial.copyWith(isOnboarded: true, emailVerified: true),
+        );
+        expect(continuation.accountRoute, '/unlock');
+        expect(continuation.ready, false);
+        await changeAuth(readyAccount());
+        expect(continuation.ready, true);
+      },
+    );
+
+    test(
+      'repeated auth observations preserve a pending authorized unlock',
+      () async {
+        await continuation.begin(cubit, EntryShareAccountAction.login);
+        continuation.guardRoute(Uri.parse('/login'));
+        owner = (
+          principalId: _account.principalId,
+          organizationId: _account.organizationId,
+          authorizationGeneration: '7',
+          keyGeneration: 0,
+        );
+        await changeAuth(
+          const AuthAuthenticated(userId: 'recipient', isOnboarded: true),
+        );
+        final pending = Completer<EntryShareRecipientOwner?>();
+        readAuthority = (_) => pending.future;
+        final unlocked = readyAccount();
+        await changeAuth(unlocked);
+        await changeAuth(unlocked.copyWith());
+        owner = _account;
+        pending.complete(owner);
+        await Future<void>.delayed(Duration.zero);
+        expect(continuation.active, true);
+        expect(continuation.ready, true);
+      },
+    );
+
+    for (final route in [
+      '/recovery',
+      '/',
+      '/login?redirect=/share',
+      '/share#secret',
+      '/verify-email?unexpected=value',
+    ]) {
+      test(
+        'unrelated or secret-bearing route discards transfer: $route',
+        () async {
+          await continuation.begin(cubit, EntryShareAccountAction.login);
+          continuation.guardRoute(Uri.parse(route));
+          expect(continuation.active, false);
+          expect(secrets.key, everyElement(0));
+          verify(() => remote.close()).called(1);
+        },
+      );
+    }
+
+    test(
+      'email/OAuth app detour retains only the explicitly transferred flow',
+      () async {
+        await cubit.open();
+        await cubit.receive();
+        await continuation.begin(cubit, EntryShareAccountAction.login);
+        continuation.guardRoute(Uri.parse('/login'));
+        binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        expect(continuation.active, true);
+        owner = _account;
+        await changeAuth(readyAccount());
+        expect(continuation.ready, false);
+        binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+        await Future<void>.delayed(Duration.zero);
+        expect(continuation.ready, true);
+        continuation.guardRoute(Uri.parse('/share'));
+        binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        expect(continuation.active, false);
+        expect(secrets.key, everyElement(0));
+      },
+    );
+
+    test('new ingress invalidates a late authority result', () async {
+      await continuation.begin(cubit, EntryShareAccountAction.login);
+      final pending = Completer<EntryShareRecipientOwner?>();
+      readAuthority = (_) => pending.future;
+      await changeAuth(readyAccount());
+      ingress.clear();
+      pending.complete(_account);
+      await Future<void>.delayed(Duration.zero);
+      expect(continuation.active, false);
+      expect(continuation.ready, false);
+      expect(secrets.key, everyElement(0));
+    });
+
+    for (final transition in [
+      'logout',
+      'lock',
+      'account',
+      'key',
+      'permission',
+      'organization',
+    ]) {
+      test(
+        'bound account replacement discards transfer: $transition',
+        () async {
+          await continuation.begin(cubit, EntryShareAccountAction.login);
+          owner = _account;
+          final ready = readyAccount();
+          await changeAuth(ready);
+          expect(continuation.ready, true);
+          if (transition == 'organization') {
+            owner = (
+              principalId: _account.principalId,
+              organizationId: 'other',
+              authorizationGeneration: '7',
+              keyGeneration: 1,
+            );
+          }
+          await changeAuth(switch (transition) {
+            'logout' => const AuthLoading(),
+            'lock' => ready.copyWith(isVaultLocked: true, clearKeys: true),
+            'account' => ready.copyWith(userId: 'another-account'),
+            'key' => ready.copyWith(privateKey: Uint8List(32)),
+            'permission' => ready.copyWith(permissions: 16),
+            _ => ready.copyWith(),
+          });
+          expect(continuation.active, false);
+          expect(secrets.key, everyElement(0));
+        },
+      );
+    }
+
+    test(
+      'cancel while final claim is pending closes any late result',
+      () async {
+        await continuation.begin(cubit, EntryShareAccountAction.login);
+        owner = _account;
+        await changeAuth(readyAccount());
+        final pending = Completer<EntryShareRecipientOwner?>();
+        final claim = continuation.take(
+          version: ingress.version,
+          owner: _account,
+          ownerReader: () => pending.future,
+        );
+        continuation.clear();
+        pending.complete(_account);
+        expect(await claim, isNull);
+        expect(secrets.key, everyElement(0));
+      },
+    );
+  });
 
   test(
     'account transfer keeps the received copy, original session and ACK',
