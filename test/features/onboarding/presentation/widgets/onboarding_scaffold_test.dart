@@ -5,6 +5,50 @@ import 'package:mobile_palladin/features/onboarding/presentation/widgets/onboard
 import 'package:mobile_palladin/features/onboarding/presentation/widgets/onboarding_progress_dots.dart';
 
 void main() {
+  testWidgets(
+    'registration header scrolls away when the available viewport is shorter than the header',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              height: 176,
+              child: OnboardingScaffold(
+                currentStep: 0,
+                title: '',
+                subtitle: '',
+                header: SizedBox(key: Key('header'), height: 280),
+                contentTopSpacing: 64,
+                showTitleBlock: false,
+                centerFooterInRemainingSpace: true,
+                footer: Text('supporting-copy'),
+                bottom: Text('legal-copy'),
+                children: [TextField(key: Key('email'))],
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.byKey(const Key('email')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('email')),
+        'draft@example.invalid',
+      );
+      expect(
+        tester.getBottomLeft(find.byKey(const Key('email'))).dy,
+        lessThanOrEqualTo(176),
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const Key('header'))).dy,
+        lessThan(0),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('centers feedback between content and the pinned action', (
     tester,
   ) async {
