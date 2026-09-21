@@ -129,6 +129,14 @@ flutter build appbundle \
 
 Do not upload the staging application ID as a production-store artifact.
 
+Public catalog icons use `EnvConfig.apiBaseUrl` and the immutable
+`/api/public-assets/{assetId}/revisions/{revision}/content` endpoint. This also
+applies when the production store identity targets staging, or when a deployment
+configures a self-hosted API. There is no separate asset-host allowlist or build
+variable. Deploy the backend content endpoint before releasing these clients;
+unavailable images use a local glyph. Mobile still selects its API through the
+build configuration; this change does not add a runtime server selector.
+
 ## Firebase client configuration
 
 The per-flavor `google-services.json` and `GoogleService-Info.plist` files are

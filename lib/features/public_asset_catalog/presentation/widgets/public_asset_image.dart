@@ -5,10 +5,11 @@ import '../../../../config/env_config.dart';
 import '../../domain/public_asset_reference.dart';
 import '../../domain/repositories/public_asset_repository.dart';
 
-/// Resolves a catalog reference and renders only the server-provided URL.
-///
-/// Entry references contain only published immutable URLs. A failed image GET
-/// falls back locally without retrying or calling a resolve/readiness endpoint.
+final _assetIdPattern = RegExp(
+  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+);
+
+/// Loads a published revision from the configured API, never the embedded URL.
 class PublicAssetImage extends StatefulWidget {
   const PublicAssetImage({
     super.key,
@@ -46,28 +47,23 @@ class _PublicAssetImageState extends State<PublicAssetImage> {
 
   Future<Uri?> _load() async {
     final reference = PublicAssetReference.parse(widget.reference);
-    if (reference is! CatalogAssetReference) return null;
-    if (reference.deliveryUrl case final direct?) {
-      return _trusted(direct) ? direct : null;
+    if (reference is! CatalogAssetReference ||
+        !_assetIdPattern.hasMatch(reference.assetId)) {
+      return null;
     }
-    final asset = await getIt<PublicAssetRepository>().getById(
+    var revision = reference.revision;
+    if (revision == null) {
+      final asset = await getIt<PublicAssetRepository>().getById(
+        reference.assetId,
+      );
+      revision = asset?.revision;
+    }
+    if (revision == null) return null;
+    return publicAssetContentUrl(
+      getIt<EnvConfig>().apiBaseUrl,
       reference.assetId,
+      revision,
     );
-    return asset != null && _trusted(asset.deliveryUrl)
-        ? asset.deliveryUrl
-        : null;
-  }
-
-  bool _trusted(Uri candidate) {
-    final base = Uri.parse(getIt<EnvConfig>().publicAssetBaseUrl);
-    final prefix = '${base.path.replaceFirst(RegExp(r'/$'), '')}/';
-    return candidate.scheme == base.scheme &&
-        candidate.host == base.host &&
-        candidate.port == base.port &&
-        candidate.userInfo.isEmpty &&
-        !candidate.hasQuery &&
-        !candidate.hasFragment &&
-        candidate.path.startsWith(prefix);
   }
 
   @override
@@ -85,5 +81,24 @@ class _PublicAssetImageState extends State<PublicAssetImage> {
         errorBuilder: (_, _, _) => widget.fallback,
       );
     },
+  );
+}
+
+Uri? publicAssetContentUrl(String apiBaseUrl, String assetId, int revision) {
+  // References are decrypted input; do not allow them to alter the API route.
+  if (!_assetIdPattern.hasMatch(assetId) || revision < 1) {
+    return null;
+  }
+  final base = Uri.parse(apiBaseUrl);
+  return base.replace(
+    pathSegments: [
+      ...base.pathSegments.where((segment) => segment.isNotEmpty),
+      'api',
+      'public-assets',
+      assetId,
+      'revisions',
+      '$revision',
+      'content',
+    ],
   );
 }

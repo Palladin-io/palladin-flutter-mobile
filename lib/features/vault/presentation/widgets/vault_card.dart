@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
+import '../../../public_asset_catalog/presentation/widgets/public_asset_image.dart';
 import '../../domain/entities/vault_entity.dart';
 import '../../data/services/encrypted_presentation_asset_service.dart';
 import 'encrypted_asset_image.dart';
@@ -165,7 +166,16 @@ class _IconCircle extends StatelessWidget {
         shape: BoxShape.circle,
         color: accent.withValues(alpha: 0.15),
       ),
-      child: iconUrl?.startsWith('asset:') ?? false
+      child: iconUrl?.startsWith('public-asset:') ?? false
+          ? ClipOval(
+              child: PublicAssetImage(
+                reference: iconUrl!,
+                width: 40,
+                height: 40,
+                fallback: Icon(icon, color: accent, size: 20),
+              ),
+            )
+          : iconUrl?.startsWith('asset:') ?? false
           ? ClipOval(
               child: EncryptedAssetImage(
                 reference: iconUrl!,
