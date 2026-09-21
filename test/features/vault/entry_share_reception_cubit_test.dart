@@ -27,6 +27,12 @@ const EntryShareRecipientOwner _guest = (
   authorizationGeneration: null,
   keyGeneration: 0,
 );
+const EntryShareRecipientOwner _account = (
+  principalId: 'recipient',
+  organizationId: 'recipient-organization',
+  authorizationGeneration: '7',
+  keyGeneration: 1,
+);
 final _fixture =
     jsonDecode(
           File('test/fixtures/crypto/entry-share-v1.json').readAsStringSync(),
@@ -169,6 +175,376 @@ void main() {
     cubit = makeCubit();
   });
   tearDown(() async => cubit.close());
+
+  test(
+    'account transfer keeps the received copy, original session and ACK',
+    () async {
+      await cubit.open();
+      await cubit.receive();
+      await cubit.confirmDisplay();
+      final snapshot = cubit.state.snapshot;
+      final lifetime = cubit.lifetime;
+      final transfer = (await cubit.detachForAccount())!;
+      addTearDown(transfer.dispose);
+      expect(cubit.state.snapshot, isNull);
+      expect(cubit.state.phase, EntryShareReceptionPhase.unavailable);
+      await cubit.close();
+      verifyNever(() => remote.close());
+      expect(secrets.key, isNot(everyElement(0)));
+      owner = _account;
+      final resumed = (await transfer.resume(
+        owner: _account,
+        ownerReader: () async => owner,
+      ))!;
+      addTearDown(resumed.close);
+      expect(transfer.isAvailable, false);
+      expect(identical(resumed.lifetime, lifetime), true);
+      expect(identical(resumed.state.snapshot, snapshot), true);
+      expect(resumed.state.confirmation, EntryShareConfirmation.confirmed);
+      expect(await resumed.receive(), EntryShareReceptionOutcome.ignored);
+      expect(
+        await resumed.confirmDisplay(),
+        EntryShareReceptionOutcome.ignored,
+      );
+      verify(
+        () => remote.open(any(), any(), cancelToken: any(named: 'cancelToken')),
+      ).called(1);
+      verify(
+        () => remote.receive(
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).called(1);
+      verify(
+        () => remote.confirmDisplay(
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).called(1);
+      await resumed.end();
+      verify(
+        () => remote.end(
+          _shareId,
+          session,
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).called(1);
+      expect(secrets.key, everyElement(0));
+    },
+  );
+
+  test(
+    'account choice before opening does not consume or create a receiver session',
+    () async {
+      final transfer = (await cubit.detachForAccount())!;
+      addTearDown(transfer.dispose);
+      final resumed = (await transfer.resume(
+        owner: _account,
+        ownerReader: () async => _account,
+      ))!;
+      addTearDown(resumed.close);
+      expect(resumed.state.phase, EntryShareReceptionPhase.welcome);
+      verifyNever(
+        () => remote.open(any(), any(), cancelToken: any(named: 'cancelToken')),
+      );
+      await resumed.open();
+      verify(
+        () => remote.open(any(), any(), cancelToken: any(named: 'cancelToken')),
+      ).called(1);
+      verifyNever(
+        () => remote.receive(
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      );
+    },
+  );
+
+  test(
+    'account transfer preserves OTP retry generation and verified secret',
+    () async {
+      session = makeSession(mode: 'namedRecipient', protection: 'pin');
+      await cubit.open();
+      await cubit.verifySecret('123456');
+      var attempts = 0;
+      when(
+        () => remote.requestOtp(
+          any(),
+          any(),
+          generation: any(named: 'generation'),
+          language: any(named: 'language'),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((_) async {
+        if (attempts++ == 0) throw const EntryShareRecipientRequestException();
+      });
+      await cubit.requestOtp('pl');
+      final transfer = (await cubit.detachForAccount())!;
+      addTearDown(transfer.dispose);
+      final resumed = (await transfer.resume(
+        owner: _account,
+        ownerReader: () async => _account,
+      ))!;
+      addTearDown(resumed.close);
+      expect(resumed.state.secretVerified, true);
+      expect(resumed.state.otpRetry, true);
+      await resumed.requestOtp('pl');
+      verify(
+        () => remote.requestOtp(
+          _shareId,
+          session,
+          generation: 1,
+          language: 'pl',
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).called(2);
+      await resumed.verifyOtp('654321');
+      expect(resumed.state.gatesReady, true);
+    },
+  );
+
+  test(
+    'detach is single-flight and cannot race a receiver operation',
+    () async {
+      final barrier = Completer<EntryShareRecipientOwner?>();
+      ownerReader = () => barrier.future;
+      final first = cubit.detachForAccount();
+      expect(await cubit.detachForAccount(), isNull);
+      expect(await cubit.open(), EntryShareReceptionOutcome.ignored);
+      barrier.complete(_guest);
+      final transfer = (await first)!;
+      transfer.dispose();
+      expect(secrets.key, everyElement(0));
+      verifyNever(
+        () => remote.open(any(), any(), cancelToken: any(named: 'cancelToken')),
+      );
+    },
+  );
+
+  test('owner replacement while detaching destroys the old receipt', () async {
+    final barrier = Completer<EntryShareRecipientOwner?>();
+    ownerReader = () => barrier.future;
+    final pending = cubit.detachForAccount();
+    barrier.complete(_account);
+    expect(await pending, isNull);
+    expect(secrets.key, everyElement(0));
+    expect(cubit.state.phase, EntryShareReceptionPhase.unavailable);
+  });
+
+  test(
+    'one transfer cannot resume twice or leak ownership through old disposal',
+    () async {
+      final transfer = (await cubit.detachForAccount())!;
+      addTearDown(transfer.dispose);
+      final barrier = Completer<EntryShareRecipientOwner?>();
+      final pending = transfer.resume(
+        owner: _account,
+        ownerReader: () => barrier.future,
+      );
+      expect(
+        await transfer.resume(
+          owner: _account,
+          ownerReader: () async => _account,
+        ),
+        isNull,
+      );
+      barrier.complete(_account);
+      final resumed = (await pending)!;
+      addTearDown(resumed.close);
+      transfer.dispose();
+      await cubit.close();
+      expect(
+        await transfer.resume(
+          owner: _account,
+          ownerReader: () async => _account,
+        ),
+        isNull,
+      );
+      expect(await resumed.open(), EntryShareReceptionOutcome.completed);
+      expect(secrets.key, isNot(everyElement(0)));
+      await resumed.close();
+      expect(secrets.key, everyElement(0));
+      verify(() => remote.close()).called(1);
+    },
+  );
+
+  test(
+    'abandoning during independent owner lookup prevents late resume',
+    () async {
+      final transfer = (await cubit.detachForAccount())!;
+      final barrier = Completer<EntryShareRecipientOwner?>();
+      final pending = transfer.resume(
+        owner: _account,
+        ownerReader: () => barrier.future,
+      );
+      transfer.dispose();
+      expect(secrets.key, everyElement(0));
+      barrier.complete(_account);
+      expect(await pending, isNull);
+    },
+  );
+
+  test('independent owner mismatch cannot rebind a transfer', () async {
+    final transfer = (await cubit.detachForAccount())!;
+    expect(
+      await transfer.resume(owner: _account, ownerReader: () async => _guest),
+      isNull,
+    );
+    expect(secrets.key, everyElement(0));
+    expect(transfer.isAvailable, false);
+  });
+
+  test(
+    'account transfer retains the original shortened reception expiry',
+    () async {
+      await cubit.open();
+      elapsed = const Duration(minutes: 9);
+      final transfer = (await cubit.detachForAccount())!;
+      addTearDown(transfer.dispose);
+      final resumed = (await transfer.resume(
+        owner: _account,
+        ownerReader: () async => _account,
+      ))!;
+      addTearDown(resumed.close);
+      expect(resumed.lifetime.remaining, const Duration(minutes: 1));
+      elapsed = const Duration(minutes: 10);
+      expect(await resumed.revalidate(), false);
+      expect(secrets.key, everyElement(0));
+    },
+  );
+
+  test(
+    'transfer expiry while owner lookup is pending clears keys and rejects resume',
+    () async {
+      await cubit.open();
+      final transfer = (await cubit.detachForAccount())!;
+      final barrier = Completer<EntryShareRecipientOwner?>();
+      final pending = transfer.resume(
+        owner: _account,
+        ownerReader: () => barrier.future,
+      );
+      elapsed = const Duration(minutes: 10);
+      barrier.complete(_account);
+      expect(await pending, isNull);
+      expect(secrets.key, everyElement(0));
+    },
+  );
+
+  test('in-flight delivery cannot detach into account continuation', () async {
+    await cubit.open();
+    final barrier = Completer<EntryShareDelivery>();
+    when(
+      () =>
+          remote.receive(any(), any(), cancelToken: any(named: 'cancelToken')),
+    ).thenAnswer((_) => barrier.future);
+    final pending = cubit.receive();
+    expect(await cubit.detachForAccount(), isNull);
+    barrier.complete(_delivery());
+    expect(await pending, EntryShareReceptionOutcome.completed);
+    expect(cubit.state.snapshot, isNotNull);
+  });
+
+  test(
+    'suspended email detour cannot detach until foreground revalidation',
+    () async {
+      session = makeSession(mode: 'namedRecipient');
+      await cubit.open();
+      await cubit.requestOtp('en');
+      expect(cubit.suspendForEmail(), true);
+      expect(await cubit.detachForAccount(), isNull);
+      await cubit.resumeFromEmail();
+      final transfer = (await cubit.detachForAccount())!;
+      transfer.dispose();
+      expect(secrets.key, everyElement(0));
+    },
+  );
+
+  test('transfer timer wipes unclaimed capability without a resume action', () {
+    fakeAsync((clock) {
+      EntryShareReceptionTransfer? transfer;
+      cubit.detachForAccount().then((value) => transfer = value);
+      clock.flushMicrotasks();
+      expect(transfer, isNotNull);
+      clock.elapse(const Duration(minutes: 15));
+      expect(transfer!.isAvailable, false);
+      expect(secrets.key, everyElement(0));
+      expect(secrets.accessToken, everyElement(0));
+      verify(() => remote.close()).called(1);
+    });
+  });
+
+  test(
+    'owner-reader failure destroys transfer without exposing its exception',
+    () async {
+      final transfer = (await cubit.detachForAccount())!;
+      expect(
+        await transfer.resume(
+          owner: _account,
+          ownerReader: () async => throw StateError('synthetic-only'),
+        ),
+        isNull,
+      );
+      expect(transfer.isAvailable, false);
+      expect(secrets.key, everyElement(0));
+    },
+  );
+
+  test('same-account unlock adopts fresh authority only once', () async {
+    final guestTransfer = (await cubit.detachForAccount())!;
+    final accountCubit = (await guestTransfer.resume(
+      owner: _account,
+      ownerReader: () async => _account,
+    ))!;
+    addTearDown(accountCubit.close);
+    final transfer = (await accountCubit.detachForAccount())!;
+    final unlocked = (
+      principalId: _account.principalId,
+      organizationId: _account.organizationId,
+      authorizationGeneration: _account.authorizationGeneration,
+      keyGeneration: 2,
+    );
+    final resumed = (await transfer.resume(
+      owner: unlocked,
+      ownerReader: () async => unlocked,
+    ))!;
+    addTearDown(resumed.close);
+    expect(resumed.owner, unlocked);
+    expect(await resumed.open(), EntryShareReceptionOutcome.completed);
+    verify(
+      () => remote.open(any(), any(), cancelToken: any(named: 'cancelToken')),
+    ).called(1);
+  });
+
+  for (final changed in ['principal', 'organization']) {
+    test('existing account transfer rejects a different $changed', () async {
+      final guestTransfer = (await cubit.detachForAccount())!;
+      final accountCubit = (await guestTransfer.resume(
+        owner: _account,
+        ownerReader: () async => _account,
+      ))!;
+      addTearDown(accountCubit.close);
+      final transfer = (await accountCubit.detachForAccount())!;
+      final replacement = (
+        principalId: changed == 'principal' ? 'other' : _account.principalId,
+        organizationId: changed == 'organization'
+            ? 'other-org'
+            : _account.organizationId,
+        authorizationGeneration: _account.authorizationGeneration,
+        keyGeneration: 2,
+      );
+      expect(
+        await transfer.resume(
+          owner: replacement,
+          ownerReader: () async => replacement,
+        ),
+        isNull,
+      );
+      expect(secrets.key, everyElement(0));
+    });
+  }
 
   test(
     'ingress deadline survives mounting and a longer remote session',
