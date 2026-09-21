@@ -98,6 +98,18 @@ abstract class AppLocalizations {
     Locale('pl'),
   ];
 
+  /// No description provided for @libraryEntriesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Entries — all your entries across vaults. Use the shield to browse vaults.'**
+  String get libraryEntriesHint;
+
+  /// No description provided for @libraryVaultsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Vaults — your entries grouped into vaults. Use the key to see all entries.'**
+  String get libraryVaultsHint;
+
   /// No description provided for @responseUnknownValue.
   ///
   /// In en, this message translates to:
@@ -1567,6 +1579,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Let agents discover the URL domain'**
   String get entryDiscoverDomain;
+
+  /// No description provided for @globalEntriesEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No entries match your search'**
+  String get globalEntriesEmpty;
+
+  /// No description provided for @globalEntriesChooseVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a vault for the new entry'**
+  String get globalEntriesChooseVault;
 
   /// Placeholder for the search input on the Entries tab
   ///

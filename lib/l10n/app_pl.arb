@@ -1,4 +1,6 @@
 {
+  "libraryEntriesHint": "Wpisy — wszystkie wpisy ze skarbców. Tarcza przełącza na widok skarbców.",
+  "libraryVaultsHint": "Skarbce — wpisy podzielone na skarbce. Klucz przełącza na wszystkie wpisy.",
   "responseUnknownValue": "Nieznane",
   "@@locale": "pl",
   "appTitle": "Palladin",
@@ -245,6 +247,8 @@
   "entryEncryptionNotice": "Szyfrowane na urządzeniu (XSalsa20-Poly1305) przed wysłaniem",
   "entryDiscoverUsername": "Pozwól agentom wykrywać nazwę użytkownika",
   "entryDiscoverDomain": "Pozwól agentom wykrywać domenę URL",
+  "globalEntriesEmpty": "Brak wpisów pasujących do wyszukiwania",
+  "globalEntriesChooseVault": "Wybierz sejf dla nowego wpisu",
   "entrySearchHint": "Szukaj wpisów…",
   "entryEmpty": "Brak wpisów",
   "entryEmptyAdd": "Dodaj wpis ręcznie lub zaimportuj dane z innego menedżera haseł.",

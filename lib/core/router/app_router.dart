@@ -69,6 +69,9 @@ abstract final class AppRoutes {
 
   /// Vault detail screen for [vaultId] (e.g. `/vaults/abc`).
   static String vaultDetail(String vaultId) => '/vaults/$vaultId';
+
+  static String vaultAgents(String vaultId) =>
+      '${vaultDetail(vaultId)}?tab=agents';
 }
 
 /// Mirrors a settings affordance permission at the route boundary.
@@ -112,7 +115,7 @@ ShellTabPage _shellTabPage(
   GoRouterState state,
   Widget child,
 ) => ShellTabPage(
-  pageKey: state.pageKey,
+  pageKey: child is VaultListPage ? VaultListPage.pageKey : state.pageKey,
   child: child,
   direction: state.extra is ShellTabDirection
       ? state.extra as ShellTabDirection
@@ -264,10 +267,20 @@ GoRouter createRouter(
               // nav slides in/out on every push.
               GoRoute(
                 path: ':vaultId',
-                builder: (_, state) =>
-                    VaultDetailPage(vaultId: state.pathParameters['vaultId']!),
+                builder: (_, state) => VaultDetailPage(
+                  vaultId: state.pathParameters['vaultId']!,
+                  openAgentsTab: state.uri.queryParameters['tab'] == 'agents',
+                ),
               ),
             ],
+          ),
+          GoRoute(
+            path: '/entries',
+            pageBuilder: (context, state) => _shellTabPage(
+              context,
+              state,
+              const VaultListPage(entries: true),
+            ),
           ),
           // Agents — standalone list + detail + edit screens. Nested so
           // the pushed detail / edit pages keep the shell (and its

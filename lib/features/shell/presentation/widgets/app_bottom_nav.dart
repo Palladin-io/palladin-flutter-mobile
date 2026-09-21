@@ -5,7 +5,7 @@ import '../../../../core/widgets/brand_grain_surface.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 
-/// Persistent bottom navigation — five equal slots: Vaults, Agents, Home
+/// Persistent bottom navigation — five equal slots: Entries, Agents, Home
 /// (the app logo, slightly larger and poking above the bar), Inbox,
 /// Settings. All labels share one baseline at the bottom; the bigger Home
 /// logo extends upward into the small overhang above the bar.
@@ -27,7 +27,7 @@ class AppBottomNav extends StatelessWidget {
   /// All unread business notifications — shown as a badge on the Inbox tab.
   final int inboxBadgeCount;
 
-  static const int tabVaults = 0;
+  static const int tabEntries = 0;
   static const int tabAgents = 1;
   static const int tabHome = 2;
   static const int tabInbox = 3;
@@ -88,11 +88,11 @@ class AppBottomNav extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 _NavItem(
-                  label: l10n.navVaults,
-                  icon: Icons.shield_outlined,
-                  activeIcon: Icons.shield,
-                  selected: currentIndex == tabVaults,
-                  onTap: () => onTap(tabVaults),
+                  label: l10n.vaultTabEntries,
+                  icon: Icons.key_outlined,
+                  activeIcon: Icons.key,
+                  selected: currentIndex == tabEntries,
+                  onTap: () => onTap(tabEntries),
                 ),
                 _NavItem(
                   label: l10n.navAgents,

@@ -3,6 +3,7 @@ import '../../../agents/domain/repositories/agents_repository.dart';
 import '../../../grants/domain/entities/grant.dart';
 import '../../../grants/domain/repositories/grants_repository.dart';
 import '../../../vault/data/services/member_sync_service.dart';
+import '../../../vault/domain/entities/entry_entity.dart';
 import '../../../vault/domain/entities/member_index_entry.dart';
 import '../../../vault/domain/entities/vault_entity.dart';
 import '../../../vault/domain/repositories/vault_members_repository.dart';
@@ -45,27 +46,20 @@ final class NotificationPresentationResolver {
       final vault = vaultId == null ? null : vaults[vaultId];
       if (vault != null) {
         metadata['vaultName'] = vault.name;
+        final grant = await _grantFor(item, metadata, vault.id);
+        if (grant != null) {
+          metadata['grantType'] = grant.scope.name;
+          metadata['entryId'] = grant.entryId;
+        }
         final entryId = _string(metadata, 'entryId');
         if (entryId != null) {
-          await _index.waitForCurrent(vault.id);
-          final matches = _index
-              .entries(vault.id)
-              .where(
-                (entry) =>
-                    entry.entryId == entryId &&
-                    entry.state != MemberEntryState.deleted &&
-                    !entry.corrupt,
-              )
-              .toList(growable: false);
-          if (matches.length == 1) {
-            metadata['entryLabel'] = matches.single.memberLabel;
-          }
+          final label = await _entryLabel(vault.id, entryId);
+          if (label != null) metadata['entryLabel'] = label;
         }
         final agentId = _string(metadata, 'agentId');
         final agentName = agentId == null ? null : agentNames[agentId];
         if (agentName != null) metadata['agentName'] = agentName;
 
-        final grant = await _grantFor(item, metadata, vault.id);
         if (grant != null) {
           final reason = grant.reason?.trim();
           if (reason != null && reason.isNotEmpty) metadata['reason'] = reason;
@@ -91,6 +85,53 @@ final class NotificationPresentationResolver {
   /// Removes locally resolved names and decrypted free text on lock/logout.
   List<InboxNotification> redact(List<InboxNotification> items) =>
       _generic(items);
+
+  Future<String?> _entryLabel(String vaultId, String entryId) async {
+    try {
+      await _index.waitForCurrent(vaultId);
+      final matches = _index
+          .entries(vaultId)
+          .where(
+            (entry) =>
+                entry.entryId == entryId &&
+                entry.state != MemberEntryState.deleted &&
+                !entry.corrupt,
+          )
+          .toList(growable: false);
+      return matches.length == 1 ? matches.single.memberLabel : null;
+    } catch (_) {
+      AppLogger.w('Notifications', 'Local Entry-label resolution failed');
+      return null;
+    }
+  }
+
+  Future<EntryEntity?> resolveEntry(String vaultId, String entryId) async {
+    await _index.waitForCurrent(vaultId);
+    final matches = _index
+        .entries(vaultId)
+        .where(
+          (entry) =>
+              entry.entryId == entryId &&
+              entry.state != MemberEntryState.deleted &&
+              !entry.corrupt,
+        )
+        .toList(growable: false);
+    if (matches.length != 1) return null;
+    final entry = matches.single;
+    final epoch = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    return EntryEntity(
+      id: entry.entryId,
+      vaultId: vaultId,
+      label: entry.memberLabel,
+      icon: entry.iconReference,
+      type: EntryTypeExtension.fromWire(entry.entryType),
+      createdAt: epoch,
+      updatedAt: epoch,
+      lifecycleState: entry.state,
+      currentRevision: entry.revision,
+      currentKeyVersion: entry.currentKeyVersion,
+    );
+  }
 
   List<InboxNotification> _generic(List<InboxNotification> items) => items
       .map((item) {

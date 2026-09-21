@@ -12,7 +12,6 @@ import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../public_asset_catalog/presentation/widgets/public_asset_image.dart';
 import '../../domain/entities/entry_entity.dart';
 import '../../domain/entities/member_index_entry.dart';
 import '../../domain/exceptions/entry_exceptions.dart';
@@ -20,9 +19,7 @@ import '../cubit/entry_list_cubit.dart';
 import '../pages/entry_detail_page.dart';
 import '../pages/entry_archive_page.dart';
 import 'entry_field_row.dart';
-import 'vault_visuals.dart';
-import 'encrypted_asset_image.dart';
-import '../../data/services/encrypted_presentation_asset_service.dart';
+import 'entry_list_icon.dart';
 
 /// Entries tab on the vault detail page.
 ///
@@ -569,7 +566,7 @@ class _EntryCard extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    _EntryIconWidget(entry: entry),
+                    EntryListIcon(entry: entry),
                     const SizedBox(width: AppSpacing.cardGap),
                     Expanded(
                       child: Column(
@@ -786,90 +783,6 @@ class _RevealPanel extends StatelessWidget {
             onCopy: () => onCopy(payload['notes'] as String),
           ),
       ],
-    );
-  }
-}
-
-// ── Entry icon ─────────────────────────────────────────────────────
-
-/// Renders the entry's icon as a 40×40 circle (matching vault/agent list
-/// icons). Uses the `entry.icon`
-/// field when set — custom URLs (publicly readable S3) become a network
-/// image with a cache-busting `?v=` param tied to `entry.updatedAt`,
-/// preset names map to the matching [EntryVisuals] palette color.
-/// Falls back to a type-based icon when `entry.icon` is null.
-class _EntryIconWidget extends StatelessWidget {
-  const _EntryIconWidget({required this.entry});
-
-  final EntryEntity entry;
-
-  @override
-  Widget build(BuildContext context) {
-    final icon = entry.icon;
-
-    if (icon?.startsWith('asset:') ?? false) {
-      return SizedBox(
-        width: 40,
-        height: 40,
-        child: ClipOval(
-          child: EncryptedAssetImage(
-            reference: icon!,
-            target: PresentationAssetTarget.entry,
-            vaultId: entry.vaultId,
-            entryId: entry.id,
-            width: 40,
-            height: 40,
-            fallback: _presetIcon(null),
-          ),
-        ),
-      );
-    }
-
-    if (icon?.startsWith('public-asset:') ?? false) {
-      return SizedBox(
-        width: 40,
-        height: 40,
-        child: ClipOval(
-          child: PublicAssetImage(
-            reference: icon!,
-            width: 40,
-            height: 40,
-            fallback: _presetIcon(null),
-          ),
-        ),
-      );
-    }
-
-    if (!EntryVisuals.isCustomUrl(icon)) {
-      return _presetIcon(icon);
-    }
-
-    return _presetIcon(null);
-  }
-
-  Widget _presetIcon(String? name) {
-    final choices = EntryVisuals.iconChoices;
-    final fallbackName = switch (entry.type) {
-      EntryType.key => choices.first.name,
-      EntryType.credential => 'lock',
-      EntryType.script => 'terminal',
-      EntryType.creditCard => 'credit_card',
-    };
-    final choice = choices.firstWhere(
-      (c) => c.name == (name ?? EntryVisuals.defaultIconName),
-      orElse: () => choices.firstWhere(
-        (c) => c.name == fallbackName,
-        orElse: () => choices.first,
-      ),
-    );
-    final iconColor = choice.paletteColor;
-    final iconBg = iconColor.withValues(alpha: 0.15);
-    return Container(
-      width: 40,
-      height: 40,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: iconBg),
-      child: Icon(choice.icon, size: 20, color: iconColor),
     );
   }
 }
