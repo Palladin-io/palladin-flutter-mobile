@@ -26,6 +26,8 @@ import 'package:mobile_palladin/core/widgets/primary_button.dart';
 import 'package:mobile_palladin/core/widgets/skeleton_box.dart';
 import 'package:mobile_palladin/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mobile_palladin/features/auth/data/datasources/password_auth_remote_datasource.dart';
+import 'package:mobile_palladin/features/auth/data/models/auth_result_model.dart';
+import 'package:mobile_palladin/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:mobile_palladin/features/auth/data/services/hibp_service.dart';
 import 'package:mobile_palladin/features/auth/data/services/password_auth_crypto_service.dart';
 import 'package:mobile_palladin/features/auth/domain/password_auth_exceptions.dart';
@@ -40,6 +42,10 @@ import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifie
 import 'package:mobile_palladin/features/onboarding/presentation/widgets/onboarding_text_field.dart';
 import 'package:mobile_palladin/features/onboarding/data/datasources/onboarding_remote_datasource.dart';
 import 'package:mobile_palladin/features/onboarding/data/services/default_vault_provisioner.dart';
+import 'package:mobile_palladin/features/onboarding/data/repositories/onboarding_repository_impl.dart';
+import 'package:mobile_palladin/features/onboarding/data/services/onboarding_crypto_service.dart';
+import 'package:mobile_palladin/features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import 'package:mobile_palladin/features/onboarding/presentation/pages/onboarding_wizard_page.dart';
 import 'package:mobile_palladin/features/unlock/data/datasources/account_remote_datasource.dart';
 import 'package:mobile_palladin/features/unlock/data/services/identity_kdf_service.dart';
 import 'package:mobile_palladin/features/unlock/data/services/unlock_crypto_service.dart';
@@ -101,6 +107,7 @@ void main() {
   late Map<String, dynamic> fixture;
   late String shareId;
   late RegisterCubit registration;
+  late OnboardingCubit onboarding;
   late UnlockCubit unlock;
   late _Biometrics biometrics;
   late GlobalKey screenshot;
@@ -110,12 +117,16 @@ void main() {
       <({String path, String method, String body, String? auth})>[];
   final vaultPosts = <String>[];
   final entryPosts = <String>[];
+  final setupPosts = <String>[];
   Map<String, dynamic>? vaultJson;
   Map<String, Object?>? unlockAccount;
   Map<String, Object?>? nativeReply;
   String? token;
   String principal = _principal;
   bool verified = true;
+  bool onboarded = true;
+  Completer<void>? oauthGate;
+  int googleLogins = 0;
   bool? defaultProvisioned;
   int verificationChecks = 0;
   final registrations = <Map<String, dynamic>>[];
@@ -232,6 +243,12 @@ void main() {
         'Bearer $token',
       );
       switch ((request.method, path)) {
+        case ('POST', '/api/account/setup'):
+          setupPosts.add(body);
+          request.response.statusCode =
+              scenario == 'oauth-setup-retry' && setupPosts.length == 1
+              ? 503
+              : 204;
         case ('GET', '/api/vaults'):
           response = {
             'vaults': [if (vaultJson != null) vaultJson!],
@@ -316,6 +333,10 @@ void main() {
     token = null;
     principal = _principal;
     verified = !scenario.startsWith('register');
+    onboarded = !scenario.startsWith('oauth');
+    oauthGate = null;
+    googleLogins = 0;
+    setupPosts.clear();
     defaultProvisioned = scenario.startsWith('unlock') ? false : null;
     unlockAccount = null;
     verificationChecks = 0;
@@ -347,7 +368,22 @@ void main() {
     when(
       () => repository.isAuthenticated(),
     ).thenAnswer((_) async => scenario.startsWith('unlock'));
-    when(() => repository.isOnboarded()).thenAnswer((_) async => true);
+    when(() => repository.isOnboarded()).thenAnswer((_) async => onboarded);
+    when(() => repository.loginWithGoogle()).thenAnswer((_) async {
+      googleLogins++;
+      await oauthGate?.future;
+      if (scenario == 'oauth-cancel-retry' && googleLogins == 1) {
+        throw AuthCancelledException();
+      }
+      token = sessionToken();
+      return AuthResultModel(
+        accessToken: token!,
+        refreshToken: 'fixture-refresh',
+        userId: principal,
+        isOnboarded: onboarded,
+        isNewUser: true,
+      );
+    });
     when(() => repository.getUserId()).thenAnswer((_) async => principal);
     when(() => repository.getPermissions()).thenAnswer(
       (_) async => Permissions.vaultManage | Permissions.vaultCreate,
@@ -364,11 +400,15 @@ void main() {
       verified = scenario != 'register-pending' || verificationChecks > 1;
       token = sessionToken();
     });
-    when(
-      () => repository.getAuthProvider(),
-    ).thenAnswer((_) async => 'password');
+    when(() => repository.getAuthProvider()).thenAnswer(
+      (_) async => scenario.startsWith('oauth') ? 'google' : 'password',
+    );
     final tokens = _Tokens();
     when(() => tokens.accessToken).thenAnswer((_) async => token);
+    when(() => tokens.userId).thenAnswer((_) async => principal);
+    when(() => tokens.setOnboarded(any())).thenAnswer((call) async {
+      onboarded = call.positionalArguments[0] as bool;
+    });
     when(
       () => tokens.defaultVaultProvisioned,
     ).thenAnswer((_) async => defaultProvisioned);
@@ -445,6 +485,18 @@ void main() {
     final hibp = _Hibp();
     when(() => hibp.check(any())).thenAnswer((_) async => HibpResult.notFound);
     getIt.registerSingleton<HibpService>(hibp);
+    getIt.registerFactory<OnboardingCubit>(
+      () => onboarding = OnboardingCubit(
+        repository: OnboardingRepositoryImpl(
+          remoteDatasource: OnboardingRemoteDatasource(accountHttp),
+          cryptoService: OnboardingCryptoService(
+            sodiumLoader: () async => sodium,
+          ),
+          defaultVaultProvisioner: provisioner,
+          tokenStorage: tokens,
+        ),
+      ),
+    );
     biometrics = _Biometrics();
     when(() => biometrics.isEnrolled()).thenAnswer((_) async => false);
     when(() => biometrics.canStore()).thenAnswer((_) async => false);
@@ -628,7 +680,7 @@ void main() {
   }
 
   for (final polish in [false, true]) {
-    for (final accountFlow in ['register', 'unlock']) {
+    for (final accountFlow in ['register', 'unlock', 'oauth']) {
       testWidgets(
         'sharing $accountFlow remains editable with keyboard: pl=$polish',
         (tester) async {
@@ -640,12 +692,24 @@ void main() {
           await tap(tester, l10n.sharingOpen);
           await tap(tester, l10n.sharingReceive);
           final unlocking = accountFlow == 'unlock';
-          await tap(
-            tester,
-            unlocking ? l10n.sharingContinueAccount : l10n.sharingRegister,
-          );
+          final oauth = accountFlow == 'oauth';
+          if (oauth) {
+            await tap(tester, l10n.sharingLogin);
+            await tap(tester, l10n.continueWithGoogle);
+          } else {
+            await tap(
+              tester,
+              unlocking ? l10n.sharingContinueAccount : l10n.sharingRegister,
+            );
+          }
           expect(
-            find.byType(unlocking ? UnlockPage : RegisterPage),
+            find.byType(
+              oauth
+                  ? OnboardingWizardPage
+                  : unlocking
+                  ? UnlockPage
+                  : RegisterPage,
+            ),
             findsOneWidget,
           );
           expect(tester.takeException(), isNull);
@@ -709,8 +773,12 @@ void main() {
           await tester.pumpAndSettle();
           final label = unlocking
               ? l10n.unlockPasswordLabel
+              : oauth
+              ? l10n.onboardingMasterPasswordLabel
               : l10n.authEmailLabel;
-          final value = unlocking ? _unlockPassword : 'draft@example.invalid';
+          final value = unlocking || oauth
+              ? _unlockPassword
+              : 'draft@example.invalid';
           await enterField(tester, label, value);
           await tester.pumpAndSettle();
           final input = find.descendant(
@@ -738,7 +806,7 @@ void main() {
           expect((opens, deliveries, confirmations), (1, 1, 1));
           expect(
             router.routeInformationProvider.value.uri.path,
-            '/$accountFlow',
+            oauth ? '/onboarding' : '/$accountFlow',
           );
         },
       );
@@ -755,6 +823,9 @@ void main() {
     'unlock',
     'unlock-wrong-password',
     'unlock-provision-retry',
+    'oauth',
+    'oauth-cancel-retry',
+    'oauth-setup-retry',
   ]) {
     testWidgets(
       'receipt survives production account routing and first-vault save: $variant',
@@ -771,7 +842,87 @@ void main() {
             .lifetime;
         final registering = variant.startsWith('register');
         final unlocking = variant.startsWith('unlock');
-        if (unlocking) {
+        final oauth = variant.startsWith('oauth');
+        if (oauth) {
+          await tap(tester, 'Sign in to save a copy');
+          oauthGate = Completer<void>();
+          final google = find.text('Continue with Google').last;
+          await tester.ensureVisible(google);
+          await tester.tap(google);
+          await tester.pump();
+          expect(auth.state, isA<AuthLoading>());
+          for (final state in [
+            AppLifecycleState.inactive,
+            AppLifecycleState.hidden,
+            AppLifecycleState.paused,
+          ]) {
+            tester.binding.handleAppLifecycleStateChanged(state);
+          }
+          await tester.pump();
+          expect(continuation.active, true);
+          expect((opens, deliveries, confirmations), (1, 1, 1));
+          oauthGate!.complete();
+          await tester.pump();
+          for (final state in [
+            AppLifecycleState.hidden,
+            AppLifecycleState.inactive,
+            AppLifecycleState.resumed,
+          ]) {
+            tester.binding.handleAppLifecycleStateChanged(state);
+          }
+          await drain(tester);
+          if (variant == 'oauth-cancel-retry') {
+            expect(find.byType(LoginPage), findsOneWidget);
+            expect(continuation.active, true);
+            expect((opens, deliveries, confirmations), (1, 1, 1));
+            await tap(tester, 'Continue with Google');
+          }
+          expect(googleLogins, variant == 'oauth-cancel-retry' ? 2 : 1);
+          expect(find.byType(OnboardingWizardPage), findsOneWidget);
+          for (final label in ['Master Password', 'Confirm Password']) {
+            await enterField(tester, label, _unlockPassword);
+          }
+          await drain(tester);
+          await tap(tester, 'Continue');
+          expect(onboarding.state.step, OnboardingStep.recoveryKeyBackup);
+          final recoveryWords = List<String>.of(onboarding.state.mnemonic);
+          await tap(tester, "I've Saved My Recovery Key");
+          for (final input
+              in tester
+                  .widgetList<OnboardingTextField>(
+                    find.byType(OnboardingTextField),
+                  )
+                  .toList()) {
+            final label = input.label!;
+            final index = int.parse(label.split('#').last) - 1;
+            await enterField(tester, label, recoveryWords[index]);
+          }
+          await tap(tester, 'Verify & Complete Setup');
+          if (variant == 'oauth-setup-retry') {
+            expect(onboarding.state.step, OnboardingStep.recoveryKeyConfirm);
+            expect(find.byType(SnackBar), findsOneWidget);
+            expect(continuation.active, true);
+            expect((auth.state as AuthAuthenticated).isOnboarded, false);
+            expect(keys.copyMemberPrivateKey, throwsStateError);
+            expect(vaultPosts, isEmpty);
+            expect((opens, deliveries, confirmations), (1, 1, 1));
+            await tap(tester, 'Verify & Complete Setup');
+            expect(find.byType(SnackBar), findsNothing);
+            expect(tester.takeException(), isNull);
+          }
+          expect(setupPosts, hasLength(variant == 'oauth-setup-retry' ? 2 : 1));
+          expect(defaultProvisioned, true);
+          expect(onboarded, true);
+          privateKey.fillRange(0, privateKey.length, 0);
+          privateKey = Uint8List.fromList(
+            (auth.state as AuthAuthenticated).privateKey!,
+          );
+          for (final request in requests) {
+            expect(request.body, isNot(contains(recoveryWords.join(' '))));
+          }
+          verifyNever(() => biometrics.enroll(any(), any()));
+          verifyNever(() => biometrics.unlockKey(any()));
+        } else if (unlocking) {
           await tap(tester, 'Continue account setup or unlock');
           expect(find.byType(UnlockPage), findsOneWidget);
           expect((auth.state as AuthAuthenticated).isVaultLocked, true);
@@ -920,10 +1071,10 @@ void main() {
         final provisionAttempts = variant == 'unlock-provision-retry' ? 2 : 1;
         expect(
           vaultPosts,
-          hasLength(registering || unlocking ? provisionAttempts : 0),
+          hasLength(registering || unlocking || oauth ? provisionAttempts : 0),
         );
         expect(entryPosts, isEmpty);
-        if (!registering && !unlocking) {
+        if (!registering && !unlocking && !oauth) {
           await tap(tester, 'Create my personal vault');
         }
         expect(vaultPosts, hasLength(provisionAttempts));
@@ -993,7 +1144,9 @@ void main() {
         expect(
           routes,
           everyElement(
-            registering
+            oauth
+                ? anyOf('/login', '/onboarding', '/share')
+                : registering
                 ? anyOf('/register', '/verify-email', '/share')
                 : unlocking
                 ? anyOf('/unlock', '/share')
@@ -1017,7 +1170,7 @@ void main() {
           );
           expect(request.body, isNot(contains(base64Encode(privateKey))));
           expect(request.body, isNot(contains(_unlockPassword)));
-          if (unlocking) {
+          if (unlocking || oauth) {
             expect(
               request.body,
               isNot(

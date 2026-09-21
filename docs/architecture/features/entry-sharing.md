@@ -319,8 +319,9 @@ body now has a stable `ClipRect`, protecting its sibling notice without remounti
 the account form or changing shared gradient geometry. This is a scoped rendering
 fix, not a redesign of authentication.
 
-OAuth onboarding, real backend authentication/receipt accounting, mail/native
-device acceptance and the deployed user environment remain required.
+Combined OAuth onboarding is covered below. Real backend authentication/receipt
+accounting, mail/native device acceptance and the deployed user environment
+remain required.
 
 Unlock checkpoint (2026-09-21): **five new cases; 1,832 Flutter PASS / two existing
 plugin-only skips**, including six structural budgets, after the paint fix.
@@ -329,6 +330,38 @@ changes. All 13 combined account cases also pass with supplied Inter; EN/PL
 initial/keyboard renders confirm layout and the corrected notice paint. The
 RichText wordmark retains the widget harness's block font, so this is not full
 visual or native-device approval. No CI, native app build, merge or deployment.
+
+### Combined Google onboarding and copy acceptance
+
+The production-router fixture drives the Google action through the real AuthBloc
+and onboarding wizard, native KDF/libsodium, recovery backup/confirmation, account
+setup over loopback HTTP and the default-Vault provisioner. Success, provider
+cancellation/retry and account-setup failure/retry preserve the same reception
+lifetime and one open/delivery/ACK. The failed setup leaves the account unonboarded
+without a member key, Vault or Entry write. Explicit destination selection,
+missing-field completion and Save produce an independently decryptable copy.
+Background/resume during the provider wait does not redeem the link again.
+
+The Google repository result, token storage, HIBP, native channel and server are
+substituted; this is client-composition evidence, not real Google/backend/device
+E2E. Biometric storage is unavailable and never enrolled/read. Captured request
+bodies exclude the tested plaintext, password, mnemonic, MK and private key.
+
+EN/light/390px and PL/dark/320px/150% keyboard/cancellation cases keep the account
+form editable and mounted. They reproduced a pinned header overflowing the
+short viewport; both centered-footer variants now scroll the header, while the
+master-password Continue action remains pinned (also checked independently).
+The setup-retry case reproduced duplicate SnackBar Hero tags during overlapping
+wizard/route transitions; clearing the old error SnackBar when the error state
+clears removes the conflict without delaying account continuation.
+
+OAuth checkpoint (2026-09-21): **six new cases; 1,838 Flutter PASS / two existing
+plugin-only skips**. Six structural budgets, analyze, notices and full staged-tree
+Gitleaks 8.30.1 PASS without new exceptions. All 18 combined account cases also
+pass with supplied Inter. EN/PL initial/keyboard renders confirm scrolling,
+pinned action and notice geometry; the wordmark retains the harness block font,
+so this is not full visual/native-device approval. Same mobile/root Draft PRs;
+no CI, native app build, merge, deployment or gitlink change.
 
 ### One-shot account transfer and explicit account continuation
 

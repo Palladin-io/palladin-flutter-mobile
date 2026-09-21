@@ -82,7 +82,9 @@ class OnboardingScaffold extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (!centerFooterInRemainingSpace) _header(brightness),
+                  if (!centerFooterInRemainingSpace &&
+                      !centerFooterAbovePinnedBottom)
+                    _header(brightness),
                   if (contentTopSpacing != null &&
                       (centerFooterInRemainingSpace ||
                           centerFooterAbovePinnedBottom))
@@ -99,8 +101,7 @@ class OnboardingScaffold extends StatelessWidget {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
-                                    if (centerFooterInRemainingSpace)
-                                      _header(brightness),
+                                    _header(brightness),
                                     SizedBox(height: contentTopSpacing!),
                                     if (showTitleBlock) ...[
                                       _TitleBlock(

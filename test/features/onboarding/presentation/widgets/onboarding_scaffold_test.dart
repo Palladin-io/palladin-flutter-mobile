@@ -6,6 +6,46 @@ import 'package:mobile_palladin/features/onboarding/presentation/widgets/onboard
 
 void main() {
   testWidgets(
+    'short onboarding scrolls the header but keeps its action pinned',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              height: 176,
+              child: OnboardingScaffold(
+                currentStep: 0,
+                title: '',
+                subtitle: '',
+                header: SizedBox(key: Key('header'), height: 280),
+                contentTopSpacing: 64,
+                showTitleBlock: false,
+                centerFooterAbovePinnedBottom: true,
+                footer: Text('feedback'),
+                bottom: SizedBox(key: Key('action'), height: 44),
+                children: [TextField(key: Key('password'))],
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      final actionBounds = tester.getRect(find.byKey(const Key('action')));
+      expect(actionBounds.bottom, lessThanOrEqualTo(176));
+      await tester.ensureVisible(find.byKey(const Key('password')));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byKey(const Key('action'))), actionBounds);
+      expect(
+        tester.getRect(find.byKey(const Key('password'))).bottom,
+        lessThanOrEqualTo(actionBounds.top),
+      );
+      expect(tester.getRect(find.byKey(const Key('header'))).top, lessThan(0));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'registration header scrolls away when the available viewport is shorter than the header',
     (tester) async {
       await tester.pumpWidget(
