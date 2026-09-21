@@ -20,56 +20,108 @@ void main() {
   }
 
   group('notificationDeepLink', () {
+    for (final type in [
+      'grant_pending',
+      'grant_approved',
+      'grant_denied',
+      'grant_revoked',
+    ]) {
+      test('$type for an Entry does not open the Entries list', () {
+        final n = make(type, {
+          'vaultId': 'v-1',
+          'entryId': 'e-1',
+          'grantType': 'granular',
+        });
+        expect(
+          notificationDeepLink(n),
+          isA<NotificationEntryDestination>()
+              .having((target) => target.vaultId, 'vaultId', 'v-1')
+              .having((target) => target.entryId, 'entryId', 'e-1'),
+        );
+      });
+    }
     test('agent deep-link maps to agent detail', () {
       final n = make('agent_approved', {
         'agentId': 'a-1',
         'actionDeepLink': '/agents/forged',
       });
-      expect(notificationDeepLink(n), '/agents/a-1');
+      expect(
+        notificationDeepLink(n),
+        isA<NotificationRouteDestination>().having(
+          (target) => target.route,
+          'route',
+          '/agents/a-1',
+        ),
+      );
     });
 
-    test('grant deep-link collapses to its owning vault detail', () {
+    test('FULL access opens its owning vault detail', () {
       final n = make('grant_approved', {
         'vaultId': 'v-1',
+        'grantType': 'full',
+        'entryId': 'e-ignored',
         'actionDeepLink': '/vaults/v-1/grants/g-1',
       });
-      expect(notificationDeepLink(n), '/vaults/v-1');
+      expect(
+        notificationDeepLink(n),
+        isA<NotificationRouteDestination>().having(
+          (target) => target.route,
+          'route',
+          '/vaults/v-1',
+        ),
+      );
     });
 
-    test('entry deep-link collapses to its owning vault detail', () {
+    test('stale credential opens the exact Entry from metadata', () {
       final n = make('credential_stale', {
         'vaultId': 'v-2',
-        'actionDeepLink': '/vaults/v-2/entries/e-1',
+        'entryId': 'e-1',
+        'actionDeepLink': '/vaults/forged/entries/forged',
       });
-      expect(notificationDeepLink(n), '/vaults/v-2');
+      expect(
+        notificationDeepLink(n),
+        isA<NotificationEntryDestination>()
+            .having((target) => target.vaultId, 'vaultId', 'v-2')
+            .having((target) => target.entryId, 'entryId', 'e-1'),
+      );
     });
 
     test('falls back to agentId metadata when no deep-link is present', () {
       final n = make('agent_approved', {'agentId': 'a-9'});
-      expect(notificationDeepLink(n), '/agents/a-9');
+      expect(
+        notificationDeepLink(n),
+        isA<NotificationRouteDestination>().having(
+          (target) => target.route,
+          'route',
+          '/agents/a-9',
+        ),
+      );
     });
 
-    test('falls back to vaultId metadata when no deep-link is present', () {
+    test('missing Entry does not fall back to the Entries list', () {
       final n = make('credential_stale', {'vaultId': 'v-9'});
-      expect(notificationDeepLink(n), '/vaults/v-9');
+      expect(notificationDeepLink(n), isNull);
     });
 
     test('returns null when there is no usable target', () {
       expect(notificationDeepLink(make('future_unknown', const {})), isNull);
     });
 
-    test(
-      'historical grant_revoked renders without crashing and has no target',
-      () {
-        // Backend no longer emits grant_revoked, but a historical item must still
-        // resolve gracefully (no inline actions, deep-links to its vault).
-        final n = make('grant_revoked', {
-          'vaultId': 'v-3',
-          'actionDeepLink': '/vaults/v-3/grants/g-3',
-        });
-        expect(notificationDeepLink(n), '/vaults/v-3');
-      },
-    );
+    test('historical FULL grant_revoked opens its Vault', () {
+      final n = make('grant_revoked', {
+        'vaultId': 'v-3',
+        'grantType': 'full',
+        'actionDeepLink': '/vaults/v-3/grants/g-3',
+      });
+      expect(
+        notificationDeepLink(n),
+        isA<NotificationRouteDestination>().having(
+          (target) => target.route,
+          'route',
+          '/vaults/v-3',
+        ),
+      );
+    });
 
     test('deep-link cannot widen an allowlisted type destination', () {
       final n = make('grant_approved', {
@@ -77,6 +129,50 @@ void main() {
         'agentId': 'a-5',
       });
       expect(notificationDeepLink(n), isNull);
+    });
+
+    for (final scope in ['granular', 'scriptExecution', 1, 3]) {
+      test('$scope requires the exact Entry and Vault', () {
+        expect(
+          notificationDeepLink(
+            make('grant_approved', {'grantType': scope, 'vaultId': 'v'}),
+          ),
+          isNull,
+        );
+        expect(
+          notificationDeepLink(
+            make('grant_approved', {'grantType': scope, 'entryId': 'e'}),
+          ),
+          isNull,
+        );
+        expect(
+          notificationDeepLink(
+            make('grant_approved', {
+              'grantType': scope,
+              'vaultId': 'v',
+              'entryId': 'e',
+            }),
+          ),
+          isA<NotificationEntryDestination>()
+              .having((target) => target.vaultId, 'vaultId', 'v')
+              .having((target) => target.entryId, 'entryId', 'e'),
+        );
+      });
+    }
+
+    test('does not infer grant type from nullable Entry id', () {
+      for (final scope in [null, 'future']) {
+        expect(
+          notificationDeepLink(
+            make('grant_approved', {
+              'vaultId': 'v',
+              'entryId': 'e',
+              'grantType': scope,
+            }),
+          ),
+          isNull,
+        );
+      }
     });
   });
 

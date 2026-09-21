@@ -249,11 +249,70 @@ void main() {
           );
 
       expect(resolved[0].metadata['entryLabel'], 'Production token');
+      expect(resolved[0].metadata['grantType'], 'granular');
+      expect(resolved[0].metadata['entryId'], 'entry');
       expect(resolved[0].metadata['agentName'], 'Deploy bot');
       expect(resolved[0].metadata['reason'], 'Deploy release');
       expect(resolved[0].metadata['actorName'], 'Alice');
       expect(resolved[1].metadata['reason'], 'Deploy release');
       expect(resolved[1].metadata['actorName'], isNull);
+    },
+  );
+
+  test('Entry navigation uses the current exact Vault-scoped index head', () {
+    final index = _Index();
+    when(() => index.entries('vault')).thenReturn(const [
+      MemberIndexEntry(
+        entryId: 'entry',
+        entryType: 1,
+        memberLabel: 'Current credential',
+        searchFields: [],
+        revision: '42',
+        currentKeyVersion: 3,
+        state: MemberEntryState.active,
+        iconReference: 'key',
+      ),
+    ]);
+    when(() => index.entries('other-vault')).thenReturn(const []);
+    final resolver = NotificationPresentationResolver(index: index);
+    final entry = resolver.resolveEntry('vault', 'entry')!;
+    expect(entry.id, 'entry');
+    expect(entry.vaultId, 'vault');
+    expect(entry.label, 'Current credential');
+    expect(entry.icon, 'key');
+    expect(entry.currentRevision, '42');
+    expect(entry.currentKeyVersion, 3);
+    expect(resolver.resolveEntry('other-vault', 'entry'), isNull);
+    expect(resolver.resolveEntry('vault', 'missing'), isNull);
+  });
+
+  test(
+    'Entry navigation refuses removed, corrupt, ambiguous and locked rows',
+    () {
+      final index = _Index();
+      final resolver = NotificationPresentationResolver(index: index);
+      for (final scenario in [
+        (state: MemberEntryState.deleted, corrupt: false, count: 1),
+        (state: MemberEntryState.active, corrupt: true, count: 1),
+        (state: MemberEntryState.active, corrupt: false, count: 2),
+        (state: MemberEntryState.active, corrupt: false, count: 0),
+      ]) {
+        when(() => index.entries('vault')).thenReturn(
+          List.generate(
+            scenario.count,
+            (_) => MemberIndexEntry(
+              entryId: 'entry',
+              entryType: 1,
+              memberLabel: 'Unavailable',
+              searchFields: [],
+              revision: '1',
+              state: scenario.state,
+              corrupt: scenario.corrupt,
+            ),
+          ),
+        );
+        expect(resolver.resolveEntry('vault', 'entry'), isNull);
+      }
     },
   );
 
