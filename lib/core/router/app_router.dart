@@ -35,6 +35,7 @@ import '../../features/vault/presentation/pages/vault_detail_page.dart';
 import '../../features/vault/presentation/pages/vault_list_page.dart';
 import '../../features/vault/presentation/pages/entry_share_receiver_host.dart';
 import '../../features/vault/presentation/entry_share_account_continuation.dart';
+import '../../features/vault/presentation/widgets/entry_share_account_frame.dart';
 import '../../features/vault/data/services/entry_sharing/entry_share_copy_service.dart';
 import '../../features/vault/presentation/widgets/entry_share_receiver_frame.dart';
 import '../../features/vault/data/datasources/entry_share_recipient_datasource.dart';
@@ -150,6 +151,10 @@ GoRouter createRouter(
   EntryShareIngress? sharingIngress,
   EntryShareAccountContinuation? sharingAccount,
 }) {
+  Widget accountFrame(Widget child) => sharingAccount == null
+      ? child
+      : EntryShareAccountFrame(continuation: sharingAccount, child: child);
+
   return GoRouter(
     navigatorKey: navigatorKey,
     initialLocation: '/login',
@@ -255,25 +260,29 @@ GoRouter createRouter(
       GoRoute(
         path: '/login',
         pageBuilder: (context, state) =>
-            _authFadePage(context, state, const LoginPage()),
+            _authFadePage(context, state, accountFrame(const LoginPage())),
       ),
       GoRoute(
         path: '/register',
         pageBuilder: (context, state) =>
-            _authFadePage(context, state, const RegisterPage()),
+            _authFadePage(context, state, accountFrame(const RegisterPage())),
       ),
       GoRoute(
         // `?token=` present → verification-result mode (deep link); absent →
         // "please verify your email" gate with a resend action.
         path: '/verify-email',
-        builder: (_, state) =>
-            VerifyEmailPage(token: state.uri.queryParameters['token']),
+        builder: (_, state) => accountFrame(
+          VerifyEmailPage(token: state.uri.queryParameters['token']),
+        ),
       ),
       GoRoute(
         path: '/onboarding',
-        builder: (_, _) => const OnboardingWizardPage(),
+        builder: (_, _) => accountFrame(const OnboardingWizardPage()),
       ),
-      GoRoute(path: '/unlock', builder: (_, _) => const UnlockPage()),
+      GoRoute(
+        path: '/unlock',
+        builder: (_, _) => accountFrame(const UnlockPage()),
+      ),
       GoRoute(path: '/recovery', builder: (_, _) => const RecoveryPage()),
       GoRoute(
         // Master-password change — a focused full-screen flow

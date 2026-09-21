@@ -178,10 +178,33 @@ returned copy; consent state is unchanged.
 Coordinator tests exercise real snapshot decryption and reuse the same receipt,
 ACK and lifetime across account binding. Mounted host tests click the actual
 login/register CTAs and return to the same remote session after replacement of
-the receiver route. Auth and transport are substituted. A visible cancel action
-during the account detour, production-router/account-form acceptance, first-Vault
-creation, combined guest-to-copy-save and real email/OAuth/limit=1 HTTP/device E2E
-remain required. These narrower tests do not establish those outcomes.
+the receiver route. Auth and transport are substituted. First-Vault creation,
+combined guest-to-copy-save and real email/OAuth/limit=1 HTTP/device E2E remain
+required. These narrower tests do not establish those outcomes.
+
+`EntryShareAccountFrame` now exposes local cancellation on login, registration,
+verification, onboarding and unlock. Its inline confirmation uses the current
+transfer generation, so an obsolete action cannot discard a replacement flow.
+It clears the RAM reception only: no link revocation, logout or account-setup
+cancellation. The account form keeps its element and entered text. Expiry removes
+the notice without renewing the deadline. The opaque themed notice scrolls within
+half the keyboard-adjusted viewport; it never consumes the entire form area.
+
+Six new widget cases exercise the production login page, real AuthBloc and
+production router, including delayed independent authority, exact `/share`
+return, manual one-shot transfer claim, cancellation, expiry and EN/PL keyboard
+layouts. LoginCubit and account repository are substituted; the returned route
+uses a placeholder rather than the mounted receiver/save host. Two coordinator
+cases cover cancellation during authority lookup and stale cancellation after
+replacement. A PL 320px/150% test reproduced a login sign-up-row overflow; the row
+now wraps and the email field remains editable above the keyboard. This is not
+registration/verification/unlock form acceptance or combined guest-to-save E2E.
+
+Cancellation checkpoint (2026-09-21): **eight new cases; 1,705 Flutter PASS / two
+existing plugin-only skips**, including six structural budgets. Analyze, notices
+and staged-tree Gitleaks PASS. Synthetic EN light 390px and PL dark 320px/150%
+captures informed the opaque bounded notice; widget checks additionally edit the
+login email above the keyboard. No CI, native app build, merge or deployment ran.
 
 Account-wiring checkpoint (2026-09-21): **23 added cases; 1,697 Flutter PASS / two
 existing plugin-only skips**, including six structural budgets. Analyze, notices

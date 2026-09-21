@@ -51,7 +51,12 @@ final class EntryShareAccountContinuation extends ChangeNotifier
       WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
   bool get active => !_disposed && _transfer?.isAvailable == true;
   bool get ready => active && _ready && _foreground;
+  int get generation => _epoch;
   bool ownsVersion(int version) => active && version == _version;
+
+  void cancel(int expectedGeneration) {
+    if (expectedGeneration == _epoch) clear();
+  }
 
   Future<bool> begin(
     EntryShareReceptionCubit cubit,

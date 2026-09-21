@@ -410,6 +410,42 @@ void main() {
       expect(secrets.key, everyElement(0));
     });
 
+    test(
+      'explicit cancellation fences a pending account authority read',
+      () async {
+        await continuation.begin(cubit, EntryShareAccountAction.login);
+        final pending = Completer<EntryShareRecipientOwner?>();
+        readAuthority = (_) => pending.future;
+        await changeAuth(readyAccount());
+        continuation.cancel(continuation.generation);
+        pending.complete(_account);
+        await Future<void>.delayed(Duration.zero);
+        expect(continuation.active, false);
+        expect(continuation.ready, false);
+        expect(secrets.key, everyElement(0));
+        verify(() => remote.close()).called(1);
+      },
+    );
+
+    test('stale cancellation cannot discard a replacement reception', () async {
+      await continuation.begin(cubit, EntryShareAccountAction.login);
+      final staleGeneration = continuation.generation;
+      continuation.cancel(staleGeneration);
+      await cubit.close();
+      secrets = EntryShareSecrets(
+        key: Uint8List(32)..fillRange(0, 32, 3),
+        accessToken: Uint8List(32)..fillRange(0, 32, 4),
+      );
+      cubit = makeCubit();
+      await continuation.begin(cubit, EntryShareAccountAction.login);
+      continuation.cancel(staleGeneration);
+      expect(continuation.active, true);
+      expect(secrets.key, everyElement(3));
+      continuation.cancel(continuation.generation);
+      expect(continuation.active, false);
+      expect(secrets.key, everyElement(0));
+    });
+
     for (final transition in [
       'logout',
       'lock',
