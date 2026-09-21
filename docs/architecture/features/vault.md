@@ -311,3 +311,5 @@ remain enforced. See [API response boundaries](../api-response-validation.md)
 for the audit of retained checks and forward-compatible display values.
 
 Confirming or scanning a new/replacement TOTP submits the complete Add/Edit form through the existing encrypted save path. Invalid forms show an explicit not-yet-saved message; failed saves retain the draft for retry. Removing TOTP still requires the form Save action.
+
+A populated edit form retains its local fields and TOTP after an optimistic conflict. Saving again requires explicit confirmation before fetching the latest authenticated canonical head and using it as the new optimistic base for the complete local draft. Canceling that confirmation keeps the draft; another race remains a conflict. Lock/background still wipe plaintext.
