@@ -25,11 +25,15 @@ OAuth onboarding and password registration. Light backgrounds stay unchanged.
   `centerFooterAbovePinnedBottom` centers the feedback horizontally and
   vertically between the requirements card and Continue while keeping the
   action pinned. On short screens, the feedback scrolls with the form.
-  Registration's separate `centerFooterInRemainingSpace` variant scrolls the
-  header with its content and footer. A sharing-account notice plus keyboard
+  Both centered-footer variants scroll the header with their content and
+  feedback. Registration's `centerFooterInRemainingSpace` also scrolls its
+  bottom slot; `centerFooterAbovePinnedBottom` keeps Continue pinned.
+  A sharing-account notice plus keyboard
   can leave less height than the header; it must not consume the form viewport.
-  The other variants, including `centerFooterAbovePinnedBottom`, retain their
-  existing pinned header/action behavior.
+  Other variants retain their existing pinned header/action behavior.
+  Recovery confirmation removes the stale error SnackBar when retrying or
+  leaving its error state, before overlapping wizard Scaffolds can carry it
+  into a route transition.
 - **Layering:** full split. The domain layer holds standalone `PasswordStrength`, `Mnemonic`, `CryptoParams` utilities reused by `recovery` and the crypto services.
 - **Default vault provisioning:** `DefaultVaultProvisioner` is the single
   client-side path shared by classic onboarding, password-email verification,
