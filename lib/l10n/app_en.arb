@@ -1,6 +1,237 @@
 {
+  "auditActorExternalRecipient": "External recipient",
+  "auditGroupEntrySharing": "Entry sharing",
+  "notifTitleEntryShareReceived": "Shared copy received",
+  "notifSubEntryShareReceived": "The recipient’s app confirmed the first display.",
+  "notifRowShare": "Link",
+  "notifRowConfirmation": "Receipt",
+  "auditDetailSharing": "Link",
+  "notifDisplayNotReadProof": "Display confirmed — not proof of reading.",
+  "auditEventEntryShareCreated": "Sharing link created",
+  "auditEventEntryShareDelivered": "Shared package delivered",
+  "auditEventEntryShareConfirmed": "Display confirmed",
+  "auditEventEntryShareProtectionChanged": "Sharing protection changed",
+  "auditEventEntryShareExpired": "Sharing link expired",
+  "auditEventEntryShareRevoked": "Sharing link revoked",
+  "auditEventEntryShareEnded": "Sharing ended by recipient",
+  "auditEventEntryShareSourceAccessRemoved": "Sharing source access removed",
+  "auditSentenceEntryShareCreated": "{actor} created a sharing link for {entry}",
+  "@auditSentenceEntryShareCreated": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareDelivered": "{actor} received the encrypted package for {entry}",
+  "@auditSentenceEntryShareDelivered": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareConfirmed": "{actor} confirmed display of {entry} in their app — not proof of reading",
+  "@auditSentenceEntryShareConfirmed": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareProtectionChanged": "{actor} changed sharing protection for {entry}",
+  "@auditSentenceEntryShareProtectionChanged": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareExpired": "The sharing link for {entry} expired",
+  "@auditSentenceEntryShareExpired": {
+    "placeholders": {
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareRevoked": "{actor} revoked the sharing link for {entry}",
+  "@auditSentenceEntryShareRevoked": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareEnded": "{actor} ended the sharing link for {entry}",
+  "@auditSentenceEntryShareEnded": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareSourceAccessRemoved": "The sharing link for {entry} lost access to its source",
+  "@auditSentenceEntryShareSourceAccessRemoved": {
+    "placeholders": {
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "sharingAccountPending": "A shared entry is waiting. Finish signing in or setting up your account to return to it.",
+  "sharingCancelReception": "Cancel reception",
+  "sharingCancelAccountNotice": "Discard this reception from memory? You may need a new link to receive it again. This does not revoke the sender’s link or cancel your account setup.",
+  "sharingKeepReception": "Keep reception",
+  "sharingDiscardReception": "Discard reception",
+  "sharingAccountNotice": "Receiving does not require an account. To save a copy, continue through your account and return here. This temporary session expires at its original deadline; closing it or signing out discards the copy.",
+  "sharingRegister": "Create an account to save a copy",
+  "sharingLogin": "Sign in to save a copy",
+  "sharingContinueAccount": "Continue account setup or unlock",
+  "sharingSaveCopy": "Save a copy",
+  "sharingCopyCorruptVaults": "Some vaults could not be decrypted and are not offered as destinations. Other vaults remain available.",
+  "sharingCopySaved": "Copy saved in your vault. It will not sync with the original.",
+  "sharingCopyNotice": "Save the received fields as a new entry. This does not receive the link again or change the original.",
+  "sharingCopyVault": "Destination vault",
+  "sharingCopyChooseVault": "Choose a vault",
+  "sharingCopyVaultError": "Could not load your vaults. Try again while this sharing session is open.",
+  "sharingCopyNoVault": "There is no available destination vault for this account.",
+  "sharingCopyAccessTitle": "Access in the destination vault",
+  "sharingCopyAccessNotice": "Existing members and fully trusted Agents of this vault can access the copy. Source permissions are not copied; Discovery and individual field access for Agents start disabled.",
+  "sharingCopyTitleError": "Enter a name of 1–200 characters. The received name is never shortened automatically.",
+  "sharingCopyMissingNotice": "The sender left out fields required for a saved entry. Complete them here; received values stay unchanged.",
+  "sharingCopyRequired": "Complete this required field.",
+  "sharingCopyScriptDescription": "Execution description for your copy",
+  "sharingCopyScriptError": "Provide a script, a supported interpreter (bash, sh, node or python), and an execution description of up to 4096 characters.",
+  "sharingCopyUnsupported": "This copy contains data this version cannot save without changing it. Nothing was saved.",
+  "sharingCopySaveError": "Could not prepare the copy for saving. Check your connection and destination access, then try again.",
+  "sharingCopyRetryNotice": "The save result is not yet confirmed. Retry sends the same encrypted entry, not a duplicate. Do not start another save for this copy.",
+  "sharingCopyBack": "Back to received entry",
+  "sharingCopySessionNotice": "Leaving this sharing session, locking the app or switching apps discards this in-memory copy. It cannot undo a save already accepted by the server.",
+  "sharingEndConfirm": "End link",
+  "sharingReceiveTitle": "Shared entry",
+  "sharingClose": "Close sharing",
+  "sharingReceiveUnavailable": "This sharing link is unavailable. Reopen the original link if it is still valid.",
+  "sharingReceiveWelcome": "View a shared copy without creating an account. Opening the verification step does not use a receipt. You choose when to receive the entry.",
+  "sharingOpen": "Open sharing",
+  "sharingReceive": "Receive entry",
+  "sharingReceiveError": "This action could not be completed. Check the code or password if required, then try again. The link may have expired or been ended.",
+  "sharingOtpNotice": "Request a code at the email address chosen by the sender. No Palladin account is required.",
+  "sharingSendOtp": "Send email code",
+  "sharingResendOtp": "Send a new code",
+  "sharingRetryOtp": "Retry code delivery",
+  "sharingOtpCode": "Email code",
+  "sharingOtpFormatError": "Enter the six-digit email code.",
+  "sharingVerifyOtp": "Verify email code",
+  "sharingVerifySecret": "Verify protection",
+  "sharingReadyToReceive": "Verification is complete. Receiving the entry uses one receipt; retrying the same delivery does not use another.",
+  "sharingReceivedNotice": "This is a separate copy. Changes to the original do not update it. Ending the link cannot recall copies already received or change a password in another service.",
+  "sharingCopyValue": "Copy value",
+  "sharingCopiedValue": "Copied. The clipboard clears after 45 seconds if its contents have not changed.",
+  "sharingConfirmationFailed": "The entry is available, but display confirmation could not be sent. Retrying confirmation does not receive the entry again.",
+  "sharingRetryConfirmation": "Retry confirmation",
+  "sharingEnd": "End sharing",
+  "sharingEndNotice": "End this link for everyone who can use it? This cannot be undone. It does not delete the original entry or any copies already saved.",
+  "sharingEnded": "Sharing ended. This link can no longer deliver the entry.",
+  "sharingUnsupportedGate": "This link uses a verification method this app version does not support. Update the app or ask the sender for another link.",
+  "sharingCreate": "Create sharing link",
+  "sharingSelectFields": "Choose fields to share",
+  "sharingSelectNotice": "Only selected fields will be copied. Notes, recovery codes and authenticator setup data require your explicit choice.",
+  "sharingPreviewConfirmed": "I have checked the selected fields",
+  "sharingUnsupportedField": "This field cannot be shared by this version of the app.",
+  "sharingRecipient": "Who can receive this copy?",
+  "sharingNamedRecipient": "Only this person (email code)",
+  "sharingEmail": "Recipient email",
+  "sharingEmailNotice": "Send the copied link yourself. Palladin emails only the verification code, not the link. Create a separate link for each person.",
+  "sharingAnyoneTitle": "Anyone with the link",
+  "sharingAnyoneWarning": "The link can be forwarded. Its receipt limit is shared by everyone who has it; any authorized recipient can end it for everyone.",
+  "sharingSecretNotice": "Send the password or PIN through a separate channel. It can be combined with the email code.",
+  "sharingPinWarning": "A PIN is weaker than a long password. Use at least 6 digits; a password is recommended for stronger protection.",
+  "sharingLifetime": "Link lifetime",
+  "sharingLifetimeHour": "1 hour",
+  "sharingLifetimeDay": "1 day",
+  "sharingLifetimeThreeDays": "3 days",
+  "sharingLifetimeWeek": "7 days",
+  "sharingMaximumReceipts": "Receipt limit",
+  "sharingNotifyChoice": "Notify me of the first receipt",
+  "sharingNotifyNotice": "One Inbox notification after the recipient confirms display. Audit events are always recorded; this is not proof a person read it.",
+  "sharingCreateNotice": "This is an independent copy, not access to your vault. It will not follow later edits. Revoking the link cannot recall downloaded copies.",
+  "sharingCancelNotice": "If you leave after sending a request, check your sharing list: the link may already exist even if its response was lost.",
+  "sharingEmailError": "Enter one valid recipient email address.",
+  "sharingPasswordError": "Use 8–128 characters. Spaces count as part of the password.",
+  "sharingPinError": "Use 6–128 digits (0–9), without spaces.",
+  "sharingLimitError": "Enter a whole number from 1 to 100.",
+  "sharingLifetimeError": "Choose one of the available lifetimes.",
+  "sharingSelectionError": "Select at least one available field and check the preview.",
+  "sharingCreateError": "Could not create the link. Check your connection and try again.",
+  "sharingSourceError": "The entry changed. Reopen it and check the fields before sharing again.",
+  "sharingSourceLoadError": "Could not open this entry for sharing. Try again while unlocked.",
+  "sharingRetryNotice": "The result is uncertain. Retry sends the exact same encrypted copy and does not create a second link. Options are locked until this is resolved.",
+  "sharingRetryCreate": "Retry same request",
+  "sharingCreated": "Your sharing link is ready",
+  "sharingCopyLink": "Copy sharing link",
+  "sharingCopiedLink": "Sharing link copied. Clipboard clears after 45 seconds if unchanged.",
+  "sharingCopyError": "Could not copy the link. Try again while this screen is open.",
+  "sharingLinkOnceNotice": "Copy this link before leaving. Palladin cannot recover its decryption key later. You can still revoke it from the sharing list.",
+  "sharingConfigurationError": "Sharing is not configured for this app environment. No link has been created.",
+  "sharingTotpSource": "Authenticator setup data",
+  "sharingHidePreview": "Hide value",
+  "sharingTab": "Sharing",
+  "sharingListNotice": "Links contain independent copies. Delivery and display confirmation are separate; neither proves a person read the entry.",
+  "sharingEmpty": "No sharing links for this entry.",
+  "sharingUnavailable": "Sharing is unavailable in this session. Reopen the entry after unlocking.",
+  "sharingLoadError": "Could not load sharing links.",
+  "sharingRevokeError": "Could not revoke the link. Check its status and try again.",
+  "sharingRevoke": "Revoke link",
+  "sharingRevokeNotice": "This stops future access through the link. It cannot remove downloaded copies or change the password in another service.",
+  "sharingRevoked": "Sharing link revoked.",
+  "sharingRefresh": "Refresh",
+  "sharingAnyone": "Anyone with the link",
+  "sharingActive": "Active",
+  "sharingRevokedStatus": "Revoked",
+  "sharingExpired": "Expired",
+  "sharingSuspended": "Suspended",
+  "sharingLocked": "Temporarily locked",
+  "sharingConsumed": "Receipt limit reached",
+  "sharingProtectionNone": "No additional secret",
+  "sharingProtectionPassword": "Password",
+  "sharingProtectionPin": "PIN",
+  "sharingValidUntil": "Link valid until",
+  "sharingOtpCountdown": "Send code in {seconds}s",
+  "@sharingOtpCountdown": {"placeholders": {"seconds": {"type": "int"}}},
+  "sharingSharedLimitNotice": "This receipt limit is shared by everyone using this link.",
+  "sharingReceipts": "Receipts / limit",
+  "sharingFirstDelivery": "First delivery",
+  "sharingLastDelivery": "Last delivery",
+  "sharingConfirmation": "First display confirmation",
+  "sharingProtection": "Additional protection",
+  "sharingNotification": "First-receipt notification",
+  "sharingNotificationOn": "Enabled — one Inbox notification",
+  "sharingNotificationOff": "Disabled",
+  "sharingSourceChangedTitle": "Source changed",
+  "sharingSourceChanged": "This copy does not update when the original entry changes. Revoke it if it should no longer be available.",
   "responseUnknownValue": "Unknown",
   "@@locale": "en",
+  "inboxViewSharing": "View sharing",
+  "inboxSharingUnavailable": "This entry is unavailable or you no longer have access to its sharing links.",
   "appTitle": "Palladin",
   "@appTitle": {
     "description": "The application title shown in the app bar and OS task switcher"
@@ -2842,6 +3073,9 @@
   "@dashboardGoodMorning": { "description": "Greeting on the dashboard" },
   "dashboardSearchHint": "Agents, vaults, entries…",
   "@dashboardSearchHint": { "description": "Search placeholder on dashboard" },
+  "sharingCopyCreateVault": "Create my personal vault",
+  "sharingCopyCreateVaultNotice": "Create an encrypted personal vault without leaving this received copy. Then choose the vault and save the entry. Creating a vault does not save the entry automatically.",
+  "sharingCopyCreateVaultError": "The vault could not be created. Retry here while this reception is still available.",
   "defaultVaultName": "Personal",
   "@defaultVaultName": { "description": "Localized name for the default vault auto-created during onboarding" },
   "dashboardOnboardingTitle": "Set up Palladin",

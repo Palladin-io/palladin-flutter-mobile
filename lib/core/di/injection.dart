@@ -2,6 +2,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 
+import '../../features/vault/data/datasources/entry_sharing_remote_datasource.dart';
+import '../../features/vault/data/datasources/entry_share_copy_datasource.dart';
+import '../../features/vault/data/services/entry_sharing/entry_share_copy_service.dart';
+import '../../features/vault/data/services/entry_sharing/entry_share_crypto_service.dart';
+import '../../features/vault/data/services/entry_sharing/entry_share_recipient_authority.dart';
 import '../../config/env_config.dart';
 import '../crypto/vault_session_store.dart';
 import '../identity/organization_member_directory_service.dart';
@@ -77,6 +82,7 @@ import '../../features/notifications/data/datasources/push_token_remote_datasour
 import '../../features/notifications/data/repositories/notification_center_repository_impl.dart';
 import '../../features/notifications/data/services/notification_permission_service.dart';
 import '../../features/notifications/data/services/notification_presentation_resolver.dart';
+import '../../features/notifications/data/services/notification_sharing_entry_resolver.dart';
 import '../../features/notifications/data/services/notification_signalr_service.dart';
 import '../../features/notifications/data/services/push_notification_service.dart';
 import '../../features/notifications/domain/repositories/notification_center_repository.dart';
@@ -530,6 +536,30 @@ void configureDependencies(EnvConfig config) {
   getIt.registerLazySingleton<EntryRemoteDatasource>(
     () => EntryRemoteDatasource(getIt<Dio>()),
   );
+  getIt.registerLazySingleton<EntrySharingRemoteDatasource>(
+    () => EntrySharingRemoteDatasource(getIt<Dio>()),
+  );
+  getIt.registerLazySingleton<EntryShareCryptoService>(
+    EntryShareCryptoService.new,
+  );
+  getIt.registerFactory<EntryShareCopyService>(
+    () => EntryShareCopyService(
+      remote: EntryShareCopyDatasource(
+        getIt<EnvConfig>(),
+        getIt<SecureTokenStorage>(),
+        getIt<VaultSessionStore>(),
+      ),
+      vaultCrypto: getIt<VaultCryptoService>(),
+      entryCrypto: getIt<EntryV2CryptoService>(),
+      autoFill: getIt<AutoFillMutationNotifier>(),
+    ),
+  );
+  getIt.registerLazySingleton<EntryShareRecipientAuthority>(
+    () => EntryShareRecipientAuthority(
+      getIt<SecureTokenStorage>(),
+      getIt<VaultSessionStore>(),
+    ),
+  );
   getIt.registerLazySingleton<LocalCurrentEntryService>(
     () => LocalCurrentEntryService(
       reader: getIt<MemberSyncService>(),
@@ -715,6 +745,12 @@ void configureDependencies(EnvConfig config) {
       grants: getIt<GrantsRepository>(),
       agents: getIt<AgentsRepository>(),
       vaultMembers: getIt<VaultMembersRepository>(),
+    ),
+  );
+  getIt.registerLazySingleton<NotificationSharingEntryResolver>(
+    () => NotificationSharingEntryResolver(
+      entries: getIt<MemberEntryListService>(),
+      readAuthority: getIt<MemberSyncSessionAuthorityProvider>().current,
     ),
   );
   // Singleton: the shell reads summary state for the Inbox badge while the

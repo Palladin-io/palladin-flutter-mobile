@@ -129,6 +129,18 @@ flutter build appbundle \
 
 Do not upload the staging application ID as a production-store artifact.
 
+Individual Entry sharing also requires the explicit build value
+`PALLADIN_SHARING_WEB_ORIGIN` for the receiving web panel (a bare origin, without
+a path, query, credentials or fragment). It is empty by default: an unconfigured
+build cannot create a sharing link. Do not derive it from the application flavor;
+a production-store identity may target the staging backend. The staging backend
+requires its HTTPS panel origin `https://stage.palladin.io`; production rejects
+the staging host and requires an explicitly configured HTTPS Palladin host.
+Local builds may use an explicitly configured HTTP development origin reachable
+from the recipient device. Provision this value through the approved deployment
+configuration, alongside domain association and web receiver rollout. It is not
+a runtime user preference or a redirect supplied by an incoming link.
+
 ## Firebase client configuration
 
 The per-flavor `google-services.json` and `GoogleService-Info.plist` files are

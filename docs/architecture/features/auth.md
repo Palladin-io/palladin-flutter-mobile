@@ -43,6 +43,13 @@ OAuth 2.0 login (Google, Apple, X via `flutter_appauth`).
   links; compact screens scroll the whole block instead of clipping either
   action. Login/register routes and registration steps use a pure fade with no
   lateral movement. Sign-up is shown only inside the email form.
+  Both login and registration prompt/link rows wrap on narrow screens and at
+  enlarged text sizes. Registration's branded header shares the form scroll
+  when the keyboard or sharing notice reduces the viewport, without changing
+  its initial header-to-field spacing. An active
+  sharing account detour adds the bounded, independently scrolling cancellation
+  notice described in [entry sharing](entry-sharing.md); discarding reception
+  preserves the mounted account form and does not cancel account setup.
 - **Shared password feedback:** `PasswordSecurityCheckController` owns the
   debounced client-side k-anonymity HIBP check and rejects stale responses.
   `PasswordSecurityStatusLine` presents checking, secure, breached,

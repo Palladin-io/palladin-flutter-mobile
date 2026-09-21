@@ -9,7 +9,551 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get auditActorExternalRecipient => 'External recipient';
+
+  @override
+  String get auditGroupEntrySharing => 'Entry sharing';
+
+  @override
+  String get notifTitleEntryShareReceived => 'Shared copy received';
+
+  @override
+  String get notifSubEntryShareReceived =>
+      'The recipient’s app confirmed the first display.';
+
+  @override
+  String get notifRowShare => 'Link';
+
+  @override
+  String get notifRowConfirmation => 'Receipt';
+
+  @override
+  String get auditDetailSharing => 'Link';
+
+  @override
+  String get notifDisplayNotReadProof =>
+      'Display confirmed — not proof of reading.';
+
+  @override
+  String get auditEventEntryShareCreated => 'Sharing link created';
+
+  @override
+  String get auditEventEntryShareDelivered => 'Shared package delivered';
+
+  @override
+  String get auditEventEntryShareConfirmed => 'Display confirmed';
+
+  @override
+  String get auditEventEntryShareProtectionChanged =>
+      'Sharing protection changed';
+
+  @override
+  String get auditEventEntryShareExpired => 'Sharing link expired';
+
+  @override
+  String get auditEventEntryShareRevoked => 'Sharing link revoked';
+
+  @override
+  String get auditEventEntryShareEnded => 'Sharing ended by recipient';
+
+  @override
+  String get auditEventEntryShareSourceAccessRemoved =>
+      'Sharing source access removed';
+
+  @override
+  String auditSentenceEntryShareCreated(String actor, String entry) {
+    return '$actor created a sharing link for $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareDelivered(String actor, String entry) {
+    return '$actor received the encrypted package for $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareConfirmed(String actor, String entry) {
+    return '$actor confirmed display of $entry in their app — not proof of reading';
+  }
+
+  @override
+  String auditSentenceEntryShareProtectionChanged(String actor, String entry) {
+    return '$actor changed sharing protection for $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareExpired(String entry) {
+    return 'The sharing link for $entry expired';
+  }
+
+  @override
+  String auditSentenceEntryShareRevoked(String actor, String entry) {
+    return '$actor revoked the sharing link for $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareEnded(String actor, String entry) {
+    return '$actor ended the sharing link for $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareSourceAccessRemoved(String entry) {
+    return 'The sharing link for $entry lost access to its source';
+  }
+
+  @override
+  String get sharingAccountPending =>
+      'A shared entry is waiting. Finish signing in or setting up your account to return to it.';
+
+  @override
+  String get sharingCancelReception => 'Cancel reception';
+
+  @override
+  String get sharingCancelAccountNotice =>
+      'Discard this reception from memory? You may need a new link to receive it again. This does not revoke the sender’s link or cancel your account setup.';
+
+  @override
+  String get sharingKeepReception => 'Keep reception';
+
+  @override
+  String get sharingDiscardReception => 'Discard reception';
+
+  @override
+  String get sharingAccountNotice =>
+      'Receiving does not require an account. To save a copy, continue through your account and return here. This temporary session expires at its original deadline; closing it or signing out discards the copy.';
+
+  @override
+  String get sharingRegister => 'Create an account to save a copy';
+
+  @override
+  String get sharingLogin => 'Sign in to save a copy';
+
+  @override
+  String get sharingContinueAccount => 'Continue account setup or unlock';
+
+  @override
+  String get sharingSaveCopy => 'Save a copy';
+
+  @override
+  String get sharingCopyCorruptVaults =>
+      'Some vaults could not be decrypted and are not offered as destinations. Other vaults remain available.';
+
+  @override
+  String get sharingCopySaved =>
+      'Copy saved in your vault. It will not sync with the original.';
+
+  @override
+  String get sharingCopyNotice =>
+      'Save the received fields as a new entry. This does not receive the link again or change the original.';
+
+  @override
+  String get sharingCopyVault => 'Destination vault';
+
+  @override
+  String get sharingCopyChooseVault => 'Choose a vault';
+
+  @override
+  String get sharingCopyVaultError =>
+      'Could not load your vaults. Try again while this sharing session is open.';
+
+  @override
+  String get sharingCopyNoVault =>
+      'There is no available destination vault for this account.';
+
+  @override
+  String get sharingCopyAccessTitle => 'Access in the destination vault';
+
+  @override
+  String get sharingCopyAccessNotice =>
+      'Existing members and fully trusted Agents of this vault can access the copy. Source permissions are not copied; Discovery and individual field access for Agents start disabled.';
+
+  @override
+  String get sharingCopyTitleError =>
+      'Enter a name of 1–200 characters. The received name is never shortened automatically.';
+
+  @override
+  String get sharingCopyMissingNotice =>
+      'The sender left out fields required for a saved entry. Complete them here; received values stay unchanged.';
+
+  @override
+  String get sharingCopyRequired => 'Complete this required field.';
+
+  @override
+  String get sharingCopyScriptDescription =>
+      'Execution description for your copy';
+
+  @override
+  String get sharingCopyScriptError =>
+      'Provide a script, a supported interpreter (bash, sh, node or python), and an execution description of up to 4096 characters.';
+
+  @override
+  String get sharingCopyUnsupported =>
+      'This copy contains data this version cannot save without changing it. Nothing was saved.';
+
+  @override
+  String get sharingCopySaveError =>
+      'Could not prepare the copy for saving. Check your connection and destination access, then try again.';
+
+  @override
+  String get sharingCopyRetryNotice =>
+      'The save result is not yet confirmed. Retry sends the same encrypted entry, not a duplicate. Do not start another save for this copy.';
+
+  @override
+  String get sharingCopyBack => 'Back to received entry';
+
+  @override
+  String get sharingCopySessionNotice =>
+      'Leaving this sharing session, locking the app or switching apps discards this in-memory copy. It cannot undo a save already accepted by the server.';
+
+  @override
+  String get sharingEndConfirm => 'End link';
+
+  @override
+  String get sharingReceiveTitle => 'Shared entry';
+
+  @override
+  String get sharingClose => 'Close sharing';
+
+  @override
+  String get sharingReceiveUnavailable =>
+      'This sharing link is unavailable. Reopen the original link if it is still valid.';
+
+  @override
+  String get sharingReceiveWelcome =>
+      'View a shared copy without creating an account. Opening the verification step does not use a receipt. You choose when to receive the entry.';
+
+  @override
+  String get sharingOpen => 'Open sharing';
+
+  @override
+  String get sharingReceive => 'Receive entry';
+
+  @override
+  String get sharingReceiveError =>
+      'This action could not be completed. Check the code or password if required, then try again. The link may have expired or been ended.';
+
+  @override
+  String get sharingOtpNotice =>
+      'Request a code at the email address chosen by the sender. No Palladin account is required.';
+
+  @override
+  String get sharingSendOtp => 'Send email code';
+
+  @override
+  String get sharingResendOtp => 'Send a new code';
+
+  @override
+  String get sharingRetryOtp => 'Retry code delivery';
+
+  @override
+  String get sharingOtpCode => 'Email code';
+
+  @override
+  String get sharingOtpFormatError => 'Enter the six-digit email code.';
+
+  @override
+  String get sharingVerifyOtp => 'Verify email code';
+
+  @override
+  String get sharingVerifySecret => 'Verify protection';
+
+  @override
+  String get sharingReadyToReceive =>
+      'Verification is complete. Receiving the entry uses one receipt; retrying the same delivery does not use another.';
+
+  @override
+  String get sharingReceivedNotice =>
+      'This is a separate copy. Changes to the original do not update it. Ending the link cannot recall copies already received or change a password in another service.';
+
+  @override
+  String get sharingCopyValue => 'Copy value';
+
+  @override
+  String get sharingCopiedValue =>
+      'Copied. The clipboard clears after 45 seconds if its contents have not changed.';
+
+  @override
+  String get sharingConfirmationFailed =>
+      'The entry is available, but display confirmation could not be sent. Retrying confirmation does not receive the entry again.';
+
+  @override
+  String get sharingRetryConfirmation => 'Retry confirmation';
+
+  @override
+  String get sharingEnd => 'End sharing';
+
+  @override
+  String get sharingEndNotice =>
+      'End this link for everyone who can use it? This cannot be undone. It does not delete the original entry or any copies already saved.';
+
+  @override
+  String get sharingEnded =>
+      'Sharing ended. This link can no longer deliver the entry.';
+
+  @override
+  String get sharingUnsupportedGate =>
+      'This link uses a verification method this app version does not support. Update the app or ask the sender for another link.';
+
+  @override
+  String get sharingCreate => 'Create sharing link';
+
+  @override
+  String get sharingSelectFields => 'Choose fields to share';
+
+  @override
+  String get sharingSelectNotice =>
+      'Only selected fields will be copied. Notes, recovery codes and authenticator setup data require your explicit choice.';
+
+  @override
+  String get sharingPreviewConfirmed => 'I have checked the selected fields';
+
+  @override
+  String get sharingUnsupportedField =>
+      'This field cannot be shared by this version of the app.';
+
+  @override
+  String get sharingRecipient => 'Who can receive this copy?';
+
+  @override
+  String get sharingNamedRecipient => 'Only this person (email code)';
+
+  @override
+  String get sharingEmail => 'Recipient email';
+
+  @override
+  String get sharingEmailNotice =>
+      'Send the copied link yourself. Palladin emails only the verification code, not the link. Create a separate link for each person.';
+
+  @override
+  String get sharingAnyoneTitle => 'Anyone with the link';
+
+  @override
+  String get sharingAnyoneWarning =>
+      'The link can be forwarded. Its receipt limit is shared by everyone who has it; any authorized recipient can end it for everyone.';
+
+  @override
+  String get sharingSecretNotice =>
+      'Send the password or PIN through a separate channel. It can be combined with the email code.';
+
+  @override
+  String get sharingPinWarning =>
+      'A PIN is weaker than a long password. Use at least 6 digits; a password is recommended for stronger protection.';
+
+  @override
+  String get sharingLifetime => 'Link lifetime';
+
+  @override
+  String get sharingLifetimeHour => '1 hour';
+
+  @override
+  String get sharingLifetimeDay => '1 day';
+
+  @override
+  String get sharingLifetimeThreeDays => '3 days';
+
+  @override
+  String get sharingLifetimeWeek => '7 days';
+
+  @override
+  String get sharingMaximumReceipts => 'Receipt limit';
+
+  @override
+  String get sharingNotifyChoice => 'Notify me of the first receipt';
+
+  @override
+  String get sharingNotifyNotice =>
+      'One Inbox notification after the recipient confirms display. Audit events are always recorded; this is not proof a person read it.';
+
+  @override
+  String get sharingCreateNotice =>
+      'This is an independent copy, not access to your vault. It will not follow later edits. Revoking the link cannot recall downloaded copies.';
+
+  @override
+  String get sharingCancelNotice =>
+      'If you leave after sending a request, check your sharing list: the link may already exist even if its response was lost.';
+
+  @override
+  String get sharingEmailError => 'Enter one valid recipient email address.';
+
+  @override
+  String get sharingPasswordError =>
+      'Use 8–128 characters. Spaces count as part of the password.';
+
+  @override
+  String get sharingPinError => 'Use 6–128 digits (0–9), without spaces.';
+
+  @override
+  String get sharingLimitError => 'Enter a whole number from 1 to 100.';
+
+  @override
+  String get sharingLifetimeError => 'Choose one of the available lifetimes.';
+
+  @override
+  String get sharingSelectionError =>
+      'Select at least one available field and check the preview.';
+
+  @override
+  String get sharingCreateError =>
+      'Could not create the link. Check your connection and try again.';
+
+  @override
+  String get sharingSourceError =>
+      'The entry changed. Reopen it and check the fields before sharing again.';
+
+  @override
+  String get sharingSourceLoadError =>
+      'Could not open this entry for sharing. Try again while unlocked.';
+
+  @override
+  String get sharingRetryNotice =>
+      'The result is uncertain. Retry sends the exact same encrypted copy and does not create a second link. Options are locked until this is resolved.';
+
+  @override
+  String get sharingRetryCreate => 'Retry same request';
+
+  @override
+  String get sharingCreated => 'Your sharing link is ready';
+
+  @override
+  String get sharingCopyLink => 'Copy sharing link';
+
+  @override
+  String get sharingCopiedLink =>
+      'Sharing link copied. Clipboard clears after 45 seconds if unchanged.';
+
+  @override
+  String get sharingCopyError =>
+      'Could not copy the link. Try again while this screen is open.';
+
+  @override
+  String get sharingLinkOnceNotice =>
+      'Copy this link before leaving. Palladin cannot recover its decryption key later. You can still revoke it from the sharing list.';
+
+  @override
+  String get sharingConfigurationError =>
+      'Sharing is not configured for this app environment. No link has been created.';
+
+  @override
+  String get sharingTotpSource => 'Authenticator setup data';
+
+  @override
+  String get sharingHidePreview => 'Hide value';
+
+  @override
+  String get sharingTab => 'Sharing';
+
+  @override
+  String get sharingListNotice =>
+      'Links contain independent copies. Delivery and display confirmation are separate; neither proves a person read the entry.';
+
+  @override
+  String get sharingEmpty => 'No sharing links for this entry.';
+
+  @override
+  String get sharingUnavailable =>
+      'Sharing is unavailable in this session. Reopen the entry after unlocking.';
+
+  @override
+  String get sharingLoadError => 'Could not load sharing links.';
+
+  @override
+  String get sharingRevokeError =>
+      'Could not revoke the link. Check its status and try again.';
+
+  @override
+  String get sharingRevoke => 'Revoke link';
+
+  @override
+  String get sharingRevokeNotice =>
+      'This stops future access through the link. It cannot remove downloaded copies or change the password in another service.';
+
+  @override
+  String get sharingRevoked => 'Sharing link revoked.';
+
+  @override
+  String get sharingRefresh => 'Refresh';
+
+  @override
+  String get sharingAnyone => 'Anyone with the link';
+
+  @override
+  String get sharingActive => 'Active';
+
+  @override
+  String get sharingRevokedStatus => 'Revoked';
+
+  @override
+  String get sharingExpired => 'Expired';
+
+  @override
+  String get sharingSuspended => 'Suspended';
+
+  @override
+  String get sharingLocked => 'Temporarily locked';
+
+  @override
+  String get sharingConsumed => 'Receipt limit reached';
+
+  @override
+  String get sharingProtectionNone => 'No additional secret';
+
+  @override
+  String get sharingProtectionPassword => 'Password';
+
+  @override
+  String get sharingProtectionPin => 'PIN';
+
+  @override
+  String get sharingValidUntil => 'Link valid until';
+
+  @override
+  String sharingOtpCountdown(int seconds) {
+    return 'Send code in ${seconds}s';
+  }
+
+  @override
+  String get sharingSharedLimitNotice =>
+      'This receipt limit is shared by everyone using this link.';
+
+  @override
+  String get sharingReceipts => 'Receipts / limit';
+
+  @override
+  String get sharingFirstDelivery => 'First delivery';
+
+  @override
+  String get sharingLastDelivery => 'Last delivery';
+
+  @override
+  String get sharingConfirmation => 'First display confirmation';
+
+  @override
+  String get sharingProtection => 'Additional protection';
+
+  @override
+  String get sharingNotification => 'First-receipt notification';
+
+  @override
+  String get sharingNotificationOn => 'Enabled — one Inbox notification';
+
+  @override
+  String get sharingNotificationOff => 'Disabled';
+
+  @override
+  String get sharingSourceChangedTitle => 'Source changed';
+
+  @override
+  String get sharingSourceChanged =>
+      'This copy does not update when the original entry changes. Revoke it if it should no longer be available.';
+
+  @override
   String get responseUnknownValue => 'Unknown';
+
+  @override
+  String get inboxViewSharing => 'View sharing';
+
+  @override
+  String get inboxSharingUnavailable =>
+      'This entry is unavailable or you no longer have access to its sharing links.';
 
   @override
   String get appTitle => 'Palladin';
@@ -2773,6 +3317,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dashboardSearchHint => 'Agents, vaults, entries…';
+
+  @override
+  String get sharingCopyCreateVault => 'Create my personal vault';
+
+  @override
+  String get sharingCopyCreateVaultNotice =>
+      'Create an encrypted personal vault without leaving this received copy. Then choose the vault and save the entry. Creating a vault does not save the entry automatically.';
+
+  @override
+  String get sharingCopyCreateVaultError =>
+      'The vault could not be created. Retry here while this reception is still available.';
 
   @override
   String get defaultVaultName => 'Personal';

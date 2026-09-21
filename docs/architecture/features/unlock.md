@@ -22,3 +22,27 @@ Master-password unlock with a biometric shortcut.
   application restart; derived keys are zeroed if required provisioning fails.
 
 **Cross-feature deps:** `auth` (posts unlock event). Reuses the core `PrimaryButton` and onboarding input widgets.
+
+## Sharing account continuation
+
+A locked, verified account can receive a shared snapshot before unlocking its
+own Vaults. The explicit account action transfers that reception in RAM while
+the ordinary `UnlockPage`/`UnlockCubit` derives the account key, opens its private
+key and completes any required default-Vault provisioning. Successful unlock
+returns to the original reception without a new sharing delivery or confirmation;
+destination selection and saving the independent copy remain explicit.
+
+The combined production-router test in
+`test/core/router/entry_share_guest_save_test.dart` exercises native KDF/crypto,
+real loopback account/Vault/Entry HTTP and the production provisioner. It covers
+success, wrong-password retry and required-provisioning failure/retry. Failures
+keep the account locked and the same reception pending, with no Entry write.
+Biometric storage is substituted as unavailable and enrollment/read are asserted
+absent; this neither extends nor approves the existing MK persistence deviation.
+
+EN/light and PL/dark enlarged-text cases keep the password editable above the
+keyboard and preserve the form when reception is discarded. The account frame
+clips page decoration to its own body so the light bloom cannot overpaint the
+sharing notice; the shared background's geometry inside that body is unchanged.
+These are client-composition/rendering tests, not real authentication, device
+lifecycle, biometric or deployed end-to-end evidence.

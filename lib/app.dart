@@ -33,6 +33,7 @@ import 'features/notifications/data/services/notification_signalr_service.dart';
 import 'features/notifications/data/services/push_notification_service.dart';
 import 'features/notifications/domain/entities/push_message.dart';
 import 'features/notifications/presentation/cubit/notification_center_cubit.dart';
+import 'features/notifications/presentation/notification_foreground_repair.dart';
 import 'features/notifications/presentation/cubit/push_navigation_cubit.dart';
 import 'features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'features/dashboard/presentation/cubit/search_session_controller.dart';
@@ -45,6 +46,12 @@ import 'features/vault/data/export/canonical_export_service.dart';
 import 'features/vault/data/export/protected_export_staging.dart';
 import 'features/vault/domain/exceptions/vault_exceptions.dart';
 import 'features/vault/presentation/cubit/vault_list_cubit.dart';
+import 'features/vault/data/services/entry_sharing/entry_share_ingress.dart';
+import 'features/vault/data/services/entry_sharing/entry_share_recipient_authority.dart';
+import 'features/vault/presentation/entry_share_account_continuation.dart';
+import 'features/vault/data/services/entry_sharing/entry_share_link_service.dart';
+import 'features/vault/domain/entities/entry_share.dart';
+import 'features/vault/presentation/entry_share_navigation.dart';
 
 class PalladinApp extends StatefulWidget {
   const PalladinApp({
@@ -79,7 +86,27 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   late final GoRouter _router = createRouter(
     _authBloc,
     navigatorKey: _navigatorKey,
+    sharingIngress: _sharingIngress,
+    sharingAccount: _sharingAccount,
   );
+  late final EntryShareIngress? _sharingIngress = _createSharingIngress();
+  late final EntryShareAccountContinuation? _sharingAccount =
+      _sharingIngress == null
+      ? null
+      : EntryShareAccountContinuation(
+          auth: _authBloc,
+          ingress: _sharingIngress,
+          ownerReader: getIt<EntryShareRecipientAuthority>().read,
+        );
+  late final EntryShareNavigation? _sharingNavigation;
+
+  EntryShareIngress? _createSharingIngress() {
+    try {
+      return EntryShareIngress(links: EntryShareLinkService(widget.config));
+    } on EntryShareException {
+      return null;
+    }
+  }
 
   final DeepLinkService _deepLink = getIt<DeepLinkService>();
   final PushNavigationCubit _pushNavigationCubit = getIt<PushNavigationCubit>();
@@ -109,6 +136,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   AutoFillRepairDeny? _vaultInvalidationAutoFillDeny;
   Object _autoFillUnlockSessionIdentity = Object();
   bool _vaultInvalidationRepairRunning = false;
+  late final NotificationForegroundRepair _inboxRepair;
   Timer? _vaultInvalidationRepairRetry;
   Timer? _sessionLossAutoFillRetry;
   bool _sessionLossAutoFillCleanupRunning = false;
@@ -126,6 +154,24 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _inboxRepair =
+        NotificationForegroundRepair(
+          auth: _authBloc,
+          vaults: _vaultList,
+          inbox: getIt<NotificationCenterCubit>(),
+          readAuthority: _memberSyncAuthority.current,
+        )..start(
+          foreground:
+              WidgetsBinding.instance.lifecycleState == null ||
+              WidgetsBinding.instance.lifecycleState ==
+                  AppLifecycleState.resumed,
+        );
+    final ingress = _sharingIngress;
+    _sharingNavigation = ingress == null
+        ? null
+        : EntryShareNavigation(ingress, _router);
+    _sharingNavigation?.start();
+    if (ingress != null) unawaited(ingress.start());
     unawaited(_sweepExportStaging());
     // Forward tapped notifications (background / terminated / cold start)
     // into the navigation cubit, which the BlocListener below consumes.
@@ -183,11 +229,15 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_inboxRepair.dispose());
     _vaultInvalidationRepairRetry?.cancel();
     _sessionLossAutoFillRetry?.cancel();
     unawaited(_durableAutoFillRepair.dispose());
     _autoFillMutationNotifier.detachHandler();
     _deepLink.dispose();
+    _sharingNavigation?.dispose();
+    _sharingAccount?.dispose();
+    _sharingIngress?.dispose();
     _signalR.disconnect();
     _authBloc.close();
     super.dispose();
@@ -195,6 +245,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _inboxRepair.setForeground(state == AppLifecycleState.resumed);
     final obscured = state != AppLifecycleState.resumed;
     if (obscured != _obscured) {
       setState(() => _obscured = obscured);

@@ -33,6 +33,17 @@ import '../../features/shell/presentation/pages/app_shell.dart';
 import '../../features/unlock/presentation/pages/unlock_page.dart';
 import '../../features/vault/presentation/pages/vault_detail_page.dart';
 import '../../features/vault/presentation/pages/vault_list_page.dart';
+import '../../features/vault/presentation/pages/entry_share_receiver_host.dart';
+import '../../features/vault/presentation/entry_share_account_continuation.dart';
+import '../../features/vault/presentation/widgets/entry_share_account_frame.dart';
+import '../../features/vault/data/services/entry_sharing/entry_share_copy_service.dart';
+import '../../features/vault/presentation/widgets/entry_share_receiver_frame.dart';
+import '../../features/vault/data/datasources/entry_share_recipient_datasource.dart';
+import '../../features/vault/data/services/entry_sharing/entry_share_ingress.dart';
+import '../../features/vault/data/services/entry_sharing/entry_share_crypto_service.dart';
+import '../../features/vault/data/services/entry_sharing/entry_share_recipient_authority.dart';
+import '../../config/env_config.dart';
+import '../di/injection.dart';
 import '../permissions.dart';
 import 'shell_tab_page.dart';
 
@@ -41,6 +52,7 @@ import 'shell_tab_page.dart';
 /// (CLAUDE.md routing criteria #6). Keep every path used by `context.go/push`
 /// here next to its [GoRoute] definition below.
 abstract final class AppRoutes {
+  static const String entryShare = '/share';
   static const String settings = '/settings';
   static const String settingsGeneral = '/settings/general';
   static const String settingsTeam = '/settings/team';
@@ -136,14 +148,31 @@ ShellTabPage _shellTabPage(
 GoRouter createRouter(
   AuthBloc authBloc, {
   GlobalKey<NavigatorState>? navigatorKey,
+  EntryShareIngress? sharingIngress,
+  EntryShareAccountContinuation? sharingAccount,
 }) {
+  Widget accountFrame(Widget child) => sharingAccount == null
+      ? child
+      : EntryShareAccountFrame(continuation: sharingAccount, child: child);
+
   return GoRouter(
     navigatorKey: navigatorKey,
     initialLocation: '/login',
-    refreshListenable: _AuthBlocListenable(authBloc),
+    overridePlatformDefaultLocation: true,
+    refreshListenable: Listenable.merge([
+      _AuthBlocListenable(authBloc),
+      sharingAccount,
+    ]),
     redirect: (context, state) {
       final authState = authBloc.state;
       final location = state.matchedLocation;
+      final accountRedirect = sharingAccount?.guardRoute(state.uri);
+      if (accountRedirect != null) return accountRedirect;
+      if (location == AppRoutes.entryShare) {
+        return state.uri.hasQuery || state.uri.hasFragment
+            ? AppRoutes.entryShare
+            : null;
+      }
       final isOnLoginPage = location == '/login';
       final isOnRegisterPage = location == '/register';
       final isOnVerifyEmailPage = location == '/verify-email';
@@ -201,34 +230,59 @@ GoRouter createRouter(
           isOnOnboardingPage ||
           isOnUnlockPage ||
           isOnRecoveryPage) {
+        if (sharingAccount?.active == true) {
+          return sharingAccount!.ready ? AppRoutes.entryShare : null;
+        }
         return '/';
       }
       return null;
     },
     routes: [
+      GoRoute(
+        path: AppRoutes.entryShare,
+        builder: (context, _) => sharingIngress == null
+            ? EntryShareReceiverPlaceholder(
+                onClose: () => GoRouter.of(context).go('/'),
+              )
+            : EntryShareReceiverHost(
+                ingress: sharingIngress,
+                crypto: getIt<EntryShareCryptoService>(),
+                remoteFactory: () =>
+                    EntryShareRecipientDatasource(getIt<EnvConfig>()),
+                ownerReader: getIt<EntryShareRecipientAuthority>().read,
+                copyServiceFactory: () => getIt<EntryShareCopyService>(),
+                accountContinuation: sharingAccount,
+                onAccountRoute: (route) => GoRouter.of(context).go(route),
+                onClose: () => GoRouter.of(context).go('/'),
+              ),
+      ),
       GoRoute(path: '/privacy-choices', redirect: (_, _) => '/'),
       GoRoute(
         path: '/login',
         pageBuilder: (context, state) =>
-            _authFadePage(context, state, const LoginPage()),
+            _authFadePage(context, state, accountFrame(const LoginPage())),
       ),
       GoRoute(
         path: '/register',
         pageBuilder: (context, state) =>
-            _authFadePage(context, state, const RegisterPage()),
+            _authFadePage(context, state, accountFrame(const RegisterPage())),
       ),
       GoRoute(
         // `?token=` present → verification-result mode (deep link); absent →
         // "please verify your email" gate with a resend action.
         path: '/verify-email',
-        builder: (_, state) =>
-            VerifyEmailPage(token: state.uri.queryParameters['token']),
+        builder: (_, state) => accountFrame(
+          VerifyEmailPage(token: state.uri.queryParameters['token']),
+        ),
       ),
       GoRoute(
         path: '/onboarding',
-        builder: (_, _) => const OnboardingWizardPage(),
+        builder: (_, _) => accountFrame(const OnboardingWizardPage()),
       ),
-      GoRoute(path: '/unlock', builder: (_, _) => const UnlockPage()),
+      GoRoute(
+        path: '/unlock',
+        builder: (_, _) => accountFrame(const UnlockPage()),
+      ),
       GoRoute(path: '/recovery', builder: (_, _) => const RecoveryPage()),
       GoRoute(
         // Master-password change — a focused full-screen flow

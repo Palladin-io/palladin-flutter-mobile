@@ -9,6 +9,37 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 
 ### Vault protocol 2 crypto foundation
 
+Individual Entry sharing has a separate, in-progress crypto boundary and a fifth
+Entry Detail tab for list/revoke, documented in [entry-sharing.md](entry-sharing.md).
+Inbox receipts can open this tab directly via `EntryDetailPage.showSharing`;
+the default remains Details. The receipt resolver loads the local Member index
+through the existing encrypted sync path and fences navigation by the current
+account, Vault, key session and independent Member authority. It does not open
+MemberSecret merely to navigate to Sharing.
+It does not reuse source Entry/Vault keys. Selected-field projection, create POSTs,
+the session-fenced creation Cubit and a separate sender form are wired from the
+list CTA. Guest reception has a tested page and isolated transport/Cubit connected
+through an app-owned ingress host and the public constant `/share` route.
+Android and iOS intake use the Dart one-shot RAM handoff; local ownership is checked
+before claiming it, including guest/new/locked account contexts. Original ingress
+deadlines survive mounting and can only shorten. Save/account continuation,
+native domain/provisioning and real HTTP/device acceptance remain open; see the sharing
+document for the native plugin-retention boundary and verification limits.
+The received-copy projector now prepares private canonical plaintext for all
+four Entry types, with explicit missing-field completion and strict TOTP handling;
+its copy service and Cubit now compose canonical creation with scoped destination
+crypto, an account-bound isolated transport and byte-identical encrypted retries.
+The receiver now wires a Save CTA for an already authenticated, verified and
+unlocked recipient. Its account-bound destination picker, completion form and
+exact encrypted retry remain inside the original reception lifetime. Explicit
+guest account/unlock continuation is now wired through an app-owned RAM transfer
+and the existing auth routes. An explicitly empty destination list now offers
+personal-Vault creation through the same owner/deadline-fenced transport. The
+recipient still selects the refreshed Vault and explicitly saves the copy;
+ambiguous creation retries keep the exact encrypted request. Combined account/save
+acceptance remains pending; local service/widget tests are not evidence of
+deployed end-to-end saving.
+
 - `data/services/vault_protocol/` owns the frozen protocol primitives: strict canonical bytes/base64url/UUID validation, binary TLV AAD profiles, HKDF-SHA-256 projection keys, XChaCha20-Poly1305 envelopes, bounded X25519 sealed packages and RFC 8785/Ed25519 signatures. Widgets, Cubits and remote datasources must not reproduce these operations.
 - Native fixture tests consume the minimal public snapshot in `test/fixtures/vault_protocol_2/`, pinned to source commit `b370b56e4f65ecf5350bc4f9203fee6429572955` and verified against the manifest's SHA-256 list. `PROVENANCE.md` records the source digests and the single deterministic sanitization of an internal label in synthetic metadata. Tests always use the vendored snapshot, so a parent or private repository checkout is never required.
 - All structural aliases, unsupported versions/suites, wrong scopes, stale Member generations, oversize payloads, malformed canonical encodings and authentication failures fail closed before plaintext reaches presentation state. Service-owned key/plaintext copies are disposed or zeroed in `finally` paths.

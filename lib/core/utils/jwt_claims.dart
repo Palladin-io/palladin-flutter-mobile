@@ -22,7 +22,7 @@ abstract final class JwtClaims {
       if (payload is Map<String, dynamic>) return payload;
       return const {};
     } catch (e) {
-      AppLogger.w('JwtClaims', 'Failed to decode JWT payload: $e');
+      AppLogger.w('JwtClaims', 'Failed to decode JWT payload: ${e.runtimeType}');
       return const {};
     }
   }

@@ -1,6 +1,236 @@
 {
+  "auditActorExternalRecipient": "Odbiorca zewnętrzny",
+  "auditGroupEntrySharing": "Udostępnianie wpisów",
+  "notifTitleEntryShareReceived": "Odebrano udostępnioną kopię",
+  "notifSubEntryShareReceived": "Aplikacja odbiorcy potwierdziła pierwsze wyświetlenie.",
+  "notifRowShare": "Link",
+  "notifRowConfirmation": "Odbiór",
+  "auditDetailSharing": "Link",
+  "notifDisplayNotReadProof": "Potwierdzono wyświetlenie — nie przeczytanie.",
+  "auditEventEntryShareCreated": "Utworzono link udostępnienia",
+  "auditEventEntryShareDelivered": "Wydano udostępnioną paczkę",
+  "auditEventEntryShareConfirmed": "Potwierdzono wyświetlenie",
+  "auditEventEntryShareProtectionChanged": "Zmieniono ochronę udostępnienia",
+  "auditEventEntryShareExpired": "Link udostępnienia wygasł",
+  "auditEventEntryShareRevoked": "Odwołano link udostępnienia",
+  "auditEventEntryShareEnded": "Odbiorca zakończył udostępnienie",
+  "auditEventEntryShareSourceAccessRemoved": "Utracono dostęp do źródła udostępnienia",
+  "auditSentenceEntryShareCreated": "{actor} utworzył(a) link udostępnienia: {entry}",
+  "@auditSentenceEntryShareCreated": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareDelivered": "{actor} odebrał zaszyfrowaną paczkę: {entry}",
+  "@auditSentenceEntryShareDelivered": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareConfirmed": "{actor} potwierdził wyświetlenie w aplikacji: {entry} — nie jest to dowód przeczytania",
+  "@auditSentenceEntryShareConfirmed": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareProtectionChanged": "{actor} zmienił(a) ochronę udostępnienia: {entry}",
+  "@auditSentenceEntryShareProtectionChanged": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareExpired": "Link udostępnienia wygasł: {entry}",
+  "@auditSentenceEntryShareExpired": {
+    "placeholders": {
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareRevoked": "{actor} odwołał(a) link udostępnienia: {entry}",
+  "@auditSentenceEntryShareRevoked": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareEnded": "{actor} zakończył link udostępnienia: {entry}",
+  "@auditSentenceEntryShareEnded": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareSourceAccessRemoved": "Link udostępnienia utracił dostęp do źródła: {entry}",
+  "@auditSentenceEntryShareSourceAccessRemoved": {
+    "placeholders": {
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "sharingAccountPending": "Udostępniony wpis czeka. Dokończ logowanie lub konfigurację konta, aby do niego wrócić.",
+  "sharingCancelReception": "Anuluj odbiór",
+  "sharingCancelAccountNotice": "Usunąć ten odbiór z pamięci? Ponowny odbiór może wymagać nowego linku. Nie odwoła to linku nadawcy ani nie anuluje konfiguracji konta.",
+  "sharingKeepReception": "Zachowaj odbiór",
+  "sharingDiscardReception": "Porzuć odbiór",
+  "sharingAccountNotice": "Odbiór nie wymaga konta. Aby zapisać kopię, przejdź przez swoje konto i wróć tutaj. Tymczasowa sesja zachowuje pierwotny termin ważności; jej zamknięcie lub wylogowanie usuwa kopię.",
+  "sharingRegister": "Załóż konto, aby zapisać kopię",
+  "sharingLogin": "Zaloguj się, aby zapisać kopię",
+  "sharingContinueAccount": "Dokończ konfigurację lub odblokuj konto",
+  "sharingSaveCopy": "Zapisz kopię",
+  "sharingCopyCorruptVaults": "Niektórych sejfów nie udało się odszyfrować i nie można ich wybrać. Pozostałe sejfy są dostępne.",
+  "sharingCopySaved": "Kopia zapisana w Twoim sejfie. Nie będzie synchronizowana z oryginałem.",
+  "sharingCopyNotice": "Zapisz odebrane pola jako nowy wpis. Nie odbierzesz linku ponownie ani nie zmienisz oryginału.",
+  "sharingCopyVault": "Sejf docelowy",
+  "sharingCopyChooseVault": "Wybierz sejf",
+  "sharingCopyVaultError": "Nie udało się wczytać sejfów. Spróbuj ponownie, nie zamykając sesji udostępniania.",
+  "sharingCopyNoVault": "To konto nie ma dostępnego sejfu docelowego.",
+  "sharingCopyAccessTitle": "Dostęp w sejfie docelowym",
+  "sharingCopyAccessNotice": "Obecni członkowie i w pełni zaufani Agenci tego sejfu mogą mieć dostęp do kopii. Uprawnienia źródła nie są kopiowane; wykrywanie wpisu i dostęp Agentów do poszczególnych pól są początkowo wyłączone.",
+  "sharingCopyTitleError": "Podaj nazwę od 1 do 200 znaków. Odebrana nazwa nigdy nie jest skracana automatycznie.",
+  "sharingCopyMissingNotice": "Nadawca pominął pola wymagane przy zapisie wpisu. Uzupełnij je tutaj; odebrane wartości pozostaną bez zmian.",
+  "sharingCopyRequired": "Uzupełnij wymagane pole.",
+  "sharingCopyScriptDescription": "Opis wykonania Twojej kopii",
+  "sharingCopyScriptError": "Podaj skrypt, obsługiwany interpreter (bash, sh, node lub python) i opis wykonania do 4096 znaków.",
+  "sharingCopyUnsupported": "Ta kopia zawiera dane, których ta wersja nie zapisze bez zmian. Nic nie zapisano.",
+  "sharingCopySaveError": "Nie udało się przygotować kopii do zapisu. Sprawdź połączenie i dostęp do sejfu, a następnie ponów próbę.",
+  "sharingCopyRetryNotice": "Wynik zapisu nie jest jeszcze potwierdzony. Ponowienie wyśle ten sam zaszyfrowany wpis, nie duplikat. Nie rozpoczynaj nowego zapisu tej kopii.",
+  "sharingCopyBack": "Wróć do odebranego wpisu",
+  "sharingCopySessionNotice": "Opuszczenie tej sesji, blokada lub przejście do innej aplikacji usuwa kopię z pamięci. Nie cofnie to zapisu już przyjętego przez serwer.",
+  "sharingEndConfirm": "Zakończ link",
+  "sharingReceiveTitle": "Udostępniony wpis",
+  "sharingClose": "Zamknij udostępnienie",
+  "sharingReceiveUnavailable": "Ten link udostępnienia jest niedostępny. Otwórz ponownie oryginalny link, jeśli nadal jest ważny.",
+  "sharingReceiveWelcome": "Odbierz kopię wpisu bez zakładania konta. Otwarcie weryfikacji nie zużywa limitu. Samodzielnie wybierasz moment odbioru.",
+  "sharingOpen": "Otwórz udostępnienie",
+  "sharingReceive": "Odbierz wpis",
+  "sharingReceiveError": "Nie udało się wykonać tej czynności. Sprawdź kod lub hasło, jeśli są wymagane, i spróbuj ponownie. Link mógł wygasnąć lub zostać zakończony.",
+  "sharingOtpNotice": "Wyślij kod na adres e-mail wskazany przez nadawcę. Konto Palladin nie jest wymagane.",
+  "sharingSendOtp": "Wyślij kod e-mail",
+  "sharingResendOtp": "Wyślij nowy kod",
+  "sharingRetryOtp": "Ponów wysyłkę kodu",
+  "sharingOtpCode": "Kod e-mail",
+  "sharingOtpFormatError": "Wpisz sześciocyfrowy kod e-mail.",
+  "sharingVerifyOtp": "Potwierdź kod e-mail",
+  "sharingVerifySecret": "Potwierdź",
+  "sharingReadyToReceive": "Weryfikacja zakończona. Odbiór wpisu zużywa jeden odbiór z limitu; ponowienie tej samej operacji nie zużywa kolejnego.",
+  "sharingReceivedNotice": "To niezależna kopia. Zmiany oryginału jej nie aktualizują. Zakończenie linku nie odbiera już pobranych kopii i nie zmienia hasła w innym serwisie.",
+  "sharingCopyValue": "Kopiuj wartość",
+  "sharingCopiedValue": "Skopiowano. Schowek zostanie wyczyszczony po 45 sekundach, jeśli jego zawartość się nie zmieni.",
+  "sharingConfirmationFailed": "Wpis jest dostępny, ale nie udało się wysłać potwierdzenia wyświetlenia. Ponowienie potwierdzenia nie pobiera wpisu ponownie.",
+  "sharingRetryConfirmation": "Ponów potwierdzenie",
+  "sharingEnd": "Zakończ udostępnianie",
+  "sharingEndNotice": "Zakończyć ten link dla wszystkich uprawnionych odbiorców? Tej czynności nie można cofnąć. Nie usuwa ona oryginalnego wpisu ani zapisanych kopii.",
+  "sharingEnded": "Udostępnianie zakończone. Ten link nie pozwala już odebrać wpisu.",
+  "sharingUnsupportedGate": "Ten link używa weryfikacji nieobsługiwanej przez tę wersję aplikacji. Zaktualizuj aplikację lub poproś nadawcę o inny link.",
+  "sharingCreate": "Utwórz link",
+  "sharingSelectFields": "Wybierz pola do udostępnienia",
+  "sharingSelectNotice": "Skopiowane zostaną tylko wybrane pola. Notatki, kody odzyskiwania i dane konfiguracji 2FA wymagają Twojego jawnego wyboru.",
+  "sharingPreviewConfirmed": "Sprawdziłem wybrane pola",
+  "sharingUnsupportedField": "Tej wartości nie można udostępnić w tej wersji aplikacji.",
+  "sharingRecipient": "Kto może odebrać tę kopię?",
+  "sharingNamedRecipient": "Tylko ta osoba (kod e-mail)",
+  "sharingEmail": "E-mail odbiorcy",
+  "sharingEmailNotice": "Samodzielnie przekaż skopiowany link. Palladin wysyła e-mailem tylko kod weryfikacji, nie link. Dla każdej osoby utwórz osobny link.",
+  "sharingAnyoneTitle": "Każdy, kto ma link",
+  "sharingAnyoneWarning": "Link można przekazać dalej. Limit odbiorów jest wspólny dla jego posiadaczy; każdy uprawniony odbiorca może zakończyć go dla wszystkich.",
+  "sharingSecretNotice": "Przekaż hasło lub PIN osobnym kanałem. Możesz połączyć je z kodem e-mail.",
+  "sharingPinWarning": "PIN jest słabszy od długiego hasła. Użyj co najmniej 6 cyfr; dla mocniejszej ochrony zalecamy hasło.",
+  "sharingLifetime": "Ważność linku",
+  "sharingLifetimeHour": "1 godzina",
+  "sharingLifetimeDay": "1 dzień",
+  "sharingLifetimeThreeDays": "3 dni",
+  "sharingLifetimeWeek": "7 dni",
+  "sharingMaximumReceipts": "Limit odbiorów",
+  "sharingNotifyChoice": "Powiadom mnie o pierwszym odbiorze",
+  "sharingNotifyNotice": "Jeden komunikat w Inbox po potwierdzeniu wyświetlenia przez klienta odbiorcy. Audyt działa zawsze; to nie dowód przeczytania przez człowieka.",
+  "sharingCreateNotice": "To niezależna kopia, nie dostęp do sejfu. Późniejsze zmiany jej nie aktualizują. Odwołanie linku nie usuwa pobranych kopii.",
+  "sharingCancelNotice": "Jeśli wyjdziesz po wysłaniu żądania, sprawdź listę udostępnień: link mógł powstać mimo utraty odpowiedzi.",
+  "sharingEmailError": "Podaj jeden poprawny adres e-mail odbiorcy.",
+  "sharingPasswordError": "Użyj 8–128 znaków. Spacje są częścią hasła.",
+  "sharingPinError": "Użyj 6–128 cyfr (0–9), bez spacji.",
+  "sharingLimitError": "Podaj liczbę całkowitą od 1 do 100.",
+  "sharingLifetimeError": "Wybierz jeden z dostępnych terminów ważności.",
+  "sharingSelectionError": "Wybierz co najmniej jedno dostępne pole i potwierdź podgląd.",
+  "sharingCreateError": "Nie udało się utworzyć linku. Sprawdź połączenie i spróbuj ponownie.",
+  "sharingSourceError": "Wpis się zmienił. Otwórz go ponownie i sprawdź pola przed udostępnieniem.",
+  "sharingSourceLoadError": "Nie udało się otworzyć wpisu do udostępnienia. Spróbuj ponownie po odblokowaniu.",
+  "sharingRetryNotice": "Wynik jest niepewny. Ponowienie wysyła tę samą zaszyfrowaną kopię i nie tworzy drugiego linku. Do tego czasu opcje pozostają zablokowane.",
+  "sharingRetryCreate": "Ponów to samo żądanie",
+  "sharingCreated": "Twój link jest gotowy",
+  "sharingCopyLink": "Kopiuj link",
+  "sharingCopiedLink": "Link skopiowany. Schowek wyczyści się po 45 sekundach, jeśli jego zawartość się nie zmieni.",
+  "sharingCopyError": "Nie udało się skopiować linku. Spróbuj ponownie, pozostając na tym ekranie.",
+  "sharingLinkOnceNotice": "Skopiuj link przed wyjściem. Palladin nie odzyska później jego klucza odszyfrowania. Nadal możesz odwołać link na liście udostępnień.",
+  "sharingConfigurationError": "Udostępnianie nie jest skonfigurowane dla tego środowiska aplikacji. Nie utworzono linku.",
+  "sharingTotpSource": "Dane konfiguracji 2FA",
+  "sharingHidePreview": "Ukryj wartość",
+  "sharingTab": "Udostępnienia",
+  "sharingListNotice": "Linki zawierają niezależne kopie. Wydanie paczki i potwierdzenie wyświetlenia są osobne; żadne nie dowodzi przeczytania wpisu przez człowieka.",
+  "sharingEmpty": "Ten wpis nie ma jeszcze linków udostępniania.",
+  "sharingUnavailable": "Udostępnienia są niedostępne w tej sesji. Otwórz wpis ponownie po odblokowaniu.",
+  "sharingLoadError": "Nie udało się wczytać linków udostępniania.",
+  "sharingRevokeError": "Nie udało się odwołać linku. Sprawdź jego status i spróbuj ponownie.",
+  "sharingRevoke": "Odwołaj link",
+  "sharingRevokeNotice": "To zatrzyma kolejne odbiory przez link. Nie usunie pobranych kopii ani nie zmieni hasła w zewnętrznym serwisie.",
+  "sharingRevoked": "Link udostępniania odwołany.",
+  "sharingRefresh": "Odśwież",
+  "sharingAnyone": "Każdy, kto ma link",
+  "sharingActive": "Aktywny",
+  "sharingRevokedStatus": "Odwołany",
+  "sharingExpired": "Wygasły",
+  "sharingSuspended": "Zawieszony",
+  "sharingLocked": "Tymczasowo zablokowany",
+  "sharingConsumed": "Limit odbiorów wykorzystany",
+  "sharingProtectionNone": "Bez dodatkowego sekretu",
+  "sharingProtectionPassword": "Hasło",
+  "sharingProtectionPin": "PIN",
+  "sharingValidUntil": "Link ważny do",
+  "sharingOtpCountdown": "Wyślij kod za {seconds} s",
+  "sharingSharedLimitNotice": "Ten limit odbiorów jest wspólny dla wszystkich korzystających z linku.",
+  "sharingReceipts": "Odbiory / limit",
+  "sharingFirstDelivery": "Pierwsze wydanie paczki",
+  "sharingLastDelivery": "Ostatnie wydanie paczki",
+  "sharingConfirmation": "Pierwsze potwierdzenie wyświetlenia",
+  "sharingProtection": "Dodatkowe zabezpieczenie",
+  "sharingNotification": "Powiadomienie o pierwszym odbiorze",
+  "sharingNotificationOn": "Włączone — jeden komunikat w Inbox",
+  "sharingNotificationOff": "Wyłączone",
+  "sharingSourceChangedTitle": "Źródło zmienione",
+  "sharingSourceChanged": "Ta kopia nie aktualizuje się po zmianie oryginalnego wpisu. Odwołaj ją, jeśli nie powinna być już dostępna.",
   "responseUnknownValue": "Nieznane",
   "@@locale": "pl",
+  "inboxViewSharing": "Zobacz udostępnienia",
+  "inboxSharingUnavailable": "Wpis jest niedostępny lub nie masz już dostępu do jego udostępnień.",
   "appTitle": "Palladin",
   "welcomeMessage": "Witaj w Palladin",
   "loginRotatingZeroKnowledge": "Zero-knowledge w każdym calu.",
@@ -832,6 +1062,9 @@
   "auditObjectAgent": "agenta",
   "dashboardGoodMorning": "Dzień dobry",
   "dashboardSearchHint": "Agenci, sejfy, wpisy…",
+  "sharingCopyCreateVault": "Utwórz mój osobisty sejf",
+  "sharingCopyCreateVaultNotice": "Utwórz zaszyfrowany osobisty sejf bez opuszczania odebranej kopii. Następnie wybierz sejf i zapisz wpis. Utworzenie sejfu nie zapisuje wpisu automatycznie.",
+  "sharingCopyCreateVaultError": "Nie udało się utworzyć sejfu. Spróbuj ponownie tutaj, dopóki ten odbiór jest dostępny.",
   "defaultVaultName": "Osobisty",
   "dashboardOnboardingTitle": "Skonfiguruj Palladin",
   "dashboardOnboardingSubtitle": "Wykonaj te kroki, aby bezpiecznie zarządzać dostępem",

@@ -37,6 +37,16 @@ String auditEventLabel(
     AuditEventType.entryCreated => l10n.auditEventEntryCreated,
     AuditEventType.entryUpdated => l10n.auditEventEntryUpdated,
     AuditEventType.entryDeleted => l10n.auditEventEntryDeleted,
+    AuditEventType.entryShareCreated => l10n.auditEventEntryShareCreated,
+    AuditEventType.entryShareDelivered => l10n.auditEventEntryShareDelivered,
+    AuditEventType.entryShareConfirmed => l10n.auditEventEntryShareConfirmed,
+    AuditEventType.entryShareProtectionChanged =>
+      l10n.auditEventEntryShareProtectionChanged,
+    AuditEventType.entryShareExpired => l10n.auditEventEntryShareExpired,
+    AuditEventType.entryShareRevoked => l10n.auditEventEntryShareRevoked,
+    AuditEventType.entryShareEnded => l10n.auditEventEntryShareEnded,
+    AuditEventType.entryShareSourceAccessRemoved =>
+      l10n.auditEventEntryShareSourceAccessRemoved,
     AuditEventType.apikeyCreated => l10n.auditEventApiKeyCreated,
     AuditEventType.apikeyActivated => l10n.auditEventApiKeyActivated,
     AuditEventType.apikeyRevoked => l10n.auditEventApiKeyRevoked,
@@ -62,6 +72,8 @@ Color auditEventColor(AuditEventType eventType) {
   return switch (eventType) {
     // Positive / success — green.
     AuditEventType.credentialAccessed ||
+    AuditEventType.entryShareDelivered ||
+    AuditEventType.entryShareConfirmed ||
     AuditEventType.grantCreated ||
     AuditEventType.grantApproved ||
     AuditEventType.agentReactivated ||
@@ -70,6 +82,8 @@ Color auditEventColor(AuditEventType eventType) {
     AuditEventType.accountRecoveryCompleted => AppColors.positiveAccent,
     // Destructive / denied — red.
     AuditEventType.loginFailed ||
+    AuditEventType.entryShareRevoked ||
+    AuditEventType.entryShareSourceAccessRemoved ||
     AuditEventType.credentialAccessDenied ||
     AuditEventType.grantDenied ||
     AuditEventType.grantRevoked ||
@@ -83,6 +97,8 @@ Color auditEventColor(AuditEventType eventType) {
     AuditEventType.grantRequested => AppColors.vaultPeach,
     // Neutral lifecycle / creation — blue.
     AuditEventType.agentEnrolled ||
+    AuditEventType.entryShareCreated ||
+    AuditEventType.entryShareProtectionChanged ||
     AuditEventType.vaultCreated ||
     AuditEventType.vaultUpdated ||
     AuditEventType.vaultExported ||
@@ -94,6 +110,8 @@ Color auditEventColor(AuditEventType eventType) {
     AuditEventType.userSignedUp => AppColors.vaultBlue,
     // Terminal / inert — grey.
     AuditEventType.grantConsumed ||
+    AuditEventType.entryShareExpired ||
+    AuditEventType.entryShareEnded ||
     AuditEventType.grantExpired ||
     AuditEventType.grantSuperseded ||
     AuditEventType.unknown => AppColors.textTertiary,
@@ -109,6 +127,7 @@ Color auditGroupColor(AuditEventGroup group) {
     AuditEventGroup.credentialAccess => AppColors.positiveAccent,
     AuditEventGroup.grants => AppColors.positiveAccent,
     AuditEventGroup.vaultEntry => AppColors.vaultBlue,
+    AuditEventGroup.entrySharing => AppColors.vaultBlue,
     AuditEventGroup.agentLifecycle => AppColors.vaultBlue,
     AuditEventGroup.apiKeys => AppColors.vaultBlue,
     AuditEventGroup.orgAccount => AppColors.vaultBlue,
@@ -122,6 +141,7 @@ IconData auditGroupIcon(AuditEventGroup group) {
     AuditEventGroup.credentialAccess => Icons.vpn_key_outlined,
     AuditEventGroup.grants => Icons.verified_user_outlined,
     AuditEventGroup.vaultEntry => Icons.shield_outlined,
+    AuditEventGroup.entrySharing => Icons.link,
     AuditEventGroup.agentLifecycle => Icons.smart_toy_outlined,
     AuditEventGroup.apiKeys => Icons.key_outlined,
     AuditEventGroup.orgAccount => Icons.corporate_fare,
@@ -134,6 +154,7 @@ String auditGroupLabel(AppLocalizations l10n, AuditEventGroup group) {
     AuditEventGroup.credentialAccess => l10n.auditGroupCredentialAccess,
     AuditEventGroup.grants => l10n.auditGroupGrants,
     AuditEventGroup.vaultEntry => l10n.auditGroupVaultEntry,
+    AuditEventGroup.entrySharing => l10n.auditGroupEntrySharing,
     AuditEventGroup.agentLifecycle => l10n.auditGroupAgentLifecycle,
     AuditEventGroup.apiKeys => l10n.auditGroupApiKeys,
     AuditEventGroup.orgAccount => l10n.auditGroupOrgAccount,
@@ -161,6 +182,9 @@ String auditActorName(
   AuditLogEntry entry,
   Map<String, String> agentNames,
 ) {
+  if (entry.actorType == AuditActorType.externalRecipient) {
+    return l10n.auditActorExternalRecipient;
+  }
   final actorName = entry.actorName?.trim();
   // Wire DTOs discard server-provided presentation text before an entry
   // reaches this layer. For local-only rows, `actorName` is therefore the
@@ -175,6 +199,7 @@ String auditActorName(
           ? _shortId(entry.userId!)
           : l10n.auditActorOwner,
     AuditActorType.system => l10n.auditActorSystem,
+    AuditActorType.externalRecipient => l10n.auditActorExternalRecipient,
     AuditActorType.unknown => l10n.responseUnknownValue,
   };
 }
@@ -257,6 +282,33 @@ List<AuditSentenceSpan>? auditEventSentence(
     AuditEventType.entryCreated => l10n.auditSentenceCreated(actor, item),
     AuditEventType.entryUpdated => l10n.auditSentenceUpdated(actor, item),
     AuditEventType.entryDeleted => l10n.auditSentenceDeleted(actor, item),
+    AuditEventType.entryShareCreated => l10n.auditSentenceEntryShareCreated(
+      actor,
+      item,
+    ),
+    AuditEventType.entryShareDelivered => l10n.auditSentenceEntryShareDelivered(
+      actor,
+      item,
+    ),
+    AuditEventType.entryShareConfirmed => l10n.auditSentenceEntryShareConfirmed(
+      actor,
+      item,
+    ),
+    AuditEventType.entryShareProtectionChanged =>
+      l10n.auditSentenceEntryShareProtectionChanged(actor, item),
+    AuditEventType.entryShareExpired => l10n.auditSentenceEntryShareExpired(
+      item,
+    ),
+    AuditEventType.entryShareRevoked => l10n.auditSentenceEntryShareRevoked(
+      actor,
+      item,
+    ),
+    AuditEventType.entryShareEnded => l10n.auditSentenceEntryShareEnded(
+      actor,
+      item,
+    ),
+    AuditEventType.entryShareSourceAccessRemoved =>
+      l10n.auditSentenceEntryShareSourceAccessRemoved(item),
     AuditEventType.orgCreated => l10n.auditSentenceCreated(actor, org),
     AuditEventType.orgUpdated => l10n.auditSentenceUpdated(actor, org),
     AuditEventType.apikeyCreated => l10n.auditSentenceCreated(actor, apiKey),
@@ -302,6 +354,9 @@ String _sentenceActor(
   AuditLogEntry entry,
   Map<String, String> agentNames,
 ) {
+  if (entry.actorType == AuditActorType.externalRecipient) {
+    return l10n.auditActorExternalRecipient;
+  }
   final actorName = entry.actorName?.trim();
   // See [auditActorName]: local-only rows receive this value exclusively from
   // the unlocked, client-side member directory.
@@ -350,6 +405,9 @@ String? _objectName(AuditLogEntry entry) {
 String _shortId(String value) => value.length <= 15
     ? value
     : '${value.substring(0, 8)}…${value.substring(value.length - 6)}';
+
+String auditMetadataValue(String key, String value) =>
+    key == 'shareId' ? _shortId(value) : value;
 
 /// Localized message for an [AuditErrorKind]. Keeps user-facing text out
 /// of the data/domain layers.
