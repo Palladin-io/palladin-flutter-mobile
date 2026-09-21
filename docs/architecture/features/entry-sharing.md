@@ -6,7 +6,7 @@ Cubit now have a mounted receiver page and an app-owned ingress/router host.
 Android and iOS have native intake wired to the one-shot Dart RAM handoff.
 The explicit account continuation is wired to the existing authentication routes.
 First personal-Vault creation is wired inside the received-copy form.
-Native device/domain acceptance, combined account/save E2E
+Native device/domain acceptance, real backend account/save E2E
 and Inbox/audit remain pending. Local tests
 are not evidence of deployed end-to-end sharing.
 
@@ -180,6 +180,37 @@ First-Vault checkpoint (2026-09-21): **1,728 Flutter PASS / two existing plugin-
 skips**, including six structural budgets; analyze and notice verification PASS.
 The 41 receiver widget cases also pass with the synthetic Inter font. No CI,
 native app build, merge or deployment ran.
+
+### Combined guest login and first-Vault copy acceptance
+
+`test/core/router/entry_share_guest_save_test.dart` composes production ingress,
+navigation/router, receiver host/page, account continuation, LoginPage/AuthBloc
+and the copy form/services with real isolated loopback HTTP and native libsodium.
+The native channel, LoginCubit, account repository and token storage are
+substituted; the loopback server is a synthetic contract fixture, not Palladin.
+The test enters the login form rather than manually claiming a transfer.
+
+Three cases cover success, an invalid-login retry and an ambiguous copy-write
+retry. The fixture refuses a second delivery. Each case asserts one session,
+one delivery and one display confirmation, the same reception lifetime after
+login, explicit first-Vault creation, manual destination selection and completion
+of a missing username before Save. Retry sends byte-identical ciphertext with
+one Entry creation challenge. The resulting private Entry is independently
+decrypted with the recipient's newly created Vault key. Observed routes contain
+only `/login` and `/share`; guest requests have no account authorization/cookies,
+and request bodies exclude the tested plaintext fields and encoded private key.
+
+This adds combined client-composition evidence beyond the earlier separate
+router and form tests. It does not exercise real login/KDF, signup, verification,
+OAuth, native callbacks, backend receipt accounting or deployed end-to-end
+acceptance. Those release gates remain open. The loopback test yields to real
+I/O before advancing the widget fake clock; the initial harness timeout required
+no change to production Vault creation.
+
+Combined-client checkpoint (2026-09-21): **1,740 Flutter PASS / two existing
+plugin-only skips**, including all six structural budgets; analyze, third-party
+notice verification and staged-tree Gitleaks 8.30.1 PASS. No CI, native app build,
+merge or deployment ran.
 
 ### One-shot account transfer and explicit account continuation
 
