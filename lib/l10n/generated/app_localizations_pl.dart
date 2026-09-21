@@ -550,6 +550,13 @@ class AppLocalizationsPl extends AppLocalizations {
   String get responseUnknownValue => 'Nieznane';
 
   @override
+  String get inboxViewSharing => 'Zobacz udostępnienia';
+
+  @override
+  String get inboxSharingUnavailable =>
+      'Wpis jest niedostępny lub nie masz już dostępu do jego udostępnień.';
+
+  @override
   String get appTitle => 'Palladin';
 
   @override

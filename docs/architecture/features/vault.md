@@ -11,6 +11,11 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 
 Individual Entry sharing has a separate, in-progress crypto boundary and a fifth
 Entry Detail tab for list/revoke, documented in [entry-sharing.md](entry-sharing.md).
+Inbox receipts can open this tab directly via `EntryDetailPage.showSharing`;
+the default remains Details. The receipt resolver loads the local Member index
+through the existing encrypted sync path and fences navigation by the current
+account, Vault, key session and independent Member authority. It does not open
+MemberSecret merely to navigate to Sharing.
 It does not reuse source Entry/Vault keys. Selected-field projection, create POSTs,
 the session-fenced creation Cubit and a separate sender form are wired from the
 list CTA. Guest reception has a tested page and isolated transport/Cubit connected

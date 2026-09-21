@@ -82,6 +82,7 @@ import '../../features/notifications/data/datasources/push_token_remote_datasour
 import '../../features/notifications/data/repositories/notification_center_repository_impl.dart';
 import '../../features/notifications/data/services/notification_permission_service.dart';
 import '../../features/notifications/data/services/notification_presentation_resolver.dart';
+import '../../features/notifications/data/services/notification_sharing_entry_resolver.dart';
 import '../../features/notifications/data/services/notification_signalr_service.dart';
 import '../../features/notifications/data/services/push_notification_service.dart';
 import '../../features/notifications/domain/repositories/notification_center_repository.dart';
@@ -744,6 +745,12 @@ void configureDependencies(EnvConfig config) {
       grants: getIt<GrantsRepository>(),
       agents: getIt<AgentsRepository>(),
       vaultMembers: getIt<VaultMembersRepository>(),
+    ),
+  );
+  getIt.registerLazySingleton<NotificationSharingEntryResolver>(
+    () => NotificationSharingEntryResolver(
+      entries: getIt<MemberEntryListService>(),
+      readAuthority: getIt<MemberSyncSessionAuthorityProvider>().current,
     ),
   );
   // Singleton: the shell reads summary state for the Inbox badge while the

@@ -549,6 +549,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get responseUnknownValue => 'Unknown';
 
   @override
+  String get inboxViewSharing => 'View sharing';
+
+  @override
+  String get inboxSharingUnavailable =>
+      'This entry is unavailable or you no longer have access to its sharing links.';
+
+  @override
   String get appTitle => 'Palladin';
 
   @override

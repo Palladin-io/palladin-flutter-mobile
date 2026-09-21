@@ -52,19 +52,30 @@ class EntryDetailDeleted extends EntryDetailResult {
 /// MemberIndex metadata renders immediately. MemberSecret is fetched and
 /// authenticated on entry; secret fields remain masked until revealed.
 class EntryDetailPage extends StatelessWidget {
-  const EntryDetailPage({super.key, required this.entry, this.wrappedVK});
+  const EntryDetailPage({
+    super.key,
+    required this.entry,
+    this.wrappedVK,
+    this.showSharing = false,
+  });
 
   final EntryEntity entry;
   final String? wrappedVK;
+  final bool showSharing;
 
   static Future<EntryDetailResult?> push(
     BuildContext context, {
     required EntryEntity entry,
     String? wrappedVK,
+    bool showSharing = false,
   }) {
     return Navigator.of(context, rootNavigator: true).push<EntryDetailResult>(
       MaterialPageRoute(
-        builder: (_) => EntryDetailPage(entry: entry, wrappedVK: wrappedVK),
+        builder: (_) => EntryDetailPage(
+          entry: entry,
+          wrappedVK: wrappedVK,
+          showSharing: showSharing,
+        ),
       ),
     );
   }
@@ -90,7 +101,11 @@ class EntryDetailPage extends StatelessWidget {
               context.read<EntryHistoryCubit>().clearSensitiveState();
             }
           },
-          child: _EntryDetailView(entry: entry, wrappedVK: wrappedVK),
+          child: _EntryDetailView(
+            entry: entry,
+            wrappedVK: wrappedVK,
+            showSharing: showSharing,
+          ),
         ),
       ),
     );
@@ -100,10 +115,15 @@ class EntryDetailPage extends StatelessWidget {
 // ── Detail view ────────────────────────────────────────────────────
 
 class _EntryDetailView extends StatefulWidget {
-  const _EntryDetailView({required this.entry, this.wrappedVK});
+  const _EntryDetailView({
+    required this.entry,
+    this.wrappedVK,
+    required this.showSharing,
+  });
 
   final EntryEntity entry;
   final String? wrappedVK;
+  final bool showSharing;
 
   @override
   State<_EntryDetailView> createState() => _EntryDetailViewState();
@@ -140,9 +160,11 @@ class _EntryDetailViewState extends State<_EntryDetailView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this)
-      // Rebuild so the FAB shows only on the Agents tab.
-      ..addListener(_onTabChanged);
+    _lastTrackedTab = widget.showSharing ? _sharingTabIndex : 0;
+    _tabController =
+        TabController(length: 5, vsync: this, initialIndex: _lastTrackedTab)
+          // Rebuild so the FAB shows only on the Agents tab.
+          ..addListener(_onTabChanged);
   }
 
   void _onTabChanged() {

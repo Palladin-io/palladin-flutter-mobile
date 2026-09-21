@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection.dart';
+import '../../../../core/crypto/vault_session_store.dart';
 import '../../../../core/permissions.dart';
 import '../../../../core/storage/secure_token_storage.dart';
 import '../../../../core/utils/jwt_claims.dart';
@@ -25,6 +26,9 @@ import '../../../approval/presentation/widgets/approve_grant_sheet.dart';
 import '../../../approval/presentation/widgets/deny_grant_sheet.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../vault/presentation/cubit/vault_list_cubit.dart';
+import '../../../vault/presentation/pages/entry_detail_page.dart';
+import '../../data/services/notification_sharing_entry_resolver.dart';
+import '../../domain/entities/entry_sharing_notification_target.dart';
 import '../../domain/entities/inbox_notification.dart';
 import '../cubit/notification_center_cubit.dart';
 import '../widgets/notification_card.dart';
@@ -143,6 +147,7 @@ class _NotificationCenterView extends StatefulWidget {
 
 class _NotificationCenterViewState extends State<_NotificationCenterView> {
   final TextEditingController _searchController = TextEditingController();
+  int _sharingNavigationGeneration = 0;
 
   /// Active log segment. Grants is NOT a segment — it lives behind the AppBar
   /// kebab as a separate full-screen page.
@@ -157,6 +162,11 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
   // ── actions ──────────────────────────────────────────────────────────
 
   Future<void> _onTap(InboxNotification item) async {
+    final navigationGeneration = ++_sharingNavigationGeneration;
+    if (item.type == 'entry_share_received') {
+      await _openSharing(item, navigationGeneration);
+      return;
+    }
     final notifications = context.read<NotificationCenterCubit>();
     await notifications.markRead(item.id);
     if (!mounted) return;
@@ -171,6 +181,65 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
       }
     }
     _deepLink(item);
+  }
+
+  Future<void> _openSharing(InboxNotification item, int generation) async {
+    final target = entrySharingNotificationTarget(item);
+    final auth = context.read<AuthBloc>();
+    final owner = auth.state;
+    final vaults = getIt<VaultListCubit>();
+    final initialVaults = vaults.state;
+    if (target == null ||
+        owner is! AuthAuthenticated ||
+        owner.isVaultLocked ||
+        owner.privateKey == null ||
+        !owner.emailVerified ||
+        (owner.permissions & Permissions.vaultManage) == 0 ||
+        initialVaults is! VaultListLoaded ||
+        !initialVaults.vaults.any((vault) => vault.id == target.vaultId)) {
+      _sharingUnavailable();
+      return;
+    }
+    final keys = getIt<VaultSessionStore>();
+    final keyGeneration = keys.memberKeySessionGeneration;
+    final inbox = context.read<NotificationCenterCubit>();
+    final inboxGeneration = inbox.presentationGeneration;
+    bool isCurrent() =>
+        mounted &&
+        generation == _sharingNavigationGeneration &&
+        identical(auth.state, owner) &&
+        identical(vaults.state, initialVaults) &&
+        keys.memberKeySessionGeneration == keyGeneration &&
+        inbox.presentationGeneration == inboxGeneration &&
+        (WidgetsBinding.instance.lifecycleState == null ||
+            WidgetsBinding.instance.lifecycleState ==
+                AppLifecycleState.resumed) &&
+        (ModalRoute.of(context)?.isCurrent ?? false);
+    if (!isCurrent()) return;
+    await inbox.markRead(item.id);
+    if (!isCurrent()) return;
+    final entry = await getIt<NotificationSharingEntryResolver>().resolve(
+      target: target,
+      principalId: owner.userId,
+      memberPrivateKey: owner.privateKey!,
+      isCurrent: isCurrent,
+    );
+    if (!isCurrent()) return;
+    if (entry == null) {
+      _sharingUnavailable();
+      return;
+    }
+    if (!mounted) return;
+    await EntryDetailPage.push(context, entry: entry, showSharing: true);
+  }
+
+  void _sharingUnavailable() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(AppLocalizations.of(context)!.inboxSharingUnavailable),
+      ),
+    );
   }
 
   // ── agent flows ────────────────────────────────────────────────────────
@@ -285,9 +354,7 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     });
   }
 
-  /// Navigates a resolved/informational item to its owning surface via the
-  /// backend-supplied `actionDeepLink` (collapsed to agent/vault detail on
-  /// mobile). No-op when there is no usable target.
+  /// Uses only allowlisted Inbox types and structural ids, never a supplied URL.
   void _deepLink(InboxNotification item) {
     final target = notificationDeepLink(item);
     if (target != null) context.go(target);
@@ -701,12 +768,15 @@ class _NotificationItemTileState extends State<_NotificationItemTile> {
     // otherwise the card has no footer.
     final route = notificationDeepLink(item);
     final target = notificationViewTarget(item);
-    final hasView = route != null && target != null;
+    final hasView =
+        target != null &&
+        (route != null || entrySharingNotificationTarget(item) != null);
     return NotificationCard(
       item: item,
       onTap: onTap,
       onView: hasView ? onTap : null,
       viewLabel: hasView ? notificationViewLabel(l10n, target) : null,
+      isBusy: _busy,
     );
   }
 }

@@ -230,6 +230,8 @@
   "sharingSourceChanged": "This copy does not update when the original entry changes. Revoke it if it should no longer be available.",
   "responseUnknownValue": "Unknown",
   "@@locale": "en",
+  "inboxViewSharing": "View sharing",
+  "inboxSharingUnavailable": "This entry is unavailable or you no longer have access to its sharing links.",
   "appTitle": "Palladin",
   "@appTitle": {
     "description": "The application title shown in the app bar and OS task switcher"

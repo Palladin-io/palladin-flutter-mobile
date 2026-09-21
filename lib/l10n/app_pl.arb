@@ -229,6 +229,8 @@
   "sharingSourceChanged": "Ta kopia nie aktualizuje się po zmianie oryginalnego wpisu. Odwołaj ją, jeśli nie powinna być już dostępna.",
   "responseUnknownValue": "Nieznane",
   "@@locale": "pl",
+  "inboxViewSharing": "Zobacz udostępnienia",
+  "inboxSharingUnavailable": "Wpis jest niedostępny lub nie masz już dostępu do jego udostępnień.",
   "appTitle": "Palladin",
   "welcomeMessage": "Witaj w Palladin",
   "loginRotatingZeroKnowledge": "Zero-knowledge w każdym calu.",

@@ -71,6 +71,8 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   int _feedGeneration = 0;
   int _summaryGeneration = 0;
 
+  int get presentationGeneration => _generation;
+
   bool _current(int generation) => !isClosed && generation == _generation;
 
   void configureUnlockedResolution({

@@ -308,7 +308,7 @@ String? notificationDeepLink(InboxNotification n) {
 
 /// The kind of surface a notification's "View" link points at — drives the
 /// contextual footer label (View Agent / View Access / View Entry).
-enum NotificationViewTarget { agent, access, entry }
+enum NotificationViewTarget { agent, access, entry, sharing }
 
 /// Classifies a notification's deep-link target so the "View" footer can carry
 /// a contextual label instead of a generic "View". Derives the target from the
@@ -316,6 +316,8 @@ enum NotificationViewTarget { agent, access, entry }
 /// Unknown types have no footer.
 NotificationViewTarget? notificationViewTarget(InboxNotification n) {
   switch (n.type) {
+    case 'entry_share_received':
+      return NotificationViewTarget.sharing;
     case 'agent_pending':
     case 'agent_approved':
       return NotificationViewTarget.agent;
@@ -337,6 +339,7 @@ String notificationViewLabel(AppLocalizations l10n, NotificationViewTarget t) {
     NotificationViewTarget.agent => l10n.inboxViewAgent,
     NotificationViewTarget.access => l10n.inboxViewAccess,
     NotificationViewTarget.entry => l10n.inboxViewEntry,
+    NotificationViewTarget.sharing => l10n.inboxViewSharing,
   };
 }
 
