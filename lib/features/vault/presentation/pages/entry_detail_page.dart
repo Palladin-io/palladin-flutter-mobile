@@ -57,17 +57,20 @@ class EntryDetailPage extends StatelessWidget {
     required this.entry,
     this.wrappedVK,
     this.openAgentsTab = false,
+    this.showSharing = false,
   });
 
   final EntryEntity entry;
   final String? wrappedVK;
   final bool openAgentsTab;
+  final bool showSharing;
 
   static Future<EntryDetailResult?> push(
     BuildContext context, {
     required EntryEntity entry,
     String? wrappedVK,
     bool openAgentsTab = false,
+    bool showSharing = false,
   }) {
     return Navigator.of(context, rootNavigator: true).push<EntryDetailResult>(
       MaterialPageRoute(
@@ -75,6 +78,7 @@ class EntryDetailPage extends StatelessWidget {
           entry: entry,
           wrappedVK: wrappedVK,
           openAgentsTab: openAgentsTab,
+          showSharing: showSharing,
         ),
       ),
     );
@@ -105,6 +109,7 @@ class EntryDetailPage extends StatelessWidget {
             entry: entry,
             wrappedVK: wrappedVK,
             openAgentsTab: openAgentsTab,
+            showSharing: showSharing,
           ),
         ),
       ),
@@ -119,11 +124,13 @@ class _EntryDetailView extends StatefulWidget {
     required this.entry,
     this.wrappedVK,
     required this.openAgentsTab,
+    required this.showSharing,
   });
 
   final EntryEntity entry;
   final String? wrappedVK;
   final bool openAgentsTab;
+  final bool showSharing;
 
   @override
   State<_EntryDetailView> createState() => _EntryDetailViewState();
@@ -160,7 +167,11 @@ class _EntryDetailViewState extends State<_EntryDetailView>
   @override
   void initState() {
     super.initState();
-    _lastTrackedTab = widget.openAgentsTab ? _agentsTabIndex : 0;
+    _lastTrackedTab = widget.showSharing
+        ? _sharingTabIndex
+        : widget.openAgentsTab
+        ? _agentsTabIndex
+        : 0;
     _tabController =
         TabController(length: 5, vsync: this, initialIndex: _lastTrackedTab)
           // Rebuild so the FAB shows only on the Agents tab.

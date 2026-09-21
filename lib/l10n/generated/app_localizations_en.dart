@@ -557,6 +557,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Vaults — your entries grouped into vaults. Use the key to see all entries.';
 
   @override
+  String get inboxViewSharing => 'View sharing';
+
+  @override
+  String get inboxSharingUnavailable =>
+      'This entry is unavailable or you no longer have access to its sharing links.';
+
+  @override
   String get appTitle => 'Palladin';
 
   @override

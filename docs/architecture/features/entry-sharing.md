@@ -7,12 +7,26 @@ Android and iOS have native intake wired to the one-shot Dart RAM handoff.
 The explicit account continuation is wired to the existing authentication routes.
 First personal-Vault creation is wired inside the received-copy form.
 Inbox receipt and eight-event audit presentation are implemented in EN/PL.
-Native device/domain acceptance, real backend account/save E2E,
-receipt-to-Sharing navigation remain pending. Foreground Inbox repair is wired
+Receipt-to-Sharing navigation opens the existing Entry tab using the encrypted
+Member loader and session-fenced local metadata. Native device/domain acceptance
+and real backend account/save E2E remain pending. Foreground Inbox repair is wired
 through the app lifecycle with session-fenced async results. Local tests
 are not evidence of deployed end-to-end sharing.
 
 ## Inbox and audit presentation checkpoint (2026-09-21)
+
+Receipt navigation now has 30 focused cases: exact EN/PL Inbox-to-Sharing
+navigation without initializing the secret editor, unavailable target/access,
+and late results after account/org/membership, key, Inbox, Vault, lifecycle or
+route changes. It uses the existing Member loader even for an unopened Vault;
+no server label or supplied URL becomes a destination. See
+[notifications](notifications.md). This supersedes the historical pending
+navigation statements below, not the backend/device acceptance gates.
+Full regression: **1,821 Flutter PASS / two existing plugin-only skips**, including
+six structural budgets; analyze, notices and staged-tree Gitleaks 8.30.1 PASS.
+Initial mounted harness failures (missing shell scope and an invalid synthetic
+lifecycle transition) were corrected in the harness, not hidden by production
+fallbacks. No CI, native app build, merge or deployment was run.
 
 Follow-up: foreground repair is now app-owned, with immediate ready-context and
 30-second refresh, one in-flight repair per generation, independent account/org

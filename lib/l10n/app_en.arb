@@ -232,6 +232,8 @@
   "@@locale": "en",
   "libraryEntriesHint": "Entries — all your entries across vaults. Use the shield to browse vaults.",
   "libraryVaultsHint": "Vaults — your entries grouped into vaults. Use the key to see all entries.",
+  "inboxViewSharing": "View sharing",
+  "inboxSharingUnavailable": "This entry is unavailable or you no longer have access to its sharing links.",
   "appTitle": "Palladin",
   "@appTitle": {
     "description": "The application title shown in the app bar and OS task switcher"

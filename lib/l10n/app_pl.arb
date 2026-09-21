@@ -231,6 +231,8 @@
   "@@locale": "pl",
   "libraryEntriesHint": "Wpisy — wszystkie wpisy ze skarbców. Tarcza przełącza na widok skarbców.",
   "libraryVaultsHint": "Skarbce — wpisy podzielone na skarbce. Klucz przełącza na wszystkie wpisy.",
+  "inboxViewSharing": "Zobacz udostępnienia",
+  "inboxSharingUnavailable": "Wpis jest niedostępny lub nie masz już dostępu do jego udostępnień.",
   "appTitle": "Palladin",
   "welcomeMessage": "Witaj w Palladin",
   "loginRotatingZeroKnowledge": "Zero-knowledge w każdym calu.",

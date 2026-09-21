@@ -558,6 +558,13 @@ class AppLocalizationsPl extends AppLocalizations {
       'Skarbce — wpisy podzielone na skarbce. Klucz przełącza na wszystkie wpisy.';
 
   @override
+  String get inboxViewSharing => 'Zobacz udostępnienia';
+
+  @override
+  String get inboxSharingUnavailable =>
+      'Wpis jest niedostępny lub nie masz już dostępu do jego udostępnień.';
+
+  @override
   String get appTitle => 'Palladin';
 
   @override

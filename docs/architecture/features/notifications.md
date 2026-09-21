@@ -17,8 +17,29 @@ these details without changing other cards.
 
 The backend creates this sender-only Inbox item after the first confirmed receipt
 only when selected by the sender. This adds no push, SignalR or email channel;
-audit remains unconditional. Receipt-to-Sharing navigation remains pending.
+audit remains unconditional. The localized `View sharing` footer opens the
+existing Entry Detail page directly on Sharing, not on the secret Details tab.
 Local presentation tests do not prove live delivery or device acceptance.
+
+### Receipt navigation
+
+Only the allowlisted receipt type and structural Vault/Entry ids select the
+destination; supplied URLs and presentation labels are never used. The current
+verified, unlocked account must have VaultManage and the Vault in its loaded
+list. `NotificationSharingEntryResolver` uses the existing
+`MemberEntryListLoader`, so an unopened Vault is synchronized through the normal
+encrypted Member path rather than incorrectly treated as absent. It maps only
+an exact, unambiguous, readable active/archived local MemberIndex row. Missing,
+deleted, corrupt or unavailable entries produce a localized generic message.
+
+Independent Member authority is checked before and after loading. Pending work
+cannot navigate after account, organization/membership generation, key session,
+Inbox generation, Vault-list snapshot, foreground or current-route changes.
+The resolver owns no new crypto or persistent cache. Sharing retains its own
+authoritative API access check. Existing Entry Detail callers still start on
+Details. Tests cover mounted EN/PL Inbox-to-tab navigation without initializing
+the secret editor, substituted Member loading and delayed security transitions;
+these are not real backend/device delivery tests.
 
 ## Foreground repair and session fencing
 

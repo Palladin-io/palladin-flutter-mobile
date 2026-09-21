@@ -1040,6 +1040,18 @@ abstract class AppLocalizations {
   /// **'Vaults — your entries grouped into vaults. Use the key to see all entries.'**
   String get libraryVaultsHint;
 
+  /// No description provided for @inboxViewSharing.
+  ///
+  /// In en, this message translates to:
+  /// **'View sharing'**
+  String get inboxViewSharing;
+
+  /// No description provided for @inboxSharingUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This entry is unavailable or you no longer have access to its sharing links.'**
+  String get inboxSharingUnavailable;
+
   /// The application title shown in the app bar and OS task switcher
   ///
   /// In en, this message translates to:
