@@ -13,9 +13,20 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/theme/app_colors.dart';
+import 'package:mobile_palladin/core/crypto/sodium_provider.dart';
+import 'package:mobile_palladin/core/permissions.dart';
+import 'package:mobile_palladin/core/widgets/primary_button.dart';
+import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/onboarding/presentation/widgets/onboarding_text_field.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/entry_share_recipient_datasource.dart';
+import 'package:mobile_palladin/features/vault/data/datasources/entry_share_copy_datasource.dart';
+import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_copy_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/vault_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/data/services/entry_v2_crypto_service.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/entry_share_list.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/entry_share_copy.dart';
+import 'package:mobile_palladin/features/vault/domain/entities/vault_entity.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_crypto_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_secrets.dart';
 import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vault_protocol_bytes.dart';
@@ -30,6 +41,8 @@ import 'package:sodium_libs/sodium_libs_sumo.dart';
 
 class _Remote extends Mock implements EntryShareRecipientDatasource {}
 
+class _CopyRemote extends Mock implements EntryShareCopyDatasource {}
+
 class _Auth extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
 const EntryShareRecipientOwner _guest = (
@@ -38,6 +51,14 @@ const EntryShareRecipientOwner _guest = (
   authorizationGeneration: null,
   keyGeneration: 0,
 );
+const EntrySharingSession _member = (
+  principalId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  organizationId: '11111111-1111-4111-8111-111111111111',
+  authorizationGeneration: '7',
+  keyGeneration: 1,
+);
+const _destination = '22222222-2222-4222-8222-222222222222';
+const _newEntry = '33333333-3333-4333-8333-333333333333';
 final _fixture =
     jsonDecode(
           File('test/fixtures/crypto/entry-share-v1.json').readAsStringSync(),
@@ -59,9 +80,16 @@ void main() {
   late GlobalKey screenshotKey;
   String? clipboard;
   bool clipboardFails = false;
+  EntryShareCopyService Function()? copyFactory;
+  late Map<String, dynamic> copyVaultJson;
+  late _CopyRemote copyRemote;
+  late List<String> createdCopies;
+  late CreatedVaultBundle destinationBundle;
+  late Uint8List accountKey;
 
   setUpAll(() async {
     registerFallbackValue(CancelToken());
+    registerFallbackValue(_member);
     registerFallbackValue(
       const EntryShareRecipientSession(
         sessionId: '',
@@ -77,6 +105,7 @@ void main() {
             () => DynamicLibrary.open(path ?? 'libsodium.so'),
           )
         : await SodiumSumoInit.init();
+    SodiumProvider.debugOverride = sodium;
     final font = Platform.environment['PALLADIN_SHARING_VISUAL_FONT'];
     if (font != null) {
       await (FontLoader(
@@ -87,6 +116,7 @@ void main() {
       )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
     }
   });
+  tearDownAll(() => SodiumProvider.debugOverride = null);
 
   setUp(() {
     remote = _Remote();
@@ -102,6 +132,8 @@ void main() {
     screenshotKey = GlobalKey();
     clipboard = null;
     clipboardFails = false;
+    copyFactory = null;
+    createdCopies = [];
     secrets = EntryShareSecrets(
       key: VaultProtocolBytes.hex(_fixture['keyHex']),
       accessToken: Uint8List(32)..fillRange(0, 32, 7),
@@ -258,7 +290,10 @@ void main() {
     );
     navigator.currentState!.push(
       MaterialPageRoute<void>(
-        builder: (_) => EntryShareReceiverPage(cubit: cubit),
+        builder: (_) => EntryShareReceiverPage(
+          cubit: cubit,
+          copyServiceFactory: copyFactory,
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -300,6 +335,606 @@ void main() {
       image.dispose();
     });
   }
+
+  Future<void> enableSaving(
+    WidgetTester tester, {
+    bool locked = false,
+    bool verified = true,
+    int permissions = Permissions.vaultManage,
+  }) async {
+    await cubit.close();
+    owner = _member;
+    accountKey = sodium.randombytes.buf(32);
+    final authState = AuthAuthenticated(
+      userId: _member.principalId,
+      isOnboarded: true,
+      isVaultLocked: locked,
+      emailVerified: verified,
+      permissions: permissions,
+      privateKey: locked ? null : accountKey,
+    );
+    when(() => auth.state).thenReturn(authState);
+    secrets = EntryShareSecrets(
+      key: VaultProtocolBytes.hex(_fixture['keyHex']),
+      accessToken: Uint8List(32)..fillRange(0, 32, 7),
+    );
+    cubit = EntryShareReceptionCubit(
+      remote: remote,
+      crypto: EntryShareCryptoService(sodiumLoader: () async => sodium),
+      shareId: _shareId,
+      secrets: secrets,
+      owner: _member,
+      ownerReader: () async => owner,
+      now: () => _now,
+    );
+    await tester.runAsync(() async {
+      destinationBundle =
+          await VaultCryptoService(
+            sodiumLoader: () async => sodium,
+          ).createVaultBundle(
+            organizationId: _member.organizationId,
+            memberId: _member.principalId,
+            memberKeyVersion: 1,
+            vaultId: _destination,
+            memberPrivateKey: accountKey,
+            name: 'Personal vault',
+            grantMode: GrantMode.granular,
+          );
+    });
+    addTearDown(() {
+      accountKey.fillRange(0, accountKey.length, 0);
+      destinationBundle.vaultKey.fillRange(
+        0,
+        destinationBundle.vaultKey.length,
+        0,
+      );
+      destinationBundle.vaultDiscoveryKey.fillRange(
+        0,
+        destinationBundle.vaultDiscoveryKey.length,
+        0,
+      );
+    });
+    copyVaultJson =
+        jsonDecode(
+              jsonEncode({
+                'id': _destination,
+                'organizationId': _member.organizationId,
+                'memberKeyGeneration': 1,
+                'metadataRevision': '1',
+                'memberVaultKey': {
+                  'wrappedVaultKey': destinationBundle.request.creatorVaultKey
+                      .toJson(),
+                },
+                'memberVaultMetadata': destinationBundle
+                    .request
+                    .memberVaultMetadata
+                    .toJson(),
+                'currentKeyEpoch': destinationBundle.request.currentKeyEpoch
+                    .toJson(),
+                'discoveryKey': destinationBundle.request.discoveryKey.toJson(),
+              }),
+            )
+            as Map<String, dynamic>;
+    copyRemote = _CopyRemote();
+    when(
+      () => copyRemote.vault(any(), any(), any()),
+    ).thenAnswer((_) async => copyVaultJson);
+    when(() => copyRemote.vaults(any(), any(), any())).thenAnswer(
+      (_) async => {
+        'vaults': [
+          Map<String, dynamic>.from(copyVaultJson)
+            ..remove('organizationId')
+            ..remove('metadataRevision'),
+        ],
+        'total': 1,
+      },
+    );
+    when(
+      () => copyRemote.challenge(any(), any(), any()),
+    ).thenAnswer((_) async => _newEntry);
+    when(() => copyRemote.create(any(), any(), any(), any())).thenAnswer((
+      call,
+    ) async {
+      createdCopies.add(call.positionalArguments[1] as String);
+    });
+    copyFactory = () => EntryShareCopyService(
+      remote: copyRemote,
+      vaultCrypto: VaultCryptoService(sodiumLoader: () async => sodium),
+      entryCrypto: EntryV2CryptoService(sodiumLoader: () async => sodium),
+      autoFill: AutoFillMutationNotifier(),
+    );
+  }
+
+  Future<void> chooseDestination(WidgetTester tester) async {
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('sharing-copy-vault')),
+        matching: find.byType(DropdownButton<String>),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Personal vault').last);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> completeCopy(WidgetTester tester) async {
+    await chooseDestination(tester);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('sharing-copy-credential.username')),
+    );
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey('sharing-copy-credential.username')),
+        matching: find.byType(TextField),
+      ),
+      '  recipient user  ',
+    );
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> saveCopy(WidgetTester tester, {bool retry = false}) async {
+    await tap(tester, retry ? 'Retry same request' : 'Save a copy');
+    await tester.runAsync(
+      () async => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+    'received copy saves through mounted form once with fresh destination encryption',
+    (tester) async {
+      await enableSaving(tester);
+      await mount(tester);
+      await receive(tester);
+      await tap(tester, 'Save a copy');
+      expect(createdCopies, isEmpty);
+      expect(
+        tester
+            .widget<PrimaryButton>(
+              find.widgetWithText(PrimaryButton, 'Save a copy'),
+            )
+            .onPressed,
+        isNull,
+      );
+      await completeCopy(tester);
+      await capture(tester, 'copy-en-light-390');
+      await saveCopy(tester);
+      expect(createdCopies.length, 1);
+      expect(
+        find.text(
+          'Copy saved in your vault. It will not sync with the original.',
+        ),
+        findsOneWidget,
+      );
+      final request = jsonDecode(createdCopies.single) as Map<String, dynamic>;
+      await tester.runAsync(() async {
+        final plaintext =
+            await EntryV2CryptoService(
+              sodiumLoader: () async => sodium,
+            ).openMemberSecret(
+              entryKey: request['entryKey'],
+              memberSecret: request['memberSecret'],
+              vaultKey: destinationBundle.vaultKey,
+            );
+        expect((plaintext['content'] as Map)['password'], 'fixture-only');
+        expect((plaintext['content'] as Map)['username'], '  recipient user  ');
+        expect(plaintext['discoverable'], isFalse);
+      });
+      await tap(tester, 'Back to received entry');
+      expect(find.text('Save a copy'), findsNothing);
+      verify(
+        () => remote.receive(
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).called(1);
+      verify(
+        () => remote.confirmDisplay(
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).called(1);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'ambiguous mounted save permits only exact encrypted retry, not another receipt',
+    (tester) async {
+      await enableSaving(tester);
+      when(() => copyRemote.create(any(), any(), any(), any())).thenAnswer((
+        call,
+      ) async {
+        createdCopies.add(call.positionalArguments[1] as String);
+        if (createdCopies.length == 1) {
+          throw const EntryShareCopyException(EntryShareCopyError.request);
+        }
+      });
+      await mount(tester);
+      await receive(tester);
+      await tap(tester, 'Save a copy');
+      await completeCopy(tester);
+      final controllers = tester
+          .widgetList<OnboardingTextField>(find.byType(OnboardingTextField))
+          .map((field) => field.controller)
+          .toList();
+      await saveCopy(tester);
+      expect(find.text('Retry same request'), findsOneWidget);
+      expect(find.text('Back to received entry'), findsNothing);
+      expect(find.byType(TextField), findsNothing);
+      expect(
+        controllers.map((controller) => controller.text),
+        everyElement(isEmpty),
+      );
+      await saveCopy(tester, retry: true);
+      expect(createdCopies.length, 2);
+      expect(createdCopies.first, createdCopies.last);
+      verify(() => copyRemote.challenge(any(), any(), any())).called(1);
+      verify(
+        () => remote.receive(
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).called(1);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'cancel before saving returns to received copy without challenge or redelivery',
+    (tester) async {
+      await enableSaving(tester);
+      await mount(tester);
+      await receive(tester);
+      await tap(tester, 'Save a copy');
+      await tester.scrollUntilVisible(
+        find.text('Back to received entry'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tap(tester, 'Back to received entry');
+      expect(find.text('Save a copy'), findsOneWidget);
+      expect(createdCopies, isEmpty);
+      verifyNever(() => copyRemote.challenge(any(), any(), any()));
+      verify(
+        () => remote.receive(
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).called(1);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'background during destination lookup cancels request and drops late list',
+    (tester) async {
+      await enableSaving(tester);
+      final read = Completer<Map<String, dynamic>>();
+      CancelToken? token;
+      when(() => copyRemote.vaults(any(), any(), any())).thenAnswer((call) {
+        token = call.positionalArguments[2] as CancelToken;
+        return read.future;
+      });
+      await mount(tester);
+      await receive(tester);
+      await tester.tap(find.text('Save a copy'));
+      await tester.pump();
+      expect(token, isNotNull);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      expect(token!.isCancelled, isTrue);
+      read.complete({
+        'vaults': [copyVaultJson],
+        'total': 1,
+      });
+      await tester.pumpAndSettle();
+      expect(cubit.state.phase, EntryShareReceptionPhase.unavailable);
+      expect(find.byType(TextField), findsNothing);
+      expect(createdCopies, isEmpty);
+      await finish(tester);
+    },
+  );
+
+  testWidgets('lock removes copy controls and entered completion', (
+    tester,
+  ) async {
+    await enableSaving(tester);
+    await mount(tester);
+    await receive(tester);
+    await tap(tester, 'Save a copy');
+    await completeCopy(tester);
+    final controllers = tester
+        .widgetList<OnboardingTextField>(find.byType(OnboardingTextField))
+        .map((field) => field.controller)
+        .toList();
+    authEvents.add(
+      (auth.state as AuthAuthenticated).copyWith(
+        isVaultLocked: true,
+        clearKeys: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      controllers.map((controller) => controller.text),
+      everyElement(isEmpty),
+    );
+    expect(find.byType(TextField), findsNothing);
+    expect(createdCopies, isEmpty);
+    expect(cubit.state.phase, EntryShareReceptionPhase.unavailable);
+    await finish(tester);
+  });
+
+  for (final mode in ['locked', 'unverified', 'no permission']) {
+    testWidgets('$mode recipient cannot start destination save', (
+      tester,
+    ) async {
+      await enableSaving(
+        tester,
+        locked: mode == 'locked',
+        verified: mode != 'unverified',
+        permissions: mode == 'no permission' ? 0 : Permissions.vaultManage,
+      );
+      await mount(tester);
+      await receive(tester);
+      expect(find.text('Save a copy'), findsNothing);
+      expect(createdCopies, isEmpty);
+      await finish(tester);
+    });
+  }
+
+  testWidgets('unreadable destination is isolated without hiding usable vaults', (
+    tester,
+  ) async {
+    await enableSaving(tester);
+    final corrupt =
+        jsonDecode(jsonEncode(copyVaultJson)) as Map<String, dynamic>;
+    corrupt['memberVaultKey']['wrappedVaultKey']['descriptor']['scope']['memberId'] =
+        _destination;
+    when(() => copyRemote.vaults(any(), any(), any())).thenAnswer(
+      (_) async => {
+        'vaults': [corrupt, copyVaultJson],
+        'total': 2,
+      },
+    );
+    await mount(tester);
+    await receive(tester);
+    await tap(tester, 'Save a copy');
+    final warning = find.text(
+      'Some vaults could not be decrypted and are not offered as destinations. Other vaults remain available.',
+    );
+    await tester.ensureVisible(warning);
+    expect(warning, findsOneWidget);
+    await completeCopy(tester);
+    await tap(tester, 'Save a copy');
+    expect(createdCopies, hasLength(1));
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets('empty destination does not auto-create or enable save', (
+    tester,
+  ) async {
+    await enableSaving(tester);
+    when(
+      () => copyRemote.vaults(any(), any(), any()),
+    ).thenAnswer((_) async => {'vaults': [], 'total': 0});
+    await mount(tester);
+    await receive(tester);
+    await tap(tester, 'Save a copy');
+    expect(
+      find.text('There is no available destination vault for this account.'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<PrimaryButton>(
+            find.widgetWithText(PrimaryButton, 'Save a copy'),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(createdCopies, isEmpty);
+    await finish(tester);
+  });
+
+  testWidgets(
+    'missing completion stays inline and does not request a challenge',
+    (tester) async {
+      await enableSaving(tester);
+      await mount(tester);
+      await receive(tester);
+      await tap(tester, 'Save a copy');
+      await chooseDestination(tester);
+      await tap(tester, 'Save a copy');
+      await tester.ensureVisible(find.text('Complete this required field.'));
+      await tester.pumpAndSettle();
+      expect(find.text('Complete this required field.'), findsOneWidget);
+      verifyNever(() => copyRemote.challenge(any(), any(), any()));
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'copy form remains usable in narrow Polish dark layout with larger text',
+    (tester) async {
+      await enableSaving(tester);
+      await mount(tester, language: 'pl', dark: true, width: 320, scale: 1.5);
+      await tap(tester, 'Otwórz udostępnienie');
+      await tap(tester, 'Odbierz wpis');
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pumpAndSettle();
+      await tap(tester, 'Zapisz kopię');
+      expect(tester.takeException(), isNull);
+      await capture(tester, 'copy-pl-dark-320-150');
+      await chooseDestination(tester);
+      addTearDown(tester.view.resetViewInsets);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+      await tester.pumpAndSettle();
+      final username = find.byKey(
+        const ValueKey('sharing-copy-credential.username'),
+      );
+      await tester.scrollUntilVisible(
+        username,
+        180,
+        scrollable: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        ),
+      );
+      await tester.enterText(
+        find.descendant(of: username, matching: find.byType(TextField)),
+        'odbiorca',
+      );
+      await tester.ensureVisible(username);
+      await tester.pumpAndSettle();
+      expect(find.text('odbiorca'), findsOneWidget);
+      expect(
+        tester.getBottomRight(username).dy,
+        lessThanOrEqualTo(
+          tester
+              .getTopLeft(find.widgetWithText(PrimaryButton, 'Zapisz kopię'))
+              .dy,
+        ),
+      );
+      expect(
+        find.widgetWithText(PrimaryButton, 'Zapisz kopię'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await capture(tester, 'copy-keyboard-pl-dark-320-150');
+      tester.view.resetViewInsets();
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'destination lookup failure can retry inside the original reception',
+    (tester) async {
+      await enableSaving(tester);
+      var attempts = 0;
+      when(() => copyRemote.vaults(any(), any(), any())).thenAnswer((_) async {
+        if (attempts++ == 0) {
+          throw const EntryShareCopyException(EntryShareCopyError.request);
+        }
+        return {
+          'vaults': [copyVaultJson],
+          'total': 1,
+        };
+      });
+      await mount(tester);
+      await receive(tester);
+      await tap(tester, 'Save a copy');
+      expect(attempts, 1);
+      await tap(tester, 'Refresh');
+      expect(attempts, 2);
+      await completeCopy(tester);
+      await saveCopy(tester);
+      expect(createdCopies.length, 1);
+      await finish(tester);
+    },
+  );
+
+  testWidgets('invalid title stays editable and never reaches create', (
+    tester,
+  ) async {
+    await enableSaving(tester);
+    await mount(tester);
+    await receive(tester);
+    await tap(tester, 'Save a copy');
+    await completeCopy(tester);
+    final title = find.descendant(
+      of: find.byKey(const ValueKey('sharing-copy-title')),
+      matching: find.byType(TextField),
+    );
+    await tester.ensureVisible(title);
+    await tester.enterText(title, ' ');
+    await tap(tester, 'Save a copy');
+    expect(createdCopies, isEmpty);
+    verifyNever(() => copyRemote.challenge(any(), any(), any()));
+    expect(
+      find.text(
+        'Enter a name of 1–200 characters. The received name is never shortened automatically.',
+      ),
+      findsOneWidget,
+    );
+    await tester.enterText(title, 'My independent copy');
+    await saveCopy(tester);
+    expect(createdCopies.length, 1);
+    await finish(tester);
+  });
+
+  testWidgets(
+    'background during canonical create cancels request and rejects late success',
+    (tester) async {
+      await enableSaving(tester);
+      final barrier = Completer<void>();
+      CancelToken? requestToken;
+      when(() => copyRemote.create(any(), any(), any(), any())).thenAnswer((
+        call,
+      ) {
+        requestToken = call.positionalArguments[3] as CancelToken;
+        createdCopies.add(call.positionalArguments[1] as String);
+        return barrier.future;
+      });
+      await mount(tester);
+      await receive(tester);
+      await tap(tester, 'Save a copy');
+      await completeCopy(tester);
+      await tester.tap(find.widgetWithText(PrimaryButton, 'Save a copy'));
+      await tester.pump();
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pump();
+      expect(requestToken, isNotNull);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      expect(requestToken!.isCancelled, isTrue);
+      barrier.complete();
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'Copy saved in your vault. It will not sync with the original.',
+        ),
+        findsNothing,
+      );
+      expect(find.text('Save a copy'), findsNothing);
+      expect(createdCopies.length, 1);
+      expect(cubit.state.phase, EntryShareReceptionPhase.unavailable);
+      await finish(tester);
+    },
+  );
+
+  testWidgets('original reception expiry discards an unfinished save form', (
+    tester,
+  ) async {
+    await enableSaving(tester);
+    await mount(tester);
+    await receive(tester);
+    await tap(tester, 'Save a copy');
+    await completeCopy(tester);
+    final controllers = tester
+        .widgetList<OnboardingTextField>(find.byType(OnboardingTextField))
+        .map((field) => field.controller)
+        .toList();
+    await tester.pump(const Duration(minutes: 10));
+    await tester.pumpAndSettle();
+    expect(cubit.state.phase, EntryShareReceptionPhase.unavailable);
+    expect(
+      controllers.map((controller) => controller.text),
+      everyElement(isEmpty),
+    );
+    expect(createdCopies, isEmpty);
+    await finish(tester);
+  });
 
   testWidgets(
     'guest opens explicitly, displays masked snapshot and ACKs only after frame',

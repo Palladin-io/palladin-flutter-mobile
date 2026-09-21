@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/permissions.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/secure_clipboard.dart';
 import '../../../../core/widgets/primary_button.dart';
@@ -13,11 +15,15 @@ import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../onboarding/presentation/widgets/onboarding_text_field.dart';
 import '../../domain/entities/entry_share.dart';
+import '../../domain/entities/entry_share_list.dart';
+import '../../data/services/entry_sharing/entry_share_copy_service.dart';
+import '../cubit/entry_share_copy_cubit.dart';
 import '../cubit/entry_share_reception_cubit.dart';
 import '../entry_share_auth_binding.dart';
 import '../widgets/entry_share_creation_form.dart';
 import '../widgets/entry_share_field_card.dart';
 import '../widgets/entry_share_receiver_frame.dart';
+import '../widgets/entry_share_copy_panel.dart';
 
 class EntryShareReceiverPage extends StatefulWidget {
   const EntryShareReceiverPage({
@@ -25,10 +31,12 @@ class EntryShareReceiverPage extends StatefulWidget {
     required this.cubit,
     this.ownsCubit = true,
     this.onClose,
+    this.copyServiceFactory,
   });
   final EntryShareReceptionCubit cubit;
   final bool ownsCubit;
   final VoidCallback? onClose;
+  final EntryShareCopyService Function()? copyServiceFactory;
 
   @override
   State<EntryShareReceiverPage> createState() => _EntryShareReceiverPageState();
@@ -49,6 +57,8 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
   bool _secretError = false, _otpError = false;
   String? _message;
   bool _displayScheduled = false;
+  EntryShareCopyCubit? _copyCubit;
+  bool _openingCopy = false, _savedCopy = false;
   EntryShareReceptionCubit get _cubit => widget.cubit;
 
   @override
@@ -95,6 +105,7 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
     _authorityCheck?.cancel();
     _secret.clear();
     _otp.clear();
+    _copyCubit?.clear();
     _message = null;
     final sheet = _sheetContext;
     _sheetContext = null;
@@ -161,6 +172,7 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
     unawaited(_authSubscription.cancel());
     unawaited(_flowSubscription.cancel());
     if (widget.ownsCubit) unawaited(_cubit.close());
+    _copyCubit?.clear();
     _secret.clear();
     _otp.clear();
     _secret.dispose();
@@ -206,6 +218,99 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
       await _cubit.revalidate() &&
       _active &&
       identical(snapshot, _cubit.state.snapshot);
+
+  bool get _canSaveCopy {
+    final auth = _auth.state;
+    return widget.copyServiceFactory != null &&
+        auth is AuthAuthenticated &&
+        !auth.isVaultLocked &&
+        auth.emailVerified &&
+        auth.isOnboarded &&
+        auth.privateKey != null &&
+        (auth.permissions & Permissions.vaultManage) != 0;
+  }
+
+  Future<EntrySharingSession?> _copyOwner() async {
+    if (!_active ||
+        !_canSaveCopy ||
+        !await _cubit.revalidate() ||
+        !_active ||
+        !_canSaveCopy) {
+      return null;
+    }
+    final owner = _cubit.owner;
+    final principal = owner.principalId,
+        organization = owner.organizationId,
+        authorization = owner.authorizationGeneration;
+    if (principal == null || organization == null || authorization == null) {
+      return null;
+    }
+    return (
+      principalId: principal,
+      organizationId: organization,
+      authorizationGeneration: authorization,
+      keyGeneration: owner.keyGeneration,
+    );
+  }
+
+  Uint8List _copyPrivateKey() {
+    final auth = _auth.state;
+    if (!_active || !_canSaveCopy || auth is! AuthAuthenticated) {
+      throw StateError('Sharing session unavailable');
+    }
+    return Uint8List.fromList(auth.privateKey!);
+  }
+
+  Future<void> _startSave() async {
+    final snapshot = _cubit.state.snapshot;
+    if (!_active ||
+        !_canSaveCopy ||
+        _openingCopy ||
+        _copyCubit != null ||
+        _savedCopy ||
+        _cubit.state.busy ||
+        snapshot == null) {
+      return;
+    }
+    setState(() => _openingCopy = true);
+    try {
+      final owner = await _copyOwner();
+      if (owner == null || !await _mayUseCopy(snapshot)) return;
+      final copy = EntryShareCopyCubit(
+        service: widget.copyServiceFactory!(),
+        snapshot: snapshot,
+        owner: owner,
+        ownerReader: _copyOwner,
+        copyMemberPrivateKey: _copyPrivateKey,
+        lifetime: _cubit.lifetime,
+      );
+      setState(() => _copyCubit = copy);
+    } catch (_) {
+      if (_active) {
+        setState(
+          () => _message = AppLocalizations.of(context)!.sharingCopySaveError,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _openingCopy = false);
+    }
+  }
+
+  void _leaveSave({bool saved = false}) {
+    if (!_active) return;
+    final copy = _copyCubit;
+    if (copy == null ||
+        (saved
+            ? copy.state.phase != EntryShareCopyPhase.saved
+            : copy.state.phase != EntryShareCopyPhase.editing)) {
+      return;
+    }
+    setState(() {
+      _savedCopy = saved;
+      _copyCubit = null;
+    });
+    copy.clear();
+  }
 
   Future<void> _copy(EntryShareSnapshot snapshot, EntryShareField field) async {
     if (_copying || !_active) return;
@@ -304,6 +409,16 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
             final terminal =
                 state.phase == EntryShareReceptionPhase.unavailable ||
                 state.phase == EntryShareReceptionPhase.ended;
+            final copy = _copyCubit;
+            if (!terminal && copy != null && snapshot != null) {
+              return EntryShareCopyPanel(
+                key: ObjectKey(copy),
+                cubit: copy,
+                snapshot: snapshot,
+                onCancel: () => _leaveSave(),
+                onSaved: () => _leaveSave(saved: true),
+              );
+            }
             return Column(
               children: [
                 Expanded(
@@ -319,6 +434,10 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
                       if (state.phase == EntryShareReceptionPhase.verification)
                         ..._proofs(state, l10n),
                       if (snapshot != null) ...[
+                        if (_savedCopy) ...[
+                          Text(l10n.sharingCopySaved),
+                          const SizedBox(height: AppSpacing.fieldGap),
+                        ],
                         Text(
                           snapshot.title,
                           style: const TextStyle(
@@ -377,6 +496,15 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
                     ],
                   ),
                 ),
+                if (snapshot != null &&
+                    !terminal &&
+                    _canSaveCopy &&
+                    !_savedCopy)
+                  EntryShareActionFooter(
+                    label: l10n.sharingSaveCopy,
+                    busy: _openingCopy,
+                    onPressed: state.busy || _openingCopy ? null : _startSave,
+                  ),
                 if (state.phase == EntryShareReceptionPhase.welcome ||
                     state.phase == EntryShareReceptionPhase.verification &&
                         state.gatesReady)

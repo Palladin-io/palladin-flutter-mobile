@@ -4,11 +4,11 @@ The mobile snapshot crypto boundary, sender list/revoke tab and creation page
 are implemented on the feature branch. The isolated guest transport and reception
 Cubit now have a mounted receiver page and an app-owned ingress/router host.
 Android and iOS have native intake wired to the one-shot Dart RAM handoff.
-Native device/domain acceptance, save-copy/account continuation and Inbox/audit
+Native device/domain acceptance, guest account/unlock continuation and Inbox/audit
 remain pending. Local tests
 are not evidence of deployed end-to-end sharing.
 
-## Received-copy projection (not yet wired to Save)
+## Received-copy projection
 
 `EntryShareCopyProjectionService` maps an independently decrypted snapshot to a
 new canonical `MemberSecret`. It preserves selected strings without trimming,
@@ -23,7 +23,7 @@ are fresh, and source icons, grants, memberships, history and Script references
 are absent. A Script needs a recipient-provided execution description; its new
 execution metadata has no parameters/references and does not return results to
 Agents. This does **not** exclude existing members or fully trusted FULL Agents
-of the destination Vault; the future destination picker must explain that access.
+of the destination Vault; the destination picker explicitly explains that access.
 
 `EntryShareTotpCodec` converts native and custom TOTP into canonical configuration
 maps without permissive algorithm fallback or label normalization. Duplicate or
@@ -35,15 +35,15 @@ issuer-less account containing a colon survives its mobile roundtrip.
 Thirty-two local cases cover all four Entry types, incomplete snapshots, private
 policies, independent custom identities, exact TOTP configuration/labels and
 native libsodium encryption/decryption with different fresh Entry DEKs. These
-prove projection and crypto composition only: destination authority, canonical
-create HTTP/exact retry, lifecycle cancellation, mounted Save/account continuation
-and cross-client HTTP acceptance remain required. This service is not yet called
-by the receiver page and does not establish limit=1 end-to-end acceptance.
+prove projection and crypto composition only. The save boundary and mounted
+receiver now use this service as described below; account continuation and
+cross-client HTTP acceptance remain required. These tests do not establish
+limit=1 end-to-end acceptance.
 Projection checkpoint (2026-09-21): full Flutter suite **1,588 PASS / two existing
 plugin-only skips**, analyze, notices and six structural budgets PASS. No CI,
 native app build or deployment was run.
 
-## Received-copy save boundary (UI wiring pending)
+## Received-copy save boundary
 
 `EntryShareCopyService` composes the private projector with existing Vault/Entry
 crypto and canonical creation routes. Destination wrappers bind to the selected
@@ -76,20 +76,62 @@ synchronously; all awaited work is fenced by owner, epoch and original deadline.
 After preparation it drops the snapshot and retains only the encrypted retry.
 Clear closes its owned service, cancels requests, wipes private-key copies and
 disposes the prepared request. An invalidated flow cannot rebind to another
-account or renew its deadline. The future host must wire clear to lock,
-background, route departure and auth/key changes and must create a fresh service
-per flow, not close a shared singleton.
+account or renew its deadline. The receiver now wires clear to lock, background,
+route departure and auth/key changes, and its injected factory creates a fresh
+service per flow rather than closing a shared singleton.
 
 Tests use real loopback HTTP and native libsodium for decryptable canonical
 creates, byte-identical retry after socket loss, scope/version substitutions,
 session replacement, cancellation and Cubit lifecycle. The loopback server is a
-synthetic contract fixture, not the Palladin backend. This is not yet connected
-to the receiver Save CTA, destination picker or account continuation; mounted
-limit=1 and actual HTTP/device end-to-end acceptance remain required.
+synthetic contract fixture, not the Palladin backend. Account continuation and
+actual HTTP/device end-to-end acceptance remain required.
 
 Save-boundary checkpoint (2026-09-21): **44 new cases; full Flutter 1,632 PASS /
 two existing plugin-only skips**, analyze, notices and six structural budgets
 PASS. No CI, native app build or deployment was run.
+
+### Mounted save form and destination authority
+
+An already authenticated, verified, onboarded, unlocked recipient with
+`vaultManage` can explicitly save the received snapshot. `EntryShareCopyPanel`
+replaces the receiver body without a new route or delivery. It requires manual
+destination selection, preserves exact title/completion strings, and uses shared
+inputs, warnings, dropdown and pinned action footer in EN/PL. Missing required
+fields and invalid titles remain editable. The access warning explains existing
+destination members and fully trusted Agents; source policies remain excluded.
+
+Destination discovery uses the copy flow's isolated, account-bound transport,
+not global Vault-list state. Pages contain up to 50 summaries and 2 MiB; total
+work is capped at 2,000 rows, including duplicates across changing pages. Each
+summary's top-level Vault ID and key epoch plus the captured organization and
+principal independently bind encrypted descriptors. The list contract does not
+carry an organization or metadata revision; neither is invented from a wrapper.
+The selected detail is fetched afresh before Save and additionally binds its
+top-level metadata revision. Corrupt rows are omitted with an explicit notice,
+without hiding usable Vaults. No N+1 detail reads, challenge or Entry creation
+occurs while listing. Names are flow-local RAM; copied private/Vault/discovery
+keys are wiped after use, on cancellation and after late crypto completion.
+
+The form owns its copy Cubit but shares the original reception lifetime. Lock,
+background, account/key replacement, expiry and route departure cancel requests
+and clear completion controllers and destination names. After preparation,
+editable controls disappear and retry can only send the original encrypted
+request. Confirmed save disables another copy action in this reception; cancelling
+before the write returns to the same received snapshot. Closing cannot undo an
+already accepted server write, which is disclosed separately from local cleanup.
+
+Local widget tests exercise the real crypto/save service with substituted
+datasources: one receive and ACK, explicit destination/completion, decryptable
+private create, byte-identical retry, no duplicate copy, corrupt-row isolation,
+empty/error states, permission gates and cancellation through list/create. They
+also cover original expiry and the PL dark 320px/150% layout with keyboard inset.
+Synthetic Inter captures are visual evidence only, not device or backend E2E.
+Guest registration/login/unlock, email verification and creating the first
+personal Vault remain required and are not replaced by the current empty state.
+
+Mounted-save checkpoint (2026-09-21): **25 new cases; full Flutter 1,657 PASS /
+two existing plugin-only skips**, analyze, notices, six structural budgets and
+staged-tree Gitleaks PASS. No CI, native app build, merge or deployment was run.
 
 ## Guest reception boundary
 

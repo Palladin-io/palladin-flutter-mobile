@@ -9,6 +9,79 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get sharingSaveCopy => 'Zapisz kopię';
+
+  @override
+  String get sharingCopyCorruptVaults =>
+      'Niektórych sejfów nie udało się odszyfrować i nie można ich wybrać. Pozostałe sejfy są dostępne.';
+
+  @override
+  String get sharingCopySaved =>
+      'Kopia zapisana w Twoim sejfie. Nie będzie synchronizowana z oryginałem.';
+
+  @override
+  String get sharingCopyNotice =>
+      'Zapisz odebrane pola jako nowy wpis. Nie odbierzesz linku ponownie ani nie zmienisz oryginału.';
+
+  @override
+  String get sharingCopyVault => 'Sejf docelowy';
+
+  @override
+  String get sharingCopyChooseVault => 'Wybierz sejf';
+
+  @override
+  String get sharingCopyVaultError =>
+      'Nie udało się wczytać sejfów. Spróbuj ponownie, nie zamykając sesji udostępniania.';
+
+  @override
+  String get sharingCopyNoVault =>
+      'To konto nie ma dostępnego sejfu docelowego.';
+
+  @override
+  String get sharingCopyAccessTitle => 'Dostęp w sejfie docelowym';
+
+  @override
+  String get sharingCopyAccessNotice =>
+      'Obecni członkowie i w pełni zaufani Agenci tego sejfu mogą mieć dostęp do kopii. Uprawnienia źródła nie są kopiowane; wykrywanie wpisu i dostęp Agentów do poszczególnych pól są początkowo wyłączone.';
+
+  @override
+  String get sharingCopyTitleError =>
+      'Podaj nazwę od 1 do 200 znaków. Odebrana nazwa nigdy nie jest skracana automatycznie.';
+
+  @override
+  String get sharingCopyMissingNotice =>
+      'Nadawca pominął pola wymagane przy zapisie wpisu. Uzupełnij je tutaj; odebrane wartości pozostaną bez zmian.';
+
+  @override
+  String get sharingCopyRequired => 'Uzupełnij wymagane pole.';
+
+  @override
+  String get sharingCopyScriptDescription => 'Opis wykonania Twojej kopii';
+
+  @override
+  String get sharingCopyScriptError =>
+      'Podaj skrypt, obsługiwany interpreter (bash, sh, node lub python) i opis wykonania do 4096 znaków.';
+
+  @override
+  String get sharingCopyUnsupported =>
+      'Ta kopia zawiera dane, których ta wersja nie zapisze bez zmian. Nic nie zapisano.';
+
+  @override
+  String get sharingCopySaveError =>
+      'Nie udało się przygotować kopii do zapisu. Sprawdź połączenie i dostęp do sejfu, a następnie ponów próbę.';
+
+  @override
+  String get sharingCopyRetryNotice =>
+      'Wynik zapisu nie jest jeszcze potwierdzony. Ponowienie wyśle ten sam zaszyfrowany wpis, nie duplikat. Nie rozpoczynaj nowego zapisu tej kopii.';
+
+  @override
+  String get sharingCopyBack => 'Wróć do odebranego wpisu';
+
+  @override
+  String get sharingCopySessionNotice =>
+      'Opuszczenie tej sesji, blokada lub przejście do innej aplikacji usuwa kopię z pamięci. Nie cofnie to zapisu już przyjętego przez serwer.';
+
+  @override
   String get sharingEndConfirm => 'Zakończ link';
 
   @override

@@ -53,7 +53,7 @@ class _ObservedVaultCrypto extends VaultCryptoService {
       memberPrivateKey: memberPrivateKey,
     );
     opened = result;
-    entered.complete();
+    if (!entered.isCompleted) entered.complete();
     await barrier?.future;
     return result;
   }
@@ -172,7 +172,18 @@ void main() {
     ownerValid = true;
     handler = (request) async {
       request.response.headers.contentType = ContentType.json;
-      if (request.uri.path == '/api/vaults/$_vault') {
+      if (request.uri.path == '/api/vaults') {
+        request.response.write(
+          jsonEncode({
+            'vaults': [
+              Map<String, dynamic>.from(vaultJson)
+                ..remove('organizationId')
+                ..remove('metadataRevision'),
+            ],
+            'total': 1,
+          }),
+        );
+      } else if (request.uri.path == '/api/vaults/$_vault') {
         request.response.write(jsonEncode(vaultJson));
       } else if (request.uri.path.endsWith('/creation-challenges')) {
         request.response.write(
@@ -220,6 +231,133 @@ void main() {
         validateOwner: () async => ownerValid,
         cancelToken: token ?? CancelToken(),
       );
+
+  Future<EntryShareCopyDestinations> destinations({CancelToken? token}) =>
+      service.destinations(
+        owner: _owner,
+        memberPrivateKey: privateKey,
+        validateOwner: () async => ownerValid,
+        cancelToken: token ?? CancelToken(),
+      );
+
+  test(
+    'destination list decrypts scoped summaries without detail fan-out or challenges',
+    () async {
+      final result = await destinations();
+      expect(result.items.single.id, _vault);
+      expect(result.items.single.name, 'Synthetic target vault');
+      expect(result.unavailable, 0);
+      expect(requests.single.path, '/api/vaults?limit=50&offset=0');
+      expect(
+        requests.single.headers.value('authorization'),
+        'Bearer ${_jwt()}',
+      );
+      expect(vaultCrypto.privateCopy, everyElement(0));
+      expect(vaultCrypto.opened!.vaultKey, everyElement(0));
+      expect(vaultCrypto.opened!.vaultDiscoveryKey, everyElement(0));
+    },
+  );
+
+  for (final field in ['organizationId', 'vaultId', 'memberId']) {
+    test('destination list isolates substituted wrapper $field', () async {
+      final corrupt = jsonDecode(jsonEncode(vaultJson)) as Map<String, dynamic>;
+      corrupt['memberVaultKey']['wrappedVaultKey']['descriptor']['scope'][field] =
+          _entry;
+      handler = (request) async {
+        request.response.write(
+          jsonEncode({
+            'vaults': [corrupt, vaultJson],
+            'total': 2,
+          }),
+        );
+        await request.response.close();
+      };
+      final result = await destinations();
+      expect(result.items.single.id, _vault);
+      expect(result.unavailable, 1);
+      expect(requests.length, 1);
+    });
+  }
+
+  test(
+    'destination pagination stays bounded and deduplicates a moving page',
+    () async {
+      handler = (request) async {
+        request.response.write(
+          jsonEncode({
+            'vaults': [vaultJson],
+            'total': 2,
+          }),
+        );
+        await request.response.close();
+      };
+      final result = await destinations();
+      expect(result.items.length, 1);
+      expect(requests.map((r) => r.path), [
+        '/api/vaults?limit=50&offset=0',
+        '/api/vaults?limit=50&offset=1',
+      ]);
+    },
+  );
+
+  for (final page in [
+    {'vaults': [], 'total': 2001},
+    {'vaults': [], 'total': 1},
+  ]) {
+    test(
+      'destination list rejects exhausted or oversized work budget $page',
+      () async {
+        handler = (request) async {
+          request.response.write(jsonEncode(page));
+          await request.response.close();
+        };
+        await expectLater(
+          destinations(),
+          _failure(EntryShareCopyError.request),
+        );
+        expect(vaultCrypto.privateCopy, isNull);
+        expect(requests.length, 1);
+      },
+    );
+  }
+
+  test(
+    'destination cancellation wipes in-flight private copy and late Vault keys',
+    () async {
+      final token = CancelToken();
+      final barrier = vaultCrypto.barrier = Completer<void>();
+      final pending = destinations(token: token);
+      final checked = expectLater(
+        pending,
+        _failure(EntryShareCopyError.cancelled),
+      );
+      await vaultCrypto.entered.future;
+      token.cancel();
+      await Future<void>.delayed(Duration.zero);
+      expect(vaultCrypto.privateCopy, everyElement(0));
+      barrier.complete();
+      await checked;
+      expect(vaultCrypto.opened!.vaultKey, everyElement(0));
+      expect(vaultCrypto.opened!.vaultDiscoveryKey, everyElement(0));
+    },
+  );
+
+  test(
+    'destination owner change after decryption cannot publish names',
+    () async {
+      final barrier = vaultCrypto.barrier = Completer<void>();
+      final pending = destinations();
+      final checked = expectLater(
+        pending,
+        _failure(EntryShareCopyError.cancelled),
+      );
+      await vaultCrypto.entered.future;
+      ownerValid = false;
+      barrier.complete();
+      await checked;
+      expect(vaultCrypto.opened!.vaultKey, everyElement(0));
+    },
+  );
 
   test(
     'real crypto and HTTP create an independently decryptable private copy',
