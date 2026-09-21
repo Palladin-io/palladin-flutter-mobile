@@ -262,6 +262,8 @@ index limit.
 
 ### Recently Deleted Entry lifecycle
 
+Deleting an Entry from the list or detail uses the canonical POST `/entries/{entryId}/delete` transition with an encrypted Deleted revision, MemberIndex and fresh Entry key. Agent Discovery is omitted. The repository binds the operation to the current unlocked key generation and local structural head; a lock or replacement session blocks submission and retries. Native AutoFill is invalidated before the write; ambiguous transport failures leave it invalidated. All borrowed keys are wiped.
+
 Recently Deleted is a separate surface from Archive. Structural lifecycle
 pages provide only opaque Entry ids, `DeletedAt` and authoritative
 `RetentionExpiresAt`; all

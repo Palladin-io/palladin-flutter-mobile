@@ -221,10 +221,18 @@ class EntryRemoteDatasource {
     );
   }
 
-  /// `DELETE /api/vaults/{vaultId}/entries/{entryId}` → 204 No Content.
-  Future<void> deleteEntry(String vaultId, String entryId) async {
-    await _dio.delete<void>('/api/vaults/$vaultId/entries/$entryId');
-  }
+  Future<Response<Map<String, dynamic>>> deleteEntry(
+    String vaultId,
+    String entryId,
+    Map<String, dynamic> payload,
+  ) => _dio.post<Map<String, dynamic>>(
+    '/api/vaults/$vaultId/entries/$entryId/delete',
+    data: payload,
+    options: Options(
+      validateStatus: (status) =>
+          status == 200 || status == 400 || status == 409,
+    ),
+  );
 
   /// `POST /api/vaults/{vaultId}/entries/import` → `{ importedCount,
   /// entryIds }`. Bulk-creates pre-encrypted entries. The caller chunks

@@ -849,7 +849,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get entryDeleteConfirm =>
-      'This will permanently delete this entry and its encrypted data. This cannot be undone.';
+      'This entry will move to Recently Deleted. You can restore it during the retention period. Agent access will be revoked.';
 
   @override
   String get entryDeleteAction => 'Delete Entry';
