@@ -17,9 +17,30 @@ these details without changing other cards.
 
 The backend creates this sender-only Inbox item after the first confirmed receipt
 only when selected by the sender. This adds no push, SignalR or email channel;
-audit remains unconditional. Receipt-to-Sharing navigation and foreground Inbox
-repair are still pending. Local presentation tests do not prove live delivery
-or device acceptance.
+audit remains unconditional. Receipt-to-Sharing navigation remains pending.
+Local presentation tests do not prove live delivery or device acceptance.
+
+## Foreground repair and session fencing
+
+`PalladinApp` owns `NotificationForegroundRepair`. It refreshes immediately when
+foreground account/Vault context becomes ready, then every 30 seconds. Only a
+verified, onboarded, unlocked account with a loaded Vault list can repair. The
+existing Member session authority independently supplies account/organization;
+late authority after auth, Vault, lifecycle or disposal changes cannot start a
+request. One repair per generation may run at a time. Background/lock/disposal
+cancel the timer and redact local presentation; account replacement resets the
+Inbox. This is bounded repair of the durable Inbox, not a new delivery channel.
+
+`NotificationCenterCubit` fences awaited feed, summary, pagination and local-name
+resolution with a session generation. Newer first-page and summary requests win;
+old pagination cannot append to a replaced feed. Read mutation failures never
+restore another session or overwrite a newer feed. An ambiguous failed read is
+reconciled by the next authoritative refresh. Same-context configuration is a
+no-op, so it does not cancel an unrelated read action. Inbox bootstrap also checks
+the current auth/Vault snapshot and foreground state after asynchronous token
+reads and before continuing. Tests use delayed repositories, real local-label
+resolution with a substituted index, and a controlled timer; device/backend
+acceptance remains required.
 
 - **Cubits:** `NotificationCenterCubit`, `NotificationPreferencesCubit`, `PushNavigationCubit`.
 - **Pages:** `NotificationCenterPage` (segment: All / Todo / History), `NotificationPreferencesPage`, `InboxGrantsPage`.

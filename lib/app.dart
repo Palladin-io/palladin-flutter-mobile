@@ -33,6 +33,7 @@ import 'features/notifications/data/services/notification_signalr_service.dart';
 import 'features/notifications/data/services/push_notification_service.dart';
 import 'features/notifications/domain/entities/push_message.dart';
 import 'features/notifications/presentation/cubit/notification_center_cubit.dart';
+import 'features/notifications/presentation/notification_foreground_repair.dart';
 import 'features/notifications/presentation/cubit/push_navigation_cubit.dart';
 import 'features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'features/dashboard/presentation/cubit/search_session_controller.dart';
@@ -135,6 +136,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   AutoFillRepairDeny? _vaultInvalidationAutoFillDeny;
   Object _autoFillUnlockSessionIdentity = Object();
   bool _vaultInvalidationRepairRunning = false;
+  late final NotificationForegroundRepair _inboxRepair;
   Timer? _vaultInvalidationRepairRetry;
   Timer? _sessionLossAutoFillRetry;
   bool _sessionLossAutoFillCleanupRunning = false;
@@ -152,6 +154,18 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _inboxRepair =
+        NotificationForegroundRepair(
+          auth: _authBloc,
+          vaults: _vaultList,
+          inbox: getIt<NotificationCenterCubit>(),
+          readAuthority: _memberSyncAuthority.current,
+        )..start(
+          foreground:
+              WidgetsBinding.instance.lifecycleState == null ||
+              WidgetsBinding.instance.lifecycleState ==
+                  AppLifecycleState.resumed,
+        );
     final ingress = _sharingIngress;
     _sharingNavigation = ingress == null
         ? null
@@ -215,6 +229,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_inboxRepair.dispose());
     _vaultInvalidationRepairRetry?.cancel();
     _sessionLossAutoFillRetry?.cancel();
     unawaited(_durableAutoFillRepair.dispose());
@@ -230,6 +245,7 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _inboxRepair.setForeground(state == AppLifecycleState.resumed);
     final obscured = state != AppLifecycleState.resumed;
     if (obscured != _obscured) {
       setState(() => _obscured = obscured);

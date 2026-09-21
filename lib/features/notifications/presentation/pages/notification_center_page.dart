@@ -60,6 +60,13 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
   late final PendingGrantsCubit _pendingGrants = getIt<PendingGrantsCubit>();
   late final AgentsCubit _agents = getIt<AgentsCubit>();
 
+  bool _isCurrent(AuthState auth) =>
+      mounted &&
+      (WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState ==
+              AppLifecycleState.resumed) &&
+      identical(context.read<AuthBloc>().state, auth);
+
   @override
   void initState() {
     super.initState();
@@ -67,12 +74,15 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
   }
 
   Future<void> _bootstrap() async {
+    final auth = context.read<AuthBloc>().state;
     await _configureUnlockedResolution();
+    if (!_isCurrent(auth)) return;
     if (_notifications.state.status == NotificationCenterStatus.initial) {
       await _notifications.load();
     } else {
       await _notifications.refresh();
     }
+    if (!_isCurrent(auth)) return;
     if (_canManageGrants()) _pendingGrants.refresh();
     final focusId = widget.focusId;
     if (focusId != null) await _notifications.markRead(focusId);
@@ -91,7 +101,12 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
     final organizationId = token == null
         ? null
         : JwtClaims.organizationIdFrom(token);
-    if (!mounted || organizationId == null) return;
+    if (!_isCurrent(auth) ||
+        organizationId == null ||
+        !identical(getIt<VaultListCubit>().state, vaults) ||
+        JwtClaims.decodePayload(token!)['sub'] != auth.userId) {
+      return;
+    }
     _notifications.configureUnlockedResolution(
       activeAccountId: auth.userId,
       activeOrganizationId: organizationId,
