@@ -115,7 +115,7 @@ ShellTabPage _shellTabPage(
   GoRouterState state,
   Widget child,
 ) => ShellTabPage(
-  pageKey: state.pageKey,
+  pageKey: child is VaultListPage ? VaultListPage.pageKey : state.pageKey,
   child: child,
   direction: state.extra is ShellTabDirection
       ? state.extra as ShellTabDirection
@@ -273,6 +273,14 @@ GoRouter createRouter(
                 ),
               ),
             ],
+          ),
+          GoRoute(
+            path: '/entries',
+            pageBuilder: (context, state) => _shellTabPage(
+              context,
+              state,
+              const VaultListPage(entries: true),
+            ),
           ),
           // Agents — standalone list + detail + edit screens. Nested so
           // the pushed detail / edit pages keep the shell (and its

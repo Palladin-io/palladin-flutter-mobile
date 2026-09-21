@@ -9,6 +9,14 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get libraryEntriesHint =>
+      'Wpisy — wszystkie wpisy ze skarbców. Tarcza przełącza na widok skarbców.';
+
+  @override
+  String get libraryVaultsHint =>
+      'Skarbce — wpisy podzielone na skarbce. Klucz przełącza na wszystkie wpisy.';
+
+  @override
   String get responseUnknownValue => 'Nieznane';
 
   @override
@@ -916,6 +924,12 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get entryDiscoverDomain => 'Pozwól agentom wykrywać domenę URL';
+
+  @override
+  String get globalEntriesEmpty => 'Brak wpisów pasujących do wyszukiwania';
+
+  @override
+  String get globalEntriesChooseVault => 'Wybierz sejf dla nowego wpisu';
 
   @override
   String get entrySearchHint => 'Szukaj wpisów…';

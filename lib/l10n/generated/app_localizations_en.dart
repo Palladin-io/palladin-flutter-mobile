@@ -9,6 +9,14 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get libraryEntriesHint =>
+      'Entries — all your entries across vaults. Use the shield to browse vaults.';
+
+  @override
+  String get libraryVaultsHint =>
+      'Vaults — your entries grouped into vaults. Use the key to see all entries.';
+
+  @override
   String get responseUnknownValue => 'Unknown';
 
   @override
@@ -898,6 +906,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get entryDiscoverDomain => 'Let agents discover the URL domain';
+
+  @override
+  String get globalEntriesEmpty => 'No entries match your search';
+
+  @override
+  String get globalEntriesChooseVault => 'Choose a vault for the new entry';
 
   @override
   String get entrySearchHint => 'Search entries…';

@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'features/shell/presentation/cubit/library_view_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
@@ -407,6 +408,10 @@ class _PalladinAppState extends State<PalladinApp> with WidgetsBindingObserver {
         BlocProvider.value(value: _authBloc),
         BlocProvider.value(value: _consents),
         BlocProvider.value(value: _pushNavigationCubit),
+        BlocProvider(
+          lazy: false,
+          create: (_) => LibraryViewCubit(widget.userPreferences),
+        ),
         BlocProvider(
           create: (_) => ThemeCubit(
             widget.userPreferences,

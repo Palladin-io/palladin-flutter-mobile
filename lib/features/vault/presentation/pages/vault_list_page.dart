@@ -1,6 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import '../../../../core/widgets/app_brand_background.dart';
+import '../../../../core/widgets/app_screen.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -12,7 +14,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_fab.dart';
 import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/fab_registrar.dart';
-import '../../../../core/widgets/list_screen_header.dart';
+import '../../../../core/widgets/skeleton_box.dart';
 import '../../../../l10n/generated/app_localizations.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../shell/presentation/pages/app_shell.dart';
@@ -21,6 +23,8 @@ import '../../domain/exceptions/vault_exceptions.dart';
 import '../cubit/vault_list_cubit.dart';
 import '../widgets/create_vault_sheet.dart';
 import '../widgets/vault_card.dart';
+import '../widgets/vault_library_switch.dart';
+import 'global_entries_page.dart';
 
 /// Top-level vault list — replaces the post-unlock placeholder home.
 ///
@@ -37,7 +41,9 @@ import '../widgets/vault_card.dart';
 /// [SettingsDrawer] — the header therefore no longer duplicates a cog
 /// icon of its own.
 class VaultListPage extends StatefulWidget {
-  const VaultListPage({super.key});
+  static const pageKey = ValueKey('vault-library');
+  const VaultListPage({super.key, this.entries = false});
+  final bool entries;
 
   @override
   State<VaultListPage> createState() => _VaultListPageState();
@@ -74,14 +80,15 @@ class _VaultListPageState extends State<VaultListPage> {
       },
       child: BlocProvider<VaultListCubit>.value(
         value: _cubit,
-        child: const _VaultListView(),
+        child: _VaultListView(entries: widget.entries),
       ),
     );
   }
 }
 
 class _VaultListView extends StatefulWidget {
-  const _VaultListView();
+  const _VaultListView({required this.entries});
+  final bool entries;
 
   @override
   State<_VaultListView> createState() => _VaultListViewState();
@@ -90,6 +97,8 @@ class _VaultListView extends StatefulWidget {
 class _VaultListViewState extends State<_VaultListView> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
+  final _entriesPreferences = GlobalEntriesPreferences();
+  late final StreamSubscription<AuthState> _authChanges;
 
   /// Cached FAB widget — reused across rebuilds so [FabRegistrar] does
   /// not see a new object each build and re-register in a loop, which
@@ -104,11 +113,19 @@ class _VaultListViewState extends State<_VaultListView> {
       if (next == _query) return;
       setState(() => _query = next);
     });
+    _authChanges = context.read<AuthBloc>().stream.listen((state) {
+      if (state is! AuthAuthenticated || state.isVaultLocked) {
+        _searchController.clear();
+        _entriesPreferences.clear();
+      }
+    });
   }
 
   @override
   void dispose() {
+    unawaited(_authChanges.cancel());
     _searchController.dispose();
+    _entriesPreferences.dispose();
     super.dispose();
   }
 
@@ -191,206 +208,111 @@ class _VaultListViewState extends State<_VaultListView> {
         .toList(growable: false);
   }
 
+  Future<void> _refresh() {
+    final auth = context.read<AuthBloc>().state;
+    return context.read<VaultListCubit>().loadVaults(
+      auth is AuthAuthenticated ? auth.privateKey : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    // Cache the FAB so the same object is reused across rebuilds —
-    // FabRegistrar.didUpdateWidget then sees no change and won't
-    // re-register on every parent rebuild.
-    final fab = _cachedFab ??= Padding(
-      padding: const EdgeInsets.only(
-        bottom: AppSpacing.innerGap,
-        right: AppSpacing.xs,
-      ),
-      child: AppFab(onPressed: _onAddTapped, tooltip: l10n.vaultNewVault),
+    if (widget.entries) {
+      return GlobalEntriesPage(preferences: _entriesPreferences);
+    }
+    final fab = _cachedFab ??= AppFab.shell(
+      onPressed: _onAddTapped,
+      tooltip: l10n.vaultNewVault,
     );
-    return AppBrandBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Stack(
-          children: [
-            SafeArea(
-              child: BlocBuilder<VaultListCubit, VaultListState>(
-                builder: (context, state) {
-                  final brightness = Theme.of(context).brightness;
-                  final (vaultCount, entryCount) = switch (state) {
-                    VaultListLoaded(:final vaults) => (
-                      vaults.length,
-                      vaults.fold<int>(0, (s, v) => s + v.entryCount),
+    return BlocBuilder<VaultListCubit, VaultListState>(
+      builder: (context, state) {
+        final vaults = state is VaultListLoaded
+            ? state.vaults
+            : <VaultEntity>[];
+        final filtered = _filter(vaults);
+        return AppScreen.titled(
+          title: l10n.vaultListTitle,
+          actions: const [VaultLibrarySwitch(entries: false)],
+          subtitle: l10n.vaultListSummary(
+            vaults.length,
+            vaults.fold<int>(0, (sum, vault) => sum + vault.entryCount),
+          ),
+          floatingActionButton: FabRegistrar(fab: fab),
+          body: RefreshIndicator(
+            onRefresh: _refresh,
+            color: AppColors.brandRed,
+            child: CustomScrollView(
+              key: const PageStorageKey('vault-library-scroll'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenH,
+                    0,
+                    AppSpacing.screenH,
+                    AppSpacing.fieldGap,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: AppSearchField(
+                      controller: _searchController,
+                      hint: l10n.vaultSearchHint,
                     ),
-                    _ => (0, 0),
-                  };
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _HeaderRow(
-                        vaultCount: vaultCount,
-                        entryCount: entryCount,
-                      ),
-                      Expanded(
-                        child: switch (state) {
-                          VaultListInitial() || VaultListLoading() =>
-                            _SkeletonList(brightness: brightness),
-                          VaultListError(:final kind) => _ErrorView(
-                            kind: kind,
-                            onRetry: () {
-                              final auth = context.read<AuthBloc>().state;
-                              context.read<VaultListCubit>().loadVaults(
-                                auth is AuthAuthenticated
-                                    ? auth.privateKey
-                                    : null,
-                              );
-                            },
-                          ),
-                          VaultListLocked() => const SizedBox.shrink(),
-                          VaultListResetRequired() => _ErrorView(
-                            kind: VaultErrorKind.unknown,
-                            onRetry: () {
-                              final auth = context.read<AuthBloc>().state;
-                              context.read<VaultListCubit>().loadVaults(
-                                auth is AuthAuthenticated
-                                    ? auth.privateKey
-                                    : null,
-                              );
-                            },
-                          ),
-                          VaultListLoaded(:final vaults) => _LoadedContent(
-                            vaults: vaults,
-                            filtered: _filter(vaults),
-                            searchController: _searchController,
-                            onCreate: _openCreateSheet,
-                            onRefresh: () {
-                              final auth = context.read<AuthBloc>().state;
-                              return context.read<VaultListCubit>().loadVaults(
-                                auth is AuthAuthenticated
-                                    ? auth.privateKey
-                                    : null,
-                              );
-                            },
-                          ),
+                  ),
+                ),
+                if (state is VaultListInitial || state is VaultListLoading)
+                  SliverToBoxAdapter(
+                    child: _SkeletonList(
+                      brightness: Theme.of(context).brightness,
+                    ),
+                  )
+                else if (state is VaultListError ||
+                    state is VaultListResetRequired)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _ErrorView(
+                      kind: state is VaultListError
+                          ? state.kind
+                          : VaultErrorKind.unknown,
+                      onRetry: _refresh,
+                    ),
+                  )
+                else if (state is VaultListLoaded && vaults.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _EmptyView(onCreate: _openCreateSheet),
+                  )
+                else if (state is VaultListLoaded && filtered.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _SearchEmptyView(),
+                  )
+                else if (state is VaultListLoaded)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.screenH,
+                      0,
+                      AppSpacing.screenH,
+                      AppSpacing.listBottom,
+                    ),
+                    sliver: SliverList.separated(
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(height: AppSpacing.cardGap),
+                      itemBuilder: (_, index) => VaultCard(
+                        vault: filtered[index],
+                        onTap: () async {
+                          await context.push('/vaults/${filtered[index].id}');
+                          if (mounted) await _refresh();
                         },
                       ),
-                    ],
-                  );
-                },
-              ),
-            ),
-            // Hoists the FAB to the shell's [Scaffold] so it stays
-            // pinned across page transitions instead of animating with
-            // this page's body. Renders 0×0 — purely a side-effect
-            // widget.
-            Positioned(width: 0, height: 0, child: FabRegistrar(fab: fab)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LoadedContent extends StatelessWidget {
-  const _LoadedContent({
-    required this.vaults,
-    required this.filtered,
-    required this.searchController,
-    required this.onCreate,
-    required this.onRefresh,
-  });
-
-  final List<VaultEntity> vaults;
-  final List<VaultEntity> filtered;
-  final TextEditingController searchController;
-  final VoidCallback onCreate;
-  final Future<void> Function() onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-
-    if (vaults.isEmpty) {
-      return _EmptyView(onCreate: onCreate);
-    }
-
-    return RefreshIndicator(
-      color: AppColors.brandRed,
-      backgroundColor: AppColors.cardSurface(brightness),
-      onRefresh: onRefresh,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screenH,
-                0,
-                AppSpacing.screenH,
-                AppSpacing.fieldGap,
-              ),
-              child: AppSearchField(
-                controller: searchController,
-                hint: AppLocalizations.of(context)!.vaultSearchHint,
-              ),
+                    ),
+                  ),
+              ],
             ),
           ),
-          if (filtered.isEmpty)
-            const SliverFillRemaining(
-              hasScrollBody: false,
-              child: _SearchEmptyView(),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.screenH,
-                0,
-                AppSpacing.screenH,
-                AppSpacing.xxl,
-              ),
-              sliver: SliverList.separated(
-                itemCount: filtered.length,
-                separatorBuilder: (_, _) =>
-                    const SizedBox(height: AppSpacing.cardGap),
-                itemBuilder: (_, index) {
-                  final vault = filtered[index];
-                  final cubit = context.read<VaultListCubit>();
-                  return VaultCard(
-                    vault: vault,
-                    onTap: () async {
-                      await context.push('/vaults/${vault.id}');
-                      // Refresh list after returning from detail so any
-                      // name/icon/color edits are reflected immediately.
-                      if (context.mounted) {
-                        final auth = context.read<AuthBloc>().state;
-                        cubit.loadVaults(
-                          auth is AuthAuthenticated ? auth.privateKey : null,
-                        );
-                      }
-                    },
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Custom header that replaces the AppBar — title + summary on the
-/// left, no trailing chrome. The "+" affordance now lives in the
-/// floating action button and Settings is reachable from the bottom
-/// navigation, so the header no longer duplicates either.
-class _HeaderRow extends StatelessWidget {
-  const _HeaderRow({required this.vaultCount, required this.entryCount});
-
-  final int vaultCount;
-  final int entryCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    // Shared header — the canonical reference every other list tab matches.
-    return ListScreenHeader(
-      title: l10n.vaultListTitle,
-      subtitle: l10n.vaultListSummary(vaultCount, entryCount),
+        );
+      },
     );
   }
 }
@@ -594,57 +516,8 @@ class _SkeletonList extends StatelessWidget {
           4,
           (_) => Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.cardGap),
-            child: _SkeletonCard(brightness: brightness),
+            child: const SkeletonBox(height: 84),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SkeletonCard extends StatefulWidget {
-  const _SkeletonCard({required this.brightness});
-  final Brightness brightness;
-
-  @override
-  State<_SkeletonCard> createState() => _SkeletonCardState();
-}
-
-class _SkeletonCardState extends State<_SkeletonCard>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-    _anim = Tween<double>(
-      begin: 0.4,
-      end: 0.85,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final base = AppColors.onSurface(widget.brightness).withValues(alpha: 0.08);
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (context, _) => Container(
-        height: 84,
-        decoration: BoxDecoration(
-          color: base.withValues(alpha: base.a * _anim.value),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorder(widget.brightness)),
         ),
       ),
     );

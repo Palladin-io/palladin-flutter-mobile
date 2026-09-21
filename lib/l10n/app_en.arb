@@ -1,4 +1,6 @@
 {
+  "libraryEntriesHint": "Entries — all your entries across vaults. Use the shield to browse vaults.",
+  "libraryVaultsHint": "Vaults — your entries grouped into vaults. Use the key to see all entries.",
   "responseUnknownValue": "Unknown",
   "@@locale": "en",
   "appTitle": "Palladin",
@@ -1004,6 +1006,8 @@
   },
   "entryDiscoverUsername": "Let agents discover the username",
   "entryDiscoverDomain": "Let agents discover the URL domain",
+  "globalEntriesEmpty": "No entries match your search",
+  "globalEntriesChooseVault": "Choose a vault for the new entry",
   "entrySearchHint": "Search entries…",
   "@entrySearchHint": {
     "description": "Placeholder for the search input on the Entries tab"

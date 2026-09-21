@@ -212,7 +212,8 @@ lib/
 | `WarningZone` | `lib/core/widgets/warning_zone.dart` | Amber-bordered security warning box. Params: `title` (uppercase), `message` |
 | `ApproveActionButton` | `lib/core/widgets/approve_action_button.dart` | Full-width green-tinted approve CTA. Params: `label`, `onPressed`, `icon`, `isLoading`, `height` (default 44) |
 | `AppToggle` | `lib/core/widgets/app_toggle.dart` | Compact 32×18 pill toggle (brandRed when ON). Params: `value`, `onChanged` (null = locked/dimmed) |
-| `AppFab` | `lib/core/widgets/app_fab.dart` | Brand-red 44×44 FAB with shadow, zero elevation. Params: `onPressed`, `tooltip` |
+| `AppFab` | `lib/core/widgets/app_fab.dart` | Brand-red 44×44 FAB with shadow, zero elevation. Params: `onPressed`, `tooltip`. `.shell` includes the established shell right/bottom inset |
+| `AppFabToast` | `lib/core/widgets/app_fab_toast.dart` | Shell action slot: sequential FAB fade-out → localized hint → current FAB return; latest hint wins, supports reduced motion |
 | `SheetDragHandle` | `lib/core/widgets/sheet_drag_handle.dart` | The 36×4 rounded pill at the top of a modal sheet. Use in new sheets; the ~17 inline copies migrate opportunistically |
 | `FabRegistrar` | `lib/core/widgets/fab_registrar.dart` | 0×0 widget that claims the shell FAB slot for the current page. Param: `fab` (null = suppress a covered page's leaked FAB) |
 | `AppBarTitle` | `lib/core/widgets/app_bar_title.dart` | Canonical pushed-screen AppBar title: 16/w700 name + optional 11px subtle subtitle (ellipsised). Params: `title`, `subtitle` (null/empty ⇒ title only). Use in every `AppBar(title:)` — never hand-roll the `Column(start, [Text, Text])` |
@@ -230,6 +231,7 @@ lib/
 | `BrandGrainSurface` | `lib/core/widgets/brand_grain_surface.dart` | Opaque navigation background with static neutral grain below content; `subtle` softens drawer grain |
 | `BrandTabIndicator` | `lib/core/widgets/brand_tab_indicator.dart` | Shared active underline with a subtle brand glow for detail tabs |
 | `PrimaryButtonGlow` | `lib/core/widgets/primary_button_glow.dart` | Shared decorative brand shadow for enabled primary actions; no shadow while disabled/loading |
+| `AppSegmentedControl<T>` | `lib/core/widgets/app_segmented_control.dart` | Shared 44px under-title segment track with selected glow and optional count badges; used by Inbox and Vaults / Entries |
 | `PrimaryButton` | `lib/core/widgets/primary_button.dart` | Brand-red full-width 44px CTA with loading state and subtle brand glow |
 | `CompactPrimaryButton` | `lib/core/widgets/compact_primary_button.dart` | Compact inline primary CTA matching onboarding checklist actions. Params: `label`, `onPressed`, optional colors/loading/minimum width |
 
@@ -332,6 +334,11 @@ The first control under the title (search bar **or** segment toggle) is a **sing
 - **Overflow / "more" actions** (when a tab strip has extra destinations, e.g. Inbox → Grants/Preferences) go in a trailing button at the **end of the segment row**, sized `controlHeight × controlHeight`, styled like the segment track — not hidden in an AppBar kebab. Pattern: `Row(children: [Expanded(toggle), SizedBox(sm), _OverflowButton])`.
 
 ### Control scrolls WITH the content — only the title is pinned
+
+Product exception: the Entries / Vaults library switch is a compact icon control
+in the shared header's trailing actions, beside the title and count. It is
+pinned with that header; search remains the first scrolling sliver. Do not add
+a separate under-title segment row for this library.
 
 On a list screen the search bar **and** the segment toggle row **scroll together with the list** — they are the leading slivers of one `CustomScrollView`, never pinned above a separate `Expanded(scroll)`. **Only the title** (via `AppScreen.titled`) stays pinned. Canonical reference: `vault_list_page.dart` → `CustomScrollView(slivers: [SliverToBoxAdapter(AppSearchField), …])`.
 

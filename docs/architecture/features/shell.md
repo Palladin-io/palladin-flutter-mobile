@@ -2,10 +2,28 @@
 
 Navigation shell: bottom nav, FAB ownership stack, settings end-drawer.
 
-- **State:** no BLoC — uses `AppShellScope` (an `InheritedWidget`) so descendants can open the settings drawer and register a FAB.
+- **State:** `LibraryViewCubit` restores and saves the non-sensitive device-local Entries/Vaults preference through `UserPreferences`. `AppShellScope` (an `InheritedWidget`) lets descendants open the settings drawer and register a FAB.
 - **Pages:** `AppShell`, `FabOwnershipStack`, `PlaceholderPage`. **Widgets:** `AppBottomNav` (5 slots + badge counts), `SettingsDrawer`.
 - **Layering:** presentation only — no data/domain (it is pure navigation chrome).
+- **Library destination:** the first bottom item is Entries (key icon) and opens
+  the last explicitly selected library view, defaulting to `/entries` until a
+  choice is saved. The preference survives app restart, like theme and locale;
+  it stores only `entries` or `vaults`, never Entry/Vault data. Restoring it does
+  not override explicit deep links or a newer selection. `/vaults` and its detail routes keep that item selected;
+  Vaults remains available through the library's shared segment control.
 - **FAB ownership:** any page that shows a FAB registers it via `FabRegistrar` (pass `fab: null` to suppress a leaked FAB from a covered page). The shell renders the registered FAB in one place.
+
+`AppShellScope.showFabToast` routes library hints through shared `AppFabToast`
+in the shell action slot, not through ScaffoldMessenger's above-FAB layout.
+The action fades out over 150 ms, the hint fades in and stays for four seconds,
+then the hint fades out before the current action returns. Rapid requests
+replace the earlier hint, leaving the library cancels it, and disposal cancels
+its timer. Reduced motion skips fades. The hint is a semantic live region;
+its localized close button cancels the timer and returns the FAB with the same
+transition. The toast uses theme-aware opaque `modalBackground`, `onSurface`
+text and a subtle border, rather than the default inverse snackbar palette.
+hidden/fading actions cannot receive taps. `AppFab.shell` shares the existing
+4px right / 8px bottom inset relative to the shell's standard FAB position.
 
 The scrollable settings drawer groups destinations under Organization and
 Account. It derives visibility from the authenticated permission mask: Team and
