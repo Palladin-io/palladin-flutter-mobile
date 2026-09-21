@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/analytics/analytics_service.dart';
@@ -259,37 +261,83 @@ void main() {
     },
   );
 
-  test('Entry navigation uses the current exact Vault-scoped index head', () {
-    final index = _Index();
-    when(() => index.entries('vault')).thenReturn(const [
-      MemberIndexEntry(
+  for (final nextState in [MemberEntryState.active, MemberEntryState.deleted]) {
+    test('Entry navigation waits for in-flight $nextState sync', () async {
+      final index = _Index();
+      final sync = Completer<void>();
+      var current = const MemberIndexEntry(
         entryId: 'entry',
         entryType: 1,
-        memberLabel: 'Current credential',
+        memberLabel: 'Previous',
         searchFields: [],
-        revision: '42',
-        currentKeyVersion: 3,
+        revision: '1',
         state: MemberEntryState.active,
-        iconReference: 'key',
-      ),
-    ]);
-    when(() => index.entries('other-vault')).thenReturn(const []);
-    final resolver = NotificationPresentationResolver(index: index);
-    final entry = resolver.resolveEntry('vault', 'entry')!;
-    expect(entry.id, 'entry');
-    expect(entry.vaultId, 'vault');
-    expect(entry.label, 'Current credential');
-    expect(entry.icon, 'key');
-    expect(entry.currentRevision, '42');
-    expect(entry.currentKeyVersion, 3);
-    expect(resolver.resolveEntry('other-vault', 'entry'), isNull);
-    expect(resolver.resolveEntry('vault', 'missing'), isNull);
-  });
+      );
+      when(() => index.waitForCurrent('vault')).thenAnswer((_) => sync.future);
+      when(() => index.entries('vault')).thenAnswer((_) => [current]);
+      final resolver = NotificationPresentationResolver(index: index);
+      final pending = Future.sync(
+        () => resolver.resolveEntry('vault', 'entry'),
+      );
+      await Future<void>.delayed(Duration.zero);
+      verifyNever(() => index.entries('vault'));
+      current = MemberIndexEntry(
+        entryId: 'entry',
+        entryType: 1,
+        memberLabel: 'Current',
+        searchFields: [],
+        revision: '2',
+        currentKeyVersion: 3,
+        state: nextState,
+      );
+      sync.complete();
+      final entry = await pending;
+      if (nextState == MemberEntryState.deleted) {
+        expect(entry, isNull);
+      } else {
+        expect(entry?.label, 'Current');
+        expect(entry?.currentRevision, '2');
+        expect(entry?.currentKeyVersion, 3);
+      }
+    });
+  }
+
+  test(
+    'Entry navigation uses the current exact Vault-scoped index head',
+    () async {
+      final index = _Index();
+      when(() => index.waitForCurrent(any())).thenAnswer((_) async {});
+      when(() => index.entries('vault')).thenReturn(const [
+        MemberIndexEntry(
+          entryId: 'entry',
+          entryType: 1,
+          memberLabel: 'Current credential',
+          searchFields: [],
+          revision: '42',
+          currentKeyVersion: 3,
+          state: MemberEntryState.active,
+          iconReference: 'key',
+        ),
+      ]);
+      when(() => index.entries('other-vault')).thenReturn(const []);
+      final resolver = NotificationPresentationResolver(index: index);
+      final entry = (await resolver.resolveEntry('vault', 'entry'))!;
+      expect(entry.id, 'entry');
+      expect(entry.vaultId, 'vault');
+      expect(entry.label, 'Current credential');
+      expect(entry.icon, 'key');
+      expect(entry.currentRevision, '42');
+      expect(entry.currentKeyVersion, 3);
+      expect(await resolver.resolveEntry('other-vault', 'entry'), isNull);
+      expect(await resolver.resolveEntry('vault', 'missing'), isNull);
+    },
+  );
 
   test(
     'Entry navigation refuses removed, corrupt, ambiguous and locked rows',
-    () {
+    () async {
       final index = _Index();
+      when(() => index.waitForCurrent(any())).thenAnswer((_) async {});
       final resolver = NotificationPresentationResolver(index: index);
       for (final scenario in [
         (state: MemberEntryState.deleted, corrupt: false, count: 1),
@@ -311,10 +359,23 @@ void main() {
             ),
           ),
         );
-        expect(resolver.resolveEntry('vault', 'entry'), isNull);
+        expect(await resolver.resolveEntry('vault', 'entry'), isNull);
       }
     },
   );
+
+  test('Entry navigation does not use stale rows after sync failure', () async {
+    final index = _Index();
+    when(
+      () => index.waitForCurrent('vault'),
+    ).thenAnswer((_) async => throw StateError('sync failed'));
+    final resolver = NotificationPresentationResolver(index: index);
+    await expectLater(
+      resolver.resolveEntry('vault', 'entry'),
+      throwsStateError,
+    );
+    verifyNever(() => index.entries(any()));
+  });
 
   test('redaction removes decrypted reason and actor on lock', () {
     final resolver = NotificationPresentationResolver(index: _Index());

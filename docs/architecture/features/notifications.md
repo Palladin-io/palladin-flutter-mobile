@@ -27,7 +27,9 @@ Inbox (notification center) + preferences + push/real-time transport.
   detail read for historical items: FULL opens Vault detail on Agents; GRANULAR
   and ScriptExecution open the exact Entry detail on Agents. Entry navigation resolves the
   current revision and key version from the unlocked, Vault-scoped MemberIndex
-  at tap time and reuses `EntryDetailPage.push`, retaining Inbox on back.
+  at tap time after waiting for in-flight Vault synchronization, then rechecks
+  the same unlocked account/key session before `EntryDetailPage.push`, retaining
+  Inbox on back. A failed sync cannot fall back to the previous index head.
   Missing, deleted or corrupt Entries show the existing unavailable message;
   they never fall back to the Vault's Entries list. Credential-stale links use
   the same Entry path, starting on Details. Unknown grant types have no navigation action.

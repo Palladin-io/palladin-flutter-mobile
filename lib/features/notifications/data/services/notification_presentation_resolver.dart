@@ -97,7 +97,8 @@ final class NotificationPresentationResolver {
   List<InboxNotification> redact(List<InboxNotification> items) =>
       _generic(items);
 
-  EntryEntity? resolveEntry(String vaultId, String entryId) {
+  Future<EntryEntity?> resolveEntry(String vaultId, String entryId) async {
+    await _index.waitForCurrent(vaultId);
     final matches = _index
         .entries(vaultId)
         .where(
