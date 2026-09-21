@@ -1,45 +1,18 @@
-import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:dio/io.dart';
 
 import '../../../../config/env_config.dart';
-import '../../../../core/network/certificate_pinning.dart';
 import '../../domain/entities/entry_share.dart';
 import '../../domain/entities/entry_share_reception.dart';
+import 'entry_share_http_client.dart';
 
 class EntryShareRecipientDatasource {
   EntryShareRecipientDatasource(EnvConfig config)
-    : _dio = Dio(
-        BaseOptions(
-          baseUrl: config.apiBaseUrl,
-          connectTimeout: _timeout,
-          sendTimeout: _timeout,
-          receiveTimeout: _timeout,
-          followRedirects: false,
-          maxRedirects: 0,
-          responseType: ResponseType.stream,
-          validateStatus: (_) => true,
-          headers: {
-            'Accept': Headers.jsonContentType,
-            'Content-Type': Headers.jsonContentType,
-            'Cache-Control': 'no-store',
-          },
-        ),
-      ) {
-    final pinning = CertificatePinningService(config.certificatePins);
-    _dio.httpClientAdapter = IOHttpClientAdapter(
-      validateCertificate: pinning.isEnabled
-          ? (cert, host, port) => pinning.validateLeaf(cert, host)
-          : null,
-    );
-  }
+    : _http = EntryShareHttpClient(config);
 
   // Guest requests must never inherit auth, refresh, logging or analytics hooks.
-  final Dio _dio;
-  static const _timeout = Duration(seconds: 15);
+  final EntryShareHttpClient _http;
   static const _metadataLimit = 16 * 1024;
   static const _deliveryLimit = 512 * 1024;
 
@@ -157,50 +130,18 @@ class EntryShareRecipientDatasource {
     CancelToken cancelToken, {
     int maximumBytes = _metadataLimit,
   }) async {
-    StreamIterator<Uint8List>? stream;
-    final bytes = BytesBuilder(copy: false);
-    Uint8List? decoded;
     try {
-      _checkCancellation(cancelToken);
-      final response = await _dio.post<ResponseBody>(
-        path,
-        data: body,
+      return await _http.request(
+        method: 'POST',
+        path: path,
+        encodedBody: jsonEncode(body),
         cancelToken: cancelToken,
+        maximumBytes: maximumBytes,
       );
-      stream = StreamIterator(response.data!.stream.timeout(_timeout));
-      final status = response.statusCode!;
-      if (status < 200 || status >= 300) {
-        throw const EntryShareRecipientRequestException();
-      }
-      while (await stream.moveNext()) {
-        _checkCancellation(cancelToken);
-        final chunk = stream.current;
-        if (bytes.length + chunk.length > maximumBytes) {
-          throw const EntryShareRecipientRequestException();
-        }
-        bytes.add(chunk);
-      }
-      _checkCancellation(cancelToken);
-      decoded = bytes.takeBytes();
-      return utf8.decode(decoded);
     } catch (_) {
       throw const EntryShareRecipientRequestException();
-    } finally {
-      try {
-        await stream?.cancel();
-      } catch (_) {
-        throw const EntryShareRecipientRequestException();
-      } finally {
-        final remaining = bytes.takeBytes();
-        remaining.fillRange(0, remaining.length, 0);
-        decoded?.fillRange(0, decoded.length, 0);
-      }
     }
   }
 
-  void _checkCancellation(CancelToken token) {
-    if (token.isCancelled) throw const EntryShareRecipientRequestException();
-  }
-
-  void close() => _dio.close(force: true);
+  void close() => _http.close();
 }

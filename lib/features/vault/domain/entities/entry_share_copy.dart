@@ -14,3 +14,12 @@ final class EntryShareCopyInputException implements Exception {
   @override
   String toString() => 'EntryShareCopyInputException(${kind.name})';
 }
+
+enum EntryShareCopyError { request, cancelled, invalidAuthority, encryption }
+
+final class EntryShareCopyException implements Exception {
+  const EntryShareCopyException(this.kind);
+  final EntryShareCopyError kind;
+  @override
+  String toString() => 'EntryShareCopyException(${kind.name})';
+}
