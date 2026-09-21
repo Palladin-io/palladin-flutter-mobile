@@ -44,9 +44,14 @@ import 'import_wizard_page.dart';
 /// here so the AppBar Save action can react without coupling the
 /// settings widget to the cubit.
 class VaultDetailPage extends StatelessWidget {
-  const VaultDetailPage({super.key, required this.vaultId});
+  const VaultDetailPage({
+    super.key,
+    required this.vaultId,
+    this.openAgentsTab = false,
+  });
 
   final String vaultId;
+  final bool openAgentsTab;
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +104,7 @@ class VaultDetailPage extends StatelessWidget {
           create: (_) => getIt<VaultMembersCubit>(param1: vaultId)..load(),
         ),
       ],
-      child: _VaultDetailView(vaultId: vaultId),
+      child: _VaultDetailView(vaultId: vaultId, openAgentsTab: openAgentsTab),
     );
   }
 }
@@ -110,9 +115,10 @@ enum _VaultTab { entries, agents, logs, members, settings }
 enum _VaultAction { import, export }
 
 class _VaultDetailView extends StatefulWidget {
-  const _VaultDetailView({required this.vaultId});
+  const _VaultDetailView({required this.vaultId, required this.openAgentsTab});
 
   final String vaultId;
+  final bool openAgentsTab;
 
   @override
   State<_VaultDetailView> createState() => _VaultDetailViewState();
@@ -133,8 +139,23 @@ class _VaultDetailViewState extends State<_VaultDetailView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _VaultTab.values.length, vsync: this)
-      ..addListener(() => setState(() {}));
+    _tabController = TabController(
+      length: _VaultTab.values.length,
+      vsync: this,
+      initialIndex: widget.openAgentsTab
+          ? _VaultTab.agents.index
+          : _VaultTab.entries.index,
+    )..addListener(() => setState(() {}));
+  }
+
+  @override
+  void didUpdateWidget(_VaultDetailView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.openAgentsTab != widget.openAgentsTab) {
+      _tabController.index = widget.openAgentsTab
+          ? _VaultTab.agents.index
+          : _VaultTab.entries.index;
+    }
   }
 
   @override

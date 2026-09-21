@@ -69,6 +69,9 @@ abstract final class AppRoutes {
 
   /// Vault detail screen for [vaultId] (e.g. `/vaults/abc`).
   static String vaultDetail(String vaultId) => '/vaults/$vaultId';
+
+  static String vaultAgents(String vaultId) =>
+      '${vaultDetail(vaultId)}?tab=agents';
 }
 
 /// Mirrors a settings affordance permission at the route boundary.
@@ -264,8 +267,10 @@ GoRouter createRouter(
               // nav slides in/out on every push.
               GoRoute(
                 path: ':vaultId',
-                builder: (_, state) =>
-                    VaultDetailPage(vaultId: state.pathParameters['vaultId']!),
+                builder: (_, state) => VaultDetailPage(
+                  vaultId: state.pathParameters['vaultId']!,
+                  openAgentsTab: state.uri.queryParameters['tab'] == 'agents',
+                ),
               ),
             ],
           ),

@@ -57,6 +57,10 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 
 ### Canonical Entry detail and versioned edit
 
+- Entry and Vault detail accept `openAgentsTab` for contextual access links.
+  Inbox View Access selects Agents immediately; ordinary Entry/Vault navigation
+  still starts on Details/Entries. Vault links encode this as `?tab=agents`.
+
 - The canonical-to-form adapter maps `customFields` to the form's `fields` shape once, including stable ids, kind/type and index-visibility flags. Detail, local-cache reveal and grant projection share that adapter. Edits remove policy entries for fields absent from the new schema while preserving access modes for surviving fields; this does not change the retained owner selection on a grant.
 - Entry Detail renders the already-decrypted in-memory MemberIndex first and automatically authenticates and decrypts MemberSecret on entry. Sensitive values remain masked and are revealed per field. A canonical authentication failure never falls back to the legacy plaintext/blob repository path.
 - A save emits exactly one optimistic backend transition: immutable MemberSecret revision `N+1`, the next MemberIndex head and the next AgentDiscovery high-watermark revision are encrypted locally and switched atomically. A stale Member generation also rewraps the Entry DEK as the next key version before binding all projections to it.

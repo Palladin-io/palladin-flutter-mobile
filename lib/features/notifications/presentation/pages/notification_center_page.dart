@@ -25,6 +25,8 @@ import '../../../approval/presentation/widgets/approve_grant_sheet.dart';
 import '../../../approval/presentation/widgets/deny_grant_sheet.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../vault/presentation/cubit/vault_list_cubit.dart';
+import '../../../vault/presentation/pages/entry_detail_page.dart';
+import '../../data/services/notification_presentation_resolver.dart';
 import '../../domain/entities/inbox_notification.dart';
 import '../cubit/notification_center_cubit.dart';
 import '../widgets/notification_card.dart';
@@ -155,7 +157,7 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
         return;
       }
     }
-    _deepLink(item);
+    await _deepLink(item);
   }
 
   // ── agent flows ────────────────────────────────────────────────────────
@@ -270,12 +272,62 @@ class _NotificationCenterViewState extends State<_NotificationCenterView> {
     });
   }
 
-  /// Navigates a resolved/informational item to its owning surface via the
-  /// backend-supplied `actionDeepLink` (collapsed to agent/vault detail on
-  /// mobile). No-op when there is no usable target.
-  void _deepLink(InboxNotification item) {
+  Future<void> _deepLink(InboxNotification item) async {
     final target = notificationDeepLink(item);
-    if (target != null) context.go(target);
+    switch (target) {
+      case NotificationRouteDestination(:final route):
+        context.go(route);
+      case NotificationEntryDestination(
+        :final vaultId,
+        :final entryId,
+        :final openAgentsTab,
+      ):
+        final auth = context.read<AuthBloc>().state;
+        if (auth is! AuthAuthenticated || !_canOpenEntry(vaultId, auth)) {
+          return;
+        }
+        try {
+          final entry = await getIt<NotificationPresentationResolver>()
+              .resolveEntry(vaultId, entryId);
+          if (!mounted || !_canOpenEntry(vaultId, auth)) return;
+          if (entry == null) {
+            _showEntryNavigationError(
+              AppLocalizations.of(context)!.entryErrorNotFound,
+            );
+            return;
+          }
+          EntryDetailPage.push(
+            context,
+            entry: entry,
+            openAgentsTab: openAgentsTab,
+          );
+        } catch (_) {
+          if (!mounted || !_canOpenEntry(vaultId, auth)) return;
+          _showEntryNavigationError(
+            AppLocalizations.of(context)!.entryErrorUnknown,
+          );
+        }
+      case null:
+        return;
+    }
+  }
+
+  bool _canOpenEntry(String vaultId, AuthAuthenticated expectedAuth) {
+    final auth = context.read<AuthBloc>().state;
+    final vaults = getIt<VaultListCubit>().state;
+    return auth is AuthAuthenticated &&
+        !auth.isVaultLocked &&
+        auth.privateKey != null &&
+        auth.userId == expectedAuth.userId &&
+        identical(auth.privateKey, expectedAuth.privateKey) &&
+        vaults is VaultListLoaded &&
+        vaults.vaults.any((vault) => vault.id == vaultId);
+  }
+
+  void _showEntryNavigationError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Secondary footer action (Deny) for the two action-required pending types.

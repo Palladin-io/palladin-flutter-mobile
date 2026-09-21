@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:mobile_palladin/core/analytics/analytics_service.dart';
@@ -158,6 +160,57 @@ void main() {
     },
   );
 
+  for (final scope in [GrantScope.granular, GrantScope.scriptExecution]) {
+    test('historical $scope label failure preserves the Inbox', () async {
+      final index = _Index();
+      final grants = _Grants();
+      when(
+        () => index.waitForCurrent('vault'),
+      ).thenAnswer((_) async => throw StateError('sync failed'));
+      when(() => grants.getGrant('vault', 'grant')).thenAnswer(
+        (_) async => Grant(
+          id: 'grant',
+          vaultId: 'vault',
+          entryId: 'entry',
+          status: GrantStatus.active,
+          scope: scope,
+          createdAt: DateTime.utc(2026, 9, 1),
+        ),
+      );
+      final resolved =
+          await NotificationPresentationResolver(
+            index: index,
+            grants: grants,
+          ).resolve(
+            items: [
+              _inbox(
+                type: 'grant_approved',
+                metadata: const {
+                  'vaultId': 'vault',
+                  'grantId': 'grant',
+                  'entryLabel': 'Untrusted',
+                },
+              ),
+              _inbox(
+                id: 'unrelated',
+                type: 'agent_approved',
+                metadata: const {'agentId': 'agent'},
+              ),
+            ],
+            unlocked: true,
+            activeAccountId: 'account',
+            activeOrganizationId: 'organization',
+            activeVaults: [_vault],
+          );
+      expect(resolved.map((item) => item.id), ['notification', 'unrelated']);
+      expect(resolved.first.metadata['entryId'], 'entry');
+      expect(resolved.first.metadata['grantType'], scope.name);
+      expect(resolved.first.metadata['entryLabel'], isNull);
+      expect(resolved.last.metadata['agentId'], 'agent');
+      verifyNever(() => index.entries(any()));
+    });
+  }
+
   test(
     'grant notifications resolve decrypted reason and actor from authoritative data',
     () async {
@@ -249,6 +302,8 @@ void main() {
           );
 
       expect(resolved[0].metadata['entryLabel'], 'Production token');
+      expect(resolved[0].metadata['grantType'], 'granular');
+      expect(resolved[0].metadata['entryId'], 'entry');
       expect(resolved[0].metadata['agentName'], 'Deploy bot');
       expect(resolved[0].metadata['reason'], 'Deploy release');
       expect(resolved[0].metadata['actorName'], 'Alice');
@@ -256,6 +311,122 @@ void main() {
       expect(resolved[1].metadata['actorName'], isNull);
     },
   );
+
+  for (final nextState in [MemberEntryState.active, MemberEntryState.deleted]) {
+    test('Entry navigation waits for in-flight $nextState sync', () async {
+      final index = _Index();
+      final sync = Completer<void>();
+      var current = const MemberIndexEntry(
+        entryId: 'entry',
+        entryType: 1,
+        memberLabel: 'Previous',
+        searchFields: [],
+        revision: '1',
+        state: MemberEntryState.active,
+      );
+      when(() => index.waitForCurrent('vault')).thenAnswer((_) => sync.future);
+      when(() => index.entries('vault')).thenAnswer((_) => [current]);
+      final resolver = NotificationPresentationResolver(index: index);
+      final pending = Future.sync(
+        () => resolver.resolveEntry('vault', 'entry'),
+      );
+      await Future<void>.delayed(Duration.zero);
+      verifyNever(() => index.entries('vault'));
+      current = MemberIndexEntry(
+        entryId: 'entry',
+        entryType: 1,
+        memberLabel: 'Current',
+        searchFields: [],
+        revision: '2',
+        currentKeyVersion: 3,
+        state: nextState,
+      );
+      sync.complete();
+      final entry = await pending;
+      if (nextState == MemberEntryState.deleted) {
+        expect(entry, isNull);
+      } else {
+        expect(entry?.label, 'Current');
+        expect(entry?.currentRevision, '2');
+        expect(entry?.currentKeyVersion, 3);
+      }
+    });
+  }
+
+  test(
+    'Entry navigation uses the current exact Vault-scoped index head',
+    () async {
+      final index = _Index();
+      when(() => index.waitForCurrent(any())).thenAnswer((_) async {});
+      when(() => index.entries('vault')).thenReturn(const [
+        MemberIndexEntry(
+          entryId: 'entry',
+          entryType: 1,
+          memberLabel: 'Current credential',
+          searchFields: [],
+          revision: '42',
+          currentKeyVersion: 3,
+          state: MemberEntryState.active,
+          iconReference: 'key',
+        ),
+      ]);
+      when(() => index.entries('other-vault')).thenReturn(const []);
+      final resolver = NotificationPresentationResolver(index: index);
+      final entry = (await resolver.resolveEntry('vault', 'entry'))!;
+      expect(entry.id, 'entry');
+      expect(entry.vaultId, 'vault');
+      expect(entry.label, 'Current credential');
+      expect(entry.icon, 'key');
+      expect(entry.currentRevision, '42');
+      expect(entry.currentKeyVersion, 3);
+      expect(await resolver.resolveEntry('other-vault', 'entry'), isNull);
+      expect(await resolver.resolveEntry('vault', 'missing'), isNull);
+    },
+  );
+
+  test(
+    'Entry navigation refuses removed, corrupt, ambiguous and locked rows',
+    () async {
+      final index = _Index();
+      when(() => index.waitForCurrent(any())).thenAnswer((_) async {});
+      final resolver = NotificationPresentationResolver(index: index);
+      for (final scenario in [
+        (state: MemberEntryState.deleted, corrupt: false, count: 1),
+        (state: MemberEntryState.active, corrupt: true, count: 1),
+        (state: MemberEntryState.active, corrupt: false, count: 2),
+        (state: MemberEntryState.active, corrupt: false, count: 0),
+      ]) {
+        when(() => index.entries('vault')).thenReturn(
+          List.generate(
+            scenario.count,
+            (_) => MemberIndexEntry(
+              entryId: 'entry',
+              entryType: 1,
+              memberLabel: 'Unavailable',
+              searchFields: [],
+              revision: '1',
+              state: scenario.state,
+              corrupt: scenario.corrupt,
+            ),
+          ),
+        );
+        expect(await resolver.resolveEntry('vault', 'entry'), isNull);
+      }
+    },
+  );
+
+  test('Entry navigation does not use stale rows after sync failure', () async {
+    final index = _Index();
+    when(
+      () => index.waitForCurrent('vault'),
+    ).thenAnswer((_) async => throw StateError('sync failed'));
+    final resolver = NotificationPresentationResolver(index: index);
+    await expectLater(
+      resolver.resolveEntry('vault', 'entry'),
+      throwsStateError,
+    );
+    verifyNever(() => index.entries(any()));
+  });
 
   test('redaction removes decrypted reason and actor on lock', () {
     final resolver = NotificationPresentationResolver(index: _Index());

@@ -263,23 +263,70 @@ String notificationAgentId(InboxNotification n) => _str(n, 'agentId') ?? '';
 String? notificationAgentIconColor(InboxNotification n) =>
     _str(n, 'agentIconColor');
 
-/// Resolves an in-app target only from an allowlisted authoritative Inbox type
-/// and its structural ids. The backend's `actionDeepLink` is never trusted.
-String? notificationDeepLink(InboxNotification n) {
+sealed class NotificationDestination {
+  const NotificationDestination();
+}
+
+final class NotificationRouteDestination extends NotificationDestination {
+  const NotificationRouteDestination(this.route);
+
+  final String route;
+}
+
+final class NotificationEntryDestination extends NotificationDestination {
+  const NotificationEntryDestination(
+    this.vaultId,
+    this.entryId, {
+    this.openAgentsTab = false,
+  });
+
+  final String vaultId;
+  final String entryId;
+  final bool openAgentsTab;
+}
+
+/// Uses authoritative structural metadata, never the supplied actionDeepLink.
+NotificationDestination? notificationDeepLink(InboxNotification n) {
   switch (n.type) {
     case 'agent_pending':
     case 'agent_approved':
     case 'agent_deactivated':
     case 'agent_reactivated':
       final agentId = _str(n, 'agentId');
-      return agentId == null ? null : AppRoutes.agentDetail(agentId);
+      return agentId == null
+          ? null
+          : NotificationRouteDestination(AppRoutes.agentDetail(agentId));
     case 'grant_pending':
     case 'grant_approved':
     case 'grant_denied':
     case 'grant_revoked':
+      final vaultId = _str(n, 'vaultId');
+      if (vaultId == null) return null;
+      switch (n.metadata['grantType']) {
+        case 'full':
+        case 2:
+          return NotificationRouteDestination(AppRoutes.vaultAgents(vaultId));
+        case 'granular':
+        case 'scriptExecution':
+        case 1:
+        case 3:
+          final entryId = _str(n, 'entryId');
+          return entryId == null
+              ? null
+              : NotificationEntryDestination(
+                  vaultId,
+                  entryId,
+                  openAgentsTab: true,
+                );
+        default:
+          return null;
+      }
     case 'credential_stale':
       final vaultId = _str(n, 'vaultId');
-      return vaultId == null ? null : AppRoutes.vaultDetail(vaultId);
+      final entryId = _str(n, 'entryId');
+      return vaultId == null || entryId == null
+          ? null
+          : NotificationEntryDestination(vaultId, entryId);
     default:
       return null;
   }
