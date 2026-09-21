@@ -1,4 +1,8 @@
 {
+  "sharingAccountNotice": "Receiving does not require an account. To save a copy, continue through your account and return here. This temporary session expires at its original deadline; closing it or signing out discards the copy.",
+  "sharingRegister": "Create an account to save a copy",
+  "sharingLogin": "Sign in to save a copy",
+  "sharingContinueAccount": "Continue account setup or unlock",
   "sharingSaveCopy": "Save a copy",
   "sharingCopyCorruptVaults": "Some vaults could not be decrypted and are not offered as destinations. Other vaults remain available.",
   "sharingCopySaved": "Copy saved in your vault. It will not sync with the original.",

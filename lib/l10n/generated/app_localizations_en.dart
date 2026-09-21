@@ -9,6 +9,19 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get sharingAccountNotice =>
+      'Receiving does not require an account. To save a copy, continue through your account and return here. This temporary session expires at its original deadline; closing it or signing out discards the copy.';
+
+  @override
+  String get sharingRegister => 'Create an account to save a copy';
+
+  @override
+  String get sharingLogin => 'Sign in to save a copy';
+
+  @override
+  String get sharingContinueAccount => 'Continue account setup or unlock';
+
+  @override
   String get sharingSaveCopy => 'Save a copy';
 
   @override

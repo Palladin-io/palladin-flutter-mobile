@@ -98,6 +98,30 @@ abstract class AppLocalizations {
     Locale('pl'),
   ];
 
+  /// No description provided for @sharingAccountNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Receiving does not require an account. To save a copy, continue through your account and return here. This temporary session expires at its original deadline; closing it or signing out discards the copy.'**
+  String get sharingAccountNotice;
+
+  /// No description provided for @sharingRegister.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an account to save a copy'**
+  String get sharingRegister;
+
+  /// No description provided for @sharingLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to save a copy'**
+  String get sharingLogin;
+
+  /// No description provided for @sharingContinueAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue account setup or unlock'**
+  String get sharingContinueAccount;
+
   /// No description provided for @sharingSaveCopy.
   ///
   /// In en, this message translates to:

@@ -1,4 +1,8 @@
 {
+  "sharingAccountNotice": "Odbiór nie wymaga konta. Aby zapisać kopię, przejdź przez swoje konto i wróć tutaj. Tymczasowa sesja zachowuje pierwotny termin ważności; jej zamknięcie lub wylogowanie usuwa kopię.",
+  "sharingRegister": "Załóż konto, aby zapisać kopię",
+  "sharingLogin": "Zaloguj się, aby zapisać kopię",
+  "sharingContinueAccount": "Dokończ konfigurację lub odblokuj konto",
   "sharingSaveCopy": "Zapisz kopię",
   "sharingCopyCorruptVaults": "Niektórych sejfów nie udało się odszyfrować i nie można ich wybrać. Pozostałe sejfy są dostępne.",
   "sharingCopySaved": "Kopia zapisana w Twoim sejfie. Nie będzie synchronizowana z oryginałem.",

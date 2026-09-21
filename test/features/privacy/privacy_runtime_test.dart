@@ -117,6 +117,7 @@ void main() {
   );
 
   for (final blockedPath in [
+    '/share',
     '/register',
     '/onboarding',
     '/verify-email',

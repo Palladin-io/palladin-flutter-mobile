@@ -33,6 +33,7 @@ import 'package:mobile_palladin/features/vault/data/services/vault_protocol/vaul
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share_reception.dart';
 import 'package:mobile_palladin/features/vault/presentation/cubit/entry_share_reception_cubit.dart';
+import 'package:mobile_palladin/features/vault/presentation/entry_share_account_continuation.dart';
 import 'package:mobile_palladin/features/vault/presentation/pages/entry_share_receiver_page.dart';
 import 'package:mobile_palladin/features/vault/presentation/widgets/entry_share_field_card.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
@@ -241,6 +242,7 @@ void main() {
     bool dark = false,
     double width = 390,
     double scale = 1,
+    Future<void> Function(EntryShareAccountAction)? onAccount,
   }) async {
     tester.view.physicalSize = Size(width, 844);
     tester.view.devicePixelRatio = 1;
@@ -293,6 +295,7 @@ void main() {
         builder: (_) => EntryShareReceiverPage(
           cubit: cubit,
           copyServiceFactory: copyFactory,
+          onAccount: onAccount,
         ),
       ),
     );
@@ -1280,6 +1283,59 @@ void main() {
       await finish(tester);
     },
   );
+
+  for (final polish in [false, true]) {
+    testWidgets(
+      'optional account CTA keeps guest reception accessible: pl=$polish',
+      (tester) async {
+        final actions = <EntryShareAccountAction>[];
+        await mount(
+          tester,
+          language: polish ? 'pl' : 'en',
+          dark: polish,
+          width: polish ? 320 : 390,
+          scale: polish ? 1.5 : 1,
+          onAccount: (action) async {
+            actions.add(action);
+          },
+        );
+        final l10n = AppLocalizations.of(
+          tester.element(find.byType(EntryShareReceiverPage)),
+        )!;
+        expect(tester.takeException(), isNull);
+        await capture(
+          tester,
+          polish ? 'account-pl-dark-320-150' : 'account-en-light-390',
+        );
+        for (final label in [l10n.sharingRegister, l10n.sharingLogin]) {
+          await tester.scrollUntilVisible(
+            find.text(label),
+            160,
+            scrollable: find
+                .descendant(
+                  of: find.byType(ListView),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          );
+          await tap(tester, label);
+        }
+        expect(actions, [
+          EntryShareAccountAction.register,
+          EntryShareAccountAction.login,
+        ]);
+        expect(cubit.state.phase, EntryShareReceptionPhase.welcome);
+        verifyNever(
+          () =>
+              remote.open(any(), any(), cancelToken: any(named: 'cancelToken')),
+        );
+        await tap(tester, polish ? 'Otwórz udostępnienie' : 'Open sharing');
+        expect(cubit.state.phase, EntryShareReceptionPhase.verification);
+        expect(tester.takeException(), isNull);
+        await finish(tester);
+      },
+    );
+  }
 
   testWidgets('PL dark 320px at 150 percent fits verification and keyboard', (
     tester,

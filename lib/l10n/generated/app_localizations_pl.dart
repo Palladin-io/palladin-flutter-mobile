@@ -9,6 +9,20 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get sharingAccountNotice =>
+      'Odbiór nie wymaga konta. Aby zapisać kopię, przejdź przez swoje konto i wróć tutaj. Tymczasowa sesja zachowuje pierwotny termin ważności; jej zamknięcie lub wylogowanie usuwa kopię.';
+
+  @override
+  String get sharingRegister => 'Załóż konto, aby zapisać kopię';
+
+  @override
+  String get sharingLogin => 'Zaloguj się, aby zapisać kopię';
+
+  @override
+  String get sharingContinueAccount =>
+      'Dokończ konfigurację lub odblokuj konto';
+
+  @override
   String get sharingSaveCopy => 'Zapisz kopię';
 
   @override

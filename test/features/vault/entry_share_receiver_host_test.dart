@@ -15,6 +15,7 @@ import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry
 import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_link_service.dart';
 import 'package:mobile_palladin/features/vault/domain/entities/entry_share_reception.dart';
 import 'package:mobile_palladin/features/vault/presentation/cubit/entry_share_reception_cubit.dart';
+import 'package:mobile_palladin/features/vault/presentation/entry_share_account_continuation.dart';
 import 'package:mobile_palladin/features/vault/presentation/pages/entry_share_receiver_host.dart';
 import 'package:mobile_palladin/features/vault/presentation/pages/entry_share_receiver_page.dart';
 import 'package:mobile_palladin/l10n/generated/app_localizations.dart';
@@ -143,7 +144,12 @@ void main() {
     await tester.pump();
   }
 
-  Future<void> mount(WidgetTester tester, {VoidCallback? onClose}) async {
+  Future<void> mount(
+    WidgetTester tester, {
+    VoidCallback? onClose,
+    EntryShareAccountContinuation? accountContinuation,
+    ValueChanged<String>? onAccountRoute,
+  }) async {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     unawaited(ingress.start());
     await tester.pump();
@@ -160,6 +166,8 @@ void main() {
             remoteFactory: remoteFactory,
             ownerReader: (id) => ownerReader(id),
             onClose: onClose,
+            accountContinuation: accountContinuation,
+            onAccountRoute: onAccountRoute,
           ),
         ),
       ),
@@ -173,6 +181,97 @@ void main() {
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
+  }
+
+  for (final register in [false, true]) {
+    testWidgets(
+      'mounted account CTA returns the same reception: register=$register',
+      (tester) async {
+        final continuation = EntryShareAccountContinuation(
+          auth: auth,
+          ingress: ingress,
+          ownerReader: (id) => ownerReader(id),
+        );
+        addTearDown(continuation.dispose);
+        String? accountRoute;
+        await mount(
+          tester,
+          accountContinuation: continuation,
+          onAccountRoute: (route) {
+            accountRoute = route;
+            continuation.guardRoute(Uri.parse(route));
+            unawaited(
+              navigator.currentState!.pushReplacement(
+                MaterialPageRoute<void>(
+                  builder: (_) => const Scaffold(body: Text('Account flow')),
+                ),
+              ),
+            );
+          },
+        );
+        await link(tester);
+        await tester.tap(find.text('Open sharing'));
+        await tester.pumpAndSettle();
+        final original = receiver(tester);
+        final lifetime = original.lifetime;
+        final version = ingress.version;
+        final cta = find.text(
+          register
+              ? 'Create an account to save a copy'
+              : 'Sign in to save a copy',
+        );
+        await tester.ensureVisible(cta);
+        await tester.tap(cta);
+        await tester.pumpAndSettle();
+        expect(accountRoute, register ? '/register' : '/login');
+        expect(find.text('Account flow'), findsOneWidget);
+        expect(original.isClosed, true);
+        expect(continuation.active, true);
+        expect(ingress.version, version);
+        verifyNever(() => remotes.single.close());
+        authEvents.add(
+          AuthAuthenticated(
+            userId: 'recipient',
+            isOnboarded: true,
+            isVaultLocked: false,
+            privateKey: Uint8List(32),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(continuation.ready, true);
+        continuation.guardRoute(Uri.parse('/share'));
+        unawaited(
+          navigator.currentState!.pushReplacement(
+            MaterialPageRoute<void>(
+              builder: (_) => EntryShareReceiverHost(
+                ingress: ingress,
+                crypto: crypto,
+                remoteFactory: remoteFactory,
+                ownerReader: (id) => ownerReader(id),
+                accountContinuation: continuation,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          receiver(tester).state.phase,
+          EntryShareReceptionPhase.verification,
+        );
+        expect(receiver(tester).lifetime, same(lifetime));
+        expect(continuation.active, false);
+        expect(remotes.length, 1);
+        verify(
+          () => remotes.single.open(
+            id,
+            any(),
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        ).called(1);
+        await unmount(tester);
+        verify(() => remotes.single.close()).called(1);
+      },
+    );
   }
 
   testWidgets(
@@ -226,7 +325,7 @@ void main() {
         onClose: () {
           closed = true;
           expect(current!.isClosed, true);
-        expect(current.state.phase, EntryShareReceptionPhase.unavailable);
+          expect(current.state.phase, EntryShareReceptionPhase.unavailable);
           expect(ingress.hasPending, false);
         },
       );

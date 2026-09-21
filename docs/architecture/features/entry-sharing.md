@@ -4,8 +4,9 @@ The mobile snapshot crypto boundary, sender list/revoke tab and creation page
 are implemented on the feature branch. The isolated guest transport and reception
 Cubit now have a mounted receiver page and an app-owned ingress/router host.
 Android and iOS have native intake wired to the one-shot Dart RAM handoff.
-Native device/domain acceptance, guest account/unlock continuation and Inbox/audit
-remain pending. Local tests
+The explicit account continuation is wired to the existing authentication routes.
+Native device/domain acceptance, first-Vault creation, combined account/save E2E
+and Inbox/audit remain pending. Local tests
 are not evidence of deployed end-to-end sharing.
 
 ## Received-copy projection
@@ -133,7 +134,7 @@ Mounted-save checkpoint (2026-09-21): **25 new cases; full Flutter 1,657 PASS /
 two existing plugin-only skips**, analyze, notices, six structural budgets and
 staged-tree Gitleaks PASS. No CI, native app build, merge or deployment was run.
 
-### One-shot account transfer (coordinator/UI wiring pending)
+### One-shot account transfer and explicit account continuation
 
 `EntryShareReceptionCubit.detachForAccount()` validates the original owner before
 moving an idle reception into `EntryShareReceptionTransfer`. It cannot run during
@@ -153,13 +154,42 @@ it. Expiry/abandonment closes transport, wipes key/bearer bytes and drops the
 snapshot/session references. Successful resume moves ownership into a new Cubit
 and retires the transfer without destroying the moved material.
 
-This primitive is **not yet called by the receiver host**. The required app-owned
-coordinator must make account continuation explicit, fence allowed routes and
-auth transitions, handle guest login/register/verification/onboarding/unlock and
-the first-Vault step, and dispose on abandonment, unrelated account/key changes,
-new link, background policy and process teardown. The existing host/page still
-retire reception on ordinary auth changes. These unit tests do not prove mounted
-account continuation, background-email/OAuth acceptance or limit=1 HTTP E2E.
+The app-owned `EntryShareAccountContinuation` now calls this primitive only after
+the recipient explicitly chooses login, registration or completing/unlocking an
+existing account. The host transfers ownership before leaving, and the router
+returns to constant `/share` only after onboarded, verified, unlocked identity
+and independent organization/authorization/key-generation authority agree. No
+link, snapshot, key or share ID enters router state. A guest's cancelled/failed
+login remains retryable; the first authenticated principal and organization bind
+the flow. Logout, relock, replacement keys/permissions/account/organization, a new
+link, unrelated routes, cancellation, expiry or detach discard it. Generation
+comparisons use the auth state that verified the previous owner, not a newer
+observation while an unlock read is pending.
+
+Only this explicitly detached account flow may retain its received snapshot in
+RAM while an allowed login/register/verification/onboarding/unlock route is
+backgrounded for email/OAuth. It performs no reception operations in the
+background, revalidates on return and never renews the original deadline. Normal
+receiver backgrounding still discards delivered plaintext. Process death loses
+the copy; there is no persistence or deferred replay. PrivacyRuntime defers its
+optional sheet while `/share` is visible so it cannot accidentally retire the
+returned copy; consent state is unchanged.
+
+Coordinator tests exercise real snapshot decryption and reuse the same receipt,
+ACK and lifetime across account binding. Mounted host tests click the actual
+login/register CTAs and return to the same remote session after replacement of
+the receiver route. Auth and transport are substituted. A visible cancel action
+during the account detour, production-router/account-form acceptance, first-Vault
+creation, combined guest-to-copy-save and real email/OAuth/limit=1 HTTP/device E2E
+remain required. These narrower tests do not establish those outcomes.
+
+Account-wiring checkpoint (2026-09-21): **23 added cases; 1,697 Flutter PASS / two
+existing plugin-only skips**, including six structural budgets. Analyze, notices
+and staged-tree Gitleaks PASS. EN light 390px and PL dark 320px/150% synthetic Inter
+captures keep the optional account actions and guest reception accessible.
+The two reproduced
+failures were a late optional privacy sheet and a repeated auth observation while
+unlock authority was pending. No CI, native app build, merge or deployment ran.
 
 Transfer checkpoint (2026-09-21): **17 added cases; 1,674 Flutter PASS / two
 existing plugin-only skips**, analyze, notices, six structural budgets and
@@ -189,8 +219,9 @@ Every success/error and post-await publication rechecks that owner, generation
 and expiry. Clear/dispose cancels and closes the transport, wipes key/bearer arrays
 and drops the recipient token and plaintext references. The receiver page wires
 lock, account/permission/key changes, route departure and immediate revalidation.
-Its only background-retention exception is the pre-delivery email detour below;
-this does not retain decrypted Entry content.
+Its ordinary background-retention exception is the pre-delivery email detour
+below, without decrypted Entry content. The separate explicit account transfer
+owns the bounded account-detour exception described above.
 
 No network call occurs on construction. Open and each subsequent operation are
 explicit. Named recipient OTP and optional password/PIN must both succeed before

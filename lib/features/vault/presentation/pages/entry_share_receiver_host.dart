@@ -10,6 +10,7 @@ import '../../data/services/entry_sharing/entry_share_copy_service.dart';
 import '../../data/services/entry_sharing/entry_share_ingress.dart';
 import '../cubit/entry_share_reception_cubit.dart';
 import '../entry_share_auth_binding.dart';
+import '../entry_share_account_continuation.dart';
 import '../widgets/entry_share_receiver_frame.dart';
 import 'entry_share_receiver_page.dart';
 
@@ -22,11 +23,15 @@ class EntryShareReceiverHost extends StatefulWidget {
     required this.ownerReader,
     this.onClose,
     this.copyServiceFactory,
+    this.accountContinuation,
+    this.onAccountRoute,
   });
 
   final EntryShareIngress ingress;
   final VoidCallback? onClose;
   final EntryShareCopyService Function()? copyServiceFactory;
+  final EntryShareAccountContinuation? accountContinuation;
+  final ValueChanged<String>? onAccountRoute;
   final EntryShareCryptoService crypto;
   final EntryShareRecipientDatasource Function() remoteFactory;
   final Future<EntryShareRecipientOwner?> Function(String? principalId)
@@ -61,10 +66,11 @@ class _EntryShareReceiverHostState extends State<EntryShareReceiverHost>
     _auth = context.read<AuthBloc>();
     _version = widget.ingress.version;
     widget.ingress.addListener(_incoming);
+    widget.accountContinuation?.addListener(_accountChanged);
     _authSubscription = _auth.stream.listen((state) {
       if (state is AuthError ||
           (_binding != null && entryShareAuthBinding(state) != _binding)) {
-        _retire();
+        _retire(allowAccountTransfer: true);
       } else {
         _tryOpen();
       }
@@ -92,7 +98,8 @@ class _EntryShareReceiverHostState extends State<EntryShareReceiverHost>
         _cubit != null ||
         !_foreground ||
         _coveredNow ||
-        !widget.ingress.hasPending) {
+        (!widget.ingress.hasPending &&
+            widget.accountContinuation?.ready != true)) {
       return;
     }
     final binding = entryShareAuthBinding(_auth.state);
@@ -146,6 +153,24 @@ class _EntryShareReceiverHostState extends State<EntryShareReceiverHost>
         _retire();
         return;
       }
+      final continuation = widget.accountContinuation;
+      if (continuation?.ownsVersion(version) == true) {
+        final resumed = await continuation!.take(
+          version: version,
+          owner: owner,
+          ownerReader: () => _owner(epoch, version, binding, principal),
+        );
+        if (!_same(epoch, version, binding) || !_foreground || _coveredNow) {
+          if (resumed != null) unawaited(resumed.close());
+          return;
+        }
+        if (resumed == null) {
+          _retire();
+          return;
+        }
+        _cubit = resumed;
+        return;
+      }
       incoming = widget.ingress.take(version);
       if (incoming == null) return;
       remote = widget.remoteFactory();
@@ -180,11 +205,14 @@ class _EntryShareReceiverHostState extends State<EntryShareReceiverHost>
     if (cubit != null) unawaited(cubit.close());
   }
 
-  void _retire() {
+  void _retire({bool allowAccountTransfer = false}) {
+    final preserve =
+        allowAccountTransfer &&
+        widget.accountContinuation?.ownsVersion(_version) == true;
     _retired = true;
     _binding = null;
     _release();
-    if (_version == widget.ingress.version) {
+    if (!preserve && _version == widget.ingress.version) {
       _clearing = true;
       widget.ingress.clear();
       _version = widget.ingress.version;
@@ -206,7 +234,7 @@ class _EntryShareReceiverHostState extends State<EntryShareReceiverHost>
   void _covered(AnimationStatus status) {
     if (status == AnimationStatus.forward ||
         status == AnimationStatus.completed) {
-      _retire();
+      _retire(allowAccountTransfer: true);
       if (mounted) setState(() {});
     } else if (status == AnimationStatus.dismissed) {
       _tryOpen();
@@ -248,8 +276,9 @@ class _EntryShareReceiverHostState extends State<EntryShareReceiverHost>
     WidgetsBinding.instance.removeObserver(this);
     _coverAnimation?.removeStatusListener(_covered);
     widget.ingress.removeListener(_incoming);
+    widget.accountContinuation?.removeListener(_accountChanged);
     unawaited(_authSubscription.cancel());
-    _retire();
+    _retire(allowAccountTransfer: true);
     super.dispose();
   }
 
@@ -262,10 +291,18 @@ class _EntryShareReceiverHostState extends State<EntryShareReceiverHost>
         cubit: cubit,
         ownsCubit: false,
         copyServiceFactory: widget.copyServiceFactory,
+        onAccount:
+            widget.accountContinuation == null || widget.onAccountRoute == null
+            ? null
+            : _beginAccount,
         onClose: widget.onClose == null ? null : _close,
       );
     }
-    final waiting = !_retired && (_opening || widget.ingress.hasPending);
+    final waiting =
+        !_retired &&
+        (_opening ||
+            widget.ingress.hasPending ||
+            widget.accountContinuation?.active == true);
     return PopScope(
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) _retire();
@@ -278,7 +315,30 @@ class _EntryShareReceiverHostState extends State<EntryShareReceiverHost>
   }
 
   void _close() {
+    widget.accountContinuation?.clear();
     _retire();
     widget.onClose?.call();
+  }
+
+  void _accountChanged() {
+    if (!mounted) return;
+    _tryOpen();
+    setState(() {});
+  }
+
+  Future<void> _beginAccount(EntryShareAccountAction action) async {
+    final cubit = _cubit;
+    final continuation = widget.accountContinuation;
+    if (cubit == null ||
+        continuation == null ||
+        widget.onAccountRoute == null) {
+      return;
+    }
+    if (!await continuation.begin(cubit, action)) return;
+    if (!mounted || !continuation.ownsVersion(_version)) {
+      continuation.clear();
+      return;
+    }
+    widget.onAccountRoute!(continuation.accountRoute);
   }
 }
