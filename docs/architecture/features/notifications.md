@@ -2,6 +2,25 @@
 
 Inbox (notification center) + preferences + push/real-time transport.
 
+## Entry sharing receipts (CVT-644, feature branch)
+
+`entry_share_received` has localized EN/PL title, filter, subtitle and receipt
+details. It uses the existing card and success token, not an Agent avatar or
+approval actions. Source Entry/Vault labels come only from the existing unlocked
+local resolver; forged presentation/deep links are ignored and lock redacts
+labels and destination ids. The share id is shown as `prefix…suffix`.
+
+Receipt text distinguishes display confirmation from proof of human reading.
+It wraps fully at 320px/150% text scale; the date sits below the subtitle so it
+cannot squeeze the explanation. `GrantDetailRow` allows unlimited lines for
+these details without changing other cards.
+
+The backend creates this sender-only Inbox item after the first confirmed receipt
+only when selected by the sender. This adds no push, SignalR or email channel;
+audit remains unconditional. Receipt-to-Sharing navigation and foreground Inbox
+repair are still pending. Local presentation tests do not prove live delivery
+or device acceptance.
+
 - **Cubits:** `NotificationCenterCubit`, `NotificationPreferencesCubit`, `PushNavigationCubit`.
 - **Pages:** `NotificationCenterPage` (segment: All / Todo / History), `NotificationPreferencesPage`, `InboxGrantsPage`.
 - **Widgets:** `NotificationCard`.

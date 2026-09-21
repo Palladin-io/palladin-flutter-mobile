@@ -119,6 +119,9 @@ class NotificationCard extends StatelessWidget {
                       GrantDetailRow(
                         label: rows[i].label,
                         value: rows[i].value,
+                        maxLines: item.type == 'entry_share_received'
+                            ? null
+                            : 1,
                       ),
                     ],
                   ],
@@ -154,6 +157,14 @@ class _Header extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final brightness = Theme.of(context).brightness;
     final subtitle = notificationSubtitle(l10n, item);
+    final isSharingReceipt = item.type == 'entry_share_received';
+    final timestamp = Text(
+      notificationRelativeTime(l10n, item),
+      style: TextStyle(
+        color: AppColors.onSurfaceSubtle(brightness),
+        fontSize: 10,
+      ),
+    );
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,8 +199,10 @@ class _Header extends StatelessWidget {
             children: [
               Text(
                 notificationTitle(l10n, item),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: isSharingReceipt ? null : 1,
+                overflow: isSharingReceipt
+                    ? TextOverflow.visible
+                    : TextOverflow.ellipsis,
                 style: TextStyle(
                   color: AppColors.onSurface(brightness),
                   fontSize: 13,
@@ -200,27 +213,27 @@ class _Header extends StatelessWidget {
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
                   subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: isSharingReceipt ? null : 1,
+                  overflow: isSharingReceipt
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
                   style: TextStyle(
                     color: AppColors.onSurfaceSubtle(brightness),
                     fontSize: 11,
                   ),
                 ),
               ],
+              if (isSharingReceipt) ...[
+                const SizedBox(height: AppSpacing.innerGap),
+                timestamp,
+              ],
             ],
           ),
         ),
-        const SizedBox(width: AppSpacing.innerGap),
-        // Date sits top-right on the title line. No status pill — the card is
-        // an immutable log entry, so it carries no live state indicator.
-        Text(
-          notificationRelativeTime(l10n, item),
-          style: TextStyle(
-            color: AppColors.onSurfaceSubtle(brightness),
-            fontSize: 10,
-          ),
-        ),
+        if (!isSharingReceipt) ...[
+          const SizedBox(width: AppSpacing.innerGap),
+          timestamp,
+        ],
       ],
     );
   }

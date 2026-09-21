@@ -24,6 +24,7 @@ const notificationFilterTypes = <String>[
   'grant_denied',
   'grant_revoked',
   'agent_approved',
+  'entry_share_received',
 ];
 
 /// Localized type name for a raw type string — used by the filter chips so
@@ -44,6 +45,8 @@ String notificationTypeName(AppLocalizations l10n, String type) {
       return l10n.notifTitleGrantDenied;
     case 'credential_stale':
       return l10n.notifTitleCredentialStale;
+    case 'entry_share_received':
+      return l10n.notifTitleEntryShareReceived;
     default:
       return _humanize(type);
   }
@@ -61,6 +64,8 @@ String notificationSubtitle(AppLocalizations l10n, InboxNotification n) {
   final agent = _name(n, 'agentName', l10n.notifUnnamedAgent);
   final agentOrUnknown = _name(n, 'agentName', l10n.notifUnknownAgent);
   switch (n.type) {
+    case 'entry_share_received':
+      return l10n.notifSubEntryShareReceived;
     case 'grant_pending':
       return l10n.notifSubGrantPending(agent);
     case 'agent_pending':
@@ -92,6 +97,19 @@ List<({String label, String value})> notificationRows(
   final entry = _entryLabel(l10n, n);
 
   switch (n.type) {
+    case 'entry_share_received':
+      final shareId = _str(n, 'shareId');
+      return [
+        (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
+        (
+          label: l10n.notifRowShare,
+          value: shareId == null ? dash : _shortId(shareId),
+        ),
+        (
+          label: l10n.notifRowConfirmation,
+          value: l10n.notifDisplayNotReadProof,
+        ),
+      ];
     case 'grant_pending':
       return [
         (label: l10n.notifRowEntry, value: entry.isEmpty ? dash : entry),
@@ -200,6 +218,8 @@ String notificationRelativeTime(AppLocalizations l10n, InboxNotification n) =>
 /// Leading glyph for a notification type.
 IconData notificationIcon(InboxNotification n) {
   switch (n.type) {
+    case 'entry_share_received':
+      return Icons.check_circle_outline;
     case 'grant_pending':
     case 'grant_approved':
     case 'grant_revoked':
@@ -219,6 +239,7 @@ IconData notificationIcon(InboxNotification n) {
 /// cards share a uniform border/background). Security-critical stale = red,
 /// agents = teal, grants = blue.
 Color notificationGlyphTint(InboxNotification n) {
+  if (n.type == 'entry_share_received') return AppColors.positiveAccent;
   if (n.type == 'credential_stale') return AppColors.brandRed;
   if (n.type == 'agent_pending' || n.type == 'agent_approved') {
     return AppColors.positiveAccent;
@@ -348,6 +369,10 @@ String? _str(InboxNotification n, String key) {
 
 String _name(InboxNotification n, String key, String fallback) =>
     _str(n, key) ?? fallback;
+
+String _shortId(String value) => value.length <= 15
+    ? value
+    : '${value.substring(0, 8)}…${value.substring(value.length - 6)}';
 
 String _humanize(String type) {
   return type

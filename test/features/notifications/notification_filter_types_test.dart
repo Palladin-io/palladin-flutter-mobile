@@ -11,6 +11,7 @@ void main() {
       'grant_denied',
       'grant_revoked',
       'agent_approved',
+      'entry_share_received',
     });
     // No duplicate entries (order matters for display but each type once).
     expect(

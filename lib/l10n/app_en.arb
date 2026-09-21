@@ -1,4 +1,102 @@
 {
+  "auditActorExternalRecipient": "External recipient",
+  "auditGroupEntrySharing": "Entry sharing",
+  "notifTitleEntryShareReceived": "Shared copy received",
+  "notifSubEntryShareReceived": "The recipient’s app confirmed the first display.",
+  "notifRowShare": "Link",
+  "notifRowConfirmation": "Receipt",
+  "auditDetailSharing": "Link",
+  "notifDisplayNotReadProof": "Display confirmed — not proof of reading.",
+  "auditEventEntryShareCreated": "Sharing link created",
+  "auditEventEntryShareDelivered": "Shared package delivered",
+  "auditEventEntryShareConfirmed": "Display confirmed",
+  "auditEventEntryShareProtectionChanged": "Sharing protection changed",
+  "auditEventEntryShareExpired": "Sharing link expired",
+  "auditEventEntryShareRevoked": "Sharing link revoked",
+  "auditEventEntryShareEnded": "Sharing ended by recipient",
+  "auditEventEntryShareSourceAccessRemoved": "Sharing source access removed",
+  "auditSentenceEntryShareCreated": "{actor} created a sharing link for {entry}",
+  "@auditSentenceEntryShareCreated": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareDelivered": "{actor} received the encrypted package for {entry}",
+  "@auditSentenceEntryShareDelivered": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareConfirmed": "{actor} confirmed display of {entry} in their app — not proof of reading",
+  "@auditSentenceEntryShareConfirmed": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareProtectionChanged": "{actor} changed sharing protection for {entry}",
+  "@auditSentenceEntryShareProtectionChanged": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareExpired": "The sharing link for {entry} expired",
+  "@auditSentenceEntryShareExpired": {
+    "placeholders": {
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareRevoked": "{actor} revoked the sharing link for {entry}",
+  "@auditSentenceEntryShareRevoked": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareEnded": "{actor} ended the sharing link for {entry}",
+  "@auditSentenceEntryShareEnded": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareSourceAccessRemoved": "The sharing link for {entry} lost access to its source",
+  "@auditSentenceEntryShareSourceAccessRemoved": {
+    "placeholders": {
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
   "sharingAccountPending": "A shared entry is waiting. Finish signing in or setting up your account to return to it.",
   "sharingCancelReception": "Cancel reception",
   "sharingCancelAccountNotice": "Discard this reception from memory? You may need a new link to receive it again. This does not revoke the sender’s link or cancel your account setup.",

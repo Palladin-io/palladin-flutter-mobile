@@ -98,6 +98,150 @@ abstract class AppLocalizations {
     Locale('pl'),
   ];
 
+  /// No description provided for @auditActorExternalRecipient.
+  ///
+  /// In en, this message translates to:
+  /// **'External recipient'**
+  String get auditActorExternalRecipient;
+
+  /// No description provided for @auditGroupEntrySharing.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry sharing'**
+  String get auditGroupEntrySharing;
+
+  /// No description provided for @notifTitleEntryShareReceived.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared copy received'**
+  String get notifTitleEntryShareReceived;
+
+  /// No description provided for @notifSubEntryShareReceived.
+  ///
+  /// In en, this message translates to:
+  /// **'The recipient’s app confirmed the first display.'**
+  String get notifSubEntryShareReceived;
+
+  /// No description provided for @notifRowShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Link'**
+  String get notifRowShare;
+
+  /// No description provided for @notifRowConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Receipt'**
+  String get notifRowConfirmation;
+
+  /// No description provided for @auditDetailSharing.
+  ///
+  /// In en, this message translates to:
+  /// **'Link'**
+  String get auditDetailSharing;
+
+  /// No description provided for @notifDisplayNotReadProof.
+  ///
+  /// In en, this message translates to:
+  /// **'Display confirmed — not proof of reading.'**
+  String get notifDisplayNotReadProof;
+
+  /// No description provided for @auditEventEntryShareCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing link created'**
+  String get auditEventEntryShareCreated;
+
+  /// No description provided for @auditEventEntryShareDelivered.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared package delivered'**
+  String get auditEventEntryShareDelivered;
+
+  /// No description provided for @auditEventEntryShareConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Display confirmed'**
+  String get auditEventEntryShareConfirmed;
+
+  /// No description provided for @auditEventEntryShareProtectionChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing protection changed'**
+  String get auditEventEntryShareProtectionChanged;
+
+  /// No description provided for @auditEventEntryShareExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing link expired'**
+  String get auditEventEntryShareExpired;
+
+  /// No description provided for @auditEventEntryShareRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing link revoked'**
+  String get auditEventEntryShareRevoked;
+
+  /// No description provided for @auditEventEntryShareEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing ended by recipient'**
+  String get auditEventEntryShareEnded;
+
+  /// No description provided for @auditEventEntryShareSourceAccessRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing source access removed'**
+  String get auditEventEntryShareSourceAccessRemoved;
+
+  /// No description provided for @auditSentenceEntryShareCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} created a sharing link for {entry}'**
+  String auditSentenceEntryShareCreated(String actor, String entry);
+
+  /// No description provided for @auditSentenceEntryShareDelivered.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} received the encrypted package for {entry}'**
+  String auditSentenceEntryShareDelivered(String actor, String entry);
+
+  /// No description provided for @auditSentenceEntryShareConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} confirmed display of {entry} in their app — not proof of reading'**
+  String auditSentenceEntryShareConfirmed(String actor, String entry);
+
+  /// No description provided for @auditSentenceEntryShareProtectionChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} changed sharing protection for {entry}'**
+  String auditSentenceEntryShareProtectionChanged(String actor, String entry);
+
+  /// No description provided for @auditSentenceEntryShareExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'The sharing link for {entry} expired'**
+  String auditSentenceEntryShareExpired(String entry);
+
+  /// No description provided for @auditSentenceEntryShareRevoked.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} revoked the sharing link for {entry}'**
+  String auditSentenceEntryShareRevoked(String actor, String entry);
+
+  /// No description provided for @auditSentenceEntryShareEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} ended the sharing link for {entry}'**
+  String auditSentenceEntryShareEnded(String actor, String entry);
+
+  /// No description provided for @auditSentenceEntryShareSourceAccessRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'The sharing link for {entry} lost access to its source'**
+  String auditSentenceEntryShareSourceAccessRemoved(String entry);
+
   /// No description provided for @sharingAccountPending.
   ///
   /// In en, this message translates to:

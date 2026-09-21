@@ -1,4 +1,102 @@
 {
+  "auditActorExternalRecipient": "Odbiorca zewnętrzny",
+  "auditGroupEntrySharing": "Udostępnianie wpisów",
+  "notifTitleEntryShareReceived": "Odebrano udostępnioną kopię",
+  "notifSubEntryShareReceived": "Aplikacja odbiorcy potwierdziła pierwsze wyświetlenie.",
+  "notifRowShare": "Link",
+  "notifRowConfirmation": "Odbiór",
+  "auditDetailSharing": "Link",
+  "notifDisplayNotReadProof": "Potwierdzono wyświetlenie — nie przeczytanie.",
+  "auditEventEntryShareCreated": "Utworzono link udostępnienia",
+  "auditEventEntryShareDelivered": "Wydano udostępnioną paczkę",
+  "auditEventEntryShareConfirmed": "Potwierdzono wyświetlenie",
+  "auditEventEntryShareProtectionChanged": "Zmieniono ochronę udostępnienia",
+  "auditEventEntryShareExpired": "Link udostępnienia wygasł",
+  "auditEventEntryShareRevoked": "Odwołano link udostępnienia",
+  "auditEventEntryShareEnded": "Odbiorca zakończył udostępnienie",
+  "auditEventEntryShareSourceAccessRemoved": "Utracono dostęp do źródła udostępnienia",
+  "auditSentenceEntryShareCreated": "{actor} utworzył(a) link udostępnienia: {entry}",
+  "@auditSentenceEntryShareCreated": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareDelivered": "{actor} odebrał zaszyfrowaną paczkę: {entry}",
+  "@auditSentenceEntryShareDelivered": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareConfirmed": "{actor} potwierdził wyświetlenie w aplikacji: {entry} — nie jest to dowód przeczytania",
+  "@auditSentenceEntryShareConfirmed": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareProtectionChanged": "{actor} zmienił(a) ochronę udostępnienia: {entry}",
+  "@auditSentenceEntryShareProtectionChanged": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareExpired": "Link udostępnienia wygasł: {entry}",
+  "@auditSentenceEntryShareExpired": {
+    "placeholders": {
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareRevoked": "{actor} odwołał(a) link udostępnienia: {entry}",
+  "@auditSentenceEntryShareRevoked": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareEnded": "{actor} zakończył link udostępnienia: {entry}",
+  "@auditSentenceEntryShareEnded": {
+    "placeholders": {
+      "actor": {
+        "type": "String"
+      },
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
+  "auditSentenceEntryShareSourceAccessRemoved": "Link udostępnienia utracił dostęp do źródła: {entry}",
+  "@auditSentenceEntryShareSourceAccessRemoved": {
+    "placeholders": {
+      "entry": {
+        "type": "String"
+      }
+    }
+  },
   "sharingAccountPending": "Udostępniony wpis czeka. Dokończ logowanie lub konfigurację konta, aby do niego wrócić.",
   "sharingCancelReception": "Anuluj odbiór",
   "sharingCancelAccountNotice": "Usunąć ten odbiór z pamięci? Ponowny odbiór może wymagać nowego linku. Nie odwoła to linku nadawcy ani nie anuluje konfiguracji konta.",
