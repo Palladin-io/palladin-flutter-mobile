@@ -28,8 +28,11 @@ The receiver now wires a Save CTA for an already authenticated, verified and
 unlocked recipient. Its account-bound destination picker, completion form and
 exact encrypted retry remain inside the original reception lifetime. Explicit
 guest account/unlock continuation is now wired through an app-owned RAM transfer
-and the existing auth routes. First-Vault creation and combined account/save
-acceptance remain pending; local service/widget tests are not evidence of
+and the existing auth routes. An explicitly empty destination list now offers
+personal-Vault creation through the same owner/deadline-fenced transport. The
+recipient still selects the refreshed Vault and explicitly saves the copy;
+ambiguous creation retries keep the exact encrypted request. Combined account/save
+acceptance remains pending; local service/widget tests are not evidence of
 deployed end-to-end saving.
 
 - `data/services/vault_protocol/` owns the frozen protocol primitives: strict canonical bytes/base64url/UUID validation, binary TLV AAD profiles, HKDF-SHA-256 projection keys, XChaCha20-Poly1305 envelopes, bounded X25519 sealed packages and RFC 8785/Ed25519 signatures. Widgets, Cubits and remote datasources must not reproduce these operations.

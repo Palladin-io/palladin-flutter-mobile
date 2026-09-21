@@ -9,7 +9,8 @@ import '../../../../config/env_config.dart';
 import '../../../../core/network/certificate_pinning.dart';
 
 final class EntryShareHttpException implements Exception {
-  const EntryShareHttpException();
+  const EntryShareHttpException([this.statusCode]);
+  final int? statusCode;
   @override
   String toString() => 'EntryShareHttpException';
 }
@@ -72,7 +73,7 @@ final class EntryShareHttpClient {
       stream = StreamIterator(response.data!.stream.timeout(_timeout));
       final status = response.statusCode!;
       if (status < 200 || status >= 300) {
-        throw const EntryShareHttpException();
+        throw EntryShareHttpException(status);
       }
       while (await stream.moveNext()) {
         _checkCancellation(cancelToken);
@@ -85,6 +86,8 @@ final class EntryShareHttpClient {
       _checkCancellation(cancelToken);
       decoded = bytes.takeBytes();
       return utf8.decode(decoded);
+    } on EntryShareHttpException {
+      rethrow;
     } catch (_) {
       throw const EntryShareHttpException();
     } finally {

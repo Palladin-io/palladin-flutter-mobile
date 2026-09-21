@@ -9,6 +9,7 @@ import '../../../domain/entities/entry_share.dart';
 import '../../../domain/entities/entry_share_copy.dart';
 import '../../../domain/entities/entry_share_list.dart';
 import '../../../domain/entities/vault_plaintext.dart';
+import '../../../domain/entities/vault_entity.dart';
 import '../../datasources/entry_share_copy_datasource.dart';
 import '../../models/entry_v2_contracts.dart';
 import '../entry_v2_crypto_service.dart';
@@ -30,6 +31,14 @@ final class PreparedEntryShareCopy {
   void dispose() => _encodedBody = null;
 }
 
+final class PreparedEntryShareDefaultVault {
+  PreparedEntryShareDefaultVault._(this.owner, this._encodedBody);
+  final EntrySharingSession owner;
+  String? _encodedBody;
+  bool get isDisposed => _encodedBody == null;
+  void dispose() => _encodedBody = null;
+}
+
 class EntryShareCopyService {
   EntryShareCopyService({
     required EntryShareCopyDatasource remote,
@@ -45,6 +54,93 @@ class EntryShareCopyService {
   final VaultCryptoService _vaultCrypto;
   final EntryV2CryptoService _entryCrypto;
   final AutoFillMutationNotifier _autoFill;
+
+  Future<PreparedEntryShareDefaultVault> prepareDefaultVault({
+    required EntrySharingSession owner,
+    required Uint8List memberPrivateKey,
+    required String name,
+    required Future<bool> Function() validateOwner,
+    required CancelToken cancelToken,
+  }) async {
+    final key = Uint8List.fromList(memberPrivateKey);
+    CreatedVaultBundle? bundle;
+    void wipe() {
+      key.fillRange(0, key.length, 0);
+      bundle?.vaultKey.fillRange(0, bundle.vaultKey.length, 0);
+      bundle?.vaultDiscoveryKey.fillRange(
+        0,
+        bundle.vaultDiscoveryKey.length,
+        0,
+      );
+    }
+
+    unawaited(cancelToken.whenCancel.then((_) => wipe()));
+    try {
+      await _requireCurrent(validateOwner, cancelToken);
+      final context = await _remote.memberContext(owner, cancelToken);
+      await _requireCurrent(validateOwner, cancelToken);
+      // Bind the recipient wrapper to the captured session, not to its own descriptor.
+      if (context.memberId != owner.principalId || key.length != 32) {
+        throw const EntryShareCopyException(
+          EntryShareCopyError.invalidAuthority,
+        );
+      }
+      final vaultId = await _remote.vaultChallenge(owner, cancelToken);
+      await _requireCurrent(validateOwner, cancelToken);
+      bundle = await _vaultCrypto.createVaultBundle(
+        organizationId: owner.organizationId,
+        memberId: owner.principalId,
+        memberKeyVersion: context.keyVersion,
+        vaultId: vaultId,
+        memberPrivateKey: key,
+        name: name.trim(),
+        grantMode: GrantMode.granular,
+      );
+      await _requireCurrent(validateOwner, cancelToken);
+      return PreparedEntryShareDefaultVault._(
+        owner,
+        jsonEncode(bundle.request.toJson()),
+      );
+    } on EntryShareCopyException {
+      rethrow;
+    } catch (_) {
+      throw const EntryShareCopyException(EntryShareCopyError.encryption);
+    } finally {
+      wipe();
+    }
+  }
+
+  Future<bool> commitDefaultVault(
+    PreparedEntryShareDefaultVault vault, {
+    required Future<bool> Function() validateOwner,
+    required CancelToken cancelToken,
+  }) async {
+    await _requireCurrent(validateOwner, cancelToken);
+    final body = vault._encodedBody;
+    if (body == null) {
+      throw const EntryShareCopyException(EntryShareCopyError.cancelled);
+    }
+    try {
+      await _remote.createDefaultVault(body, vault.owner, cancelToken);
+      vault.dispose();
+      await _requireCurrent(validateOwner, cancelToken);
+      return true;
+    } on EntryShareCopyException catch (error) {
+      final status = error.statusCode;
+      if (status != null &&
+          status >= 400 &&
+          status < 500 &&
+          status != 408 &&
+          status != 429) {
+        vault.dispose();
+      }
+      if (status == 409) {
+        await _requireCurrent(validateOwner, cancelToken);
+        return false;
+      }
+      rethrow;
+    }
+  }
 
   Future<EntryShareCopyDestinations> destinations({
     required EntrySharingSession owner,

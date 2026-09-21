@@ -448,22 +448,43 @@ void main() {
     );
   }
 
-  Future<void> chooseDestination(WidgetTester tester) async {
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const ValueKey('sharing-copy-vault')),
-        matching: find.byType(DropdownButton<String>),
+  Future<void> chooseDestination(
+    WidgetTester tester, {
+    String name = 'Personal vault',
+  }) async {
+    final dropdown = find.descendant(
+      of: find.byKey(const ValueKey('sharing-copy-vault')),
+      matching: find.byType(DropdownButton<String>),
+    );
+    await tester.scrollUntilVisible(
+      dropdown,
+      -180,
+      scrollable: find.byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable && widget.axisDirection == AxisDirection.down,
       ),
     );
+    await Scrollable.ensureVisible(tester.element(dropdown), alignment: 0.5);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Personal vault').last);
+    expect(dropdown.hitTestable(), findsOneWidget);
+    await tester.tap(dropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(name).last);
     await tester.pumpAndSettle();
   }
 
-  Future<void> completeCopy(WidgetTester tester) async {
-    await chooseDestination(tester);
-    await tester.ensureVisible(
+  Future<void> completeCopy(
+    WidgetTester tester, {
+    String vaultName = 'Personal vault',
+  }) async {
+    await chooseDestination(tester, name: vaultName);
+    await tester.scrollUntilVisible(
       find.byKey(const ValueKey('sharing-copy-credential.username')),
+      180,
+      scrollable: find.byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable && widget.axisDirection == AxisDirection.down,
+      ),
     );
     await tester.enterText(
       find.descendant(
@@ -742,8 +763,328 @@ void main() {
       isNull,
     );
     expect(createdCopies, isEmpty);
+    expect(find.text('Create my personal vault'), findsNothing);
     await finish(tester);
   });
+
+  Future<List<String>> enablePersonalVaultCreation(WidgetTester tester) async {
+    await enableSaving(
+      tester,
+      permissions: Permissions.vaultManage | Permissions.vaultCreate,
+    );
+    final posts = <String>[];
+    when(
+      () => copyRemote.memberContext(any(), any()),
+    ).thenAnswer((_) async => (memberId: _member.principalId, keyVersion: 1));
+    when(
+      () => copyRemote.vaultChallenge(any(), any()),
+    ).thenAnswer((_) async => _destination);
+    when(() => copyRemote.vaults(any(), any(), any())).thenAnswer(
+      (_) async => {
+        'vaults': posts.isEmpty ? [] : [copyVaultJson],
+        'total': posts.isEmpty ? 0 : 1,
+      },
+    );
+    when(() => copyRemote.createDefaultVault(any(), any(), any())).thenAnswer((
+      call,
+    ) async {
+      final encoded = call.positionalArguments[0] as String;
+      posts.add(encoded);
+      final data = jsonDecode(encoded) as Map<String, dynamic>;
+      copyVaultJson = {
+        'id': _destination,
+        'organizationId': _member.organizationId,
+        'memberKeyGeneration': 1,
+        'metadataRevision': '1',
+        'memberVaultKey': data['creatorVaultKey'],
+        'memberVaultMetadata': data['memberVaultMetadata'],
+        'currentKeyEpoch': data['currentKeyEpoch'],
+        'discoveryKey': data['discoveryKey'],
+      };
+    });
+    return posts;
+  }
+
+  testWidgets(
+    'explicit personal vault creation keeps the receipt and requires selection before save',
+    (tester) async {
+      final vaultPosts = await enablePersonalVaultCreation(tester);
+      await mount(tester);
+      await receive(tester);
+      await tap(tester, 'Save a copy');
+      expect(vaultPosts, isEmpty);
+      await capture(tester, 'first-vault-en-light-390');
+      await tap(tester, 'Create my personal vault');
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pumpAndSettle();
+      expect(vaultPosts, hasLength(1));
+      expect(createdCopies, isEmpty);
+      expect(
+        tester
+            .widget<PrimaryButton>(
+              find.widgetWithText(PrimaryButton, 'Save a copy'),
+            )
+            .onPressed,
+        isNull,
+      );
+      await completeCopy(tester, vaultName: 'Personal');
+      await saveCopy(tester);
+      expect(createdCopies, hasLength(1));
+      await tester.runAsync(() async {
+        final opened =
+            await VaultCryptoService(
+              sodiumLoader: () async => sodium,
+            ).openVaultProjection(
+              json: copyVaultJson,
+              memberPrivateKey: accountKey,
+            );
+        try {
+          final entry =
+              jsonDecode(createdCopies.single) as Map<String, dynamic>;
+          final secret =
+              await EntryV2CryptoService(
+                sodiumLoader: () async => sodium,
+              ).openMemberSecret(
+                entryKey: entry['entryKey'],
+                memberSecret: entry['memberSecret'],
+                vaultKey: opened.vaultKey,
+              );
+          expect((secret['content'] as Map)['password'], 'fixture-only');
+          expect(secret['discoverable'], false);
+        } finally {
+          opened.vaultKey.fillRange(0, opened.vaultKey.length, 0);
+          opened.vaultDiscoveryKey?.fillRange(
+            0,
+            opened.vaultDiscoveryKey!.length,
+            0,
+          );
+        }
+      });
+      verify(
+        () => remote.receive(
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).called(1);
+      verify(
+        () => remote.confirmDisplay(
+          any(),
+          any(),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).called(1);
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
+
+  testWidgets(
+    'failed personal vault creation retries the same ciphertext without another receipt',
+    (tester) async {
+      await enablePersonalVaultCreation(tester);
+      final attempts = <String>[];
+      when(() => copyRemote.createDefaultVault(any(), any(), any())).thenAnswer(
+        (call) async {
+          attempts.add(call.positionalArguments[0] as String);
+          if (attempts.length == 1) {
+            throw const EntryShareCopyException(EntryShareCopyError.request);
+          }
+        },
+      );
+      await mount(tester);
+      await receive(tester);
+      await tap(tester, 'Save a copy');
+      await tap(tester, 'Create my personal vault');
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'The vault could not be created. Retry here while this reception is still available.',
+        ),
+        findsOneWidget,
+      );
+      await tap(tester, 'Create my personal vault');
+      expect(attempts, hasLength(2));
+      expect(attempts[1], attempts[0]);
+      verify(() => copyRemote.vaultChallenge(any(), any())).called(1);
+      expect(createdCopies, isEmpty);
+      await finish(tester);
+    },
+  );
+
+  testWidgets('failed refresh after vault creation never repeats the write', (
+    tester,
+  ) async {
+    final posts = await enablePersonalVaultCreation(tester);
+    var failRefresh = true;
+    when(() => copyRemote.vaults(any(), any(), any())).thenAnswer((_) async {
+      if (posts.isNotEmpty && failRefresh) {
+        throw const EntryShareCopyException(EntryShareCopyError.request);
+      }
+      return {
+        'vaults': posts.isEmpty ? [] : [copyVaultJson],
+        'total': posts.isEmpty ? 0 : 1,
+      };
+    });
+    await mount(tester);
+    await receive(tester);
+    await tap(tester, 'Save a copy');
+    await tap(tester, 'Create my personal vault');
+    await tester.runAsync(
+      () async => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
+    await tester.pumpAndSettle();
+    expect(posts, hasLength(1));
+    expect(find.text('Create my personal vault'), findsNothing);
+    expect(find.text('Refresh'), findsOneWidget);
+    failRefresh = false;
+    await tap(tester, 'Refresh');
+    await chooseDestination(tester, name: 'Personal');
+    expect(posts, hasLength(1));
+    expect(createdCopies, isEmpty);
+    verify(
+      () =>
+          remote.receive(any(), any(), cancelToken: any(named: 'cancelToken')),
+    ).called(1);
+    await finish(tester);
+  });
+
+  testWidgets(
+    'default vault conflict offers the authoritative existing destination',
+    (tester) async {
+      await enablePersonalVaultCreation(tester);
+      var conflicted = false;
+      when(() => copyRemote.createDefaultVault(any(), any(), any())).thenAnswer(
+        (_) async {
+          conflicted = true;
+          throw const EntryShareCopyException(
+            EntryShareCopyError.request,
+            statusCode: 409,
+          );
+        },
+      );
+      when(() => copyRemote.vaults(any(), any(), any())).thenAnswer(
+        (_) async => {
+          'vaults': conflicted ? [copyVaultJson] : [],
+          'total': conflicted ? 1 : 0,
+        },
+      );
+      await mount(tester);
+      await receive(tester);
+      await tap(tester, 'Save a copy');
+      await tap(tester, 'Create my personal vault');
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pumpAndSettle();
+      await chooseDestination(tester);
+      expect(find.text('Create my personal vault'), findsNothing);
+      expect(createdCopies, isEmpty);
+      verify(
+        () => copyRemote.createDefaultVault(any(), any(), any()),
+      ).called(1);
+      await finish(tester);
+    },
+  );
+
+  for (final transition in ['background', 'lock']) {
+    testWidgets(
+      '$transition during personal vault creation rejects late success',
+      (tester) async {
+        await enablePersonalVaultCreation(tester);
+        final write = Completer<void>();
+        CancelToken? token;
+        when(
+          () => copyRemote.createDefaultVault(any(), any(), any()),
+        ).thenAnswer((call) {
+          token = call.positionalArguments[2] as CancelToken;
+          return write.future;
+        });
+        await mount(tester);
+        await receive(tester);
+        await tap(tester, 'Save a copy');
+        await tester.tap(find.text('Create my personal vault'));
+        await tester.runAsync(
+          () async => Future<void>.delayed(const Duration(milliseconds: 30)),
+        );
+        await tester.pump();
+        expect(token, isNotNull);
+        final controllers = tester
+            .widgetList<OnboardingTextField>(find.byType(OnboardingTextField))
+            .map((field) => field.controller)
+            .toList();
+        if (transition == 'background') {
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.inactive,
+          );
+        } else {
+          authEvents.add(
+            (auth.state as AuthAuthenticated).copyWith(
+              isVaultLocked: true,
+              clearKeys: true,
+            ),
+          );
+        }
+        await tester.pumpAndSettle();
+        expect(token!.isCancelled, true);
+        expect(
+          controllers.map((controller) => controller.text),
+          everyElement(isEmpty),
+        );
+        write.complete();
+        await tester.pumpAndSettle();
+        expect(cubit.state.phase, EntryShareReceptionPhase.unavailable);
+        expect(find.byType(TextField), findsNothing);
+        expect(createdCopies, isEmpty);
+        verify(() => copyRemote.vaults(any(), any(), any())).called(1);
+        await finish(tester);
+      },
+    );
+  }
+
+  testWidgets(
+    'first personal vault action fits Polish narrow large-text layout',
+    (tester) async {
+      final posts = await enablePersonalVaultCreation(tester);
+      await mount(tester, language: 'pl', dark: true, width: 320, scale: 1.5);
+      await tap(tester, 'Otwórz udostępnienie');
+      await tap(tester, 'Odbierz wpis');
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pumpAndSettle();
+      await tap(tester, 'Zapisz kopię');
+      final create = find.text('Utwórz mój osobisty sejf');
+      await tester.scrollUntilVisible(
+        create,
+        180,
+        scrollable: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(create.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await capture(tester, 'first-vault-pl-dark-320-150');
+      await tap(tester, 'Utwórz mój osobisty sejf');
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pumpAndSettle();
+      expect(posts, hasLength(1));
+      await chooseDestination(tester, name: 'Osobisty');
+      expect(createdCopies, isEmpty);
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    },
+  );
 
   testWidgets(
     'missing completion stays inline and does not request a challenge',

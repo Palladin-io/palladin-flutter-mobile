@@ -42,6 +42,43 @@ class _ObservedVaultCrypto extends VaultCryptoService {
   OpenedVaultProjection? opened;
   Completer<void>? barrier;
   final entered = Completer<void>();
+  Uint8List? creationPrivateCopy;
+  CreatedVaultBundle? created;
+  Completer<void>? creationBarrier;
+  final creationEntered = Completer<void>();
+
+  @override
+  Future<CreatedVaultBundle> createVaultBundle({
+    required String organizationId,
+    required String memberId,
+    required int memberKeyVersion,
+    required String vaultId,
+    required Uint8List memberPrivateKey,
+    required String name,
+    String? description,
+    String? icon,
+    String? color,
+    required GrantMode grantMode,
+  }) async {
+    creationPrivateCopy = memberPrivateKey;
+    final result = await super.createVaultBundle(
+      organizationId: organizationId,
+      memberId: memberId,
+      memberKeyVersion: memberKeyVersion,
+      vaultId: vaultId,
+      memberPrivateKey: memberPrivateKey,
+      name: name,
+      description: description,
+      icon: icon,
+      color: color,
+      grantMode: grantMode,
+    );
+    created = result;
+    if (!creationEntered.isCompleted) creationEntered.complete();
+    await creationBarrier?.future;
+    return result;
+  }
+
   @override
   Future<OpenedVaultProjection> openVaultProjection({
     required Map<String, dynamic> json,
@@ -666,6 +703,7 @@ void main() {
   }
 
   EntryShareCopyCubit createCubit({
+    bool canCreateDefaultVault = false,
     EntryShareLifetime? lifetime,
     Future<EntrySharingSession?> Function()? ownerReader,
     Uint8List Function()? keyReader,
@@ -677,10 +715,299 @@ void main() {
       ownerReader: ownerReader ?? () async => ownerValid ? _owner : null,
       copyMemberPrivateKey: keyReader ?? () => Uint8List.fromList(privateKey),
       lifetime: lifetime ?? EntryShareLifetime(),
+      canCreateDefaultVault: canCreateDefaultVault,
     );
     addTearDown(cubit.close);
     return cubit;
   }
+
+  void serveDefaultVault({
+    int createStatus = 201,
+    int challengeStatus = 200,
+    String? memberId,
+    bool visibleAfterCreate = true,
+  }) {
+    final fallback = handler;
+    var created = false;
+    handler = (request) async {
+      final path = request.uri.path;
+      request.response.headers.contentType = ContentType.json;
+      if (path == '/api/account') {
+        request.response.write(
+          jsonEncode({
+            'userId': memberId ?? _owner.principalId,
+            'memberKeyVersion': 1,
+          }),
+        );
+      } else if (path == '/api/vaults/creation-challenges') {
+        request.response.statusCode = challengeStatus;
+        request.response.write(jsonEncode({'vaultId': _vault}));
+      } else if (path == '/api/account/default-vault') {
+        request.response.statusCode = createStatus;
+        if (createStatus == 201) {
+          final body = jsonDecode(requests.last.body) as Map<String, dynamic>;
+          vaultJson = {
+            'id': _vault,
+            'organizationId': _owner.organizationId,
+            'memberKeyGeneration': 1,
+            'metadataRevision': '1',
+            'memberVaultKey': body['creatorVaultKey'],
+            'memberVaultMetadata': body['memberVaultMetadata'],
+            'discoveryKey': body['discoveryKey'],
+            'currentKeyEpoch': body['currentKeyEpoch'],
+          };
+        }
+        created =
+            visibleAfterCreate && (createStatus == 201 || createStatus == 409);
+      } else if (path == '/api/vaults') {
+        request.response.write(
+          jsonEncode({
+            'vaults': created
+                ? [
+                    Map<String, dynamic>.from(vaultJson)
+                      ..remove('organizationId')
+                      ..remove('metadataRevision'),
+                  ]
+                : [],
+            'total': created ? 1 : 0,
+          }),
+        );
+      } else {
+        await fallback(request);
+        return;
+      }
+      await request.response.close();
+    };
+  }
+
+  test(
+    'personal vault needs explicit action, permission and an authoritative empty list',
+    () async {
+      serveDefaultVault();
+      final cubit = createCubit(canCreateDefaultVault: true);
+      expect(await cubit.createPersonalVault('Personal'), false);
+      expect(requests, isEmpty);
+      expect((await cubit.loadDestinations()).items, isEmpty);
+      expect(cubit.canCreatePersonalVault, true);
+      expect(requests, hasLength(1));
+      expect(await cubit.createPersonalVault('Personal'), true);
+      final choices = await cubit.loadDestinations();
+      expect(choices.items.single.name, 'Personal');
+      expect(cubit.state.phase, EntryShareCopyPhase.editing);
+      expect(cubit.state.entryId, isNull);
+      final post = requests.singleWhere(
+        (r) => r.path == '/api/account/default-vault',
+      );
+      expect(post.method, 'POST');
+      expect(post.body, isNot(contains('Personal')));
+      expect(post.body, isNot(contains(_value)));
+      expect(vaultCrypto.opened!.vaultKey, everyElement(0));
+      expect(vaultCrypto.privateCopy, everyElement(0));
+      expect(vaultCrypto.creationPrivateCopy, everyElement(0));
+      expect(vaultCrypto.created!.vaultKey, everyElement(0));
+      expect(vaultCrypto.created!.vaultDiscoveryKey, everyElement(0));
+      expect(requests.where((r) => r.path.endsWith('/entries')), isEmpty);
+      expect(await cubit.createPersonalVault('Personal'), false);
+    },
+  );
+
+  test('empty list does not grant missing VaultCreate permission', () async {
+    serveDefaultVault();
+    final cubit = createCubit();
+    await cubit.loadDestinations();
+    expect(await cubit.createPersonalVault('Personal'), false);
+    expect(requests, hasLength(1));
+  });
+
+  test('undecryptable destinations never count as an empty account', () async {
+    vaultJson['memberVaultMetadata'] = {};
+    final cubit = createCubit(canCreateDefaultVault: true);
+    expect((await cubit.loadDestinations()).unavailable, 1);
+    expect(await cubit.createPersonalVault('Personal'), false);
+    expect(requests, hasLength(1));
+  });
+
+  test('failed list never enables personal vault creation', () async {
+    handler = (request) async {
+      request.response.statusCode = 500;
+      await request.response.close();
+    };
+    final cubit = createCubit(canCreateDefaultVault: true);
+    await expectLater(
+      cubit.loadDestinations(),
+      _failure(EntryShareCopyError.request),
+    );
+    expect(await cubit.createPersonalVault('Personal'), false);
+    expect(requests, hasLength(1));
+  });
+
+  test(
+    'personal vault retry reuses exactly one encrypted request and challenge',
+    () async {
+      serveDefaultVault(createStatus: 500);
+      final cubit = createCubit(canCreateDefaultVault: true);
+      await cubit.loadDestinations();
+      expect(await cubit.createPersonalVault('Personal'), false);
+      expect(cubit.state.vaultCreationFailed, true);
+      serveDefaultVault();
+      expect(await cubit.createPersonalVault('Changed locale name'), true);
+      final posts = requests
+          .where((r) => r.path == '/api/account/default-vault')
+          .toList();
+      expect(posts, hasLength(2));
+      expect(posts[1].body, posts[0].body);
+      expect(
+        requests.where((r) => r.path == '/api/vaults/creation-challenges'),
+        hasLength(1),
+      );
+      expect((await cubit.loadDestinations()).items.single.name, 'Personal');
+    },
+  );
+
+  test(
+    'only default-create conflict reconciles through a fresh list',
+    () async {
+      serveDefaultVault(createStatus: 409);
+      final cubit = createCubit(canCreateDefaultVault: true);
+      await cubit.loadDestinations();
+      expect(await cubit.createPersonalVault('Personal'), true);
+      expect(
+        (await cubit.loadDestinations()).items.single.name,
+        'Synthetic target vault',
+      );
+      expect(cubit.canCreatePersonalVault, false);
+    },
+  );
+
+  test(
+    'challenge conflict is not treated as an existing default vault',
+    () async {
+      serveDefaultVault(challengeStatus: 409);
+      final cubit = createCubit(canCreateDefaultVault: true);
+      await cubit.loadDestinations();
+      expect(await cubit.createPersonalVault('Personal'), false);
+      expect(cubit.state.vaultCreationFailed, true);
+      expect(
+        requests.where((r) => r.path == '/api/account/default-vault'),
+        isEmpty,
+      );
+    },
+  );
+
+  test(
+    'confirmed default creation cannot repeat if the subsequent list is empty',
+    () async {
+      serveDefaultVault(visibleAfterCreate: false);
+      final cubit = createCubit(canCreateDefaultVault: true);
+      await cubit.loadDestinations();
+      expect(await cubit.createPersonalVault('Personal'), true);
+      await cubit.loadDestinations();
+      expect(await cubit.createPersonalVault('Personal'), true);
+      expect(
+        requests.where((r) => r.path == '/api/account/default-vault'),
+        hasLength(1),
+      );
+    },
+  );
+
+  test('account context cannot substitute the wrapper recipient', () async {
+    serveDefaultVault(memberId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+    final cubit = createCubit(canCreateDefaultVault: true);
+    await cubit.loadDestinations();
+    expect(await cubit.createPersonalVault('Personal'), false);
+    expect(requests.where((r) => r.method == 'POST'), isEmpty);
+  });
+
+  for (final path in [
+    '/api/account',
+    '/api/vaults/creation-challenges',
+    '/api/account/default-vault',
+  ]) {
+    test('cancelling personal vault during $path discards late work', () async {
+      serveDefaultVault();
+      final reached = Completer<void>(), release = Completer<void>();
+      final fallback = handler;
+      handler = (request) async {
+        if (request.uri.path == path) {
+          reached.complete();
+          await release.future;
+        }
+        await fallback(request);
+      };
+      Uint8List? copy;
+      final cubit = createCubit(
+        canCreateDefaultVault: true,
+        keyReader: () => copy = Uint8List.fromList(privateKey),
+      );
+      await cubit.loadDestinations();
+      final pending = cubit.createPersonalVault('Personal');
+      await reached.future;
+      final count = requests.length;
+      expect(await cubit.createPersonalVault('Second tap'), false);
+      cubit.clear();
+      expect(copy, everyElement(0));
+      release.complete();
+      expect(await pending, false);
+      expect(cubit.state.phase, EntryShareCopyPhase.unavailable);
+      expect(requests, hasLength(count));
+    });
+  }
+
+  for (final reason in ['clear', 'owner replacement', 'expiry']) {
+    test(
+      'personal vault rejects late crypto after $reason and wipes keys',
+      () async {
+        serveDefaultVault();
+        var elapsed = Duration.zero;
+        final barrier = vaultCrypto.creationBarrier = Completer<void>();
+        final cubit = createCubit(
+          canCreateDefaultVault: true,
+          lifetime: EntryShareLifetime(elapsed: () => elapsed),
+        );
+        await cubit.loadDestinations();
+        final pending = cubit.createPersonalVault('Personal');
+        await vaultCrypto.creationEntered.future;
+        expect(vaultCrypto.created!.vaultKey, isNot(everyElement(0)));
+        if (reason == 'clear') {
+          cubit.clear();
+          await Future<void>.delayed(Duration.zero);
+          expect(vaultCrypto.creationPrivateCopy, everyElement(0));
+        } else if (reason == 'owner replacement') {
+          ownerValid = false;
+        } else {
+          elapsed = EntryShareLifetime.maximum;
+        }
+        barrier.complete();
+        expect(await pending, false);
+        expect(cubit.state.phase, EntryShareCopyPhase.unavailable);
+        expect(vaultCrypto.creationPrivateCopy, everyElement(0));
+        expect(vaultCrypto.created!.vaultKey, everyElement(0));
+        expect(vaultCrypto.created!.vaultDiscoveryKey, everyElement(0));
+        expect(
+          requests.where((r) => r.path == '/api/account/default-vault'),
+          isEmpty,
+        );
+      },
+    );
+  }
+
+  test('personal vault retry cannot outlive the original reception', () async {
+    serveDefaultVault(createStatus: 500);
+    var elapsed = Duration.zero;
+    final cubit = createCubit(
+      canCreateDefaultVault: true,
+      lifetime: EntryShareLifetime(elapsed: () => elapsed),
+    );
+    await cubit.loadDestinations();
+    expect(await cubit.createPersonalVault('Personal'), false);
+    elapsed = EntryShareLifetime.maximum;
+    expect(await cubit.createPersonalVault('Personal'), false);
+    expect(cubit.state.phase, EntryShareCopyPhase.unavailable);
+    expect(
+      requests.where((r) => r.path == '/api/account/default-vault'),
+      hasLength(1),
+    );
+  });
 
   test(
     'copy Cubit is idle until explicit save and rejects duplicate taps',
