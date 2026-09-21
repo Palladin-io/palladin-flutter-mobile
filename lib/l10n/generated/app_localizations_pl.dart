@@ -415,6 +415,15 @@ class AppLocalizationsPl extends AppLocalizations {
   String get sharingValidUntil => 'Link ważny do';
 
   @override
+  String sharingOtpCountdown(int seconds) {
+    return 'Wyślij kod za $seconds s';
+  }
+
+  @override
+  String get sharingSharedLimitNotice =>
+      'Ten limit odbiorów jest wspólny dla wszystkich korzystających z linku.';
+
+  @override
   String get sharingReceipts => 'Odbiory / limit';
 
   @override

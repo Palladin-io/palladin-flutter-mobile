@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/permissions.dart';
@@ -477,6 +478,9 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
                             child: Text(l10n.sharingContinueAccount),
                           ),
                       ],
+                      if (!terminal &&
+                          state.phase != EntryShareReceptionPhase.welcome)
+                        ..._linkPolicy(state, l10n),
                       if (state.phase == EntryShareReceptionPhase.verification)
                         ..._proofs(state, l10n),
                       if (snapshot != null) ...[
@@ -490,6 +494,15 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                           ),
+                        ),
+                        Text(
+                          '${l10n.entryTypeLabel}: ${switch (snapshot.entryType) {
+                            'key' => l10n.entryTypeKey,
+                            'credential' => l10n.entryTypeCredential,
+                            'creditCard' => l10n.entryTypeCreditCard,
+                            'script' => l10n.entryTypeScript,
+                            _ => l10n.responseUnknownValue,
+                          }}',
                         ),
                         const SizedBox(height: AppSpacing.fieldGap),
                         Text(l10n.sharingReceivedNotice),
@@ -575,6 +588,29 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
     );
   }
 
+  List<Widget> _linkPolicy(
+    EntryShareReceptionState state,
+    AppLocalizations l10n,
+  ) {
+    final expiry = DateTime.tryParse(state.shareExpiresAt ?? '');
+    return [
+      if (expiry != null) ...[
+        Text(
+          '${l10n.sharingValidUntil}: ${DateFormat.yMMMd(Localizations.localeOf(context).toString()).add_Hm().format(expiry.toLocal())}',
+        ),
+        const SizedBox(height: AppSpacing.innerGap),
+      ],
+      if (state.maximumReceipts case final limit?) ...[
+        Text('${l10n.sharingMaximumReceipts}: $limit'),
+        if (state.recipientMode == 'anyoneWithLink') ...[
+          const SizedBox(height: AppSpacing.innerGap),
+          Text(l10n.sharingSharedLimitNotice),
+        ],
+        const SizedBox(height: AppSpacing.section),
+      ],
+    ];
+  }
+
   List<Widget> _proofs(EntryShareReceptionState state, AppLocalizations l10n) {
     final language = Localizations.localeOf(context).languageCode == 'pl'
         ? 'pl'
@@ -586,10 +622,13 @@ class _EntryShareReceiverPageState extends State<EntryShareReceiverPage>
         PrimaryButton(
           label: state.otpRetry
               ? l10n.sharingRetryOtp
+              : state.otpRetryAfterSeconds > 0
+              ? l10n.sharingOtpCountdown(state.otpRetryAfterSeconds)
               : state.otpRequested
               ? l10n.sharingResendOtp
               : l10n.sharingSendOtp,
-          onPressed: state.busy
+          onPressed:
+              state.busy || !state.otpRetry && state.otpRetryAfterSeconds > 0
               ? null
               : () => _run(() => _cubit.requestOtp(language)),
         ),

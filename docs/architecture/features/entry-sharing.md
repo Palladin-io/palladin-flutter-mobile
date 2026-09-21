@@ -321,6 +321,31 @@ scope substitution, delayed crypto and both success/error after owner changes.
 The loopback server is a synthetic fixture, not the Palladin API or real email
 provider. Auth/save continuation and device E2E remain required.
 
+### Recipient link policy and OTP countdown
+
+The session transport reads link `shareExpiresAt` and `maximumReceipts`
+separately from the short session's `expiresAt`. Missing optional presentation
+metadata is omitted, never replaced with session validity. The receiver shows
+localized link validity and the configured receipt limit, with an explicit
+shared-limit notice for anyone-with-link. It does not claim remaining receipts.
+Entry type is shown only from the authenticated decrypted snapshot.
+
+The initial session's `otpRetryAfterSeconds` and successful OTP POST's HTTP 200
+`retryAfterSeconds` supply the visible resend countdown. The server remains the
+cooldown authority. The Cubit anchors presentation to the original decreasing
+RAM lifetime; foreground ticks, email detours and one-shot account transfers do
+not start a new minute. It blocks a new generation while waiting but preserves
+an uncertain same-generation retry. Verification and cleanup cancel the ticker.
+No additional clock, storage, polling or automatic OTP request was introduced.
+
+Nine new transport/Cubit/widget cases cover optional policy fields, independent
+expiry, initial shared cooldown, ticks, email/account continuation, residual
+acknowledgement retry and EN/PL rendering. Full Flutter regression: **1,737 PASS /
+two existing plugin-only skips**, including six structural budgets; analyze and
+notice verification PASS. All 44 receiver widget cases also pass with synthetic
+Inter. EN light 390px and PL dark 320px/150% captures were reviewed. These are
+local fixtures, not device, real email or deployed HTTP acceptance.
+
 ### Receiver page and email detour
 
 `EntryShareReceiverPage` uses one caller-supplied Cubit and requires a stable

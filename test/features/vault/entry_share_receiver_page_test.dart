@@ -157,7 +157,7 @@ void main() {
         language: any(named: 'language'),
         cancelToken: any(named: 'cancelToken'),
       ),
-    ).thenAnswer((_) async {});
+    ).thenAnswer((_) async => Duration.zero);
     when(
       () => remote.verifyOtp(
         any(),
@@ -766,6 +766,93 @@ void main() {
     expect(find.text('Create my personal vault'), findsNothing);
     await finish(tester);
   });
+
+  testWidgets(
+    'receiver distinguishes link validity from session expiry and reveals type only after receipt',
+    (tester) async {
+      session = EntryShareRecipientSession(
+        sessionId: session.sessionId,
+        sessionToken: session.sessionToken,
+        expiresAt: session.expiresAt,
+        recipientMode: session.recipientMode,
+        protection: session.protection,
+        shareExpiresAt: '2031-09-23T12:00:00Z',
+        maximumReceipts: 3,
+      );
+      await mount(tester);
+      await tap(tester, 'Open sharing');
+      expect(find.textContaining('Link valid until:'), findsOneWidget);
+      expect(find.textContaining('2031'), findsOneWidget);
+      expect(find.text('Receipt limit: 3'), findsOneWidget);
+      expect(
+        find.text('This receipt limit is shared by everyone using this link.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Entry type:'), findsNothing);
+      await tap(tester, 'Receive entry');
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pumpAndSettle();
+      final type = find.text('Entry type: Credential');
+      await tester.ensureVisible(type);
+      await tester.pumpAndSettle();
+      expect(type, findsOneWidget);
+      await capture(tester, 'recipient-policy-en-light-390');
+      await finish(tester);
+    },
+  );
+
+  for (final pl in [false, true]) {
+    testWidgets('OTP cooldown is visible and disables another send: pl=$pl', (
+      tester,
+    ) async {
+      session = EntryShareRecipientSession(
+        sessionId: session.sessionId,
+        sessionToken: session.sessionToken,
+        expiresAt: session.expiresAt,
+        recipientMode: 'namedRecipient',
+        protection: 'pin',
+        shareExpiresAt: '2031-09-23T12:00:00Z',
+        maximumReceipts: 1,
+        otpRetryAfterSeconds: 39,
+      );
+      await mount(
+        tester,
+        language: pl ? 'pl' : 'en',
+        dark: pl,
+        width: pl ? 320 : 390,
+        scale: pl ? 1.5 : 1,
+      );
+      await tap(tester, pl ? 'Otwórz udostępnienie' : 'Open sharing');
+      final label = pl ? 'Wyślij kod za 39 s' : 'Send code in 39s';
+      final button = find.widgetWithText(PrimaryButton, label);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      expect(tester.widget<PrimaryButton>(button).onPressed, isNull);
+      expect(
+        find.textContaining(pl ? 'Link ważny do:' : 'Link valid until:'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await capture(
+        tester,
+        pl
+            ? 'recipient-countdown-pl-dark-320-150'
+            : 'recipient-countdown-en-light-390',
+      );
+      verifyNever(
+        () => remote.requestOtp(
+          any(),
+          any(),
+          generation: any(named: 'generation'),
+          language: any(named: 'language'),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      );
+      await finish(tester);
+    });
+  }
 
   Future<List<String>> enablePersonalVaultCreation(WidgetTester tester) async {
     await enableSaving(

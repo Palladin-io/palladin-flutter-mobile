@@ -18,6 +18,9 @@ const _session = EntryShareRecipientSession(
   expiresAt: '2026-09-22T12:00:00.123456789Z',
   recipientMode: 'namedRecipient',
   protection: 'pin',
+  shareExpiresAt: '2026-09-23T12:00:00Z',
+  maximumReceipts: 3,
+  otpRetryAfterSeconds: 39,
 );
 final _sessionJson = {
   'sessionId': _session.sessionId,
@@ -25,6 +28,9 @@ final _sessionJson = {
   'expiresAt': _session.expiresAt,
   'recipientMode': _session.recipientMode,
   'protection': _session.protection,
+  'shareExpiresAt': _session.shareExpiresAt,
+  'maximumReceipts': _session.maximumReceipts,
+  'otpRetryAfterSeconds': _session.otpRetryAfterSeconds,
 };
 final _failure = throwsA(
   isA<EntryShareRecipientRequestException>().having(
@@ -75,6 +81,9 @@ void main() {
     );
     expect(session.sessionId, _session.sessionId);
     expect(session.expiresAt, _session.expiresAt);
+    expect(session.shareExpiresAt, _session.shareExpiresAt);
+    expect(session.maximumReceipts, 3);
+    expect(session.otpRetryAfterSeconds, 39);
     final request = requests.single;
     expect(request.uri.toString(), '/api/entry-shares/$_shareId/sessions');
     expect(jsonDecode(request.body), {'accessToken': 'synthetic-access'});
@@ -85,6 +94,29 @@ void main() {
     expect(request.headers.value('x-posthog-session-id'), isNull);
     expect(request.headers.value('x-posthog-distinct-id'), isNull);
   });
+
+  test(
+    'absent presentation metadata does not replace link expiry with session expiry',
+    () async {
+      handler = (request) async {
+        final data = {..._sessionJson}
+          ..remove('shareExpiresAt')
+          ..remove('maximumReceipts')
+          ..remove('otpRetryAfterSeconds');
+        request.response.write(jsonEncode(data));
+        await request.response.close();
+      };
+      final session = await api.open(
+        _shareId,
+        'synthetic-access',
+        cancelToken: CancelToken(),
+      );
+      expect(session.shareExpiresAt, isNull);
+      expect(session.maximumReceipts, isNull);
+      expect(session.otpRetryAfterSeconds, 0);
+      expect(session.expiresAt, _session.expiresAt);
+    },
+  );
 
   test('does not accept a Set-Cookie into subsequent requests', () async {
     handler = (request) async {
@@ -137,19 +169,22 @@ void main() {
               'additiveField': true,
             }),
           );
+        } else if (request.uri.path.endsWith('/otp')) {
+          request.response.write(jsonEncode({'retryAfterSeconds': 39}));
         } else {
           request.response.statusCode = 204;
         }
         await request.response.close();
       };
       final cancel = CancelToken();
-      await api.requestOtp(
+      final cooldown = await api.requestOtp(
         _shareId,
         _session,
         generation: 2,
         language: 'pl',
         cancelToken: cancel,
       );
+      expect(cooldown, const Duration(seconds: 39));
       await api.verifyOtp(
         _shareId,
         _session,

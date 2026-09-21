@@ -117,6 +117,8 @@
   "sharingProtectionPassword": "Hasło",
   "sharingProtectionPin": "PIN",
   "sharingValidUntil": "Link ważny do",
+  "sharingOtpCountdown": "Wyślij kod za {seconds} s",
+  "sharingSharedLimitNotice": "Ten limit odbiorów jest wspólny dla wszystkich korzystających z linku.",
   "sharingReceipts": "Odbiory / limit",
   "sharingFirstDelivery": "Pierwsze wydanie paczki",
   "sharingLastDelivery": "Ostatnie wydanie paczki",

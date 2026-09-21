@@ -36,23 +36,34 @@ class EntryShareRecipientDatasource {
         expiresAt: data['expiresAt'] as String,
         recipientMode: data['recipientMode'] as String,
         protection: data['protection'] as String,
+        shareExpiresAt: data['shareExpiresAt'] as String?,
+        maximumReceipts: data['maximumReceipts'] as int?,
+        otpRetryAfterSeconds: data['otpRetryAfterSeconds'] as int? ?? 0,
       );
     } catch (_) {
       throw const EntryShareRecipientRequestException();
     }
   }
 
-  Future<void> requestOtp(
+  Future<Duration> requestOtp(
     String shareId,
     EntryShareRecipientSession session, {
     required int generation,
     required String language,
     required CancelToken cancelToken,
-  }) async => _post('${_path(shareId, session)}/otp', {
-    'sessionToken': session.sessionToken,
-    'generation': generation,
-    'language': language,
-  }, cancelToken);
+  }) async {
+    try {
+      final body = await _post('${_path(shareId, session)}/otp', {
+        'sessionToken': session.sessionToken,
+        'generation': generation,
+        'language': language,
+      }, cancelToken);
+      final data = jsonDecode(body) as Map<String, dynamic>;
+      return Duration(seconds: data['retryAfterSeconds'] as int);
+    } catch (_) {
+      throw const EntryShareRecipientRequestException();
+    }
+  }
 
   Future<void> verifyOtp(
     String shareId,

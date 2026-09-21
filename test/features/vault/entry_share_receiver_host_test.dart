@@ -123,7 +123,7 @@ void main() {
         language: any(named: 'language'),
         cancelToken: any(named: 'cancelToken'),
       ),
-    ).thenAnswer((_) async {});
+    ).thenAnswer((_) async => Duration.zero);
     remotes.add(remote);
     return remote;
   }

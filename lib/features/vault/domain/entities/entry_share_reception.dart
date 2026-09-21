@@ -7,9 +7,15 @@ final class EntryShareRecipientSession {
     required this.expiresAt,
     required this.recipientMode,
     required this.protection,
+    this.shareExpiresAt,
+    this.maximumReceipts,
+    this.otpRetryAfterSeconds = 0,
   });
 
   final String sessionId, sessionToken, expiresAt, recipientMode, protection;
+  final String? shareExpiresAt;
+  final int? maximumReceipts;
+  final int otpRetryAfterSeconds;
 }
 
 final class EntryShareDelivery {
