@@ -1,4 +1,9 @@
 {
+  "sharingAccountPending": "Udostępniony wpis czeka. Dokończ logowanie lub konfigurację konta, aby do niego wrócić.",
+  "sharingCancelReception": "Anuluj odbiór",
+  "sharingCancelAccountNotice": "Usunąć ten odbiór z pamięci? Ponowny odbiór może wymagać nowego linku. Nie odwoła to linku nadawcy ani nie anuluje konfiguracji konta.",
+  "sharingKeepReception": "Zachowaj odbiór",
+  "sharingDiscardReception": "Porzuć odbiór",
   "sharingAccountNotice": "Odbiór nie wymaga konta. Aby zapisać kopię, przejdź przez swoje konto i wróć tutaj. Tymczasowa sesja zachowuje pierwotny termin ważności; jej zamknięcie lub wylogowanie usuwa kopię.",
   "sharingRegister": "Załóż konto, aby zapisać kopię",
   "sharingLogin": "Zaloguj się, aby zapisać kopię",

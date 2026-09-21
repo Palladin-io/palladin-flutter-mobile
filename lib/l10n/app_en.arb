@@ -1,4 +1,9 @@
 {
+  "sharingAccountPending": "A shared entry is waiting. Finish signing in or setting up your account to return to it.",
+  "sharingCancelReception": "Cancel reception",
+  "sharingCancelAccountNotice": "Discard this reception from memory? You may need a new link to receive it again. This does not revoke the sender’s link or cancel your account setup.",
+  "sharingKeepReception": "Keep reception",
+  "sharingDiscardReception": "Discard reception",
   "sharingAccountNotice": "Receiving does not require an account. To save a copy, continue through your account and return here. This temporary session expires at its original deadline; closing it or signing out discards the copy.",
   "sharingRegister": "Create an account to save a copy",
   "sharingLogin": "Sign in to save a copy",

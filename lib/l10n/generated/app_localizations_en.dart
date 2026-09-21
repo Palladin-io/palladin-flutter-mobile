@@ -9,6 +9,23 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get sharingAccountPending =>
+      'A shared entry is waiting. Finish signing in or setting up your account to return to it.';
+
+  @override
+  String get sharingCancelReception => 'Cancel reception';
+
+  @override
+  String get sharingCancelAccountNotice =>
+      'Discard this reception from memory? You may need a new link to receive it again. This does not revoke the sender’s link or cancel your account setup.';
+
+  @override
+  String get sharingKeepReception => 'Keep reception';
+
+  @override
+  String get sharingDiscardReception => 'Discard reception';
+
+  @override
   String get sharingAccountNotice =>
       'Receiving does not require an account. To save a copy, continue through your account and return here. This temporary session expires at its original deadline; closing it or signing out discards the copy.';
 

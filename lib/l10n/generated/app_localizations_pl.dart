@@ -9,6 +9,23 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get sharingAccountPending =>
+      'Udostępniony wpis czeka. Dokończ logowanie lub konfigurację konta, aby do niego wrócić.';
+
+  @override
+  String get sharingCancelReception => 'Anuluj odbiór';
+
+  @override
+  String get sharingCancelAccountNotice =>
+      'Usunąć ten odbiór z pamięci? Ponowny odbiór może wymagać nowego linku. Nie odwoła to linku nadawcy ani nie anuluje konfiguracji konta.';
+
+  @override
+  String get sharingKeepReception => 'Zachowaj odbiór';
+
+  @override
+  String get sharingDiscardReception => 'Porzuć odbiór';
+
+  @override
   String get sharingAccountNotice =>
       'Odbiór nie wymaga konta. Aby zapisać kopię, przejdź przez swoje konto i wróć tutaj. Tymczasowa sesja zachowuje pierwotny termin ważności; jej zamknięcie lub wylogowanie usuwa kopię.';
 

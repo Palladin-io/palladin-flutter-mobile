@@ -98,6 +98,36 @@ abstract class AppLocalizations {
     Locale('pl'),
   ];
 
+  /// No description provided for @sharingAccountPending.
+  ///
+  /// In en, this message translates to:
+  /// **'A shared entry is waiting. Finish signing in or setting up your account to return to it.'**
+  String get sharingAccountPending;
+
+  /// No description provided for @sharingCancelReception.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel reception'**
+  String get sharingCancelReception;
+
+  /// No description provided for @sharingCancelAccountNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard this reception from memory? You may need a new link to receive it again. This does not revoke the sender’s link or cancel your account setup.'**
+  String get sharingCancelAccountNotice;
+
+  /// No description provided for @sharingKeepReception.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep reception'**
+  String get sharingKeepReception;
+
+  /// No description provided for @sharingDiscardReception.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard reception'**
+  String get sharingDiscardReception;
+
   /// No description provided for @sharingAccountNotice.
   ///
   /// In en, this message translates to:
