@@ -41,4 +41,8 @@ Embedded by `vault`.
 
 ## Entry grant field selection
 
+`GrantDetailRow.maxLines` defaults to one, preserving existing Grant cards.
+Passing null allows full wrapping for the sharing receipt's security explanation
+in Inbox; its existing label column, typography and colors remain unchanged.
+
 Grant Entry scopes retain `fieldSelectionMode` and `selectedFieldIds` separately from currently delivered `fieldIds`. Missing metadata keeps the existing field list.

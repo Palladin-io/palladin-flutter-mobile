@@ -218,10 +218,16 @@ class _StatusPill extends StatelessWidget {
 /// single-line truncated value. Shared by the org-grant (history) card and the
 /// pending-approval card so both line up identically (web `DetailRow`).
 class GrantDetailRow extends StatelessWidget {
-  const GrantDetailRow({super.key, required this.label, required this.value});
+  const GrantDetailRow({
+    super.key,
+    required this.label,
+    required this.value,
+    this.maxLines = 1,
+  });
 
   final String label;
   final String value;
+  final int? maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -244,8 +250,10 @@ class GrantDetailRow extends StatelessWidget {
         Expanded(
           child: Text(
             value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            maxLines: maxLines,
+            overflow: maxLines == null
+                ? TextOverflow.visible
+                : TextOverflow.ellipsis,
             style: TextStyle(
               color: AppColors.onSurfaceMuted(brightness),
               fontSize: 11,

@@ -9,6 +9,98 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get auditActorExternalRecipient => 'External recipient';
+
+  @override
+  String get auditGroupEntrySharing => 'Entry sharing';
+
+  @override
+  String get notifTitleEntryShareReceived => 'Shared copy received';
+
+  @override
+  String get notifSubEntryShareReceived =>
+      'The recipient’s app confirmed the first display.';
+
+  @override
+  String get notifRowShare => 'Link';
+
+  @override
+  String get notifRowConfirmation => 'Receipt';
+
+  @override
+  String get auditDetailSharing => 'Link';
+
+  @override
+  String get notifDisplayNotReadProof =>
+      'Display confirmed — not proof of reading.';
+
+  @override
+  String get auditEventEntryShareCreated => 'Sharing link created';
+
+  @override
+  String get auditEventEntryShareDelivered => 'Shared package delivered';
+
+  @override
+  String get auditEventEntryShareConfirmed => 'Display confirmed';
+
+  @override
+  String get auditEventEntryShareProtectionChanged =>
+      'Sharing protection changed';
+
+  @override
+  String get auditEventEntryShareExpired => 'Sharing link expired';
+
+  @override
+  String get auditEventEntryShareRevoked => 'Sharing link revoked';
+
+  @override
+  String get auditEventEntryShareEnded => 'Sharing ended by recipient';
+
+  @override
+  String get auditEventEntryShareSourceAccessRemoved =>
+      'Sharing source access removed';
+
+  @override
+  String auditSentenceEntryShareCreated(String actor, String entry) {
+    return '$actor created a sharing link for $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareDelivered(String actor, String entry) {
+    return '$actor received the encrypted package for $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareConfirmed(String actor, String entry) {
+    return '$actor confirmed display of $entry in their app — not proof of reading';
+  }
+
+  @override
+  String auditSentenceEntryShareProtectionChanged(String actor, String entry) {
+    return '$actor changed sharing protection for $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareExpired(String entry) {
+    return 'The sharing link for $entry expired';
+  }
+
+  @override
+  String auditSentenceEntryShareRevoked(String actor, String entry) {
+    return '$actor revoked the sharing link for $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareEnded(String actor, String entry) {
+    return '$actor ended the sharing link for $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareSourceAccessRemoved(String entry) {
+    return 'The sharing link for $entry lost access to its source';
+  }
+
+  @override
   String get sharingAccountPending =>
       'A shared entry is waiting. Finish signing in or setting up your account to return to it.';
 

@@ -6,9 +6,23 @@ Cubit now have a mounted receiver page and an app-owned ingress/router host.
 Android and iOS have native intake wired to the one-shot Dart RAM handoff.
 The explicit account continuation is wired to the existing authentication routes.
 First personal-Vault creation is wired inside the received-copy form.
-Native device/domain acceptance, real backend account/save E2E
-and Inbox/audit remain pending. Local tests
+Inbox receipt and eight-event audit presentation are implemented in EN/PL.
+Native device/domain acceptance, real backend account/save E2E,
+receipt-to-Sharing navigation and foreground Inbox repair remain pending. Local tests
 are not evidence of deployed end-to-end sharing.
+
+## Inbox and audit presentation checkpoint (2026-09-21)
+
+Localized receipt details, eight sharing audit types, external-recipient
+attribution, filters and legend are implemented. The receipt and confirmation
+sentence wrap fully at 320px/150%; identifiers use prefix/suffix and Entry labels
+use the existing unlocked local resolver. Eighteen new cases cover taxonomy,
+labels/redaction and mounted EN/PL cards/legend. Full Flutter regression:
+**1,758 PASS / two existing plugin-only skips**, including six structural budgets;
+analyze and notice verification PASS. Synthetic Inter renders were inspected in
+light/dark. These are presentation tests, not live Inbox or backend/device
+acceptance; navigation and foreground repair remain open. Full staged-tree
+Gitleaks 8.30.1 passed with the repository configuration and no allowlist changes.
 
 ## Received-copy projection
 

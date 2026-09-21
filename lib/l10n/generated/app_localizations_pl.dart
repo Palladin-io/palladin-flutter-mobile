@@ -9,6 +9,98 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get auditActorExternalRecipient => 'Odbiorca zewnętrzny';
+
+  @override
+  String get auditGroupEntrySharing => 'Udostępnianie wpisów';
+
+  @override
+  String get notifTitleEntryShareReceived => 'Odebrano udostępnioną kopię';
+
+  @override
+  String get notifSubEntryShareReceived =>
+      'Aplikacja odbiorcy potwierdziła pierwsze wyświetlenie.';
+
+  @override
+  String get notifRowShare => 'Link';
+
+  @override
+  String get notifRowConfirmation => 'Odbiór';
+
+  @override
+  String get auditDetailSharing => 'Link';
+
+  @override
+  String get notifDisplayNotReadProof =>
+      'Potwierdzono wyświetlenie — nie przeczytanie.';
+
+  @override
+  String get auditEventEntryShareCreated => 'Utworzono link udostępnienia';
+
+  @override
+  String get auditEventEntryShareDelivered => 'Wydano udostępnioną paczkę';
+
+  @override
+  String get auditEventEntryShareConfirmed => 'Potwierdzono wyświetlenie';
+
+  @override
+  String get auditEventEntryShareProtectionChanged =>
+      'Zmieniono ochronę udostępnienia';
+
+  @override
+  String get auditEventEntryShareExpired => 'Link udostępnienia wygasł';
+
+  @override
+  String get auditEventEntryShareRevoked => 'Odwołano link udostępnienia';
+
+  @override
+  String get auditEventEntryShareEnded => 'Odbiorca zakończył udostępnienie';
+
+  @override
+  String get auditEventEntryShareSourceAccessRemoved =>
+      'Utracono dostęp do źródła udostępnienia';
+
+  @override
+  String auditSentenceEntryShareCreated(String actor, String entry) {
+    return '$actor utworzył(a) link udostępnienia: $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareDelivered(String actor, String entry) {
+    return '$actor odebrał zaszyfrowaną paczkę: $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareConfirmed(String actor, String entry) {
+    return '$actor potwierdził wyświetlenie w aplikacji: $entry — nie jest to dowód przeczytania';
+  }
+
+  @override
+  String auditSentenceEntryShareProtectionChanged(String actor, String entry) {
+    return '$actor zmienił(a) ochronę udostępnienia: $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareExpired(String entry) {
+    return 'Link udostępnienia wygasł: $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareRevoked(String actor, String entry) {
+    return '$actor odwołał(a) link udostępnienia: $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareEnded(String actor, String entry) {
+    return '$actor zakończył link udostępnienia: $entry';
+  }
+
+  @override
+  String auditSentenceEntryShareSourceAccessRemoved(String entry) {
+    return 'Link udostępnienia utracił dostęp do źródła: $entry';
+  }
+
+  @override
   String get sharingAccountPending =>
       'Udostępniony wpis czeka. Dokończ logowanie lub konfigurację konta, aby do niego wrócić.';
 

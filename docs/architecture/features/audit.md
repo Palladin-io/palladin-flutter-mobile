@@ -2,6 +2,19 @@
 
 Audit log viewer — a global page plus tabs embedded in vault/entry detail.
 
+## Entry sharing activity (CVT-644, feature branch)
+
+The shared renderer, legend and Vault/Entry filters include eight `entry-share.*`
+events: created/protection-changed use info, delivered/confirmed success,
+expired/ended neutral, and revoked/source-access-removed danger. All use existing
+`AppColors` tokens and localized EN/PL labels and sentences. The external-recipient
+actor (wire ordinal 4 or `externalRecipient`) always renders as external, never
+as a locally resolved member or Agent. Delivery and confirmation remain distinct;
+confirmation explicitly does not prove human reading. Sharing sentences wrap
+without ellipsis; expanded `shareId` uses a localized label and prefix/suffix.
+Local formatter/widget tests cover both locales, including 320px/150% rendering;
+actual backend/device acceptance remains pending.
+
 - **Cubits:** `AuditLogCubit`, `EntryLogsCubit`.
 - **Pages:** `GlobalAuditLogPage` (reached under `/settings/audit`; the drawer
   item and route require `AuditView`).
