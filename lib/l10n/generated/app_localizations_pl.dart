@@ -9,6 +9,10 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get totpEntryIncomplete =>
+      'Uzupełnij wymagane pola wpisu i zapisz. TOTP nie został jeszcze zapisany.';
+
+  @override
   String get libraryEntriesHint =>
       'Wpisy — wszystkie wpisy ze skarbców. Tarcza przełącza na widok skarbców.';
 

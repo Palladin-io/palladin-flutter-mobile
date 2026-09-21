@@ -1,4 +1,5 @@
 {
+  "totpEntryIncomplete": "Uzupełnij wymagane pola wpisu i zapisz. TOTP nie został jeszcze zapisany.",
   "libraryEntriesHint": "Wpisy — wszystkie wpisy ze skarbców. Tarcza przełącza na widok skarbców.",
   "libraryVaultsHint": "Skarbce — wpisy podzielone na skarbce. Klucz przełącza na wszystkie wpisy.",
   "responseUnknownValue": "Nieznane",

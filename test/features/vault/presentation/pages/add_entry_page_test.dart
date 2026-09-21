@@ -23,6 +23,36 @@ void main() {
 
   tearDown(() => getIt.reset());
 
+  testWidgets(
+    'applying TOTP to an incomplete entry reports that it is not saved',
+    (tester) async {
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      await tester.pumpWidget(
+        const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: AddEntryPage(vaultId: 'vault'),
+        ),
+      );
+      final add = find.text(l10n.totpAdd);
+      await tester.ensureVisible(add);
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      final sheet = find.byType(BottomSheet);
+      await tester.enterText(
+        find.descendant(of: sheet, matching: find.byType(TextField)).first,
+        'JBSWY3DPEHPK3PXP',
+      );
+      await tester.tap(
+        find.descendant(of: sheet, matching: find.text(l10n.entrySaveAction)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.totpEntryIncomplete), findsOneWidget);
+      expect(find.text(l10n.totpAdd), findsNothing);
+      expect(find.byType(AddEntryPage), findsOneWidget);
+    },
+  );
+
   testWidgets('shows the explicitly selected Vault in the form header', (
     tester,
   ) async {

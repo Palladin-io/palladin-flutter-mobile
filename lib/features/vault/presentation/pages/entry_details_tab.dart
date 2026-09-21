@@ -630,6 +630,14 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   };
 
   Future<void> _submit() async {
+    if (!_canSubmit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.totpEntryIncomplete),
+        ),
+      );
+      return;
+    }
     if (_submitInFlight) return;
     _submitInFlight = true;
     try {
@@ -1546,6 +1554,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
                 const SizedBox(height: AppSpacing.section),
                 if (_type != EntryType.script) ...[
                   TotpSection(
+                    onApplied: _submit,
+                    disabled: isBusy,
                     initial: _totpFields,
                     onChanged: (fields) => setState(() => _totpFields = fields),
                   ),

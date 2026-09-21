@@ -9,6 +9,10 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get totpEntryIncomplete =>
+      'Complete the required entry fields, then save. Your TOTP has not been saved yet.';
+
+  @override
   String get libraryEntriesHint =>
       'Entries — all your entries across vaults. Use the shield to browse vaults.';
 

@@ -549,6 +549,14 @@ class _AddEntryViewState extends State<_AddEntryView> {
   }
 
   Future<void> _submit() async {
+    if (!_canSubmit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.totpEntryIncomplete),
+        ),
+      );
+      return;
+    }
     if (_reservingIcon) return;
     final supportsWebsiteIcon =
         _type == EntryType.key || _type == EntryType.credential;
@@ -793,6 +801,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
                       // 5. Two-factor authentication (not for Script).
                       if (_type != EntryType.script) ...[
                         TotpSection(
+                          onApplied: _submit,
+                          disabled: isBusy,
                           initial: _totpFields,
                           onChanged: (fields) =>
                               setState(() => _totpFields = fields),

@@ -1,4 +1,5 @@
 {
+  "totpEntryIncomplete": "Complete the required entry fields, then save. Your TOTP has not been saved yet.",
   "libraryEntriesHint": "Entries — all your entries across vaults. Use the shield to browse vaults.",
   "libraryVaultsHint": "Vaults — your entries grouped into vaults. Use the key to see all entries.",
   "responseUnknownValue": "Unknown",

@@ -98,6 +98,12 @@ abstract class AppLocalizations {
     Locale('pl'),
   ];
 
+  /// No description provided for @totpEntryIncomplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete the required entry fields, then save. Your TOTP has not been saved yet.'**
+  String get totpEntryIncomplete;
+
   /// No description provided for @libraryEntriesHint.
   ///
   /// In en, this message translates to:

@@ -274,6 +274,82 @@ void main() {
     ).called(1);
   });
 
+  testWidgets('applying TOTP saves the canonical entry without a second Save', (
+    tester,
+  ) async {
+    final harness = await pumpTab(
+      tester,
+      entry: _keyEntry(),
+      payload: {'value': secret},
+    );
+    when(
+      () => harness.canonical.update(
+        snapshot: any(named: 'snapshot'),
+        expected: any(named: 'expected'),
+        label: any(named: 'label'),
+        description: any(named: 'description'),
+        icon: any(named: 'icon'),
+        type: any(named: 'type'),
+        content: any(named: 'content'),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+        agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+        agentLabel: any(named: 'agentLabel'),
+      ),
+    ).thenAnswer(
+      (_) async => EntryEntity(
+        id: 'e1',
+        vaultId: 'v1',
+        label: 'Deploy key updated',
+        type: EntryType.key,
+        createdAt: DateTime.utc(2026, 6, 1),
+        updatedAt: DateTime.utc(2026, 7, 30),
+      ),
+    );
+
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    await enterEdit(tester);
+    final addTotp = find.text(l10n.totpAdd);
+    await tester.ensureVisible(addTotp);
+    await tester.tap(addTotp);
+    await tester.pumpAndSettle();
+    final sheet = find.byType(BottomSheet);
+    await tester.enterText(
+      find.descendant(of: sheet, matching: find.byType(TextField)).first,
+      'JBSWY3DPEHPK3PXP',
+    );
+    await tester.tap(
+      find.descendant(of: sheet, matching: find.text(l10n.entrySaveAction)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TextField), findsNothing);
+    expect(find.byKey(const ValueKey('entry-edit-footer')), findsOneWidget);
+    expect(find.text(l10n.entryChangesSaved), findsOneWidget);
+    expect(harness.cubit.hasCanonicalSnapshot, isTrue);
+    verify(
+      () => harness.canonical.update(
+        snapshot: any(named: 'snapshot'),
+        expected: any(named: 'expected'),
+        label: any(named: 'label'),
+        description: any(named: 'description'),
+        icon: any(named: 'icon'),
+        type: any(named: 'type'),
+        content: any(
+          named: 'content',
+          that: predicate<Map<String, dynamic>>(
+            (payload) =>
+                ((payload['fields'] as List).single['value']
+                    as Map)['secret'] ==
+                'JBSWY3DPEHPK3PXP',
+          ),
+        ),
+        memberPrivateKey: any(named: 'memberPrivateKey'),
+        agentVisibilityPolicy: any(named: 'agentVisibilityPolicy'),
+        agentLabel: any(named: 'agentLabel'),
+      ),
+    ).called(1);
+  });
+
   testWidgets('repeated save taps start only one canonical mutation', (
     tester,
   ) async {
