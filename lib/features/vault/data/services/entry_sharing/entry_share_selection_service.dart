@@ -138,7 +138,8 @@ final class EntryShareSelectionService {
         'algorithm': raw['algorithm'] as String,
         'digits': '${raw['digits']}',
         'period': '${raw['period']}',
-        if (issuer.isNotEmpty) 'issuer': issuer,
+        // Explicit empty issuer keeps colons in issuer-less account labels.
+        'issuer': issuer,
       },
     ).toString();
   }

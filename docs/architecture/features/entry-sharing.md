@@ -8,6 +8,41 @@ Native device/domain acceptance, save-copy/account continuation and Inbox/audit
 remain pending. Local tests
 are not evidence of deployed end-to-end sharing.
 
+## Received-copy projection (not yet wired to Save)
+
+`EntryShareCopyProjectionService` maps an independently decrypted snapshot to a
+new canonical `MemberSecret`. It preserves selected strings without trimming,
+Unicode normalization or guessed required values. Missing required fields are
+enumerated for explicit recipient completion; completion cannot override received
+fields or inject policies. An oversized title needs an explicit replacement,
+never truncation. The generated Member index must pass its own reader before a
+copy can be prepared, so unsupported input cannot create an unreadable index.
+
+All field policies are `never`, Discovery is disabled, custom field identities
+are fresh, and source icons, grants, memberships, history and Script references
+are absent. A Script needs a recipient-provided execution description; its new
+execution metadata has no parameters/references and does not return results to
+Agents. This does **not** exclude existing members or fully trusted FULL Agents
+of the destination Vault; the future destination picker must explain that access.
+
+`EntryShareTotpCodec` converts native and custom TOTP into canonical configuration
+maps without permissive algorithm fallback or label normalization. Duplicate or
+unsupported parameters, conflicting issuer labels and unsupported values reject
+the copy with a value-free typed error, never silently drop the field. URI labels
+are decoded once. The sender now explicitly includes even an empty issuer so an
+issuer-less account containing a colon survives its mobile roundtrip.
+
+Thirty-two local cases cover all four Entry types, incomplete snapshots, private
+policies, independent custom identities, exact TOTP configuration/labels and
+native libsodium encryption/decryption with different fresh Entry DEKs. These
+prove projection and crypto composition only: destination authority, canonical
+create HTTP/exact retry, lifecycle cancellation, mounted Save/account continuation
+and cross-client HTTP acceptance remain required. This service is not yet called
+by the receiver page and does not establish limit=1 end-to-end acceptance.
+Projection checkpoint (2026-09-21): full Flutter suite **1,588 PASS / two existing
+plugin-only skips**, analyze, notices and six structural budgets PASS. No CI,
+native app build or deployment was run.
+
 ## Guest reception boundary
 
 `EntryShareRecipientDatasource` owns a separate Dio/IO transport, never the
