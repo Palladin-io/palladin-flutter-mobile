@@ -43,6 +43,54 @@ Projection checkpoint (2026-09-21): full Flutter suite **1,588 PASS / two existi
 plugin-only skips**, analyze, notices and six structural budgets PASS. No CI,
 native app build or deployment was run.
 
+## Received-copy save boundary (UI wiring pending)
+
+`EntryShareCopyService` composes the private projector with existing Vault/Entry
+crypto and canonical creation routes. Destination wrappers bind to the selected
+Vault, captured organization/principal and independently returned current key
+epoch/member generation; metadata revision binds to the top-level Vault revision.
+It obtains a server creation challenge and seals revision one with a fresh Entry
+DEK. No source key, Agent policy or sharing-delivery request is reused.
+
+`EntryShareCopyDatasource` owns an isolated transport, not the authenticated Dio
+singleton. A request captures one token only after checking the original RAM key
+generation and compares its principal/organization/authorization claims with the
+flow owner. It neither refreshes tokens nor retries or follows redirects. Shared
+`EntryShareHttpClient` provides bounded streams, configured certificate pinning
+and value-free errors to both guest and copy datasources; guest operations still
+never supply account authentication. Vault/challenge/create response budgets are
+256 KiB/4 KiB/16 KiB, respectively.
+
+Preparation wipes copied private/Vault/discovery keys on failure, cancellation
+and completion, including late crypto results. A prepared copy retains only its
+exact encrypted request and structural destination/owner in RAM. Explicit retry
+reuses that request and challenge ID. AutoFill is invalidated before a write; an
+uncertain outcome leaves it invalidated. A failed cache rebuild cannot turn a
+confirmed create into another Entry. Canonical Entry sealing now also wipes its
+new DEK and any allocated plaintext buffers when descriptor/projection building
+throws before encryption starts.
+
+`EntryShareCopyCubit` requires the original reception lifetime and captured
+authenticated owner. Construction sends nothing. Save/retry block duplicate taps
+synchronously; all awaited work is fenced by owner, epoch and original deadline.
+After preparation it drops the snapshot and retains only the encrypted retry.
+Clear closes its owned service, cancels requests, wipes private-key copies and
+disposes the prepared request. An invalidated flow cannot rebind to another
+account or renew its deadline. The future host must wire clear to lock,
+background, route departure and auth/key changes and must create a fresh service
+per flow, not close a shared singleton.
+
+Tests use real loopback HTTP and native libsodium for decryptable canonical
+creates, byte-identical retry after socket loss, scope/version substitutions,
+session replacement, cancellation and Cubit lifecycle. The loopback server is a
+synthetic contract fixture, not the Palladin backend. This is not yet connected
+to the receiver Save CTA, destination picker or account continuation; mounted
+limit=1 and actual HTTP/device end-to-end acceptance remain required.
+
+Save-boundary checkpoint (2026-09-21): **44 new cases; full Flutter 1,632 PASS /
+two existing plugin-only skips**, analyze, notices and six structural budgets
+PASS. No CI, native app build or deployment was run.
+
 ## Guest reception boundary
 
 `EntryShareRecipientDatasource` owns a separate Dio/IO transport, never the
