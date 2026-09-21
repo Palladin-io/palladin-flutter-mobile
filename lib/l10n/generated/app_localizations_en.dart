@@ -9,6 +9,21 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get entryConflictTitle => 'Entry changed elsewhere';
+
+  @override
+  String get entryConflictDraftKept =>
+      'This entry changed elsewhere. Your changes, including TOTP, are still here. Save again to review the overwrite confirmation.';
+
+  @override
+  String get entryConflictOverwrite =>
+      'Save this entire form over the latest version? Changes made elsewhere, including access settings, will be replaced.';
+
+  @override
+  String get totpEntryIncomplete =>
+      'Complete the required entry fields, then save. Your TOTP has not been saved yet.';
+
+  @override
   String get libraryEntriesHint =>
       'Entries — all your entries across vaults. Use the shield to browse vaults.';
 

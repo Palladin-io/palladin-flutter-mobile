@@ -398,11 +398,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     bool editAfter = false,
     EntryEntity? expected,
     bool forceRemote = false,
+    bool preserveDraft = false,
   }) async {
     if (context.read<EditEntryCubit>().state is EditEntryRevealing) return;
     final recoveringFromConflict =
         context.read<EditEntryCubit>().state is EditEntryConflict;
-    if (recoveringFromConflict) {
+    if (recoveringFromConflict && !preserveDraft) {
+      if (_editMode && _populated) return;
       setState(_clearPlaintextState);
     }
     final auth = context.read<AuthBloc>().state;
@@ -424,7 +426,13 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     if (!mounted || context.read<EditEntryCubit>().state is! EditEntryReady) {
       return;
     }
-    if (editAfter) _enterEditMode();
+    if (preserveDraft) {
+      final ready = context.read<EditEntryCubit>().state as EditEntryReady;
+      _revealedEntry = ready.entry;
+      _payload = Map<String, dynamic>.from(ready.payload);
+    } else if (editAfter) {
+      _enterEditMode();
+    }
   }
 
   void _enterEditMode() {
@@ -630,13 +638,65 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   };
 
   Future<void> _submit() async {
+    if (!_canSubmit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.totpEntryIncomplete),
+        ),
+      );
+      return;
+    }
     if (_submitInFlight) return;
     _submitInFlight = true;
     try {
+      if (context.read<EditEntryCubit>().state is EditEntryConflict &&
+          !await _confirmConflictRetry()) {
+        return;
+      }
+      if (!mounted) return;
       await _submitOnce();
     } finally {
       _submitInFlight = false;
     }
+  }
+
+  Future<bool> _confirmConflictRetry() async {
+    final l10n = AppLocalizations.of(context)!;
+    final epoch = _plaintextEpoch;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.entryConflictTitle),
+        content: Text(l10n.entryConflictOverwrite),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.vaultCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l10n.entrySaveAction),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || epoch != _plaintextEpoch) return false;
+    await _requestReveal(
+      // The user explicitly chose the latest authenticated head as the new base.
+      expected: EntryEntity(
+        id: widget.entry.id,
+        vaultId: widget.entry.vaultId,
+        label: widget.entry.label,
+        type: widget.entry.type,
+        createdAt: widget.entry.createdAt,
+        updatedAt: widget.entry.updatedAt,
+      ),
+      forceRemote: true,
+      preserveDraft: true,
+    );
+    return mounted &&
+        epoch == _plaintextEpoch &&
+        context.read<EditEntryCubit>().state is EditEntryReady;
   }
 
   Future<void> _submitOnce() async {
@@ -908,7 +968,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
               onRetry: () => _requestReveal(forceRemote: true),
             );
           }
-          if (state is EditEntryConflict) {
+          if (state is EditEntryConflict && !_populated) {
             return _RevealError(
               message: l10n.entryErrorConflict,
               onRetry: () => _requestReveal(editAfter: true, forceRemote: true),
@@ -1475,7 +1535,10 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   ) {
     final accentColor = VaultVisuals.colorFor(_colorHex);
     final isLoading =
-        state is EditEntryLoading || _uploadingIcon || _reservingIcon;
+        state is EditEntryLoading ||
+        state is EditEntryRevealing ||
+        _uploadingIcon ||
+        _reservingIcon;
     final isBusy = isLoading || _pickingIcon;
     final canSubmit = !isBusy && _canSubmit;
 
@@ -1546,6 +1609,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
                 const SizedBox(height: AppSpacing.section),
                 if (_type != EntryType.script) ...[
                   TotpSection(
+                    onApplied: _submit,
+                    disabled: isBusy,
                     initial: _totpFields,
                     onChanged: (fields) => setState(() => _totpFields = fields),
                   ),
@@ -1563,6 +1628,16 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
                   controller: _notesController,
                   initiallyVisible: _notesController.text.trim().isNotEmpty,
                 ),
+                if (state is EditEntryConflict) ...[
+                  const SizedBox(height: AppSpacing.fieldGap),
+                  Text(
+                    l10n.entryConflictDraftKept,
+                    style: const TextStyle(
+                      color: AppColors.brandRed,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
                 if (state is EditEntryError) ...[
                   const SizedBox(height: AppSpacing.fieldGap),
                   Text(

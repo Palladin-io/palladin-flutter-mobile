@@ -1,4 +1,9 @@
 {
+  "entryConflictTitle": "Wpis zmieniony w innym miejscu",
+  "entryConflictDraftKept": "Wpis zmienił się w innym miejscu. Twoje zmiany, w tym TOTP, pozostały w formularzu. Kliknij Zapisz ponownie, aby przejść do potwierdzenia nadpisania.",
+  "entryConflictOverwrite": "Zapisać cały formularz zamiast najnowszej wersji? Zmiany wprowadzone w innym miejscu, w tym ustawienia dostępu, zostaną zastąpione.",
+
+  "totpEntryIncomplete": "Uzupełnij wymagane pola wpisu i zapisz. TOTP nie został jeszcze zapisany.",
   "libraryEntriesHint": "Wpisy — wszystkie wpisy ze skarbców. Tarcza przełącza na widok skarbców.",
   "libraryVaultsHint": "Skarbce — wpisy podzielone na skarbce. Klucz przełącza na wszystkie wpisy.",
   "responseUnknownValue": "Nieznane",

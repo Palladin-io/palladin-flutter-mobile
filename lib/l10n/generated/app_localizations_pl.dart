@@ -9,6 +9,21 @@ class AppLocalizationsPl extends AppLocalizations {
   AppLocalizationsPl([String locale = 'pl']) : super(locale);
 
   @override
+  String get entryConflictTitle => 'Wpis zmieniony w innym miejscu';
+
+  @override
+  String get entryConflictDraftKept =>
+      'Wpis zmienił się w innym miejscu. Twoje zmiany, w tym TOTP, pozostały w formularzu. Kliknij Zapisz ponownie, aby przejść do potwierdzenia nadpisania.';
+
+  @override
+  String get entryConflictOverwrite =>
+      'Zapisać cały formularz zamiast najnowszej wersji? Zmiany wprowadzone w innym miejscu, w tym ustawienia dostępu, zostaną zastąpione.';
+
+  @override
+  String get totpEntryIncomplete =>
+      'Uzupełnij wymagane pola wpisu i zapisz. TOTP nie został jeszcze zapisany.';
+
+  @override
   String get libraryEntriesHint =>
       'Wpisy — wszystkie wpisy ze skarbców. Tarcza przełącza na widok skarbców.';
 

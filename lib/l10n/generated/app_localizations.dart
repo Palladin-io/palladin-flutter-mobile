@@ -98,6 +98,30 @@ abstract class AppLocalizations {
     Locale('pl'),
   ];
 
+  /// No description provided for @entryConflictTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry changed elsewhere'**
+  String get entryConflictTitle;
+
+  /// No description provided for @entryConflictDraftKept.
+  ///
+  /// In en, this message translates to:
+  /// **'This entry changed elsewhere. Your changes, including TOTP, are still here. Save again to review the overwrite confirmation.'**
+  String get entryConflictDraftKept;
+
+  /// No description provided for @entryConflictOverwrite.
+  ///
+  /// In en, this message translates to:
+  /// **'Save this entire form over the latest version? Changes made elsewhere, including access settings, will be replaced.'**
+  String get entryConflictOverwrite;
+
+  /// No description provided for @totpEntryIncomplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete the required entry fields, then save. Your TOTP has not been saved yet.'**
+  String get totpEntryIncomplete;
+
   /// No description provided for @libraryEntriesHint.
   ///
   /// In en, this message translates to:
