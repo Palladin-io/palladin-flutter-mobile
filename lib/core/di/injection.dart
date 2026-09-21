@@ -138,6 +138,7 @@ import '../../features/vault/presentation/cubit/create_vault_cubit.dart';
 import '../../features/vault/presentation/cubit/edit_entry_cubit.dart';
 import '../../features/vault/presentation/cubit/entry_agents_cubit.dart';
 import '../../features/vault/presentation/cubit/entry_list_cubit.dart';
+import '../../features/vault/presentation/cubit/global_entries_cubit.dart';
 import '../../features/vault/presentation/cubit/entry_archive_cubit.dart';
 import '../../features/vault/presentation/cubit/recently_deleted_cubit.dart';
 import '../../features/vault/presentation/cubit/agent_discovery_cubit.dart';
@@ -563,11 +564,14 @@ void configureDependencies(EnvConfig config) {
 
   // Entry — presentation layer (factory: fresh cubit per page mount so
   // stale loading / reveal state never leaks across vaults).
-  //
-  // `param2` is the optional base64 sealed VK threaded down from the
-  // vault detail load — when provided, [revealEntry] skips the extra
-  // `GET /api/vaults/{id}` round-trip. Pass `null` and call
-  // `cubit.updateWrappedVK(...)` once the vault loads to wire it in.
+  getIt.registerFactory<GlobalEntriesCubit>(
+    () => GlobalEntriesCubit(
+      index: getIt<MemberSyncService>(),
+      loader: getIt<MemberEntryListService>(),
+      indexUpdates: getIt<MemberSyncService>().indexUpdates,
+    ),
+  );
+  // `param2` carries the sealed VK from Vault detail to avoid a redundant fetch.
   getIt.registerFactoryParam<EntryListCubit, String, String?>(
     (vaultId, wrappedVK) => EntryListCubit(
       repository: getIt<EntryRepository>(),

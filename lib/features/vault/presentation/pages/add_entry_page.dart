@@ -9,6 +9,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_screen.dart';
+import '../../../../core/widgets/app_bar_title.dart';
 import '../../../../core/widgets/app_toggle.dart';
 import '../../../../core/widgets/icon_color_browser_sheet.dart';
 import '../../../../core/widgets/warning_zone.dart';
@@ -47,9 +48,15 @@ import '../widgets/vault_visuals.dart';
 /// opaque authenticated ciphertext is uploaded and the entry is patched with
 /// the encrypted-asset reference. Plain image bytes never leave the client.
 class AddEntryPage extends StatelessWidget {
-  const AddEntryPage({super.key, required this.vaultId, this.wrappedVK});
+  const AddEntryPage({
+    super.key,
+    required this.vaultId,
+    this.vaultName,
+    this.wrappedVK,
+  });
 
   final String vaultId;
+  final String? vaultName;
 
   /// Base64 sealed VK from the parent vault detail screen — when
   /// supplied, the create-entry pipeline avoids a redundant
@@ -60,11 +67,16 @@ class AddEntryPage extends StatelessWidget {
   static Future<EntryEntity?> push(
     BuildContext context, {
     required String vaultId,
+    String? vaultName,
     String? wrappedVK,
   }) {
     return Navigator.of(context, rootNavigator: true).push<EntryEntity>(
       MaterialPageRoute(
-        builder: (_) => AddEntryPage(vaultId: vaultId, wrappedVK: wrappedVK),
+        builder: (_) => AddEntryPage(
+          vaultId: vaultId,
+          vaultName: vaultName,
+          wrappedVK: wrappedVK,
+        ),
       ),
     );
   }
@@ -73,15 +85,20 @@ class AddEntryPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider<CreateEntryCubit>(
       create: (_) => getIt<CreateEntryCubit>(),
-      child: _AddEntryView(vaultId: vaultId, wrappedVK: wrappedVK),
+      child: _AddEntryView(
+        vaultId: vaultId,
+        vaultName: vaultName,
+        wrappedVK: wrappedVK,
+      ),
     );
   }
 }
 
 class _AddEntryView extends StatefulWidget {
-  const _AddEntryView({required this.vaultId, this.wrappedVK});
+  const _AddEntryView({required this.vaultId, this.vaultName, this.wrappedVK});
 
   final String vaultId;
+  final String? vaultName;
   final String? wrappedVK;
 
   @override
@@ -685,13 +702,11 @@ class _AddEntryViewState extends State<_AddEntryView> {
               onPressed: isBusy ? null : () => Navigator.of(context).pop(),
               tooltip: l10n.vaultCancel,
             ),
-            title: Text(
-              l10n.entryAddTitle,
-              style: TextStyle(
-                color: AppColors.onSurface(brightness),
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
+            titleSpacing: 0,
+            centerTitle: false,
+            title: AppBarTitle(
+              title: l10n.entryAddTitle,
+              subtitle: widget.vaultName,
             ),
           ),
           body: Column(

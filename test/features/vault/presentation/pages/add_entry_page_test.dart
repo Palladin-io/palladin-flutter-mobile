@@ -23,6 +23,22 @@ void main() {
 
   tearDown(() => getIt.reset());
 
+  testWidgets('shows the explicitly selected Vault in the form header', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AddEntryPage(vaultId: 'work-vault', vaultName: 'Work'),
+      ),
+    );
+    expect(find.text('Work'), findsOneWidget);
+    final appBar = tester.widget<AppBar>(find.byType(AppBar));
+    expect(appBar.centerTitle, isFalse);
+    expect(appBar.titleSpacing, 0);
+  });
+
   testWidgets(
     'credit card number is masked without dedicated CVV or PIN fields',
     (tester) async {

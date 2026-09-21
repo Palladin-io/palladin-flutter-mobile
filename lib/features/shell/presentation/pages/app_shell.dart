@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/widgets/app_brand_background.dart';
+import '../../../../core/widgets/app_fab_toast.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -12,11 +13,12 @@ import '../../../approval/presentation/cubit/pending_grants_cubit.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../notifications/presentation/cubit/notification_center_cubit.dart';
 import '../widgets/app_bottom_nav.dart';
+import '../cubit/library_view_cubit.dart';
 import '../widgets/settings_drawer.dart';
 import 'fab_ownership_stack.dart';
 
 /// Top-level scaffold that wraps the five authenticated tabs (Home,
-/// Vaults, Agents, Audit, Settings) with a persistent
+/// Entries, Agents, Inbox, Settings) with a persistent
 /// [BottomNavigationBar].
 ///
 /// The Settings tab is special: instead of navigating to a dedicated
@@ -42,6 +44,12 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _fabToastKey = GlobalKey<AppFabToastState>();
+  late final ValueChanged<String> _showFabToastRef = _showFabToast;
+
+  void _showFabToast(String message) {
+    _fabToastKey.currentState?.show(message);
+  }
   bool _isBottomNavHidden = false;
 
   /// Ownership stack of FAB registrations. The shell renders the top
@@ -126,6 +134,7 @@ class _AppShellState extends State<AppShell> {
       setBottomNavHidden: _setBottomNavHiddenRef,
       setFab: _setFabRef,
       clearFab: _clearFabRef,
+      showFabToast: _showFabToastRef,
       child: AppBrandBackground(
         child: Scaffold(
           key: _scaffoldKey,
@@ -137,7 +146,13 @@ class _AppShellState extends State<AppShell> {
           // register their FAB via [AppShellScope.setFab] (typically by
           // dropping a `FabRegistrar` into the page body).
           floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-          floatingActionButton: _isBottomNavHidden ? null : _fab,
+          floatingActionButton: _isBottomNavHidden
+              ? null
+              : AppFabToast(
+                  key: _fabToastKey,
+                  fab: _fab,
+                  enabled: location == '/entries' || location == '/vaults',
+                ),
           // Keep the nav always mounted and slide it off-screen vertically
           // when hidden — `AnimatedSlide` translates the widget without
           // removing it from the tree, so the slide-out matches the
@@ -168,7 +183,9 @@ class _AppShellState extends State<AppShell> {
   }
 
   int _tabIndex(String location) {
-    if (location.startsWith('/vaults')) return AppBottomNav.tabVaults;
+    if (location.startsWith('/vaults') || location == '/entries') {
+      return AppBottomNav.tabEntries;
+    }
     if (location.startsWith('/agents')) return AppBottomNav.tabAgents;
     if (location.startsWith('/inbox') || location.startsWith('/approvals')) {
       return AppBottomNav.tabInbox;
@@ -176,7 +193,7 @@ class _AppShellState extends State<AppShell> {
     return AppBottomNav.tabHome;
   }
 
-  void _onTap(BuildContext context, int index) {
+  void _onTap(BuildContext context, int index) async {
     if (index == AppBottomNav.tabSettings) {
       _openSettingsDrawer();
       return;
@@ -194,8 +211,14 @@ class _AppShellState extends State<AppShell> {
       case AppBottomNav.tabHome:
         context.go('/', extra: direction);
         break;
-      case AppBottomNav.tabVaults:
-        context.go('/vaults', extra: direction);
+      case AppBottomNav.tabEntries:
+        final preference = context.read<LibraryViewCubit>();
+        final location = GoRouterState.of(context).uri;
+        await preference.ready;
+        if (!context.mounted || GoRouterState.of(context).uri != location) {
+          return;
+        }
+        context.go(preference.route, extra: direction);
         break;
       case AppBottomNav.tabAgents:
         context.go('/agents', extra: direction);
@@ -230,6 +253,7 @@ class AppShellScope extends InheritedWidget {
     required this.setBottomNavHidden,
     required this.setFab,
     required this.clearFab,
+    this.showFabToast,
     required super.child,
   });
 
@@ -254,6 +278,7 @@ class AppShellScope extends InheritedWidget {
   /// next FAB down the ownership stack (the covered page's) becomes
   /// visible again. [FabRegistrar] calls this on dispose.
   final ClearFabCallback clearFab;
+  final ValueChanged<String>? showFabToast;
 
   /// Looks up the nearest [AppShellScope]. Throws if no shell is
   /// mounted above [context] — call sites should be reachable only
@@ -272,5 +297,6 @@ class AppShellScope extends InheritedWidget {
       openSettingsDrawer != oldWidget.openSettingsDrawer ||
       setBottomNavHidden != oldWidget.setBottomNavHidden ||
       setFab != oldWidget.setFab ||
-      clearFab != oldWidget.clearFab;
+      clearFab != oldWidget.clearFab ||
+      showFabToast != oldWidget.showFabToast;
 }

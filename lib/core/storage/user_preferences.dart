@@ -10,14 +10,23 @@ class UserPreferences {
 
   static const _themeKey = 'ui_theme_mode';
   static const _localeKey = 'ui_locale';
+  static const _libraryKey = 'ui_library_view';
+
+  Future<bool> get libraryEntries async =>
+      await _storage.read(key: _libraryKey) != 'vaults';
+
+  Future<void> saveLibraryEntries(bool entries) =>
+      _storage.write(key: _libraryKey, value: entries ? 'entries' : 'vaults');
 
   Future<ThemeMode> get themeMode async {
     final value = await _storage.read(key: _themeKey);
     return value == 'light' ? ThemeMode.light : ThemeMode.dark;
   }
 
-  Future<void> saveThemeMode(ThemeMode mode) =>
-      _storage.write(key: _themeKey, value: mode == ThemeMode.light ? 'light' : 'dark');
+  Future<void> saveThemeMode(ThemeMode mode) => _storage.write(
+    key: _themeKey,
+    value: mode == ThemeMode.light ? 'light' : 'dark',
+  );
 
   Future<Locale> get locale async {
     final value = await _storage.read(key: _localeKey);

@@ -26,7 +26,41 @@ Vault and entry management — the largest feature. List, detail, create, edit; 
 - `PalladinApp` clears all decrypted indexes on lock and purges the whole current-entry profile on logout. An unexpired policy context can reopen the complete encrypted generation offline; expiry or more than five minutes of wall-clock rollback purges it. `disabled` policy is usable only in the connected unlocked session. Foreground, unlock, SignalR reconnect and value-free Vault invalidations request authoritative repair. `durableUpdates` fires only after the snapshot plus closing delta or a delta is durably committed, and is the handoff consumed by the native AutoFill follow-up.
 - `MemberIndexPreparationService` is the session-scoped single-flight boundary shared by Dashboard search and AutoFill. Concurrent unlock consumers share one Vault-list load and one Member sync chain per Vault. The independently loaded `memberVaultKey` wrapper from the Vault list is compared with every sync page, avoiding a `GET /api/vaults/{id}` fan-out. Copied private keys, opened VKs and in-flight preparation generations are invalidated on lock; key copies are wiped in `finally` paths.
 
-### Dashboard global search
+### Global Entries library
+
+`/vaults` and `/entries` share the library page identity and highlight the same
+Entries bottom-navigation item (key icon). Tapping that item restores the last
+explicit switch choice from `LibraryViewCubit`, defaulting to Entries;
+Settings and the other destinations are unchanged.
+The shared `VaultLibrarySwitch` is a compact key/shield icon control in the
+header's trailing actions, beside the title and total count. It stays pinned
+with the header; search is the first scrolling sliver, without a separate
+segment row. `AppSegmentedControl` also backs Inbox, and `EntryListIcon` is shared
+by the global and per-Vault Entry lists.
+
+Switching shows a localized toast explaining the selected view and the other
+icon. The shared shell `AppFabToast` fades out the FAB, shows the hint in the
+same bottom action area for four seconds, then fades back to the current FAB.
+Both library views register `AppFab.shell`, sharing the established right/bottom
+insets used by other screens. The remembered view is a
+device-local UI preference and persists no decrypted library content.
+
+Global Entries joins the accessible Vault list with active, non-corrupt runtime
+MemberIndex records. Search is the only exposed filter and alphabetical ordering
+stays local. Sliver list
+rendering is lazy, while the full supported index remains searchable. Per-Vault
+sync failures are isolated; index invalidations re-read the authoritative runtime
+projection, and lock/disposal fences late completions and wipes borrowed key
+copies. No MemberSecret is opened for list rendering.
+
+The Add Entry FAB opens a searchable Vault bottom sheet before invoking the
+existing `AddEntryPage` with the selected Vault ID and a visible Vault-name
+subtitle in its header. The sheet dismisses on lock,
+shows list errors, and offers first-Vault creation when no Vault exists. Pushed
+creation/details return to the global list. Search/scroll controllers belong to
+the library route and are cleared on lock even while the Vaults segment is active.
+
+### Dashboard global search behavior
 
 - Vault and Entry hits are derived only from the unlocked `VaultListCubit`
   metadata and `MemberIndexReader`; recent Entry suggestions use the same
@@ -257,9 +291,8 @@ owned buffers and clears Flutter's pending/live image cache. Legacy Vault and
 Entry presign/public-URL upload paths are intentionally absent.
 
 **⚠ Architecture smells:**
-- `VaultListPage` keeps its custom header layout, but now shares `AppBrandBackground` with the other tabs.
 - `VaultDetailPage` / `EntryDetailPage` use `AppBrandBackground + DefaultTabController + Scaffold + AppBar` instead of `AppScreen.appBar(...)` (justified by the `PreferredSize` tab-bar height, but still skips the abstraction).
-- `_SkeletonCard` (vault_list) and `_SkeletonRow` (vault_entries_tab) reimplement `SkeletonBox` — replace.
+- `_SkeletonRow` (vault_entries_tab) reimplements `SkeletonBox` — replace.
 - AppBar titles duplicate the `AppBarTitle` pattern (see the Shared Widget Catalog in [../../../CLAUDE.md](../../../CLAUDE.md)).
 
 ## Entry grant field selection

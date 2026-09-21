@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/widgets/primary_button_glow.dart';
+import '../../../../core/widgets/app_segmented_control.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -781,123 +781,24 @@ class _SegmentToggle extends StatelessWidget {
     required this.todoCount,
     required this.onChanged,
   });
-
   final InboxSegment segment;
   final int todoCount;
   final ValueChanged<InboxSegment> onChanged;
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final brightness = Theme.of(context).brightness;
-    return Container(
-      // Matches the search bar height so every under-title control lines up.
-      height: AppSpacing.controlHeight,
-      // Segmented-control track inset — a fixed component dimension, not a
-      // layout gap, so it stays raw (no semantic token of this size).
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: AppColors.cardFill(brightness),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.cardBorder(brightness)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _SegmentButton(
-            label: l10n.inboxSegAll,
-            selected: segment == InboxSegment.all,
-            onTap: () => onChanged(InboxSegment.all),
-          ),
-          _SegmentButton(
-            label: l10n.inboxTodo,
-            badge: todoCount > 0 ? todoCount : null,
-            selected: segment == InboxSegment.todo,
-            onTap: () => onChanged(InboxSegment.todo),
-          ),
-          _SegmentButton(
-            label: l10n.inboxHistory,
-            selected: segment == InboxSegment.history,
-            onTap: () => onChanged(InboxSegment.history),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SegmentButton extends StatelessWidget {
-  const _SegmentButton({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.badge,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final int? badge;
-
-  @override
-  Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final fg = selected
-        ? AppColors.onBrandRed
-        : AppColors.onSurfaceMuted(brightness);
-    return Expanded(
-      child: PrimaryButtonGlow(
-        enabled: selected,
-        radius: 8,
-        child: Material(
-          color: selected ? AppColors.brandRed : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(8),
-            // Cell is stretched to the track height — center the label so the
-            // selected pill fills the full height with the text centred.
-            child: Center(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: fg,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (badge != null) ...[
-                    const SizedBox(width: AppSpacing.chipGap),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? AppColors.onBrandRed.withValues(alpha: 0.25)
-                            : AppColors.brandRed,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '$badge',
-                        style: const TextStyle(
-                          color: AppColors.onBrandRed,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
+    return AppSegmentedControl<InboxSegment>(
+      value: segment,
+      onChanged: onChanged,
+      options: [
+        AppSegment(value: InboxSegment.all, label: l10n.inboxSegAll),
+        AppSegment(
+          value: InboxSegment.todo,
+          label: l10n.inboxTodo,
+          badge: todoCount > 0 ? todoCount : null,
         ),
-      ),
+        AppSegment(value: InboxSegment.history, label: l10n.inboxHistory),
+      ],
     );
   }
 }
