@@ -107,7 +107,7 @@ class _EntryShareAccountFrameState extends State<EntryShareAccountFrame> {
                 )
               else
                 const SizedBox.shrink(),
-              Expanded(child: child!),
+              Expanded(child: ClipRect(child: child!)),
             ],
           ),
         ),
