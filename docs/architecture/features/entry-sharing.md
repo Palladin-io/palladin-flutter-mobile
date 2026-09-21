@@ -252,6 +252,44 @@ plugin-only skips**, including all six structural budgets; analyze, third-party
 notice verification and staged-tree Gitleaks 8.30.1 PASS. No CI, native app build,
 merge or deployment ran.
 
+### Combined guest registration, verification and copy acceptance
+
+The same production-router test now also mounts the real `RegisterPage`,
+`RegisterCubit`, password KDF/crypto, recovery backup/confirmation,
+`VerifyEmailPage`/Cubit and `DefaultVaultProvisioner`. Three added cases cover
+successful verification, a still-pending email claim and a failed refresh followed
+by explicit retry. Signup and Vault/Entry requests use real loopback HTTP;
+the server, session-claim refresh, token storage, HIBP and native channel remain
+synthetic. No real email or backend authentication is claimed.
+
+After the email-app background/foreground sequence, verification creates the
+first encrypted Vault and returns to the same reception lifetime. All cases
+retain exactly one open, delivery and confirmation; the fixture rejects a second
+delivery. Destination selection, missing username completion and Save remain
+explicit. The new private Entry is independently decrypted. Neither recovery
+words, the master password nor the private key occur in captured request bodies.
+Pending/failed verification cannot provision the Vault or bypass the gate.
+
+Two additional EN 390px/light and PL 320px/dark/150% cases edit registration above
+the keyboard and discard reception without remounting or erasing the account
+form. They reproduced a horizontal sign-in prompt overflow and an oversized
+pinned header that obscured the email input. Registration now wraps the prompt
+and scrolls its header with the form; a separate reduced-height scaffold
+regression reproduced the original vertical overflow. Other pinned-action
+variants retain their behavior.
+
+This extends client-composition evidence, not live signup/mail/device acceptance.
+Combined unlock/OAuth onboarding, actual backend receipt accounting and the
+deployed test environment remain open release gates.
+
+Registration checkpoint (2026-09-21): **six new cases; 1,827 Flutter PASS / two
+existing plugin-only skips**, including six structural budgets; analyze,
+third-party notices and full staged-tree Gitleaks 8.30.1 PASS. All eight combined
+cases also pass with a supplied Inter font. EN/PL initial and keyboard captures
+were inspected for form geometry; the unthemed RichText wordmark still uses the
+widget harness's default block font, so these are not full visual approval or
+native-device evidence. No CI, native app build, merge or deployment ran.
+
 ### One-shot account transfer and explicit account continuation
 
 `EntryShareReceptionCubit.detachForAccount()` validates the original owner before

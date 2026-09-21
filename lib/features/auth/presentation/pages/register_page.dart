@@ -328,8 +328,9 @@ class _CredentialsStepState extends State<_CredentialsStep> {
 
   Widget _signInRow(BuildContext context, AppLocalizations l10n) {
     final brightness = Theme.of(context).brightness;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: AppSpacing.xs,
       children: [
         Text(
           l10n.authRegisterHaveAccount,
@@ -338,7 +339,6 @@ class _CredentialsStepState extends State<_CredentialsStep> {
             color: AppColors.onSurfaceSubtle(brightness),
           ),
         ),
-        const SizedBox(width: AppSpacing.xs),
         GestureDetector(
           onTap: () => context.go('/login'),
           child: Text(

@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' show DynamicLibrary;
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:bloc_test/bloc_test.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,15 +20,26 @@ import 'package:mobile_palladin/core/di/injection.dart';
 import 'package:mobile_palladin/core/permissions.dart';
 import 'package:mobile_palladin/core/router/app_router.dart';
 import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
+import 'package:mobile_palladin/core/theme/app_colors.dart';
 import 'package:mobile_palladin/core/widgets/primary_button.dart';
 import 'package:mobile_palladin/core/widgets/skeleton_box.dart';
 import 'package:mobile_palladin/features/auth/domain/repositories/auth_repository.dart';
+import 'package:mobile_palladin/features/auth/data/datasources/password_auth_remote_datasource.dart';
+import 'package:mobile_palladin/features/auth/data/services/hibp_service.dart';
+import 'package:mobile_palladin/features/auth/data/services/password_auth_crypto_service.dart';
 import 'package:mobile_palladin/features/auth/domain/password_auth_exceptions.dart';
 import 'package:mobile_palladin/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_palladin/features/auth/presentation/cubit/login_cubit.dart';
+import 'package:mobile_palladin/features/auth/presentation/cubit/register_cubit.dart';
+import 'package:mobile_palladin/features/auth/presentation/cubit/verify_email_cubit.dart';
 import 'package:mobile_palladin/features/auth/presentation/pages/login_page.dart';
+import 'package:mobile_palladin/features/auth/presentation/pages/register_page.dart';
+import 'package:mobile_palladin/features/auth/presentation/pages/verify_email_page.dart';
 import 'package:mobile_palladin/features/autofill/data/autofill_mutation_notifier.dart';
 import 'package:mobile_palladin/features/onboarding/presentation/widgets/onboarding_text_field.dart';
+import 'package:mobile_palladin/features/onboarding/data/datasources/onboarding_remote_datasource.dart';
+import 'package:mobile_palladin/features/onboarding/data/services/default_vault_provisioner.dart';
+import 'package:mobile_palladin/features/unlock/data/datasources/account_remote_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/entry_share_copy_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_copy_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_crypto_service.dart';
@@ -57,6 +71,8 @@ class _Tokens extends Mock implements SecureTokenStorage {}
 
 class _Login extends MockCubit<LoginState> implements LoginCubit {}
 
+class _Hibp extends Mock implements HibpService {}
+
 const _principal = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const _organization = '11111111-1111-4111-8111-111111111111';
 const _vault = '22222222-2222-4222-8222-222222222222';
@@ -76,6 +92,8 @@ void main() {
   late Uint8List privateKey;
   late Map<String, dynamic> fixture;
   late String shareId;
+  late RegisterCubit registration;
+  late GlobalKey screenshot;
   final loginStreams = <StreamController<LoginState>>[];
   final routes = <String>[];
   final requests =
@@ -85,10 +103,31 @@ void main() {
   Map<String, dynamic>? vaultJson;
   Map<String, Object?>? nativeReply;
   String? token;
+  String principal = _principal;
+  bool verified = true;
+  bool? defaultProvisioned;
+  int verificationChecks = 0;
+  final registrations = <Map<String, dynamic>>[];
   int opens = 0, deliveries = 0, confirmations = 0, logins = 0;
   String scenario = 'happy';
 
   setUpAll(() async {
+    final visualFont = Platform.environment['PALLADIN_SHARING_VISUAL_FONT'];
+    final loader = FontLoader('Roboto');
+    for (final weight in ['Regular', 'Medium', 'Bold']) {
+      loader.addFont(
+        File(
+          visualFont ??
+              '${Platform.environment['FLUTTER_ROOT']}/bin/cache/artifacts/material_fonts/Roboto-$weight.ttf',
+        ).readAsBytes().then(ByteData.sublistView),
+      );
+    }
+    await loader.load();
+    if (visualFont != null) {
+      await (FontLoader(
+        'MaterialIcons',
+      )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+    }
     sodium = await sodium_ffi.SodiumSumoInit.init(
       () => DynamicLibrary.open(
         Platform.environment['PALLADIN_LIBSODIUM_PATH'] ?? 'libsodium.so',
@@ -106,6 +145,9 @@ void main() {
   });
   tearDownAll(() => SodiumProvider.debugOverride = null);
 
+  String sessionToken() =>
+      'e30.${base64UrlEncode(utf8.encode(jsonEncode({'sub': principal, 'org_id': _organization, 'authz_ver': 7, 'email_verified': verified})))}.synthetic';
+
   Future<void> handle(HttpRequest request) async {
     final path = request.uri.path;
     final body = await utf8.decoder.bind(request).join();
@@ -116,7 +158,19 @@ void main() {
       auth: request.headers.value(HttpHeaders.authorizationHeader),
     ));
     Object? response;
-    if (path.startsWith('/api/entry-shares/')) {
+    if (path == '/api/auth/register') {
+      expect(request.headers.value(HttpHeaders.authorizationHeader), isNull);
+      final data = jsonDecode(body) as Map<String, dynamic>;
+      registrations.add(data);
+      principal = data['accountId'] as String;
+      response = {
+        'accessToken': sessionToken(),
+        'refreshToken': 'fixture-refresh',
+        'userId': principal,
+        'isOnboarded': true,
+        'emailVerified': false,
+      };
+    } else if (path.startsWith('/api/entry-shares/')) {
       expect(request.headers.value(HttpHeaders.authorizationHeader), isNull);
       expect(request.headers.value(HttpHeaders.cookieHeader), isNull);
       expect(request.method, 'POST');
@@ -164,7 +218,7 @@ void main() {
             'total': vaultJson == null ? 0 : 1,
           };
         case ('GET', '/api/account'):
-          response = {'userId': _principal, 'memberKeyVersion': 1};
+          response = {'userId': principal, 'memberKeyVersion': 1};
         case ('POST', '/api/vaults/creation-challenges'):
           response = {'vaultId': _vault};
         case ('POST', '/api/account/default-vault'):
@@ -231,9 +285,15 @@ void main() {
     await drain(tester);
   }
 
-  Future<void> mount(WidgetTester tester) async {
+  Future<void> mount(WidgetTester tester, {bool polish = false}) async {
     await getIt.reset();
+    screenshot = GlobalKey();
     token = null;
+    principal = _principal;
+    verified = !scenario.startsWith('register');
+    defaultProvisioned = null;
+    verificationChecks = 0;
+    registrations.clear();
     vaultJson = null;
     nativeReply = null;
     opens = 0;
@@ -246,7 +306,7 @@ void main() {
     entryPosts.clear();
     loginStreams.clear();
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    tester.view.physicalSize = const Size(390, 844);
+    tester.view.physicalSize = Size(polish ? 320 : 390, polish ? 568 : 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -259,19 +319,46 @@ void main() {
     when(() => config.certificatePins).thenReturn([]);
     final repository = _Repository();
     when(() => repository.isAuthenticated()).thenAnswer((_) async => false);
-    when(() => repository.getUserId()).thenAnswer((_) async => _principal);
+    when(() => repository.getUserId()).thenAnswer((_) async => principal);
     when(() => repository.getPermissions()).thenAnswer(
       (_) async => Permissions.vaultManage | Permissions.vaultCreate,
     );
     when(
       () => repository.getEmail(),
     ).thenAnswer((_) async => 'recipient@example.invalid');
-    when(() => repository.isEmailVerified()).thenAnswer((_) async => true);
+    when(() => repository.isEmailVerified()).thenAnswer((_) async => verified);
+    when(() => repository.refreshToken()).thenAnswer((_) async {
+      verificationChecks++;
+      if (scenario == 'register-check-error' && verificationChecks == 1) {
+        throw StateError('Synthetic refresh failure');
+      }
+      verified = scenario != 'register-pending' || verificationChecks > 1;
+      token = sessionToken();
+    });
     when(
       () => repository.getAuthProvider(),
     ).thenAnswer((_) async => 'password');
     final tokens = _Tokens();
     when(() => tokens.accessToken).thenAnswer((_) async => token);
+    when(
+      () => tokens.defaultVaultProvisioned,
+    ).thenAnswer((_) async => defaultProvisioned);
+    when(() => tokens.setDefaultVaultProvisioned(any())).thenAnswer((
+      call,
+    ) async {
+      defaultProvisioned = call.positionalArguments[0] as bool;
+    });
+    when(() => tokens.setAuthProvider(any())).thenAnswer((_) async {});
+    when(
+      () => tokens.saveTokens(
+        accessToken: any(named: 'accessToken'),
+        refreshToken: any(named: 'refreshToken'),
+        userId: any(named: 'userId'),
+        isOnboarded: any(named: 'isOnboarded'),
+      ),
+    ).thenAnswer((call) async {
+      token = call.namedArguments[#accessToken] as String;
+    });
     keys = VaultSessionStore();
     privateKey = sodium.randombytes.buf(32);
     auth = AuthBloc(authRepository: repository, vaultSessionStore: keys);
@@ -282,6 +369,41 @@ void main() {
     getIt.registerSingleton<EntryShareRecipientAuthority>(authority);
     getIt.registerSingleton<EntryShareCryptoService>(
       EntryShareCryptoService(sodiumLoader: () async => sodium),
+    );
+    final accountHttp = Dio(BaseOptions(baseUrl: config.apiBaseUrl));
+    accountHttp.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (token != null) options.headers['Authorization'] = 'Bearer $token';
+          handler.next(options);
+        },
+      ),
+    );
+    final passwordRemote = PasswordAuthRemoteDatasource(accountHttp);
+    final provisioner = DefaultVaultProvisioner(
+      remoteDatasource: OnboardingRemoteDatasource(accountHttp),
+      vaultCryptoService: VaultCryptoService(sodiumLoader: () async => sodium),
+      tokenStorage: tokens,
+      accountRemoteDatasource: AccountRemoteDatasource(accountHttp),
+    );
+    final hibp = _Hibp();
+    when(() => hibp.check(any())).thenAnswer((_) async => HibpResult.notFound);
+    getIt.registerSingleton<HibpService>(hibp);
+    getIt.registerFactory<RegisterCubit>(
+      () => registration = RegisterCubit(
+        datasource: passwordRemote,
+        cryptoService: PasswordAuthCryptoService(
+          sodiumLoader: () async => sodium,
+        ),
+        tokenStorage: tokens,
+      ),
+    );
+    getIt.registerFactory<VerifyEmailCubit>(
+      () => VerifyEmailCubit(
+        datasource: passwordRemote,
+        authRepository: repository,
+        defaultVaultProvisioner: provisioner,
+      ),
     );
     getIt.registerFactory<EntryShareCopyService>(
       () => EntryShareCopyService(
@@ -307,8 +429,7 @@ void main() {
           events.add(const LoginFailure(InvalidCredentialsException()));
           return;
         }
-        token =
-            'e30.${base64UrlEncode(utf8.encode(jsonEncode({'sub': _principal, 'org_id': _organization, 'authz_ver': 7})))}.synthetic';
+        token = sessionToken();
         events.add(
           LoginSuccess(
             masterKey: Uint8List(32),
@@ -362,6 +483,7 @@ void main() {
         await server.close(force: true);
       });
       keys.clear();
+      accountHttp.close(force: true);
       privateKey.fillRange(0, privateKey.length, 0);
       await getIt.reset();
     });
@@ -370,6 +492,33 @@ void main() {
         value: auth,
         child: MaterialApp.router(
           routerConfig: router,
+          locale: Locale(polish ? 'pl' : 'en'),
+          theme: ThemeData(
+            brightness: polish ? Brightness.dark : Brightness.light,
+            colorScheme: polish
+                ? const ColorScheme.dark(
+                    primary: AppColors.brandRed,
+                    error: AppColors.brandRed,
+                    surface: AppColors.darkSurface,
+                  )
+                : const ColorScheme.light(
+                    primary: AppColors.brandRed,
+                    error: AppColors.brandRed,
+                    surface: AppColors.lightSurface,
+                    onSurface: AppColors.darkBackground,
+                    onPrimary: AppColors.onBrandRed,
+                  ),
+            fontFamily: 'Roboto',
+          ),
+          builder: (context, child) => RepaintBoundary(
+            key: screenshot,
+            child: MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(polish ? 1.5 : 1)),
+              child: child!,
+            ),
+          ),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
         ),
@@ -397,9 +546,94 @@ void main() {
     expect(requests, isEmpty);
   }
 
-  for (final variant in ['happy', 'login-retry', 'save-retry']) {
+  Future<void> enterField(
+    WidgetTester tester,
+    String label,
+    String value,
+  ) async {
+    final field = find.descendant(
+      of: find.widgetWithText(OnboardingTextField, label),
+      matching: find.byType(TextField),
+    );
+    await tester.ensureVisible(field);
+    await tester.enterText(field, value);
+  }
+
+  for (final polish in [false, true]) {
     testWidgets(
-      'guest receipt survives production login routing and first-vault save: $variant',
+      'sharing registration remains editable with keyboard: pl=$polish',
+      (tester) async {
+        scenario = 'register';
+        await mount(tester, polish: polish);
+        final l10n = AppLocalizations.of(
+          tester.element(find.byType(EntryShareReceiverPage)),
+        )!;
+        await tap(tester, l10n.sharingOpen);
+        await tap(tester, l10n.sharingReceive);
+        await tap(tester, l10n.sharingRegister);
+        expect(find.byType(RegisterPage), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        final directory = Platform.environment['PALLADIN_SHARING_VISUAL_DIR'];
+        Future<void> capture(String suffix) async {
+          if (directory == null) return;
+          await tester.runAsync(() async {
+            final boundary =
+                screenshot.currentContext!.findRenderObject()!
+                    as RenderRepaintBoundary;
+            final image = await boundary.toImage(pixelRatio: 2);
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            await Directory(directory).create(recursive: true);
+            await File(
+              '$directory/sharing-register-${polish ? 'pl-dark-320-150' : 'en-light-390'}$suffix.png',
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+
+        await capture('');
+        tester.view.viewInsets = const FakeViewPadding(bottom: 200);
+        addTearDown(tester.view.resetViewInsets);
+        await tester.pumpAndSettle();
+        await enterField(tester, l10n.authEmailLabel, 'draft@example.invalid');
+        await tester.pumpAndSettle();
+        final email = find.descendant(
+          of: find.widgetWithText(OnboardingTextField, l10n.authEmailLabel),
+          matching: find.byType(EditableText),
+        );
+        final originalInput = tester.state(email);
+        expect(tester.getRect(email).top, greaterThanOrEqualTo(0));
+        expect(
+          tester.getRect(email).bottom,
+          lessThanOrEqualTo(tester.view.physicalSize.height - 200),
+        );
+        expect(tester.takeException(), isNull);
+        await capture('-keyboard');
+        tester.view.resetViewInsets();
+        await tester.pumpAndSettle();
+        await tap(tester, l10n.sharingCancelReception);
+        await tap(tester, l10n.sharingDiscardReception);
+        expect(continuation.active, false);
+        expect(tester.state(email), same(originalInput));
+        expect(find.text('draft@example.invalid'), findsOneWidget);
+        expect(registrations, isEmpty);
+        expect((opens, deliveries, confirmations), (1, 1, 1));
+        expect(router.routeInformationProvider.value.uri.path, '/register');
+      },
+    );
+  }
+
+  for (final variant in [
+    'happy',
+    'login-retry',
+    'save-retry',
+    'register',
+    'register-pending',
+    'register-check-error',
+  ]) {
+    testWidgets(
+      'guest receipt survives production account routing and first-vault save: $variant',
       (tester) async {
         scenario = variant;
         await mount(tester);
@@ -411,28 +645,104 @@ void main() {
             .widget<EntryShareReceiverPage>(find.byType(EntryShareReceiverPage))
             .cubit
             .lifetime;
-        await tap(tester, 'Sign in to save a copy');
-        expect(find.byType(LoginPage), findsOneWidget);
-        await tap(tester, 'Continue with Email');
-        for (final (label, value) in [
-          ('Email', 'recipient@example.invalid'),
-          ('Master Password', 'synthetic-input-only'),
-        ]) {
-          final field = find.descendant(
-            of: find.widgetWithText(OnboardingTextField, label),
-            matching: find.byType(TextField),
-          );
-          await tester.ensureVisible(field);
-          await tester.enterText(field, value);
-        }
-        await tap(tester, 'Sign In');
-        if (variant == 'login-retry') {
-          expect(find.byType(LoginPage), findsOneWidget);
+        final registering = variant.startsWith('register');
+        if (registering) {
+          await tap(tester, 'Create an account to save a copy');
+          expect(find.byType(RegisterPage), findsOneWidget);
+          for (final (label, value) in [
+            ('Email', 'recipient@example.invalid'),
+            ('Master Password', 'Fixture-only! violet lantern 842#'),
+            ('Confirm Password', 'Fixture-only! violet lantern 842#'),
+          ]) {
+            await enterField(tester, label, value);
+          }
+          await drain(tester);
+          await tap(tester, 'Sign Up');
+          expect(registration.state.step, RegisterStep.recoveryKeyBackup);
+          final recoveryWords = List<String>.of(registration.state.mnemonic);
+          await tap(tester, "I've Saved My Recovery Key");
+          for (final input
+              in tester
+                  .widgetList<OnboardingTextField>(
+                    find.byType(OnboardingTextField),
+                  )
+                  .toList()) {
+            final label = input.label!;
+            final index = int.parse(label.split('#').last) - 1;
+            await enterField(tester, label, recoveryWords[index]);
+          }
+          await tap(tester, 'Verify & Complete Setup');
+          expect(find.byType(VerifyEmailPage), findsOneWidget);
           expect(continuation.active, true);
           expect((opens, deliveries, confirmations), (1, 1, 1));
+          expect(vaultPosts, isEmpty);
+          expect(registrations, hasLength(1));
+          expect(
+            jsonEncode(registrations.single),
+            isNot(contains(recoveryWords.join(' '))),
+          );
+          privateKey.fillRange(0, privateKey.length, 0);
+          privateKey = Uint8List.fromList(
+            (auth.state as AuthAuthenticated).privateKey!,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.inactive,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.hidden,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.paused,
+          );
+          await tester.pump();
+          expect(continuation.active, true);
+          expect((opens, deliveries, confirmations), (1, 1, 1));
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.hidden,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.inactive,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+          await drain(tester);
+          await tap(tester, "I've verified my email");
+          if (variant != 'register') {
+            expect(find.byType(VerifyEmailPage), findsOneWidget);
+            expect(continuation.active, true);
+            expect(vaultPosts, isEmpty);
+            expect((opens, deliveries, confirmations), (1, 1, 1));
+            await tester.pump(const Duration(seconds: 5));
+            await tester.pumpAndSettle();
+            await tap(tester, "I've verified my email");
+          }
+          expect(defaultProvisioned, true);
+          expect(verificationChecks, variant == 'register' ? 1 : 2);
+        } else {
+          await tap(tester, 'Sign in to save a copy');
+          expect(find.byType(LoginPage), findsOneWidget);
+          await tap(tester, 'Continue with Email');
+          for (final (label, value) in [
+            ('Email', 'recipient@example.invalid'),
+            ('Master Password', 'synthetic-input-only'),
+          ]) {
+            final field = find.descendant(
+              of: find.widgetWithText(OnboardingTextField, label),
+              matching: find.byType(TextField),
+            );
+            await tester.ensureVisible(field);
+            await tester.enterText(field, value);
+          }
           await tap(tester, 'Sign In');
+          if (variant == 'login-retry') {
+            expect(find.byType(LoginPage), findsOneWidget);
+            expect(continuation.active, true);
+            expect((opens, deliveries, confirmations), (1, 1, 1));
+            await tap(tester, 'Sign In');
+          }
+          expect(logins, variant == 'login-retry' ? 2 : 1);
         }
-        expect(logins, variant == 'login-retry' ? 2 : 1);
         expect(router.routeInformationProvider.value.uri.toString(), '/share');
         expect(
           tester
@@ -444,9 +754,9 @@ void main() {
           same(lifetime),
         );
         await tap(tester, 'Save a copy');
-        expect(vaultPosts, isEmpty);
+        expect(vaultPosts, hasLength(registering ? 1 : 0));
         expect(entryPosts, isEmpty);
-        await tap(tester, 'Create my personal vault');
+        if (!registering) await tap(tester, 'Create my personal vault');
         expect(vaultPosts, hasLength(1));
         await drain(tester);
         expect(
@@ -511,7 +821,14 @@ void main() {
           findsOneWidget,
         );
         expect((opens, deliveries, confirmations), (1, 1, 1));
-        expect(routes, everyElement(anyOf('/login', '/share')));
+        expect(
+          routes,
+          everyElement(
+            registering
+                ? anyOf('/register', '/verify-email', '/share')
+                : anyOf('/login', '/share'),
+          ),
+        );
         expect(
           requests.where(
             (request) =>
@@ -523,6 +840,10 @@ void main() {
         for (final request in requests) {
           expect(request.body, isNot(contains('fixture-only')));
           expect(request.body, isNot(contains('recipient username')));
+          expect(
+            request.body,
+            isNot(contains('Fixture-only! violet lantern 842#')),
+          );
           expect(request.body, isNot(contains(base64Encode(privateKey))));
         }
         expect(
