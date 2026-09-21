@@ -414,6 +414,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sharingValidUntil => 'Link valid until';
 
   @override
+  String sharingOtpCountdown(int seconds) {
+    return 'Send code in ${seconds}s';
+  }
+
+  @override
+  String get sharingSharedLimitNotice =>
+      'This receipt limit is shared by everyone using this link.';
+
+  @override
   String get sharingReceipts => 'Receipts / limit';
 
   @override

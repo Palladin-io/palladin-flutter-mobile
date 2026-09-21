@@ -33,6 +33,9 @@ final class EntryShareReceptionState {
     this.suspended = false,
     this.recipientMode = '',
     this.protection = '',
+    this.shareExpiresAt,
+    this.maximumReceipts,
+    this.otpRetryAfterSeconds = 0,
     this.otpRequested = false,
     this.otpRetry = false,
     this.emailVerified = false,
@@ -45,6 +48,9 @@ final class EntryShareReceptionState {
   final bool busy, otpRequested, otpRetry, emailVerified, secretVerified;
   final bool suspended;
   final String recipientMode, protection;
+  final String? shareExpiresAt;
+  final int? maximumReceipts;
+  final int otpRetryAfterSeconds;
   final EntryShareSnapshot? snapshot;
   final EntryShareConfirmation confirmation;
 
@@ -60,6 +66,9 @@ final class EntryShareReceptionState {
     bool? suspended,
     String? recipientMode,
     String? protection,
+    String? shareExpiresAt,
+    int? maximumReceipts,
+    int? otpRetryAfterSeconds,
     bool? otpRequested,
     bool? otpRetry,
     bool? emailVerified,
@@ -72,6 +81,9 @@ final class EntryShareReceptionState {
     suspended: suspended ?? this.suspended,
     recipientMode: recipientMode ?? this.recipientMode,
     protection: protection ?? this.protection,
+    shareExpiresAt: shareExpiresAt ?? this.shareExpiresAt,
+    maximumReceipts: maximumReceipts ?? this.maximumReceipts,
+    otpRetryAfterSeconds: otpRetryAfterSeconds ?? this.otpRetryAfterSeconds,
     otpRequested: otpRequested ?? this.otpRequested,
     otpRetry: otpRetry ?? this.otpRetry,
     emailVerified: emailVerified ?? this.emailVerified,
@@ -119,6 +131,8 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
   EntryShareRecipientSession? _session;
   final _cancel = CancelToken();
   Timer? _expiry;
+  Timer? _otpCountdown;
+  Duration? _otpReadyAtRemaining;
   int _epoch = 0, _otpGeneration = 0;
   int _visibilityGeneration = 0;
   int? _pendingOtp;
@@ -168,6 +182,7 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
       state: state.copyWith(busy: false),
       otpGeneration: _otpGeneration,
       pendingOtp: _pendingOtp,
+      otpReadyAtRemaining: _otpReadyAtRemaining,
     );
     _remote = null;
     _secrets = null;
@@ -193,7 +208,9 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
       result._session = transfer._session;
       result._otpGeneration = transfer._otpGeneration;
       result._pendingOtp = transfer._pendingOtp;
+      result._otpReadyAtRemaining = transfer._otpReadyAtRemaining;
       result.emit(transfer._state!);
+      result._refreshOtpCountdown();
     }
     transfer._remote = null;
     transfer._secrets = null;
@@ -218,6 +235,7 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
     }
     // Checking another app's email must not create a new receipt or extend TTL.
     _visibilityGeneration++;
+    _otpCountdown?.cancel();
     emit(state.copyWith(suspended: true));
     return true;
   }
@@ -227,6 +245,7 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
     final visibility = _visibilityGeneration;
     if (await _valid(_epoch) && visibility == _visibilityGeneration) {
       emit(state.copyWith(suspended: false));
+      _refreshOtpCountdown();
     }
   }
 
@@ -285,21 +304,25 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
           phase: EntryShareReceptionPhase.verification,
           recipientMode: session.recipientMode,
           protection: session.protection,
+          shareExpiresAt: session.shareExpiresAt,
+          maximumReceipts: session.maximumReceipts,
         ),
       );
+      _setOtpCooldown(Duration(seconds: session.otpRetryAfterSeconds));
     });
   }
 
   Future<EntryShareReceptionOutcome> requestOtp(String language) {
     if (_session == null ||
         state.recipientMode != 'namedRecipient' ||
-        state.emailVerified) {
+        state.emailVerified ||
+        _pendingOtp == null && _otpSecondsRemaining > 0) {
       return Future.value(EntryShareReceptionOutcome.ignored);
     }
     return _run((epoch) async {
       _pendingOtp ??= _otpGeneration + 1;
       emit(state.copyWith(otpRetry: true));
-      await _remote!.requestOtp(
+      final cooldown = await _remote!.requestOtp(
         _shareId,
         _session!,
         generation: _pendingOtp!,
@@ -310,7 +333,35 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
       _otpGeneration = _pendingOtp!;
       _pendingOtp = null;
       emit(state.copyWith(otpRequested: true, otpRetry: false));
+      _setOtpCooldown(cooldown);
     });
+  }
+
+  int get _otpSecondsRemaining {
+    final readyAt = _otpReadyAtRemaining;
+    if (readyAt == null) return 0;
+    final remaining = _lifetime.remaining - readyAt;
+    return remaining <= Duration.zero
+        ? 0
+        : (remaining.inMicroseconds / Duration.microsecondsPerSecond).ceil();
+  }
+
+  void _setOtpCooldown(Duration cooldown) {
+    _otpReadyAtRemaining = _lifetime.remaining - cooldown;
+    _refreshOtpCountdown();
+  }
+
+  void _refreshOtpCountdown() {
+    _otpCountdown?.cancel();
+    _otpCountdown = null;
+    if (!_live(_epoch) || state.suspended) return;
+    final seconds = state.emailVerified ? 0 : _otpSecondsRemaining;
+    if (seconds != state.otpRetryAfterSeconds) {
+      emit(state.copyWith(otpRetryAfterSeconds: seconds));
+    }
+    if (seconds > 0 && state.recipientMode == 'namedRecipient') {
+      _otpCountdown = Timer(const Duration(seconds: 1), _refreshOtpCountdown);
+    }
   }
 
   Future<EntryShareReceptionOutcome> verifyOtp(String code) {
@@ -328,7 +379,10 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
         code: code,
         cancelToken: _cancel,
       );
-      if (await _valid(epoch)) emit(state.copyWith(emailVerified: true));
+      if (await _valid(epoch)) {
+        emit(state.copyWith(emailVerified: true));
+        _refreshOtpCountdown();
+      }
     });
   }
 
@@ -425,6 +479,9 @@ class EntryShareReceptionCubit extends Cubit<EntryShareReceptionState> {
     _remote = null;
     _expiry?.cancel();
     _expiry = null;
+    _otpCountdown?.cancel();
+    _otpCountdown = null;
+    _otpReadyAtRemaining = null;
     _secrets?.dispose();
     _secrets = null;
     _session = null;
@@ -462,6 +519,7 @@ final class EntryShareReceptionTransfer {
     required EntryShareReceptionState state,
     required int otpGeneration,
     required int? pendingOtp,
+    required Duration? otpReadyAtRemaining,
   }) : _remote = remote,
        _crypto = crypto,
        _shareId = shareId,
@@ -470,7 +528,8 @@ final class EntryShareReceptionTransfer {
        _session = session,
        _state = state,
        _otpGeneration = otpGeneration,
-       _pendingOtp = pendingOtp {
+       _pendingOtp = pendingOtp,
+       _otpReadyAtRemaining = otpReadyAtRemaining {
     _expiry = Timer(lifetime.remaining, dispose);
   }
 
@@ -484,6 +543,7 @@ final class EntryShareReceptionTransfer {
   EntryShareReceptionState? _state;
   final int _otpGeneration;
   int? _pendingOtp;
+  final Duration? _otpReadyAtRemaining;
   Timer? _expiry;
   bool _resuming = false;
 

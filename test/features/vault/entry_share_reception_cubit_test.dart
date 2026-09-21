@@ -103,6 +103,9 @@ void main() {
     String mode = 'anyoneWithLink',
     String protection = 'none',
     String? expiry,
+    String? shareExpiry,
+    int? maximumReceipts,
+    int cooldown = 0,
   }) => EntryShareRecipientSession(
     sessionId: 'synthetic-session',
     sessionToken: 'synthetic-token',
@@ -111,6 +114,9 @@ void main() {
         _initialTime.add(const Duration(minutes: 10)).toIso8601String(),
     recipientMode: mode,
     protection: protection,
+    shareExpiresAt: shareExpiry,
+    maximumReceipts: maximumReceipts,
+    otpRetryAfterSeconds: cooldown,
   );
 
   EntryShareReceptionCubit makeCubit({EntryShareLifetime? lifetime}) =>
@@ -149,7 +155,7 @@ void main() {
         language: any(named: 'language'),
         cancelToken: any(named: 'cancelToken'),
       ),
-    ).thenAnswer((_) async {});
+    ).thenAnswer((_) async => Duration.zero);
     when(
       () => remote.verifyOtp(
         any(),
@@ -184,6 +190,152 @@ void main() {
     cubit = makeCubit();
   });
   tearDown(() async => cubit.close());
+
+  test(
+    'link policy is independent from the bounded recipient session',
+    () async {
+      final linkExpiry = _initialTime
+          .add(const Duration(days: 1))
+          .toIso8601String();
+      session = makeSession(shareExpiry: linkExpiry, maximumReceipts: 3);
+      await cubit.open();
+      expect(cubit.state.shareExpiresAt, linkExpiry);
+      expect(cubit.state.maximumReceipts, 3);
+      expect(cubit.lifetime.remaining, const Duration(minutes: 10));
+      cubit.clear();
+      expect(cubit.state.shareExpiresAt, isNull);
+      expect(cubit.state.maximumReceipts, isNull);
+    },
+  );
+
+  test(
+    'initial shared cooldown ticks and blocks a new generation until ready',
+    () {
+      session = makeSession(mode: 'namedRecipient', cooldown: 3);
+      fakeAsync((clock) {
+        unawaited(cubit.open());
+        clock.flushMicrotasks();
+        expect(cubit.state.otpRetryAfterSeconds, 3);
+        unawaited(cubit.requestOtp('en'));
+        clock.flushMicrotasks();
+        verifyNever(
+          () => remote.requestOtp(
+            any(),
+            any(),
+            generation: any(named: 'generation'),
+            language: any(named: 'language'),
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        );
+        elapsed = const Duration(milliseconds: 1500);
+        clock.elapse(const Duration(seconds: 1));
+        expect(cubit.state.otpRetryAfterSeconds, 2);
+        elapsed = const Duration(seconds: 3);
+        clock.elapse(const Duration(seconds: 1));
+        expect(cubit.state.otpRetryAfterSeconds, 0);
+        unawaited(cubit.requestOtp('en'));
+        clock.flushMicrotasks();
+        expect(cubit.state.otpRequested, true);
+        verify(
+          () => remote.requestOtp(
+            any(),
+            any(),
+            generation: 1,
+            language: 'en',
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        ).called(1);
+        cubit.clear();
+        expect(clock.nonPeriodicTimerCount, 0);
+      });
+    },
+  );
+
+  test(
+    'email detour resumes the remaining cooldown without restarting it',
+    () async {
+      session = makeSession(mode: 'namedRecipient');
+      when(
+        () => remote.requestOtp(
+          any(),
+          any(),
+          generation: any(named: 'generation'),
+          language: any(named: 'language'),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((_) async => const Duration(seconds: 60));
+      await cubit.open();
+      await cubit.requestOtp('en');
+      expect(cubit.state.otpRetryAfterSeconds, 60);
+      expect(cubit.suspendForEmail(), true);
+      elapsed = const Duration(milliseconds: 21_500);
+      await cubit.resumeFromEmail();
+      expect(cubit.state.otpRetryAfterSeconds, 39);
+      await cubit.verifyOtp('012345');
+      expect(cubit.state.emailVerified, true);
+      expect(cubit.state.otpRetryAfterSeconds, 0);
+    },
+  );
+
+  test(
+    'account transfer keeps the original cooldown and does not request another code',
+    () async {
+      session = makeSession(mode: 'namedRecipient', cooldown: 60);
+      await cubit.open();
+      final transfer = (await cubit.detachForAccount())!;
+      addTearDown(transfer.dispose);
+      elapsed = const Duration(milliseconds: 21_500);
+      final resumed = (await transfer.resume(
+        owner: _account,
+        ownerReader: () async => _account,
+      ))!;
+      addTearDown(resumed.close);
+      expect(resumed.state.otpRetryAfterSeconds, 39);
+      expect(
+        await resumed.requestOtp('en'),
+        EntryShareReceptionOutcome.ignored,
+      );
+      verifyNever(
+        () => remote.requestOtp(
+          any(),
+          any(),
+          generation: any(named: 'generation'),
+          language: any(named: 'language'),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      );
+    },
+  );
+
+  test(
+    'an uncertain OTP retry uses the server residual rather than a fresh minute',
+    () async {
+      session = makeSession(mode: 'namedRecipient');
+      var calls = 0;
+      when(
+        () => remote.requestOtp(
+          any(),
+          any(),
+          generation: 1,
+          language: 'en',
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((_) async {
+        if (calls++ == 0) throw const EntryShareRecipientRequestException();
+        return const Duration(seconds: 39);
+      });
+      await cubit.open();
+      expect(await cubit.requestOtp('en'), EntryShareReceptionOutcome.failed);
+      elapsed = const Duration(milliseconds: 21_500);
+      expect(
+        await cubit.requestOtp('en'),
+        EntryShareReceptionOutcome.completed,
+      );
+      expect(cubit.state.otpRetryAfterSeconds, 39);
+      expect(cubit.state.otpRetry, false);
+      expect(calls, 2);
+    },
+  );
 
   group('account continuation coordinator', () {
     late _Auth auth;
@@ -608,6 +760,7 @@ void main() {
         ),
       ).thenAnswer((_) async {
         if (attempts++ == 0) throw const EntryShareRecipientRequestException();
+        return Duration.zero;
       });
       await cubit.requestOtp('pl');
       final transfer = (await cubit.detachForAccount())!;
@@ -1007,6 +1160,7 @@ void main() {
         if (generations.length == 1) {
           throw const EntryShareRecipientRequestException();
         }
+        return Duration.zero;
       });
       await cubit.open();
       expect(await cubit.requestOtp('pl'), EntryShareReceptionOutcome.failed);
@@ -1484,7 +1638,7 @@ void main() {
       session = makeSession(mode: 'namedRecipient');
       await cubit.open();
       expect(cubit.suspendForEmail(), false);
-      final pending = Completer<void>();
+      final pending = Completer<Duration>();
       when(
         () => remote.requestOtp(
           any(),
@@ -1496,7 +1650,7 @@ void main() {
       ).thenAnswer((_) => pending.future);
       final sending = cubit.requestOtp('en');
       expect(cubit.suspendForEmail(), false);
-      pending.complete();
+      pending.complete(Duration.zero);
       await sending;
       await cubit.verifyOtp('012345');
       expect(cubit.suspendForEmail(), false);

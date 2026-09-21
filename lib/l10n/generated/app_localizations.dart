@@ -806,6 +806,18 @@ abstract class AppLocalizations {
   /// **'Link valid until'**
   String get sharingValidUntil;
 
+  /// No description provided for @sharingOtpCountdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Send code in {seconds}s'**
+  String sharingOtpCountdown(int seconds);
+
+  /// No description provided for @sharingSharedLimitNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'This receipt limit is shared by everyone using this link.'**
+  String get sharingSharedLimitNotice;
+
   /// No description provided for @sharingReceipts.
   ///
   /// In en, this message translates to:
