@@ -279,8 +279,9 @@ regression reproduced the original vertical overflow. Other pinned-action
 variants retain their behavior.
 
 This extends client-composition evidence, not live signup/mail/device acceptance.
-Combined unlock/OAuth onboarding, actual backend receipt accounting and the
-deployed test environment remain open release gates.
+Combined unlock is covered by the subsequent checkpoint below. OAuth onboarding,
+actual backend receipt accounting and the deployed test environment remain open
+release gates.
 
 Registration checkpoint (2026-09-21): **six new cases; 1,827 Flutter PASS / two
 existing plugin-only skips**, including six structural budgets; analyze,
@@ -289,6 +290,45 @@ cases also pass with a supplied Inter font. EN/PL initial and keyboard captures
 were inspected for form geometry; the unthemed RichText wordmark still uses the
 widget harness's default block font, so these are not full visual approval or
 native-device evidence. No CI, native app build, merge or deployment ran.
+
+### Combined locked-account unlock and copy acceptance
+
+The production-router fixture also starts with a restored, verified, locked
+account. It receives and confirms the snapshot before the explicit account
+action opens the real `UnlockPage`/`UnlockCubit`. Native Identity KDF and key
+decryption use a generated synthetic account envelope served by loopback HTTP;
+the production provisioner creates its first Vault before the original reception
+resumes. The final Entry is independently decrypted after manual destination
+selection, missing-field completion and Save.
+
+Three added cases cover success, wrong-password retry and a failed required
+default-Vault POST followed by retry. Failures retain the locked state and pending
+reception; no member key is available and no Entry write occurs. Every successful
+case preserves the original lifetime object and exactly one open/delivery/ACK.
+Sharing requests remain anonymous, routes contain only `/unlock` and `/share`,
+and captured request bodies exclude the tested plaintext/password/MK/private key.
+Account/session restoration, token storage, native ingress and the server remain
+synthetic. The biometric store reports unavailable; no enrollment or read occurs.
+The existing mobile MK-persistence release blocker is unchanged.
+
+Two additional EN 390px/light and PL 320px/dark/150% cases keep the unlock password
+editable above the keyboard and preserve the mounted form after discarding
+reception. Pixel assertions on these and registration cases reproduce a light
+background bloom painting over the otherwise opaque sharing notice. The account
+body now has a stable `ClipRect`, protecting its sibling notice without remounting
+the account form or changing shared gradient geometry. This is a scoped rendering
+fix, not a redesign of authentication.
+
+OAuth onboarding, real backend authentication/receipt accounting, mail/native
+device acceptance and the deployed user environment remain required.
+
+Unlock checkpoint (2026-09-21): **five new cases; 1,832 Flutter PASS / two existing
+plugin-only skips**, including six structural budgets, after the paint fix.
+Analyze, notices and full staged-tree Gitleaks 8.30.1 PASS without exception
+changes. All 13 combined account cases also pass with supplied Inter; EN/PL
+initial/keyboard renders confirm layout and the corrected notice paint. The
+RichText wordmark retains the widget harness's block font, so this is not full
+visual or native-device approval. No CI, native app build, merge or deployment.
 
 ### One-shot account transfer and explicit account continuation
 

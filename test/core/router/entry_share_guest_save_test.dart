@@ -19,6 +19,7 @@ import 'package:mobile_palladin/core/crypto/vault_session_store.dart';
 import 'package:mobile_palladin/core/di/injection.dart';
 import 'package:mobile_palladin/core/permissions.dart';
 import 'package:mobile_palladin/core/router/app_router.dart';
+import 'package:mobile_palladin/core/storage/biometric_key_store.dart';
 import 'package:mobile_palladin/core/storage/secure_token_storage.dart';
 import 'package:mobile_palladin/core/theme/app_colors.dart';
 import 'package:mobile_palladin/core/widgets/primary_button.dart';
@@ -40,6 +41,10 @@ import 'package:mobile_palladin/features/onboarding/presentation/widgets/onboard
 import 'package:mobile_palladin/features/onboarding/data/datasources/onboarding_remote_datasource.dart';
 import 'package:mobile_palladin/features/onboarding/data/services/default_vault_provisioner.dart';
 import 'package:mobile_palladin/features/unlock/data/datasources/account_remote_datasource.dart';
+import 'package:mobile_palladin/features/unlock/data/services/identity_kdf_service.dart';
+import 'package:mobile_palladin/features/unlock/data/services/unlock_crypto_service.dart';
+import 'package:mobile_palladin/features/unlock/presentation/cubit/unlock_cubit.dart';
+import 'package:mobile_palladin/features/unlock/presentation/pages/unlock_page.dart';
 import 'package:mobile_palladin/features/vault/data/datasources/entry_share_copy_datasource.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_copy_service.dart';
 import 'package:mobile_palladin/features/vault/data/services/entry_sharing/entry_share_crypto_service.dart';
@@ -73,6 +78,9 @@ class _Login extends MockCubit<LoginState> implements LoginCubit {}
 
 class _Hibp extends Mock implements HibpService {}
 
+class _Biometrics extends Mock implements BiometricKeyStore {}
+
+const _unlockPassword = 'Fixture-only! amber compass 937#';
 const _principal = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const _organization = '11111111-1111-4111-8111-111111111111';
 const _vault = '22222222-2222-4222-8222-222222222222';
@@ -93,6 +101,8 @@ void main() {
   late Map<String, dynamic> fixture;
   late String shareId;
   late RegisterCubit registration;
+  late UnlockCubit unlock;
+  late _Biometrics biometrics;
   late GlobalKey screenshot;
   final loginStreams = <StreamController<LoginState>>[];
   final routes = <String>[];
@@ -101,6 +111,7 @@ void main() {
   final vaultPosts = <String>[];
   final entryPosts = <String>[];
   Map<String, dynamic>? vaultJson;
+  Map<String, Object?>? unlockAccount;
   Map<String, Object?>? nativeReply;
   String? token;
   String principal = _principal;
@@ -112,6 +123,15 @@ void main() {
   String scenario = 'happy';
 
   setUpAll(() async {
+    registerFallbackValue(Uint8List(0));
+    registerFallbackValue(
+      const BiometricPromptCopy(
+        promptTitle: 'fixture',
+        enrollTitle: 'fixture',
+        accessTitle: 'fixture',
+        cancelLabel: 'fixture',
+      ),
+    );
     final visualFont = Platform.environment['PALLADIN_SHARING_VISUAL_FONT'];
     final loader = FontLoader('Roboto');
     for (final weight in ['Regular', 'Medium', 'Bold']) {
@@ -218,11 +238,16 @@ void main() {
             'total': vaultJson == null ? 0 : 1,
           };
         case ('GET', '/api/account'):
-          response = {'userId': principal, 'memberKeyVersion': 1};
+          response =
+              unlockAccount ?? {'userId': principal, 'memberKeyVersion': 1};
         case ('POST', '/api/vaults/creation-challenges'):
           response = {'vaultId': _vault};
         case ('POST', '/api/account/default-vault'):
           vaultPosts.add(body);
+          if (scenario == 'unlock-provision-retry' && vaultPosts.length == 1) {
+            request.response.statusCode = 503;
+            break;
+          }
           final data = jsonDecode(body) as Map<String, dynamic>;
           vaultJson = {
             'id': _vault,
@@ -291,7 +316,8 @@ void main() {
     token = null;
     principal = _principal;
     verified = !scenario.startsWith('register');
-    defaultProvisioned = null;
+    defaultProvisioned = scenario.startsWith('unlock') ? false : null;
+    unlockAccount = null;
     verificationChecks = 0;
     registrations.clear();
     vaultJson = null;
@@ -318,7 +344,10 @@ void main() {
     when(() => config.apiBaseUrl).thenReturn('http://127.0.0.1:${server.port}');
     when(() => config.certificatePins).thenReturn([]);
     final repository = _Repository();
-    when(() => repository.isAuthenticated()).thenAnswer((_) async => false);
+    when(
+      () => repository.isAuthenticated(),
+    ).thenAnswer((_) async => scenario.startsWith('unlock'));
+    when(() => repository.isOnboarded()).thenAnswer((_) async => true);
     when(() => repository.getUserId()).thenAnswer((_) async => principal);
     when(() => repository.getPermissions()).thenAnswer(
       (_) async => Permissions.vaultManage | Permissions.vaultCreate,
@@ -361,6 +390,33 @@ void main() {
     });
     keys = VaultSessionStore();
     privateKey = sodium.randombytes.buf(32);
+    if (scenario.startsWith('unlock')) {
+      final material = await tester.runAsync(
+        () => PasswordAuthCryptoService(sodiumLoader: () async => sodium)
+            .buildRegistrationMaterial(
+              password: _unlockPassword,
+              recoveryMnemonic: List.filled(24, 'fixture'),
+            ),
+      );
+      principal = material!.accountId;
+      token = sessionToken();
+      privateKey.fillRange(0, privateKey.length, 0);
+      privateKey = material.privateKey;
+      material.masterKey.fillRange(0, material.masterKey.length, 0);
+      unlockAccount = {
+        'userId': principal,
+        'memberKeyVersion': 1,
+        'encryptedPrivateKey': base64Encode(material.encryptedPrivateKey),
+        'kdf': {
+          'securityVersion': IdentityKdfProfile.securityVersion,
+          'minimumSecurityVersion': IdentityKdfProfile.securityVersion,
+          'profileId': IdentityKdfProfile.id,
+          'kdfSalt': base64UrlEncode(material.kdfSalt).replaceAll('=', ''),
+          'credentialRevision': 1,
+          'privateKeyWrapRevision': 1,
+        },
+      };
+    }
     auth = AuthBloc(authRepository: repository, vaultSessionStore: keys);
     auth.add(const AuthCheckRequested());
     await tester.pump();
@@ -389,6 +445,18 @@ void main() {
     final hibp = _Hibp();
     when(() => hibp.check(any())).thenAnswer((_) async => HibpResult.notFound);
     getIt.registerSingleton<HibpService>(hibp);
+    biometrics = _Biometrics();
+    when(() => biometrics.isEnrolled()).thenAnswer((_) async => false);
+    when(() => biometrics.canStore()).thenAnswer((_) async => false);
+    when(() => biometrics.purgeLegacyRawKey()).thenAnswer((_) async {});
+    getIt.registerFactory<UnlockCubit>(
+      () => unlock = UnlockCubit(
+        datasource: AccountRemoteDatasource(accountHttp),
+        cryptoService: UnlockCryptoService(sodiumLoader: () async => sodium),
+        keyStore: biometrics,
+        defaultVaultProvisioner: provisioner,
+      ),
+    );
     getIt.registerFactory<RegisterCubit>(
       () => registration = RegisterCubit(
         datasource: passwordRemote,
@@ -560,68 +628,121 @@ void main() {
   }
 
   for (final polish in [false, true]) {
-    testWidgets(
-      'sharing registration remains editable with keyboard: pl=$polish',
-      (tester) async {
-        scenario = 'register';
-        await mount(tester, polish: polish);
-        final l10n = AppLocalizations.of(
-          tester.element(find.byType(EntryShareReceiverPage)),
-        )!;
-        await tap(tester, l10n.sharingOpen);
-        await tap(tester, l10n.sharingReceive);
-        await tap(tester, l10n.sharingRegister);
-        expect(find.byType(RegisterPage), findsOneWidget);
-        expect(tester.takeException(), isNull);
-        final directory = Platform.environment['PALLADIN_SHARING_VISUAL_DIR'];
-        Future<void> capture(String suffix) async {
-          if (directory == null) return;
-          await tester.runAsync(() async {
+    for (final accountFlow in ['register', 'unlock']) {
+      testWidgets(
+        'sharing $accountFlow remains editable with keyboard: pl=$polish',
+        (tester) async {
+          scenario = accountFlow;
+          await mount(tester, polish: polish);
+          final l10n = AppLocalizations.of(
+            tester.element(find.byType(EntryShareReceiverPage)),
+          )!;
+          await tap(tester, l10n.sharingOpen);
+          await tap(tester, l10n.sharingReceive);
+          final unlocking = accountFlow == 'unlock';
+          await tap(
+            tester,
+            unlocking ? l10n.sharingContinueAccount : l10n.sharingRegister,
+          );
+          expect(
+            find.byType(unlocking ? UnlockPage : RegisterPage),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+          final notice = find
+              .ancestor(
+                of: find.text(l10n.sharingAccountPending),
+                matching: find.byType(Material),
+              )
+              .first;
+          final bounds = tester.getRect(notice);
+          final sample = Offset(bounds.center.dx, bounds.top + 4);
+          final noticePixel = await tester.runAsync(() async {
             final boundary =
                 screenshot.currentContext!.findRenderObject()!
                     as RenderRepaintBoundary;
-            final image = await boundary.toImage(pixelRatio: 2);
-            final bytes = await image.toByteData(
-              format: ui.ImageByteFormat.png,
-            );
-            await Directory(directory).create(recursive: true);
-            await File(
-              '$directory/sharing-register-${polish ? 'pl-dark-320-150' : 'en-light-390'}$suffix.png',
-            ).writeAsBytes(bytes!.buffer.asUint8List());
-            image.dispose();
+            final image = await boundary.toImage();
+            try {
+              final bytes = (await image.toByteData())!;
+              final offset =
+                  (sample.dy.floor() * image.width + sample.dx.floor()) * 4;
+              return [for (var i = 0; i < 4; i++) bytes.getUint8(offset + i)];
+            } finally {
+              image.dispose();
+            }
           });
-        }
+          final expectedNoticeColor = AppColors.modalBackground(
+            polish ? Brightness.dark : Brightness.light,
+          ).toARGB32();
+          expect(
+            noticePixel,
+            [
+              (expectedNoticeColor >> 16) & 255,
+              (expectedNoticeColor >> 8) & 255,
+              expectedNoticeColor & 255,
+              (expectedNoticeColor >> 24) & 255,
+            ],
+            reason: 'Account decoration must not paint over the notice',
+          );
+          final directory = Platform.environment['PALLADIN_SHARING_VISUAL_DIR'];
+          Future<void> capture(String suffix) async {
+            if (directory == null) return;
+            await tester.runAsync(() async {
+              final boundary =
+                  screenshot.currentContext!.findRenderObject()!
+                      as RenderRepaintBoundary;
+              final image = await boundary.toImage(pixelRatio: 2);
+              final bytes = await image.toByteData(
+                format: ui.ImageByteFormat.png,
+              );
+              await Directory(directory).create(recursive: true);
+              await File(
+                '$directory/sharing-$accountFlow-${polish ? 'pl-dark-320-150' : 'en-light-390'}$suffix.png',
+              ).writeAsBytes(bytes!.buffer.asUint8List());
+              image.dispose();
+            });
+          }
 
-        await capture('');
-        tester.view.viewInsets = const FakeViewPadding(bottom: 200);
-        addTearDown(tester.view.resetViewInsets);
-        await tester.pumpAndSettle();
-        await enterField(tester, l10n.authEmailLabel, 'draft@example.invalid');
-        await tester.pumpAndSettle();
-        final email = find.descendant(
-          of: find.widgetWithText(OnboardingTextField, l10n.authEmailLabel),
-          matching: find.byType(EditableText),
-        );
-        final originalInput = tester.state(email);
-        expect(tester.getRect(email).top, greaterThanOrEqualTo(0));
-        expect(
-          tester.getRect(email).bottom,
-          lessThanOrEqualTo(tester.view.physicalSize.height - 200),
-        );
-        expect(tester.takeException(), isNull);
-        await capture('-keyboard');
-        tester.view.resetViewInsets();
-        await tester.pumpAndSettle();
-        await tap(tester, l10n.sharingCancelReception);
-        await tap(tester, l10n.sharingDiscardReception);
-        expect(continuation.active, false);
-        expect(tester.state(email), same(originalInput));
-        expect(find.text('draft@example.invalid'), findsOneWidget);
-        expect(registrations, isEmpty);
-        expect((opens, deliveries, confirmations), (1, 1, 1));
-        expect(router.routeInformationProvider.value.uri.path, '/register');
-      },
-    );
+          await capture('');
+          tester.view.viewInsets = const FakeViewPadding(bottom: 200);
+          addTearDown(tester.view.resetViewInsets);
+          await tester.pumpAndSettle();
+          final label = unlocking
+              ? l10n.unlockPasswordLabel
+              : l10n.authEmailLabel;
+          final value = unlocking ? _unlockPassword : 'draft@example.invalid';
+          await enterField(tester, label, value);
+          await tester.pumpAndSettle();
+          final input = find.descendant(
+            of: find.widgetWithText(OnboardingTextField, label),
+            matching: find.byType(EditableText),
+          );
+          final originalInput = tester.state(input);
+          expect(tester.getRect(input).top, greaterThanOrEqualTo(0));
+          expect(
+            tester.getRect(input).bottom,
+            lessThanOrEqualTo(tester.view.physicalSize.height - 200),
+          );
+          expect(tester.takeException(), isNull);
+          await capture('-keyboard');
+          tester.view.resetViewInsets();
+          await tester.pumpAndSettle();
+          await tap(tester, l10n.sharingCancelReception);
+          await tap(tester, l10n.sharingDiscardReception);
+          expect(continuation.active, false);
+          expect(tester.state(input), same(originalInput));
+          expect(tester.widget<EditableText>(input).controller.text, value);
+          expect(registrations, isEmpty);
+          expect(vaultPosts, isEmpty);
+          expect(entryPosts, isEmpty);
+          expect((opens, deliveries, confirmations), (1, 1, 1));
+          expect(
+            router.routeInformationProvider.value.uri.path,
+            '/$accountFlow',
+          );
+        },
+      );
+    }
   }
 
   for (final variant in [
@@ -631,9 +752,12 @@ void main() {
     'register',
     'register-pending',
     'register-check-error',
+    'unlock',
+    'unlock-wrong-password',
+    'unlock-provision-retry',
   ]) {
     testWidgets(
-      'guest receipt survives production account routing and first-vault save: $variant',
+      'receipt survives production account routing and first-vault save: $variant',
       (tester) async {
         scenario = variant;
         await mount(tester);
@@ -646,7 +770,46 @@ void main() {
             .cubit
             .lifetime;
         final registering = variant.startsWith('register');
-        if (registering) {
+        final unlocking = variant.startsWith('unlock');
+        if (unlocking) {
+          await tap(tester, 'Continue account setup or unlock');
+          expect(find.byType(UnlockPage), findsOneWidget);
+          expect((auth.state as AuthAuthenticated).isVaultLocked, true);
+          expect(keys.copyMemberPrivateKey, throwsStateError);
+          await enterField(
+            tester,
+            'Master Password',
+            variant == 'unlock-wrong-password'
+                ? 'synthetic-wrong-password'
+                : _unlockPassword,
+          );
+          await tap(tester, 'Unlock');
+          if (variant != 'unlock') {
+            expect(find.byType(UnlockPage), findsOneWidget);
+            expect(unlock.state, isA<UnlockFailed>());
+            expect(continuation.active, true);
+            expect((auth.state as AuthAuthenticated).isVaultLocked, true);
+            expect(keys.copyMemberPrivateKey, throwsStateError);
+            expect(defaultProvisioned, false);
+            expect(vaultJson, isNull);
+            expect(entryPosts, isEmpty);
+            expect((opens, deliveries, confirmations), (1, 1, 1));
+            if (variant == 'unlock-wrong-password') {
+              expect(vaultPosts, isEmpty);
+              expect(
+                find.text('Incorrect master password. Please try again.'),
+                findsOneWidget,
+              );
+              await enterField(tester, 'Master Password', _unlockPassword);
+            } else {
+              expect(vaultPosts, hasLength(1));
+            }
+            await tap(tester, 'Unlock');
+          }
+          expect(defaultProvisioned, true);
+          verifyNever(() => biometrics.enroll(any(), any()));
+          verifyNever(() => biometrics.unlockKey(any()));
+        } else if (registering) {
           await tap(tester, 'Create an account to save a copy');
           expect(find.byType(RegisterPage), findsOneWidget);
           for (final (label, value) in [
@@ -754,10 +917,16 @@ void main() {
           same(lifetime),
         );
         await tap(tester, 'Save a copy');
-        expect(vaultPosts, hasLength(registering ? 1 : 0));
+        final provisionAttempts = variant == 'unlock-provision-retry' ? 2 : 1;
+        expect(
+          vaultPosts,
+          hasLength(registering || unlocking ? provisionAttempts : 0),
+        );
         expect(entryPosts, isEmpty);
-        if (!registering) await tap(tester, 'Create my personal vault');
-        expect(vaultPosts, hasLength(1));
+        if (!registering && !unlocking) {
+          await tap(tester, 'Create my personal vault');
+        }
+        expect(vaultPosts, hasLength(provisionAttempts));
         await drain(tester);
         expect(
           tester
@@ -826,6 +995,8 @@ void main() {
           everyElement(
             registering
                 ? anyOf('/register', '/verify-email', '/share')
+                : unlocking
+                ? anyOf('/unlock', '/share')
                 : anyOf('/login', '/share'),
           ),
         );
@@ -845,6 +1016,17 @@ void main() {
             isNot(contains('Fixture-only! violet lantern 842#')),
           );
           expect(request.body, isNot(contains(base64Encode(privateKey))));
+          expect(request.body, isNot(contains(_unlockPassword)));
+          if (unlocking) {
+            expect(
+              request.body,
+              isNot(
+                contains(
+                  base64Encode((auth.state as AuthAuthenticated).masterKey!),
+                ),
+              ),
+            );
+          }
         }
         expect(
           requests
