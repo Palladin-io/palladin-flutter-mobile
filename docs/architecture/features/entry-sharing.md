@@ -8,10 +8,21 @@ The explicit account continuation is wired to the existing authentication routes
 First personal-Vault creation is wired inside the received-copy form.
 Inbox receipt and eight-event audit presentation are implemented in EN/PL.
 Native device/domain acceptance, real backend account/save E2E,
-receipt-to-Sharing navigation and foreground Inbox repair remain pending. Local tests
+receipt-to-Sharing navigation remain pending. Foreground Inbox repair is wired
+through the app lifecycle with session-fenced async results. Local tests
 are not evidence of deployed end-to-end sharing.
 
 ## Inbox and audit presentation checkpoint (2026-09-21)
+
+Follow-up: foreground repair is now app-owned, with immediate ready-context and
+30-second refresh, one in-flight repair per generation, independent account/org
+authority and redaction on background/lock. Feed/summary/pagination/local-label
+results and failed read rollbacks cannot revive an old session. **33 new cases;
+1,791 Flutter PASS / two existing plugin-only skips**, including six budgets;
+analyze/notices and full staged-tree Gitleaks 8.30.1 PASS. Tests use substituted
+repositories/index and a controlled clock, not real backend/device delivery.
+No CI, native build, merge or deployment. Receipt-to-Sharing navigation remains
+open alongside the wider epic acceptance gates.
 
 Localized receipt details, eight sharing audit types, external-recipient
 attribution, filters and legend are implemented. The receipt and confirmation
@@ -21,7 +32,8 @@ labels/redaction and mounted EN/PL cards/legend. Full Flutter regression:
 **1,758 PASS / two existing plugin-only skips**, including six structural budgets;
 analyze and notice verification PASS. Synthetic Inter renders were inspected in
 light/dark. These are presentation tests, not live Inbox or backend/device
-acceptance; navigation and foreground repair remain open. Full staged-tree
+acceptance; navigation remains open. Foreground repair was added in the next
+increment described in [notifications](notifications.md). Full staged-tree
 Gitleaks 8.30.1 passed with the repository configuration and no allowlist changes.
 
 ## Received-copy projection
