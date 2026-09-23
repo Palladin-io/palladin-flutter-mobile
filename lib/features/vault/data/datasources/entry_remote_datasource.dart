@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 
+import '../../../../core/network/auth_interceptor.dart';
+
 import '../models/create_entry_request.dart';
 import '../models/entry_model.dart';
 import '../models/import_entries_request.dart';
@@ -224,11 +226,13 @@ class EntryRemoteDatasource {
   Future<Response<Map<String, dynamic>>> deleteEntry(
     String vaultId,
     String entryId,
-    Map<String, dynamic> payload,
-  ) => _dio.post<Map<String, dynamic>>(
+    Map<String, dynamic> payload, {
+    required bool Function() isSessionCurrent,
+  }) => _dio.post<Map<String, dynamic>>(
     '/api/vaults/$vaultId/entries/$entryId/delete',
     data: payload,
     options: Options(
+      extra: {AuthInterceptor.sessionGuardKey: isSessionCurrent},
       validateStatus: (status) =>
           status == 200 || status == 400 || status == 409,
     ),

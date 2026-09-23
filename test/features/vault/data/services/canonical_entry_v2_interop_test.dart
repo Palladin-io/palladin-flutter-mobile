@@ -141,6 +141,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(() => true);
     registerFallbackValue(
       MemberSecret(
         entryType: VaultEntryType.key,
@@ -309,9 +310,14 @@ void main() {
       final subscription = notifier.changes.listen(actions.add);
       addTearDown(subscription.cancel);
       final requests = <Object?>[];
-      when(() => entries.deleteEntry(vaultId, entryId, any())).thenAnswer((
-        call,
-      ) async {
+      when(
+        () => entries.deleteEntry(
+          vaultId,
+          entryId,
+          any(),
+          isSessionCurrent: any(named: 'isSessionCurrent'),
+        ),
+      ).thenAnswer((call) async {
         expect(actions, [AutoFillMutationAction.invalidate]);
         requests.add(call.positionalArguments[2]);
         if (requests.length == 1) {
@@ -344,8 +350,8 @@ void main() {
           vaultId: vaultId,
           entryId: entryId,
           revision: 8,
-          entryKeyRevision: 5,
-          memberIndexRevision: 4,
+          entryKeyRevision: 1,
+          memberIndexRevision: 8,
           entryKeyVersion: 3,
           vaultKeyVersion: 4,
           vdkVersion: 6,
@@ -366,6 +372,73 @@ void main() {
     },
   );
 
+  test('delete preserves a non-discoverable secret and its policy', () async {
+    when(
+      () => entries.getCanonicalEntry(vaultId, entryId),
+    ).thenAnswer((_) async => head());
+    final privateSecret = <String, dynamic>{
+      ...canonicalSecret,
+      'discoverable': false,
+      'agentLabel': null,
+      'agentFieldAccess': {
+        ...canonicalSecret['agentFieldAccess'] as Map,
+        'entryType': 'never',
+        'agentLabel': 'never',
+      },
+    };
+    when(
+      () => crypto.openMemberSecret(
+        entryKey: any(named: 'entryKey'),
+        memberSecret: any(named: 'memberSecret'),
+        vaultKey: any(named: 'vaultKey'),
+      ),
+    ).thenAnswer((_) async => privateSecret);
+    when(
+      () => entries.deleteEntry(
+        vaultId,
+        entryId,
+        any(),
+        isSessionCurrent: any(named: 'isSessionCurrent'),
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        requestOptions: RequestOptions(path: '/delete'),
+        statusCode: 200,
+      ),
+    );
+    await service.deleteEntry(
+      expected: deletionTarget(),
+      memberPrivateKey: Uint8List(32),
+      isSessionCurrent: () => true,
+    );
+    final secret =
+        verify(
+              () => crypto.seal(
+                organizationId: orgId,
+                vaultId: vaultId,
+                entryId: entryId,
+                revision: 8,
+                entryKeyRevision: 1,
+                memberIndexRevision: 8,
+                entryKeyVersion: 3,
+                vaultKeyVersion: 4,
+                vdkVersion: 6,
+                memberKeyGeneration: 3,
+                operation: 5,
+                secret: captureAny(named: 'secret'),
+                vaultKey: any(named: 'vaultKey'),
+                vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+              ),
+            ).captured.single
+            as MemberSecret;
+    expect(secret.discoverable, isFalse);
+    expect(secret.agentLabel, isNull);
+    expect(
+      secret.agentFieldAccess.values,
+      isNot(contains(AgentFieldAccess.discovery)),
+    );
+  });
+
   test(
     'delete aborts after session replacement during native cache invalidation',
     () async {
@@ -385,7 +458,14 @@ void main() {
         ),
         throwsA(isA<CanonicalEntryDetailException>()),
       );
-      verifyNever(() => entries.deleteEntry(any(), any(), any()));
+      verifyNever(
+        () => entries.deleteEntry(
+          any(),
+          any(),
+          any(),
+          isSessionCurrent: any(named: 'isSessionCurrent'),
+        ),
+      );
     },
   );
 
@@ -396,7 +476,14 @@ void main() {
     final actions = <AutoFillMutationAction>[];
     final subscription = notifier.changes.listen(actions.add);
     addTearDown(subscription.cancel);
-    when(() => entries.deleteEntry(vaultId, entryId, any())).thenThrow(
+    when(
+      () => entries.deleteEntry(
+        vaultId,
+        entryId,
+        any(),
+        isSessionCurrent: any(named: 'isSessionCurrent'),
+      ),
+    ).thenThrow(
       DioException(
         requestOptions: RequestOptions(path: '/delete'),
         type: DioExceptionType.connectionError,
@@ -423,7 +510,14 @@ void main() {
     when(
       () => entries.getCanonicalEntry(vaultId, entryId),
     ).thenAnswer((_) async => head());
-    when(() => entries.deleteEntry(vaultId, entryId, any())).thenAnswer(
+    when(
+      () => entries.deleteEntry(
+        vaultId,
+        entryId,
+        any(),
+        isSessionCurrent: any(named: 'isSessionCurrent'),
+      ),
+    ).thenAnswer(
       (_) async => Response(
         requestOptions: RequestOptions(path: '/delete'),
         statusCode: 409,

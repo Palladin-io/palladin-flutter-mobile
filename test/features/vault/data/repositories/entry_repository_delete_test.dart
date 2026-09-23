@@ -111,7 +111,14 @@ void main() {
         expect(borrowed, everyElement(0));
         sessions.clear();
         expect(current(), isFalse);
-        verifyNever(() => entries.deleteEntry(any(), any(), any()));
+        verifyNever(
+          () => entries.deleteEntry(
+            any(),
+            any(),
+            any(),
+            isSessionCurrent: any(named: 'isSessionCurrent'),
+          ),
+        );
       },
     );
   }

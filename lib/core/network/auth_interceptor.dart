@@ -10,6 +10,8 @@ class AuthInterceptor extends QueuedInterceptor {
     required Dio dio,
   }) : _dio = dio;
 
+  static const sessionGuardKey = 'palladinSessionGuard';
+
   final SecureTokenStorage tokenStorage;
   final Dio _dio;
 
@@ -19,6 +21,16 @@ class AuthInterceptor extends QueuedInterceptor {
     RequestInterceptorHandler handler,
   ) async {
     final token = await tokenStorage.accessToken;
+    final isSessionCurrent = options.extra[sessionGuardKey] as bool Function()?;
+    if (isSessionCurrent != null && !isSessionCurrent()) {
+      handler.reject(
+        DioException.requestCancelled(
+          requestOptions: options,
+          reason: 'Unlock session changed',
+        ),
+      );
+      return;
+    }
     if (token != null && token.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $token';
     }
@@ -73,7 +85,11 @@ class AuthInterceptor extends QueuedInterceptor {
 
       final retryResponse = await _dio.fetch(options);
       handler.resolve(retryResponse);
-    } on DioException {
+    } on DioException catch (error) {
+      if (CancelToken.isCancel(error)) {
+        handler.next(error);
+        return;
+      }
       // Refresh failed — clear tokens and propagate the original error.
       await tokenStorage.clearAll();
       handler.next(err);
