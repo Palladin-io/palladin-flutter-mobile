@@ -233,7 +233,7 @@
   "entryChangesSaved": "Zmiany zostały zapisane",
   "entryDangerZone": "Strefa niebezpieczna",
   "entryDeleteTitle": "Usunąć wpis?",
-  "entryDeleteConfirm": "Wpis zostanie trwale usunięty wraz z zaszyfrowanymi danymi. Tej operacji nie można cofnąć.",
+  "entryDeleteConfirm": "Ten wpis zostanie przeniesiony do Ostatnio usuniętych. Możesz go przywrócić w okresie przechowywania. Dostęp agentów zostanie cofnięty.",
   "entryDeleteAction": "Usuń wpis",
   "entryDeleting": "Usuwanie…",
   "entryTypeLabel": "Typ wpisu",

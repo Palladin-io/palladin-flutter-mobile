@@ -1493,7 +1493,7 @@ abstract class AppLocalizations {
   /// Body of the delete entry confirmation dialog
   ///
   /// In en, this message translates to:
-  /// **'This will permanently delete this entry and its encrypted data. This cannot be undone.'**
+  /// **'This entry will move to Recently Deleted. You can restore it during the retention period. Agent access will be revoked.'**
   String get entryDeleteConfirm;
 
   /// Destructive button label in the delete entry dialog

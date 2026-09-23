@@ -74,6 +74,7 @@ void main() {
   late _Grants grants;
   late _EntryV2 crypto;
   late CanonicalEntryDetailService service;
+  late AutoFillMutationNotifier notifier;
   final bundle = const EntryEnvelopeBundleModel(
     entryKey: {
       'descriptor': {'resourceRevision': '4'},
@@ -140,6 +141,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
+    registerFallbackValue(() => true);
     registerFallbackValue(
       MemberSecret(
         entryType: VaultEntryType.key,
@@ -174,6 +176,7 @@ void main() {
     vaultCrypto = _VaultCrypto();
     grants = _Grants();
     crypto = _EntryV2();
+    notifier = AutoFillMutationNotifier();
     service = CanonicalEntryDetailService(
       entries: entries,
       vaults: vaults,
@@ -182,7 +185,7 @@ void main() {
       envelopes: _UnusedEnvelopes(),
       grants: grants,
       entryV2: crypto,
-      autoFillMutationNotifier: AutoFillMutationNotifier(),
+      autoFillMutationNotifier: notifier,
     );
     when(() => vaults.getEncryptedVault(vaultId)).thenAnswer(
       (_) async => {
@@ -284,6 +287,256 @@ void main() {
         existingEntryDek: any(named: 'existingEntryDek'),
       ),
     ).thenAnswer((_) async => bundle);
+  });
+
+  EntryEntity deletionTarget() => EntryEntity(
+    id: entryId,
+    vaultId: vaultId,
+    label: 'Key',
+    type: EntryType.key,
+    createdAt: DateTime.utc(2026),
+    updatedAt: DateTime.utc(2026),
+    currentRevision: '7',
+    currentKeyVersion: 2,
+  );
+
+  test(
+    'delete seals operation 5, retries identical ciphertext and rebuilds AutoFill',
+    () async {
+      when(
+        () => entries.getCanonicalEntry(vaultId, entryId),
+      ).thenAnswer((_) async => head());
+      final actions = <AutoFillMutationAction>[];
+      final subscription = notifier.changes.listen(actions.add);
+      addTearDown(subscription.cancel);
+      final requests = <Object?>[];
+      when(
+        () => entries.deleteEntry(
+          vaultId,
+          entryId,
+          any(),
+          isSessionCurrent: any(named: 'isSessionCurrent'),
+        ),
+      ).thenAnswer((call) async {
+        expect(actions, [AutoFillMutationAction.invalidate]);
+        requests.add(call.positionalArguments[2]);
+        if (requests.length == 1) {
+          throw DioException(
+            requestOptions: RequestOptions(path: '/delete'),
+            type: DioExceptionType.connectionError,
+          );
+        }
+        return Response(
+          requestOptions: RequestOptions(path: '/delete'),
+          statusCode: 200,
+        );
+      });
+      await service.deleteEntry(
+        expected: deletionTarget(),
+        memberPrivateKey: Uint8List(32),
+        isSessionCurrent: () => true,
+      );
+      expect(requests, hasLength(2));
+      expect(identical(requests.first, requests.last), isTrue);
+      expect(requests.first, {
+        'baseRevision': '7',
+        'newEntryKey': bundle.entryKey,
+        'memberSecret': bundle.memberSecret,
+        'memberIndex': bundle.memberIndex,
+      });
+      final call = verify(
+        () => crypto.seal(
+          organizationId: orgId,
+          vaultId: vaultId,
+          entryId: entryId,
+          revision: 8,
+          entryKeyRevision: 1,
+          memberIndexRevision: 8,
+          entryKeyVersion: 3,
+          vaultKeyVersion: 4,
+          vdkVersion: 6,
+          memberKeyGeneration: 3,
+          operation: 5,
+          secret: captureAny(named: 'secret'),
+          vaultKey: captureAny(named: 'vaultKey'),
+          vaultDiscoveryKey: captureAny(named: 'vaultDiscoveryKey'),
+        ),
+      ).captured;
+      expect((call[0] as MemberSecret).memberLabel, 'Key');
+      expect(call[1], everyElement(0));
+      expect(call[2], everyElement(0));
+      expect(actions, [
+        AutoFillMutationAction.invalidate,
+        AutoFillMutationAction.rebuild,
+      ]);
+    },
+  );
+
+  test('delete preserves a non-discoverable secret and its policy', () async {
+    when(
+      () => entries.getCanonicalEntry(vaultId, entryId),
+    ).thenAnswer((_) async => head());
+    final privateSecret = <String, dynamic>{
+      ...canonicalSecret,
+      'discoverable': false,
+      'agentLabel': null,
+      'agentFieldAccess': {
+        ...canonicalSecret['agentFieldAccess'] as Map,
+        'entryType': 'never',
+        'agentLabel': 'never',
+      },
+    };
+    when(
+      () => crypto.openMemberSecret(
+        entryKey: any(named: 'entryKey'),
+        memberSecret: any(named: 'memberSecret'),
+        vaultKey: any(named: 'vaultKey'),
+      ),
+    ).thenAnswer((_) async => privateSecret);
+    when(
+      () => entries.deleteEntry(
+        vaultId,
+        entryId,
+        any(),
+        isSessionCurrent: any(named: 'isSessionCurrent'),
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        requestOptions: RequestOptions(path: '/delete'),
+        statusCode: 200,
+      ),
+    );
+    await service.deleteEntry(
+      expected: deletionTarget(),
+      memberPrivateKey: Uint8List(32),
+      isSessionCurrent: () => true,
+    );
+    final secret =
+        verify(
+              () => crypto.seal(
+                organizationId: orgId,
+                vaultId: vaultId,
+                entryId: entryId,
+                revision: 8,
+                entryKeyRevision: 1,
+                memberIndexRevision: 8,
+                entryKeyVersion: 3,
+                vaultKeyVersion: 4,
+                vdkVersion: 6,
+                memberKeyGeneration: 3,
+                operation: 5,
+                secret: captureAny(named: 'secret'),
+                vaultKey: any(named: 'vaultKey'),
+                vaultDiscoveryKey: any(named: 'vaultDiscoveryKey'),
+              ),
+            ).captured.single
+            as MemberSecret;
+    expect(secret.discoverable, isFalse);
+    expect(secret.agentLabel, isNull);
+    expect(
+      secret.agentFieldAccess.values,
+      isNot(contains(AgentFieldAccess.discovery)),
+    );
+  });
+
+  test(
+    'delete aborts after session replacement during native cache invalidation',
+    () async {
+      var current = true;
+      when(
+        () => entries.getCanonicalEntry(vaultId, entryId),
+      ).thenAnswer((_) async => head());
+      final subscription = notifier.changes.listen((action) {
+        if (action == AutoFillMutationAction.invalidate) current = false;
+      });
+      addTearDown(subscription.cancel);
+      await expectLater(
+        service.deleteEntry(
+          expected: deletionTarget(),
+          memberPrivateKey: Uint8List(32),
+          isSessionCurrent: () => current,
+        ),
+        throwsA(isA<CanonicalEntryDetailException>()),
+      );
+      verifyNever(
+        () => entries.deleteEntry(
+          any(),
+          any(),
+          any(),
+          isSessionCurrent: any(named: 'isSessionCurrent'),
+        ),
+      );
+    },
+  );
+
+  test('ambiguous delete failure leaves AutoFill invalidated', () async {
+    when(
+      () => entries.getCanonicalEntry(vaultId, entryId),
+    ).thenAnswer((_) async => head());
+    final actions = <AutoFillMutationAction>[];
+    final subscription = notifier.changes.listen(actions.add);
+    addTearDown(subscription.cancel);
+    when(
+      () => entries.deleteEntry(
+        vaultId,
+        entryId,
+        any(),
+        isSessionCurrent: any(named: 'isSessionCurrent'),
+      ),
+    ).thenThrow(
+      DioException(
+        requestOptions: RequestOptions(path: '/delete'),
+        type: DioExceptionType.connectionError,
+      ),
+    );
+    await expectLater(
+      service.deleteEntry(
+        expected: deletionTarget(),
+        memberPrivateKey: Uint8List(32),
+        isSessionCurrent: () => true,
+      ),
+      throwsA(
+        isA<CanonicalEntryDetailException>().having(
+          (error) => error.kind,
+          'kind',
+          CanonicalEntryDetailError.network,
+        ),
+      ),
+    );
+    expect(actions, [AutoFillMutationAction.invalidate]);
+  });
+
+  test('delete preserves optimistic conflict as a typed error', () async {
+    when(
+      () => entries.getCanonicalEntry(vaultId, entryId),
+    ).thenAnswer((_) async => head());
+    when(
+      () => entries.deleteEntry(
+        vaultId,
+        entryId,
+        any(),
+        isSessionCurrent: any(named: 'isSessionCurrent'),
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        requestOptions: RequestOptions(path: '/delete'),
+        statusCode: 409,
+      ),
+    );
+    await expectLater(
+      service.deleteEntry(
+        expected: deletionTarget(),
+        memberPrivateKey: Uint8List(32),
+        isSessionCurrent: () => true,
+      ),
+      throwsA(
+        isA<CanonicalEntryDetailException>().having(
+          (error) => error.kind,
+          'kind',
+          CanonicalEntryDetailError.conflict,
+        ),
+      ),
+    );
   });
 
   test('canonical custom fields survive the detail/edit adapter', () {

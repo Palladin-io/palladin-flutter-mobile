@@ -881,7 +881,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get entryDeleteConfirm =>
-      'Wpis zostanie trwale usunięty wraz z zaszyfrowanymi danymi. Tej operacji nie można cofnąć.';
+      'Ten wpis zostanie przeniesiony do Ostatnio usuniętych. Możesz go przywrócić w okresie przechowywania. Dostęp agentów zostanie cofnięty.';
 
   @override
   String get entryDeleteAction => 'Usuń wpis';

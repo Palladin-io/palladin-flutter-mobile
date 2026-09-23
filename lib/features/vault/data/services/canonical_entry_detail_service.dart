@@ -1468,6 +1468,123 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     }
   }
 
+  Future<void> deleteEntry({
+    required EntryEntity expected,
+    required Uint8List memberPrivateKey,
+    required bool Function() isSessionCurrent,
+  }) async {
+    CanonicalEntrySnapshot? snapshot;
+    OpenedVaultProjection? opened;
+    try {
+      if (!isSessionCurrent()) {
+        throw const CanonicalEntryDetailException(
+          CanonicalEntryDetailError.forbidden,
+        );
+      }
+      snapshot = await reveal(
+        expected: expected,
+        memberPrivateKey: memberPrivateKey,
+      );
+      final vault = await _vaults.getEncryptedVault(expected.vaultId);
+      _validateCanonicalAuthority(vault, snapshot.entry, expected);
+      final vaultCrypto = _vaultCrypto;
+      final entryCrypto = _entryV2;
+      if (vaultCrypto == null || entryCrypto == null) {
+        throw const FormatException(
+          'Canonical deletion requires current crypto',
+        );
+      }
+      opened = await vaultCrypto.openVaultProjection(
+        json: vault,
+        memberPrivateKey: memberPrivateKey,
+      );
+      if (opened.organizationId != snapshot.entry['organizationId'] ||
+          opened.vaultId != expected.vaultId) {
+        throw const FormatException('Vault scope mismatch');
+      }
+      final policy = AgentVisibilityPolicy.fromJson(
+        expected.type,
+        Map<String, dynamic>.from(
+          snapshot.secret['agentVisibilityPolicy'] as Map,
+        ),
+        content: snapshot.payload,
+      );
+      final secret = _canonicalSecret(
+        vaultId: expected.vaultId,
+        type: expected.type,
+        label: snapshot.secret['memberLabel'] as String,
+        agentLabel: snapshot.secret['agentLabel'] as String?,
+        description: snapshot.secret['description'] as String? ?? '',
+        icon: snapshot.secret['iconReference'] as String? ?? '',
+        color: snapshot.secret['color'] as String?,
+        content: snapshot.payload,
+        policy: policy,
+      );
+      final bundle = await entryCrypto.seal(
+        organizationId: opened.organizationId,
+        vaultId: expected.vaultId,
+        entryId: expected.id,
+        revision: int.parse(_increment(snapshot.entry, 'currentRevision')),
+        entryKeyRevision: 1,
+        memberIndexRevision: int.parse(
+          _increment(snapshot.entry, 'currentRevision'),
+        ),
+        entryKeyVersion: _incrementInt(
+          _int(snapshot.entry, 'currentKeyVersion'),
+          'entryKeyVersion',
+        ),
+        vaultKeyVersion: opened.epoch.vaultKeyVersion,
+        vdkVersion: opened.epoch.vdkVersion,
+        memberKeyGeneration: opened.memberKeyGeneration,
+        operation: 5,
+        secret: secret,
+        vaultKey: opened.vaultKey,
+        vaultDiscoveryKey:
+            opened.vaultDiscoveryKey ??
+            (throw const FormatException('Missing Discovery key')),
+      );
+      final request = <String, dynamic>{
+        'baseRevision': snapshot.entry['currentRevision'],
+        'newEntryKey': bundle.entryKey,
+        'memberSecret': bundle.memberSecret,
+        'memberIndex': bundle.memberIndex,
+      };
+      final response = await _commitAutoFillAwareMutation(() {
+        // Check after native cache invalidation and before every transport retry.
+        if (!isSessionCurrent()) {
+          throw const CanonicalEntryDetailException(
+            CanonicalEntryDetailError.forbidden,
+          );
+        }
+        return _entries.deleteEntry(
+          expected.vaultId,
+          expected.id,
+          request,
+          isSessionCurrent: isSessionCurrent,
+        );
+      }, attempts: 2);
+      if (response.statusCode == 409) {
+        throw const CanonicalEntryDetailException(
+          CanonicalEntryDetailError.conflict,
+        );
+      }
+      if (response.statusCode != 200) {
+        throw const CanonicalEntryDetailException(
+          CanonicalEntryDetailError.corrupt,
+        );
+      }
+    } on DioException catch (error) {
+      throw CanonicalEntryDetailException(_classifyDio(error));
+    } on FormatException {
+      throw const CanonicalEntryDetailException(
+        CanonicalEntryDetailError.corrupt,
+      );
+    } finally {
+      snapshot?.clear();
+      _wipe([opened?.vaultKey, opened?.vaultDiscoveryKey]);
+    }
+  }
+
   /// Restores one Archived Entry by appending an immutable Restored revision.
   ///
   /// The prepared encrypted request is retained for one transport retry so an
@@ -1991,7 +2108,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
     required String vaultId,
     required EntryType type,
     required String label,
-    required String agentLabel,
+    required String? agentLabel,
     required String description,
     required String icon,
     String? color,
@@ -2108,8 +2225,12 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       'memberLabel': AgentFieldAccess.never,
       'icon': AgentFieldAccess.never,
       'color': AgentFieldAccess.never,
-      'entryType': AgentFieldAccess.discovery,
-      'agentLabel': AgentFieldAccess.discovery,
+      'entryType': policy.discoverable
+          ? AgentFieldAccess.discovery
+          : AgentFieldAccess.never,
+      'agentLabel': policy.discoverable
+          ? AgentFieldAccess.discovery
+          : AgentFieldAccess.never,
       'description': AgentFieldAccess.never,
     };
     for (final item in policy.fields.entries) {

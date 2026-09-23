@@ -548,6 +548,9 @@ void configureDependencies(EnvConfig config) {
       canonicalImport: getIt<CanonicalImportProjectionService>(),
       autoFillMutationNotifier: getIt<AutoFillMutationNotifier>(),
       localCurrentEntry: getIt<LocalCurrentEntryService>(),
+      canonicalDetails: getIt<CanonicalEntryDetailService>(),
+      sessions: getIt<VaultSessionStore>(),
+      memberIndex: getIt<MemberSyncService>(),
     ),
   );
   getIt.registerLazySingleton<AutoFillCacheService>(
