@@ -285,10 +285,23 @@ Vault and Entry icons share `EncryptedPresentationAssetService`. The picker
 provides local bytes only; the client validates a bounded JPEG, PNG or WebP by
 magic bytes and decoded dimensions before deriving a resource-scoped asset key
 from the Vault key or Entry DEK. A fresh XChaCha20-Poly1305 nonce and AAD bind
-the organization, Vault, asset id, target kind, optional Entry id, revision,
-media type, key version and member generation. The API receives only the
+the organization, Vault, asset id, target kind, optional Entry id, media type,
+key version and member generation. The API receives only the
 opaque `PLDNV2AS` container and its SHA-256 digest—never a source URL, domain,
 file path or plaintext image.
+
+The container uses the same version-1 header (84 bytes), protocol 2, suite 1,
+HKDF and AAD as Web. Canonical metadata stores only the asset UUID; the mobile
+presentation reference is `asset:<uuid>`, without a metadata revision. Updating
+the name or other metadata therefore does not invalidate an immutable icon.
+The current REST Vault key epoch authorizes VK unwrap and asset key derivation;
+Entry wrapper scope, key version, generation and wrapping VK version are checked
+against the requested resource and REST heads before the canonical Entry crypto
+service opens its DEK. Old header-based envelopes are not used by this pipeline.
+The existing create sheet attaches a selected file after successful Vault
+creation; Settings uses the same upload service and canonical metadata writer.
+The Web-generated synthetic fixture in `test/fixtures/encrypted_assets/` guards
+cross-client read compatibility, including reads after metadata edits.
 
 Rendering downloads authenticated opaque bytes, verifies length and digest,
 then decrypts locally through the same service. Decoded byte ownership is

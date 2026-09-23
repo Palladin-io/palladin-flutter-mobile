@@ -422,7 +422,7 @@ void configureDependencies(EnvConfig config) {
       remote: getIt<VaultRemoteDatasource>(),
       entries: getIt<EntryRemoteDatasource>(),
       keys: getIt<VaultRotationCryptoService>(),
-      envelopes: getIt<VaultProtocolEnvelopeService>(),
+      entryCrypto: getIt<EntryV2CryptoService>(),
     ),
   );
   getIt.registerLazySingleton<VaultSettingsService>(

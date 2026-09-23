@@ -10,9 +10,8 @@ import 'package:sodium_libs/sodium_libs_sumo.dart';
 import '../../../../core/crypto/sodium_provider.dart';
 import '../datasources/entry_remote_datasource.dart';
 import '../datasources/vault_remote_datasource.dart';
-import 'vault_protocol/vault_protocol_aad.dart';
+import 'entry_v2_crypto_service.dart';
 import 'vault_protocol/vault_protocol_bytes.dart';
-import 'vault_protocol/vault_protocol_envelope_service.dart';
 import 'vault_protocol/vault_protocol_kdf.dart';
 import 'vault_rotation_crypto_service.dart';
 
@@ -61,12 +60,12 @@ class EncryptedPresentationAssetService {
     required VaultRemoteDatasource remote,
     required EntryRemoteDatasource entries,
     required VaultRotationCryptoService keys,
-    required VaultEnvelopeCryptography envelopes,
+    required EntryV2CryptoService entryCrypto,
     Future<SodiumSumo> Function()? sodiumLoader,
   }) : _remote = remote,
        _entries = entries,
        _keys = keys,
-       _envelopes = envelopes,
+       _entryCrypto = entryCrypto,
        _sodiumLoader = sodiumLoader ?? SodiumProvider.instance;
 
   static const maximumPlaintextBytes = 2 * 1024 * 1024;
@@ -77,7 +76,7 @@ class EncryptedPresentationAssetService {
   final VaultRemoteDatasource _remote;
   final EntryRemoteDatasource _entries;
   final VaultRotationCryptoService _keys;
-  final VaultEnvelopeCryptography _envelopes;
+  final EntryV2CryptoService _entryCrypto;
   final Future<SodiumSumo> Function() _sodiumLoader;
   final Set<PresentationAssetValue> _liveValues = {};
 
@@ -131,38 +130,37 @@ class EncryptedPresentationAssetService {
   }) async {
     final mediaType = _inspect(plaintext);
     final context = await _context(target, vaultId, entryId, memberPrivateKey);
-    final assetId = _uuidV4();
-    final assetKey = deriveVaultProjectionKey(
-      context.baseKey,
-      VaultKdfContext(
-        purpose: VaultKdfPurpose.encryptedAsset,
-        resourceKind: target.id,
-        organizationId: context.organizationId,
-        vaultId: vaultId,
-        entryId: entryId,
-        keyVersion: context.keyVersion,
-        memberKeyGeneration: context.generation,
-      ),
-    );
-    final sodium = await _sodiumLoader();
-    final nonce = sodium.randombytes.buf(
-      sodium.crypto.aeadXChaCha20Poly1305IETF.nonceBytes,
-    );
-    final aad = _aad(
-      context.organizationId,
-      vaultId,
-      assetId,
-      target,
-      entryId,
-      context.revision,
-      mediaType,
-      context.keyVersion,
-      context.generation,
-    );
-    final secureKey = SecureKey.fromList(sodium, assetKey);
-    Uint8List? container;
-    Uint8List? digest;
+    Uint8List? assetKey, nonce, aad, container, digest;
+    SecureKey? secureKey;
     try {
+      final assetId = _uuidV4();
+      assetKey = deriveVaultProjectionKey(
+        context.baseKey,
+        VaultKdfContext(
+          purpose: VaultKdfPurpose.encryptedAsset,
+          resourceKind: target.id,
+          organizationId: context.organizationId,
+          vaultId: vaultId,
+          entryId: entryId,
+          keyVersion: context.keyVersion,
+          memberKeyGeneration: context.generation,
+        ),
+      );
+      final sodium = await _sodiumLoader();
+      nonce = sodium.randombytes.buf(
+        sodium.crypto.aeadXChaCha20Poly1305IETF.nonceBytes,
+      );
+      aad = _aad(
+        context.organizationId,
+        vaultId,
+        assetId,
+        target,
+        entryId,
+        mediaType,
+        context.keyVersion,
+        context.generation,
+      );
+      secureKey = SecureKey.fromList(sodium, assetKey);
       final ciphertext = sodium.crypto.aeadXChaCha20Poly1305IETF.encrypt(
         message: plaintext,
         nonce: nonce,
@@ -171,13 +169,14 @@ class EncryptedPresentationAssetService {
       );
       container = VaultProtocolBytes.concat([
         VaultProtocolBytes.utf8Encode(_magic),
+        VaultProtocolBytes.u16(1),
         VaultProtocolBytes.u16(2),
-        VaultProtocolBytes.u16(mediaType.id),
+        VaultProtocolBytes.u16(1),
         VaultProtocolBytes.u16(target.id),
+        VaultProtocolBytes.u16(mediaType.id),
         VaultProtocolBytes.u16(0),
         VaultProtocolBytes.u32(context.keyVersion),
         VaultProtocolBytes.u32(context.generation),
-        VaultProtocolBytes.u64(BigInt.parse(context.revision)),
         VaultProtocolBytes.uuid(assetId),
         entryId == null ? Uint8List(16) : VaultProtocolBytes.uuid(entryId),
         nonce,
@@ -198,7 +197,7 @@ class EncryptedPresentationAssetService {
         'ciphertext': VaultProtocolBytes.base64UrlEncode(container),
         'ciphertextSha256': VaultProtocolBytes.base64UrlEncode(digest),
       });
-      return 'asset:$assetId:${context.revision}';
+      return 'asset:$assetId';
     } on PresentationAssetException {
       rethrow;
     } on FormatException {
@@ -210,11 +209,11 @@ class EncryptedPresentationAssetService {
         PresentationAssetErrorKind.network,
       );
     } finally {
-      secureKey.dispose();
+      secureKey?.dispose();
       context.clear();
-      assetKey.fillRange(0, assetKey.length, 0);
-      nonce.fillRange(0, nonce.length, 0);
-      aad.fillRange(0, aad.length, 0);
+      assetKey?.fillRange(0, assetKey.length, 0);
+      nonce?.fillRange(0, nonce.length, 0);
+      aad?.fillRange(0, aad.length, 0);
       container?.fillRange(0, container.length, 0);
       digest?.fillRange(0, digest.length, 0);
     }
@@ -228,13 +227,11 @@ class EncryptedPresentationAssetService {
     required Uint8List memberPrivateKey,
   }) async {
     final parts = reference.split(':');
-    if (parts.length != 3 ||
-        parts[0] != 'asset' ||
-        BigInt.tryParse(parts[2]) == null) {
+    if (parts.length != 2 || parts[0] != 'asset') {
       throw const PresentationAssetException(PresentationAssetErrorKind.scope);
     }
     final assetId = parts[1];
-    final revision = parts[2];
+    VaultProtocolBytes.uuid(assetId);
     Uint8List? container;
     Uint8List? digest;
     Uint8List? plaintext;
@@ -275,16 +272,9 @@ class EncryptedPresentationAssetService {
         assetId,
         target,
         entryId,
-        revision,
         metadata.mediaType,
       );
-      context = await _context(
-        target,
-        vaultId,
-        entryId,
-        memberPrivateKey,
-        expectedRevision: revision,
-      );
+      context = await _context(target, vaultId, entryId, memberPrivateKey);
       if (parsed.keyVersion != context.keyVersion ||
           parsed.generation != context.generation) {
         throw const PresentationAssetException(
@@ -303,20 +293,21 @@ class EncryptedPresentationAssetService {
           memberKeyGeneration: parsed.generation,
         ),
       );
-      final sodium = await _sodiumLoader();
-      final secureKey = SecureKey.fromList(sodium, key);
-      final aad = _aad(
-        context.organizationId,
-        vaultId,
-        assetId,
-        target,
-        entryId,
-        revision,
-        parsed.mediaType,
-        parsed.keyVersion,
-        parsed.generation,
-      );
+      SecureKey? secureKey;
+      Uint8List? aad;
       try {
+        final sodium = await _sodiumLoader();
+        secureKey = SecureKey.fromList(sodium, key);
+        aad = _aad(
+          context.organizationId,
+          vaultId,
+          assetId,
+          target,
+          entryId,
+          parsed.mediaType,
+          parsed.keyVersion,
+          parsed.generation,
+        );
         plaintext = sodium.crypto.aeadXChaCha20Poly1305IETF.decrypt(
           cipherText: parsed.ciphertext,
           nonce: parsed.nonce,
@@ -328,11 +319,15 @@ class EncryptedPresentationAssetService {
           PresentationAssetErrorKind.corrupt,
         );
       } finally {
-        secureKey.dispose();
+        secureKey?.dispose();
         key.fillRange(0, key.length, 0);
-        aad.fillRange(0, aad.length, 0);
+        aad?.fillRange(0, aad.length, 0);
       }
-      _inspect(plaintext);
+      if (_inspect(plaintext) != parsed.mediaType) {
+        throw const PresentationAssetException(
+          PresentationAssetErrorKind.corrupt,
+        );
+      }
       final result = PresentationAssetValue(plaintext, parsed.mediaType);
       _liveValues.add(result);
       plaintext = null;
@@ -365,72 +360,60 @@ class EncryptedPresentationAssetService {
     PresentationAssetTarget target,
     String vaultId,
     String? entryId,
-    Uint8List privateKey, {
-    String? expectedRevision,
-  }) async {
+    Uint8List privateKey,
+  ) async {
     if (privateKey.length != 32 ||
         (target == PresentationAssetTarget.entry) != (entryId != null)) {
       throw const PresentationAssetException(PresentationAssetErrorKind.scope);
     }
     final vault = await _remote.getEncryptedVault(vaultId);
-    final organizationId =
-        vault['organizationId'] as String? ??
-        (throw const FormatException('scope'));
-    final generation =
-        vault['memberKeyGeneration'] as int? ??
-        (throw const FormatException('generation'));
+    final organizationId = vault['organizationId'] as String;
+    final generation = vault['memberKeyGeneration'] as int;
+    final vaultKeyVersion =
+        (vault['currentKeyEpoch'] as Map)['vaultKeyVersion'] as int;
     final vaultKey = await _keys.openMemberVaultKey(
       Map<String, dynamic>.from(vault['memberVaultKey'] as Map),
       privateKey,
+      expectedOrganizationId: organizationId,
+      expectedVaultId: vaultId,
+      expectedVaultKeyVersion: vaultKeyVersion,
+      expectedMemberKeyGeneration: generation,
     );
     if (target == PresentationAssetTarget.vault) {
-      final metadata = Map<String, dynamic>.from(
-        vault['memberVaultMetadata'] as Map,
-      );
-      final header = Map<String, dynamic>.from(metadata['header'] as Map);
-      final revision = metadata['metadataRevision'].toString();
-      if (expectedRevision != null && revision != expectedRevision) {
-        throw const PresentationAssetException(
-          PresentationAssetErrorKind.scope,
-        );
-      }
       return _AssetContext(
         organizationId,
-        revision,
-        header['keyVersion'] as int,
+        vaultKeyVersion,
         generation,
         vaultKey,
       );
     }
-    Uint8List? entryDek;
     try {
       final entry = await _entries.getCanonicalEntry(vaultId, entryId!);
+      final keyVersion = entry['currentKeyVersion'] as int;
       final wrapper = Map<String, dynamic>.from(entry['entryKey'] as Map);
-      entryDek = await _envelopes.decrypt(
-        profile: VaultAadProfile.entryKeyWrapper,
-        envelope: wrapper,
-        key: vaultKey,
-        expected: VaultEnvelopeExpectations(
-          aadContext: wrapper,
-          minimumMemberKeyGeneration: wrapper['memberKeyGeneration'] as int,
-        ),
-      );
-      final revision = entry['currentRevision'] as String;
-      if (expectedRevision != null && revision != expectedRevision) {
+      final descriptor = wrapper['descriptor'] as Map;
+      final scope = descriptor['scope'] as Map;
+      final binding = descriptor['binding'] as Map;
+      final wrapperGeneration = descriptor['memberKeyGeneration'] as int;
+      // Authenticate the wrapper against the requested resource and REST heads,
+      // never against scope/version values copied from the wrapper itself.
+      if (scope['organizationId'] != organizationId ||
+          scope['vaultId'] != vaultId ||
+          scope['entryId'] != entryId ||
+          descriptor['keyVersion'] != keyVersion ||
+          wrapperGeneration > generation ||
+          binding['wrappingVaultKeyVersion'] != vaultKeyVersion) {
         throw const PresentationAssetException(
           PresentationAssetErrorKind.scope,
         );
       }
-      return _AssetContext(
-        organizationId,
-        revision,
-        wrapper['keyVersion'] as int,
-        generation,
-        entryDek,
+      final entryDek = await _entryCrypto.openEntryDek(
+        entryKey: wrapper,
+        vaultKey: vaultKey,
       );
+      return _AssetContext(organizationId, keyVersion, generation, entryDek);
     } finally {
       vaultKey.fillRange(0, vaultKey.length, 0);
-      if (entryDek != null) entryDek = null;
     }
   }
 
@@ -504,37 +487,38 @@ class EncryptedPresentationAssetService {
     String assetId,
     PresentationAssetTarget target,
     String? entryId,
-    String revision,
     String mediaWire,
   ) {
-    const header = 88;
-    if (value.length <= header ||
+    const header = 84;
+    if (value.length <= header + 16 ||
         ascii.decode(value.sublist(0, 8)) != _magic ||
-        _u16(value, 8) != 2 ||
-        _u16(value, 12) != target.id ||
-        _u64(value, 24).toString() != revision ||
-        VaultProtocolBytes.hexEncode(Uint8List.sublistView(value, 32, 48)) !=
+        _u16(value, 8) != 1 ||
+        _u16(value, 10) != 2 ||
+        _u16(value, 12) != 1 ||
+        _u16(value, 14) != target.id ||
+        _u16(value, 18) != 0 ||
+        VaultProtocolBytes.hexEncode(Uint8List.sublistView(value, 28, 44)) !=
             assetId.replaceAll('-', '') ||
         (entryId == null
-            ? value.sublist(48, 64).any((b) => b != 0)
+            ? value.sublist(44, 60).any((b) => b != 0)
             : VaultProtocolBytes.hexEncode(
-                    Uint8List.sublistView(value, 48, 64),
+                    Uint8List.sublistView(value, 44, 60),
                   ) !=
                   entryId.replaceAll('-', ''))) {
       throw const PresentationAssetException(PresentationAssetErrorKind.scope);
     }
     final media = PresentationAssetMediaType.values
-        .where((v) => v.id == _u16(value, 10) && v.wire == mediaWire)
+        .where((v) => v.id == _u16(value, 16) && v.wire == mediaWire)
         .firstOrNull;
     if (media == null) {
       throw const PresentationAssetException(PresentationAssetErrorKind.scope);
     }
     return _ParsedAsset(
       media,
-      _u32(value, 16),
       _u32(value, 20),
-      Uint8List.sublistView(value, 64, 88),
-      Uint8List.sublistView(value, 88),
+      _u32(value, 24),
+      Uint8List.sublistView(value, 60, 84),
+      Uint8List.sublistView(value, 84),
     );
   }
 
@@ -544,19 +528,17 @@ class EncryptedPresentationAssetService {
     String asset,
     PresentationAssetTarget target,
     String? entry,
-    String revision,
     PresentationAssetMediaType media,
     int keyVersion,
     int generation,
   ) => VaultProtocolBytes.concat([
     VaultProtocolBytes.utf8Encode('PLDNV2AA'),
-    VaultProtocolBytes.u16(2),
+    VaultProtocolBytes.u16(1),
     VaultProtocolBytes.uuid(org),
     VaultProtocolBytes.uuid(vault),
     VaultProtocolBytes.uuid(asset),
     VaultProtocolBytes.u16(target.id),
     entry == null ? Uint8List(16) : VaultProtocolBytes.uuid(entry),
-    VaultProtocolBytes.u64(BigInt.parse(revision)),
     VaultProtocolBytes.u16(media.id),
     VaultProtocolBytes.u32(keyVersion),
     VaultProtocolBytes.u32(generation),
@@ -578,14 +560,6 @@ class EncryptedPresentationAssetService {
       (b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3];
   int _u32le(Uint8List b, int o) =>
       b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24);
-  BigInt _u64(Uint8List b, int o) {
-    var v = BigInt.zero;
-    for (var i = 0; i < 8; i++) {
-      v = (v << 8) | BigInt.from(b[o + i]);
-    }
-    return v;
-  }
-
   String _uuidV4() {
     final b = Uint8List.fromList(
       List.generate(16, (_) => Random.secure().nextInt(256)),
@@ -601,12 +575,11 @@ class EncryptedPresentationAssetService {
 final class _AssetContext {
   _AssetContext(
     this.organizationId,
-    this.revision,
     this.keyVersion,
     this.generation,
     this.baseKey,
   );
-  final String organizationId, revision;
+  final String organizationId;
   final int keyVersion, generation;
   final Uint8List baseKey;
   void clear() => baseKey.fillRange(0, baseKey.length, 0);
