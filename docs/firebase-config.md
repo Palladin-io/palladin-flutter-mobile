@@ -89,3 +89,42 @@ When one Firebase project contains several Android apps, the downloaded
 Services Gradle plugin selects the entry matching the active flavor's final
 application ID. Do not trim the file to the production client because that
 silently breaks the `local` and `staging` flavors.
+
+## Explicit Google OAuth build inputs
+
+Direct Google Sign-In is independent of Firebase Cloud Messaging. Application
+code and Runner Info.plist have no Palladin-owned OAuth defaults. Set
+`GOOGLE_SERVER_CLIENT_ID` to the web OAuth client accepted by the selected
+backend, and on iOS set `GOOGLE_IOS_CLIENT_ID` to the client for the distribution
+bundle ID. These are public identifiers, not client secrets.
+
+After setting these variables in your local environment, run:
+
+```sh
+python3 tool/configure_google_oauth.py --flavor local --platform ios
+flutter run --flavor local -t lib/main_local.dart \
+  --dart-define-from-file=config/google-oauth-local.local.json
+```
+
+Use `--platform android` on Android. The helper creates ignored Dart build
+inputs and, for iOS, an ignored flavor-specific xcconfig with the client ID,
+server client ID and reversed callback scheme. Re-run it when changing the
+backend or distribution identity. Missing or malformed inputs fail before
+writing; missing Dart configuration rejects Google login before invoking the
+native SDK instead of falling back to a Firebase-embedded client. Password
+login is unaffected.
+
+The owner-dispatched store workflow reads `STAGING_GOOGLE_SERVER_CLIENT_ID`
+and `PRODUCTION_GOOGLE_SERVER_CLIENT_ID` from GitHub variables, selecting by
+**backend environment**, without falling back from missing production to
+staging. `GOOGLE_IOS_CLIENT_ID` belongs to the protected
+`mobile-store-<flavor>` environment and selects the **distribution identity**.
+Production-distribution/staging-backend store tests therefore keep their iOS
+identity while using the staging token audience. Configure these variables
+before dispatching a store build; PR CI uses synthetic inputs and no cloud access.
+
+The checked-in Firebase files still identify the existing shared project.
+Moving OAuth defaults out of source does not complete environment separation
+or provider restriction review. Do not claim publication readiness until those
+operational gates are complete. No history rewrite is needed merely because
+public client identifiers exist in earlier commits.

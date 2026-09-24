@@ -137,6 +137,13 @@ variable. Deploy the backend content endpoint before releasing these clients;
 unavailable images use a local glyph. Mobile still selects its API through the
 build configuration; this change does not add a runtime server selector.
 
+## Google OAuth build configuration
+
+Before running or building Google Sign-In, supply explicit backend and iOS
+client IDs using `tool/configure_google_oauth.py` and the generated
+`--dart-define-from-file`. See [configuration instructions](docs/firebase-config.md#explicit-google-oauth-build-inputs).
+A fresh clone has no OAuth audience configured; Google login fails closed.
+
 ## Firebase client configuration
 
 The per-flavor `google-services.json` and `GoogleService-Info.plist` files are

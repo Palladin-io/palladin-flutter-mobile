@@ -56,3 +56,7 @@ android/upload-keystore.jks
 # Claude Code (user-specific only)
 .claude/settings.local.json
 .claude/worktrees/
+
+# Environment-specific public OAuth build inputs
+/config/*.local.json
+/ios/Flutter/flavors/*.oauth.local.xcconfig

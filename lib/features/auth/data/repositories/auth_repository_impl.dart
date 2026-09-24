@@ -29,7 +29,8 @@ class AuthRepositoryImpl implements AuthRepository {
     this.currentEntryCacheInvalidator,
     GoogleSignIn? googleSignIn,
     this.operationTimeout = const Duration(seconds: 4),
-  }) : _googleSignIn =
+  }) : _googleConfigured = googleServerClientId.trim().isNotEmpty,
+       _googleSignIn =
            googleSignIn ??
            GoogleSignIn(
              scopes: ['email'],
@@ -45,11 +46,14 @@ class AuthRepositoryImpl implements AuthRepository {
   final FlutterSecureStorage secureStorage;
   final AutoFillCacheInvalidator autoFillCacheInvalidator;
   final GoogleSignIn _googleSignIn;
+  final bool _googleConfigured;
   final Duration operationTimeout;
   final CurrentEntryCacheInvalidator? currentEntryCacheInvalidator;
 
   @override
   Future<AuthResultModel> loginWithGoogle() async {
+    // Never fall back to a client ID embedded in the Firebase platform config.
+    if (!_googleConfigured) throw const AuthGoogleConfigurationException();
     AppLogger.d('Auth', 'Starting Google Sign-In');
     final account = await _googleSignIn.signIn();
     if (account == null) {
@@ -57,7 +61,6 @@ class AuthRepositoryImpl implements AuthRepository {
       throw AuthCancelledException();
     }
 
-    AppLogger.d('Auth', 'Google account: ${account.email}');
     final auth = await account.authentication;
     final idToken = auth.idToken;
     AppLogger.d('Auth', 'Got auth tokens, idToken present: ${idToken != null}');
@@ -293,4 +296,8 @@ enum AuthServerErrorKind {
   cannotConnect,
   connectionFailed,
   invalidResponse,
+}
+
+class AuthGoogleConfigurationException implements Exception {
+  const AuthGoogleConfigurationException();
 }
