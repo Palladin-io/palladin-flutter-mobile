@@ -146,10 +146,12 @@ A fresh clone has no OAuth audience configured; Google login fails closed.
 
 ## Firebase client configuration
 
-The per-flavor `google-services.json` and `GoogleService-Info.plist` files are
-committed intentionally. They contain Firebase client identifiers that are
-recoverable from distributed applications; they are not server credentials or
-service-account keys.
+Per-flavor `google-services.json` and `GoogleService-Info.plist` files are ignored
+build inputs. Install your downloaded client file using
+`tool/configure_firebase.py --flavor local --platform android --source /path/to/google-services.json`
+(or `--platform ios` with the plist). Native builds require this explicit setup;
+unit tests and analysis do not. The installer preserves existing OAuth metadata.
+Store builds use distribution-scoped GitHub configuration variables.
 
 Public client configuration is safe only when the Firebase/GCP projects are
 secured independently. Maintainers must apply application and API restrictions
@@ -165,10 +167,12 @@ private certificates, backend credentials, or production secrets.
 
 ## Tests and continuous integration
 
-Run the same checks used by pull-request CI:
+Scan a clean checkout (without ignored cloud configuration), then run the
+checks used by pull-request CI:
 
 ```bash
-gitleaks dir . --config .gitleaks.toml --redact --no-banner
+gitleaks dir /path/to/clean-checkout --config .gitleaks.toml --redact --no-banner
+python3 -m unittest discover -s tool/tests
 dart run tool/generate_third_party_notices.dart --check
 flutter analyze
 flutter test test/performance/vault_v2_mobile_structural_budget_test.dart
@@ -184,8 +188,8 @@ analysis, structural budgets, and the complete test suite.
 
 CI runs Gitleaks 8.30.1 against the current tree. The repository configuration
 extends the default rules and contains exact-path exceptions for synthetic
-crypto tests and fixtures, dependency checksums, cryptographic documentation,
-and the documented public Firebase client configuration. A separate
+crypto tests and fixtures, dependency checksums, and cryptographic documentation.
+A separate
 `.gitleaksignore` contains one commit-, path-, rule-, and line-specific
 fingerprint for a historical synthetic Stripe-shaped UI mock; it does not
 suppress current-tree findings.

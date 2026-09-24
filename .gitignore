@@ -60,3 +60,7 @@ android/upload-keystore.jks
 # Environment-specific public OAuth build inputs
 /config/*.local.json
 /ios/Flutter/flavors/*.oauth.local.xcconfig
+
+# Explicit Firebase client files (preserve outside Git)
+/android/app/src/*/google-services.json
+/ios/config/*/GoogleService-Info.plist

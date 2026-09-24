@@ -1,11 +1,29 @@
 # Firebase client configuration
 
-The per-flavor Firebase client configuration files are committed intentionally:
+Per-flavor Firebase client files are explicit, ignored build inputs:
 
-| Platform | Path |
+| Platform | Ignored destination |
 |---|---|
 | Android | `android/app/src/{local,staging,production}/google-services.json` |
 | iOS | `ios/config/{local,staging,production}/GoogleService-Info.plist` |
+
+A fresh clone contains no Firebase project selection. Native builds require the
+matching client file; the platform build fails if it is missing. Unit tests and
+static analysis require no Firebase account or client file.
+
+Download the client file from your Firebase project, then install it explicitly:
+
+```sh
+python3 tool/configure_firebase.py --flavor local --platform android \
+  --source /path/to/google-services.json
+python3 tool/configure_firebase.py --flavor local --platform ios \
+  --source /path/to/GoogleService-Info.plist
+```
+
+The installer rejects a file for a different distribution package/bundle before
+writing. It preserves the complete original bytes, including existing OAuth
+metadata and other Android clients. It does not create, delete or reconfigure
+OAuth clients, consent-screen publishing status or redirect URIs.
 
 ## What these files contain
 
@@ -15,7 +33,7 @@ IDs, and sender IDs are embedded in every distributed app and are therefore
 public client identifiers. They are not service-account credentials and do not
 grant administrative access to Firebase or GCP.
 
-Committing client configuration does not mean that an unrestricted Firebase
+Keeping client configuration outside Git does not mean that an unrestricted Firebase
 project is safe. The project must remain protected by controls enforced outside
 the app:
 
@@ -57,19 +75,19 @@ recovery material, and auth tokens must never be included in a notification.
 
 ## Repository and CI behavior
 
-The client files are tracked and read in place by each platform build. Public
-pull-request CI does not inject Firebase secrets and does not need access to a
-private parent repository:
+The native build reads the ignored files at the paths above. The owner-dispatched
+store workflow installs `FIREBASE_ANDROID_CONFIG` (raw JSON) and
+`FIREBASE_IOS_CONFIG` (raw plist) from GitHub variables in the protected
+`mobile-store-<flavor>` environment. Selection follows **distribution flavor**,
+not backend environment: production-flavor tests against the staging API keep
+the existing production Firebase project. Never replace that configuration with
+a new project merely because the API is called staging.
 
-- Android reads `android/app/src/<flavor>/google-services.json`.
-- iOS selects `ios/config/<flavor>/GoogleService-Info.plist` through the flavor
-  build configuration and copy script.
-- The committed configuration is verified by
-  `test/config/firebase_client_config_test.dart`, which checks only public
-  project, package, bundle, and Firebase App identifiers and never snapshots an
-  API key.
-- Store signing material is supplied only to the manually triggered store-build
-  workflow and is never available to fork pull requests.
+PR CI receives no cloud configuration, signing material or cloud access. It
+checks the installer with synthetic files, including preservation of OAuth and
+rejection of mismatched distributions. Public Firebase identifiers remain in
+older Git commits; removing runnable defaults does not revoke them. Review
+provider-side restrictions independently.
 
 ## Maintainer checklist
 
@@ -79,7 +97,8 @@ When adding or rotating a Firebase app:
 2. restrict the client key by application and API;
 3. verify Security Rules for every enabled Firebase data product;
 4. configure and enforce App Check where supported;
-5. download and commit only the client configuration file;
+5. download the client file into ignored local configuration or the protected
+   distribution environment variable;
 6. confirm that no service-account or signing credential entered the diff;
 7. run a flavor build and validate push token registration against the intended
    backend environment.
@@ -123,8 +142,9 @@ Production-distribution/staging-backend store tests therefore keep their iOS
 identity while using the staging token audience. Configure these variables
 before dispatching a store build; PR CI uses synthetic inputs and no cloud access.
 
-The checked-in Firebase files still identify the existing shared project.
-Moving OAuth defaults out of source does not complete environment separation
-or provider restriction review. Do not claim publication readiness until those
-operational gates are complete. No history rewrite is needed merely because
-public client identifiers exist in earlier commits.
+Existing deployments retain their current OAuth client, redirect URIs and Firebase
+project. New isolated Firebase projects are a separate migration, not a
+prerequisite for making a fresh clone independent of Palladin infrastructure.
+Provider restrictions and native login/push smoke tests remain operational
+release gates. Public client identifiers in earlier commits alone do not
+require a history rewrite.

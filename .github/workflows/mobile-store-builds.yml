@@ -180,6 +180,12 @@ jobs:
           fi
           python3 tool/configure_google_oauth.py --flavor "$FLAVOR" --platform android
 
+      - name: Prepare Firebase client configuration
+        env:
+          FLAVOR: ${{ inputs.flavor }}
+          FIREBASE_CLIENT_CONFIG: ${{ vars.FIREBASE_ANDROID_CONFIG }}
+        run: python3 tool/configure_firebase.py --flavor "$FLAVOR" --platform android
+
       - name: Build Android App Bundle
         env:
           FLAVOR: ${{ inputs.flavor }}
@@ -543,6 +549,12 @@ jobs:
             export GOOGLE_SERVER_CLIENT_ID="$STAGING_GOOGLE_SERVER_CLIENT_ID"
           fi
           python3 tool/configure_google_oauth.py --flavor "$FLAVOR" --platform ios
+
+      - name: Prepare Firebase client configuration
+        env:
+          FLAVOR: ${{ inputs.flavor }}
+          FIREBASE_CLIENT_CONFIG: ${{ vars.FIREBASE_IOS_CONFIG }}
+        run: python3 tool/configure_firebase.py --flavor "$FLAVOR" --platform ios
 
       - name: Build iOS IPA
         env:
