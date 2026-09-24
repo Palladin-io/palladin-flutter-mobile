@@ -49,9 +49,9 @@ class EnvConfig {
       apiBaseUrl: 'http://$host:5000',
       posthogKey: const String.fromEnvironment('POSTHOG_PROJECT_KEY'),
       posthogHost: 'https://eu.i.posthog.com',
-      // Staging Firebase project used for local development
-      googleServerClientId:
-          '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
+      googleServerClientId: const String.fromEnvironment(
+        'GOOGLE_SERVER_CLIENT_ID',
+      ),
     );
   }
 
@@ -63,8 +63,7 @@ class EnvConfig {
       apiBaseUrl: 'https://api.stage.palladin.io',
       posthogKey: String.fromEnvironment('POSTHOG_PROJECT_KEY'),
       posthogHost: 'https://eu.i.posthog.com',
-      googleServerClientId:
-          '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
+      googleServerClientId: String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID'),
     );
   }
 
@@ -81,8 +80,9 @@ class EnvConfig {
           : 'https://api.palladin.io',
       posthogKey: const String.fromEnvironment('POSTHOG_PROJECT_KEY'),
       posthogHost: 'https://eu.i.posthog.com',
-      googleServerClientId:
-          '1006466869105-3j8tlokqhsej6cnu0tcvohb7bgd13s9v.apps.googleusercontent.com',
+      googleServerClientId: const String.fromEnvironment(
+        'GOOGLE_SERVER_CLIENT_ID',
+      ),
       // Staging and production must never share certificate pin sets.
       certificatePins: useStagingBackend
           ? const []

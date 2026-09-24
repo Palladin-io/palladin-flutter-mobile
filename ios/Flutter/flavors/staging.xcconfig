@@ -1,2 +1,4 @@
 PRODUCT_BUNDLE_IDENTIFIER = io.palladin.mobile.staging
 DISPLAY_NAME = Palladin (Stage)
+
+#include? "staging.oauth.local.xcconfig"
