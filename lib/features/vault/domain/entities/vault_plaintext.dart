@@ -469,6 +469,7 @@ final class CreditCardSecretContent extends MemberSecretContent {
   const CreditCardSecretContent({
     required this.cardholderName,
     required this.cardNumber,
+    this.cvv,
     required this.expiryMonth,
     required this.expiryYear,
     required this.billingAddress,
@@ -477,10 +478,12 @@ final class CreditCardSecretContent extends MemberSecretContent {
   });
   final String cardholderName, cardNumber, expiryMonth, expiryYear;
   final String? billingAddress, notes;
+  final String? cvv;
   @override
   Map<String, Object?> toJson() => {
     'cardholderName': cardholderName,
     'cardNumber': cardNumber,
+    if (cvv != null) 'cvv': cvv,
     'expiryMonth': expiryMonth,
     'expiryYear': expiryYear,
     'billingAddress': billingAddress,
@@ -491,6 +494,7 @@ final class CreditCardSecretContent extends MemberSecretContent {
   Map<String, Object?> fieldValues() => {
     'creditCard.cardholderName': cardholderName,
     'creditCard.cardNumber': cardNumber,
+    if (cvv != null) 'creditCard.cvv': cvv,
     'creditCard.expiryMonth': expiryMonth,
     'creditCard.expiryYear': expiryYear,
     'creditCard.billingAddress': billingAddress,
@@ -585,6 +589,7 @@ final class MemberSecret {
 
   void _validateMode(String id, AgentFieldAccess access) {
     final allowed = switch (id) {
+      'creditCard.cvv' => {AgentFieldAccess.never},
       'memberLabel' || 'icon' || 'color' => {AgentFieldAccess.never},
       'description' => {AgentFieldAccess.never, AgentFieldAccess.discovery},
       'entryType' ||

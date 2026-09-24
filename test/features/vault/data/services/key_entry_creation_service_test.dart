@@ -422,6 +422,7 @@ void main() {
         'type': 'CREDIT_CARD',
         'cardholderName': 'Patryk',
         'cardNumber': '4111111111111111',
+        'cvv': '012',
         'expiryMonth': '12',
         'expiryYear': '2030',
         'fields': [
@@ -455,6 +456,12 @@ void main() {
             ).captured.single
             as MemberSecret;
 
+    expect(secret.content.toJson()['cvv'], '012');
+    expect(secret.agentFieldAccess['creditCard.cvv'], AgentFieldAccess.never);
+    expect(
+      VaultPlaintextProjector.memberIndex(secret).toString(),
+      isNot(contains('012')),
+    );
     expect(
       secret.agentFieldAccess['custom:$customId'],
       AgentFieldAccess.onGrantRuntime,

@@ -6602,6 +6602,12 @@ abstract class AppLocalizations {
   /// **'Cardholder name'**
   String get entryCardholderNameLabel;
 
+  /// No description provided for @entryCvvLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'CVV / CVC'**
+  String get entryCvvLabel;
+
   /// No description provided for @entryCardNumberLabel.
   ///
   /// In en, this message translates to:

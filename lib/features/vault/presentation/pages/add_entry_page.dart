@@ -116,6 +116,8 @@ class _AddEntryViewState extends State<_AddEntryView> {
   final _scriptController = TextEditingController();
   final _cardholderController = TextEditingController();
   final _cardNumberController = TextEditingController();
+  final _cvvController = TextEditingController();
+  bool _cvvObscured = true;
   final _expiryMonthController = TextEditingController();
   final _expiryYearController = TextEditingController();
   final _billingAddressController = TextEditingController();
@@ -199,6 +201,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
     for (final controller in [
       _cardholderController,
       _cardNumberController,
+      _cvvController,
       _expiryMonthController,
       _expiryYearController,
       _billingAddressController,
@@ -216,6 +219,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
     for (final controller in [
       _cardholderController,
       _cardNumberController,
+      _cvvController,
       _expiryMonthController,
       _expiryYearController,
       _billingAddressController,
@@ -239,6 +243,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
         scriptParameters: _scriptParameters,
         cardholderName: _cardholderController.text,
         cardNumber: _cardNumberController.text,
+        cvv: _cvvController.text,
         expiryMonth: _expiryMonthController.text,
         expiryYear: _expiryYearController.text,
       );
@@ -292,6 +297,7 @@ class _AddEntryViewState extends State<_AddEntryView> {
     returnResultToAgent: _returnResultToAgent,
     cardholderName: _cardholderController.text,
     cardNumber: _cardNumberController.text,
+    cvv: _cvvController.text,
     expiryMonth: _expiryMonthController.text,
     expiryYear: _expiryYearController.text,
     billingAddress: _billingAddressController.text,
@@ -457,6 +463,18 @@ class _AddEntryViewState extends State<_AddEntryView> {
             obscured: _cardNumberObscured,
             onPressed: () =>
                 setState(() => _cardNumberObscured = !_cardNumberObscured),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryCvvLabel,
+          controller: _cvvController,
+          obscureText: _cvvObscured,
+          keyboardType: TextInputType.number,
+          onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _cvvObscured,
+            onPressed: () => setState(() => _cvvObscured = !_cvvObscured),
           ),
         ),
         const SizedBox(height: AppSpacing.fieldGap),

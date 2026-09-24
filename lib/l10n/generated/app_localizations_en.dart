@@ -3710,6 +3710,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entryCardholderNameLabel => 'Cardholder name';
 
   @override
+  String get entryCvvLabel => 'CVV / CVC';
+
+  @override
   String get entryCardNumberLabel => 'Card number';
 
   @override

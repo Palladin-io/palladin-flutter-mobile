@@ -76,6 +76,7 @@ class EntryFormUtils {
     Object? credentialTotp,
     String cardholderName = '',
     String cardNumber = '',
+    String cvv = '',
     String expiryMonth = '',
     String expiryYear = '',
     String billingAddress = '',
@@ -112,6 +113,7 @@ class EntryFormUtils {
       EntryType.creditCard => CreditCardPayload(
         cardholderName: cardholderName.trim(),
         cardNumber: cardNumber.replaceAll(RegExp(r'[ -]'), ''),
+        cvv: cvv.trim().isEmpty ? null : cvv.trim(),
         expiryMonth: expiryMonth,
         expiryYear: expiryYear,
         billingAddress: billingAddress.trim().isEmpty
@@ -137,6 +139,7 @@ class EntryFormUtils {
     List<ScriptParameterDefinition> scriptParameters = const [],
     String cardholderName = '',
     String cardNumber = '',
+    String cvv = '',
     String expiryMonth = '',
     String expiryYear = '',
   }) {
@@ -151,6 +154,7 @@ class EntryFormUtils {
             _validScriptDefinitions(description, refs, scriptParameters),
       EntryType.creditCard =>
         cardholderName.trim().isNotEmpty &&
+            (cvv.trim().isEmpty || RegExp(r'^\d{3,4}$').hasMatch(cvv.trim())) &&
             RegExp(
               r'^\d{12,19}$',
             ).hasMatch(cardNumber.replaceAll(RegExp(r'[ -]'), '')) &&

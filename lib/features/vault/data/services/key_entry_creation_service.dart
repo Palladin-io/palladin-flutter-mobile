@@ -289,6 +289,7 @@ final class KeyEntryCreationService {
       EntryType.creditCard => CreditCardSecretContent(
         cardholderName: raw['cardholderName'] as String,
         cardNumber: raw['cardNumber'] as String,
+        cvv: raw['cvv'] as String?,
         expiryMonth: raw['expiryMonth'] as String,
         expiryYear: raw['expiryYear'] as String,
         billingAddress: raw['billingAddress'] as String?,
@@ -332,6 +333,7 @@ final class KeyEntryCreationService {
         EntryType.creditCard => {
           'creditCard.cardholderName': AgentFieldAccess.onGrantRuntime,
           'creditCard.cardNumber': AgentFieldAccess.onGrantRuntime,
+          if (raw['cvv'] != null) 'creditCard.cvv': AgentFieldAccess.never,
           'creditCard.expiryMonth': AgentFieldAccess.onGrantRuntime,
           'creditCard.expiryYear': AgentFieldAccess.onGrantRuntime,
           'creditCard.billingAddress': raw['billingAddress'] == null

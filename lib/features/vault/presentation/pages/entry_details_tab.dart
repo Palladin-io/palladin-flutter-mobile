@@ -89,6 +89,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
   final _scriptController = TextEditingController();
   final _cardholderController = TextEditingController();
   final _cardNumberController = TextEditingController();
+  final _cvvController = TextEditingController();
+  bool _cvvObscured = true;
   final _expiryMonthController = TextEditingController();
   final _expiryYearController = TextEditingController();
   final _billingAddressController = TextEditingController();
@@ -243,6 +245,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _scriptController.dispose();
     _cardholderController.dispose();
     _cardNumberController.dispose();
+    _cvvController.dispose();
     _expiryMonthController.dispose();
     _expiryYearController.dispose();
     _billingAddressController.dispose();
@@ -283,6 +286,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     _scriptController.clear();
     _cardholderController.clear();
     _cardNumberController.clear();
+    _cvvController.clear();
+    _cvvObscured = true;
     _expiryMonthController.clear();
     _expiryYearController.clear();
     _billingAddressController.clear();
@@ -363,6 +368,8 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         _cardholderController.text =
             (payload['cardholderName'] as String?) ?? '';
         _cardNumberController.text = (payload['cardNumber'] as String?) ?? '';
+        _cvvController.text = (payload['cvv'] as String?) ?? '';
+        _cvvObscured = true;
         _expiryMonthController.text = (payload['expiryMonth'] as String?) ?? '';
         _expiryYearController.text = (payload['expiryYear'] as String?) ?? '';
         _billingAddressController.text =
@@ -506,6 +513,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
         scriptParameters: _scriptParameters,
         cardholderName: _cardholderController.text,
         cardNumber: _cardNumberController.text,
+        cvv: _cvvController.text,
         expiryMonth: _expiryMonthController.text,
         expiryYear: _expiryYearController.text,
       );
@@ -527,6 +535,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
     credentialTotp: _credentialTotp,
     cardholderName: _cardholderController.text,
     cardNumber: _cardNumberController.text,
+    cvv: _cvvController.text,
     expiryMonth: _expiryMonthController.text,
     expiryYear: _expiryYearController.text,
     billingAddress: _billingAddressController.text,
@@ -1106,6 +1115,7 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
             false,
           ),
           ('cardNumber', l10n.entryCardNumberLabel, Icons.credit_card, true),
+          ('cvv', l10n.entryCvvLabel, Icons.lock_outline, true),
           (
             'expiryMonth',
             l10n.entryExpiryMonthLabel,
@@ -1500,6 +1510,18 @@ class _EntryDetailsTabState extends State<EntryDetailsTab>
           suffixIcon: EntryObscureToggle(
             obscured: _valueObscured,
             onPressed: () => setState(() => _valueObscured = !_valueObscured),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.fieldGap),
+        OnboardingTextField(
+          label: l10n.entryCvvLabel,
+          controller: _cvvController,
+          obscureText: _cvvObscured,
+          keyboardType: TextInputType.number,
+          onChanged: (_) => setState(() {}),
+          suffixIcon: EntryObscureToggle(
+            obscured: _cvvObscured,
+            onPressed: () => setState(() => _cvvObscured = !_cvvObscured),
           ),
         ),
         const SizedBox(height: AppSpacing.fieldGap),

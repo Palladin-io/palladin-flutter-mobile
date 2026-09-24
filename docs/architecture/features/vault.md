@@ -126,8 +126,10 @@ plus execution metadata: required description, up to 32 typed CLI parameter
 definitions, and `returnResultToAgent`. New Scripts default the result flag to
 `true`; an absent legacy flag is interpreted as `false`.
 `EntryType.creditCard` (wire `3`) carries cardholder name, PAN, expiry
-month/year and optional billing address. It has no dedicated CVV/CVC or PIN
-field. General custom fields remain neutral and are not detected, promoted, or
+month/year, optional billing address and optional `cvv` (3–4 ASCII digits).
+CVV is independently masked in create/edit/detail/history, included in the
+encrypted MemberSecret and explicit plaintext export, and always has `never`
+Agent policy. The existing importer continues to skip cards. PIN has no dedicated field. General custom fields remain neutral and are not detected, promoted, or
 autofilled as card-verification data. Its Agent fields
 are runtime-only, Discovery advertises only `inject`, and grant descriptors use
 authenticated delivery policy `2` (`InjectOnly`); `get`/`exec` never receive the
