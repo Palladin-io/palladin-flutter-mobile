@@ -3327,6 +3327,7 @@
   "settingsTwoFactor": "Two-factor authentication",
   "@settingsTwoFactor": { "description": "Settings drawer item — set up TOTP two-factor auth" },
   "entryCardholderNameLabel": "Cardholder name",
+  "entryCvvLabel": "CVV / CVC",
   "entryCardNumberLabel": "Card number",
   "entryExpiryMonthLabel": "Expiry month",
   "entryExpiryYearLabel": "Expiry year",

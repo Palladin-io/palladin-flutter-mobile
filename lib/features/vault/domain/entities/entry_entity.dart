@@ -61,6 +61,7 @@ class CreditCardPayload {
   const CreditCardPayload({
     required this.cardholderName,
     required this.cardNumber,
+    this.cvv,
     required this.expiryMonth,
     required this.expiryYear,
     this.billingAddress,
@@ -69,19 +70,20 @@ class CreditCardPayload {
   });
   final String cardholderName;
   final String cardNumber;
+  final String? cvv;
   final String expiryMonth;
   final String expiryYear;
   final String? billingAddress;
   final String? notes;
   final List<CustomField> fields;
 
-  /// Rejects the retired dedicated card-verification fields.
-  ///
-  /// The pre-production cutover deliberately has no compatibility path for
-  /// the former top-level CVV/CVC or PIN values. A neutral custom field may
-  /// still use any user-selected label because only its stable `fields[]`
-  /// shape is interpreted.
+  // Retired securityCode/pin payloads are not aliases for the explicit cvv field.
   static void rejectRetiredDedicatedFields(Map<String, dynamic> json) {
+    final cvv = json['cvv'];
+    if (cvv != null &&
+        (cvv is! String || !RegExp(r'^\d{3,4}$').hasMatch(cvv))) {
+      throw const FormatException('Invalid card verification code');
+    }
     if (json.containsKey('securityCode') || json.containsKey('pin')) {
       throw const FormatException(
         'Retired dedicated Credit Card field is not supported',
@@ -94,6 +96,7 @@ class CreditCardPayload {
     'type': 'CREDIT_CARD',
     'cardholderName': cardholderName,
     'cardNumber': cardNumber,
+    if (cvv != null) 'cvv': cvv,
     'expiryMonth': expiryMonth,
     'expiryYear': expiryYear,
     if (billingAddress != null) 'billingAddress': billingAddress,
@@ -106,6 +109,7 @@ class CreditCardPayload {
     return CreditCardPayload(
       cardholderName: (json['cardholderName'] as String?) ?? '',
       cardNumber: (json['cardNumber'] as String?) ?? '',
+      cvv: json['cvv'] as String?,
       expiryMonth: (json['expiryMonth'] as String?) ?? '',
       expiryYear: (json['expiryYear'] as String?) ?? '',
       billingAddress: json['billingAddress'] as String?,

@@ -143,11 +143,27 @@ void main() {
     final payload = EntryFormUtils.buildPayload(
       type: EntryType.creditCard,
       cardholderName: ' Ada ',
+      cvv: ' 012 ',
       cardNumber: '4242 4242 4242 4242',
       expiryMonth: '12',
       expiryYear: '2030',
     );
     expect(payload['cardNumber'], '4242424242424242');
+    expect(payload['cvv'], '012');
+    for (final cvv in ['12', '12345', '1a2']) {
+      expect(
+        EntryFormUtils.canSubmit(
+          type: EntryType.creditCard,
+          label: 'Card',
+          cardholderName: 'Ada',
+          cardNumber: '4242424242424242',
+          expiryMonth: '12',
+          expiryYear: '2030',
+          cvv: cvv,
+        ),
+        isFalse,
+      );
+    }
     expect(payload.containsKey('securityCode'), isFalse);
     expect(payload.containsKey('pin'), isFalse);
     expect(payload['type'], 'CREDIT_CARD');

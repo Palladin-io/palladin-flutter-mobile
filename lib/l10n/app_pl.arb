@@ -1118,6 +1118,7 @@
   "entryHistoryLocked": "Odblokuj aplikację, aby odszyfrować tę wersję.",
   "settingsTwoFactor": "Uwierzytelnianie dwuskładnikowe",
   "entryCardholderNameLabel": "Imię i nazwisko posiadacza",
+  "entryCvvLabel": "CVV / CVC",
   "entryCardNumberLabel": "Numer karty",
   "entryExpiryMonthLabel": "Miesiąc ważności",
   "entryExpiryYearLabel": "Rok ważności",

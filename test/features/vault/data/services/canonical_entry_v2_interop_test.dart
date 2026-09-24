@@ -1083,6 +1083,7 @@ void main() {
           'type': 'CREDIT_CARD',
           'cardholderName': 'New name',
           'cardNumber': '5555555555554444',
+          'cvv': '0123',
           'expiryMonth': '01',
           'expiryYear': '2032',
           'billingAddress': 'New address',
@@ -1132,6 +1133,11 @@ void main() {
                 ),
               ).captured.single
               as MemberSecret;
+      expect(captured.content.toJson()['cvv'], '0123');
+      expect(
+        captured.agentFieldAccess['creditCard.cvv'],
+        AgentFieldAccess.never,
+      );
       expect(
         captured.agentFieldAccess['custom:$runtimeId'],
         AgentFieldAccess.onGrantRuntime,

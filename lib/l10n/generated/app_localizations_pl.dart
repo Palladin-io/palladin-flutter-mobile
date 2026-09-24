@@ -3747,6 +3747,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get entryCardholderNameLabel => 'Imię i nazwisko posiadacza';
 
   @override
+  String get entryCvvLabel => 'CVV / CVC';
+
+  @override
   String get entryCardNumberLabel => 'Numer karty';
 
   @override

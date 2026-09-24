@@ -804,6 +804,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
         'script.refs' => 'refs',
         'creditCard.cardholderName' => 'cardholderName',
         'creditCard.cardNumber' => 'cardNumber',
+        'creditCard.cvv' => 'cvv',
         'creditCard.expiryMonth' => 'expiryMonth',
         'creditCard.expiryYear' => 'expiryYear',
         'creditCard.billingAddress' => 'billingAddress',
@@ -2188,6 +2189,7 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       EntryType.creditCard => CreditCardSecretContent(
         cardholderName: content['cardholderName'] as String,
         cardNumber: content['cardNumber'] as String,
+        cvv: content['cvv'] as String?,
         expiryMonth: content['expiryMonth'] as String,
         expiryYear: content['expiryYear'] as String,
         billingAddress: content['billingAddress'] as String?,
@@ -2238,6 +2240,11 @@ class CanonicalEntryDetailService implements EntryArchiveRestorer {
       if (id != null) {
         access[id] = AgentFieldAccess.values.byName(item.value.wireName);
       }
+    }
+    access.remove('cvv');
+    access.remove('creditCard.cvv');
+    if (type == EntryType.creditCard && content['cvv'] != null) {
+      access['creditCard.cvv'] = AgentFieldAccess.never;
     }
     for (final id in body.fieldValues().keys) {
       access.putIfAbsent(
