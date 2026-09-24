@@ -171,7 +171,7 @@ Scan a clean checkout (without ignored cloud configuration), then run the
 checks used by pull-request CI:
 
 ```bash
-gitleaks dir /path/to/clean-checkout --config .gitleaks.toml --redact --no-banner
+(cd /path/to/clean-checkout && gitleaks dir . --config .gitleaks.toml --redact --no-banner)
 python3 -m unittest discover -s tool/tests
 dart run tool/generate_third_party_notices.dart --check
 flutter analyze
