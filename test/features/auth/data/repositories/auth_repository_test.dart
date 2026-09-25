@@ -98,6 +98,27 @@ void main() {
   });
 
   group('loginWithGoogle', () {
+    test(
+      'missing configuration never invokes the platform or backend',
+      () async {
+        final unconfigured = AuthRepositoryImpl(
+          remoteDatasource: mockDatasource,
+          tokenStorage: mockStorage,
+          secureStorage: mockSecureStorage,
+          autoFillCacheInvalidator: mockAutoFillCacheInvalidator,
+          googleServerClientId: '',
+          googleSignIn: mockGoogleSignIn,
+        );
+        await expectLater(
+          unconfigured.loginWithGoogle(),
+          throwsA(isA<AuthGoogleConfigurationException>()),
+        );
+        verifyZeroInteractions(mockGoogleSignIn);
+        verifyZeroInteractions(mockDatasource);
+        verifyZeroInteractions(mockStorage);
+      },
+    );
+
     test('calls datasource and stores tokens on success', () async {
       final mockAccount = MockGoogleSignInAccount();
       final mockAuth = MockGoogleSignInAuthentication();

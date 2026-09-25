@@ -165,6 +165,27 @@ jobs:
           echo "backend_environment=${backend_environment}" >> "$GITHUB_OUTPUT"
           echo "target=lib/main_${FLAVOR}.dart" >> "$GITHUB_OUTPUT"
 
+      - name: Prepare Google OAuth build configuration
+        env:
+          FLAVOR: ${{ inputs.flavor }}
+          BACKEND_ENVIRONMENT: ${{ steps.runtime_config.outputs.backend_environment }}
+          STAGING_GOOGLE_SERVER_CLIENT_ID: ${{ vars.STAGING_GOOGLE_SERVER_CLIENT_ID }}
+          PRODUCTION_GOOGLE_SERVER_CLIENT_ID: ${{ vars.PRODUCTION_GOOGLE_SERVER_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          if [ "$BACKEND_ENVIRONMENT" = production ]; then
+            export GOOGLE_SERVER_CLIENT_ID="$PRODUCTION_GOOGLE_SERVER_CLIENT_ID"
+          else
+            export GOOGLE_SERVER_CLIENT_ID="$STAGING_GOOGLE_SERVER_CLIENT_ID"
+          fi
+          python3 tool/configure_google_oauth.py --flavor "$FLAVOR" --platform android
+
+      - name: Prepare Firebase client configuration
+        env:
+          FLAVOR: ${{ inputs.flavor }}
+          FIREBASE_CLIENT_CONFIG: ${{ vars.FIREBASE_ANDROID_CONFIG }}
+        run: python3 tool/configure_firebase.py --flavor "$FLAVOR" --platform android
+
       - name: Build Android App Bundle
         env:
           FLAVOR: ${{ inputs.flavor }}
@@ -179,6 +200,7 @@ jobs:
             --flavor "${FLAVOR}" \
             -t "${TARGET}" \
             --dart-define="PALLADIN_BACKEND_ENVIRONMENT=${BACKEND_ENVIRONMENT}" \
+            --dart-define-from-file="config/google-oauth-${FLAVOR}.local.json" \
             --build-name "${BUILD_NAME}" \
             --build-number "${BUILD_NUMBER}"
 
@@ -512,6 +534,28 @@ jobs:
           echo "backend_environment=${backend_environment}" >> "$GITHUB_OUTPUT"
           echo "target=lib/main_${FLAVOR}.dart" >> "$GITHUB_OUTPUT"
 
+      - name: Prepare Google OAuth build configuration
+        env:
+          FLAVOR: ${{ inputs.flavor }}
+          BACKEND_ENVIRONMENT: ${{ steps.runtime_config.outputs.backend_environment }}
+          STAGING_GOOGLE_SERVER_CLIENT_ID: ${{ vars.STAGING_GOOGLE_SERVER_CLIENT_ID }}
+          PRODUCTION_GOOGLE_SERVER_CLIENT_ID: ${{ vars.PRODUCTION_GOOGLE_SERVER_CLIENT_ID }}
+          GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          if [ "$BACKEND_ENVIRONMENT" = production ]; then
+            export GOOGLE_SERVER_CLIENT_ID="$PRODUCTION_GOOGLE_SERVER_CLIENT_ID"
+          else
+            export GOOGLE_SERVER_CLIENT_ID="$STAGING_GOOGLE_SERVER_CLIENT_ID"
+          fi
+          python3 tool/configure_google_oauth.py --flavor "$FLAVOR" --platform ios
+
+      - name: Prepare Firebase client configuration
+        env:
+          FLAVOR: ${{ inputs.flavor }}
+          FIREBASE_CLIENT_CONFIG: ${{ vars.FIREBASE_IOS_CONFIG }}
+        run: python3 tool/configure_firebase.py --flavor "$FLAVOR" --platform ios
+
       - name: Build iOS IPA
         env:
           FLAVOR: ${{ inputs.flavor }}
@@ -526,6 +570,7 @@ jobs:
             --flavor "${FLAVOR}" \
             -t "${TARGET}" \
             --dart-define="PALLADIN_BACKEND_ENVIRONMENT=${BACKEND_ENVIRONMENT}" \
+            --dart-define-from-file="config/google-oauth-${FLAVOR}.local.json" \
             --build-name "${BUILD_NAME}" \
             --build-number "${BUILD_NUMBER}" \
             --export-options-plist=ios/ExportOptions.plist

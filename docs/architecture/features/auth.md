@@ -93,3 +93,9 @@ and completes required default-vault provisioning before dispatching
 consumed token resumes the normal privacy, onboarding, verification and unlock
 guards; a fully set-up, unlocked session reaches home. Pending claims or failed
 refresh/provisioning keep the token result mounted. See [privacy](privacy.md).
+
+Google OAuth client configuration is supplied at build time; application code
+has no provider-owned default. Missing configuration fails before Google Sign-In
+and does not fall back to the Firebase platform client. See
+[Firebase and OAuth build configuration](../../firebase-config.md) for the
+separate backend-audience and iOS-distribution inputs.

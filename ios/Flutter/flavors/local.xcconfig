@@ -1,2 +1,4 @@
 PRODUCT_BUNDLE_IDENTIFIER = io.palladin.mobile.local
 DISPLAY_NAME = Palladin (Local)
+
+#include? "local.oauth.local.xcconfig"
