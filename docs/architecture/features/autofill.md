@@ -74,7 +74,9 @@
     `biometryCurrentSet` Keychain key and active-principal marker. Neither
     provider receives MK, VK, a user private key, or backend access. Every
     history read and mutation checks the active principal against the caller's
-    authenticated app account where applicable. The history holds at most 100
+    authenticated app account where applicable. On iOS, biometric waiting does
+    not hold the revocation lock; the activation token is checked again before
+    a history operation commits. The history holds at most 100
     records per account and fails closed at capacity; it never evicts a password
     silently. History remains encrypted across app restart and Vault cache
     rotations. Biometric-set invalidation makes old history inaccessible.

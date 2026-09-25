@@ -160,7 +160,8 @@ class PalladinAutofillService : AutofillService() {
                     when {
                         node.hasHint(NEW_PASSWORD_HINT) || node.hasHint(WEB_NEW_PASSWORD_HINT) ->
                             newPasswords += id
-                        node.hasHint(View.AUTOFILL_HINT_PASSWORD) -> {
+                        node.hasHint(View.AUTOFILL_HINT_PASSWORD) ||
+                            node.hasHint(WEB_CURRENT_PASSWORD_HINT) -> {
                             passwords += id
                             currentPasswords += id
                         }
@@ -219,6 +220,7 @@ class PalladinAutofillService : AutofillService() {
 
             private const val NEW_PASSWORD_HINT = "newPassword"
             private const val WEB_NEW_PASSWORD_HINT = "new-password"
+            private const val WEB_CURRENT_PASSWORD_HINT = "current-password"
         }
     }
 

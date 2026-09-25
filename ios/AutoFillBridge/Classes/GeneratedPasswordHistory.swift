@@ -191,41 +191,29 @@ final class GeneratedPasswordHistory {
     }
 
     func list(expectedPrincipal: String, prompt: String) throws -> [GeneratedPasswordRecord] {
-        try withLock {
-            guard try activePrincipalLocked() == expectedPrincipal else {
-                throw GeneratedPasswordHistoryError.invalidState
-            }
-            return try withHistoryKey(prompt: prompt) { key in
-                try readLocked(principal: expectedPrincipal, key: key)
-            }
+        try withAuthorizedHistory(expectedPrincipal: expectedPrincipal, prompt: prompt) {
+            principal, key in
+            try readLocked(principal: principal, key: key)
         }
     }
 
     func delete(expectedPrincipal: String, id: String, prompt: String) throws {
-        try withLock {
-            guard try activePrincipalLocked() == expectedPrincipal else {
+        try withAuthorizedHistory(expectedPrincipal: expectedPrincipal, prompt: prompt) {
+            principal, key in
+            var records = try readLocked(principal: principal, key: key)
+            guard let index = records.firstIndex(where: { $0.id == id }) else {
                 throw GeneratedPasswordHistoryError.invalidState
             }
-            try withHistoryKey(prompt: prompt) { key in
-                var records = try readLocked(principal: expectedPrincipal, key: key)
-                guard let index = records.firstIndex(where: { $0.id == id }) else {
-                    throw GeneratedPasswordHistoryError.invalidState
-                }
-                records.remove(at: index)
-                try writeLocked(records, principal: expectedPrincipal, key: key)
-            }
+            records.remove(at: index)
+            try writeLocked(records, principal: principal, key: key)
         }
     }
 
     func clear(expectedPrincipal: String, prompt: String) throws {
-        try withLock {
-            guard try activePrincipalLocked() == expectedPrincipal else {
-                throw GeneratedPasswordHistoryError.invalidState
-            }
-            try withHistoryKey(prompt: prompt) { key in
-                _ = try readLocked(principal: expectedPrincipal, key: key)
-                try writeLocked([], principal: expectedPrincipal, key: key)
-            }
+        try withAuthorizedHistory(expectedPrincipal: expectedPrincipal, prompt: prompt) {
+            principal, key in
+            _ = try readLocked(principal: principal, key: key)
+            try writeLocked([], principal: principal, key: key)
         }
     }
 
@@ -236,31 +224,44 @@ final class GeneratedPasswordHistory {
         expectedPrincipal: String? = nil,
         handoff: () throws -> Void
     ) throws {
-        try withLock {
-            guard AutoFillCredentialRecord.normalizeDomain(domain) == domain,
-                  (8...64).contains(password.count) else {
-                throw GeneratedPasswordHistoryError.invalidState
+        guard AutoFillCredentialRecord.normalizeDomain(domain) == domain,
+              (8...64).contains(password.count) else {
+            throw GeneratedPasswordHistoryError.invalidState
+        }
+        try withAuthorizedHistory(expectedPrincipal: expectedPrincipal, prompt: prompt) {
+            principal, key in
+            var records = try readLocked(principal: principal, key: key)
+            guard records.count < Self.maxRecords else {
+                throw GeneratedPasswordHistoryError.full
             }
-            let principal = try activePrincipalLocked()
-            if let expectedPrincipal, principal != expectedPrincipal {
-                throw GeneratedPasswordHistoryError.invalidState
-            }
-            try withHistoryKey(prompt: prompt) { key in
-                var records = try readLocked(principal: principal, key: key)
-                guard records.count < Self.maxRecords else {
-                    throw GeneratedPasswordHistoryError.full
-                }
-                records.append(GeneratedPasswordRecord(
-                    id: UUID().uuidString,
-                    domain: domain,
-                    createdAtMillis: Int64(Date().timeIntervalSince1970 * 1000),
-                    password: password
-                ))
-                try writeLocked(records, principal: principal, key: key)
-                guard try activePrincipalLocked() == principal else {
+            records.append(GeneratedPasswordRecord(
+                id: UUID().uuidString,
+                domain: domain,
+                createdAtMillis: Int64(Date().timeIntervalSince1970 * 1000),
+                password: password
+            ))
+            try writeLocked(records, principal: principal, key: key)
+            try handoff()
+        }
+    }
+
+    private func withAuthorizedHistory<T>(
+        expectedPrincipal: String?, prompt: String,
+        _ body: (String, Data) throws -> T
+    ) throws -> T {
+        let requestedSession = try withLock { try readMarkerLocked() }
+        if let expectedPrincipal, requestedSession.principalId != expectedPrincipal {
+            throw GeneratedPasswordHistoryError.invalidState
+        }
+        // Authentication can wait for the user. Revocation must not wait on it.
+        return try withHistoryKey(prompt: prompt) { key in
+            try withLock {
+                let currentSession = try readMarkerLocked()
+                guard currentSession.principalId == requestedSession.principalId,
+                      currentSession.token == requestedSession.token else {
                     throw GeneratedPasswordHistoryError.invalidState
                 }
-                try handoff()
+                return try body(currentSession.principalId, key)
             }
         }
     }

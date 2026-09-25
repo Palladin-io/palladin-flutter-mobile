@@ -290,6 +290,8 @@ class _GeneratedPasswordHistoryPageState
       child: AppScreen.appBar(
         floatingActionButton: const FabRegistrar(fab: null),
         appBar: AppBar(
+          titleSpacing: 0,
+          centerTitle: false,
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           title: AppBarTitle(title: l10n.generatedPasswordTitle),
