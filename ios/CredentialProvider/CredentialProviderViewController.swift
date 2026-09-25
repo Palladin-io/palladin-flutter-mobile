@@ -64,6 +64,88 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
         showLockedMessage()
     }
 
+    @available(iOS 26.2, *)
+    override func prepareInterface(for generatePasswordsRequest: ASGeneratePasswordsRequest) {
+        credentialsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        let service = generatePasswordsRequest.serviceIdentifier
+        let domain: String?
+        switch service.type {
+        case .URL:
+            let components = URLComponents(string: service.identifier)
+            domain = components?.scheme?.lowercased() == "https"
+                ? AutoFillCredentialRecord.normalizeDomain(service.identifier) : nil
+        case .domain:
+            domain = AutoFillCredentialRecord.normalizeDomain(service.identifier)
+        default:
+            domain = nil
+        }
+        guard let domain,
+              let rules = try? StrongPasswordGenerator.Rules.parse([
+                generatePasswordsRequest.passwordFieldPasswordRules,
+                generatePasswordsRequest.confirmPasswordFieldPasswordRules,
+                generatePasswordsRequest.passwordRulesFromQuirks,
+              ]),
+              (try? GeneratedPasswordHistory().hasActiveSession()) == true else {
+            showUnavailableMessage()
+            return
+        }
+        statusLabel.text = String(format: NSLocalizedString(
+            "credential_provider_generate_prompt",
+            comment: "New password generation confirmation"
+        ), domain)
+        let generate = UIButton(type: .system)
+        generate.setTitle(NSLocalizedString(
+            "credential_provider_generate_action", comment: "Generate password action"
+        ), for: .normal)
+        generate.addAction(UIAction { [weak self] _ in
+            self?.generatePassword(for: domain, rules: rules)
+        }, for: .touchUpInside)
+        credentialsStack.addArrangedSubview(generate)
+
+        let cancel = UIButton(type: .system)
+        cancel.setTitle(NSLocalizedString(
+            "credential_provider_cancel", comment: "Cancel generation"
+        ), for: .normal)
+        cancel.addAction(UIAction { [weak self] _ in
+            self?.extensionContext.cancelRequest(withError: NSError(
+                domain: ASExtensionErrorDomain,
+                code: ASExtensionError.userCanceled.rawValue
+            ))
+        }, for: .touchUpInside)
+        credentialsStack.addArrangedSubview(cancel)
+    }
+
+    @available(iOS 26.2, *)
+    private func generatePassword(for domain: String, rules: StrongPasswordGenerator.Rules) {
+        credentialsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        statusLabel.text = NSLocalizedString(
+            "credential_provider_unlocking", comment: "Waiting for biometric authentication"
+        )
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            do {
+                let history = try GeneratedPasswordHistory()
+                let password = try StrongPasswordGenerator.generate(rules: rules)
+                let prompt = NSLocalizedString(
+                    "credential_provider_generate_biometric",
+                    comment: "Biometric prompt for generated password history"
+                )
+                try history.appendAndHandoff(
+                    domain: domain, password: password, prompt: prompt
+                ) {
+                    DispatchQueue.main.sync {
+                        self.extensionContext.completeGeneratePasswordRequest(
+                            results: [ASGeneratedPassword(kind: .strong, value: password)],
+                            completionHandler: nil
+                        )
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async { [weak self] in self?.showUnavailableMessage() }
+            }
+        }
+    }
+
     @available(iOS 17.0, *)
     override func provideCredentialWithoutUserInteraction(for credentialRequest: any ASCredentialRequest) {
         requireUserInteraction()

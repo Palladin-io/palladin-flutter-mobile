@@ -4198,4 +4198,82 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get privacyMarketingNotice =>
       'With your consent, we will send you emails with Palladin news and offers. Essential transactional, account and security messages are sent independently of this consent. You can withdraw consent in Privacy settings.';
+
+  @override
+  String get generatedPasswordTitle => 'Generated passwords';
+
+  @override
+  String get generatedPasswordSubtitle =>
+      'Recover passwords used during sign-up';
+
+  @override
+  String get generatedPasswordBiometric =>
+      'Authenticate to access generated passwords';
+
+  @override
+  String get generatedPasswordUnavailable =>
+      'Generated passwords are unavailable. Unlock Palladin and try again.';
+
+  @override
+  String get generatedPasswordEmpty => 'No generated passwords yet.';
+
+  @override
+  String get generatedPasswordReveal => 'Reveal';
+
+  @override
+  String get generatedPasswordHide => 'Hide';
+
+  @override
+  String get generatedPasswordCopy => 'Copy';
+
+  @override
+  String get generatedPasswordCopied => 'Password copied temporarily';
+
+  @override
+  String get generatedPasswordSave => 'Save to vault';
+
+  @override
+  String get generatedPasswordDelete => 'Delete';
+
+  @override
+  String get generatedPasswordDeleteTitle => 'Delete this password?';
+
+  @override
+  String get generatedPasswordDeleteBody =>
+      'You may need this password to finish creating your account. This cannot be undone.';
+
+  @override
+  String get generatedPasswordClear => 'Clear history';
+
+  @override
+  String get generatedPasswordClearTitle => 'Clear generated password history?';
+
+  @override
+  String get generatedPasswordClearBody =>
+      'All generated passwords on this device will be deleted. This cannot be undone.';
+
+  @override
+  String get generatedPasswordCancel => 'Cancel';
+
+  @override
+  String get generatedPasswordCreateVaultFirst =>
+      'Create a vault before saving this password.';
+
+  @override
+  String get generatedPasswordGenerate => 'Generate password';
+
+  @override
+  String get generatedPasswordGenerated =>
+      'Strong password generated and saved to history';
+
+  @override
+  String get generatedPasswordEnterWebsite =>
+      'Enter an HTTPS website before generating a password.';
+
+  @override
+  String get generatedPasswordReplaceTitle => 'Replace this password?';
+
+  @override
+  String get generatedPasswordReplaceBody =>
+      'A new password will replace the value in this form. The new password will also be saved to generated password history.';
 }
