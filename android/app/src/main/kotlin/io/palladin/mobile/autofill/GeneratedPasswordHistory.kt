@@ -32,6 +32,7 @@ internal data class GeneratedPasswordRecord(
 
 internal data class GeneratedHistoryUnwrapOperation(
     val principalId: String,
+    val sessionToken: String,
     val wrappedKey: ByteArray,
     val cipher: Cipher,
 )
@@ -103,7 +104,8 @@ internal class GeneratedPasswordHistory(context: Context) {
 
     fun createUnwrapOperation(expectedPrincipal: String? = null): GeneratedHistoryUnwrapOperation =
         synchronized(AutoFillMutationLock.monitor) {
-            val principal = activePrincipalLocked()
+            val marker = readMarkerLocked()
+            val principal = marker.getString("principalId")
             if (expectedPrincipal != null) require(principal == expectedPrincipal)
             val keyEntry = keyStore().getEntry(HISTORY_KEY_ALIAS, null) as? KeyStore.PrivateKeyEntry
                 ?: throw IllegalStateException("Generated-password key is unavailable")
@@ -122,6 +124,7 @@ internal class GeneratedPasswordHistory(context: Context) {
             }
             GeneratedHistoryUnwrapOperation(
                 principal,
+                marker.getString("token"),
                 wrappedKey,
                 rsaCipher().apply {
                     init(Cipher.DECRYPT_MODE, keyEntry.privateKey, OAEP_PARAMETERS)
@@ -145,7 +148,9 @@ internal class GeneratedPasswordHistory(context: Context) {
         )
         records += record
         writeLocked(operation, key, records)
-        require(activePrincipalLocked() == operation.principalId)
+        val currentMarker = readMarkerLocked()
+        require(currentMarker.getString("principalId") == operation.principalId)
+        require(currentMarker.getString("token") == operation.sessionToken)
         handoff()
         record
     }
@@ -180,7 +185,9 @@ internal class GeneratedPasswordHistory(context: Context) {
         authenticatedCipher: Cipher,
         action: (ByteArray) -> T,
     ): T = synchronized(AutoFillMutationLock.monitor) {
-        require(activePrincipalLocked() == operation.principalId)
+        val currentMarker = readMarkerLocked()
+        require(currentMarker.getString("principalId") == operation.principalId)
+        require(currentMarker.getString("token") == operation.sessionToken)
         val file = historyFile(operation.principalId)
         if (file.exists()) {
             val current = readEnvelopeLocked(operation.principalId).getString("wrappedKey").decode()
