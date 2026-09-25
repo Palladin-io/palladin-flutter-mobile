@@ -78,12 +78,11 @@ void main() {
   });
 
   test('self-hosted API path is preserved independently of a CDN host', () {
+    final config = EnvConfig.staging(
+      apiBaseUrl: 'https://vault.example/palladin/',
+    );
     expect(
-      publicAssetContentUrl(
-        'https://vault.example/palladin/',
-        assetId,
-        2,
-      ).toString(),
+      publicAssetContentUrl(config.apiBaseUrl, assetId, 2).toString(),
       'https://vault.example/palladin/api/public-assets/$assetId/revisions/2/content',
     );
   });

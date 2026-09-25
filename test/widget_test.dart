@@ -33,11 +33,11 @@ void main() {
     );
   });
 
-  test('explicit self-hosted HTTPS base path is preserved', () {
+  test('normalizes trailing slashes without removing the API base path', () {
     final config = EnvConfig.staging(
       apiBaseUrl: 'https://vault.example/tenant/',
     );
-    expect(config.apiBaseUrl, 'https://vault.example/tenant/');
+    expect(config.apiBaseUrl, 'https://vault.example/tenant');
   });
 
   test('EnvConfig staging has correct values', () {

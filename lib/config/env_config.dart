@@ -109,7 +109,7 @@ class EnvConfig {
         'without credentials, query or fragment.',
       );
     }
-    return value;
+    return value.replaceFirst(RegExp(r'/+$'), '');
   }
 
   bool get isLocal => flavor == AppFlavor.local;
